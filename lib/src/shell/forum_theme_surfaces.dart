@@ -78,9 +78,9 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final background = Theme.of(context)
-        .extension<ForumThemeEffects>()
-        ?.background;
+    final background = Theme.of(
+      context,
+    ).extension<ForumThemeEffects>()?.background;
     final animate =
         context.dependOnInheritedWidgetOfExactType<_ForumCanvas>() == null &&
         background?.effect == ForumBackgroundEffect.gradient &&

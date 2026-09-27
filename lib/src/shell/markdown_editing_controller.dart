@@ -872,9 +872,11 @@ class MarkdownEditingController extends TextEditingController {
           ((globalPosition.dx >= rect.right &&
                   globalPosition.dy >= rect.top &&
                   globalPosition.dy < rect.bottom) ||
+              // The structural gap below a component is padding inside its
+              // placeholder, so a point there resolves to the block's start.
               (globalPosition.dy >= rect.bottom &&
                   sourceOffset != null &&
-                  sourceOffset > block.start &&
+                  sourceOffset >= block.start &&
                   sourceOffset <= block.end))) {
         return block;
       }

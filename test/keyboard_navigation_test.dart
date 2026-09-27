@@ -700,10 +700,9 @@ void main() {
       expect(_topicItem(tester, 1).selected, isTrue);
       expect(_topicItem(tester, 2).selected, isTrue);
       expect(_topicItem(tester, 2).variant, DItemVariant.standard);
-      expect(
-        _topicItem(tester, 2).selectionStyle,
-        DItemSelectionStyle.leadingAccent,
-      );
+      // The list lane beside the reader is narrow, so rows use the compact
+      // card's fill rather than the wide row's leading accent.
+      expect(_topicItem(tester, 2).selectionStyle, DItemSelectionStyle.filled);
       expect(_selectedTopics(tester), [2]);
 
       await _moveTopic(tester, next: false);

@@ -197,7 +197,11 @@ final inputExamples = ComponentExamples(
       code: "DInput(size: DControlSize.small, hintText: 'Small')",
       builder: (_) => Column(
         children: [
-          for (final size in DControlSize.values)
+          for (final size in const [
+            DControlSize.small,
+            DControlSize.regular,
+            DControlSize.large,
+          ])
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(

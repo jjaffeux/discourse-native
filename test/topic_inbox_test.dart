@@ -559,9 +559,11 @@ void main() {
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     expect(card(setup.rows.first.id).selected, isTrue);
+    // The inbox lane beside the reader is narrow, so it uses the compact
+    // card's fill rather than the wide row's leading accent.
     expect(
       card(setup.rows.first.id).selectionStyle,
-      DItemSelectionStyle.leadingAccent,
+      DItemSelectionStyle.filled,
     );
     expect(card(setup.rows.first.id).showSelectionIndicator, isFalse);
     expect(card(setup.rows[1].id).selected, isFalse);
@@ -1814,7 +1816,13 @@ void main() {
       await shell.markTopicRead(siteUrl, 1, 4, caughtUp: true);
       await tester.pumpAndSettle();
       expect(badge, findsNothing);
-      expect(titleColor(), theme.discourse.whisper);
+      // The inbox lane is narrow, so caught-up titles take the compact
+      // card's softened foreground rather than the wide row's whisper.
+      final tokens = DTokens.of(tester.element(row));
+      expect(
+        titleColor(),
+        Color.lerp(tokens.background, tokens.foreground, .9),
+      );
       expect(shell.currentContent?.topicId, 1);
 
       shell.store.put(

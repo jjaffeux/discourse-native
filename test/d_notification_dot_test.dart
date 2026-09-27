@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/application_component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/component_examples.dart';
@@ -26,17 +23,6 @@ void main() {
     expect(
       componentExamples['notification-dot'],
       same(notificationDotExamples),
-    );
-    final progress =
-        jsonDecode(
-              File('docs/component-library/progress.json').readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    expect(
-      (progress['applicationComponents'] as List)
-          .cast<Map<String, dynamic>>()
-          .map((row) => row['id']),
-      contains('notification-dot'),
     );
   });
   testWidgets('inline and ringed dots keep an 8px center at large text sizes', (

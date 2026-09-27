@@ -110,6 +110,8 @@ void main() {
           'forum.example',
         ).copyWith(user: user, config: _config());
         final requests = <http.Request>[];
+        final now = DateTime.now().toUtc();
+        final occurrence = DateTime.utc(now.year, now.month, 8, 12);
         final eventApi = DiscourseApi(
           client: MockClient((request) async {
             requests.add(request);
@@ -124,10 +126,14 @@ void main() {
                 'events': [
                   eventJson(
                     overrides: {
+                      // The directory opens on the current month, so the
+                      // occurrence has to fall inside it on any run date.
                       'occurrences': [
                         {
-                          'starts_at': '2026-09-08T23:00:00+02:00',
-                          'ends_at': '2026-09-09T00:00:00+02:00',
+                          'starts_at': occurrence.toIso8601String(),
+                          'ends_at': occurrence
+                              .add(const Duration(hours: 1))
+                              .toIso8601String(),
                         },
                       ],
                     },
@@ -156,6 +162,14 @@ void main() {
           tester.element(find.byType(MainContent)),
         );
         final mobile = controller.mobileNavigationEnabled;
+        if (!mobile) {
+          // The main panel is a list column beside the secondary one, where
+          // the directory shows its compact calendar without event titles.
+          await tester.tap(
+            find.byKey(const ValueKey('minimize-panel-secondary')),
+          );
+          await tester.pumpAndSettle();
+        }
         // The phone dock spills Events into its More menu.
         final upcoming = mobile
             ? find.byKey(const ValueKey('mobile-mode-more'))

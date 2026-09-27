@@ -235,7 +235,12 @@ class ChatScrollFixture extends StatelessWidget {
               child: SizedBox(
                 width: width,
                 height: 600,
-                child: const ChatChannelView(channelId: 9),
+                // These suites measure the transcript against a fixed
+                // viewport. The channel header retracts with scrolling and
+                // wraps its metadata by width, so it would make that viewport
+                // vary per case; chat_channel_header_test and the lifecycle
+                // suite cover it.
+                child: const ChatChannelView(channelId: 9, showHeader: false),
               ),
             ),
           ),

@@ -10,11 +10,12 @@ import 'assigned_group.dart';
 import 'assigned_group_controller.dart';
 import 'assigned_group_presentation.dart';
 
-typedef AssignedGroupPresentationFactory = AssignedGroupPresentation Function(
-  String siteUrl,
-  String groupName,
-  String? subsection,
-);
+typedef AssignedGroupPresentationFactory =
+    AssignedGroupPresentation Function(
+      String siteUrl,
+      String groupName,
+      String? subsection,
+    );
 
 class AssignedGroupView extends StatefulWidget {
   const AssignedGroupView({
@@ -322,7 +323,8 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   ),
                   sliver: SliverList.separated(
                     itemCount: topics.length,
-                    separatorBuilder: (context, _) => const TopicListSeparator(),
+                    separatorBuilder: (context, _) =>
+                        const TopicListSeparator(),
                     itemBuilder: (context, index) => TopicListRow(
                       topic: topics[index],
                       showViews: true,

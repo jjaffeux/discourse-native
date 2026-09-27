@@ -1,8 +1,4 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -18,25 +14,10 @@ double _contrast(Color foreground, Color background) {
   return ((a > b ? a : b) + .05) / ((a > b ? b : a) + .05);
 }
 
-Map<String, ThemeData> _savedThemes(String site, String file) {
-  final saved =
-      jsonDecode(
-            File('docs/mockups/button-directions/$file').readAsStringSync(),
-          )
-          as Map<String, dynamic>;
-  final appearance = SiteAppearance.fromJson(
-    saved['appearance'] as Map<String, dynamic>,
-  );
-  return {
-    '$site light': AppTheme.fromPalette(appearance.base!),
-    '$site dark': AppTheme.fromPalette(appearance.alternate!),
-  };
-}
-
 void main() {
   final themes = {
-    ..._savedThemes('dev', 'palette.json'),
-    ..._savedThemes('meta', 'meta-palette.json'),
+    'default light': AppTheme.light,
+    'default dark': AppTheme.dark,
     for (final palette in StyleguideTheme.values.where(
       (palette) => palette != StyleguideTheme.current,
     ))
@@ -71,7 +52,10 @@ void main() {
         expect(controls.primary.background, tokens.primary);
         expect(tokens.controlRadius, tokens.radius);
       }
-      expect(themes['dev dark']!.extension<DTokens>()!.radius, DRadius.control);
+      expect(
+        themes['default dark']!.extension<DTokens>()!.radius,
+        DRadius.control,
+      );
     },
   );
 
@@ -82,7 +66,7 @@ void main() {
     addTearDown(focus.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        theme: themes['dev dark']!.copyWith(platform: TargetPlatform.macOS),
+        theme: themes['default dark']!.copyWith(platform: TargetPlatform.macOS),
         home: Scaffold(
           body: Center(
             child: DButton(
@@ -137,7 +121,7 @@ void main() {
       (tester) async {
         final trigger = find.byKey(const ValueKey('notification-trigger'));
         final bookmark = find.byKey(const ValueKey('bookmark-trigger'));
-        final theme = ValueNotifier(themes['dev dark']!);
+        final theme = ValueNotifier(themes['default dark']!);
         final value = ValueNotifier(2);
         addTearDown(theme.dispose);
         addTearDown(value.dispose);
@@ -217,7 +201,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(trigger);
         await tester.pumpAndSettle();
-        theme.value = themes['meta light']!;
+        theme.value = themes['default light']!;
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsOneWidget);
         expect(

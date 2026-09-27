@@ -1899,6 +1899,52 @@ void main() {
       expect(controller.chat.stream(firstSite, 9).revision, revision);
     });
 
+    testWidgets('a large-text header scrolls instead of crowding the page', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 560));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final controller = await _controller(
+        _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 2)],
+          },
+        ),
+        sites: const [firstSite],
+      );
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 2));
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final header = find.byKey(const ValueKey('chat-channel-header'));
+      final metadata = find.byKey(
+        const ValueKey('chat-channel-header-metadata'),
+      );
+      final page = tester.getRect(find.byType(DPageSurface));
+      final viewport = tester.getRect(
+        find.ancestor(of: header, matching: find.byType(Scrollable)).first,
+      );
+      expect(viewport.top, page.top);
+      expect(viewport.height, lessThanOrEqualTo(page.height * 0.4));
+      expect(tester.getSize(header).height, greaterThan(viewport.height));
+      expect(
+        tester.getSize(find.byType(ChatMessageStream)).height,
+        greaterThan(0),
+      );
+
+      await tester.dragFrom(viewport.center, const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(metadata).bottom,
+        lessThanOrEqualTo(viewport.bottom),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     for (final deletedCount in [1, 2]) {
       testWidgets(
         'reading a DM ending in $deletedCount deleted messages clears its unread badge',

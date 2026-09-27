@@ -147,8 +147,11 @@ void main() {
             8,
           );
           final render = tester.renderObject<RenderParagraph>(caption);
-          expect(render.text.style!.fontSize, 14);
-          expect(render.text.style!.height, 20 / 14);
+          expect(render.text.style!.fontSize, DiscourseTypography.preview);
+          expect(
+            render.text.style!.height,
+            DiscourseTypography.lineHeightSmall,
+          );
           expect(render.textAlign, TextAlign.center);
           expect(render.textDirection, TextDirection.rtl);
         }

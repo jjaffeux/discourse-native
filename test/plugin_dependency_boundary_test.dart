@@ -131,6 +131,10 @@ void main() {
               'lib/item_review_main.dart',
               'lib/attachment_review_main.dart',
               'lib/src/styleguide/examples/resizable_examples.dart',
+              // The Onebox gallery renders real plugin oneboxes from cooked
+              // fixtures so they can be reviewed beside core formats.
+              'lib/src/styleguide/examples/onebox_samples.dart',
+              'lib/src/styleguide/examples/onebox_event_sample.dart',
             }.contains(path)) {
           continue;
         }
@@ -239,6 +243,10 @@ void main() {
             name.startsWith('voice_') ||
             path.contains('/oneboxes/github/')) {
           misplacedImplementations.add(path);
+        }
+        // Gallery fixtures carry plugin markup as data, not parsers.
+        if (path == 'lib/src/styleguide/examples/onebox_samples.dart') {
+          continue;
         }
         final source = file.readAsStringSync();
         for (final token in pluginMarkupTokens) {

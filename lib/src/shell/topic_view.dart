@@ -810,9 +810,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (!_restored || _restoring) return false;
     // A newly loaded or virtualized post can still be mounting its HTML.
     // Wait for its real height before landing on its last page.
-    if (_postContexts[postId]
-        case StatefulElement(state: _TopicPostItemState(:final bodyComplete))
-        when bodyComplete) {
+    if (_postContexts[postId] case StatefulElement(
+      state: _TopicPostItemState(:final bodyComplete),
+    ) when bodyComplete) {
       final bounds = _postViewportBounds(postId);
       final scroll = _scroll;
       if (bounds == null || scroll == null || !scroll.hasClients) return false;
@@ -1007,10 +1007,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  double _sidebarOverlayWidth(BuildContext context) =>
-      MediaQuery.sizeOf(context).width
-          .clamp(0.0, _TopicSidebarPanel.dockedWidth)
-          .toDouble();
+  double _sidebarOverlayWidth(BuildContext context) => MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0.0, _TopicSidebarPanel.dockedWidth).toDouble();
 
   void _setRecommendationsSource(TopicRecommendationSourceId sourceId) {
     final siteUrl = _recommendationsSiteUrl;
@@ -3894,8 +3893,9 @@ class _EmptyTopicProperty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     label,
-    style: Theme.of(context).textTheme.labelMedium
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 }
 
@@ -4051,9 +4051,9 @@ class _MoreTopics extends StatelessWidget {
                     topic: selection.topics[index],
                     siteUrl: siteUrl,
                     onTap: inbox
-                        ? () =>
-                              ShellScope.read(context)
-                                  .openTopicFromList(selection.topics[index])
+                        ? () => ShellScope.read(
+                            context,
+                          ).openTopicFromList(selection.topics[index])
                         : null,
                   ),
                   if (index < selection.topics.length - 1)

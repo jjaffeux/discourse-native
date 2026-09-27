@@ -310,53 +310,65 @@ void main() {
     },
   );
 
-  testWidgets('default buttons use the theme control radius at every size', (
-    tester,
-  ) async {
-    for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
-      final base = _referenceTheme(AppTheme.light);
-      final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
-      final theme = base.copyWith(
-        extensions: [
-          ...base.extensions.values.where((value) => value is! DTokens),
-          tokens,
-        ],
-      );
-      for (final size in DButtonSize.values) {
-        for (final iconOnly in [false, true]) {
-          await pump(
-            tester,
-            iconOnly
-                ? DButton.iconOnly(
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Add',
-                    size: size,
-                    onPressed: () {},
-                  )
-                : DButton(
-                    label: const Text('Button'),
-                    size: size,
-                    onPressed: () {},
-                  ),
-            theme: theme,
-          );
-          await tester.pumpAndSettle();
-          final shape =
-              tester
-                      .widget<FilledButton>(find.byType(FilledButton))
-                      .style!
-                      .shape!
-                      .resolve({})!
-                  as RoundedRectangleBorder;
-          final expected = tokens.controlRadius;
-          final radius = shape.borderRadius.resolve(TextDirection.ltr);
-          expect(radius.topLeft.x, closeTo(expected, .000001));
-          expect(radius, BorderRadius.circular(radius.topLeft.x));
-          expect(buttonSurface(tester).borderRadius, radius);
+  testWidgets(
+    'default primary buttons are pills at every size and theme radius',
+    (tester) async {
+      for (final baseRadius in [0.0, 4.0, 10.0, 14.0, 20.0]) {
+        final base = _referenceTheme(AppTheme.light);
+        final tokens = base.extension<DTokens>()!.copyWith(radius: baseRadius);
+        final theme = base.copyWith(
+          extensions: [
+            ...base.extensions.values.where((value) => value is! DTokens),
+            tokens,
+          ],
+        );
+        for (final size in DButtonSize.values) {
+          for (final iconOnly in [false, true]) {
+            await pump(
+              tester,
+              iconOnly
+                  ? DButton.iconOnly(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add',
+                      size: size,
+                      onPressed: () {},
+                    )
+                  : DButton(
+                      label: const Text('Button'),
+                      size: size,
+                      onPressed: () {},
+                    ),
+              theme: theme,
+            );
+            await tester.pumpAndSettle();
+            final shape =
+                tester
+                        .widget<FilledButton>(find.byType(FilledButton))
+                        .style!
+                        .shape!
+                        .resolve({})!
+                    as RoundedRectangleBorder;
+            // Icon-only pills resolve the sentinel to their visible circle.
+            final expected = iconOnly
+                ? tester
+                          .getSize(
+                            find.descendant(
+                              of: find.byType(FilledButton),
+                              matching: find.byType(Material),
+                            ),
+                          )
+                          .shortestSide /
+                      2
+                : DRadius.pill;
+            final radius = shape.borderRadius.resolve(TextDirection.ltr);
+            expect(radius.topLeft.x, closeTo(expected, .000001));
+            expect(radius, BorderRadius.circular(radius.topLeft.x));
+            expect(buttonSurface(tester).borderRadius, radius);
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   testWidgets('small labels and leading loading icons use compact spacing', (
     tester,
@@ -372,7 +384,10 @@ void main() {
     final smallStyle = tester
         .widget<FilledButton>(find.byType(FilledButton))
         .style!;
-    expect(smallStyle.textStyle!.resolve({})!.height, 16 / 12);
+    expect(
+      smallStyle.textStyle!.resolve({})!.height,
+      DiscourseTypography.lineHeightSmall,
+    );
     expect(tester.getSize(find.byType(FilledButton)).height, 24);
     for (final position in DButtonIconPosition.values) {
       await pump(
@@ -469,7 +484,10 @@ void main() {
       final bounds = tester
           .getRect(find.byType(FilledButton))
           .shift(-tester.getTopLeft(find.byKey(boundary)));
-      expect(bounds, const Rect.fromLTWH(8, 8, 120, 28));
+      expect(
+        bounds,
+        const Rect.fromLTWH(8, 8, 120, DControlStyle.regularHeight),
+      );
       Future<Color> pixel(double x, double y) async {
         final color = await tester.runAsync(() async {
           final box =
@@ -855,12 +873,17 @@ void main() {
             of: find.byType(FilledButton),
             matching: find.byType(Material),
           );
-          expect(
-            tester.getSize(material),
-            Size.square(
-              DControlStyle.height(size, context: tester.element(material)),
-            ),
+          final height = DControlStyle.height(
+            size,
+            context: tester.element(material),
           );
+          // Chip and chrome icons keep their text-button insets instead of
+          // a square slot, as the mockup's compact action artwork does.
+          if (size == DControlSize.chip || size == DControlSize.chrome) {
+            expect(tester.getSize(material).height, height);
+          } else {
+            expect(tester.getSize(material), Size.square(height));
+          }
           final target = tester.getRect(find.byType(FilledButton));
           expect(
             target.height,

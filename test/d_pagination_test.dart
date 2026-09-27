@@ -257,7 +257,16 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DPagination)), const Size(240, 42));
+    expect(
+      tester.getSize(find.byType(DPagination)),
+      Size(
+        240,
+        DControlStyle.scaledHeight(
+          DControlSize.regular,
+          const TextScaler.linear(2),
+        ),
+      ),
+    );
     expect(tester.takeException(), isNull);
   });
 

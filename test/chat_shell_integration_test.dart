@@ -1038,7 +1038,7 @@ void _registerChatShellTests() {
           ChatSeparateSidebarMode.fullscreen,
         ]) {
           testWidgets(
-            'switches between forum and Chat in new tabs with $mode',
+            'switches between forum and Chat in the current tab with $mode',
             (tester) async {
               await pumpChat(
                 tester,
@@ -1063,7 +1063,7 @@ void _registerChatShellTests() {
               );
               await tester.pumpAndSettle();
 
-              final forumTab = shell.activeTab!;
+              final tabId = shell.activeTabId;
               final initialTabCount = shell.tabsForCurrentForum.length;
               expect(shell.currentContent?.id, 'forum-detail');
               expect(sidebarDestination('Topics'), findsOneWidget);
@@ -1071,12 +1071,8 @@ void _registerChatShellTests() {
 
               await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
-              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 1));
-              expect(shell.activeTabId, isNot(forumTab.id));
-              expect(
-                shell.currentWorkspace!.tabById(forumTab.id),
-                same(forumTab),
-              );
+              expect(shell.tabsForCurrentForum, hasLength(initialTabCount));
+              expect(shell.activeTabId, tabId);
               expect(shell.currentContent?.id, 'chat-c-9');
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
@@ -1085,45 +1081,38 @@ void _registerChatShellTests() {
                 tester.element(find.byType(MainContent)),
               ).pluginSession.require(chatShellService).openSearch();
               await tester.pumpAndSettle();
+              expect(shell.activeTabId, tabId);
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
               expect(find.byTooltip('Exit chat'), findsNothing);
 
-              final chatTab = shell.activeTab!;
               await switchPane(tester, 'main');
               await tester.pumpAndSettle();
-              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 3));
-              expect(shell.activeTabId, isNot(chatTab.id));
-              expect(
-                shell.currentWorkspace!.tabById(chatTab.id),
-                same(chatTab),
-              );
-              expect(shell.currentContent, forumTab.currentContent);
-              expect(shell.currentContent?.id, 'forum-detail');
+              expect(shell.tabsForCurrentForum, hasLength(initialTabCount));
+              expect(shell.activeTabId, tabId);
+              expect(shell.currentContent?.id, 'latest');
               expect(sidebarDestination('Topics'), findsOneWidget);
               expect(sidebarDestination('Bugs'), findsNothing);
 
+              expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+              await tester.pumpAndSettle();
+              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+
               await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
-              expect(shell.currentContent?.id, 'chat-c-9');
+              expect(shell.tabsForCurrentForum, hasLength(initialTabCount));
+              expect(shell.activeTabId, tabId);
+              expect(ChatPlugin.ownsRouteId(shell.currentContent!.id), isTrue);
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
               expect(find.byTooltip('Exit chat'), findsNothing);
-              expect(shell.tabsForCurrentForum, hasLength(initialTabCount + 4));
-
-              shell.selectTab(forumTab.id);
-              await tester.pumpAndSettle();
-              expect(shell.contentStack, forumTab.contentStack);
-              shell.selectTab(chatTab.id);
-              await tester.pumpAndSettle();
-              expect(shell.contentStack, chatTab.contentStack);
             },
             variant: TargetPlatformVariant.only(TargetPlatform.macOS),
           );
         }
 
         testWidgets(
-          'forum and Chat navigation preserve their original document tabs',
+          'forum and Chat navigation share the current document tab',
           (tester) async {
             await pumpChat(
               tester,
@@ -1137,9 +1126,9 @@ void _registerChatShellTests() {
             final forum = shell.activeTab!;
             shell.pluginSession.require(chatShellService).openSearch();
             await tester.pumpAndSettle();
-            final search = shell.activeTab!;
-            expect(search.panel, forum.panel);
-            expect(search.id, isNot(forum.id));
+            expect(shell.activeTabId, forum.id);
+            expect(shell.activeTab?.panel, forum.panel);
+            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
             shell.selectDestination(
               const SidebarDestination(
                 id: 'latest',
@@ -1148,11 +1137,12 @@ void _registerChatShellTests() {
               ),
             );
             await tester.pumpAndSettle();
-            expect(shell.currentWorkspace!.tabById(search.id), search);
-            expect(shell.currentWorkspace!.tabById(forum.id), forum);
-            expect(shell.activeTabId, isNot(search.id));
-            shell.selectTab(search.id);
+            expect(shell.activeTabId, forum.id);
+            expect(shell.currentContent?.id, 'latest');
+            expect(shell.tabsForCurrentForum, hasLength(1));
+            expect(shell.handleBack(canReturnToSidebar: false), isTrue);
             await tester.pumpAndSettle();
+            expect(shell.activeTabId, forum.id);
             expect(
               find.byKey(const ValueKey('chat-search-field')),
               findsOneWidget,
@@ -1378,7 +1368,10 @@ void _registerChatShellTests() {
               isTrue,
             );
 
-            shell.selectTab('restored-chat');
+            expect(shell.activeTabId, 'restored-chat');
+            expect(shell.tabsForCurrentForum, hasLength(1));
+
+            expect(shell.handleBack(canReturnToSidebar: false), isTrue);
             await tester.pumpAndSettle();
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);

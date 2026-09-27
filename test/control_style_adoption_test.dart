@@ -47,17 +47,17 @@ void main() {
       {
         // Mobile navigation uses the requested independent circular buttons
         // and pill contextual actions, through Native's existing shape API.
-        'lib/src/shell/mobile_shell.dart': {
-          'shape': 5,
-          // Selected mobile tabs use the reference's 14px panel corners.
-          'borderRadius': 2,
-          'backgroundColor': 2,
-        },
+        'lib/src/shell/mobile_shell.dart': {'shape': 4},
         'lib/src/shell/message_create_button.dart': {'shape': 2},
         // Composer gutter actions retain the documented transparent surface.
         'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
-        // The mobile topic reader has a floating pill progress trigger.
-        'lib/src/shell/topic_progress.dart': {'shape': 1},
+        // The mobile topic reader has a floating pill progress trigger; the
+        // inline trigger sits on the header without a resting or hover fill.
+        'lib/src/shell/topic_progress.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+        },
         // X embeds retain provider identity and the reference's pill reply link,
         // using Native buttons for sizing, focus, hover and activation.
         'lib/src/shell/oneboxes/twitter.dart': {
@@ -84,6 +84,7 @@ void main() {
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
           'borderColor': 1,
+          'foregroundColor': 1,
         },
         // A saved bookmark combines the kit's selected fill with its outline
         // variant so the joined group keeps a continuous perimeter and divider.
@@ -99,11 +100,54 @@ void main() {
           'interactiveBackgroundColor': 1,
           'borderRadius': 1,
         },
+        // The avatar trigger is an outlined circle around the avatar, with no
+        // fill of its own at rest or on hover.
+        'lib/src/shell/user_menu_button.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'borderColor': 1,
+        },
+        // Composer tools use the mockup's muted tool foreground; discarding a
+        // draft uses a destructive tint rather than the solid kit fill.
+        'lib/src/shell/composer_panel.dart': {
+          'foregroundColor': 8,
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+        },
+        // Tab strip scroll affordances are the mockup's circular buttons.
+        'lib/src/shell/forum_tabs_bar.dart': {'shape': 1},
+        // A day separator is a pill on the stream's own surface and border.
+        'lib/src/shell/stream_day_separator.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'foregroundColor': 1,
+          'borderColor': 1,
+        },
+        // Browse's Join/Joined row action is the mockup's pill.
+        'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
+        // The events calendar's view pickers and Today/previous/next chips
+        // share the mockup's tinted fill (background mixed 10% toward
+        // foreground), which no kit variant provides; the picker foreground
+        // stays muted except for the lead view selector.
+        'lib/src/plugins/discourse_events/event_calendar.dart': {
+          'backgroundColor': 3,
+          'foregroundColor': 3,
+        },
+        // Message hover actions sit on the row's own hover fill.
+        'lib/src/plugins/chat/chat_message_tile.dart': {
+          'interactiveBackgroundColor': 2,
+        },
         // These are container/rail/navigation geometry, not alternative palettes.
-        // Rail actions use the rail foreground; collapsed sidebar is muted.
+        // Rail actions use the rail foreground on the rail's own surface;
+        // collapsed sidebar is muted.
         'lib/src/shell/instance_rail.dart': {
           'borderRadius': 1,
           'foregroundColor': 2,
+          'backgroundColor': 2,
+          'interactiveBackgroundColor': 2,
         },
         // A minimized panel's rail stands in for its tab strip: the selected
         // tab keeps the selected document tab's raised fill and outline, on

@@ -1167,26 +1167,23 @@ void _registerTopicReadingTests() {
         of: lock,
         matching: find.byType(TintedIconGlyph),
       );
-      final categoryBlock = find.descendant(
-        of: row,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Container &&
-              widget.constraints?.minWidth == 9 &&
-              widget.constraints?.maxWidth == 9 &&
-              widget.constraints?.minHeight == 9 &&
-              widget.constraints?.maxHeight == 9,
-        ),
-      );
 
       expect(lock, findsOneWidget);
-      expect(tester.getTopLeft(lock).dx, lessThan(tester.getTopLeft(title).dx));
       expect(lockGlyph, findsOneWidget);
-      expect(categoryBlock, findsOneWidget);
-      expect(
-        tester.getCenter(lock).dx,
-        closeTo(tester.getCenter(categoryBlock).dx, 4),
+      // The list lane is narrow, so the lock flows inline ahead of the title's
+      // first glyph instead of sitting in a column of its own.
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: title, matching: find.byType(RichText)).first,
       );
+      final firstGlyph = paragraph
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 1, extentOffset: 2),
+          )
+          .first
+          .toRect()
+          .shift(paragraph.localToGlobal(Offset.zero));
+      expect(tester.getRect(lock).right, lessThan(firstGlyph.left));
+      expect(tester.getCenter(lock).dy, closeTo(firstGlyph.center.dy, 2));
       expect(find.bySemanticsLabel('Closed'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1241,9 +1238,12 @@ void _registerTopicReadingTests() {
 
       final context = tester.element(find.text('Caught up'));
       final theme = Theme.of(context);
+      final tokens = DTokens.of(context);
+      // The list lane is narrow, so caught-up titles take the compact card's
+      // softened foreground rather than the wide row's whisper.
       expect(
         tester.widget<Text>(find.text('Caught up')).style?.color,
-        theme.discourse.whisper,
+        Color.lerp(tokens.background, tokens.foreground, .9),
       );
       expect(
         tester.widget<Text>(find.text('Not caught up')).style?.color,
@@ -1333,7 +1333,7 @@ void _registerTopicReadingTests() {
     testWidgets('topic state follows the final line of a wrapped title', (
       tester,
     ) async {
-      const title = 'Footnotes can scroll?';
+      const title = 'Footnotes can scroll inside the reader?';
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -1365,7 +1365,7 @@ void _registerTopicReadingTests() {
     });
 
     testWidgets('unread count stays beside a wrapped title', (tester) async {
-      const title = 'Footnotes can scroll?';
+      const title = 'Footnotes can scroll inside the reader?';
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
@@ -1619,19 +1619,27 @@ void _registerTopicReadingTests() {
       expect(secondTag, findsOneWidget);
       expect(firstTagLink, findsOneWidget);
       expect(secondTagLink, findsOneWidget);
+      // The list lane is narrow, so tags use the compact card's inline pill
+      // geometry and share the metadata row's 5 px gap with the category.
+      final categoryLink = find.bySemanticsLabel('Category: Feature');
+      expect(tester.getSize(firstTagLink).height, 23);
       expect(
-        tester.getSize(find.bySemanticsLabel('Category: Feature')).height,
-        greaterThanOrEqualTo(20),
+        tester.getCenter(categoryLink).dy,
+        closeTo(tester.getCenter(firstTagLink).dy, 0.5),
       );
-      expect(tester.getSize(firstTagLink).height, 16);
       expect(
         DefaultTextStyle.of(tester.element(firstTag)).style.fontSize,
-        DiscourseTypography.xs,
+        DiscourseTypography.micro,
+      );
+      expect(
+        tester.getTopLeft(firstTagLink).dx -
+            tester.getTopRight(categoryLink).dx,
+        closeTo(5, 0.01),
       );
       expect(
         tester.getTopLeft(secondTagLink).dx -
             tester.getTopRight(firstTagLink).dx,
-        closeTo(DSpacing.md, 0.01),
+        closeTo(5, 0.01),
       );
       final category = find.descendant(
         of: find.byType(TopicListView),
@@ -1851,7 +1859,7 @@ void _registerTopicReadingTests() {
       expect(api.topicsOpened, isEmpty);
     });
 
-    testWidgets('long topic tags compact without overflowing a phone row', (
+    testWidgets('long topic tags wrap without overflowing a phone row', (
       tester,
     ) async {
       final longName = 'a-very-long-${List.filled(30, 'tag-name-').join()}';
@@ -1878,12 +1886,24 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
-      expect(find.text('design'), findsOneWidget);
-      expect(find.textContaining(longName), findsOneWidget);
-      expect(find.text('+3'), findsOneWidget);
+      // Phone cards list every tag and wrap them rather than folding the
+      // rest into an overflow token.
+      final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
+      for (final name in [
+        'design',
+        longName,
+        'accessibility',
+        'mobile',
+        'support',
+      ]) {
+        final link = find.bySemanticsLabel('Tag: $name');
+        expect(link, findsOneWidget);
+        expect(tester.getRect(link).left, greaterThanOrEqualTo(card.left));
+        expect(tester.getRect(link).right, lessThanOrEqualTo(card.right));
+      }
       expect(
-        tester.getSemantics(find.text('+3')).label,
-        contains('3 more tags'),
+        find.byKey(const ValueKey('topic-row-tag-overflow')),
+        findsNothing,
       );
       expect(find.text('#support'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -1910,9 +1930,7 @@ void _registerTopicReadingTests() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('many topic tags compact into an overflow token', (
-      tester,
-    ) async {
+    testWidgets('many topic tags wrap within a phone card', (tester) async {
       const tags = [
         TopicTag(name: 'sea2'),
         TopicTag(name: 'sea1'),
@@ -1950,29 +1968,33 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
-      expect(find.text('sea2'), findsOneWidget);
-      expect(find.text('sea1'), findsOneWidget);
-      expect(find.text('+12'), findsOneWidget);
+      // Phone cards list every tag as a compact pill and wrap them onto
+      // further lines rather than folding the rest into an overflow token.
+      final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
       final firstTag = find.bySemanticsLabel('Tag: sea2');
       final secondTag = find.bySemanticsLabel('Tag: sea1');
-      final overflow = find.byKey(const ValueKey('topic-row-tag-overflow'));
-      expect(tester.getSize(firstTag).width, lessThan(80));
-      expect(tester.getSize(secondTag).width, lessThan(80));
-      expect(tester.getSize(overflow).width, lessThan(80));
-      expect(tester.getSize(overflow).height, 22);
-      expect(tester.getSize(firstTag).height, 48);
       expect(
-        DefaultTextStyle.of(tester.element(find.text('+12'))).style.fontSize,
-        DiscourseTypography.xs,
+        find.byKey(const ValueKey('topic-row-tag-overflow')),
+        findsNothing,
       );
       expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
-      expect(
-        tester.getSemantics(find.text('+12')).label,
-        contains('12 more tags'),
-      );
-      for (final tag in tags.skip(2)) {
-        expect(find.text(tag.name), findsNothing);
+      final rows = <double>{};
+      for (final tag in tags) {
+        final link = find.bySemanticsLabel('Tag: ${tag.name}');
+        expect(link, findsOneWidget);
+        final rect = tester.getRect(link);
+        expect(rect.height, 23);
+        expect(rect.left, greaterThanOrEqualTo(card.left));
+        expect(rect.right, lessThanOrEqualTo(card.right));
+        rows.add(rect.center.dy);
+        expect(
+          DefaultTextStyle.of(
+            tester.element(find.text(tag.name)),
+          ).style.fontSize,
+          DiscourseTypography.micro,
+        );
       }
+      expect(rows.length, greaterThan(1));
       expect(tester.takeException(), isNull);
     });
 
@@ -3805,7 +3827,8 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      // A pinned title carries an inline pin marker, so open its card.
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
 
       final trigger = find.byTooltip('More topic actions');
@@ -3871,7 +3894,8 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      // A pinned title carries an inline pin marker, so open its card.
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();

@@ -115,6 +115,8 @@ class _ChatChannelBody extends StatefulWidget {
 }
 
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
+  static const _maxHeaderShare = 0.4;
+
   Object? _viewToken;
   bool _viewStartScheduled = false;
   bool _tickerEnabled = true;
@@ -316,63 +318,79 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     return ChatUploadDropRegion(
       controller: _uploadDropController,
       title: 'Drop files to upload to #${channel?.title ?? 'Chat'}',
-      child: DPageSurface(
-        framed: false,
-        hideHeaderOnScroll: true,
-        header: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.showHeader)
-              ChatChannelHeader(
-                siteUrl: widget.siteUrl,
-                channelId: widget.channelId,
-                channel: channel,
-                stream: stream,
-                activity: _activity,
-                onBack: () => PluginUiScope.require(
-                  context,
-                  chatShellService,
-                ).openChats(),
-                onOpenDetails: () =>
-                    PluginUiScope.require(
-                      context,
-                      chatShellService,
-                    ).openChannelInfo(
+      child: LayoutBuilder(
+        builder: (context, constraints) => DPageSurface(
+          framed: false,
+          hideHeaderOnScroll: true,
+          // Large text can make the identity and metadata taller than the page
+          // minus the composer. Keep the transcript reachable by letting the
+          // header scroll within a share of the page instead of overflowing.
+          header: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: constraints.maxHeight.isFinite
+                  ? constraints.maxHeight * _maxHeaderShare
+                  : double.infinity,
+            ),
+            child: SingleChildScrollView(
+              primary: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.showHeader)
+                    ChatChannelHeader(
                       siteUrl: widget.siteUrl,
                       channelId: widget.channelId,
+                      channel: channel,
+                      stream: stream,
+                      activity: _activity,
+                      onBack: () => PluginUiScope.require(
+                        context,
+                        chatShellService,
+                      ).openChats(),
+                      onOpenDetails: () =>
+                          PluginUiScope.require(
+                            context,
+                            chatShellService,
+                          ).openChannelInfo(
+                            siteUrl: widget.siteUrl,
+                            channelId: widget.channelId,
+                          ),
                     ),
+                  if (channel?.hasPinnedMessages == true)
+                    ChatPinnedBar(
+                      siteUrl: widget.siteUrl,
+                      channel: channel!,
+                      chat: widget.chat,
+                      onJumpToMessage: _jumpToMessage,
+                    ),
+                ],
               ),
-            if (channel?.hasPinnedMessages == true)
-              ChatPinnedBar(
-                siteUrl: widget.siteUrl,
-                channel: channel!,
-                chat: widget.chat,
-                onJumpToMessage: _jumpToMessage,
-              ),
-          ],
+            ),
+          ),
+          footer: _selectingMessages
+              ? ChatMessageSelectionBar(
+                  siteUrl: widget.siteUrl,
+                  channelId: widget.channelId,
+                  messageIds: _selectedMessageIds,
+                  chat: widget.chat,
+                  onCancel: _cancelSelecting,
+                )
+              : stream.error == null || hasMessages
+              ? ChatComposer(
+                  key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+                  siteUrl: widget.siteUrl,
+                  channelId: widget.channelId,
+                  uploadDropController: _uploadDropController,
+                  focusRequest:
+                      _composerFocusRequest +
+                      (widget.autofocusComposer ? 1 : 0),
+                  editingMessage: _editingMessage,
+                  onEditMessage: _editMessage,
+                  onEditFinished: _finishEditing,
+                )
+              : null,
+          child: content,
         ),
-        footer: _selectingMessages
-            ? ChatMessageSelectionBar(
-                siteUrl: widget.siteUrl,
-                channelId: widget.channelId,
-                messageIds: _selectedMessageIds,
-                chat: widget.chat,
-                onCancel: _cancelSelecting,
-              )
-            : stream.error == null || hasMessages
-            ? ChatComposer(
-                key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
-                siteUrl: widget.siteUrl,
-                channelId: widget.channelId,
-                uploadDropController: _uploadDropController,
-                focusRequest:
-                    _composerFocusRequest + (widget.autofocusComposer ? 1 : 0),
-                editingMessage: _editingMessage,
-                onEditMessage: _editMessage,
-                onEditFinished: _finishEditing,
-              )
-            : null,
-        child: content,
       ),
     );
   }

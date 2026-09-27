@@ -49,7 +49,7 @@ void main() {
     expect(ModalRoute.of(tester.element(find.text('2 likes'))), same(route));
     expect(Navigator.of(tester.element(find.text('2 likes'))), same(navigator));
     expect(find.text('Public liker'), findsNothing);
-    expect(_sheetIndicators, findsOneWidget);
+    expect(_sheetLikers, findsNothing);
 
     api.responses.last.complete(_accountLikers);
     await tester.pumpAndSettle();
@@ -68,16 +68,16 @@ void main() {
         final api = _LikersApi();
         final auth = _PendingAuthenticator();
         final shell = await _openDuringSignIn(tester, api, auth);
-        expect(_sheetIndicators, findsOneWidget);
+        expect(_sheetLikers, findsNothing);
 
         await _completeSignIn(tester, shell, api, auth);
-        expect(_sheetIndicators, findsOneWidget);
+        expect(_sheetLikers, findsNothing);
         if (oldCompletesFirst) {
           api.responses.first.complete(_publicLikers);
           await _pumpFrames(tester);
           expect(shell.likers(1, siteUrl: _site), isNull);
           expect(find.text('Public liker'), findsNothing);
-          expect(_sheetIndicators, findsOneWidget);
+          expect(_sheetLikers, findsNothing);
         }
 
         api.responses.last.complete(_accountLikers);
@@ -123,6 +123,16 @@ void main() {
 Finder get _sheetIndicators =>
     find.descendant(of: find.byType(BottomSheet), matching: activityIndicators);
 
+// A pending likers request renders an empty sheet body rather than a spinner.
+Finder get _sheetLikers => find.descendant(
+  of: find.byType(BottomSheet),
+  matching: find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        (widget.data == 'Public liker' || widget.data == 'Account liker'),
+  ),
+);
+
 Future<ShellController> _openDuringSignIn(
   WidgetTester tester,
   _LikersApi api,
@@ -135,13 +145,12 @@ Future<ShellController> _openDuringSignIn(
     authenticator: auth,
     instances: [instance('meta.discourse.org', title: 'Meta')],
   );
-  // Sign-in starts from Home; the reader has no global account toolbar.
+  // Sign-in starts from Home, whose mobile root already lists the topics;
+  // the reader has no global account toolbar.
   await tester.tap(find.byKey(UserMenuButton.signInKey));
-  await tester.pump();
-  await tester.tap(sidebarDestination('Topics'));
-  await tester.pumpAndSettle();
+  await _pumpFrames(tester);
   await tester.tap(find.text('Public topic'));
-  await tester.pumpAndSettle();
+  await _pumpFrames(tester);
   final shell = ShellScope.read(tester.element(find.byType(MainContent)));
   expect(shell.currentInstance?.isConnected, isFalse);
   expect(shell.currentContent?.topicId, 7);

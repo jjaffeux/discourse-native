@@ -1275,8 +1275,9 @@ class _TopicListHeadingTitle extends StatelessWidget {
     final siteUrl = this.siteUrl;
     if (siteUrl == null) return title('Category');
     return ValueListenableBuilder<TopicCategory?>(
-      valueListenable: ShellScope.read(context)
-          .categoryRef(siteUrl, categoryId),
+      valueListenable: ShellScope.read(
+        context,
+      ).categoryRef(siteUrl, categoryId),
       builder: (context, category, _) => title(category?.name ?? 'Category'),
     );
   }
@@ -1483,8 +1484,9 @@ class _GroupsDirectoryCount extends StatelessWidget {
           count == 1 ? '1 group' : '$count groups',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         );
       },
     );
@@ -1600,61 +1602,62 @@ class _SignedOutMessagesState extends StatelessWidget {
   const _SignedOutMessagesState();
 
   @override
-  Widget build(BuildContext context) =>
-      ShellSelector<({bool connecting, String? error})>(
-        select: (controller) =>
-            (connecting: controller.connecting, error: controller.connectError),
-        builder: (context, state, _) {
-          final theme = Theme.of(context);
-          final controller = ShellScope.read(context);
+  Widget build(
+    BuildContext context,
+  ) => ShellSelector<({bool connecting, String? error})>(
+    select: (controller) =>
+        (connecting: controller.connecting, error: controller.connectError),
+    builder: (context, state, _) {
+      final theme = Theme.of(context);
+      final controller = ShellScope.read(context);
 
-          return Center(
-            child: SingleChildScrollView(
-              child: DEmpty(
+      return Center(
+        child: SingleChildScrollView(
+          child: DEmpty(
+            children: [
+              const DEmptyHeader(
                 children: [
-                  const DEmptyHeader(
-                    children: [
-                      DEmptyMedia(
-                        variant: DEmptyMediaVariant.icon,
-                        child: DIcon(DIcons.lock),
-                      ),
-                      DEmptyTitle('Sign in to view your messages'),
-                      DEmptyDescription(
-                        'Private messages are tied to your forum account and aren’t available while you’re signed out.',
-                      ),
-                    ],
+                  DEmptyMedia(
+                    variant: DEmptyMediaVariant.icon,
+                    child: DIcon(DIcons.lock),
                   ),
-                  if (state.error case final error?)
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        error,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  DEmptyContent(
-                    children: [
-                      DButton(
-                        key: const ValueKey('messages-sign-in'),
-                        label: const Text('Sign in'),
-                        onPressed: () =>
-                            unawaited(controller.connectCurrentInstance()),
-                        icon: const DIcon(DIcons.user),
-                        variant: DButtonVariant.primary,
-                        loading: state.connecting,
-                        loadingLabel: const Text('Signing in…'),
-                      ),
-                    ],
+                  DEmptyTitle('Sign in to view your messages'),
+                  DEmptyDescription(
+                    'Private messages are tied to your forum account and aren’t available while you’re signed out.',
                   ),
                 ],
               ),
-            ),
-          );
-        },
+              if (state.error case final error?)
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              DEmptyContent(
+                children: [
+                  DButton(
+                    key: const ValueKey('messages-sign-in'),
+                    label: const Text('Sign in'),
+                    onPressed: () =>
+                        unawaited(controller.connectCurrentInstance()),
+                    icon: const DIcon(DIcons.user),
+                    variant: DButtonVariant.primary,
+                    loading: state.connecting,
+                    loadingLabel: const Text('Signing in…'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
+    },
+  );
 }
 
 class _ContentNotFound extends StatelessWidget {

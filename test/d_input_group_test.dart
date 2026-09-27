@@ -259,7 +259,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
   });
 
-  testWidgets('inline input keeps compact 28px grouped surface', (
+  testWidgets('inline input keeps the regular grouped surface height', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -273,7 +273,10 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(DInputGroup)).height, 28);
+    expect(
+      tester.getSize(find.byType(DInputGroup)).height,
+      DControlStyle.regularHeight,
+    );
     expect(tester.getSize(find.byType(EditableText)).height, 20);
   });
 

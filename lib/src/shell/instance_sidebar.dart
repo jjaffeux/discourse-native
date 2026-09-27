@@ -1323,6 +1323,11 @@ class _SectionState extends State<_Section> {
     for (final run in runs) {
       final submenu = run.first.indent > 0;
       final indexes = {for (final (index, row) in run.indexed) row.id: index};
+      final reorderable =
+          !submenu &&
+          runs.length == 1 &&
+          rows.length == section.destinations.length &&
+          canEdit;
       int? findIndex(Key key) =>
           key is ValueKey<String> ? indexes[key.value] : null;
       Widget rowBuilder(BuildContext context, int index) {
@@ -1341,6 +1346,7 @@ class _SectionState extends State<_Section> {
           badge: widget.badgeFor(destination.id),
           submenu: submenu,
           iconSize: section.id.startsWith('custom-') ? 12 : 16,
+          reorderable: reorderable,
           onTap: () => _selectDestination(destination),
         );
       }
@@ -1358,10 +1364,6 @@ class _SectionState extends State<_Section> {
         padding: const EdgeInsets.only(bottom: _sidebarRowGap),
         child: rowBuilder(context, index),
       );
-      final reorderable =
-          runs.length == 1 &&
-          rows.length == section.destinations.length &&
-          canEdit;
       final menu = submenu
           ? DSidebarMenuSub.sliverBuilder(
               itemCount: run.length,
@@ -1592,6 +1594,7 @@ class SidebarDestinationTile extends StatelessWidget {
     required this.badge,
     this.submenu = false,
     this.iconSize = 16,
+    this.reorderable = false,
     required this.onTap,
   });
   final SidebarDestination destination;
@@ -1600,6 +1603,10 @@ class SidebarDestinationTile extends StatelessWidget {
   final SidebarBadge badge;
   final bool submenu;
   final double iconSize;
+
+  /// Whether a touch long press on this row starts a reordering drag, which
+  /// the link context menu must then leave to the reorderable list.
+  final bool reorderable;
   final VoidCallback onTap;
 
   Widget _prefixArt(BuildContext context, Color foreground) {
@@ -1780,13 +1787,19 @@ class SidebarDestinationTile extends StatelessWidget {
       tile = builder(context, tile);
     }
     if (destination.url case final url?) {
-      return LinkTarget(url: url, title: destination.label, child: tile);
+      return LinkTarget(
+        url: url,
+        title: destination.label,
+        longPressEnabled: !reorderable,
+        child: tile,
+      );
     }
     if (destination.onTap != null) return tile;
     return LinkTarget.content(
       content: destination.id == 'groups'
           ? ContentRoute.group(const GroupRoute.directory())
           : ContentRoute.fromDestination(destination),
+      longPressEnabled: !reorderable,
       child: tile,
     );
   }

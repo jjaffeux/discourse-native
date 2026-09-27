@@ -519,9 +519,9 @@ void main() {
       1,
     ].map((id) => tester.getTopLeft(row(id)).dy).toList();
     expect(positions, orderedEquals([...positions]..sort()));
-    expect(find.text('4 new messages'), findsOneWidget);
-    expect(find.text('3 new messages'), findsOneWidget);
-    expect(find.text('9 new messages'), findsNothing);
+    expect(find.text('4 messages'), findsOneWidget);
+    expect(find.text('3 messages'), findsOneWidget);
+    expect(find.text('9 messages'), findsNothing);
     expect(find.text('you: Will follow up in the morning.'), findsNWidgets(2));
     await _selectChatActivity(tester, 'Unread');
     expect(row(2), findsOneWidget);
@@ -1487,7 +1487,15 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
       await tester.pumpAndSettle();
       expect(find.byType(ChatMobileSidebar), findsOneWidget);
-      expect(find.text('Watercooler'), findsNothing);
+      // The mixed inbox lists rooms beneath its conversations.
+      expect(
+        find.descendant(
+          of: find.byType(ChatMobileSidebar),
+          matching: find.byKey(const ValueKey('chat-inbox-room-7')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('General'), findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
       expect(voice.call, isNull);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
@@ -1729,26 +1737,36 @@ void main() {
       shell.handleBack();
       await tester.pumpAndSettle();
       expect(_bar, findsOneWidget);
-      expect(find.text('DMs'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-inbox-kind-filter')),
+          matching: find.text('Direct messages'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('General'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
 
-  _mobileTest('chat retains Browse channels and My threads navigation', (
+  _mobileTest('chat retains Browse channels and Browse threads navigation', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
-    expect(find.text('Browse channels'), findsOneWidget);
-    expect(find.text('My threads'), findsOneWidget);
-    await tester.tap(find.text('Browse channels'));
+    final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
+    Finder peer(String label) =>
+        find.descendant(of: navigation, matching: find.text(label));
+    expect(find.text('Browse chats'), findsOneWidget);
+    expect(peer('Channels'), findsOneWidget);
+    expect(peer('Threads'), findsOneWidget);
+    await tester.tap(peer('Channels'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-browse');
     shell.handleBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('My threads'));
+    await tester.tap(peer('Threads'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-my-threads');
     shell.handleBack();
@@ -1881,7 +1899,10 @@ void main() {
     expect(shell.canPopContent, isFalse);
     await _tapDockTab(tester, 'panel/chat');
     await _selectChatKind(tester, 'Direct messages');
-    expect(find.byKey(const ValueKey('chat-inbox-browse')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-browse-navigation')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-header')));

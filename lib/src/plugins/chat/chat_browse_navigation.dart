@@ -37,7 +37,7 @@ class ChatBrowseNavigation extends StatelessWidget {
             ChatBrowsePage.threads => 'Browse threads',
           },
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontSize: 22,
+            fontSize: DiscourseTypography.xxl,
             fontWeight: FontWeight.w700,
           ),
         ),

@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart' as sdk;
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart' as leaf;

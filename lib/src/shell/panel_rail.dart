@@ -338,8 +338,9 @@ class _PanelRailState extends State<PanelRail>
                 minWidth: width - 2,
                 maxWidth: width - 2,
                 child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context)
-                      .copyWith(scrollbars: false),
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
                   child: SingleChildScrollView(
                     controller: _readOutScroll,
                     padding: const EdgeInsets.fromLTRB(
@@ -392,8 +393,9 @@ class _PanelRailState extends State<PanelRail>
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(DRadius.pill),
                   child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context)
-                        .copyWith(scrollbars: false),
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
                     child: SingleChildScrollView(
                       controller: _railScroll,
                       padding: const EdgeInsets.symmetric(

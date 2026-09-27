@@ -1417,8 +1417,9 @@ class _Tile extends StatelessWidget {
                                 if (hasBody)
                                   Builder(
                                     builder: (context) {
-                                      final style = DefaultTextStyle.of(context)
-                                          .style;
+                                      final style = DefaultTextStyle.of(
+                                        context,
+                                      ).style;
                                       return _MessageBodySelection(
                                         selectionKey:
                                             ChatMessageTile.bodySelectionKey(
