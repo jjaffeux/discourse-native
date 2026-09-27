@@ -8258,6 +8258,206 @@ void main() {
     );
   });
 
+  group('returning to a viewed window after a long absence', () {
+    const away = ChatController.resumeResyncThreshold;
+
+    // Published while the app was away. The resumed poll replays only what the
+    // channel's trimmed MessageBus backlog still holds.
+    Map<String, dynamic> replayed(int id) => {
+      'type': 'sent',
+      'chat_message': {
+        'id': id,
+        'chat_channel_id': 9,
+        'cooked': '<p>$id</p>',
+        'created_at': '2026-05-05T10:${'$id'.padLeft(2, '0')}:00.000Z',
+        'user': {'id': 2, 'username': 'sam'},
+      },
+    };
+
+    Future<
+      ({
+        ChatController chat,
+        FakeDiscourseApi api,
+        FakeSiteTracker tracker,
+        void Function(Duration absence) returnAfter,
+      })
+    >
+    viewing(
+      Map<String, ChatMessagePage> messages, {
+      FakeDiscourseApi? api,
+    }) async {
+      var now = DateTime.utc(2026, 9, 27, 12);
+      final subject = build(api: api, messages: messages, clock: () => now);
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      return (
+        chat: subject.chat,
+        api: subject.api,
+        tracker: tracker,
+        returnAfter: (Duration absence) {
+          subject.chat.setForeground(false);
+          now = now.add(absence);
+          subject.chat.setForeground(true);
+        },
+      );
+    }
+
+    test('pages forward past what the trimmed backlog dropped', () async {
+      final subject = await viewing({
+        key(9): page([message(4, minute: 4), message(5, minute: 5)]),
+        key(9, after: 5): page([
+          message(6, minute: 6),
+          message(7, minute: 7),
+          message(8, minute: 8),
+        ]),
+      });
+      final opened = subject.chat.stream(site, 9);
+
+      subject.returnAfter(away);
+      // 6 and 7 fell out of the backlog, so the poll resumes with 8 alone.
+      // Appending it would claim the window runs contiguously from 5 to 8.
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(8));
+      expect(subject.chat.stream(site, 9).messageIds, [4, 5]);
+      await pumpEventQueue();
+
+      final stream = subject.chat.stream(site, 9);
+      expect(subject.api.chatMessagesRequested.last.after, 5);
+      expect(stream.messageIds, [4, 5, 6, 7, 8]);
+      expect(stream.atPresent, isTrue);
+      // Paged rather than replaced, so the view keeps the reader's place.
+      expect(stream.fetches, opened.fetches);
+      expect(stream.anchorMessageId, opened.anchorMessageId);
+      expect(stream.lastReadOnOpen, opened.lastReadOnOpen);
+    });
+
+    test('a short switch trusts the resumed poll', () async {
+      final subject = await viewing({
+        key(9): page([message(5, minute: 5)]),
+      });
+
+      subject.returnAfter(away - const Duration(seconds: 1));
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(6));
+      await pumpEventQueue();
+
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+      expect(subject.chat.stream(site, 9).messageIds, [5, 6]);
+    });
+
+    test('stays behind the present until the rest is paged in', () async {
+      final subject = await viewing({
+        key(9): page([message(5, minute: 5)]),
+        key(9, after: 5): page([
+          message(6, minute: 6),
+        ], canLoadMoreFuture: true),
+        key(9, after: 6): page([message(7, minute: 7), message(8, minute: 8)]),
+      });
+
+      subject.returnAfter(away);
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(8));
+      await pumpEventQueue();
+
+      final behind = subject.chat.stream(site, 9);
+      expect(behind.messageIds, [5, 6]);
+      expect(behind.canLoadMoreFuture, isTrue);
+      expect(behind.pendingNewMessages, 1);
+
+      await subject.chat.loadNewer(site, 9);
+
+      final caughtUp = subject.chat.stream(site, 9);
+      expect(caughtUp.messageIds, [5, 6, 7, 8]);
+      expect(caughtUp.atPresent, isTrue);
+    });
+
+    test('an arrival during the re-read is neither doubled nor lost', () async {
+      final api = _GatedFuturePageApi(
+        chatMessagesByKey: {
+          key(9): page([message(5, minute: 5)]),
+          key(9, after: 5): page([
+            message(6, minute: 6),
+            message(7, minute: 7),
+          ]),
+        },
+      );
+      final subject = await viewing(const {}, api: api);
+
+      subject.returnAfter(away);
+      await api.futurePageStarted.future;
+      // 7 is in the page too; 8 was published after the site built it.
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(7));
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(8));
+      expect(subject.chat.stream(site, 9).messageIds, [5]);
+      api.futurePage.complete();
+      await pumpEventQueue();
+
+      final stream = subject.chat.stream(site, 9);
+      expect(stream.messageIds, [5, 6, 7, 8]);
+      expect(stream.pendingNewMessages, 0);
+      expect(stream.atPresent, isTrue);
+    });
+
+    test('a window replaced during the re-read keeps the newer read', () async {
+      final api = _GatedFuturePageApi(
+        chatMessagesByKey: {
+          key(9): page([message(5, minute: 5)]),
+          key(9, after: 5): page([message(6, minute: 6)]),
+          latestKey(9): page([message(8, minute: 8), message(9, minute: 9)]),
+        },
+      );
+      final subject = await viewing(const {}, api: api);
+
+      subject.returnAfter(away);
+      await api.futurePageStarted.future;
+      await subject.chat.showLatest(site, 9);
+      api.futurePage.complete();
+      await pumpEventQueue();
+
+      final stream = subject.chat.stream(site, 9);
+      expect(stream.messageIds, [8, 9]);
+      expect(stream.atPresent, isTrue);
+    });
+
+    test('reads an empty window afresh, having no edge to page from', () async {
+      final messages = {key(9): page(const [])};
+      final subject = await viewing(messages);
+      expect(subject.chat.stream(site, 9).isEmpty, isTrue);
+
+      messages[key(9)] = page([
+        message(6, minute: 6),
+        message(7, minute: 7),
+        message(8, minute: 8),
+      ]);
+      subject.returnAfter(away);
+      subject.tracker.deliverPluginMessage('/chat/9', replayed(8));
+      await pumpEventQueue();
+
+      expect(subject.api.chatMessagesRequested, hasLength(2));
+      expect(subject.chat.stream(site, 9).messageIds, [6, 7, 8]);
+    });
+
+    test('leaves a window no one is viewing to its next open', () async {
+      var now = DateTime.utc(2026, 9, 27, 12);
+      final subject = build(
+        messages: {
+          key(9): page([message(5, minute: 5)]),
+        },
+        clock: () => now,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.openChannel(site, 9);
+
+      subject.chat.setForeground(false);
+      now = now.add(away);
+      subject.chat.setForeground(true);
+      await pumpEventQueue();
+
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+      expect(subject.chat.stream(site, 9).atPresent, isTrue);
+    });
+  });
+
   group('paging into the past', () {
     test(
       'keeps a bounded contiguous window pageable in both directions',
@@ -10018,6 +10218,42 @@ final class _GatedPastPageApi extends FakeDiscourseApi {
     if (before != null) {
       pastPageStarted.complete();
       await pastPage.future;
+    }
+    return super.chatMessages(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+      fromLastRead: fromLastRead,
+      pageSize: pageSize,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
+final class _GatedFuturePageApi extends FakeDiscourseApi {
+  _GatedFuturePageApi({super.chatMessagesByKey});
+
+  final Completer<void> futurePage = Completer<void>();
+  final Completer<void> futurePageStarted = Completer<void>();
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (after != null && !futurePageStarted.isCompleted) {
+      futurePageStarted.complete();
+      await futurePage.future;
     }
     return super.chatMessages(
       siteUrl: siteUrl,
