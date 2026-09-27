@@ -68,6 +68,8 @@ Map<String, dynamic> settings({
   bool? enableMarkdownLinkify,
   String? markdownLinkifyTlds,
   bool? fastEditEnabled,
+  bool? displayNameOnPosts,
+  bool? prioritizeUsernameInUx,
 }) => {
   'enable_emoji': ?emojiEnabled,
   'emoji_set': ?emojiSet,
@@ -116,6 +118,8 @@ Map<String, dynamic> settings({
   'enable_markdown_linkify': ?enableMarkdownLinkify,
   'markdown_linkify_tlds': ?markdownLinkifyTlds,
   'enable_fast_edit': ?fastEditEnabled,
+  'display_name_on_posts': ?displayNameOnPosts,
+  'prioritize_username_in_ux': ?prioritizeUsernameInUx,
 };
 
 void main() {
@@ -158,6 +162,36 @@ void main() {
       expect(disabled.withPlugins(disabled.plugins).fastEditEnabled, isFalse);
       expect(SiteConfig.fromSettings(const {}).fastEditEnabled, isTrue);
       expect(SiteConfig.fromJson(const {}).fastEditEnabled, isTrue);
+    });
+
+    test('reads and preserves the name settings core attributes by', () {
+      final namesFirst = SiteConfig.fromSettings(
+        settings(displayNameOnPosts: true, prioritizeUsernameInUx: false),
+      );
+
+      expect(namesFirst.displayNameOnPosts, isTrue);
+      expect(namesFirst.prioritizeUsernameInUx, isFalse);
+      expect(namesFirst.prioritizesFullName, isTrue);
+      expect(SiteConfig.fromJson(namesFirst.toJson()), namesFirst);
+      expect(
+        SiteConfig.fromJson(namesFirst.toJson()).prioritizesFullName,
+        isTrue,
+      );
+      expect(namesFirst.withPlugins(namesFirst.plugins), namesFirst);
+      expect(namesFirst, isNot(const SiteConfig.unknown()));
+
+      for (final usernamesFirst in [
+        SiteConfig.fromSettings(const {}),
+        SiteConfig.fromJson(const {}),
+        SiteConfig.fromSettings(settings(displayNameOnPosts: true)),
+        SiteConfig.fromSettings(settings(prioritizeUsernameInUx: false)),
+        SiteConfig.fromSettings(const {
+          'display_name_on_posts': 'true',
+          'prioritize_username_in_ux': 'false',
+        }),
+      ]) {
+        expect(usernamesFirst.prioritizesFullName, isFalse);
+      }
     });
 
     test('reads and preserves the automatic image gallery gate', () {
@@ -233,6 +267,8 @@ void main() {
       expect(unknown.enableAutoGridImages, isTrue);
       expect(unknown.enableMarkdownLinkify, isTrue);
       expect(unknown.fastEditEnabled, isTrue);
+      expect(unknown.displayNameOnPosts, isFalse);
+      expect(unknown.prioritizeUsernameInUx, isTrue);
       expect(
         unknown.markdownLinkifyTlds,
         SiteConfig.defaultMarkdownLinkifyTlds,
@@ -991,6 +1027,8 @@ void main() {
         gifFileDetail: 'gif',
         gifResultLimitEnabled: true,
         gifMaxResults: 72,
+        displayNameOnPosts: true,
+        prioritizeUsernameInUx: false,
       ),
     );
 

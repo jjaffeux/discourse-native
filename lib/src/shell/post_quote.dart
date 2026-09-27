@@ -2,17 +2,23 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 import '../models/post.dart';
+import '../models/site_config.dart';
 
 String buildPostQuote({
   required Post post,
   required int topicId,
   required String contents,
+  required SiteConfig config,
 }) {
   final selected = contents.trim();
   if (selected.isEmpty) return '';
 
+  // The attribution is saved for every reader, so it follows the site's name
+  // policy exactly as core's `buildQuote` does: a full name, kept attributable
+  // by its `username:`, only where the site puts names first.
   final fullName = post.name?.trim();
-  final usesFullName = fullName != null && fullName.isNotEmpty;
+  final usesFullName =
+      config.prioritizesFullName && fullName != null && fullName.isNotEmpty;
   final quotedName = (usesFullName ? fullName : post.username).replaceAll(
     RegExp(r'''["'‘’“”«»‹›]'''),
     '',

@@ -62,6 +62,8 @@ class SiteConfig {
     this.illegalContentReportEmail,
     this.suggestWeekendsInDatePickers = true,
     this.fastEditEnabled = true,
+    this.displayNameOnPosts = false,
+    this.prioritizeUsernameInUx = true,
     this.invites = const InviteSettings(),
     this.composerImageOptimization = const ComposerImageOptimization(),
     this.plugins = PluginData.none,
@@ -239,6 +241,8 @@ class SiteConfig {
       suggestWeekendsInDatePickers:
           json['suggest_weekends_in_date_pickers'] != false,
       fastEditEnabled: json['enable_fast_edit'] != false,
+      displayNameOnPosts: json['display_name_on_posts'] == true,
+      prioritizeUsernameInUx: json['prioritize_username_in_ux'] != false,
       invites: InviteSettings.fromJson(json),
       composerImageOptimization: ComposerImageOptimization.fromJson(json),
       plugins: extensions.readSiteSettings(json, siteUrl),
@@ -342,6 +346,8 @@ class SiteConfig {
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     fastEditEnabled: json['fastEditEnabled'] != false,
+    displayNameOnPosts: json['displayNameOnPosts'] == true,
+    prioritizeUsernameInUx: json['prioritizeUsernameInUx'] != false,
     invites: InviteSettings.fromJson(jsonObject(json['invites'])),
     composerImageOptimization: ComposerImageOptimization.fromJson(
       jsonObject(json['composerImageOptimization']),
@@ -408,6 +414,8 @@ class SiteConfig {
       'illegalContentReportEmail': illegalContentReportEmail,
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
       'fastEditEnabled': fastEditEnabled,
+      'displayNameOnPosts': displayNameOnPosts,
+      'prioritizeUsernameInUx': prioritizeUsernameInUx,
       'invites': invites.toJson(),
       'composerImageOptimization': composerImageOptimization.toJson(),
       if (pluginJson.isNotEmpty) 'plugins': pluginJson,
@@ -519,6 +527,14 @@ class SiteConfig {
   final bool suggestWeekendsInDatePickers;
 
   final bool fastEditEnabled;
+
+  final bool displayNameOnPosts;
+  final bool prioritizeUsernameInUx;
+
+  /// Core's `prioritizeNameFallback`: a person's full name stands in for their
+  /// username only where the site shows names on posts and does not put
+  /// usernames first. Both settings' defaults put the username first.
+  bool get prioritizesFullName => displayNameOnPosts && !prioritizeUsernameInUx;
 
   final InviteSettings invites;
 
@@ -671,6 +687,8 @@ class SiteConfig {
         illegalContentReportEmail: illegalContentReportEmail,
         suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
         fastEditEnabled: fastEditEnabled,
+        displayNameOnPosts: displayNameOnPosts,
+        prioritizeUsernameInUx: prioritizeUsernameInUx,
         invites: invites,
         composerImageOptimization: composerImageOptimization,
         plugins: value,
@@ -741,6 +759,8 @@ class SiteConfig {
       other.illegalContentReportEmail == illegalContentReportEmail &&
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.fastEditEnabled == fastEditEnabled &&
+      other.displayNameOnPosts == displayNameOnPosts &&
+      other.prioritizeUsernameInUx == prioritizeUsernameInUx &&
       other.invites == invites &&
       other.composerImageOptimization == composerImageOptimization &&
       other.plugins == plugins;
@@ -801,6 +821,8 @@ class SiteConfig {
     illegalContentReportEmail,
     suggestWeekendsInDatePickers,
     fastEditEnabled,
+    displayNameOnPosts,
+    prioritizeUsernameInUx,
     invites,
     composerImageOptimization,
     plugins,

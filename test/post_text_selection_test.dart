@@ -39,6 +39,10 @@ const _editablePost = Post(
   canEdit: true,
 );
 const _body = 'Read selected words here';
+const _namesFirst = SiteConfig(
+  displayNameOnPosts: true,
+  prioritizeUsernameInUx: false,
+);
 const _openingUser = DiscourseUser(id: 7, username: 'joffreyj');
 const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 
@@ -99,27 +103,75 @@ void main() {
   });
 
   group('post quote serialization', () {
+    const named = Post(
+      id: 22,
+      postNumber: 2,
+      username: 'sam',
+      name: 'Sam “Saffron”',
+      cooked: '',
+    );
+
     test('builds Discourse-compatible markup', () {
       expect(
-        buildPostQuote(post: _post, topicId: 7, contents: '  selected words  '),
+        buildPostQuote(
+          post: _post,
+          topicId: 7,
+          contents: '  selected words  ',
+          config: const SiteConfig.unknown(),
+        ),
         '[quote="sam, post:2, topic:7"]\nselected words\n[/quote]\n\n',
       );
     });
 
-    test('keeps a display name attributable to its username', () {
-      const named = Post(
-        id: 22,
-        postNumber: 2,
-        username: 'sam',
-        name: 'Sam “Saffron”',
-        cooked: '',
-      );
+    test('attributes to the username unless the site puts names first', () {
+      for (final config in const [
+        SiteConfig.unknown(),
+        SiteConfig(displayNameOnPosts: true),
+        SiteConfig(prioritizeUsernameInUx: false),
+      ]) {
+        expect(
+          buildPostQuote(
+            post: named,
+            topicId: 7,
+            contents: 'hello',
+            config: config,
+          ),
+          '[quote="sam, post:2, topic:7"]\nhello\n[/quote]\n\n',
+        );
+      }
+    });
 
+    test('keeps a display name attributable to its username', () {
       expect(
-        buildPostQuote(post: named, topicId: 7, contents: 'hello'),
+        buildPostQuote(
+          post: named,
+          topicId: 7,
+          contents: 'hello',
+          config: _namesFirst,
+        ),
         '[quote="Sam Saffron, post:2, topic:7, username:sam"]\n'
         'hello\n[/quote]\n\n',
       );
+    });
+
+    test('falls back to the username for an author without a name', () {
+      for (final name in [null, '', '  ']) {
+        expect(
+          buildPostQuote(
+            post: Post(
+              id: 22,
+              postNumber: 2,
+              username: 'sam',
+              name: name,
+              cooked: '',
+            ),
+            topicId: 7,
+            contents: 'hello',
+            config: _namesFirst,
+          ),
+          '[quote="sam, post:2, topic:7"]\nhello\n[/quote]\n\n',
+        );
+      }
     });
   });
 
@@ -613,6 +665,51 @@ void main() {
       expect(find.text('Quote copied to clipboard.'), findsOneWidget);
     });
 
+    for (final (setting, config, attribution) in const [
+      ('core defaults', SiteConfig.unknown(), 'sam, post:2, topic:7'),
+      (
+        'names first',
+        _namesFirst,
+        'Sam Saffron, post:2, topic:7, username:sam',
+      ),
+    ]) {
+      testWidgets('attribute a copied quote by the site name setting: '
+          '$setting', (tester) async {
+        const named = Post(
+          id: 22,
+          postNumber: 2,
+          username: 'sam',
+          name: 'Sam Saffron',
+          cooked: '<p>$_body</p>',
+        );
+        String? clipboard;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              clipboard =
+                  (call.arguments as Map<Object?, Object?>)['text'] as String;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+
+        final shell = await _pumpSelection(tester, post: named, config: config);
+        addTearDown(shell.dispose);
+        await _selectWord(tester);
+        await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+        await tester.pumpAndSettle();
+
+        expect(clipboard, '[quote="$attribution"]\nselected\n[/quote]\n\n');
+      });
+    }
+
     testWidgets('preserve Markdown structure across cooked blocks', (
       tester,
     ) async {
@@ -1076,7 +1173,12 @@ void main() {
 
       await shell.openQuote(
         _post,
-        buildPostQuote(post: _post, topicId: 7, contents: 'selected'),
+        buildPostQuote(
+          post: _post,
+          topicId: 7,
+          contents: 'selected',
+          config: const SiteConfig.unknown(),
+        ),
       );
 
       expect(
