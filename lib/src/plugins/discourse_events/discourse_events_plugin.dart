@@ -30,7 +30,7 @@ final class DiscourseEventsPlugin
         NotificationTypePlugin,
         CommunitySidebarPlugin,
         ContentPlugin,
-        ContentPageTitlePlugin {
+        ContentChromePlugin {
   const DiscourseEventsPlugin();
   @override
   String get name => 'discourse-events';
@@ -182,7 +182,7 @@ final class DiscourseEventsPlugin
   }
 
   @override
-  bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
+  bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       EventCalendarPage.readRoute(route.id) != null;
 
   @override

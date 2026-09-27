@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dar
 import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -37,6 +39,66 @@ SiteConfig _config([Map<String, dynamic> overrides = const {}]) =>
     }, 'https://forum.example');
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'Events omits the shell back row even with navigation history',
+      (tester) async {
+        const user = DiscourseUser(id: 2, username: 'lee');
+        final site = instance(
+          'forum.example',
+        ).copyWith(user: user, config: _config());
+        final eventApi = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              '{"events":[]}',
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        );
+        addTearDown(eventApi.close);
+        await pumpShell(
+          tester,
+          platform == TargetPlatform.iOS ? phone : desktop,
+          instances: [site],
+          api: _EventListApi(
+            events: eventApi,
+            user: user,
+            siteConfigs: {site.url: site.config},
+          ),
+          pluginManifest: _manifest,
+        );
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent)),
+        );
+        for (final id in ['events-upcoming', 'events-mine/month/2026/9/27']) {
+          controller.pushContent(
+            ContentRoute(id: id, title: 'Events', icon: EventIcons.calendar),
+          );
+          await tester.pumpAndSettle();
+          expect(controller.canPopContent, isTrue);
+          expect(find.byKey(const ValueKey('content-header')), findsNothing);
+          expect(
+            find.byKey(const ValueKey('content-header-separator')),
+            findsNothing,
+          );
+          final header = find.byKey(const ValueKey('event-calendar-header'));
+          expect(header, findsOneWidget);
+          expect(
+            find.descendant(of: header, matching: find.byType(DSeparator)),
+            findsOneWidget,
+          );
+        }
+        controller.handleBack(canReturnToSidebar: false);
+        await tester.pumpAndSettle();
+        expect(controller.currentContent?.id, 'events-upcoming');
+        expect(find.byKey(const ValueKey('content-header')), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   for (final (label, size, user) in [
     ('desktop account', desktop, const DiscourseUser(id: 2, username: 'lee')),
     ('anonymous phone', phone, null),
