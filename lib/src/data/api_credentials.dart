@@ -3,6 +3,13 @@ abstract interface class SiteApiKeyReader {
 }
 
 abstract interface class ApiCredentialReader implements SiteApiKeyReader {
+  /// The `User-Api-Client-Id` to send beside a user API key.
+  ///
+  /// Read this only for a request that carries a key: the site ignores the
+  /// header without one, and reading it may ask the platform for a push
+  /// registration. On Apple that raises the notification permission prompt,
+  /// which belongs to connecting an account, and can wait out the whole
+  /// registration timeout while APNs is unreachable.
   Future<String> clientId();
 }
 

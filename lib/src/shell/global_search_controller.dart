@@ -181,7 +181,7 @@ class GlobalSearchController extends ChangeNotifier {
     try {
       final key = await credentials.apiKeyFor(site);
       if (!current()) return;
-      final client = await credentials.clientId();
+      final client = key == null ? null : await credentials.clientId();
       if (!current()) return;
       final loaded = await api.capabilities(
         siteUrl: site,
@@ -536,7 +536,7 @@ class GlobalSearchController extends ChangeNotifier {
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     final key = await credentials.apiKeyFor(site);
     if (!current()) return const [];
-    final client = await credentials.clientId();
+    final client = key == null ? null : await credentials.clientId();
     if (!current()) return const [];
     final values = await api.lookupChoices(
       capabilities: capabilities,
@@ -569,7 +569,7 @@ class GlobalSearchController extends ChangeNotifier {
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     final key = await credentials.apiKeyFor(site);
     if (!current()) return const GlobalSearchCategoryPage();
-    final client = await credentials.clientId();
+    final client = key == null ? null : await credentials.clientId();
     if (!current()) return const GlobalSearchCategoryPage();
     final result = await api.lookupCategoryChoices(
       siteUrl: site,
@@ -708,7 +708,7 @@ class GlobalSearchController extends ChangeNotifier {
     try {
       final key = await credentials.apiKeyFor(site);
       if (!current()) return;
-      final client = await credentials.clientId();
+      final client = key == null ? null : await credentials.clientId();
       if (!current()) return;
       final page = await api.search(
         siteUrl: site,

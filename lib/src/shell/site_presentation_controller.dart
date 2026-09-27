@@ -578,10 +578,11 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<T?> _withCredentials<T>(
     String siteUrl,
     SiteLease lease,
-    Future<T> Function(String? apiKey, String clientId) load,
+    Future<T> Function(String? apiKey, String? clientId) load,
   ) async {
     final apiKey = await credentials.apiKeyFor(siteUrl);
     if (isDisposed || !lease.isCurrent) return null;
+    if (apiKey == null) return load(null, null);
     final clientId = await credentials.clientId();
     if (isDisposed || !lease.isCurrent) return null;
     return load(apiKey, clientId);
