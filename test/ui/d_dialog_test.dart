@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -272,6 +273,61 @@ void main() {
       expect(triggerBuilds, 1);
     },
   );
+
+  testWidgets('open route keeps one transition curve across keyboard insets', (
+    tester,
+  ) async {
+    final curves = <CurvedAnimation>[];
+    void track(ObjectEvent event) {
+      if (event case ObjectCreated(object: final CurvedAnimation curve)) {
+        curves.add(curve);
+      }
+    }
+
+    FlutterMemoryAllocations.instance.addListener(track);
+    addTearDown(() => FlutterMemoryAllocations.instance.removeListener(track));
+    var keyboard = 0.0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(800, 600),
+                  viewInsets: EdgeInsets.only(bottom: keyboard),
+                ),
+                child: Center(child: _dialog<void>()),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(
+      tester.element(find.text('Example dialog')),
+    )!.animation!;
+    List<CurvedAnimation> routeCurves() => [
+      for (final curve in curves)
+        if (identical(curve.parent, route)) curve,
+    ];
+    expect(routeCurves(), hasLength(1));
+
+    for (final inset in [96.0, 192.0, 288.0, 0.0]) {
+      update(() => keyboard = inset);
+      await tester.pump();
+    }
+    expect(routeCurves(), hasLength(1));
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Example dialog'), findsNothing);
+    expect(routeCurves().single.isDisposed, isTrue);
+  });
 
   testWidgets('controlled barrier request waits for caller state update', (
     tester,
