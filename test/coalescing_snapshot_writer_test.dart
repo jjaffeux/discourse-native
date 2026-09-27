@@ -57,6 +57,39 @@ void main() {
     },
   );
 
+  test(
+    'saves made during a write reach writeSnapshot once, as the newest',
+    () async {
+      final owner = Object();
+      final firstWriteStarted = Completer<void>();
+      final releaseFirstWrite = Completer<void>();
+      // Stores serialize inside writeSnapshot, so each call here is an encode.
+      final serialized = <int>[];
+
+      final writer = CoalescingSnapshotWriter<int>(
+        owner: owner,
+        key: 'snapshot',
+        writeSnapshot: (value) async {
+          serialized.add(value);
+          if (value == 0) {
+            firstWriteStarted.complete();
+            await releaseFirstWrite.future;
+          }
+        },
+      );
+
+      final firstSave = writer.save(0);
+      await firstWriteStarted.future;
+      final pendingSaves = [
+        for (var value = 1; value <= 20; value++) writer.save(value),
+      ];
+      releaseFirstWrite.complete();
+      await Future.wait([firstSave, ...pendingSaves]);
+
+      expect(serialized, [0, 20]);
+    },
+  );
+
   test('an already queued save writes before a newer pending save', () async {
     final owner = Object();
     final readStarted = Completer<void>();

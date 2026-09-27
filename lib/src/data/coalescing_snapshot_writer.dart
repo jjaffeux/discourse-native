@@ -6,6 +6,11 @@ import 'serial_operation_queue.dart';
 /// barrier. Replacing a dependency therefore coalesces into the same lane: an
 /// older not-yet-started value cannot overwrite the replacement's snapshot,
 /// and every coalesced save future settles with that replacement write.
+///
+/// Only the newest value accepted before a write starts reaches
+/// `writeSnapshot`; the values it superseded are dropped unexamined. A store
+/// may therefore save an unserialized snapshot and serialize it inside
+/// `writeSnapshot`, paying only for the snapshots that are written.
 final class CoalescingSnapshotWriter<T> {
   CoalescingSnapshotWriter({
     required Object owner,

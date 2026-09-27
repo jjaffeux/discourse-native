@@ -126,6 +126,12 @@ void main() {
     expect(updated.goForward().currentContent.title, 'Updated');
     expect(updated.goForward().goBack().currentContent.title, 'Updated');
     expect(updated.rewriteRoutes((route) => route), same(updated));
+    // An entry with no rewritten route keeps its instance and its encoding.
+    expect(updated.backHistory.single, same(tab.backHistory.single));
+    expect(
+      updated.forwardHistory.single,
+      isNot(same(tab.forwardHistory.single)),
+    );
   });
 }
 

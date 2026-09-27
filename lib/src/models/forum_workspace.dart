@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'content_route.dart';
@@ -69,6 +71,14 @@ final class ForumTabLocation {
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
   };
+
+  static final Expando<String> _encodings = Expando(
+    'encoded forum tab location',
+  );
+
+  /// `jsonEncode(toJson())`, kept with this entry for every later tab that
+  /// still holds it in its history.
+  String get _encoded => _encodings[this] ??= jsonEncode(toJson());
 
   static ForumTabLocation? tryFromJson(Object? value) {
     if (value is! Map) return null;
@@ -230,19 +240,31 @@ final class ForumTab {
     // presentation metadata such as the category color. Preserve rewrites of
     // those fields even when the route still has the same identity.
     var changed = false;
-    ContentRoute rewriteRoute(ContentRoute route) {
-      final updated = rewrite(route);
-      changed = changed || !identical(updated, route);
-      return updated;
+    List<ContentRoute>? rewriteStack(List<ContentRoute> routes) {
+      final updated = [for (final route in routes) rewrite(route)];
+      for (var index = 0; index < routes.length; index++) {
+        if (!identical(updated[index], routes[index])) {
+          changed = true;
+          return updated;
+        }
+      }
+      return null;
     }
 
-    ForumTabLocation rewriteLocation(ForumTabLocation entry) =>
-        ForumTabLocation(
-          rootDestinationId: entry.rootDestinationId,
-          contentStack: entry.contentStack.map(rewriteRoute).toList(),
-        );
+    // An entry whose routes all survive stays the same instance, so it keeps
+    // the encoding it already holds.
+    ForumTabLocation rewriteLocation(ForumTabLocation entry) {
+      final routes = rewriteStack(entry.contentStack);
+      return routes == null
+          ? entry
+          : ForumTabLocation(
+              rootDestinationId: entry.rootDestinationId,
+              contentStack: routes,
+            );
+    }
+
     final updated = copyWith(
-      contentStack: contentStack.map(rewriteRoute).toList(),
+      contentStack: rewriteStack(contentStack),
       backHistory: backHistory.map(rewriteLocation).toList(),
       forwardHistory: forwardHistory.map(rewriteLocation).toList(),
     );
@@ -301,18 +323,35 @@ final class ForumTab {
       if (routeIds.contains(entry.key)) entry.key: entry.value,
   };
 
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson() =>
+      _toJson((entries) => [for (final entry in entries) entry.toJson()]);
+
+  Map<String, Object?> _toJson(
+    Object? Function(List<ForumTabLocation> entries) historyJson,
+  ) => {
     'id': id,
     'panel': panel.name,
     'root_destination_id': rootDestinationId,
     'content_stack': [for (final route in contentStack) route.toJson()],
-    'back_history': [for (final entry in backHistory) entry.toJson()],
-    'forward_history': [for (final entry in forwardHistory) entry.toJson()],
+    'back_history': historyJson(backHistory),
+    'forward_history': historyJson(forwardHistory),
     if (anchors.isNotEmpty)
       'anchors': {
         for (final entry in anchors.entries) entry.key: entry.value.toJson(),
       },
   };
+
+  static final Expando<String> _encodings = Expando('encoded forum tab');
+
+  /// `jsonEncode(toJson())`. A scroll anchor or navigation replaces the tab
+  /// but not its untouched history entries, so only this tab's own fields and
+  /// its newly visited entry are encoded again.
+  String get _encoded => _encodings[this] ??= _encodeJsonObject(
+    _toJson(
+      (entries) =>
+          _EncodedJsonArray([for (final entry in entries) entry._encoded]),
+    ),
+  );
 
   static ForumTab? tryFromJson(Object? value) {
     if (value is! Map) return null;
@@ -504,14 +543,28 @@ final class ForumWorkspace {
     secondaryTabId: secondaryTabId ?? selectedTabIn(ForumPanel.secondary)?.id,
   );
 
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson() =>
+      _toJson((tabs) => [for (final tab in tabs) tab.toJson()]);
+
+  Map<String, Object?> _toJson(
+    Object? Function(List<ForumTab> tabs) tabsJson,
+  ) => {
     'site_url': siteUrl,
     'account_identity': accountIdentity,
     'active_tab_id': activeTabId,
     'main_tab_id': selectedTabIn(ForumPanel.main)?.id,
     'secondary_tab_id': selectedTabIn(ForumPanel.secondary)?.id,
-    'tabs': [for (final tab in tabs) tab.toJson()],
+    'tabs': tabsJson(tabs),
   };
+
+  /// Writes exactly `jsonEncode(toJson())`. Tabs and their history entries
+  /// are immutable and each keeps its own encoding, so a workspace that
+  /// shares them with one written earlier encodes only what is new.
+  void writeJson(StringSink out) => out.writeJsonObject(
+    _toJson(
+      (tabs) => _EncodedJsonArray([for (final tab in tabs) tab._encoded]),
+    ),
+  );
 
   static ForumWorkspace? tryFromJson(Object? value) {
     if (value is! Map) return null;
@@ -587,4 +640,37 @@ final class ForumWorkspace {
     selectedTabIn(ForumPanel.secondary)?.id,
     Object.hashAll(tabs),
   );
+}
+
+/// Array elements that are already JSON text.
+final class _EncodedJsonArray {
+  const _EncodedJsonArray(this.elements);
+
+  final List<String> elements;
+}
+
+String _encodeJsonObject(Map<String, Object?> fields) =>
+    (StringBuffer()..writeJsonObject(fields)).toString();
+
+extension on StringSink {
+  /// Writes what `jsonEncode(fields)` would, except that an
+  /// [_EncodedJsonArray] value is written from the text it already holds.
+  void writeJsonObject(Map<String, Object?> fields) {
+    write('{');
+    var first = true;
+    for (final MapEntry(:key, :value) in fields.entries) {
+      if (!first) write(',');
+      first = false;
+      write(jsonEncode(key));
+      write(':');
+      if (value is _EncodedJsonArray) {
+        write('[');
+        writeAll(value.elements, ',');
+        write(']');
+      } else {
+        write(jsonEncode(value));
+      }
+    }
+    write('}');
+  }
 }
