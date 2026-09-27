@@ -534,4 +534,153 @@ void main() {
     tracking.applyMessage(const {'topic_id': 20, 'message_type': 'destroy'});
     expect(badge(), SidebarBadge.none);
   });
+
+  Map<String, Object?> newTopicMessage(int topicId) => {
+    'topic_id': topicId,
+    'message_type': 'new_topic',
+    'payload': {
+      'last_read_post_number': null,
+      'highest_post_number': 1,
+      'category_id': 1,
+      'created_in_new_period': true,
+      'tags': [
+        {'id': 7},
+      ],
+    },
+  };
+
+  Map<String, Object?> readMessage(int topicId, {int postNumber = 1}) => {
+    'topic_id': topicId,
+    'message_type': 'read',
+    'payload': {
+      'last_read_post_number': postNumber,
+      'highest_post_number': postNumber,
+      'notification_level': 2,
+    },
+  };
+
+  Iterable<TrackedTopicState> settled(TopicTrackingState tracking) =>
+      tracking.topics.where((topic) => !topic.isNew && !topic.isUnread);
+
+  const settledTopicCap = 1024;
+
+  test('keeps only the most recently changed settled rows', () {
+    final tracking = TopicTrackingState();
+    for (var id = 1; id <= 2000; id++) {
+      // Changing an old settled row keeps it among the recent ones.
+      if (id == 1000) tracking.applyMessage(readMessage(1, postNumber: 2));
+      tracking.applyMessage(newTopicMessage(id));
+      // Every tenth topic stays new and every tenth gains an unread reply.
+      if (id % 10 == 0) continue;
+      tracking.applyMessage(readMessage(id));
+      if (id % 10 == 5) {
+        tracking.applyMessage({
+          'topic_id': id,
+          'message_type': 'unread',
+          'payload': {'highest_post_number': 2},
+        });
+      }
+    }
+
+    expect(settled(tracking), hasLength(settledTopicCap));
+    expect(tracking.topics, hasLength(settledTopicCap + 400));
+    expect(tracking.topic(2), isNull);
+    expect(tracking.topic(1)?.lastReadPostNumber, 2);
+    expect(tracking.topic(1999)?.lastReadPostNumber, 1);
+
+    expect(tracking.newActivityCounts, (newTopics: 200, newReplies: 200));
+    expect(
+      tracking.newActivityCountsFor(
+        categoryId: 1,
+        categories: categories,
+        tagIds: {7},
+      ),
+      (newTopics: 200, newReplies: 200),
+    );
+    expect(
+      tracking.tagBadge(tagId: 7, unifiedNew: true, showCount: true),
+      const SidebarBadge.count(400),
+    );
+    expect(
+      tracking.categoryBadge(
+        categoryId: 1,
+        categories: categories,
+        unifiedNew: false,
+        showCount: true,
+      ),
+      const SidebarBadge.count(200),
+    );
+  });
+
+  test('countable rows are never dropped to make room', () {
+    final tracking = TopicTrackingState([
+      for (var id = 1; id <= 3000; id++)
+        TrackedTopicState(
+          topicId: id,
+          highestPostNumber: 1,
+          categoryId: 1,
+          createdInNewPeriod: true,
+        ),
+    ]);
+    for (var id = 5001; id <= 8000; id++) {
+      tracking.applyMessage(readMessage(id));
+    }
+
+    expect(settled(tracking), hasLength(settledTopicCap));
+    expect(tracking.newActivityCounts, (newTopics: 3000, newReplies: 0));
+    for (var id = 1; id <= 3000; id++) {
+      expect(tracking.topic(id)?.isNew, isTrue, reason: 'topic $id');
+    }
+
+    // Rows leaving the countable set join the settled ones as the newest.
+    tracking.applyMessage({
+      'message_type': 'dismiss_new',
+      'payload': {
+        'topic_ids': [for (var id = 1; id <= 3000; id++) id],
+      },
+    });
+    expect(tracking.topics, hasLength(settledTopicCap));
+    expect(tracking.topic(3000)?.isSeen, isTrue);
+    expect(tracking.topic(8000), isNull);
+    expect(tracking.newActivityCounts, (newTopics: 0, newReplies: 0));
+  });
+
+  test('a live message costs the same however long the session has run', () {
+    Duration timeMessages(int sessionTopics) {
+      final tracking = TopicTrackingState();
+      for (var id = 1; id <= sessionTopics; id++) {
+        tracking.applyMessage(newTopicMessage(id));
+        tracking.applyMessage(readMessage(id));
+      }
+      var next = sessionTopics;
+      var counted = 0;
+      var best = const Duration(days: 1);
+      for (var round = 0; round < 5; round++) {
+        final stopwatch = Stopwatch()..start();
+        for (var message = 0; message < 100; message++) {
+          next++;
+          tracking.applyMessage(newTopicMessage(next));
+          counted += tracking.newActivityCounts.newTopics;
+          counted += tracking
+              .tagBadge(tagId: 7, unifiedNew: true, showCount: true)
+              .count;
+          tracking.applyMessage(readMessage(next));
+          counted += tracking.newActivityCounts.newTopics;
+        }
+        stopwatch.stop();
+        if (stopwatch.elapsed < best) best = stopwatch.elapsed;
+      }
+      expect(counted, 1000);
+      return best;
+    }
+
+    final small = timeMessages(2000);
+    final large = timeMessages(16000);
+
+    expect(
+      large.inMicroseconds,
+      lessThan(small.inMicroseconds * 4 + 2000),
+      reason: 'eight times the session length: $small became $large',
+    );
+  });
 }
