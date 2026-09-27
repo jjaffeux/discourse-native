@@ -716,11 +716,11 @@ class ChatController extends FrameSafeNotifier {
   static const int maxChannelAttempts = 3;
 
   /// How long the app must have been away before returning re-reads every
-  /// held channel list. MessageBus keeps a bounded backlog per channel (100
-  /// messages on a default Discourse), so a resumed poll cannot replay
-  /// activity, tracking or presence published beyond it. A shorter switch
-  /// rarely outruns that backlog, and re-reading each forum's list on every
-  /// app switch would cost a request per forum for nothing.
+  /// held channel list and every viewed message window. MessageBus keeps a
+  /// bounded backlog per channel (100 messages on a default Discourse), so a
+  /// resumed poll cannot replay activity, tracking, presence or messages
+  /// published beyond it. A shorter switch rarely outruns that backlog, and
+  /// re-reading on every app switch would cost requests for nothing.
   static const Duration resumeResyncThreshold = Duration(minutes: 1);
 
   final Set<String> _loading = {};
@@ -5190,6 +5190,7 @@ class ChatController extends FrameSafeNotifier {
   /// Returning after [resumeResyncThreshold] revalidates every held channel
   /// list, whose snapshot replaces the cursors and presence the resumed poll
   /// could not catch up; live changes accepted during that read still win.
+  /// Each viewed window at the present is re-read from its newest message.
   void setForeground(bool foreground) {
     if (isDisposed) return;
     if (!foreground) {
@@ -5205,6 +5206,46 @@ class ChatController extends FrameSafeNotifier {
     for (final siteUrl in _publicIds.keys.toList()) {
       unawaited(loadChannels(siteUrl, revalidate: true));
     }
+    for (final (:siteUrl, :target) in _retainedTargets.values.toList()) {
+      _resyncViewedWindow(siteUrl, target);
+    }
+  }
+
+  /// A window at the present extends itself with live arrivals, trusting the
+  /// poll to carry on from its newest message. After an absence the resumed
+  /// poll replays only what the trimmed backlog still holds, and appending
+  /// that would bridge a gap neither paging direction could fill. The window
+  /// is anchored behind the present instead, so replayed arrivals park until
+  /// a forward page from its newest message closes the seam, and the reader
+  /// keeps their place. A window no one is viewing is left to the fresh read
+  /// its next open makes.
+  void _resyncViewedWindow(String siteUrl, ChatStreamTarget target) {
+    final key = _targetKey(siteUrl, target);
+    final window = _streams[key];
+    if (window == null ||
+        !window.fetchedOnce ||
+        !window.atPresent ||
+        window.error != null ||
+        _loading.contains(key) ||
+        !_liveSync.isViewingTarget(siteUrl, target)) {
+      return;
+    }
+    if (window.newestId == null) {
+      // With no edge to page from, a fresh read replaces nothing on screen.
+      unawaited(
+        reporter.runOperation(
+          'chat.loadWindow',
+          () => _fetchWindow(
+            siteUrl,
+            target,
+            fromLastRead: target.threadId == null,
+          ),
+        ),
+      );
+      return;
+    }
+    _setStream(siteUrl, target, window.copyWith(canLoadMoreFuture: true));
+    unawaited(loadNewerFor(siteUrl, target));
   }
 
   /// Shares one bounded initial sidebar load per site; live tracking keeps it

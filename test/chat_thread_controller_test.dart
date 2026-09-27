@@ -460,6 +460,7 @@ final class _SequencedThreadListApi extends FakeDiscourseApi {
   Store? store,
   DiscourseUser user = currentUser,
   FakeApiCredentialReader? credentials,
+  DateTime Function()? clock,
 }) {
   credentials ??= FakeApiCredentialReader()..keys[site] = 'key';
   final resolvedStore = store ?? Store();
@@ -469,7 +470,7 @@ final class _SequencedThreadListApi extends FakeDiscourseApi {
     store: resolvedStore,
     currentUserFor: (_) => user,
     minimumWindowRefreshInterval: Duration.zero,
-    clock: () => DateTime.utc(2026, 8, 12, 12),
+    clock: clock ?? () => DateTime.utc(2026, 8, 12, 12),
   );
   addTearDown(chat.dispose);
   return (chat: chat, store: resolvedStore);
@@ -1899,6 +1900,41 @@ void main() {
     expect(subject.chat.stream(site, target.channelId).messageIds, isEmpty);
     expect(subject.store.read<ChatMessage>(site, 30)?.threadId, 22);
   });
+
+  test(
+    'a viewed thread pages forward past replies its trimmed backlog dropped',
+    () async {
+      var now = DateTime.utc(2026, 8, 12, 12);
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        pages: {
+          'thread-9-22': threadPage([20, 21]),
+          'thread-9-22~future~21': threadPage([22, 23]),
+        },
+      );
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store, clock: () => now);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+      await subject.chat.openThread(site, target);
+      final opened = subject.chat.streamFor(site, target);
+
+      subject.chat.setForeground(false);
+      now = now.add(ChatController.resumeResyncThreshold);
+      subject.chat.setForeground(true);
+      // 22 fell out of the thread channel's backlog; only 23 is replayed.
+      tracker.deliverPluginMessage('/chat/9/thread/22', threadSentEvent(23));
+      expect(subject.chat.streamFor(site, target).messageIds, [20, 21]);
+      await pumpEventQueue();
+
+      final stream = subject.chat.streamFor(site, target);
+      expect(api.chatThreadMessagesRequested.last.after, 21);
+      expect(stream.messageIds, [20, 21, 22, 23]);
+      expect(stream.atPresent, isTrue);
+      expect(stream.fetches, opened.fetches);
+    },
+  );
 
   test(
     'a replayed thread reply waits for the page that establishes the window',
