@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:livekit_client/livekit_client.dart' as livekit;
 
 void main() {
   for (final encoded in [
@@ -105,6 +106,116 @@ void main() {
           '(p2p_transport_channel.cc:1573): Candidates[0] pruned; '
           'passwordless check skipped\n';
       expect(VoiceDiagnosticsRedactor.scrub(lines), lines);
+    });
+  });
+
+  group('ICE server configurations', () {
+    // Deep capture records every LiveKit log line, including the transport's
+    // `[PCTransport] creating ${rtcConfig.toMap()}`. That map keeps each
+    // server's `urls` as a nested list, ahead of its username.
+    const config = livekit.RTCConfiguration(
+      iceServers: [
+        livekit.RTCIceServer(
+          urls: [
+            'turn:turn.example:3478?transport=udp',
+            'turns:turn.example:443?transport=tcp',
+          ],
+          username: 'map-turn-username-secret',
+          credential: 'map-turn-credential-secret',
+        ),
+        livekit.RTCIceServer(
+          urls: ['turn:relay.example:3478?transport=udp'],
+          username: 'second-turn-username-secret',
+          credential: 'second-turn-credential-secret',
+        ),
+      ],
+      iceTransportPolicy: livekit.RTCIceTransportPolicy.relay,
+    );
+    final transportLine = '[PCTransport] creating ${config.toMap()}';
+
+    void expectRedacted(String safe) {
+      for (final secret in const [
+        'map-turn-username-secret',
+        'map-turn-credential-secret',
+        'second-turn-username-secret',
+        'second-turn-credential-secret',
+      ]) {
+        expect(safe, isNot(contains(secret)), reason: secret);
+      }
+      for (final useful in const [
+        '[PCTransport] creating {sdpSemantics: unified-plan',
+        'urls: [turn:turn.example:3478?transport, '
+            'turns:turn.example:443?transport]',
+        'urls: [turn:relay.example:3478?transport]',
+        'username: <redacted>',
+      ]) {
+        expect(safe, contains(useful), reason: useful);
+      }
+    }
+
+    test('redact every username in the LiveKit transport config line', () {
+      expect(transportLine, contains('map-turn-username-secret'));
+
+      expectRedacted(VoiceDiagnosticsRedactor.scrub(transportLine));
+    });
+
+    test('redact a username in a config line cut short', () {
+      final cut = transportLine.substring(
+        0,
+        transportLine.indexOf('map-turn-username-secret') +
+            'map-turn-username-secret'.length,
+      );
+
+      final safe = VoiceDiagnosticsRedactor.scrub(cut);
+
+      expect(safe, isNot(contains('map-turn-username-secret')));
+      expect(safe, endsWith('username: <redacted>'));
+    });
+
+    test('redact every username in the protobuf join response form', () {
+      final safe = VoiceDiagnosticsRedactor.scrub(
+        'SignalJoinResponseEvent(response: room: {\n'
+        '  name: voice\n'
+        '}\n'
+        'iceServers: {\n'
+        '  urls: turn:turn.example:3478?transport=udp\n'
+        '  urls: turns:turn.example:443?transport=tcp\n'
+        '  username: proto-turn-username-secret\n'
+        '  credential: proto-turn-credential-secret\n'
+        '}\n'
+        'iceServers: {\n'
+        '  urls: turn:relay.example:3478?transport=udp\n'
+        '  username: proto-second-username-secret\n'
+        '}\n'
+        ')',
+      );
+
+      for (final secret in const [
+        'proto-turn-username-secret',
+        'proto-turn-credential-secret',
+        'proto-second-username-secret',
+      ]) {
+        expect(safe, isNot(contains(secret)), reason: secret);
+      }
+      expect(safe, contains('urls: turns:turn.example:443?transport\n'));
+      expect(safe, contains('name: voice\n'));
+    });
+
+    test('re-redact a leaked username when a persisted record loads', () {
+      final record = VoiceDiagnosticRecord.fromJson({
+        'writerId': 'writer',
+        'sequence': 1,
+        'timestampUtc': '2026-09-27T12:00:00.000Z',
+        'captureId': 'capture',
+        'event': 'sdk.livekit.log',
+        'component': 'livekit_sdk',
+        'severity': 'debug',
+        'message': transportLine,
+        'data': {'level': 'FINE'},
+        'truncated': false,
+      });
+
+      expectRedacted(record!.message!);
     });
   });
 }

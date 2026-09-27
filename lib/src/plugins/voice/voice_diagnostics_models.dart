@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
@@ -362,10 +363,15 @@ abstract final class VoiceDiagnosticsRedactor {
   );
   static const String _candidateField = r'[^:\[\]\s]*';
   static const String _candidateAddress = r'(?:\[[^\[\]\s]*\]|[^:\[\]\s]*):\d+';
-  static final RegExp _iceServerRepresentation = RegExp(
-    r'\b(?:rtc[-_ ]?)?(?:ice|turn)[-_ ]?servers?\b\s*(?:[:=]\s*)?(?:\[[\s\S]{0,4096}?\]|\{[\s\S]{0,4096}?\}|\([\s\S]{0,4096}?\))',
+  // LiveKit logs its peer-connection config as a Dart map, where each server's
+  // `urls` is a nested list ahead of its username, so a representation runs
+  // to its balancing bracket rather than to the first closing one. One that
+  // never closes, as in a record cut short, is scrubbed up to the bound.
+  static final RegExp _iceServerLabel = RegExp(
+    r'\b(?:rtc[-_ ]?)?(?:ice|turn)[-_ ]?servers?\b\s*(?:[:=]\s*)?(?=[\[\{\(])',
     caseSensitive: false,
   );
+  static const int _iceServerRepresentationLimit = 4096;
   static final RegExp _iceServerUsername = RegExp(
     r'''(["']?\busername\b["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;\]\}]+)''',
     caseSensitive: false,
@@ -402,15 +408,7 @@ abstract final class VoiceDiagnosticsRedactor {
       _nativeStunUsername,
       (match) => '${match.group(1)} <redacted>',
     );
-    text = text.replaceAllMapped(
-      _iceServerRepresentation,
-      (match) => match
-          .group(0)!
-          .replaceAllMapped(
-            _iceServerUsername,
-            (username) => '${username.group(1)}<redacted>',
-          ),
-    );
+    text = _redactIceServerUsernames(text);
     // Strip complete URL query values before assignment redaction can mistake
     // an entire `token=x&room=y` suffix for one token value.
     text = text.replaceAllMapped(_url, (match) => _redactUri(match.group(0)!));
@@ -431,6 +429,44 @@ abstract final class VoiceDiagnosticsRedactor {
       return '${text.substring(0, maximumLength)}…<truncated>';
     }
     return text;
+  }
+
+  static String _redactIceServerUsernames(String text) {
+    StringBuffer? output;
+    var copied = 0;
+    for (final label in _iceServerLabel.allMatches(text)) {
+      // A label nested in a representation already scrubbed adds nothing.
+      if (label.start < copied) continue;
+      final end = _iceServerRepresentationEnd(text, label.end);
+      (output ??= StringBuffer())
+        ..write(text.substring(copied, label.end))
+        ..write(
+          text
+              .substring(label.end, end)
+              .replaceAllMapped(
+                _iceServerUsername,
+                (username) => '${username.group(1)}<redacted>',
+              ),
+        );
+      copied = end;
+    }
+    if (output == null) return text;
+    return (output..write(text.substring(copied))).toString();
+  }
+
+  static int _iceServerRepresentationEnd(String text, int start) {
+    final limit = min(text.length, start + _iceServerRepresentationLimit);
+    var depth = 0;
+    for (var index = start; index < limit; index += 1) {
+      switch (text[index]) {
+        case '[' || '{' || '(':
+          depth += 1;
+        case ']' || '}' || ')':
+          depth -= 1;
+          if (depth == 0) return index + 1;
+      }
+    }
+    return limit;
   }
 
   static String _redactNativeCandidate(Match match) {
