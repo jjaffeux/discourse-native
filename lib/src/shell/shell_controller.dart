@@ -3469,10 +3469,18 @@ class ShellController extends FrameSafeNotifier
 
   final _unreadTopicFeed = UnreadTopicFeed();
 
-  bool get currentFeedIsUnread => switch (currentTopicListMode) {
-    TopicListMode.unread || TopicListMode.newReplies => true,
-    _ => false,
-  };
+  bool get currentFeedIsUnread {
+    // Core serves personal and group Unread folders through the same unread
+    // filter as /unread, so a message read here leaves them the same way.
+    final route = topicListContent ?? topicListTab?.currentContent;
+    if (route?.isMessages == true) {
+      return route!.messageListMode == MessageListMode.unread;
+    }
+    return switch (currentTopicListMode) {
+      TopicListMode.unread || TopicListMode.newReplies => true,
+      _ => false,
+    };
+  }
 
   TopicFeed? get currentFeed {
     final instance = currentInstance;

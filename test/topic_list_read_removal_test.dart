@@ -5,12 +5,14 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_indicators.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +23,13 @@ import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader', unifiedNewEnabled: true);
+const _messenger = DiscourseUser(
+  id: 7,
+  username: 'reader',
+  canSendPrivateMessages: true,
+  groups: ['team'],
+  messageGroupNames: ['team'],
+);
 
 void main() {
   for (final mode in [
@@ -152,6 +161,75 @@ void main() {
         api.feedPaths.where((path) => path == mode.feedPath),
         hasLength(1),
       );
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
+  for (final group in [null, 'team']) {
+    final folder = ContentRoute.messages(
+      groupName: group,
+      mode: MessageListMode.unread,
+    );
+    final name = group == null ? 'personal' : 'group';
+
+    testWidgets('$name Unread messages remove read ones after moving on', (
+      tester,
+    ) async {
+      final (shell, api, _) = await _setup(tester, folder: folder, count: 2);
+      await _openBeside(tester, _card(1));
+      await shell.markTopicRead(_site, 1, 10, caughtUp: true);
+      await tester.pumpAndSettle();
+      expect(_card(1), findsOneWidget);
+      expect(tester.widget<DItem>(_card(1)).selected, isTrue);
+
+      await _openBeside(tester, _card(2));
+      expect(_card(1), findsNothing);
+      expect(tester.widget<DItem>(_card(2)).selected, isTrue);
+      expect(shell.currentFeed!.topicIds, [2]);
+      expect(shell.topicFeeds.feedFor(_site, folder.id)!.topicIds, [1, 2]);
+
+      await shell.markTopicRead(_site, 2, 10, caughtUp: true);
+      shell.closeTopicListReader();
+      await tester.pumpAndSettle();
+      expect(_card(2), findsNothing);
+      expect(find.text("You're all caught up."), findsOneWidget);
+      expect(
+        api.feedPaths.where((path) => path == _folderPath(folder)),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('$name Unread messages list a read one again after a reply', (
+      tester,
+    ) async {
+      final (shell, api, rows) = await _setup(tester, folder: folder, count: 2);
+      await shell.markTopicRead(_site, 1, 10, caughtUp: true);
+      await tester.pumpAndSettle();
+      expect(_card(1), findsNothing);
+
+      // Core's inbox lists read messages too.
+      shell.selectMessageListMode(MessageListMode.inbox);
+      await tester.pumpAndSettle();
+      expect(shell.currentFeed!.topicIds, [1, 2]);
+      expect(_card(1), findsOneWidget);
+      shell.selectMessageListMode(MessageListMode.unread);
+      await tester.pumpAndSettle();
+      expect(_card(1), findsNothing);
+
+      // A response older than the read must not bring the message back.
+      await shell.loadFeed(folder.id, force: true);
+      await tester.pumpAndSettle();
+      expect(_card(1), findsNothing);
+
+      api.feeds[_folderPath(folder)] = [
+        _row(1, message: true, highestPostNumber: 11, lastReadPostNumber: 10),
+        rows[1],
+      ];
+      await shell.loadFeed(folder.id, force: true);
+      await tester.pumpAndSettle();
+      expect(shell.currentFeed!.topicIds, [1, 2]);
+      expect(_card(1), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
@@ -501,38 +579,49 @@ Future<void> _openBeside(WidgetTester tester, Finder row) async {
   await tester.pumpAndSettle();
 }
 
+/// Opens [folder]'s message list instead of [mode]'s topic list. Core keeps
+/// messages out of topic tracking state, so their rows carry the only counts.
 Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   WidgetTester tester, {
   TopicListMode mode = TopicListMode.unread,
+  ContentRoute? folder,
   int count = 3,
   Set<int> newIds = const {},
   Size size = desktop,
   Completer<void>? nextPageGate,
 }) async {
   final rows = [
-    for (var id = 1; id <= count; id++) _row(id, isNew: newIds.contains(id)),
+    for (var id = 1; id <= count; id++)
+      _row(id, isNew: newIds.contains(id), message: folder != null),
   ];
   final tracking = TopicTrackingState([
-    for (final row in rows)
-      newIds.contains(row.id)
-          ? TrackedTopicState(
-              topicId: row.id,
-              highestPostNumber: 10,
-              createdInNewPeriod: true,
-            )
-          : TrackedTopicState(
-              topicId: row.id,
-              highestPostNumber: 10,
-              lastReadPostNumber: 4,
-              notificationLevel: 2,
-            ),
+    if (folder == null)
+      for (final row in rows)
+        newIds.contains(row.id)
+            ? TrackedTopicState(
+                topicId: row.id,
+                highestPostNumber: 10,
+                createdInNewPeriod: true,
+              )
+            : TrackedTopicState(
+                topicId: row.id,
+                highestPostNumber: 10,
+                lastReadPostNumber: 4,
+                notificationLevel: 2,
+              ),
   ]);
-  final feedPath = mode.feedPath ?? '/latest.json';
+  final user = folder == null ? _user : _messenger;
+  final feedPath = folder == null
+      ? mode.feedPath ?? '/latest.json'
+      : _folderPath(folder);
   final api = FakeDiscourseApi(
-    user: _user,
+    user: user,
     trackingState: tracking,
     feeds: {
       '/latest.json': rows,
+      if (folder != null)
+        _folderPath(ContentRoute.messages(groupName: folder.messageGroupName)):
+            rows,
       feedPath: rows,
       if (nextPageGate != null) '/unread.json?page=1': [_row(count + 1)],
     },
@@ -548,6 +637,7 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
             title: row.title,
             stream: const [],
             postsCount: 10,
+            privateMessage: folder != null,
           ),
           posts: [],
         ),
@@ -556,12 +646,26 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   await pumpShell(
     tester,
     size,
-    instances: [instance('meta.discourse.org').copyWith(user: _user)],
+    instances: [instance('meta.discourse.org').copyWith(user: user)],
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'reader-key',
   );
   final shell = tester.widget<ShellScope>(find.byType(ShellScope)).notifier!;
-  await shell.selectTopicListMode(mode);
+  if (folder == null) {
+    await shell.selectTopicListMode(mode);
+  } else {
+    shell.selectDestination(
+      const SidebarDestination(
+        id: 'messages',
+        label: 'Messages',
+        icon: DIcons.inbox,
+      ),
+    );
+    await tester.pumpAndSettle();
+    shell.selectMessageInbox(folder.messageGroupName);
+    shell.selectMessageListMode(folder.messageListMode);
+    expect(shell.currentFeedId, folder.id);
+  }
   if (nextPageGate == null) {
     await tester.pumpAndSettle();
   } else {
@@ -571,10 +675,16 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   return (shell, api, rows);
 }
 
+String _folderPath(ContentRoute folder) => folder.messageListMode.feedPathFor(
+  _messenger.username,
+  groupName: folder.messageGroupName,
+);
+
 /// A new row is one core serializes as never read: unseen, with no position.
 Topic _row(
   int id, {
   bool isNew = false,
+  bool message = false,
   int highestPostNumber = 10,
   int lastReadPostNumber = 4,
 }) => Topic(
@@ -592,4 +702,5 @@ Topic _row(
   unreadPosts: isNew ? 0 : highestPostNumber - lastReadPostNumber,
   newPosts: isNew ? 0 : highestPostNumber - lastReadPostNumber,
   seen: !isNew,
+  privateMessage: message,
 );
