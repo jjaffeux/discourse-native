@@ -220,6 +220,9 @@ const _laterReply = Post(
   cooked: 'later',
 );
 
+Post _streamPost(int id) =>
+    Post(id: id, postNumber: id, username: 'replier', cooked: 'post $id');
+
 const _closedAction = Post(
   id: 2,
   postNumber: 2,
@@ -1251,6 +1254,188 @@ void main() {
       expect(shell.currentTopic?.stream, [1, 2, 3]);
       expect(shell.currentTopic?.postsCount, 3);
     });
+  });
+
+  group('posts the site no longer serves', () {
+    // The stream was read before a moderator deleted one of its posts, and
+    // this reader cannot see deleted posts: reading it by id leaves it out.
+    final stream = [for (var id = 1; id <= 45; id++) id];
+    List<int> without(int omitted) => [
+      for (final id in stream)
+        if (id != omitted) id,
+    ];
+
+    Future<
+      ({ShellController shell, FakeDiscourseApi api, FakeSiteTracker tracker})
+    >
+    openPartly(
+      Iterable<int> loaded, {
+      required int omitted,
+      int? postNumber,
+    }) async {
+      final api = FakeDiscourseApi(
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A topic',
+            posts: [for (final id in loaded) _streamPost(id)],
+            stream: stream,
+            postsCount: stream.length,
+          ),
+        },
+        postsById: {for (final id in without(omitted)) id: _streamPost(id)},
+      );
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'a-topic',
+          title: 'A topic',
+          postNumber: postNumber,
+        ),
+      );
+      await shell.loadTopic(7, 'a-topic', postNumber: postNumber);
+      return (shell: shell, api: api, tracker: FakeSiteTracker.built.single);
+    }
+
+    test('pages forward past a post the site leaves out', () async {
+      final (:shell, :api, tracker: _) = await openPartly([
+        for (var id = 1; id <= 20; id++) id,
+      ], omitted: 25);
+      expect(shell.currentTopicHasMore, isTrue);
+
+      await shell.loadMorePosts();
+      await shell.loadMorePosts();
+      await shell.loadMorePosts();
+
+      expect(api.postFetches, [
+        [for (var id = 21; id <= 40; id++) id],
+        [41, 42, 43, 44, 45],
+      ]);
+      expect(shell.currentTopic?.stream, without(25));
+      expect(shell.currentTopic?.postsCount, 44);
+      expect(shell.currentPostIds, without(25));
+      expect(shell.currentTopicHasMore, isFalse);
+    });
+
+    test('pages back past a post the site leaves out', () async {
+      final (:shell, :api, tracker: _) = await openPartly(
+        [for (var id = 26; id <= 45; id++) id],
+        omitted: 22,
+        postNumber: 40,
+      );
+      expect(shell.currentTopicHasEarlier, isTrue);
+
+      await shell.loadEarlierPosts();
+      await shell.loadEarlierPosts();
+      await shell.loadEarlierPosts();
+
+      expect(api.postFetches, [
+        [for (var id = 6; id <= 25; id++) id],
+        [1, 2, 3, 4, 5],
+      ]);
+      expect(shell.currentTopic?.stream, without(22));
+      expect(shell.currentTopic?.postsCount, 44);
+      expect(shell.currentPostIds, without(22));
+      expect(shell.currentTopicHasEarlier, isFalse);
+    });
+
+    for (final pagedPast in const [true, false]) {
+      final when = pagedPast ? 'after paging past' : 'before paging reaches';
+      test('a refetch $when the post keeps it out of the stream', () async {
+        final (:shell, :api, :tracker) = await openPartly([
+          for (var id = 1; id <= 20; id++) id,
+        ], omitted: 25);
+        if (pagedPast) {
+          await shell.loadMorePosts();
+          await shell.loadMorePosts();
+        }
+
+        // A reply arrives, and the site's stream no longer has the post.
+        final current = [...without(25), 46];
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A topic',
+          posts: [for (var id = 1; id <= 20; id++) _streamPost(id)],
+          stream: current,
+          postsCount: current.length,
+        );
+        api.postsById[46] = _streamPost(46);
+        tracker.deliverTopicMessage('/topic/7', const {
+          'type': 'created',
+          'id': 46,
+        });
+        await pumpEventQueue();
+
+        expect(shell.currentTopic?.stream, current);
+        expect(shell.currentTopic?.postsCount, current.length);
+
+        await shell.loadMorePosts();
+        await shell.loadMorePosts();
+
+        expect(shell.currentPostIds, current);
+        expect(shell.currentTopicHasMore, isFalse);
+      });
+    }
+
+    for (final stored in const [true, false]) {
+      final read = stored ? 'stored' : 'still out';
+      test(
+        'a page does not drop a post a recovery read $read restores',
+        () async {
+          final api = _PostOrderingApi();
+          // Core's own handling only, so the recovery starts one stream read.
+          final plugins = PluginInstaller.install(const PluginManifest([]));
+          addTearDown(plugins.close);
+          final shell = await _loadShell(api, plugins: plugins);
+          addTearDown(shell.dispose);
+          final recovered = [for (var id = 1; id <= 30; id++) id];
+          TopicPayload snapshot() => topicPayload(
+            id: 7,
+            title: 'A topic',
+            posts: [_post('initial'), _reply],
+            stream: recovered,
+            postsCount: recovered.length,
+          );
+          api.topics[7] = snapshot();
+          final tracker = await _openTopic(shell);
+
+          final paging = shell.loadMorePosts();
+          await api.waitForPostRequests(1);
+          expect(api.postRequests.single.ids, [
+            for (var id = 3; id <= 22; id++) id,
+          ]);
+
+          // The page is served while post 10 is deleted, and answers only after
+          // the post's recovery started a stream read.
+          api.holdTopics = !stored;
+          tracker.deliverTopicMessage('/topic/7', const {
+            'type': 'recovered',
+            'id': 10,
+          });
+          if (stored) {
+            await pumpEventQueue();
+            expect(api.topicsOpened, [7, 7]);
+          } else {
+            await api.waitForTopicRequests(1);
+          }
+          api.postRequests.single.response.complete([
+            for (var id = 3; id <= 22; id++)
+              if (id != 10) _streamPost(id),
+          ]);
+          await paging;
+          if (!stored) {
+            api.topicRequests.single.complete(snapshot());
+            await pumpEventQueue();
+          }
+
+          expect(shell.currentTopic?.stream, recovered);
+          expect(shell.currentPostIds, [for (var id = 1; id <= 9; id++) id]);
+          expect(shell.currentTopicHasMore, isTrue);
+        },
+      );
+    }
   });
 
   group('session replacement', () {

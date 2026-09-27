@@ -1073,6 +1073,11 @@ class TopicDetail with Storable<TopicDetail> {
   @override
   TopicDetail merge(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
+    // A refetch can answer from before a reply that was just appended here,
+    // so an id after every post it returned is kept. One it leaves out from
+    // between those posts is one the site no longer serves to this reader:
+    // kept, it would move behind later replies as an id no read can fill.
+    final caughtUp = stream.lastIndexWhere(arrived.contains);
     // A locally expanded gap id is absent from the server's filtered stream
     // by design. When a full topic refetch arrives, let it collapse back into
     // the incoming gap rather than mistaking that id for a brand-new reply and
@@ -1081,9 +1086,10 @@ class TopicDetail with Storable<TopicDetail> {
       for (final gap in incoming.gapsBefore.values) ...gap,
       for (final gap in incoming.gapsAfter.values) ...gap,
     };
-    final missing = stream
-        .where((id) => !arrived.contains(id) && !incomingGapIds.contains(id))
-        .toList();
+    final missing = [
+      for (final id in stream.skip(caughtUp + 1))
+        if (!incomingGapIds.contains(id)) id,
+    ];
     var merged = missing.isEmpty
         ? incoming
         : incoming.copyWith(

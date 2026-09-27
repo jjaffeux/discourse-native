@@ -4358,8 +4358,9 @@ class ShellController extends FrameSafeNotifier
         ];
         // After a deletion, a read by id that leaves the post out means this
         // reader can no longer see it, as the web client concludes when its
-        // own read fails. A full topic refetch keeps held ids, so nothing else
-        // takes it out of the stream. No other read's omission removes a post.
+        // own read fails. A full topic refetch keeps an omitted id that ends
+        // the stream, so nothing else would take the last post out. No other
+        // live re-read's omission removes a post.
         final answered = {for (final post in posts) post.id};
         final gone = [
           for (final id in wanted)
@@ -7300,6 +7301,12 @@ class ShellController extends FrameSafeNotifier
   int _topicPostRemovalVersion(String siteUrl, int topicId) =>
       _topicPostRemovalVersions[_topicKey(siteUrl, topicId)] ?? 0;
 
+  /// Advances each time a stream read of a topic is stored.
+  final Map<String, int> _topicStreamReadVersions = {};
+
+  int _topicStreamReadVersion(String siteUrl, int topicId) =>
+      _topicStreamReadVersions[_topicKey(siteUrl, topicId)] ?? 0;
+
   void _removeTopicPost(String siteUrl, int topicId, int postId) {
     final key = _topicKey(siteUrl, topicId);
     final version = _topicPostRemovalVersion(siteUrl, topicId) + 1;
@@ -7314,10 +7321,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   /// A stream read that left before a removal still carries the removed post.
-  /// Stored, it would be back, and `TopicDetail.merge` keeps a held id the
-  /// server omits, so no later read would take it out again. The rest of the
-  /// read stands; a read that leaves after the removal, such as the one a
-  /// recovery starts, restores the post.
+  /// Stored, it would be back as a held post, which paging never reads again,
+  /// and `TopicDetail.merge` keeps an omitted id that ends the stream, so the
+  /// last post would stay for good. The rest of the read stands; a read that
+  /// leaves after the removal, such as the one a recovery starts, restores
+  /// the post.
   TopicPayload _withoutPostsRemovedSince(
     String siteUrl,
     TopicPayload payload,
@@ -7357,6 +7365,11 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       response,
       postRemovalVersionAtDispatch,
+    );
+    _topicStreamReadVersions.update(
+      _topicKey(siteUrl, payload.detail.id),
+      (version) => version + 1,
+      ifAbsent: () => 1,
     );
     final preserveBookmarks =
         bookmarkVersionAtDispatch != null &&
@@ -8297,6 +8310,37 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// A page that leaves out a post it asked for is answered by a site that no
+  /// longer serves that post to this reader: deleted, moved or made a whisper
+  /// since the stream was read. The loaded window ends at the first post it
+  /// does not hold, so kept, the id would stop paging there for good; the web
+  /// client steps over it instead. A stream read stored since the page left,
+  /// or still out, may carry a recovery the page predates, and settles the
+  /// stream itself.
+  void _removeOmittedTopicPosts(
+    String siteUrl,
+    int topicId,
+    List<int> requested,
+    Iterable<Post> answered, {
+    required int streamReadVersionAtDispatch,
+  }) {
+    if (streamReadVersionAtDispatch !=
+            _topicStreamReadVersion(siteUrl, topicId) ||
+        _topicsLoading.contains(_topicKey(siteUrl, topicId))) {
+      return;
+    }
+    final stream = store.read<TopicDetail>(siteUrl, topicId)?.stream;
+    if (stream == null) return;
+    final served = {for (final post in answered) post.id};
+    for (final id in requested) {
+      if (!served.contains(id) &&
+          stream.contains(id) &&
+          store.read<Post>(siteUrl, id) == null) {
+        _removeTopicPost(siteUrl, topicId, id);
+      }
+    }
+  }
+
   Future<void> markTopicRead(
     String siteUrl,
     int topicId,
@@ -8351,6 +8395,7 @@ class ShellController extends FrameSafeNotifier
         detail.recommendations == null && requestIds.length == pending.length;
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
+    final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
 
     _postsLoading.add(key);
     _notify();
@@ -8383,6 +8428,13 @@ class ShellController extends FrameSafeNotifier
           topicId,
           page.posts,
           bookmarkVersionAtDispatch: bookmarkVersion,
+        );
+        _removeOmittedTopicPosts(
+          instance.url,
+          topicId,
+          requestIds,
+          page.posts,
+          streamReadVersionAtDispatch: streamReadVersion,
         );
         if (page.recommendations case final recommendations?) {
           store.update<TopicDetail>(
@@ -8434,6 +8486,7 @@ class ShellController extends FrameSafeNotifier
     if (pending.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
+    final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
 
     _earlierPostsLoading.add(key);
     _notify();
@@ -8450,14 +8503,21 @@ class ShellController extends FrameSafeNotifier
         ids: pending,
         apiKey: credential.value,
       );
-      lease.commit(
-        () => _putTopicPosts(
+      lease.commit(() {
+        _putTopicPosts(
           instance.url,
           topicId,
           posts,
           bookmarkVersionAtDispatch: bookmarkVersion,
-        ),
-      );
+        );
+        _removeOmittedTopicPosts(
+          instance.url,
+          topicId,
+          pending,
+          posts,
+          streamReadVersionAtDispatch: streamReadVersion,
+        );
+      });
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(
@@ -14722,6 +14782,9 @@ class ShellController extends FrameSafeNotifier
       (key, _) => key.startsWith('$siteUrl#'),
     );
     _removedTopicPosts.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicStreamReadVersions.removeWhere(
+      (key, _) => key.startsWith('$siteUrl#'),
+    );
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
