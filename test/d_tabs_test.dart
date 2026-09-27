@@ -1104,6 +1104,83 @@ void main() {
     expect(third.hasFocus, isTrue);
   });
 
+  for (final owner in ['controlled', 'controller']) {
+    testWidgets(
+      '$owner selection is the only Tab stop from mount and after it changes',
+      (tester) async {
+        const tabs = ['one', 'two', 'three'];
+        final nodes = {for (final tab in tabs) tab: FocusNode()};
+        final before = FocusNode();
+        final controller = DTabController<String>('three');
+        addTearDown(() {
+          for (final node in [...nodes.values, before]) {
+            node.dispose();
+          }
+          controller.dispose();
+        });
+        var value = 'three';
+        late StateSetter update;
+        final list = DTabList<String>(
+          children: [
+            for (final tab in tabs)
+              DTabTrigger(value: tab, focusNode: nodes[tab], child: Text(tab)),
+          ],
+        );
+        await mount(
+          tester,
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Column(
+                children: [
+                  DButton(
+                    focusNode: before,
+                    label: const Text('Before'),
+                    onPressed: () {},
+                  ),
+                  if (owner == 'controlled')
+                    DTabs<String>.controlled(
+                      value: value,
+                      onChanged: (_) {},
+                      children: [list],
+                    )
+                  else
+                    DTabs<String>(controller: controller, children: [list]),
+                ],
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        List<String> tabStops() => [
+          for (final tab in tabs)
+            if (!nodes[tab]!.skipTraversal) tab,
+        ];
+        Future<void> tabFromBefore() async {
+          before.requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+
+        expect(tabStops(), ['three']);
+        await tabFromBefore();
+        expect(nodes['three']!.hasPrimaryFocus, isTrue);
+
+        // A focused trigger stays the roving stop; the change arrives from
+        // outside the list.
+        before.requestFocus();
+        await tester.pump();
+        update(() => value = 'one');
+        controller.value = 'one';
+        await tester.pumpAndSettle();
+        expect(tabStops(), ['one']);
+        await tabFromBefore();
+        expect(nodes['one']!.hasPrimaryFocus, isTrue);
+      },
+    );
+  }
+
   testWidgets('automatic focus activates, loops, and follows RTL', (
     tester,
   ) async {

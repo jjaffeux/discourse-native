@@ -249,8 +249,19 @@ class _DTabsState<T> extends State<DTabs<T>> {
         (selected?.isEnabled ?? false ? selected : null) ??
         enabled.firstOrNull;
     _highlightedForValue = value;
-    if (identical(next, _highlightedTrigger)) return;
-    setState(() => _highlightedTrigger = next);
+    _highlightedTrigger = next;
+    // Stops computed while building can predate this highlight: a trigger's
+    // first build runs before the triggers after it register, and a selection
+    // change rebuilds the triggers before this reconcile moves the highlight.
+    _syncTabStops();
+  }
+
+  /// [_DTabScope] carries the selection but not the highlight, so a highlight
+  /// change rebuilds only the triggers the single Tab stop moved between.
+  void _syncTabStops() {
+    for (final trigger in _triggers) {
+      trigger.updateTabStop();
+    }
   }
 
   bool isTabStop(_DTabTriggerState<T> trigger) {
@@ -267,10 +278,9 @@ class _DTabsState<T> extends State<DTabs<T>> {
 
   void highlight(_DTabTriggerState<T> trigger) {
     if (!trigger.isEnabled || identical(_highlightedTrigger, trigger)) return;
-    setState(() {
-      _highlightedTrigger = trigger;
-      _highlightedForValue = value;
-    });
+    _highlightedTrigger = trigger;
+    _highlightedForValue = value;
+    _syncTabStops();
   }
 
   void select(T value) {
@@ -853,6 +863,20 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     setState(() => _focusFromPointer = value);
   }
 
+  bool get _skipsTraversal {
+    final originalSkip = widget.focusNode == null
+        ? false
+        : _borrowedSkipTraversal ?? false;
+    return originalSkip || !isEnabled || !(_root?.isTabStop(this) ?? false);
+  }
+
+  /// The flag is written only during build: the root moves the Tab stop from
+  /// focus notifications, while the focus manager is still iterating the
+  /// nodes it notifies.
+  void updateTabStop() {
+    if (focusNode.skipTraversal != _skipsTraversal) setState(() {});
+  }
+
   void ensureVisible() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -877,11 +901,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     };
     final selected = root.value == widget.value;
     final enabled = widget.enabled && root.enabled;
-    final originalSkip = widget.focusNode == null
-        ? false
-        : _borrowedSkipTraversal ?? false;
-    focusNode.skipTraversal =
-        originalSkip || !root.state.isTabStop(this) || !enabled;
+    focusNode.skipTraversal = _skipsTraversal;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
     final horizontalLine = line && root.orientation == Axis.horizontal;

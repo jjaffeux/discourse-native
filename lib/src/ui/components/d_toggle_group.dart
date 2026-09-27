@@ -328,7 +328,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent || !_groupInteractive) {
+    // A held arrow key repeats. An ignored repeat reaches the default
+    // directional traversal, which skips the non-roving items and leaves the
+    // group, so repeats rove exactly like the initial press.
+    if (event is KeyUpEvent || !_groupInteractive) {
       return KeyEventResult.ignored;
     }
     final direction = Directionality.of(context);

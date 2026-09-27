@@ -529,6 +529,64 @@ void main() {
     expect(third.hasFocus, isTrue);
   });
 
+  for (final loopFocus in [true, false]) {
+    testWidgets('a held arrow key keeps roving inside the group with '
+        'loopFocus $loopFocus', (tester) async {
+      final nodes = List.generate(3, (_) => FocusNode());
+      final outside = FocusNode();
+      addTearDown(() {
+        for (final node in [...nodes, outside]) {
+          node.dispose();
+        }
+      });
+      await mount(
+        tester,
+        Row(
+          children: [
+            DToggleGroup<String>(
+              initialValues: const ['0'],
+              loopFocus: loopFocus,
+              items: [
+                for (var index = 0; index < nodes.length; index++)
+                  DToggleGroupItem(
+                    value: '$index',
+                    semanticLabel: 'Choice $index',
+                    focusNode: nodes[index],
+                    child: Text('$index'),
+                  ),
+              ],
+            ),
+            DButton(
+              focusNode: outside,
+              label: const Text('Outside'),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      );
+
+      nodes.first.requestFocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(nodes[1].hasPrimaryFocus, isTrue);
+
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(nodes[2].hasPrimaryFocus, isTrue);
+
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      final last = nodes[loopFocus ? 0 : 2];
+      expect(last.hasPrimaryFocus, isTrue);
+      expect(outside.hasFocus, isFalse);
+
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(last.hasPrimaryFocus, isTrue);
+    });
+  }
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'horizontal keyboard roving reveals focused items in ${direction.name}',
