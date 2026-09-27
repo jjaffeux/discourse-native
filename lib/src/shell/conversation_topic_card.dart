@@ -182,7 +182,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
     return Padding(
       padding: row.outerPadding ?? EdgeInsets.zero,
       child: LinkTarget(
-        url: '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+        url: resolveSiteRootPath(
+          row.siteUrl,
+          '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+        ),
         title: topic.title,
         siteUrl: row.siteUrl,
         child: Semantics(

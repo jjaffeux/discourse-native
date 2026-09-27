@@ -1,4 +1,5 @@
 import '../foundation/uri_path.dart';
+import 'discourse_instance.dart';
 
 enum ListKind { category, tag }
 
@@ -23,14 +24,19 @@ class ListLink {
 
   static const int maximumUrlLength = 2048;
 
-  static ListLink? parse(String url) {
+  /// Reads a category or tag link. A forum served from a subfolder writes its
+  /// links under that path; [siteUrl] names the forum so the base is required
+  /// and then skipped, which leaves [feedPath] relative to the site.
+  static ListLink? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
     // A trailing slash leaves an empty last segment, which would otherwise
     // read as "not an id" and refuse a perfectly ordinary link.
-    final decoded = tryUriPathSegments(uri);
+    final decoded = siteUrl == null
+        ? tryUriPathSegments(uri)
+        : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
     if (decoded == null) return null;
     final segments = [...decoded]..removeWhere((segment) => segment.isEmpty);
     if (segments.length < 2) return null;

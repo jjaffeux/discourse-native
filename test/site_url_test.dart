@@ -32,4 +32,29 @@ void main() {
       );
     });
   });
+
+  group('resolveSiteRootPath', () {
+    test('keeps a subfolder site prefix for an app-built root path', () {
+      expect(
+        resolveSiteRootPath('https://example.com/forum', '/latest'),
+        'https://example.com/forum/latest',
+      );
+      expect(
+        resolveSiteRootPath('https://example.com/forum/', '/u/sam?tab=x'),
+        'https://example.com/forum/u/sam?tab=x',
+      );
+    });
+
+    test('resolves a root site exactly as a root-relative link would', () {
+      for (final site in ['https://example.com', 'http://localhost:4200']) {
+        for (final path in ['/latest', '/c/general/4', '/t/a-topic/7/2']) {
+          expect(
+            resolveSiteRootPath(site, path),
+            resolveSiteUrl(path, site),
+            reason: '$site$path',
+          );
+        }
+      }
+    });
+  });
 }

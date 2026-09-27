@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../foundation/uri_path.dart';
+import 'discourse_instance.dart';
 
 @immutable
 final class GroupRoute {
@@ -192,11 +193,16 @@ final class GroupRoute {
     }
   }
 
-  static GroupRoute? parse(String url) {
+  /// Reads a group link. A forum served from a subfolder writes its links
+  /// under that path; [siteUrl] names the forum so the base is required and
+  /// then skipped, and a link under some other path is not a group of it.
+  static GroupRoute? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
-    final decoded = tryUriPathSegments(uri);
+    final decoded = siteUrl == null
+        ? tryUriPathSegments(uri)
+        : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
     if (decoded == null) return null;
     final segments = [...decoded];
     while (segments.isNotEmpty && segments.last.isEmpty) {

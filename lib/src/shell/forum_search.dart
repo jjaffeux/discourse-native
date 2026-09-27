@@ -17,6 +17,7 @@ import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
+import 'site_url.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
 class ForumSearch extends StatefulWidget {
@@ -348,7 +349,12 @@ class _ForumSearchState extends State<ForumSearch> {
       _shell!.openSearchResult(hit);
     } else {
       unawaited(
-        openLink(context, result.path, title: result.title, siteUrl: site),
+        openLink(
+          context,
+          resolveSiteRootPath(site, result.path),
+          title: result.title,
+          siteUrl: site,
+        ),
       );
     }
   }

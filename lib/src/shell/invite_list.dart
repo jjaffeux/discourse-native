@@ -102,7 +102,7 @@ class _InviteSessionState extends State<_InviteSession> {
     final user = Uri.encodeComponent(
       widget.instance.user!.username.toLowerCase(),
     );
-    final url = widget.shell.absoluteUrl(
+    final url = widget.shell.siteLink(
       '/u/$user/invited/${_controller.filter.name}',
       siteUrl: widget.instance.url,
     );

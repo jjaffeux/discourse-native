@@ -1,10 +1,18 @@
+import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/global_search_fixtures.dart';
+import 'support/shell_test_harness.dart';
 
 const _siteUrl = 'https://example.com/forum';
 
@@ -72,5 +80,92 @@ void main() {
         expect(shell.currentContent?.topicId, 7);
       },
     );
+
+    test('opens the pages the app links to under its subfolder', () async {
+      final shell = await loadShell(FakeDiscourseApi());
+      addTearDown(shell.dispose);
+
+      expect(shell.siteLink('/latest'), '$_siteUrl/latest');
+      expect(shell.siteLink('/u/alice'), '$_siteUrl/u/alice');
+      expect(shell.openCorePageUrl(shell.siteLink('/latest')), isTrue);
+      expect(shell.currentContent?.id, 'latest');
+    });
+
+    test('opens its category, tag and group links in the app', () async {
+      final shell = await loadShell(FakeDiscourseApi());
+      addTearDown(shell.dispose);
+
+      expect(shell.openListUrl('$_siteUrl/c/general/4'), isTrue);
+      expect(shell.currentContent?.feedPath, '/c/general/4.json');
+      expect(shell.openListUrl('$_siteUrl/tag/news/3'), isTrue);
+      expect(shell.currentContent?.feedPath, '/tag/news/3.json');
+      expect(shell.openListUrl('https://example.com/c/general/4'), isFalse);
+
+      expect(shell.openGroupUrl('$_siteUrl/g/staff'), isTrue);
+      expect(shell.currentContent?.groupRoute, GroupRoute.detail('staff'));
+      expect(shell.openGroupUrl('https://example.com/g/staff'), isFalse);
+
+      expect(
+        shell.openLinkInNewTab('$_siteUrl/c/general/4'),
+        TabOpenResult.opened,
+      );
+      expect(shell.openLinkInNewTab('$_siteUrl/g/staff'), TabOpenResult.opened);
+    });
+
+    test('opens a group chosen from its directory', () async {
+      final shell = await loadShell(FakeDiscourseApi());
+      addTearDown(shell.dispose);
+
+      ShellGroupPagesPort(shell).openGroup((
+        siteUrl: _siteUrl,
+        accountIdentity: shell.currentAccountIdentity!,
+        tabId: shell.activeTabId,
+      ), 'staff');
+
+      expect(shell.currentContent?.groupRoute, GroupRoute.detail('staff'));
+    });
+
+    testWidgets('shows the card of a user found by search in the app', (
+      tester,
+    ) async {
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final launched = <String>[];
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final api = GlobalSearchFixtureApi();
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          DiscourseInstance(
+            url: _siteUrl,
+            title: 'Subfolder',
+            user: globalSearchFixtureUser,
+          ),
+        ],
+        api: api,
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+      );
+
+      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('global-search-result-users:101')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      expect(api.cardsRequested, ['mira']);
+      expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 }

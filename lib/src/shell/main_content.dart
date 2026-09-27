@@ -46,6 +46,7 @@ import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
+import 'site_url.dart';
 import 'tags_page.dart';
 import 'title_bar.dart';
 import 'topic_create_button.dart';
@@ -178,7 +179,10 @@ class _MainContentBody extends StatelessWidget {
         framed: !context.isTouch,
         limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
         tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
-        child: NewTabPage(onBrowseTopics: () => openLink(context, '/latest')),
+        child: NewTabPage(
+          onBrowseTopics: () =>
+              openLink(context, ShellScope.read(context).siteLink('/latest')),
+        ),
       );
     }
     final pluginContent = ForumTabScope.read(
@@ -1342,7 +1346,7 @@ class _CategoryHeaderIdentity extends StatelessWidget {
         children: [
           Flexible(
             child: LinkTarget(
-              url: '/c/${parent.id}',
+              url: resolveSiteRootPath(siteUrl, '/c/${parent.id}'),
               title: parent.name,
               siteUrl: siteUrl,
               child: InlineAction.link(
