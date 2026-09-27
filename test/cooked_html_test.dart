@@ -37,6 +37,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/media_pipeline.dart';
@@ -536,7 +537,7 @@ void main() {
           '<p><img src="$inline" alt="Inline"></p>',
         );
 
-        expect(drawnImages(tester), [isA<MemoryImage>()]);
+        expect(drawnImages(tester), [isA<FittedMemoryImage>()]);
         expect(paragraphOf(tester, 'Secret'), 'Secret');
       });
     }
@@ -565,6 +566,119 @@ void main() {
         );
       });
     }
+  });
+
+  group('inline data images', () {
+    setUp(() {
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+    });
+
+    String inlinePng({
+      required int width,
+      required int height,
+      String mimeType = 'image/png',
+    }) => Uri.dataFromBytes(
+      blankPng(width: width, height: height),
+      mimeType: mimeType,
+    ).toString();
+
+    Future<void> pumpInLane(WidgetTester tester, String html, {Key? key}) =>
+        tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 200,
+                  child: SingleChildScrollView(
+                    child: CookedHtml(key: key, html: html),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    // Decoding runs on the engine, in real time.
+    Future<void> pumpUntil(WidgetTester tester, bool Function() done) async {
+      for (var attempt = 0; attempt < 100; attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+        if (done()) return;
+      }
+      fail('The image did not settle');
+    }
+
+    bool decoded(WidgetTester tester) => tester
+        .widgetList<RawImage>(find.byType(RawImage))
+        .any((raw) => raw.image != null);
+
+    // The decoder reads the bytes, not the declared type, so a raster
+    // labelled as SVG must not reach the package's unbounded decode either.
+    for (final mimeType in ['image/png', 'image/svg+xml']) {
+      testWidgets('labelled $mimeType decode no wider than their layout', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 2;
+        addTearDown(tester.view.reset);
+        final src = inlinePng(width: 1000, height: 1000, mimeType: mimeType);
+
+        await pumpInLane(tester, '<p><img src="$src" alt="Square"></p>');
+        await pumpUntil(tester, () => decoded(tester));
+
+        final image = tester.widget<RawImage>(find.byType(RawImage)).image!;
+        expect(
+          (image.width, image.height),
+          (coarseDecodePixels(400), coarseDecodePixels(400)),
+        );
+        expect(tester.getSize(find.byType(RawImage)), const Size.square(200));
+      });
+    }
+
+    testWidgets('share one decode across remounts', (tester) async {
+      final src = inlinePng(width: 300, height: 200);
+
+      for (var mount = 0; mount < 3; mount++) {
+        await pumpInLane(
+          tester,
+          '<p><img src="$src" alt="Wide"></p>',
+          key: ValueKey(mount),
+        );
+        await pumpUntil(tester, () => decoded(tester));
+      }
+
+      expect(PaintingBinding.instance.imageCache.currentSize, 1);
+    });
+
+    testWidgets('over the pixel cap read as their alt text', (tester) async {
+      const width = 8000;
+      // One row over the cap. Decoding it would allocate 200 MB.
+      final src = inlinePng(
+        width: width,
+        height: maximumFittedImagePixels ~/ width + 1,
+      );
+
+      await pumpInLane(tester, '<p><img src="$src" alt="Huge"></p>');
+      await pumpUntil(tester, () => find.text('Huge').evaluate().isNotEmpty);
+
+      expect(find.byType(RawImage), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with unreadable data read as their alt text', (tester) async {
+      await pumpInLane(
+        tester,
+        '<p>Before <img src="data:image/png;base64,@@@@" alt="Broken"> '
+        'after</p>',
+      );
+
+      expect(paragraphOf(tester, 'Before'), 'Before Broken after');
+      expect(tester.takeException(), isNull);
+    });
   });
 
   test('containing topics have value semantics for HTML rebuild triggers', () {

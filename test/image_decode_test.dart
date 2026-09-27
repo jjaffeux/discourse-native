@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/media_pipeline.dart';
 
 final Uint8List onePixelPng = base64Decode(
@@ -146,6 +147,30 @@ void main() {
       width: 500,
       height: 333,
     ), reason: 'never narrower than the bound');
+  });
+
+  testWidgets('fitted memory images refuse a source over the pixel cap '
+      'without decoding it', (tester) async {
+    const width = 8000;
+    // One row over the cap. Decoding it would allocate 200 MB.
+    const height = maximumFittedImagePixels ~/ width + 1;
+    final provider = FittedMemoryImage(
+      blankPng(width: width, height: height),
+      width: 100,
+    );
+
+    await tester.runAsync(
+      () => expectLater(
+        _firstFrameSize(provider),
+        throwsA(
+          isA<ImageTooLargeException>().having(
+            (error) => (error.width, error.height),
+            'size',
+            (width, height),
+          ),
+        ),
+      ),
+    );
   });
 
   testWidgets('unreadable bytes keep their requested bound as the key', (
@@ -357,7 +382,11 @@ Future<Uint8List> _pngBytes(
 Future<({int width, int height})> _decode(
   WidgetTester tester,
   ImageProvider<Object> provider,
-) async => (await tester.runAsync(() {
+) async => (await tester.runAsync(() => _firstFrameSize(provider)))!;
+
+Future<({int width, int height})> _firstFrameSize(
+  ImageProvider<Object> provider,
+) {
   final size = Completer<({int width, int height})>();
   final stream = provider.resolve(ImageConfiguration.empty);
   late final ImageStreamListener listener;
@@ -374,7 +403,7 @@ Future<({int width, int height})> _decode(
   );
   stream.addListener(listener);
   return size.future;
-}))!;
+}
 
 final class _RecordingDiagnosticsSink implements DiagnosticsSink {
   final List<String?> operations = [];
