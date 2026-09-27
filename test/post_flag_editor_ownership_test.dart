@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -49,6 +50,49 @@ const _replacementMessage = 'A new explanation from the replacement account.';
 
 void main() {
   for (final target in ['post', 'topic']) {
+    testWidgets(
+      '$target flag chosen from its menu by keyboard takes focus from the '
+      'menu trigger and returns it on Escape',
+      (tester) async {
+        await _loadShell(tester, _FlagApi(), _CountingAuthenticator());
+        final trigger = tester
+            .widget<DButton>(
+              find.byKey(
+                ValueKey(
+                  target == 'post'
+                      ? 'post-more-actions-1'
+                      : 'topic-status-button',
+                ),
+              ),
+            )
+            .focusNode!;
+        trigger.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        final item = target == 'post'
+            ? find.widgetWithText(DDropdownMenuItem, 'Flag')
+            : find.byKey(const ValueKey('topic-flag-button'));
+        for (var step = 0; step < 12 && !_focusWithin(item); step++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pump();
+        }
+        expect(_focusWithin(item), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PostFlagEditor), findsOneWidget);
+        final focused = FocusManager.instance.primaryFocus!.context!;
+        expect(ModalRoute.of(focused), isA<DialogRoute<void>>());
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(PostFlagEditor), findsNothing);
+        expect(trigger.hasPrimaryFocus, isTrue);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
     for (final type in [_flag, _messageFlag]) {
       final action = type.requireMessage ? 'message' : 'flag';
 
@@ -216,6 +260,20 @@ Future<ShellController> _loadShell(
   await tester.tap(find.text('Opening topic'));
   await tester.pumpAndSettle();
   return ShellScope.read(tester.element(find.byType(MainContent)));
+}
+
+bool _focusWithin(Finder finder) {
+  final focused = FocusManager.instance.primaryFocus?.context;
+  if (focused == null) return false;
+  return find
+      .descendant(
+        of: finder,
+        matching: find.byElementPredicate(
+          (element) => identical(element, focused),
+        ),
+      )
+      .evaluate()
+      .isNotEmpty;
 }
 
 Future<void> _openSheet(WidgetTester tester, String target) async {

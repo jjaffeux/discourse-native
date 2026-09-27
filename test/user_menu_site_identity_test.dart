@@ -219,21 +219,44 @@ void main() {
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         final semantics = tester.ensureSemantics();
         try {
-          await tester.tap(find.byKey(UserMenuButton.avatarKey));
-          await tester.pumpAndSettle();
-
+          final avatar = tester
+              .widget<DButton>(find.byKey(UserMenuButton.avatarKey))
+              .focusNode!;
           var row = find.byKey(const ValueKey('pause-notifications-row'));
-          expect(
-            tester.widget<DDropdownMenuCheckboxItem>(row).checked,
-            isFalse,
-          );
-          expect(
-            tester.widget<DDropdownMenuCheckboxItem>(row).onChanged,
-            isNotNull,
-          );
-          await tester.tap(row);
-          await tester.pumpAndSettle();
+          Future<void> choosePause() async {
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            await tester.pumpAndSettle();
+            for (var step = 0; step < 20 && !_focusWithin(row); step++) {
+              await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+              await tester.pump();
+            }
+            expect(_focusWithin(row), isTrue);
+            expect(
+              tester.widget<DDropdownMenuCheckboxItem>(row).checked,
+              isFalse,
+            );
+            expect(
+              tester.widget<DDropdownMenuCheckboxItem>(row).onChanged,
+              isNotNull,
+            );
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            await tester.pumpAndSettle();
+          }
+
+          avatar.requestFocus();
+          await tester.pump();
+          await choosePause();
           expect(find.byType(UserMenuPanel), findsNothing);
+          expect(find.text('Pause notifications for…'), findsOneWidget);
+          final focused = FocusManager.instance.primaryFocus!.context!;
+          expect(ModalRoute.of(focused), isA<DialogRoute<void>>());
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.text('Pause notifications for…'), findsNothing);
+          expect(avatar.hasPrimaryFocus, isTrue);
+
+          await choosePause();
           expect(find.text('Pause notifications for…'), findsOneWidget);
           expect(
             find.byKey(const ValueKey('do-not-disturb-halfHour')),
@@ -252,14 +275,12 @@ void main() {
             findsOneWidget,
           );
 
-          final halfHour = find.byKey(
-            const ValueKey('do-not-disturb-halfHour'),
-          );
-          final focusChild = find
-              .descendant(of: halfHour, matching: find.byType(MouseRegion))
-              .first;
-          Focus.of(tester.element(focusChild)).requestFocus();
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pump();
+          expect(
+            _focusWithin(find.byKey(const ValueKey('do-not-disturb-halfHour'))),
+            isTrue,
+          );
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
 
@@ -588,6 +609,20 @@ void main() {
       }),
     );
   });
+}
+
+bool _focusWithin(Finder finder) {
+  final focused = FocusManager.instance.primaryFocus?.context;
+  if (focused == null) return false;
+  return find
+      .descendant(
+        of: finder,
+        matching: find.byElementPredicate(
+          (element) => identical(element, focused),
+        ),
+      )
+      .evaluate()
+      .isNotEmpty;
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {

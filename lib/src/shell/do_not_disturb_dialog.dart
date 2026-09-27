@@ -28,11 +28,17 @@ Future<void> showDoNotDisturbDialog(
       identical(ShellScope.maybeRead(navigatorContext), scope);
   return showDialog<void>(
     context: context,
-    builder: (context) => _DoNotDisturbDialog(
-      siteUrl: siteUrl,
-      username: user.username,
-      controller: shell,
-      ownsAccount: ownsAccount,
+    // The user menu hands focus back to its trigger, on the route below, once
+    // this dialog is already pushed. The dialog claims focus after that so Tab
+    // and Escape act on it rather than behind its barrier.
+    builder: (context) => FocusScope(
+      autofocus: true,
+      child: _DoNotDisturbDialog(
+        siteUrl: siteUrl,
+        username: user.username,
+        controller: shell,
+        ownsAccount: ownsAccount,
+      ),
     ),
   );
 }

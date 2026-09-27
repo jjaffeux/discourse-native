@@ -98,68 +98,77 @@ class _SheetBody extends StatelessWidget {
         ? MediaQuery.viewInsetsOf(context).bottom
         : 0.0;
 
-    return AnimatedPadding(
-      key: const ValueKey('shell-sheet-keyboard-inset'),
-      padding: EdgeInsets.only(bottom: keyboardInset),
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
-            child: Row(
-              children: [
-                if (nested)
-                  DButton.iconOnly(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    variant: DButtonVariant.ghost,
-                    tooltip: 'Back',
-                    icon: const DIcon(DIcons.arrowLeft),
-                  ),
-                Expanded(
-                  child: DText(
-                    title,
-                    variant: DTextVariant.h4,
-                    headingLevel: 1,
-                  ),
-                ),
-                if (!nested)
-                  DButton.iconOnly(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    variant: DButtonVariant.ghost,
-                    tooltip: 'Close',
-                    icon: const DIcon(DIcons.xmark),
-                  ),
-              ],
-            ),
-          ),
-          if (showHeaderDivider)
-            DSeparator(color: theme.shell.divider, space: 1),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
-                bottom: footerBuilder == null && insetsBottom
-                    ? MediaQuery.paddingOf(context).bottom
-                    : 0,
-              ),
-              child: Padding(padding: padding, child: builder(context)),
-            ),
-          ),
-          if (footerBuilder case final footerBuilder?) ...[
-            DSeparator(color: theme.shell.divider, space: 1),
+    // A menu that opens this sheet hands focus back to its trigger, on the
+    // route below, once the sheet is already pushed. The sheet claims focus
+    // after that so Tab and Escape act on it rather than behind its barrier;
+    // a control that autofocuses inside the builder still takes precedence.
+    return FocusScope(
+      autofocus: true,
+      child: AnimatedPadding(
+        key: const ValueKey('shell-sheet-keyboard-inset'),
+        padding: EdgeInsets.only(bottom: keyboardInset),
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Padding(
-              padding: EdgeInsets.only(
-                bottom: insetsBottom ? MediaQuery.paddingOf(context).bottom : 0,
-              ),
-              child: Padding(
-                padding: footerPadding,
-                child: footerBuilder(context),
+              padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
+              child: Row(
+                children: [
+                  if (nested)
+                    DButton.iconOnly(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Back',
+                      icon: const DIcon(DIcons.arrowLeft),
+                    ),
+                  Expanded(
+                    child: DText(
+                      title,
+                      variant: DTextVariant.h4,
+                      headingLevel: 1,
+                    ),
+                  ),
+                  if (!nested)
+                    DButton.iconOnly(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      variant: DButtonVariant.ghost,
+                      tooltip: 'Close',
+                      icon: const DIcon(DIcons.xmark),
+                    ),
+                ],
               ),
             ),
+            if (showHeaderDivider)
+              DSeparator(color: theme.shell.divider, space: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: footerBuilder == null && insetsBottom
+                      ? MediaQuery.paddingOf(context).bottom
+                      : 0,
+                ),
+                child: Padding(padding: padding, child: builder(context)),
+              ),
+            ),
+            if (footerBuilder case final footerBuilder?) ...[
+              DSeparator(color: theme.shell.divider, space: 1),
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: insetsBottom
+                      ? MediaQuery.paddingOf(context).bottom
+                      : 0,
+                ),
+                child: Padding(
+                  padding: footerPadding,
+                  child: footerBuilder(context),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
