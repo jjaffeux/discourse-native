@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -147,7 +148,101 @@ void main() {
       });
     });
   }
+
+  // PostDestroyer#recover also recovers the topic of a first post, and the
+  // only topic message it publishes is a stats one.
+  group('first post undelete', () {
+    for (final completion in _Completion.values) {
+      test('the topic follows an undelete that ends in $completion', () async {
+        final (:shell, :api) = await _fixture(
+          _Action.recover,
+          posts: [_deletedPost(1)],
+          postsById: {1: _post(1)},
+        );
+        final undeleting = shell.recoverPost(
+          shell.store.read<Post>(_siteUrl, 1)!,
+        );
+        await api.waitForWrites(1);
+        expect(api.recovered, [1]);
+        _expectState(shell, _Action.recover, false);
+
+        _complete(api.writes.single.result, completion);
+        expect(await undeleting, _result(completion));
+        final succeeded = completion == _Completion.success;
+        _expectState(shell, _Action.recover, succeeded);
+        expect(shell.store.read<Post>(_siteUrl, 1)!.isDeleted, !succeeded);
+      });
+    }
+
+    test('a retired undelete leaves the replacement topic alone', () async {
+      final (:shell, :api) = await _fixture(
+        _Action.recover,
+        posts: [_deletedPost(1)],
+        postsById: {1: _post(1)},
+      );
+      final oldUndelete = shell.recoverPost(
+        shell.store.read<Post>(_siteUrl, 1)!,
+      );
+      await api.waitForWrites(1);
+
+      await shell.disconnectCurrentInstance();
+      await shell.connectCurrentInstance();
+      await shell.loadFeed('latest');
+      await shell.loadTopic(_topicId, 'topic');
+      expect(shell.currentInstance?.user, _replacementUser);
+      final replacementTopic = shell.store.read<TopicDetail>(
+        _siteUrl,
+        _topicId,
+      );
+      final replacementPost = shell.store.read<Post>(_siteUrl, 1);
+
+      api.writes.single.result.complete();
+      expect(await oldUndelete, isNull);
+      expect(
+        shell.store.read<TopicDetail>(_siteUrl, _topicId),
+        same(replacementTopic),
+      );
+      expect(shell.store.read<Post>(_siteUrl, 1), same(replacementPost));
+      _expectState(shell, _Action.recover, false);
+    });
+
+    test('undeleting a reply leaves its topic deleted', () async {
+      final (:shell, :api) = await _fixture(
+        _Action.recover,
+        posts: [_deletedPost(1), _deletedPost(2)],
+        postsById: {2: _post(2)},
+      );
+      final undeleting = shell.recoverPost(
+        shell.store.read<Post>(_siteUrl, 2)!,
+      );
+      await api.waitForWrites(1);
+      api.writes.single.result.complete();
+
+      expect(await undeleting, isNull);
+      expect(api.recovered, [2]);
+      expect(shell.store.read<Post>(_siteUrl, 2)!.isDeleted, isFalse);
+      _expectState(shell, _Action.recover, false);
+    });
+  });
 }
+
+Post _post(int number) => Post(
+  id: number,
+  postNumber: number,
+  username: 'author',
+  cooked: '<p>post $number</p>',
+  userId: 3,
+);
+
+Post _deletedPost(int number) => Post(
+  id: number,
+  postNumber: number,
+  username: 'author',
+  cooked: '<p>post $number</p>',
+  userId: 3,
+  deletedAt: DateTime.utc(2026),
+  canRecover: true,
+);
 
 Future<String?> _write(ShellController shell, _Action action, bool enabled) =>
     switch (action) {
@@ -222,13 +317,16 @@ void _expectState(ShellController shell, _Action action, bool changed) {
 }
 
 Future<({ShellController shell, _GatedTopicApi api})> _fixture(
-  _Action action,
-) async {
+  _Action action, {
+  List<Post> posts = const [],
+  Map<int, Post> postsById = const {},
+}) async {
   final deleted = action == _Action.recover;
   final api = _GatedTopicApi(
     topicPayload(
       id: _topicId,
       title: 'Topic',
+      posts: posts,
       unpinned: true,
       visible: false,
       deletedAt: deleted ? DateTime.utc(2026) : null,
@@ -238,6 +336,7 @@ Future<({ShellController shell, _GatedTopicApi api})> _fixture(
       canDeleteTopic: !deleted,
       canRecoverTopic: deleted,
     ),
+    postsById: postsById,
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -258,12 +357,18 @@ Future<({ShellController shell, _GatedTopicApi api})> _fixture(
   });
   await shell.load();
   await shell.loadFeed('latest');
+  // Post actions write to the topic on screen.
+  if (posts.isNotEmpty) {
+    shell.pushContent(
+      ContentRoute.topic(topicId: _topicId, slug: 'topic', title: 'Topic'),
+    );
+  }
   await shell.loadTopic(_topicId, 'topic');
   return (shell: shell, api: api);
 }
 
 class _GatedTopicApi extends FakeDiscourseApi {
-  _GatedTopicApi(TopicPayload topic)
+  _GatedTopicApi(TopicPayload topic, {super.postsById})
     : super(
         feeds: const {
           '/latest.json': [Topic(id: _topicId, title: 'Topic', slug: 'topic')],
@@ -337,4 +442,20 @@ class _GatedTopicApi extends FakeDiscourseApi {
     required int topicId,
     String? clientId,
   }) => _hold(siteUrl, apiKey, topicId);
+
+  @override
+  Future<void> recoverPost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) async {
+    await super.recoverPost(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      postId: postId,
+      clientId: clientId,
+    );
+    await _hold(siteUrl, apiKey, _topicId);
+  }
 }

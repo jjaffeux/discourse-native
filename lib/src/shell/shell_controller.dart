@@ -10609,6 +10609,16 @@ class ShellController extends FrameSafeNotifier
         apiKey: apiKey,
         postId: post.id,
       ),
+      // PostDestroyer#recover also recovers the topic of a first post, and the
+      // only topic message it publishes is a stats one, so the held topic has
+      // to leave its deleted state here, as after the header's recover.
+      accepted: post.postNumber == 1
+          ? (siteUrl, topicId) => store.update<TopicDetail>(
+              siteUrl,
+              topicId,
+              (topic) => topic.withDeletion(false, DateTime.now().toUtc()),
+            )
+          : null,
     );
   }
 
@@ -12158,10 +12168,14 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  /// [accepted] applies what the server's acceptance of [write] changes beyond
+  /// the post itself. It runs under the write's lease, before the re-read,
+  /// which may fail without taking back what the server already did.
   Future<String?> _mutatePost(
     Post post,
-    Future<void> Function(String siteUrl, String apiKey) write,
-  ) async {
+    Future<void> Function(String siteUrl, String apiKey) write, {
+    void Function(String siteUrl, int topicId)? accepted,
+  }) async {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return null;
@@ -12189,6 +12203,12 @@ class ShellController extends FrameSafeNotifier
       }
 
       if (!lease.isCurrent) return null;
+      if (accepted != null) {
+        lease.commit(() {
+          accepted(siteUrl, topicId);
+          _notify();
+        });
+      }
       await _refreshPost(siteUrl, topicId, post.id, apiKey, lease);
       return null;
     } finally {
