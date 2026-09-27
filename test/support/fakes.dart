@@ -1355,7 +1355,14 @@ class FakeDiscourseApi
   Completer<void>? chatSendGate;
   final int? chatSentMessageId;
   final ComposerUploadResult? composerUploadResult;
-  final List<({String siteUrl, String filename, ComposerUploadType uploadType})>
+  final List<
+    ({
+      String siteUrl,
+      String filename,
+      ComposerUploadType uploadType,
+      bool forPrivateMessage,
+    })
+  >
   composerUploads = [];
   final List<
     ({
@@ -4017,12 +4024,14 @@ class FakeDiscourseApi
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
     String? clientId,
   }) async {
     composerUploads.add((
       siteUrl: siteUrl,
       filename: file.name,
       uploadType: uploadType,
+      forPrivateMessage: forPrivateMessage,
     ));
     final result = composerUploadResult;
     if (result == null) {

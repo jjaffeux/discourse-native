@@ -713,6 +713,44 @@ void main() {
       }
     });
 
+    test('staff may attach any file to a message unless the site says no', () {
+      final config = SiteConfig.fromSettings(
+        settings(authorizedExtensions: 'png', authorizedExtensionsForStaff: ''),
+      );
+
+      expect(config.allowStaffToUploadAnyFileInPm, isTrue);
+      expect(
+        config.canUploadFile('bundle.zip', staff: true, privateMessage: true),
+        isTrue,
+      );
+      expect(
+        config.canUploadImage('scan.ico', staff: true, privateMessage: true),
+        isTrue,
+      );
+      expect(
+        config.canUploadImage('bundle.zip', staff: true, privateMessage: true),
+        isFalse,
+        reason: 'an image-only surface still takes images only',
+      );
+      expect(config.canUploadFile('bundle.zip', staff: true), isFalse);
+      expect(
+        config.canUploadFile('bundle.zip', staff: false, privateMessage: true),
+        isFalse,
+      );
+
+      final withheld = SiteConfig.fromSettings({
+        ...settings(authorizedExtensions: 'png'),
+        'allow_staff_to_upload_any_file_in_pm': false,
+      });
+      expect(withheld.allowStaffToUploadAnyFileInPm, isFalse);
+      expect(
+        withheld.canUploadFile('bundle.zip', staff: true, privateMessage: true),
+        isFalse,
+      );
+      expect(SiteConfig.fromJson(withheld.toJson()), withheld);
+      expect(SiteConfig.fromJson(const {}).allowStaffToUploadAnyFileInPm, true);
+    });
+
     test('wildcard authorization still accepts images only', () {
       final config = SiteConfig.fromSettings(
         settings(authorizedExtensions: '*'),

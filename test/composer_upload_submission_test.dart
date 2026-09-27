@@ -371,6 +371,7 @@ final class _UploadApi extends FakeDiscourseApi {
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
     String? clientId,
   }) {
     final call = _UploadCall(file);

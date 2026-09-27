@@ -213,6 +213,7 @@ final class DiscourseComposerApi {
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
     String? clientId,
   }) async {
     final int fileLength;
@@ -247,6 +248,7 @@ final class DiscourseComposerApi {
           fileBytes: file.openRead(),
           onProgress: onProgress,
           abortTrigger: abortTrigger,
+          forPrivateMessage: forPrivateMessage,
           clientId: clientId,
         );
       } catch (error) {

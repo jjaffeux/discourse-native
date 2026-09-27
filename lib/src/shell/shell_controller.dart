@@ -9255,10 +9255,12 @@ class ShellController extends FrameSafeNotifier
       canUploadImage: (filename) => config.canUploadImage(
         filename,
         staff: currentUserFor(target.siteUrl)?.staff == true,
+        privateMessage: _uploadsForPrivateMessage(target),
       ),
       canUploadFile: (filename) => config.canUploadFile(
         filename,
         staff: currentUserFor(target.siteUrl)?.staff == true,
+        privateMessage: _uploadsForPrivateMessage(target),
       ),
       simultaneousUploads: config.simultaneousUploads,
       enableAutoGridImages: config.enableAutoGridImages,
@@ -13198,8 +13200,14 @@ class ShellController extends FrameSafeNotifier
       onProgress: onProgress,
       abortTrigger: abortTrigger,
       uploadType: target.policy?.uploadType ?? ComposerUploadType.composer,
+      forPrivateMessage: _uploadsForPrivateMessage(target),
     );
   }
+
+  /// The web composer's `privateMessage`: a reply to or edit of a post in a
+  /// message is as private as a new one.
+  static bool _uploadsForPrivateMessage(ComposerTarget target) =>
+      target.isPrivateMessage || target.privateMessageTopic;
 
   Future<Map<String, String>> _resolveComposerUploadUrls(
     ComposerTarget target,

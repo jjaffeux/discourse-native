@@ -5653,6 +5653,41 @@ void _writeGroups() {
       expect(multipart, contains('chat-composer'));
     });
 
+    test('marks an upload for a private message and nothing else', () async {
+      final sent = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(latin1.decode(request.bodyBytes));
+          return http.Response(
+            jsonEncode({
+              'id': 75,
+              'original_filename': 'photo.png',
+              'url': '/uploads/default/original/photo.png',
+              'short_url': 'upload://photo',
+            }),
+            200,
+          );
+        }),
+      );
+
+      for (final forPrivateMessage in [true, false]) {
+        await api.uploadComposerImage(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'key',
+          file: _uploadFile,
+          forPrivateMessage: forPrivateMessage,
+          onProgress: (_) {},
+          abortTrigger: Completer<void>().future,
+        );
+      }
+
+      expect(
+        sent.first,
+        matches(RegExp(r'name="for_private_message"\r\n\r\ntrue\r\n')),
+      );
+      expect(sent.last, isNot(contains('for_private_message')));
+    });
+
     test('surfaces a 422 server message', () async {
       final api = DiscourseApi(
         client: MockClient(

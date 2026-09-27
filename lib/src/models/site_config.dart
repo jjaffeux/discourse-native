@@ -27,6 +27,7 @@ class SiteConfig {
     this.externalEmojiUrl,
     this.authorizedExtensions = defaultAuthorizedExtensions,
     this.authorizedExtensionsForStaff = const [],
+    this.allowStaffToUploadAnyFileInPm = true,
     this.simultaneousUploads = defaultSimultaneousUploads,
     this.maxImageWidth = 690,
     this.maxImageHeight = 500,
@@ -165,6 +166,8 @@ class SiteConfig {
         json['authorized_extensions_for_staff'],
         const [],
       ),
+      allowStaffToUploadAnyFileInPm:
+          json['allow_staff_to_upload_any_file_in_pm'] != false,
       simultaneousUploads: _simultaneousUploads(json['simultaneous_uploads']),
       maxImageWidth: _positiveInt(json['max_image_width'], 690),
       maxImageHeight: _positiveInt(json['max_image_height'], 500),
@@ -263,6 +266,8 @@ class SiteConfig {
       json['authorizedExtensionsForStaff'],
       const [],
     ),
+    allowStaffToUploadAnyFileInPm:
+        json['allowStaffToUploadAnyFileInPm'] != false,
     simultaneousUploads: _simultaneousUploads(json['simultaneousUploads']),
     maxImageWidth: _positiveInt(json['maxImageWidth'], 690),
     maxImageHeight: _positiveInt(json['maxImageHeight'], 500),
@@ -346,6 +351,7 @@ class SiteConfig {
       'externalEmojiUrl': externalEmojiUrl,
       'authorizedExtensions': authorizedExtensions,
       'authorizedExtensionsForStaff': authorizedExtensionsForStaff,
+      'allowStaffToUploadAnyFileInPm': allowStaffToUploadAnyFileInPm,
       'simultaneousUploads': simultaneousUploads,
       'maxImageWidth': maxImageWidth,
       'maxImageHeight': maxImageHeight,
@@ -436,6 +442,10 @@ class SiteConfig {
 
   final List<String> authorizedExtensions;
   final List<String> authorizedExtensionsForStaff;
+
+  /// Lets staff attach any file to a new message or a post in one, which the
+  /// server honours only for an upload marked `for_private_message`.
+  final bool allowStaffToUploadAnyFileInPm;
   final int simultaneousUploads;
   final int maxImageWidth;
   final int maxImageHeight;
@@ -505,10 +515,23 @@ class SiteConfig {
         imageExtensions.contains(filename.substring(dot + 1).toLowerCase());
   }
 
-  bool canUploadImage(String filename, {required bool staff}) =>
-      isImageFilename(filename) && canUploadFile(filename, staff: staff);
+  /// [privateMessage] is a new message or a post in one.
+  bool canUploadImage(
+    String filename, {
+    required bool staff,
+    bool privateMessage = false,
+  }) =>
+      isImageFilename(filename) &&
+      canUploadFile(filename, staff: staff, privateMessage: privateMessage);
 
-  bool canUploadFile(String filename, {required bool staff}) {
+  bool canUploadFile(
+    String filename, {
+    required bool staff,
+    bool privateMessage = false,
+  }) {
+    if (_staffUploadsAnyFile(staff: staff, privateMessage: privateMessage)) {
+      return true;
+    }
     final normalized = filename.toLowerCase();
     final permitted = [
       ...authorizedExtensions,
@@ -518,6 +541,12 @@ class SiteConfig {
       (extension) => extension == '*' || normalized.endsWith('.$extension'),
     );
   }
+
+  /// Mirrors the early return in core's `UploadValidator`.
+  bool _staffUploadsAnyFile({
+    required bool staff,
+    required bool privateMessage,
+  }) => staff && privateMessage && allowStaffToUploadAnyFileInPm;
 
   /// Mirrors `Emoji.url_for`; custom uploads must be resolved before fallback.
   String emojiUrl(String name, {required String siteUrl}) {
@@ -561,6 +590,7 @@ class SiteConfig {
         externalEmojiUrl: externalEmojiUrl,
         authorizedExtensions: authorizedExtensions,
         authorizedExtensionsForStaff: authorizedExtensionsForStaff,
+        allowStaffToUploadAnyFileInPm: allowStaffToUploadAnyFileInPm,
         simultaneousUploads: simultaneousUploads,
         maxImageWidth: maxImageWidth,
         maxImageHeight: maxImageHeight,
@@ -623,6 +653,7 @@ class SiteConfig {
         other.authorizedExtensionsForStaff,
         authorizedExtensionsForStaff,
       ) &&
+      other.allowStaffToUploadAnyFileInPm == allowStaffToUploadAnyFileInPm &&
       other.simultaneousUploads == simultaneousUploads &&
       other.maxImageWidth == maxImageWidth &&
       other.maxImageHeight == maxImageHeight &&
@@ -683,6 +714,7 @@ class SiteConfig {
     externalEmojiUrl,
     Object.hashAll(authorizedExtensions),
     Object.hashAll(authorizedExtensionsForStaff),
+    allowStaffToUploadAnyFileInPm,
     simultaneousUploads,
     maxImageWidth,
     maxImageHeight,

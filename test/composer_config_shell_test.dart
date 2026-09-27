@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -104,4 +107,130 @@ void main() {
     expect(composer?.text.enableMarkdownLinkify, isFalse);
     expect(composer?.text.markdownLinkifyTlds, ['fr']);
   });
+
+  group('staff attachments in messages', () {
+    for (final (name, staff, place, allowed) in [
+      ('staff in a new message', true, _Place.newMessage, true),
+      ('staff replying in a message', true, _Place.messageTopic, true),
+      ('staff replying in a topic', true, _Place.topic, false),
+      ('a member replying in a message', false, _Place.messageTopic, false),
+    ]) {
+      test('$name ${allowed ? 'may' : 'may not'} attach any file', () async {
+        final fixture = await _uploadFixture(staff: staff, place: place);
+        final composer = fixture.composer;
+
+        composer.addFiles([_file('bundle.zip')], 0);
+        await pumpEventQueue();
+
+        if (!allowed) {
+          expect(fixture.api.composerUploads, isEmpty);
+          expect(
+            composer.notice,
+            'That file type is not allowed on this site.',
+          );
+          return;
+        }
+        expect(composer.notice, isNull);
+        final upload = fixture.api.composerUploads.single;
+        expect(upload.filename, 'bundle.zip');
+        expect(upload.forPrivateMessage, isTrue);
+      });
+    }
+
+    test('the site setting can withhold it from staff', () async {
+      final fixture = await _uploadFixture(
+        staff: true,
+        place: _Place.messageTopic,
+        settings: const {'allow_staff_to_upload_any_file_in_pm': false},
+      );
+
+      fixture.composer.addFiles([_file('bundle.zip')], 0);
+      await pumpEventQueue();
+
+      expect(fixture.api.composerUploads, isEmpty);
+    });
+
+    test('an allowed file is marked only when it goes to a message', () async {
+      for (final (place, marked) in [
+        (_Place.messageTopic, true),
+        (_Place.topic, false),
+      ]) {
+        final fixture = await _uploadFixture(staff: false, place: place);
+
+        fixture.composer.addFiles([_file('photo.png')], 0);
+        await pumpEventQueue();
+
+        expect(fixture.api.composerUploads.single.forPrivateMessage, marked);
+      }
+    });
+  });
 }
+
+enum _Place { newMessage, messageTopic, topic }
+
+typedef _UploadFixture = ({FakeDiscourseApi api, ComposerController composer});
+
+Future<_UploadFixture> _uploadFixture({
+  required bool staff,
+  required _Place place,
+  Map<String, Object?> settings = const {},
+}) async {
+  final user = DiscourseUser(
+    id: 1,
+    username: 'reader',
+    staff: staff,
+    canSendPrivateMessages: true,
+  );
+  final api = FakeDiscourseApi(
+    feeds: const {'/latest.json': <Topic>[]},
+    user: user,
+    siteConfigs: {_site: SiteConfig.fromSettings(settings)},
+    composerUploadResult: const ComposerUploadResult(
+      id: 73,
+      originalFilename: 'bundle.zip',
+      shortUrl: 'upload://bundle.zip',
+      url: '$_site/uploads/bundle.zip',
+    ),
+  );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(user: user),
+    ]),
+    api: api,
+    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  addTearDown(shell.dispose);
+  await shell.load();
+  await pumpEventQueue();
+
+  if (place == _Place.newMessage) {
+    shell.pushContent(ContentRoute.group(GroupRoute.detail('tech-leads')));
+    shell.openPrivateMessage(siteUrl: _site, targetRecipients: 'tech-leads');
+  } else {
+    shell.store.put(
+      _site,
+      TopicDetail(
+        id: 7,
+        title: 'Topic',
+        stream: const [],
+        canCreatePost: true,
+        privateMessage: place == _Place.messageTopic,
+      ),
+    );
+    shell.pushContent(
+      ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+    );
+    shell.openReply();
+  }
+  final composer = shell.visibleComposer!;
+  await shell.finishComposerDraftRestore(composer);
+  return (api: api, composer: composer);
+}
+
+ComposerUploadFile _file(String name) => ComposerUploadFile(
+  name: name,
+  length: () async => 3,
+  openRead: () => Stream.value([1, 2, 3]),
+);

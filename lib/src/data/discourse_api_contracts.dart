@@ -874,6 +874,8 @@ abstract interface class ComposerPersistenceApi {
     String? clientId,
   });
 
+  /// [forPrivateMessage] marks a new message or a post in one, where the site
+  /// may let staff attach any file.
   Future<ComposerUploadResult> uploadComposerImage({
     required String siteUrl,
     required String apiKey,
@@ -881,6 +883,7 @@ abstract interface class ComposerPersistenceApi {
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
     String? clientId,
   });
 

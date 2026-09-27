@@ -1475,6 +1475,7 @@ class DiscourseApi
     required void Function(double progress) onProgress,
     required Future<void> abortTrigger,
     ComposerUploadType uploadType = ComposerUploadType.composer,
+    bool forPrivateMessage = false,
     String? clientId,
   }) async => _composer.uploadComposerImage(
     siteUrl: siteUrl,
@@ -1483,6 +1484,7 @@ class DiscourseApi
     onProgress: onProgress,
     abortTrigger: abortTrigger,
     uploadType: uploadType,
+    forPrivateMessage: forPrivateMessage,
     clientId: clientId,
   );
 
