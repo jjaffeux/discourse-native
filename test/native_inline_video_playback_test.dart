@@ -610,6 +610,72 @@ void main() {
     });
   }
 
+  for (final phase in ['inline', 'fullscreen']) {
+    testWidgets('an unfocused window keeps $phase native playback running', (
+      tester,
+    ) async {
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      addTearDown(
+        () => tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      await tester.pumpWidget(_retainedApp(visible));
+      await tester.pumpAndSettle();
+      final controller = _controller(tester);
+      if (phase == 'fullscreen') {
+        await tester.tap(find.byTooltip('Enter full screen'));
+        await tester.pumpAndSettle();
+      }
+      final pauses = platform.pauses.length;
+      expect(controller.value.isPlaying, isTrue);
+
+      // macOS and Linux report a visible window that lost focus as inactive.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(controller.value.isPlaying, isTrue);
+      expect(platform.pauses, hasLength(pauses));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(controller.value.isPlaying, isTrue);
+      expect(platform.plays, [0]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      expect(controller.value.isPlaying, isFalse);
+      expect(platform.pauses, hasLength(pauses + 1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.byTooltip('Play'), findsOneWidget);
+      expect(controller.value.isPlaying, isFalse);
+      expect(platform.plays, [0]);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await platform.disposed(0);
+    });
+  }
+
+  testWidgets('a player mounted in an unfocused window still autoplays', (
+    tester,
+  ) async {
+    final visible = ValueNotifier(true);
+    addTearDown(visible.dispose);
+    addTearDown(
+      () => tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpWidget(_retainedApp(visible));
+    await tester.pumpAndSettle();
+    expect(_controller(tester).value.isPlaying, isTrue);
+    expect(platform.plays, [0]);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await platform.disposed(0);
+  });
+
   testWidgets('pause before session startup cancels native autoplay', (
     tester,
   ) async {

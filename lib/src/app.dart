@@ -25,6 +25,7 @@ import 'data/updater.dart';
 import 'diagnostics/diagnostics.dart';
 import 'diagnostics/surface_opening_trace.dart';
 import 'foundation/bounded_lru_cache.dart';
+import 'foundation/foreground_lifecycle.dart';
 import 'foundation/timezone_environment.dart';
 import 'models/app_settings.dart';
 import 'models/forum_background.dart';
@@ -202,7 +203,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _pluginDiagnosticsReporter = PluginDiagnosticsReporter.resolving(
       () => _pluginDiagnosticsSink,
     );
-    _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
+    _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
     _controller = _createController()..setForeground(_foreground);
     _platformNotificationOpens = PlatformNotificationOpens();
     _listenToNotificationOpens(
@@ -529,7 +530,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   /// paused, and detached states pace down the live connection.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = _isForeground(state);
+    _foreground = isForegroundLifecycle(state);
     unawaited(_observePluginAppState(_plugins, state.name));
     _controller.setForeground(_foreground);
     if (state == AppLifecycleState.resumed) {
@@ -542,11 +543,6 @@ class _DiscourseAppState extends State<DiscourseApp>
       unawaited(_flushPlugins(_plugins));
     }
   }
-
-  static bool _isForeground(AppLifecycleState? state) =>
-      state != AppLifecycleState.hidden &&
-      state != AppLifecycleState.paused &&
-      state != AppLifecycleState.detached;
 
   /// Quitting on desktop — the Quit command, closing the last window, or
   /// closing the last tab — ends the process with no lifecycle change, so

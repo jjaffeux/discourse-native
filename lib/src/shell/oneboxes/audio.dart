@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../foundation/foreground_lifecycle.dart';
 import '../inline_video_playback.dart';
 import '../open_link.dart';
 import '../shell_scope.dart';
@@ -70,8 +71,7 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final state = WidgetsBinding.instance.lifecycleState;
-    _foreground = state == null || state == AppLifecycleState.resumed;
+    _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
   }
 
   @override
@@ -83,7 +83,7 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+    _foreground = isForegroundLifecycle(state);
     if (!_foreground) unawaited(_session?.pause());
   }
 
