@@ -36,6 +36,7 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -537,6 +538,8 @@ class FakeDiscourseApi
     DiscourseModelCodec? models,
     this.results = const {},
     this.failure,
+    this.basicInfos = const {},
+    this.basicInfoGate,
     this.user,
     this.messageBusBootstrapResult,
     this.messageBusBootstrapGate,
@@ -1003,6 +1006,12 @@ class FakeDiscourseApi
   final List<String> feedPaths = [];
 
   final List<String> lookups = [];
+
+  /// What each stored forum's basic info reads as now. Missing is a failed
+  /// read, which leaves the stored forum as it was.
+  final Map<String, SiteBasicInfo> basicInfos;
+  final Completer<void>? basicInfoGate;
+  final List<String> basicInfoRequested = [];
 
   int closeCalls = 0;
 
@@ -1471,6 +1480,15 @@ class FakeDiscourseApi
     final result = results[term];
     if (result != null) return result;
     throw SiteLookupException(failure ?? SiteLookupFailure.unreachable, term);
+  }
+
+  @override
+  Future<SiteBasicInfo> basicInfo(String siteUrl) async {
+    basicInfoRequested.add(siteUrl);
+    await basicInfoGate?.future;
+    final info = basicInfos[siteUrl];
+    if (info != null) return info;
+    throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
   }
 
   @override

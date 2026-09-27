@@ -8,6 +8,7 @@ import 'discourse_user.dart';
 import 'notification_totals.dart';
 import 'sidebar.dart';
 import 'site_appearance.dart';
+import 'site_basic_info.dart';
 import 'site_config.dart';
 
 final RegExp _instanceTitleWord = RegExp(r'\S+');
@@ -95,6 +96,31 @@ class DiscourseInstance {
       config: clearConfig
           ? const SiteConfig.unknown()
           : (config ?? this.config),
+    );
+  }
+
+  /// This forum as [info] describes it now, keeping everything basic info
+  /// does not carry. A description or icon the forum has since dropped is
+  /// dropped here too. Answers this same object when [info] changes nothing,
+  /// so a caller can tell a refresh that changed nothing apart.
+  DiscourseInstance withBasicInfo(SiteBasicInfo info) {
+    if (info.title == title &&
+        info.description == description &&
+        info.iconUrl == iconUrl &&
+        info.loginRequired == loginRequired) {
+      return this;
+    }
+    return DiscourseInstance(
+      url: url,
+      title: info.title,
+      description: info.description,
+      iconUrl: info.iconUrl,
+      apiVersion: apiVersion,
+      loginRequired: info.loginRequired,
+      user: user,
+      notificationTotals: notificationTotals,
+      appearance: appearance,
+      config: config,
     );
   }
 

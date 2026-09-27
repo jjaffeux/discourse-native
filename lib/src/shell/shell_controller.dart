@@ -80,6 +80,7 @@ import '../models/search_results.dart';
 import '../models/sidebar.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_appearance.dart';
+import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/tag_directory_feed.dart';
@@ -2188,6 +2189,8 @@ class ShellController extends FrameSafeNotifier
     _instances.add(instance);
     _rootMode = ShellRootMode.forum;
     _instanceIndex = _instances.length - 1;
+    // The lookup that described this forum has just read its basic info.
+    _basicInfoRefreshes.add(instance.url);
     _resetToInstanceDefault();
     _mobilePane = MobilePane.sidebar;
     _notify();
@@ -2637,6 +2640,47 @@ class ShellController extends FrameSafeNotifier
       // otherwise join the cold-start burst.
       await _presentation.refreshAppearance(instance.url);
     }
+  }
+
+  /// Forums whose basic info this launch has asked for. The rail stores a
+  /// forum's name, icon and `login_required` as they were when it was added,
+  /// and any of them can change since; each forum reads them again once, on
+  /// its first activation, so inactive forums add nothing to a cold start.
+  /// Forgetting a forum's state re-arms it: the lifecycle rotation that comes
+  /// with that discards a read still in flight.
+  final Set<String> _basicInfoRefreshes = {};
+
+  void _refreshBasicInfoOnce(String siteUrl) {
+    if (!_basicInfoRefreshes.add(siteUrl)) return;
+    unawaited(_refreshBasicInfo(siteUrl));
+  }
+
+  Future<void> _refreshBasicInfo(String siteUrl) async {
+    final lease = lifecycle.capture(siteUrl);
+    final SiteBasicInfo info;
+    try {
+      info = await api.siteLookup.basicInfo(siteUrl);
+    } catch (_) {
+      // What was stored still draws the forum; the next launch asks again.
+      return;
+    }
+    if (isDisposed || !lease.isCurrent) return;
+    final held = _instanceAt(siteUrl);
+    if (held == null) return;
+    final refreshed = held.withBasicInfo(info);
+    if (identical(refreshed, held)) return;
+
+    _replaceInstance(held, refreshed);
+    // Whether a signed-out reader may read this forum just changed. Activating
+    // it again puts the sign-in boundary up, or takes it down and hydrates
+    // what it had hidden.
+    if (currentInstance?.url == siteUrl &&
+        !refreshed.isConnected &&
+        refreshed.loginRequired != held.loginRequired) {
+      _restoreInstanceWorkspace();
+    }
+    _notify();
+    instanceStore.save(List.of(_instances)).ignore();
   }
 
   Future<void> _refreshSessionUserFor(
@@ -4347,10 +4391,15 @@ class ShellController extends FrameSafeNotifier
 
     for (final entry in _trackers.entries) {
       if (entry.key != instance?.url) entry.value.unwatchTopic();
+      final site = _instanceAt(entry.key);
+      // An anonymous tracker outlives its forum turning private, and then
+      // every poll it makes is refused.
+      final refused = site != null && site.loginRequired && !site.isConnected;
       final selectedAndVisible = _foreground && entry.key == instance?.url;
-      final connectedAndVisible =
-          _foreground && (_instanceAt(entry.key)?.isConnected ?? false);
-      if (selectedAndVisible ||
+      final connectedAndVisible = _foreground && (site?.isConnected ?? false);
+      if (refused) {
+        entry.value.stop();
+      } else if (selectedAndVisible ||
           connectedAndVisible ||
           retainedSiteUrls.contains(entry.key)) {
         entry.value.start();
@@ -15518,6 +15567,7 @@ class ShellController extends FrameSafeNotifier
     _connectErrors.remove(siteUrl);
     _unavailableForums.remove(siteUrl);
     _retryingUnavailableForums.remove(siteUrl);
+    _basicInfoRefreshes.remove(siteUrl);
 
     _backgroundRetention.releaseSite(siteUrl);
     final forgetPlugins = _pluginSession
@@ -15637,6 +15687,7 @@ class ShellController extends FrameSafeNotifier
     // a callback which only runs after network responses.
     _notifyPluginTotals(instance);
     if (canRead && hydrateActiveTab) _hydrateActiveTab(instance);
+    _refreshBasicInfoOnce(instance.url);
   }
 
   Future<void> _hydrateHomepage(

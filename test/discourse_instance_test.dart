@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -47,6 +48,46 @@ void main() {
     ]) {
       expect(within(subfolder, reference), isNull, reason: reference);
     }
+  });
+
+  group('DiscourseInstance.withBasicInfo', () {
+    const user = DiscourseUser(id: 7, username: 'reader');
+    const config = SiteConfig(minPersonalMessagePostLength: 10);
+    const stored = DiscourseInstance(
+      url: 'https://example.com/forum',
+      title: 'Forum',
+      description: 'A forum',
+      iconUrl: 'https://example.com/forum/uploads/icon.png',
+      apiVersion: 4,
+      user: user,
+      config: config,
+    );
+
+    test('answers the same forum when nothing it records changed', () {
+      const info = SiteBasicInfo(
+        title: 'Forum',
+        description: 'A forum',
+        iconUrl: 'https://example.com/forum/uploads/icon.png',
+      );
+
+      expect(stored.withBasicInfo(info), same(stored));
+    });
+
+    test('takes what the forum says now and keeps the account', () {
+      final refreshed = stored.withBasicInfo(
+        const SiteBasicInfo(title: 'Renamed', loginRequired: true),
+      );
+
+      expect(refreshed, isNot(same(stored)));
+      expect(refreshed.url, stored.url);
+      expect(refreshed.title, 'Renamed');
+      expect(refreshed.description, isNull);
+      expect(refreshed.iconUrl, isNull);
+      expect(refreshed.loginRequired, isTrue);
+      expect(refreshed.apiVersion, 4);
+      expect(refreshed.user, same(user));
+      expect(refreshed.config, same(config));
+    });
   });
 
   group('DiscourseInstance.monogram', () {

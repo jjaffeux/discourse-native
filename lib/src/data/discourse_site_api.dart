@@ -115,8 +115,28 @@ final class DiscourseSiteApi {
           .substring(0, landedPath.length - authPath.length)
           .replaceFirst(RegExp(r'/+$'), ''),
     );
-    final baseUrl = base.toString();
+    final info = await _basicInfo(base, term);
 
+    return DiscourseInstance(
+      url: base.toString(),
+      title: info.title,
+      description: info.description,
+      iconUrl: info.iconUrl,
+      apiVersion: apiVersion,
+      loginRequired: info.loginRequired,
+    );
+  }
+
+  /// What [siteUrl], a forum already on the rail, says about itself now.
+  /// Discourse answers this route without redirecting to its login even while
+  /// `login_required` is on, unlike `/site/settings.json`, so it is how a
+  /// stored forum learns it has become private, or public, again.
+  Future<SiteBasicInfo> basicInfo(String siteUrl) async =>
+      _basicInfo(Uri.parse(siteUrl), siteUrl);
+
+  /// Lookup and refresh read the same fields the same way, so a forum added
+  /// today and one refreshed on launch cannot disagree about it.
+  Future<SiteBasicInfo> _basicInfo(Uri base, String subject) async {
     final Map<String, dynamic> info;
     try {
       final response = await _transport.request(
@@ -126,7 +146,7 @@ final class DiscourseSiteApi {
       if (response.statusCode != 200) {
         throw SiteLookupException(
           SiteLookupFailure.unreachable,
-          term,
+          subject,
           statusCode: response.statusCode,
         );
       }
@@ -136,20 +156,19 @@ final class DiscourseSiteApi {
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
-        term,
+        subject,
         cause: error,
         causeStackTrace: stackTrace,
       );
     }
 
+    final baseUrl = base.toString();
     final title = jsonText(info['title']);
 
-    return DiscourseInstance(
-      url: baseUrl,
+    return SiteBasicInfo(
       title: title == null || title.isEmpty ? base.host : title,
       description: jsonText(info['description']),
       iconUrl: _absoluteIcon(jsonText(info['apple_touch_icon_url']), baseUrl),
-      apiVersion: apiVersion,
       loginRequired: info['login_required'] == true,
     );
   }

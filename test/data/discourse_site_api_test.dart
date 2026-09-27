@@ -155,6 +155,66 @@ void main() {
       },
     );
   });
+
+  group('basic info', () {
+    const siteUrl = 'https://example.com/forum';
+
+    test('reads a stored forum the way adding it did', () async {
+      final api = _discoveryApi([
+        (
+          'GET',
+          '$siteUrl/site/basic-info.json',
+          http.Response(
+            jsonEncode({
+              'title': 'Community',
+              'description': 'Where we talk',
+              'apple_touch_icon_url': '/forum/uploads/icon.png',
+              'login_required': true,
+            }),
+            200,
+          ),
+        ),
+      ]);
+
+      final info = await api.basicInfo(siteUrl);
+
+      expect(info.title, 'Community');
+      expect(info.description, 'Where we talk');
+      expect(info.iconUrl, '$siteUrl/uploads/icon.png');
+      expect(info.loginRequired, isTrue);
+    });
+
+    test('names an untitled forum after its host', () async {
+      final api = _discoveryApi([
+        ('GET', '$siteUrl/site/basic-info.json', http.Response('{}', 200)),
+      ]);
+
+      final info = await api.basicInfo(siteUrl);
+
+      expect(info.title, 'example.com');
+      expect(info.description, isNull);
+      expect(info.iconUrl, isNull);
+      expect(info.loginRequired, isFalse);
+    });
+
+    for (final response in [
+      http.Response('', 404),
+      http.Response('[]', 200),
+      http.Response('<html>', 200),
+    ]) {
+      test('reports ${response.statusCode} "${response.body}" as a failed '
+          'read', () async {
+        final api = _discoveryApi([
+          ('GET', '$siteUrl/site/basic-info.json', response),
+        ]);
+
+        await expectLater(
+          api.basicInfo(siteUrl),
+          throwsA(isA<SiteLookupException>()),
+        );
+      });
+    }
+  });
 }
 
 http.Response _authResponse() =>
