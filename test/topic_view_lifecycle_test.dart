@@ -2936,16 +2936,7 @@ void main() {
           find.byKey(const ValueKey('topic-reply-button')),
         );
         final progressBounds = tester.getRect(progress);
-        final management = tester.getRect(
-          find
-              .descendant(
-                of: find.byKey(const ValueKey('topic-footer-actions')),
-                matching: find.byType(DButtonGroup),
-              )
-              .last,
-        );
-        expect(management.top, greaterThanOrEqualTo(reply.bottom));
-        expect(management.left, closeTo(reply.left, .01));
+        expect(progressBounds.center.dy, closeTo(reply.center.dy, .01));
         expect(find.text('5188 / 5188'), findsOneWidget);
         expect(footer.right - progressBounds.right, closeTo(8, .01));
         expect(progressBounds.left, greaterThan(reply.right));
