@@ -2086,17 +2086,24 @@ void _registerTopicReadingTests() {
     ];
 
     /// `/new`, shaped as `TopicTrackingState.publish_new` sends it.
-    Map<String, Object?> created(int topicId) => {
+    Map<String, Object?> created(int topicId, {int? categoryId}) => {
       'topic_id': topicId,
       'message_type': 'new_topic',
-      'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+      'payload': {
+        'highest_post_number': 1,
+        'created_in_new_period': true,
+        'category_id': ?categoryId,
+      },
     };
 
     /// `/latest`, published when a post bumps a topic that already exists.
-    Map<String, Object?> bumped(int topicId) => {
+    Map<String, Object?> bumped(int topicId, {int? categoryId}) => {
       'topic_id': topicId,
       'message_type': 'latest',
-      'payload': {'bumped_at': '2026-08-06T09:00:00.000Z'},
+      'payload': {
+        'bumped_at': '2026-08-06T09:00:00.000Z',
+        'category_id': ?categoryId,
+      },
     };
 
     FakeSiteTracker tracker() => FakeSiteTracker.built.first;
@@ -2106,6 +2113,26 @@ void _registerTopicReadingTests() {
       FakeDiscourseApi api,
     ) async {
       await pumpShell(tester, desktop, api: api);
+      await tester.pumpAndSettle();
+    }
+
+    /// A reader who has muted category 5.
+    Future<void> pumpSignedIn(WidgetTester tester) async {
+      const reader = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        mutedCategoryIds: [5],
+      );
+      await pumpShell(
+        tester,
+        desktop,
+        api: FakeDiscourseApi(feeds: {'/latest.json': onList}, user: reader),
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: reader),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'meta-key',
+      );
       await tester.pumpAndSettle();
     }
 
@@ -2132,6 +2159,54 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('See 2 new or updated topics'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('a topic in a muted category does not announce itself', (
+      tester,
+    ) async {
+      await pumpSignedIn(tester);
+
+      // The server leaves both out of the list the banner would fetch.
+      tracker()
+        ..deliver(bumped(2, categoryId: 5))
+        ..deliver(created(99, categoryId: 5));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('See '), findsNothing);
+
+      tracker().deliver(bumped(1, categoryId: 6));
+      await tester.pumpAndSettle();
+
+      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('a topic the reader muted does not announce itself', (
+      tester,
+    ) async {
+      await pumpSignedIn(tester);
+
+      // Core sends the hint just before the bump it qualifies.
+      tracker()
+        ..deliver(const {'topic_id': 2, 'message_type': 'muted'})
+        ..deliver(bumped(2, categoryId: 6));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('See '), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('a deleted topic withdraws its announcement', (tester) async {
+      await pumpSignedIn(tester);
+
+      tracker()
+        ..deliver(created(99, categoryId: 6))
+        ..deliver(created(100, categoryId: 6));
+      await tester.pumpAndSettle();
+      expect(find.text('See 2 new or updated topics'), findsOneWidget);
+
+      tracker().deliverDelete(const {'topic_id': 99, 'message_type': 'delete'});
+      await tester.pumpAndSettle();
+
+      expect(find.text('See 1 new or updated topic'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping it fetches those topics and puts them on top', (

@@ -290,6 +290,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     required this.onIncomingTopics,
     required this.onNotifications,
     required this.onReviewableCounts,
+    this.admitIncoming,
     this.userId,
     this.apiKey,
     this.initialLastIds = const {},
@@ -307,6 +308,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
     required void Function() onIncomingTopics,
     required void Function(Object? data) onNotifications,
     required void Function(Object? data) onReviewableCounts,
+    bool Function(Object? data)? admitIncoming,
     int? userId,
     String? apiKey,
     String? clientId,
@@ -318,6 +320,7 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
       onIncomingTopics: onIncomingTopics,
       onNotifications: onNotifications,
       onReviewableCounts: onReviewableCounts,
+      admitIncoming: admitIncoming,
       userId: userId,
       apiKey: apiKey,
       initialLastIds: initialLastIds,
@@ -339,6 +342,9 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   final void Function(Object? data) onReviewableCounts;
 
   @override
+  final bool Function(Object? data)? admitIncoming;
+
+  @override
   final int? userId;
 
   final String? apiKey;
@@ -353,9 +359,19 @@ class FakeSiteTracker implements SiteTracker, PluginLiveChannelHandle {
   int pollNowCalls = 0;
   bool disposed = false;
 
+  /// Like [SiteTracker], a `/latest` or `/new` message reaches topic
+  /// tracking first and counts as an arrival only if the owner admits it.
   void deliver(Object? message) {
     _onTopicTrackingState?.call(message);
+    if (!(admitIncoming?.call(message) ?? true)) return;
     if (incoming.notify(message)) onIncomingTopics();
+  }
+
+  /// Like [SiteTracker], a `/delete` message also withdraws the topic from
+  /// every list it was counted on as an arrival.
+  void deliverDelete(Object? message) {
+    _onTopicTrackingState?.call(message);
+    if (incoming.notifyDeleted(message)) onIncomingTopics();
   }
 
   void deliverTopicTracking(Object? message) =>

@@ -59,6 +59,102 @@ void main() {
     expect(filter.accepts(_newTopic(5001), user: _user), isTrue);
   });
 
+  group('incoming arrivals', () {
+    Map<String, Object?> bumped(int id, {int categoryId = 1}) => {
+      'topic_id': id,
+      'message_type': 'latest',
+      'payload': {'category_id': categoryId},
+    };
+
+    test('a muted or indirectly muted category holds back arrivals', () {
+      final filter = TopicTrackingMessageFilter();
+      expect(filter.admitsIncoming(bumped(10), user: _user), isFalse);
+      expect(
+        filter.admitsIncoming(bumped(11, categoryId: 2), user: _user),
+        isFalse,
+      );
+      expect(filter.admitsIncoming(_newTopic(12), user: _user), isFalse);
+      expect(
+        filter.admitsIncoming(bumped(13, categoryId: 3), user: _user),
+        isTrue,
+      );
+      // Without an account there is nothing muted.
+      expect(filter.admitsIncoming(bumped(10)), isTrue);
+    });
+
+    test('an unmuted hint lets a muted-category arrival through', () {
+      final filter = TopicTrackingMessageFilter();
+      expect(filter.admitsIncoming(_hint(10), user: _user), isTrue);
+      expect(filter.admitsIncoming(bumped(10), user: _user), isTrue);
+      expect(
+        filter.admitsIncoming(_newTopic(10, categoryId: 2), user: _user),
+        isTrue,
+      );
+      expect(filter.admitsIncoming(bumped(11), user: _user), isFalse);
+    });
+
+    test('a muted hint holds back its topic for 60 seconds', () {
+      var now = DateTime.utc(2026);
+      final filter = TopicTrackingMessageFilter(clock: () => now);
+      filter.admitsIncoming(_hint(10, 'muted'), user: _user);
+
+      expect(
+        filter.admitsIncoming(bumped(10, categoryId: 3), user: _user),
+        isFalse,
+      );
+      expect(filter.admitsIncoming(_newTopic(10, categoryId: 3)), isFalse);
+      expect(filter.admitsIncoming(bumped(11, categoryId: 3)), isTrue);
+      now = now.add(const Duration(seconds: 59));
+      expect(filter.admitsIncoming(bumped(10, categoryId: 3)), isFalse);
+      now = now.add(const Duration(seconds: 1));
+      expect(filter.admitsIncoming(bumped(10, categoryId: 3)), isTrue);
+    });
+
+    test('a muted hint outranks an unmuted one in either order', () {
+      for (final hints in [
+        ['muted', 'unmuted'],
+        ['unmuted', 'muted'],
+      ]) {
+        final filter = TopicTrackingMessageFilter();
+        for (final type in hints) {
+          filter.admitsIncoming(_hint(10, type), user: _user);
+        }
+        expect(filter.admitsIncoming(bumped(10), user: _user), isFalse);
+      }
+    });
+
+    test('hints recorded on the counter path apply, and repeat harmlessly', () {
+      var now = DateTime.utc(2026);
+      final filter = TopicTrackingMessageFilter(clock: () => now);
+      final muted = _hint(10, 'muted');
+      final unmuted = _hint(11);
+      for (final hint in [muted, unmuted]) {
+        filter.accepts(hint, user: _user);
+        filter.admitsIncoming(hint, user: _user);
+      }
+      expect(filter.admitsIncoming(bumped(10, categoryId: 3)), isFalse);
+      expect(filter.admitsIncoming(bumped(11), user: _user), isTrue);
+
+      now = now.add(const Duration(seconds: 60));
+      expect(filter.admitsIncoming(bumped(10, categoryId: 3)), isTrue);
+      expect(filter.admitsIncoming(bumped(11), user: _user), isFalse);
+    });
+
+    test('leaves messages that are not arrivals to the arrival counter', () {
+      final filter = TopicTrackingMessageFilter();
+      filter.admitsIncoming(_hint(10, 'muted'));
+      expect(
+        filter.admitsIncoming({'topic_id': 10, 'message_type': 'unread'}),
+        isTrue,
+      );
+      expect(filter.admitsIncoming(null, user: _user), isFalse);
+      expect(
+        filter.admitsIncoming({'message_type': 'latest'}, user: _user),
+        isFalse,
+      );
+    });
+  });
+
   test('targeted read and unread events bypass category admission', () {
     final filter = TopicTrackingMessageFilter();
     for (final type in ['read', 'unread']) {

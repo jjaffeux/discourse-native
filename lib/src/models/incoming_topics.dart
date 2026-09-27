@@ -37,6 +37,20 @@ class IncomingTopics {
     return changed;
   }
 
+  /// A `/delete` message: the topic will not come back from any list, so it
+  /// stops counting as an arrival on every one of them.
+  bool notifyDeleted(Object? message) {
+    if (message is! Map) return false;
+    final topicId = liveRefreshId(message['topic_id']);
+    if (topicId == null) return false;
+
+    var changed = false;
+    for (final list in [..._incoming.keys]) {
+      changed |= clear(list, [topicId]);
+    }
+    return changed;
+  }
+
   bool clear(String list, Iterable<int> ids) {
     final held = _incoming[list];
     if (held == null) return false;

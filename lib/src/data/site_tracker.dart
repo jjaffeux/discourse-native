@@ -18,6 +18,7 @@ typedef SiteTrackerFactory =
       required void Function() onIncomingTopics,
       required void Function(Object? data) onNotifications,
       required void Function(Object? data) onReviewableCounts,
+      bool Function(Object? data)? admitIncoming,
       int? userId,
       String? apiKey,
       String? clientId,
@@ -64,6 +65,7 @@ class SiteTracker {
     required this.onIncomingTopics,
     required this.onNotifications,
     required this.onReviewableCounts,
+    this.admitIncoming,
     this.userId,
     String? apiKey,
     String? clientId,
@@ -114,6 +116,12 @@ class SiteTracker {
   final void Function(Object? data) onNotifications;
 
   final void Function(Object? data) onReviewableCounts;
+
+  /// Decides whether a `/latest` or `/new` message may count toward
+  /// [incoming]. Core drops an arrival the reader's list will not return,
+  /// such as a topic in a muted category, and only the owner knows the
+  /// reader's preferences. Absent, every arrival counts.
+  final bool Function(Object? data)? admitIncoming;
 
   final int? userId;
 
@@ -349,7 +357,9 @@ class SiteTracker {
     ]) {
       _subscribeChannel(
         channel,
-        (data, _) => _emitTopicTrackingState(data),
+        channel == '/delete'
+            ? (data, _) => _onDeleteMessage(data)
+            : (data, _) => _emitTopicTrackingState(data),
         lastId: lastIds[channel],
       );
     }
@@ -385,8 +395,15 @@ class SiteTracker {
   void _onTopicMessage(Object? data) {
     if (_disposed) return;
     _emitTopicTrackingState(data);
-    if (_disposed) return;
+    if (_disposed || !(admitIncoming?.call(data) ?? true)) return;
     if (incoming.notify(data)) onIncomingTopics();
+  }
+
+  void _onDeleteMessage(Object? data) {
+    if (_disposed) return;
+    _emitTopicTrackingState(data);
+    if (_disposed) return;
+    if (incoming.notifyDeleted(data)) onIncomingTopics();
   }
 
   void _emitTopicTrackingState(Object? data) {

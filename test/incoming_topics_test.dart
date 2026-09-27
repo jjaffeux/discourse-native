@@ -220,6 +220,34 @@ void main() {
     });
   });
 
+  group('notifyDeleted', () {
+    test('forgets a deleted topic on every list it was counted for', () {
+      final incoming = IncomingTopics()
+        ..notify(newTopic(1))
+        ..notify(newTopic(2));
+
+      expect(
+        incoming.notifyDeleted({'topic_id': 1, 'message_type': 'delete'}),
+        isTrue,
+      );
+
+      expect(incoming.topicIds('latest'), [2]);
+      expect(incoming.topicIds('new'), [2]);
+    });
+
+    test('reports no change for a topic it never counted', () {
+      final incoming = IncomingTopics()..notify(newTopic(1));
+
+      expect(
+        incoming.notifyDeleted({'topic_id': 9, 'message_type': 'delete'}),
+        isFalse,
+      );
+      expect(incoming.notifyDeleted(null), isFalse);
+      expect(incoming.notifyDeleted(const {'topic_id': 'one'}), isFalse);
+      expect(incoming.topicIds('latest'), [1]);
+    });
+  });
+
   group('reset', () {
     test('drops one list, for a list that has just been refetched', () {
       final incoming = IncomingTopics()..notify(newTopic(1));
