@@ -40,8 +40,9 @@ class PostChecklistUpdate {
 
 /// Shared target mapping for rendering, optimistic state and backend requests.
 class PostChecklistDocument {
-  PostChecklistDocument(String source)
-    : _document = html.parseFragment(source) {
+  PostChecklistDocument(String source) : this._(html.parseFragment(source));
+
+  PostChecklistDocument._(this._document) {
     _boxes = _document.querySelectorAll('span.chcklst-box').where((box) {
       for (var parent = box.parent; parent != null; parent = parent.parent) {
         if (parent.localName == 'aside' &&
@@ -82,8 +83,15 @@ class PostChecklistDocument {
       ? PostChecklistDocument(source).fingerprint
       : source;
 
-  String get annotatedHtml {
-    final copy = PostChecklistDocument(_document.outerHtml);
+  /// Every build of a checklist post renders this, so it is kept rather than
+  /// derived again: nothing modifies the parsed tree it is derived from.
+  late final String annotatedHtml = _annotate(
+    // A deep copy has the parsed tree's structure, so it finds the same boxes
+    // in the same order without parsing the markup a second time.
+    PostChecklistDocument._(_document.clone(true)),
+  );
+
+  static String _annotate(PostChecklistDocument copy) {
     // Untrusted markup cannot supply an index for an excluded quote.
     for (final node in copy._document.querySelectorAll('[$indexAttribute]')) {
       node.attributes.remove(indexAttribute);
