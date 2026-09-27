@@ -585,6 +585,8 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   rtc.MediaStream? _screenStream;
   bool _deafened = false;
   bool _muted = false;
+  int _muteRevision = 0;
+  int _screenShareRevision = 0;
   bool audioPublishingAllowed;
   Timer? _speakingTimer;
   Timer? _rawStatsTimer;
@@ -1759,12 +1761,26 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Future<void> setMuted(bool muted) => _serialize(() => _setMuted(muted));
+  Future<void> setMuted(bool muted) {
+    final revision = ++_muteRevision;
+    // The controller reports a mute at once, and the queue can be waiting on
+    // signaling POSTs for seconds. Disabling a track needs no capture and
+    // cannot fail, so a mute never waits its turn; an unmute may.
+    if (muted) _applyMuted(true);
+    return _serialize(() => _setMuted(muted, revision));
+  }
 
-  Future<void> _setMuted(bool muted) async {
-    // Adopt the state only after capture succeeds; `_ensureAudioTrack` reads
-    // `_muted` when deciding whether a new track starts enabled.
+  Future<void> _setMuted(bool muted, int revision) async {
+    // A newer request owns the microphone; a superseded unmute must not
+    // re-enable it. Adopt the state only after capture succeeds;
+    // `_ensureAudioTrack` reads `_muted` when a new track starts enabled.
+    if (revision != _muteRevision) return;
     if (audioPublishingAllowed && !muted) await _ensureAudioTrack();
+    if (revision != _muteRevision) return;
+    _applyMuted(muted);
+  }
+
+  void _applyMuted(bool muted) {
     _muted = muted;
     for (final track
         in _localStream?.getAudioTracks() ?? const <rtc.MediaStreamTrack>[]) {
@@ -1924,10 +1940,23 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Future<void> setScreenShareEnabled(bool enabled) =>
-      _serialize(() => _setScreenShareEnabled(enabled));
+  Future<void> setScreenShareEnabled(bool enabled) {
+    final revision = ++_screenShareRevision;
+    // As with a mute, the controller reports the share stopped at once while
+    // sender replacement waits its turn behind signaling; silence it first.
+    if (!enabled) _setScreenTracksEnabled(false);
+    return _serialize(() => _setScreenShareEnabled(enabled, revision));
+  }
 
-  Future<void> _setScreenShareEnabled(bool enabled) async {
+  void _setScreenTracksEnabled(bool enabled) {
+    for (final track
+        in _screenStream?.getTracks() ?? const <rtc.MediaStreamTrack>[]) {
+      track.enabled = enabled;
+    }
+  }
+
+  Future<void> _setScreenShareEnabled(bool enabled, int revision) async {
+    bool superseded() => revision != _screenShareRevision;
     if (!enabled) {
       final stream = _screenStream;
       if (stream == null) return;
@@ -1935,6 +1964,8 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         await _setSourceTrack(_MeshSource.video, _cameraTrack);
         await _setSourceTrack(_MeshSource.screenAudio, null);
       } catch (_) {
+        // The retained capture stays silent: the user asked for it to stop,
+        // and only a later start may show it again.
         await _setSourceTrackBestEffort(_MeshSource.video, _screenVideoTrack);
         await _setSourceTrackBestEffort(
           _MeshSource.screenAudio,
@@ -1947,8 +1978,20 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       changed();
       return;
     }
-    if (_screenStream != null) return;
+    // A newer request owns the share. A stop after this start has already been
+    // reported, so neither prompt for a capture nor publish one the user no
+    // longer wants; a later start captures for itself.
+    if (superseded()) return;
+    if (_screenStream != null) {
+      // Only a stop that could not switch senders retains a capture, silenced.
+      _setScreenTracksEnabled(true);
+      return;
+    }
     final stream = await _getDisplayMedia({'video': true, 'audio': true});
+    if (superseded()) {
+      await _disposeStreamBestEffort(stream);
+      return;
+    }
     _screenStream = stream;
     if (stream.getVideoTracks().firstOrNull case final screenVideo?) {
       screenVideo.onEnded = () {
@@ -3076,8 +3119,19 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     changed();
   }
 
+  /// The SDK runs mute and unpublish only after any publish it has in flight,
+  /// such as a camera or share still negotiating with the server. Disabling
+  /// the published track first keeps the control from waiting on that.
+  void _silencePublished(lk.TrackSource source) {
+    final track = _room.localParticipant
+        ?.getTrackPublicationBySource(source)
+        ?.track;
+    track?.mediaStreamTrack.enabled = false;
+  }
+
   @override
   Future<void> setMuted(bool muted) async {
+    if (muted) _silencePublished(lk.TrackSource.microphone);
     // Commit only after the SDK accepts the change; controller rollback and
     // later publishing decisions must observe the same value.
     await _room.localParticipant?.setMicrophoneEnabled(
@@ -3275,6 +3329,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Future<void> setScreenShareEnabled(bool enabled) async {
+    if (!enabled) {
+      _silencePublished(lk.TrackSource.screenShareVideo);
+      _silencePublished(lk.TrackSource.screenShareAudio);
+    }
     await _room.localParticipant?.setScreenShareEnabled(
       enabled,
       captureScreenAudio: true,
