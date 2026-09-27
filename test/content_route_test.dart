@@ -99,6 +99,30 @@ void main() {
       },
     );
 
+    test('names a list given its parameters as switching to it does', () {
+      final sorted = ContentRoute.topicList(
+        TopicListMode.latest,
+      ).withTopicListSort('views');
+      for (final mode in TopicListMode.values) {
+        final switched = ContentRoute.topicList(
+          mode,
+        ).withTopicListQueryFrom(sorted);
+        final given = ContentRoute.filteredTopicList(
+          mode,
+          query: const {
+            'order': ['views'],
+          },
+        );
+        expect(given.id, switched.id);
+        expect(given.feedPath, switched.feedPath);
+        expect(TopicListMode.fromRoute(given), mode);
+      }
+      expect(
+        ContentRoute.filteredTopicList(TopicListMode.unread).id,
+        ContentRoute.topicList(TopicListMode.unread).id,
+      );
+    });
+
     test('does not invent ordering for unsupported sources or columns', () {
       for (final source in [
         ContentRoute.messages(),

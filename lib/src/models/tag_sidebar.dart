@@ -3,6 +3,13 @@ import 'sidebar.dart';
 import 'sidebar_tag.dart';
 import 'topic_tag.dart';
 
+/// The tag directory, whether reached from the sidebar or a `/tags` link.
+const allTagsDestination = SidebarDestination(
+  id: 'all-tags',
+  label: 'All tags',
+  icon: DIcons.list,
+);
+
 SidebarSection? buildTagSidebarSection({
   required List<SidebarTag> tags,
   required bool display,
@@ -15,11 +22,7 @@ SidebarSection? buildTagSidebarSection({
     title: 'Tags',
     destinations: List.unmodifiable([
       for (final tag in tags) ?buildTagDestination(tag, username: username),
-      const SidebarDestination(
-        id: 'all-tags',
-        label: 'All tags',
-        icon: DIcons.list,
-      ),
+      allTagsDestination,
     ]),
   );
 }

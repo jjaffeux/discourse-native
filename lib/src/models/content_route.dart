@@ -304,15 +304,21 @@ class ContentRoute {
     feedPath: mode.feedPath,
   );
 
+  /// [query] goes ahead of the mode's own parameters, as it does in
+  /// [withTopicListQueryFrom], so both spell one list under one id.
   factory ContentRoute.filteredTopicList(
     TopicListMode mode, {
     int? categoryId,
     List<String> tags = const [],
+    Map<String, List<String>> query = const {},
   }) {
-    if (categoryId == null && tags.isEmpty) return ContentRoute.topicList(mode);
+    if (categoryId == null && tags.isEmpty && query.isEmpty) {
+      return ContentRoute.topicList(mode);
+    }
     final base = Uri.parse(mode.feedPath ?? '/latest.json');
     final uri = base.replace(
       queryParameters: <String, dynamic>{
+        ...query,
         ...base.queryParameters,
         if (categoryId != null) 'category': '$categoryId',
         if (tags.isNotEmpty) 'tags[]': tags,

@@ -102,6 +102,34 @@ void main() {
       expect(shell.currentContent?.id, 'latest');
     });
 
+    test('opens its topic list links in the app', () async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': [], '/top.json?period=weekly': []},
+      );
+      final shell = await loadShell(api);
+      addTearDown(shell.dispose);
+
+      expect(
+        shell.openCorePageUrl('https://example.com/top?period=weekly'),
+        isFalse,
+      );
+      expect(shell.openCorePageUrl('$_siteUrl/top?period=weekly'), isTrue);
+      expect(shell.currentContent?.id, 'top-weekly');
+      await pumpEventQueue();
+      expect(api.feedPaths, contains('/top.json?period=weekly'));
+      expect(shell.currentFeed?.loaded, isTrue);
+
+      expect(shell.openCorePageUrl('$_siteUrl/tags'), isTrue);
+      expect(shell.currentContent?.id, 'all-tags');
+      expect(shell.openLinkInNewTab('$_siteUrl/hot'), TabOpenResult.opened);
+      // Signed out, as on the web, Unread is not this reader's to see.
+      expect(shell.openCorePageUrl('$_siteUrl/unread'), isFalse);
+      expect(
+        shell.openLinkInNewTab('$_siteUrl/unread'),
+        TabOpenResult.unsupported,
+      );
+    });
+
     test('opens its category, tag and group links in the app', () async {
       final shell = await loadShell(FakeDiscourseApi());
       addTearDown(shell.dispose);

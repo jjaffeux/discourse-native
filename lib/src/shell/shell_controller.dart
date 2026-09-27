@@ -3524,11 +3524,13 @@ class ShellController extends FrameSafeNotifier
 
   TopicListMode get defaultTopTopicListMode {
     final siteUrl = currentInstance?.url;
-    final period = siteUrl == null
-        ? TopPeriod.yearly
-        : TopPeriod.fromQueryValue(siteConfigFor(siteUrl).topPageDefaultPeriod);
-    return TopicListMode.top(period);
+    return TopicListMode.top(
+      siteUrl == null ? TopPeriod.yearly : _defaultTopPeriodFor(siteUrl),
+    );
   }
+
+  TopPeriod _defaultTopPeriodFor(String siteUrl) =>
+      TopPeriod.fromQueryValue(siteConfigFor(siteUrl).topPageDefaultPeriod);
 
   bool get canCreateTopicHere {
     if (currentContent?.isTopic != false ||
@@ -6523,10 +6525,8 @@ class ShellController extends FrameSafeNotifier
         title: 'Users',
         icon: DIcons.user,
       );
-    } else if (instance.pathWithin(target) == '/latest' &&
-        !target.hasQuery &&
-        !target.hasFragment) {
-      route = ContentRoute.topicList(TopicListMode.latest);
+    } else if (_coreListRoute(instance, target) case final core?) {
+      route = core;
     } else if (instance.pathWithin(target) == '/categories' &&
         !target.hasQuery &&
         !target.hasFragment) {
@@ -6558,6 +6558,74 @@ class ShellController extends FrameSafeNotifier
       return null;
     }
     return (route: route, siteUrl: instance.url);
+  }
+
+  /// The native list a core `/latest`, `/new`, `/unread`, `/unseen`, `/top`,
+  /// `/hot`, `/filter` or `/tags` link names. A plain link keeps the canonical
+  /// id that banners, counters and the sidebar key on; any other parameter
+  /// rides along to the server as it does on the web. Null — the browser —
+  /// for a list this forum's reader cannot have, as [selectTopicListMode]
+  /// refuses it, and for anything the app has no list for.
+  ContentRoute? _coreListRoute(DiscourseInstance instance, Uri target) {
+    if (target.hasFragment) return null;
+    final Map<String, List<String>> query;
+    try {
+      query = {...target.queryParametersAll}..remove('page');
+    } on FormatException {
+      return null;
+    }
+    final user = instance.user;
+    final path = instance.pathWithin(target);
+    final ContentRoute route;
+    switch (path) {
+      case '/tags':
+        if (!siteConfigFor(instance.url).taggingEnabled) return null;
+        return ContentRoute.fromDestination(allTagsDestination);
+      case '/filter':
+        final filter = query['q']?.firstOrNull?.trim() ?? '';
+        route = filter.isEmpty
+            ? ContentRoute.topicList(TopicListMode.latest)
+            : ContentRoute.topicFilter(filter);
+      case '/latest' || '/hot':
+        route = ContentRoute.filteredTopicList(
+          path == '/hot' ? TopicListMode.popular : TopicListMode.latest,
+          query: query,
+        );
+      case '/unread' || '/unseen' when user != null:
+        route = ContentRoute.filteredTopicList(
+          path == '/unread' ? TopicListMode.unread : TopicListMode.unseen,
+          query: query,
+        );
+      case '/new' when user != null:
+        // The server reads a subset only for a reader on the unified New
+        // list; anyone else is served the whole of New.
+        final subset = query.remove('subset')?.firstOrNull;
+        route = ContentRoute.filteredTopicList(switch (subset) {
+          'topics' when user.unifiedNewEnabled => TopicListMode.newTopics,
+          'replies' when user.unifiedNewEnabled => TopicListMode.newReplies,
+          _ => TopicListMode.newActivity,
+        }, query: query);
+      case '/top':
+        final value = query.remove('period')?.firstOrNull;
+        final period = value == null
+            ? _defaultTopPeriodFor(instance.url)
+            : TopPeriod.values
+                  .where((period) => period.queryValue == value)
+                  .firstOrNull;
+        if (period == null) return null;
+        route = ContentRoute.filteredTopicList(
+          TopicListMode.top(period),
+          query: query,
+        );
+      default:
+        return null;
+    }
+    final feedPath = route.feedPath;
+    if (feedPath != null &&
+        feedPath.length > ContentRoute.maximumFeedPathLength) {
+      return null;
+    }
+    return route;
   }
 
   bool _isOwnMessagesUrl(DiscourseInstance instance, Uri target) {
@@ -7008,13 +7076,16 @@ class ShellController extends FrameSafeNotifier
 
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
-    if (destination == null ||
-        !{
-          'latest',
+    if (destination == null) return false;
+    final route = destination.route;
+    // Topics, category and tag lists, badges and groups have their own openers.
+    if (TopicListMode.fromRoute(route) == null &&
+        !const {
           'messages',
           'users',
           'all-categories',
-        }.contains(destination.route.id)) {
+          'all-tags',
+        }.contains(route.id)) {
       return false;
     }
     final index = _instances.indexWhere(
@@ -7023,17 +7094,19 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return false;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
-    if (currentContent?.id == destination.route.id) {
+    if (currentContent?.id == route.id) {
       if (rootChanged) _notify();
       return true;
     }
-    pushContent(destination.route);
-    if (destination.route.isUsers) {
+    pushContent(route);
+    if (route.isUsers) {
       unawaited(userDirectory.load(_instances[index]));
-    } else if (destination.route.id == 'all-categories') {
+    } else if (route.id == 'all-categories') {
       unawaited(loadCategories(destination.siteUrl));
+    } else if (route.id == 'all-tags') {
+      unawaited(loadTags(destination.siteUrl));
     } else {
-      unawaited(loadFeed(destination.route.id));
+      unawaited(loadFeed(route.id));
     }
     return true;
   }
