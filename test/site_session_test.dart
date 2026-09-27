@@ -20,6 +20,7 @@ import 'support/fakes.dart';
 import 'support/site_appearance_fixtures.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
+const _publicConfig = SiteConfig(minPersonalMessagePostLength: 10);
 
 final class _AccountFeedApi extends FakeDiscourseApi {
   _AccountFeedApi(this.firstGate)
@@ -497,6 +498,72 @@ final class _FailingConnectedSaveStore extends FakeInstanceStore {
       throw StateError('preferences unavailable');
     }
     await super.save(instances);
+  }
+}
+
+final class _FailingRemovalSaveStore extends FakeInstanceStore {
+  _FailingRemovalSaveStore(super.instances);
+
+  @override
+  Future<void> save(List<DiscourseInstance> instances) async {
+    if (!instances.any((item) => item.url == _siteUrl)) {
+      throw StateError('preferences unavailable');
+    }
+    await super.save(instances);
+  }
+}
+
+/// Once [holdResponses] is set, the target site's category and client-settings
+/// responses wait for [releaseResponses].
+final class _HeldPublicPresentationApi extends FakeDiscourseApi {
+  _HeldPublicPresentationApi()
+    : super(
+        categoryList: [
+          TopicCategory.fromJson(const {
+            'id': 12,
+            'name': 'Plants',
+            'slug': 'plants',
+            'color': '00aa44',
+          }),
+        ],
+        siteConfigs: const {_siteUrl: _publicConfig},
+      );
+
+  bool holdResponses = false;
+  final categoriesHeld = Completer<void>();
+  final releaseResponses = Completer<void>();
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async {
+    if (holdResponses && siteUrl == _siteUrl) {
+      if (!categoriesHeld.isCompleted) categoriesHeld.complete();
+      await releaseResponses.future;
+    }
+    return super.loadCategories(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      page: page,
+    );
+  }
+
+  @override
+  Future<SiteConfig> siteConfig({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (holdResponses && siteUrl == _siteUrl) await releaseResponses.future;
+    return super.siteConfig(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
   }
 }
 
@@ -1191,6 +1258,124 @@ void main() {
         expect(shell.currentSiteAppearance, signedOutAppearance);
       },
     );
+
+    test(
+      'forget a removed public forum and drop its signed-out reload',
+      () async {
+        const otherSite = 'https://other.example.com';
+        final forumTabs = FakeForumTabStore();
+        final api = _HeldPublicPresentationApi();
+        addTearDown(() {
+          if (!api.releaseResponses.isCompleted) {
+            api.releaseResponses.complete();
+          }
+        });
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('other.example.com'),
+            instance('meta.discourse.org'),
+          ]),
+          forumTabs: forumTabs,
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        // The selected forum is last on the rail, so its removal leaves no
+        // forum at the old selection index.
+        shell.selectInstance(1);
+        // Settle the initial activation so only the removal's reload is held.
+        await pumpEventQueue();
+        api.holdResponses = true;
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isTrue,
+        );
+        // The final signed-out phase re-activated the selected public forum
+        // before the rail dropped it.
+        expect(api.categoriesHeld.isCompleted, isTrue);
+
+        api.releaseResponses.complete();
+        await pumpEventQueue();
+
+        expect(shell.instances.map((instance) => instance.url), [otherSite]);
+        expect(shell.currentInstance?.url, otherSite);
+        expect(shell.workspaceFor(_siteUrl), isNull);
+        expect(forumTabs.workspaces.map((workspace) => workspace.siteUrl), [
+          otherSite,
+        ]);
+        expect(shell.categoryFeedFor(_siteUrl).loaded, isFalse);
+        expect(shell.filterCategoriesFor(_siteUrl), isEmpty);
+        expect(shell.siteConfigFor(_siteUrl), const SiteConfig.unknown());
+
+        expect(await shell.addInstance(instance('meta.discourse.org')), isTrue);
+        await pumpEventQueue();
+
+        expect(shell.workspaceFor(_siteUrl), isNotNull);
+        expect(shell.categoryFeedFor(_siteUrl).loaded, isTrue);
+        expect(
+          shell.filterCategoriesFor(_siteUrl).map((category) => category.id),
+          [12],
+        );
+        expect(shell.siteConfigFor(_siteUrl), _publicConfig);
+      },
+    );
+
+    for (final removeSelected in [true, false]) {
+      test('restore a ${removeSelected ? 'selected' : 'background'} forum '
+          'whose removal cannot be saved', () async {
+        const otherSite = 'https://other.example.com';
+        final store = _FailingRemovalSaveStore([
+          instance('meta.discourse.org'),
+          instance('other.example.com'),
+        ]);
+        final shell = ShellController(
+          instanceStore: store,
+          api: _HeldPublicPresentationApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+
+        await shell.load();
+        if (!removeSelected) shell.selectInstance(1);
+
+        expect(
+          await shell.removeInstance(shell.instanceFor(_siteUrl)!),
+          isFalse,
+        );
+
+        expect(shell.instances.map((instance) => instance.url), [
+          _siteUrl,
+          otherSite,
+        ]);
+        expect(
+          shell.currentInstance?.url,
+          removeSelected ? _siteUrl : otherSite,
+        );
+        expect((await store.load()).map((instance) => instance.url), [
+          _siteUrl,
+          otherSite,
+        ]);
+
+        // The restored forum reloads under a live lifecycle, not the one
+        // retired when the removal forgot its state.
+        if (!removeSelected) shell.selectInstance(0);
+        await pumpEventQueue();
+
+        expect(shell.workspaceFor(_siteUrl), isNotNull);
+        expect(shell.categoryFeedFor(_siteUrl).loaded, isTrue);
+        expect(
+          shell.filterCategoriesFor(_siteUrl).map((category) => category.id),
+          [12],
+        );
+      });
+    }
 
     test(
       'roll back the account and key after a connected-profile save fails',
