@@ -2555,12 +2555,25 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           ),
         ),
       );
+      // Each mounted reader sees every key, in mount order. While another
+      // tab's reader is active, this one declines post commands: answering
+      // would move its own cursor and focus its panel, taking the active tab
+      // from the reader the user is in.
+      final tabId = ForumTabScope.idOf(context);
+      bool anotherReaderIsActive() =>
+          tabId != null &&
+          tabId != controller.activeTabId &&
+          controller.currentContent?.isTopic == true;
       return ReadingShortcuts(
         commands: {
-          ReadingCommand.nextPost: () => _navigatePost(controller, snapshot, 1),
+          ReadingCommand.nextPost: () =>
+              !anotherReaderIsActive() &&
+              _navigatePost(controller, snapshot, 1),
           ReadingCommand.previousPost: () =>
+              !anotherReaderIsActive() &&
               _navigatePost(controller, snapshot, -1),
-          ReadingCommand.replyToPost: () => _replyToSelectedPost(controller),
+          ReadingCommand.replyToPost: () =>
+              !anotherReaderIsActive() && _replyToSelectedPost(controller),
         },
         child: ListBoundaryShortcuts(
           key: ValueKey(('topic-post-boundary', siteUrl, snapshot.topicId)),
