@@ -34,6 +34,21 @@ void main() {
     },
   );
 
+  test('a block ends at its closing fence with either line ending', () {
+    for (final newline in ['\n', '\r\n']) {
+      final source = _source.replaceAll('\n', newline);
+      final block = parseMermaidComposerBlocks(source).single;
+      expect(block.source, endsWith('```'));
+      expect(source.substring(block.end), '$newline${newline}After');
+      expect(block.replaceCode(block.code), block.source);
+      final projection = MermaidComposerPolicy(
+        () => throw StateError('Parsing does not read the editor'),
+      ).parse(source).single;
+      expect(projection.end, block.end);
+      expect(projection.caretAfter(source), block.end + newline.length);
+    }
+  });
+
   test('empty code and delimiter-like content remain editable fences', () {
     for (final source in [
       '```mermaid\n```',
