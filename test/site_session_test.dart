@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -596,6 +597,99 @@ final class _HeldPublicPresentationApi extends FakeDiscourseApi {
     if (holdResponses && siteUrl == _siteUrl) await releaseResponses.future;
     return super.siteConfig(
       siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
+/// Records the credential each feed, topic and search read carried.
+final class _CredentialRecordingApi extends FakeDiscourseApi {
+  _CredentialRecordingApi()
+    : super(
+        feeds: const {
+          '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
+        },
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Topic',
+            posts: const [
+              Post(
+                id: 70,
+                postNumber: 1,
+                username: 'author',
+                cooked: '<p>Body</p>',
+                canLike: true,
+              ),
+            ],
+          ),
+        },
+      );
+
+  final List<String?> feedKeys = [];
+  final List<String?> topicKeys = [];
+  final List<String?> searchKeys = [];
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) {
+    feedKeys.add(apiKey);
+    return super.topicList(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) {
+    topicKeys.add(apiKey);
+    return super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  @override
+  Future<SearchResults> searchPosts({
+    required String siteUrl,
+    required String term,
+    String? typeFilter,
+    int? topicId,
+    bool searchForId = false,
+    String? restrictToArchetype,
+    String? apiKey,
+    String? clientId,
+  }) {
+    searchKeys.add(apiKey);
+    return super.searchPosts(
+      siteUrl: siteUrl,
+      term: term,
+      typeFilter: typeFilter,
+      topicId: topicId,
+      searchForId: searchForId,
+      restrictToArchetype: restrictToArchetype,
       apiKey: apiKey,
       clientId: clientId,
     );
@@ -1208,6 +1302,67 @@ void main() {
         );
       },
     );
+  });
+
+  group('stored key isolation', () {
+    // Apple keeps Keychain items when the app is deleted, but the instance
+    // list goes with it, so a re-added forum is signed out while its old key
+    // is still readable. A failed deletion during sign-out leaves the same
+    // state behind.
+    for (final connected in [false, true]) {
+      final account = connected ? 'a connected' : 'a signed-out';
+      final carried = connected ? 'carry its key' : 'stay anonymous';
+      test('$account forum\'s feed, topic, search and like $carried', () async {
+        final stored = instance('meta.discourse.org');
+        final authenticator = FakeAuthenticator()
+          ..keys[_siteUrl] = 'stored-account-key';
+        final api = _CredentialRecordingApi();
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            connected
+                ? stored.copyWith(
+                    user: const DiscourseUser(id: 7, username: 'account'),
+                  )
+                : stored,
+          ]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+        final expectedKey = connected ? 'stored-account-key' : null;
+
+        await shell.load();
+        await pumpEventQueue();
+        expect(api.feedKeys, isNotEmpty);
+        expect(api.feedKeys, everyElement(expectedKey));
+
+        shell.openTopic(const Topic(id: 7, title: 'Topic', slug: 'topic'));
+        await pumpEventQueue();
+        expect(api.topicKeys, isNotEmpty);
+        expect(api.topicKeys, everyElement(expectedKey));
+
+        shell.search.setQuery('stored account');
+        shell.search.showTopics();
+        await pumpEventQueue();
+        expect(api.searchKeys, isNotEmpty);
+        expect(api.searchKeys, everyElement(expectedKey));
+
+        final post = shell.store.read<Post>(_siteUrl, 70)!;
+        expect(post.canToggleLike, isTrue);
+        expect(
+          await shell.toggleLike(post, siteUrl: _siteUrl),
+          connected
+              ? isNull
+              : const WriteException(WriteFailure.forbidden).message,
+        );
+        expect(api.liked, connected ? [70] : isEmpty);
+        expect(shell.store.read<Post>(_siteUrl, 70)?.liked, connected);
+        expect(shell.currentInstance?.isConnected, connected);
+        expect(authenticator.keys[_siteUrl], 'stored-account-key');
+      });
+    }
   });
 
   group('connection and removal operations', () {

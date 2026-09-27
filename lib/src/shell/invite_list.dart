@@ -80,7 +80,7 @@ class _InviteSession extends StatefulWidget {
 class _InviteSessionState extends State<_InviteSession> {
   late final InvitesController _controller = InvitesController(
     api: InvitesApi(widget.shell.api.pluginTransport),
-    credentials: widget.shell.authenticator,
+    credentials: widget.shell.credentials,
     instance: widget.instance,
     lifecycle: widget.shell.lifecycle,
   );

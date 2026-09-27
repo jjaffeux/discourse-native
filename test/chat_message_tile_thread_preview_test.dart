@@ -911,7 +911,11 @@ void main() {
             ],
           },
         );
-        final controller = await _controller(_message(null), api: api);
+        final controller = await _controller(
+          _message(null),
+          api: api,
+          signedIn: true,
+        );
         addTearDown(controller.dispose);
         await tester.pumpWidget(
           _TestTile(controller: controller, onOpenThread: (_) {}),
@@ -974,6 +978,7 @@ void main() {
                   '<p>${List.filled(30, 'Full width message').join(' ')}</p>',
             ),
             api: api,
+            signedIn: true,
           );
           addTearDown(controller.dispose);
           await tester.pumpWidget(
@@ -1039,6 +1044,7 @@ void main() {
         _message(null),
         api: api,
         channelKind: ChatChannelKind.directMessage,
+        signedIn: true,
       );
       addTearDown(controller.dispose);
       await controller.chat.upsertDirectMessageChannel(_siteUrl, 'sam');

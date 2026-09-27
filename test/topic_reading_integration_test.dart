@@ -69,6 +69,14 @@ Rect _lastTitleLine(WidgetTester tester, String title) {
   return box.toRect().shift(paragraph.localToGlobal(Offset.zero));
 }
 
+/// [twoSites] with Meta signed in, for the tests that hold Meta's key.
+final _signedInSites = [
+  twoSites.first.copyWith(
+    user: const DiscourseUser(id: 7, username: 'joffreyj'),
+  ),
+  twoSites.last,
+];
+
 void main() {
   _registerTopicReadingTests();
 }
@@ -117,7 +125,13 @@ void _registerTopicReadingTests() {
       final authenticator = FakeAuthenticator()
         ..keys['https://meta.discourse.org'] = 'meta-key';
 
-      await pumpShell(tester, desktop, api: api, authenticator: authenticator);
+      await pumpShell(
+        tester,
+        desktop,
+        instances: _signedInSites,
+        api: api,
+        authenticator: authenticator,
+      );
 
       expect(find.byKey(TopicCreateButton.buttonKey), findsOneWidget);
       await tester.tap(find.byKey(TopicCreateButton.buttonKey));
@@ -225,6 +239,7 @@ void _registerTopicReadingTests() {
         await pumpShell(
           tester,
           desktop,
+          instances: _signedInSites,
           api: api,
           authenticator: authenticator,
         );
@@ -281,6 +296,7 @@ void _registerTopicReadingTests() {
         await pumpShell(
           tester,
           desktop,
+          instances: _signedInSites,
           api: api,
           authenticator: authenticator,
         );
@@ -325,6 +341,7 @@ void _registerTopicReadingTests() {
         await pumpShell(
           tester,
           desktop,
+          instances: _signedInSites,
           api: api,
           authenticator: authenticator,
         );

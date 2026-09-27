@@ -37,6 +37,7 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 const _siteUrl = 'https://meta.example';
+const _reader = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
   group('user cards', () {
@@ -454,7 +455,9 @@ void main() {
         'discourse_reactions_reaction_for_like': 'heart',
         'discourse_reactions_enabled_reactions': 'heart',
       }, _siteUrl);
-      final site = instance('meta.example').copyWith(config: config);
+      final site = instance(
+        'meta.example',
+      ).copyWith(config: config, user: _reader);
       final post = Post.fromJson(
         const {
           'id': 1,
@@ -521,7 +524,9 @@ void main() {
       final controller = _controller(
         api: api,
         instances: [
-          instance('meta.example').copyWith(config: _reactionConfig()),
+          instance(
+            'meta.example',
+          ).copyWith(config: _reactionConfig(), user: _reader),
         ],
         authenticator: auth,
       );
@@ -563,7 +568,9 @@ void main() {
       final controller = _controller(
         api: api,
         instances: [
-          instance('meta.example').copyWith(config: _reactionConfig()),
+          instance(
+            'meta.example',
+          ).copyWith(config: _reactionConfig(), user: _reader),
         ],
         authenticator: auth,
       );
@@ -615,7 +622,7 @@ void main() {
       final firstAuth = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
       final first = _controller(
         api: firstApi,
-        instances: [instance('meta.example')],
+        instances: [instance('meta.example').copyWith(user: _reader)],
         authenticator: firstAuth,
       );
       final second = _controller(

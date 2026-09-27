@@ -11,6 +11,7 @@ import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import '../data/account_session_coordinator.dart';
 import '../data/aggregate_preferences_store.dart';
+import '../data/api_credentials.dart';
 import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
@@ -547,7 +548,19 @@ class ShellController extends FrameSafeNotifier
 
   final Duration pluginNotificationFeedRefreshDebounce;
 
+  /// Reaches secure storage whatever the account state, which only the account
+  /// session transaction may do: connect must find the key it replaces to
+  /// revoke it. Site requests read their key through [credentials].
   final Authenticator authenticator;
+
+  /// The only reader of site API keys for requests: it answers a key only
+  /// while the rail's stored instance for that site is signed in, so a key
+  /// left in secure storage after a reinstall or a failed deletion never
+  /// reads or writes as the retired account.
+  late final ApiCredentialReader credentials = ConnectedAccountCredentials(
+    authenticator,
+    isConnected: (siteUrl) => _instanceAt(siteUrl)?.isConnected == true,
+  );
   final DraftStore drafts;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
@@ -589,12 +602,12 @@ class ShellController extends FrameSafeNotifier
 
   late final SiteImageRepository siteImages =
       _providedSiteImages ??
-      SiteImageRepository(credentials: authenticator, lifecycle: lifecycle);
+      SiteImageRepository(credentials: credentials, lifecycle: lifecycle);
 
   late final SiteVideoThumbnailRepository videoThumbnails =
       _providedVideoThumbnails ??
       SiteVideoThumbnailRepository(
-        credentials: authenticator,
+        credentials: credentials,
         lifecycle: lifecycle,
       );
 
@@ -954,7 +967,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<PluginWriteCredential> _credentialForWrite(String siteUrl) async {
     try {
-      final apiKey = await authenticator.apiKeyFor(siteUrl);
+      final apiKey = await credentials.apiKeyFor(siteUrl);
       return apiKey == null
           ? (
               apiKey: null,
@@ -1009,7 +1022,7 @@ class ShellController extends FrameSafeNotifier
       AccountActivityController(
         likeNotificationTypes: plugins.registry.likeNotificationTypes,
         api: api.accountActivity,
-        credentials: authenticator,
+        credentials: credentials,
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
         onTotalsChanged: _onTotalsChanged,
@@ -1019,7 +1032,7 @@ class ShellController extends FrameSafeNotifier
 
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
     api: api.doNotDisturb,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     onCommitted: _commitDoNotDisturb,
     clock: _clock,
@@ -1035,7 +1048,7 @@ class ShellController extends FrameSafeNotifier
 
   late final DraftListController draftList = DraftListController(
     api: api.drafts,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     deleteDraft: (siteUrl, draft, isCurrent) =>
         _composerDrafts.deleteListedDraft(siteUrl, draft, isCurrent),
@@ -1043,31 +1056,31 @@ class ShellController extends FrameSafeNotifier
 
   late final UserSummaryController userSummary = UserSummaryController(
     api: api.userSummaries,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
   );
 
   late final BadgesController badges = BadgesController(
     api: BadgesApi(api.pluginTransport),
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
   );
 
   late final GroupsController groups = GroupsController(
     api: GroupsApi(api.pluginTransport, api.models),
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
   );
 
   late final UserDirectoryController userDirectory = UserDirectoryController(
     api: UserDirectoryApi(api.pluginTransport, api.models),
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
   );
 
   late final PreferencesController preferences = PreferencesController(
     api: api.userPreferences,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     onSaved: _onPreferencesSaved,
   );
@@ -1076,7 +1089,7 @@ class ShellController extends FrameSafeNotifier
 
   late final AggregateFeedController aggregate = AggregateFeedController(
     api: api.topicFeeds,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     store: store,
     preferences: aggregatePreferences,
@@ -1088,7 +1101,7 @@ class ShellController extends FrameSafeNotifier
   TopicFeedController _createTopicFeedController() {
     return TopicFeedController(
       api: api.topicFeeds,
-      credentials: authenticator,
+      credentials: credentials,
       lifecycle: lifecycle,
       store: store,
       prepareFeed: (instance, apiKey, categories, categoryIds) async {
@@ -1108,7 +1121,7 @@ class ShellController extends FrameSafeNotifier
 
   late final TopicReadController _topicReads = TopicReadController(
     api: api.topicReads,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     store: store,
     reportError: (error, stackTrace, operation) {
@@ -1123,13 +1136,13 @@ class ShellController extends FrameSafeNotifier
 
   late final ShellSearchController search = ShellSearchController(
     api: api.search,
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
   );
 
   late final GlobalSearchController globalSearch = GlobalSearchController(
     api: GlobalSearchApi(transport: api.pluginTransport),
-    credentials: authenticator,
+    credentials: credentials,
     lifecycle: lifecycle,
     recentSource: search,
   );
@@ -1157,7 +1170,7 @@ class ShellController extends FrameSafeNotifier
       loadCustomEmojis: _loadCustomEmojis,
       loadEmojiCatalog: _loadEmojiCatalog,
       loadEmojiSearchAliases: _loadEmojiSearchAliases,
-      credentials: authenticator,
+      credentials: credentials,
       lifecycle: lifecycle,
       readPersistedAppearance: (siteUrl) => _instanceAt(siteUrl)?.appearance,
       readPersistedConfig: (siteUrl) => _instanceAt(siteUrl)?.config,
@@ -2534,7 +2547,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(instance.url),
+        () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
       if (credential.value case final apiKey?) {
@@ -2604,7 +2617,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
       if (credential.value == null) {
@@ -2678,7 +2691,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
       if (credential.value == null) {
@@ -3728,7 +3741,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       final identity = await _readSessionValue(lease, authenticator.clientId);
       if (credential?.value == null || identity == null || !lease.isCurrent) {
@@ -3978,7 +3991,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -4339,7 +4352,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
       final posts = await api.topicContent.posts(
@@ -4471,7 +4484,7 @@ class ShellController extends FrameSafeNotifier
       // The persisted account state, not a credential that may have failed
       // to delete, decides whether this session may open private channels.
       apiKey = instance.isConnected
-          ? await authenticator.apiKeyFor(siteUrl)
+          ? await credentials.apiKeyFor(siteUrl)
           : null;
       clientId = await authenticator.clientId();
     } catch (error, stackTrace) {
@@ -5289,7 +5302,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
       final apiKey = credential.value;
@@ -6758,7 +6771,7 @@ class ShellController extends FrameSafeNotifier
       if (target == null) {
         final credential = await _readSessionValue(
           lease,
-          () => authenticator.apiKeyFor(instance.url),
+          () => credentials.apiKeyFor(instance.url),
         );
         if (credential == null || !isCurrent()) return false;
         final bookmarkVersion = _bookmarkVersion(instance.url, topic.id);
@@ -6910,7 +6923,7 @@ class ShellController extends FrameSafeNotifier
         try {
           final credential = await _awaitTopicLoadStage(
             Future.any<_SessionValue<String?>?>([
-              _readSessionValue(lease, () => authenticator.apiKeyFor(siteUrl)),
+              _readSessionValue(lease, () => credentials.apiKeyFor(siteUrl)),
               cancellation.trigger.then((_) => null),
             ]),
             elapsed,
@@ -7059,7 +7072,7 @@ class ShellController extends FrameSafeNotifier
     int? replayPostNumber;
     try {
       final credential = await _awaitTopicLoadStage(
-        _readSessionValue(lease, () => authenticator.apiKeyFor(instance.url)),
+        _readSessionValue(lease, () => credentials.apiKeyFor(instance.url)),
         elapsed,
         'reading credentials for topic $topicId',
       );
@@ -7423,7 +7436,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(instance.url),
+        () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
       final fetched = await api.topicContent.posts(
@@ -8358,7 +8371,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(instance.url),
+        () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
       final page = resolveRecommendations
@@ -8441,7 +8454,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(instance.url),
+        () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return;
       final posts = await api.topicContent.posts(
@@ -8505,7 +8518,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(instance.url),
+        () => credentials.apiKeyFor(instance.url),
       );
       if (credential == null || !lease.isCurrent) return null;
       final payload = await api.topicContent.topic(
@@ -9985,7 +9998,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(target.siteUrl),
+        () => credentials.apiKeyFor(target.siteUrl),
       );
       if (credential == null || !lease.isCurrent || !_ownsComposer(composer)) {
         return;
@@ -12153,7 +12166,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
       final payload = await api.topicContent.topic(
@@ -12231,7 +12244,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(targetSite),
+        () => credentials.apiKeyFor(targetSite),
       );
       if (credential == null || !lease.isCurrent) return;
       final fetched = await api.topicContent.postLikers(
@@ -12287,7 +12300,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return null;
       final fetched = await api.topicContent.postRevision(
@@ -13494,7 +13507,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
       final topic = await api.topicContent.topic(
@@ -13581,7 +13594,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(targetSite),
+        () => credentials.apiKeyFor(targetSite),
       );
       if (credential == null || !lease.isCurrent) return;
       final card = await api.site.userCard(
@@ -13699,7 +13712,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -13774,7 +13787,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -13834,7 +13847,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return;
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -13878,7 +13891,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const FoundUsersAndGroups();
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -13916,7 +13929,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null) return const [];
       final identity = await _readSessionValue(lease, authenticator.clientId);
@@ -14106,7 +14119,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !lease.isCurrent) return;
       final identity = credential.value == null
@@ -14259,7 +14272,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     try {
       final apiKey = instance.isConnected
-          ? await authenticator.apiKeyFor(instance.url)
+          ? await credentials.apiKeyFor(instance.url)
           : null;
       if (!lease.isCurrent) return;
       final clientId = apiKey == null ? null : await authenticator.clientId();
@@ -14426,7 +14439,7 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _readSessionValue(
         lease,
-        () => authenticator.apiKeyFor(siteUrl),
+        () => credentials.apiKeyFor(siteUrl),
       );
       if (credential == null || !requestIsCurrent()) return;
       final identity = credential.value == null
@@ -16701,8 +16714,8 @@ final class _ShellPluginRequestHost implements PluginRequestHost {
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
       PluginRequestCredentials(
-        apiKey: await _shell.authenticator.apiKeyFor(siteUrl),
-        clientId: await _shell.authenticator.clientId(),
+        apiKey: await _shell.credentials.apiKeyFor(siteUrl),
+        clientId: await _shell.credentials.clientId(),
       );
 
   @override
