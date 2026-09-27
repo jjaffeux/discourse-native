@@ -788,10 +788,8 @@ class ChatController extends FrameSafeNotifier {
       _targetKey(siteUrl, ChatChannelTarget(id));
   static String _pinsKey(String siteUrl, int channelId) =>
       '$siteUrl~channel-$channelId-pins';
-  static String _olderTargetKey(String siteUrl, ChatStreamTarget target) =>
-      '${_targetKey(siteUrl, target)}~past';
-  static String _newerTargetKey(String siteUrl, ChatStreamTarget target) =>
-      '${_targetKey(siteUrl, target)}~future';
+  static String _olderTargetKey(String targetKey) => '$targetKey~past';
+  static String _newerTargetKey(String targetKey) => '$targetKey~future';
 
   /// Rechecks ownership after credential awaits so stale account requests are
   /// never sent after disconnect, disposal, or generation replacement.
@@ -3681,9 +3679,7 @@ class ChatController extends FrameSafeNotifier {
     for (final targetKey in unavailableStreams) {
       final target = _retainedTargets[targetKey]?.target;
       if (target == null) continue;
-      _streamGenerations.remove(targetKey);
-      _loading.remove(targetKey);
-      _pageRequests.remove(targetKey);
+      _abandonWindowWork(targetKey);
       final current = _streams[targetKey]!;
       _setStream(
         siteUrl,
@@ -4372,8 +4368,8 @@ class ChatController extends FrameSafeNotifier {
         (_streams[key]?.localMessageIds.isNotEmpty ?? false) ||
         (_pendingLiveMessageIds[key]?.isNotEmpty ?? false) ||
         _loading.contains(key) ||
-        _pageRequests.containsKey('$key~past') ||
-        _pageRequests.containsKey('$key~future') ||
+        _pageRequests.containsKey(_olderTargetKey(key)) ||
+        _pageRequests.containsKey(_newerTargetKey(key)) ||
         _streamNoticeTimers.containsKey(key) ||
         _queuedReadReceipts.containsKey(key) ||
         _readReceiptTasks.containsKey(key) ||
@@ -4398,12 +4394,7 @@ class ChatController extends FrameSafeNotifier {
     _preparedCooking?.cancel(('draft', key));
     _retainedTargets.remove(key);
     _streams.remove(key);
-    _streamGenerations.remove(key);
-    _windowAttemptedAt.remove(key);
-    _pageRequests.remove('$key~past');
-    _pageRequests.remove('$key~future');
-    _pendingLiveMessageIds.remove(key);
-    _streamNoticeTimers.remove(key)?.cancel();
+    _abandonWindowWork(key);
     _messagePins.remove(key)?.release();
     final streamRef = _streamRefs.remove(key);
     if (streamRef != null) {
@@ -4414,6 +4405,20 @@ class ChatController extends FrameSafeNotifier {
     if (draftRef != null && draftRef.value == null && !draftRef.hasListeners) {
       _composerDraftRefs.remove(key)?.dispose();
     }
+  }
+
+  /// Invalidates every request and parked arrival keyed to a target's window.
+  /// An invalidated request skips its own cleanup, so whatever discards a
+  /// window clears their guards here: a stale page guard would pin the target
+  /// against eviction, and a stale attempt time would throttle reopening it.
+  void _abandonWindowWork(String key) {
+    _streamGenerations.remove(key);
+    _loading.remove(key);
+    _windowAttemptedAt.remove(key);
+    _pageRequests.remove(_olderTargetKey(key));
+    _pageRequests.remove(_newerTargetKey(key));
+    _pendingLiveMessageIds.remove(key);
+    _streamNoticeTimers.remove(key)?.cancel();
   }
 
   void _releaseMessagePinsForSite(String siteUrl) {
@@ -5769,8 +5774,8 @@ class ChatController extends FrameSafeNotifier {
     final generation = Object();
     _streamGenerations[key] = generation;
     bool ownsRequest() => identical(_streamGenerations[key], generation);
-    _pageRequests.remove(_olderTargetKey(siteUrl, target));
-    _pageRequests.remove(_newerTargetKey(siteUrl, target));
+    _pageRequests.remove(_olderTargetKey(key));
+    _pageRequests.remove(_newerTargetKey(key));
     final held = streamFor(siteUrl, target);
     _setStream(
       siteUrl,
@@ -5940,7 +5945,7 @@ class ChatController extends FrameSafeNotifier {
     final before = held.oldestId;
     if (!held.canLoadMorePast || before == null) return;
 
-    final guard = _olderTargetKey(siteUrl, target);
+    final guard = _olderTargetKey(key);
     if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
     final lease = _requests.capture(siteUrl);
@@ -6053,7 +6058,7 @@ class ChatController extends FrameSafeNotifier {
     final after = held.newestId;
     if (!held.canLoadMoreFuture || after == null) return;
 
-    final guard = _newerTargetKey(siteUrl, target);
+    final guard = _newerTargetKey(key);
     if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
 
     final lease = _requests.capture(siteUrl);
