@@ -226,6 +226,11 @@ void main() {
       chatThreadPagesByOffset: {
         0: ChatThreadPage(threads: const [_myThread], channels: [_channel(9)]),
       },
+      chatBrowsePagesByKey: {
+        FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+          channels: [_channel(9)],
+        ),
+      },
       chatChannelThreadPagesByKey: {
         FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
           threads: [
@@ -1150,9 +1155,7 @@ void main() {
     });
 
     group('sidebar workflows', () {
-      testWidgets('pins the primary chat actions beneath the inbox', (
-        tester,
-      ) async {
+      testWidgets('pins the directory links beneath the inbox', (tester) async {
         await shell.chat.loadChannels(_site);
         late List<SidebarSection> sections;
         await tester.pumpWidget(
@@ -1183,21 +1186,25 @@ void main() {
         expect(inbox.showHeader, isFalse);
         expect(inbox.collapsible, isFalse);
         expect(inbox.actionAboveHeader, isFalse);
+        // Starting a message is reached from the mobile tab bar and the
+        // section's keyboard shortcut, not from a footer button.
+        expect(inbox.actionLabel, 'Start a message');
+        expect(inbox.onAction, isNotNull);
         final footer = find.byKey(const ValueKey('chat-sidebar-footer'));
-        for (final key in [
-          'chat-sidebar-start-message',
-          'chat-inbox-browse',
-          'chat-inbox-my-threads',
-        ]) {
+        for (final key in ['chat-inbox-browse', 'chat-inbox-my-threads']) {
           expect(
             find.descendant(of: footer, matching: find.byKey(ValueKey(key))),
             findsOneWidget,
           );
         }
+        expect(
+          find.byKey(const ValueKey('chat-sidebar-start-message')),
+          findsNothing,
+        );
       });
 
       testWidgets(
-        'opens a new direct message with Command+K and shows the shortcut',
+        'opens a new direct message with Command+K and advertises the shortcut',
         (tester) async {
           final previousPlatform = debugDefaultTargetPlatformOverride;
           debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -1226,10 +1233,15 @@ void main() {
               find.byKey(const ValueKey('sidebar-panel-switch-chat')),
             );
             await tester.pumpAndSettle();
-            final action = tester.widget<DButton>(
-              find.widgetWithText(DButton, 'Start a message'),
-            );
-            final shortcut = action.shortcut![0];
+            final inbox = const ChatPlugin()
+                .sidebarSections(
+                  tester.element(
+                    find.byKey(const ValueKey('chat-sidebar-footer')),
+                  ),
+                )
+                .single;
+            expect(inbox.actionLabel, 'Start a message');
+            final shortcut = inbox.actionShortcut!;
             expect(shortcut.trigger, LogicalKeyboardKey.keyK);
             expect(shortcut.meta, isTrue);
             expect(shortcut.control, isFalse);
@@ -1250,7 +1262,7 @@ void main() {
         },
       );
 
-      testWidgets('show My threads, load account rows, and open a thread', (
+      testWidgets('show Browse threads, load channel rows, and open a thread', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1311,22 +1323,11 @@ void main() {
 
         expect(find.text('Support thread'), findsOneWidget);
         expect(
-          find.descendant(
-            of: find.byKey(const ValueKey('chat-my-thread-3')),
-            matching: find.byType(GroupFlairBadge),
-          ),
-          findsNWidgets(2),
-        );
-        expect(
           find.byKey(const ValueKey('chat-my-thread-unread-3')),
           findsOneWidget,
         );
         expect(
-          find.byKey(const ValueKey('chat-my-thread-preview-3')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('chat-my-thread-participants-3')),
+          find.byKey(const ValueKey('chat-my-thread-replies-3')),
           findsOneWidget,
         );
         expect(find.text('Latest answer'), findsOneWidget);
