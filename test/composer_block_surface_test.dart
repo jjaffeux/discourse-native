@@ -685,6 +685,60 @@ void main() {
     expect(find.byType(DDragHighlight), findsNothing);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mobile long press on a details toggle opens its menu on $platform',
+      (tester) async {
+        composer.text.text =
+            'First paragraph\n\n[details="Summary"]\nHidden\n[/details]'
+            '\n\nLast paragraph';
+        await mount(tester, mobile: true, platform: platform);
+        final source = composer.text.text;
+        final blocks = composer.blocks.index.blocks;
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final toggle = find.byKey(const ValueKey('details-disclosure'));
+        expect(
+          surface.blockRect(blocks[1])!.contains(tester.getCenter(toggle)),
+          isTrue,
+        );
+        final hold = await tester.startGesture(tester.getCenter(toggle));
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump();
+        expect(find.byType(DDragHighlight), findsNothing);
+        await hold.up();
+        await tester.pumpAndSettle();
+        expect(find.text('Remove details, keep content'), findsOneWidget);
+        expect(find.text('Delete details'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('Delete details'), findsNothing);
+        expect(composer.text.text, source);
+
+        final first = surface.blockRect(blocks.first)!;
+        final move = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('details-summary'))),
+        );
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump();
+        expect(find.byType(DDragHighlight), findsOneWidget);
+        expect(composer.blocks.selected?.id, blocks[1].id);
+        await move.moveTo(Offset(first.center.dx, first.top + 1));
+        await tester.pump();
+        await tester.pump();
+        await move.up();
+        await tester.pumpAndSettle();
+        expect(
+          composer.text.text,
+          '[details="Summary"]\nHidden\n[/details]\n\nFirst paragraph'
+          '\n\nLast paragraph',
+        );
+        expect(find.text('Delete details'), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'mobile tapping still focuses the editor without moving a block',
     (tester) async {

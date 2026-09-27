@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../plugin_api/composer_syntax.dart';
 import '../theme/d_icons.dart';
 import 'composer_block_selection.dart';
+import 'composer_block_surface.dart';
 import 'composer_controller.dart';
 import 'composer_details_blocks.dart';
 import 'composer_details_body_controller.dart';
@@ -419,7 +420,9 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _disclosure(context),
+            // Touch opens this menu by long press, and only it can unwrap
+            // the details.
+            ComposerBlockSurface.ownsLongPress(child: _disclosure(context)),
             const SizedBox(width: DSpacing.xs),
             Expanded(
               child: Column(
