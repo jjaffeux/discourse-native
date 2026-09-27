@@ -799,12 +799,27 @@ class _LightboxGalleryState extends State<LightboxGallery> {
                   excludeFromSemantics: true,
                   gifPlaybackControls: true,
                   onNaturalSize: (size) => _rememberFullImageSize(index, size),
-                  loadingBuilder: (context) => const Center(
-                    child: SizedBox.square(
-                      dimension: 24,
-                      child: DSpinner(color: Colors.white, size: 24),
-                    ),
-                  ),
+                  loadingBuilder: (context) =>
+                      StreamBuilder<PhotoViewControllerValue>(
+                        stream: _photoControllers[index].outputStateStream,
+                        initialData: _photoControllers[index].value,
+                        builder: (context, snapshot) {
+                          final scale =
+                              snapshot.data?.scale ??
+                              _scaleBounds(index, viewport).minimum;
+                          // PhotoView scales the entire image slot, including its
+                          // placeholder. Keep the loading indicator at screen size.
+                          return Center(
+                            child: Transform.scale(
+                              scale: 1 / scale,
+                              child: const DSpinner(
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                   errorBuilder: (context, error, stackTrace) {
                     reportImageError(
                       error,
