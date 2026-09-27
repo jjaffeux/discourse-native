@@ -598,16 +598,15 @@ PollComposerMutation _replaceVerifiedPoll({
     expectedBlock.end,
     '$replacement$suffix',
   );
-  final followingLineBreakLength = keepFollowingLine
-      ? _leadingLineBreakLength('$suffix$after')
+  final followingGapLength = keepFollowingLine
+      ? _followingGapLength('$suffix$after')
       : 0;
-  assert(!keepFollowingLine || followingLineBreakLength > 0);
+  assert(!keepFollowingLine || followingGapLength > 0);
   return PollComposerMutation.applied(
     TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(
-        offset:
-            expectedBlock.start + replacement.length + followingLineBreakLength,
+        offset: expectedBlock.start + replacement.length + followingGapLength,
       ),
     ),
   );
@@ -671,17 +670,14 @@ PollComposerMutation insertVerifiedPoll({
   final suffix = _blankLineSuffix(after, lineEnding);
   final insertion = '$prefix$markup$suffix';
   final next = '$before$insertion$after';
-  final followingLineBreakLength = _leadingLineBreakLength('$suffix$after');
-  assert(followingLineBreakLength > 0);
+  final followingGapLength = _followingGapLength('$suffix$after');
+  assert(followingGapLength > 0);
   return PollComposerMutation.applied(
     TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(
         offset:
-            before.length +
-            prefix.length +
-            markup.length +
-            followingLineBreakLength,
+            before.length + prefix.length + markup.length + followingGapLength,
       ),
     ),
   );
@@ -703,12 +699,26 @@ String _blankLineSuffix(String after, String lineEnding) {
       : '$lineEnding$lineEnding';
 }
 
-int _leadingLineBreakLength(String source) {
-  if (source.isEmpty) return 0;
-  if (source.codeUnitAt(0) == 0x0A) return 1;
-  return source.length > 1 &&
-          source.codeUnitAt(0) == 0x0D &&
-          source.codeUnitAt(1) == 0x0A
+/// The composer draws the blank line between a poll and the next block as
+/// structural spacing that cannot hold a caret, so the caret after a poll
+/// passes the poll's own line break and that blank line, landing where the
+/// next block starts. Text typed inside the gap would join the next block.
+int _followingGapLength(String source) {
+  var cursor = 0;
+  for (var lineBreaks = 0; lineBreaks < 2; lineBreaks++) {
+    final length = _lineBreakLengthAt(source, cursor);
+    if (length == 0) break;
+    cursor += length;
+  }
+  return cursor;
+}
+
+int _lineBreakLengthAt(String source, int offset) {
+  if (offset >= source.length) return 0;
+  if (source.codeUnitAt(offset) == 0x0A) return 1;
+  return offset + 1 < source.length &&
+          source.codeUnitAt(offset) == 0x0D &&
+          source.codeUnitAt(offset + 1) == 0x0A
       ? 2
       : 0;
 }
