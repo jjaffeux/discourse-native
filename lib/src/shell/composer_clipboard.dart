@@ -30,6 +30,13 @@ Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
     return composerUploadFilesFromSelection(files);
   }
 
+  // Excel, Numbers and Word publish PDF or TIFF renderings beside the copied
+  // text, and the plugin accepts any flavour NSImage can read as the image.
+  // As on Discourse web, any plain text wins over clipboard pixels, so only a
+  // clipboard without text (a screenshot) uploads them; a browser's Copy Image
+  // that also publishes its address as text pastes that address instead.
+  if (await Clipboard.hasStrings()) return const [];
+
   final image = await Pasteboard.image;
   if (image == null || image.isEmpty) return const [];
 

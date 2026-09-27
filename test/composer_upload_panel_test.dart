@@ -206,6 +206,8 @@ void main() {
         };
       });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      // A screenshot copied to the clipboard publishes pixels and no text.
+      final textCalls = _mockClipboardText(tester, null);
 
       final files = await readComposerClipboardFiles();
 
@@ -223,7 +225,55 @@ void main() {
         3,
       ]);
       expect(calls, ['files', 'image']);
+      expect(textCalls, ['Clipboard.hasStrings']);
     });
+
+    testWidgets(
+      'text copied beside an image flavour pastes as text, never the pixels',
+      (tester) async {
+        // Excel, Numbers and Word publish PDF or TIFF renderings of the copied
+        // cells next to their text, and the plugin reads either as an image.
+        const copied = 'Q3 revenue 1200';
+        final pluginCalls = _mockPasteboardPlugin(
+          tester,
+          files: const [],
+          image: Uint8List.fromList(const [80, 78, 71]),
+        );
+        final fileUrlCalls = _mockPasteboardFileUrls(tester, const []);
+        final textCalls = _mockClipboardText(tester, copied);
+        const config = SiteConfig(authorizedExtensions: ['*']);
+        final uploaded = <String>[];
+        final composer = ComposerController(
+          _target,
+          canUploadImage: (name) => config.canUploadImage(name, staff: false),
+          canUploadFile: (name) => config.canUploadFile(name, staff: false),
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async {
+                uploaded.add(file.name);
+                throw StateError('Copied text must not upload its rendering');
+              },
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'See ',
+          selection: TextSelection.collapsed(offset: 4),
+        );
+        await _pumpPanel(tester, shell, composer);
+
+        await _pasteShortcut(tester);
+
+        expect(composer.text.text, 'See $copied');
+        expect(composer.uploads, isEmpty);
+        expect(uploaded, isEmpty);
+        expect(composer.notice, isNull);
+        expect(pluginCalls, isNot(contains('image')));
+        expect(fileUrlCalls, ['fileURLPaths']);
+        expect(textCalls.first, 'Clipboard.hasStrings');
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
 
     for (final name in ['copied screenshot.png', 'copied video.mp4']) {
       testWidgets(
@@ -248,6 +298,8 @@ void main() {
             };
           });
           addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+          // Finder also publishes the copied file's name as plain text.
+          final textCalls = _mockClipboardText(tester, name);
 
           final files = (await tester.runAsync(readComposerClipboardFiles))!;
 
@@ -262,6 +314,7 @@ void main() {
           expect(upload?.$1, 4);
           expect(upload?.$2, [4, 5, 6, 7]);
           expect(calls, ['files']);
+          expect(textCalls, isEmpty);
         },
       );
     }
@@ -2328,6 +2381,25 @@ List<String> _mockPasteboardPlugin(
     };
   });
   addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  return calls;
+}
+
+/// Answers the engine's plain-text clipboard queries and records each asked.
+List<String> _mockClipboardText(WidgetTester tester, String? text) {
+  final messenger = tester.binding.defaultBinaryMessenger;
+  final calls = <String>[];
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (!call.method.startsWith('Clipboard.')) return null;
+    calls.add(call.method);
+    return switch (call.method) {
+      'Clipboard.hasStrings' => {'value': text != null && text.isNotEmpty},
+      'Clipboard.getData' => text == null ? null : {'text': text},
+      _ => null,
+    };
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+  );
   return calls;
 }
 
