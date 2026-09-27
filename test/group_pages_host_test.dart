@@ -207,6 +207,129 @@ void main() {
     },
   );
 
+  group('group message action', () {
+    Future<_Port> pumpGroup(
+      WidgetTester tester, {
+      required bool messageable,
+      bool isGroupUser = false,
+      bool hasMessages = false,
+      bool canSendPrivateMessages = true,
+      String? username = 'sam',
+    }) async {
+      final port = _Port()
+        ..username = username
+        ..group = GroupPageData(
+          detail: GroupDetail(
+            group: Group(
+              id: 4,
+              name: 'support',
+              messageable: messageable,
+              isGroupUser: isGroupUser,
+              hasMessages: hasMessages,
+            ),
+          ),
+          canSendPrivateMessages: canSendPrivateMessages,
+          loaded: true,
+        );
+      addTearDown(port.dispose);
+      final coordinator = GroupPagesCoordinator();
+      addTearDown(coordinator.dispose);
+      final route = GroupRoute.detail('support');
+      coordinator.bind(
+        port,
+        GroupPagesRouteSnapshot(
+          owner: port.owner,
+          routeId: route.id,
+          groupNamespace: true,
+          route: route,
+          canPopContent: false,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: GroupPagesHost(
+              coordinator: coordinator,
+              port: port,
+              registry: PluginRegistry.empty,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return port;
+    }
+
+    for (final (isGroupUser, hasMessages) in [
+      (true, true),
+      (false, true),
+      (true, false),
+      (false, false),
+    ]) {
+      testWidgets('a messageable group offers Message to a '
+          '${isGroupUser ? 'member' : 'non-member'} of a group '
+          '${hasMessages ? 'with messages' : 'never messaged'}', (
+        tester,
+      ) async {
+        final port = await pumpGroup(
+          tester,
+          messageable: true,
+          isGroupUser: isGroupUser,
+          hasMessages: hasMessages,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('group-message')));
+        await tester.pump();
+
+        expect(port.messagedGroups, ['support']);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets(
+      'a messageable group offers Message without general message permission',
+      (tester) async {
+        final port = await pumpGroup(
+          tester,
+          messageable: true,
+          canSendPrivateMessages: false,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('group-message')));
+        await tester.pump();
+
+        expect(port.messagedGroups, ['support']);
+        expect(find.byKey(const ValueKey('group-tab-messages')), findsNothing);
+      },
+    );
+
+    testWidgets('a group the server does not mark messageable offers none', (
+      tester,
+    ) async {
+      await pumpGroup(
+        tester,
+        messageable: false,
+        isGroupUser: true,
+        hasMessages: true,
+      );
+
+      expect(find.byKey(const ValueKey('group-message')), findsNothing);
+      expect(find.byKey(const ValueKey('group-tab-messages')), findsOneWidget);
+    });
+
+    testWidgets('a signed-out reader is never offered Message', (tester) async {
+      await pumpGroup(
+        tester,
+        messageable: true,
+        canSendPrivateMessages: false,
+        username: null,
+      );
+
+      expect(find.byKey(const ValueKey('group-message')), findsNothing);
+    });
+  });
+
   group('group deletion navigation', () {
     for (final destination in _DeleteDestination.values) {
       for (final returnToOrigin in [false, true]) {
@@ -441,6 +564,8 @@ final class _Port implements GroupPagesPort {
   final deletions = <({GroupPagesOwner owner, Group group})>[];
   GroupPageData? group;
   TopicFeed? feed;
+  String? username = 'sam';
+  final messagedGroups = <String>[];
 
   @override
   Listenable get changes => _changes;
@@ -449,7 +574,12 @@ final class _Port implements GroupPagesPort {
   bool isCurrent(GroupPagesOwner value) => value == owner;
 
   @override
-  String? usernameFor(GroupPagesOwner owner) => 'sam';
+  String? usernameFor(GroupPagesOwner owner) => username;
+
+  @override
+  void messageGroup(GroupPagesOwner owner, Group group) {
+    if (isCurrent(owner)) messagedGroups.add(group.name);
+  }
 
   @override
   GroupDirectoryState directoryState(

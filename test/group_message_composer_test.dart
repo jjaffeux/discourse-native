@@ -1,7 +1,9 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/group_pages_shell_port.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,9 +64,8 @@ void main() {
     },
   );
 
-  test(
-    'private messaging remains unavailable without server permission',
-    () async {
+  group('without general private-message permission', () {
+    Future<ShellController> loadShell() async {
       final shell = ShellController(
         instanceStore: FakeInstanceStore([
           instance(
@@ -79,14 +80,48 @@ void main() {
       );
       addTearDown(shell.dispose);
       await shell.load();
-      shell.pushContent(ContentRoute.group(GroupRoute.detail('tech-leads')));
+      shell.pushContent(ContentRoute.group(GroupRoute.detail('moderators')));
+      return shell;
+    }
 
-      shell.openPrivateMessage(
-        siteUrl: _siteUrl,
-        targetRecipients: 'tech-leads',
-      );
+    void messageGroup(ShellController shell, Group group) =>
+        ShellGroupPagesPort(shell).messageGroup((
+          siteUrl: _siteUrl,
+          accountIdentity: shell.currentAccountIdentity!,
+          tabId: shell.activeTabId,
+        ), group);
+
+    test('a new message to users remains unavailable', () async {
+      final shell = await loadShell();
+
+      shell.openPrivateMessage(siteUrl: _siteUrl, targetRecipients: 'sam');
 
       expect(shell.visibleComposer, isNull);
-    },
-  );
+    });
+
+    test(
+      'a group the server marks messageable can still be messaged',
+      () async {
+        final shell = await loadShell();
+
+        messageGroup(
+          shell,
+          const Group(id: 2, name: 'moderators', messageable: true),
+        );
+
+        final composer = shell.visibleComposer;
+        expect(composer, isNotNull);
+        expect(composer!.target.mode, ComposerMode.privateMessage);
+        expect(composer.target.targetRecipients, 'moderators');
+      },
+    );
+
+    test('a group the server does not mark messageable cannot', () async {
+      final shell = await loadShell();
+
+      messageGroup(shell, const Group(id: 2, name: 'moderators'));
+
+      expect(shell.visibleComposer, isNull);
+    });
+  });
 }

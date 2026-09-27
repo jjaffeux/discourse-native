@@ -267,13 +267,16 @@ class _GroupDetailView extends StatelessWidget {
               ? null
               : (member, action) =>
                     port.memberAction(owner, group, member, action),
+          // Core answers `messageable` with the reader's permission to
+          // message this group. It is independent of membership and of
+          // whether the group has any messages yet, which decide only the
+          // Messages tab, and of the reader's general private-message
+          // permission, which a group messageable by everyone overrides.
           onMessageGroup:
-              group?.canShowMessages(
-                    canSendPrivateMessages: data.canSendPrivateMessages,
-                    isAdmin: data.isAdmin,
-                  ) ==
-                  true
-              ? () => port.messageGroup(owner, group!)
+              group != null &&
+                  group.messageable &&
+                  port.usernameFor(owner) != null
+              ? () => port.messageGroup(owner, group)
               : null,
           onOpenMember: (memberContext, member) =>
               port.openMember(memberContext, owner, member),

@@ -65,7 +65,12 @@ final class DiscourseSearchApi {
       Uri.parse('$siteUrl/u/search/users.json').replace(
         queryParameters: {
           if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
-          'include_groups': 'true',
+          // Core addresses a message to a group only when the group is in
+          // `Group.messageable` for the sender; any other name is looked up
+          // as a username and the whole message is rejected. The visible
+          // groups `include_groups` answers differ in both directions: some
+          // cannot be messaged, and some messageable groups are not visible.
+          'include_messageable_groups': 'true',
           'limit': '$limit',
         },
       ),

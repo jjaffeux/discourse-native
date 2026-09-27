@@ -461,10 +461,7 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   @override
   void messageGroup(GroupPagesOwner owner, Group group) {
     if (!isCurrent(owner)) return;
-    _shell.openPrivateMessage(
-      siteUrl: owner.siteUrl,
-      targetRecipients: group.name,
-    );
+    _shell.openGroupMessage(siteUrl: owner.siteUrl, group: group);
   }
 
   @override

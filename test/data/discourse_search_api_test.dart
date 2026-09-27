@@ -126,7 +126,7 @@ void main() {
     });
   });
   group('header search support', () {
-    test('asks user search for recent people and visible groups', () async {
+    test('asks user search for recent people and messageable groups', () async {
       late http.Request sent;
       final api = _searchApi(
         client: MockClient((request) async {
@@ -163,7 +163,7 @@ void main() {
       expect(sent.url.path, '/u/search/users.json');
       expect(sent.url.queryParameters, {
         'last_seen_users': 'true',
-        'include_groups': 'true',
+        'include_messageable_groups': 'true',
         'limit': '6',
       });
       expect(sent.headers['User-Api-Key'], 'secret');
