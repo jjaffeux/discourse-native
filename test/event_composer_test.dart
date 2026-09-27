@@ -232,6 +232,59 @@ void main() {
   });
 
   testWidgets(
+    'custom fields are edited under the attribute the web authors and cooks',
+    (tester) async {
+      // The web writes each field under raw-event-helper's camelCase(setting):
+      // `roomNumber` as `roomnumber=`, `dress_code` as `dressCode=`.
+      const settings = EventSettings(
+        enabled: true,
+        customFields: ['roomNumber', 'dress_code'],
+      );
+      const web =
+          '[event start="2026-09-08 12:00" roomnumber="12" dressCode="formal"]\n'
+          'Agenda\n[/event]';
+      Finder field(String label) => find.byWidgetPredicate(
+        (widget) => widget is DInput && widget.labelText == label,
+      );
+
+      final edited = await _applySheet(
+        tester,
+        settings: settings,
+        block: parseEventBlocks(web).single,
+        edit: () async {
+          expect(
+            tester.widget<DInput>(field('roomNumber')).controller!.text,
+            '12',
+          );
+          expect(
+            tester.widget<DInput>(field('dress_code')).controller!.text,
+            'formal',
+          );
+          await tester.enterText(field('roomNumber'), '14');
+        },
+      );
+      expect(edited, web.replaceFirst('roomnumber="12"', 'roomnumber="14"'));
+
+      final created = await _applySheet(
+        tester,
+        settings: settings,
+        edit: () async {
+          await tester.enterText(field('Starts'), '2026-09-08 12:00');
+          await tester.enterText(field('roomNumber'), '12');
+          await tester.enterText(field('dress_code'), 'formal');
+        },
+      );
+      final attributes = {
+        for (final attribute in parseEventBlocks(created!).single.attributes)
+          attribute.name: attribute.value,
+      };
+      expect(attributes, containsPair('roomnumber', '12'));
+      expect(attributes, containsPair('dress-code', 'formal'));
+      expect(attributes, isNot(contains('room-number')));
+    },
+  );
+
+  testWidgets(
     'sheet refuses a stale composer and remove does not write an endpoint',
     (tester) async {
       await tester.pumpWidget(
@@ -252,6 +305,49 @@ void main() {
       expect(find.text('Remove event'), findsOneWidget);
     },
   );
+}
+
+/// Opens the sheet with its optional fields expanded, runs [edit], applies it
+/// and answers the source the sheet returned.
+Future<String?> _applySheet(
+  WidgetTester tester, {
+  required EventSettings settings,
+  required Future<void> Function() edit,
+  EventBlock? block,
+}) async {
+  String? result;
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              result = await showDialog<String>(
+                context: context,
+                builder: (_) => EventComposerSheet(
+                  block: block,
+                  settings: settings,
+                  timezone: 'Europe/Paris',
+                  isCurrent: () => true,
+                ),
+              );
+            },
+            child: const Text('Edit'),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Edit'));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('More options'));
+  await tester.tap(find.text('More options'));
+  await tester.pumpAndSettle();
+  await edit();
+  await tester.tap(find.text('Apply'));
+  await tester.pumpAndSettle();
+  expect(find.byType(EventComposerSheet), findsNothing);
+  return result;
 }
 
 class _Editor implements ComposerEditorHost {

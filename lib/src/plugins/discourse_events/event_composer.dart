@@ -233,6 +233,10 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   final _fields = <String, TextEditingController>{};
   final _initial = <String, String>{};
   final _booleans = <String, bool>{};
+
+  /// Setting names by the attribute each custom field is read from and
+  /// written to. A setting naming a built-in field is that field.
+  final _customFields = <String, String>{};
   late final TextEditingController _description;
   late String _recurrence;
   late String _status;
@@ -241,7 +245,11 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   void initState() {
     super.initState();
     final block = widget.block;
-    for (final name in {..._textFields.keys, ...widget.settings.customFields}) {
+    for (final name in widget.settings.customFields) {
+      final attribute = eventCustomFieldAttributeName(name);
+      if (!_textFields.containsKey(attribute)) _customFields[attribute] = name;
+    }
+    for (final name in {..._textFields.keys, ..._customFields.keys}) {
       final value =
           block?.attribute(name) ??
           (name == 'timezone' ? (block == null ? widget.timezone : 'UTC') : '');
@@ -373,7 +381,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: DInput(
       controller: _fields[name],
-      labelText: _textFields[name] ?? name,
+      labelText: _textFields[name] ?? _customFields[name] ?? name,
       hintText: {'start', 'end', 'recurrence-until'}.contains(name)
           ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
           : null,
@@ -532,8 +540,8 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                         _field('max-attendees'),
                         _field('reminders'),
                         _field('image'),
-                        for (final name in widget.settings.customFields)
-                          if (!_textFields.containsKey(name)) _field(name),
+                        for (final attribute in _customFields.keys)
+                          _field(attribute),
                         for (final entry in _booleanFields.entries)
                           if (entry.key != 'all-day')
                             DCheckbox(

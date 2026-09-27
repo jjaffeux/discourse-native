@@ -116,6 +116,10 @@ included in the module's markup drift snapshots.
 `EventBlock` retains original source spans and changes only edited attributes
 or description text. Future attributes, custom fields, images, quotation style
 on untouched attributes, and the original recurrence anchor survive an edit.
+A site custom field is read and written under the attribute upstream's
+`custom_field_data_attribute` stores it from, which lowercases the setting
+before its separators become word breaks: `roomNumber` is `roomnumber=`, as the
+web composer writes it, and `room_number` is `room-number=`.
 Code examples and quoted blocks remain raw. The editor is available for a new
 topic (including a private message) or its first post, with freshly loaded
 creation permission. Close/reopen and removal edit the block; saving uses the

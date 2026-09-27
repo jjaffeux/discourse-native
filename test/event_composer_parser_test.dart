@@ -80,6 +80,52 @@ void main() {
     );
   });
 
+  test('custom fields round-trip through the attribute upstream stores', () {
+    // By setting name: the key the web composer writes (raw-event-helper's
+    // camelCase) and the attribute Parser.custom_field_data_attribute stores
+    // the field from. Both lowercase the setting before its separators become
+    // word breaks, so letter case alone never separates words.
+    const upstream = {
+      'roomNumber': ('roomnumber', 'data-roomnumber'),
+      'roomnumber': ('roomnumber', 'data-roomnumber'),
+      'ROOM_NUMBER': ('roomNumber', 'data-room-number'),
+      'room_number': ('roomNumber', 'data-room-number'),
+      'room-number': ('roomNumber', 'data-room-number'),
+      'room.number': ('roomNumber', 'data-room-number'),
+      'room_1': ('room1', 'data-room1'),
+    };
+    for (final MapEntry(key: field, value: (web, stored)) in upstream.entries) {
+      final attribute = eventCustomFieldAttributeName(field);
+      expect(_cooked(web), stored, reason: '$field as the web writes it');
+
+      final authored = parseEventBlocks(
+        '[event start=x $web="12"]\n[/event]',
+      ).single;
+      expect(authored.attribute(attribute), '12', reason: field);
+      expect(
+        authored.replace({attribute: '14'}),
+        '[event start=x $web="14"]\n[/event]',
+        reason: field,
+      );
+
+      final written = parseEventBlocks(
+        parseEventBlocks(_event).single.replace({attribute: '12'}),
+      ).single;
+      expect(_cooked(written.attributes.last.name), stored, reason: field);
+      expect(written.attribute(attribute), '12', reason: field);
+    }
+
+    // A hand-typed `roomNumber=` cooks to data-room-number, which is not where
+    // upstream stores the `roomNumber` field from.
+    expect(_cooked('roomNumber'), isNot(upstream['roomNumber']!.$2));
+    expect(
+      parseEventBlocks(
+        '[event start=x roomNumber="12"]\n[/event]',
+      ).single.attribute(eventCustomFieldAttributeName('roomNumber')),
+      isNull,
+    );
+  });
+
   test('overlapping exclusions leave subsequent actual blocks detectable', () {
     for (final (before, after) in [
       ('```text\n', '\n```'),
@@ -217,3 +263,8 @@ void main() {
     }
   });
 }
+
+/// Cooks a BBCode key as the `[event]` markdown rule in the plugin's markup
+/// snapshot does: `data-${dasherize(key)}`.
+String _cooked(String key) =>
+    'data-${key.replaceAllMapped(RegExp('[A-Z]'), (match) => '${match.start == 0 ? '' : '-'}${match[0]!.toLowerCase()}')}';
