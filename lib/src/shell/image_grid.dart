@@ -374,7 +374,18 @@ class ImageGridTile extends StatelessWidget {
       );
     }
 
-    return CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl);
+    // Anything else gets the height the mosaic measured it at, a square unless
+    // it declared a size, and a quote or onebox is often taller. Upstream gives
+    // every grid item `overflow: hidden`: lay the content out whole and clip it
+    // to the tile rather than overflow it.
+    return ClipRect(
+      child: OverflowBox(
+        alignment: AlignmentDirectional.topStart,
+        minHeight: 0,
+        maxHeight: double.infinity,
+        child: CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl),
+      ),
+    );
   }
 }
 
