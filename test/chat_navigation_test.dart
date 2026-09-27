@@ -687,6 +687,43 @@ void main() {
     });
 
     group('native URL routing', () {
+      Future<(ShellController, FakeDiscourseApi)> gatedShell({
+        Completer<void>? channelGate,
+        Completer<void>? threadGate,
+      }) async {
+        final gatedApi = FakeDiscourseApi(
+          user: _user,
+          feeds: const {'/latest.json': []},
+          chatChannelGate: channelGate,
+          chatThreadGate: threadGate,
+          chatChannelsBySite: {
+            _site: ChatChannels(public: [_channel(9)]),
+          },
+          chatThreadsByKey: {
+            FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
+          },
+        );
+        final gated = ShellController(
+          plugins: installedPlugins,
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(user: _user),
+            instance('other.example').copyWith(user: _user),
+          ]),
+          api: gatedApi,
+          authenticator: FakeAuthenticator()
+            ..keys[_site] = 'meta-key'
+            ..keys[_otherSite] = 'other-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updater: FakeUpdater(),
+          updateStore: FakeUpdateStore(),
+          ownsApi: false,
+        );
+        addTearDown(gated.dispose);
+        await gated.load();
+        return (gated, gatedApi);
+      }
+
       test('a direct Chat URL opens full-page', () async {
         final chatShell = shell.pluginSession.require(chatShellService);
 
@@ -744,29 +781,7 @@ void main() {
         'preserves the latest intent when an earlier native open completes late',
         () async {
           final channelGate = Completer<void>();
-          final gatedApi = FakeDiscourseApi(
-            user: _user,
-            feeds: const {'/latest.json': []},
-            chatChannelGate: channelGate,
-            chatChannelsBySite: {
-              _site: ChatChannels(public: [_channel(9)]),
-            },
-          );
-          final gated = ShellController(
-            plugins: installedPlugins,
-            instanceStore: FakeInstanceStore([
-              instance('meta.discourse.org').copyWith(user: _user),
-            ]),
-            api: gatedApi,
-            authenticator: FakeAuthenticator()..keys[_site] = 'meta-key',
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
-            updater: FakeUpdater(),
-            updateStore: FakeUpdateStore(),
-            ownsApi: false,
-          );
-          addTearDown(gated.dispose);
-          await gated.load();
+          final (gated, _) = await gatedShell(channelGate: channelGate);
 
           final first = gated.openChatUrl('$_site/chat/c/-/9/44');
           expect(
@@ -778,6 +793,125 @@ void main() {
           expect(await first, isTrue);
           expect(gated.currentContent?.id, 'latest');
           expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'a late channel check does not bury a topic opened meanwhile',
+        () async {
+          final channelGate = Completer<void>();
+          final (gated, _) = await gatedShell(channelGate: channelGate);
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/9/44');
+          await pumpEventQueue();
+          expect(
+            await gated.openNotificationUrl('$_site/t/better-images/77/4'),
+            isTrue,
+          );
+          expect(gated.currentContent?.id, 'topic-77');
+          channelGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.currentContent?.id, 'topic-77');
+          expect(
+            gated.contentStack.map((route) => route.id),
+            isNot(contains(startsWith('chat-'))),
+          );
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'a late thread check does not bury a topic opened meanwhile',
+        () async {
+          final threadGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(threadGate: threadGate);
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/9/t/3/44');
+          await pumpEventQueue();
+          expect(gatedApi.chatThreadsRequested, [(channelId: 9, threadId: 3)]);
+          expect(
+            await gated.openNotificationUrl('$_site/t/better-images/77/4'),
+            isTrue,
+          );
+          threadGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.currentContent?.id, 'topic-77');
+          expect(
+            gated.contentStack.map((route) => route.id),
+            isNot(contains(startsWith('chat-'))),
+          );
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'a late channel check does not pull back a site selected meanwhile',
+        () async {
+          final channelGate = Completer<void>();
+          final (gated, _) = await gatedShell(channelGate: channelGate);
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/9/44');
+          await pumpEventQueue();
+          gated.selectInstance(1);
+          expect(gated.currentInstance?.url, _otherSite);
+          channelGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.currentInstance?.url, _otherSite);
+          expect(gated.currentContent?.id, 'latest');
+          expect(gated.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
+        'a late Chat notification still opens when nothing moved meanwhile',
+        () async {
+          final channelGate = Completer<void>();
+          final threadGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(
+            channelGate: channelGate,
+            threadGate: threadGate,
+          );
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/9/t/3/44');
+          await pumpEventQueue();
+          channelGate.complete();
+          await pumpEventQueue();
+          expect(gatedApi.chatThreadsRequested, [(channelId: 9, threadId: 3)]);
+          threadGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.currentInstance?.url, _site);
+          expect(gated.currentContent?.id, 'chat-c-9-t-3');
+          expect(gated.chatNavigation.value?.messageId, 44);
+        },
+      );
+
+      test(
+        'a late background-tab open still lands after the reader moves on',
+        () async {
+          final threadGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(threadGate: threadGate);
+          gated.desktopTopicTabs = true;
+          final service = gated.pluginSession.require(chatShellService);
+
+          final backgroundOpen = service.openPluginUrl(
+            '$_site/chat/c/-/9/t/3/44',
+            origin: PluginLinkOrigin.newTab,
+          );
+          await pumpEventQueue();
+          expect(gatedApi.chatThreadsRequested, [(channelId: 9, threadId: 3)]);
+          expect(gated.openTopicUrl('$_site/t/better-images/77/4'), isTrue);
+          threadGate.complete();
+
+          expect(await backgroundOpen, isTrue);
+          expect(gated.currentContent?.id, 'topic-77');
+          expect(
+            gated.tabsForCurrentForum.map((tab) => tab.currentContent.id),
+            contains('chat-c-9-t-3'),
+          );
         },
       );
 
