@@ -761,7 +761,7 @@ final class FileVoiceDiagnosticsPersistence
     await _deleteIfPresent(_preparedFile);
     await _deleteIfPresent(_committedFile);
     await _deleteGroupTemps();
-    await _deleteStaleReportSnapshots();
+    await _deleteReportSnapshots();
     _fingerprint = await _diskFingerprint();
     if (firstError != null) {
       Error.throwWithStackTrace(firstError, firstStackTrace!);
@@ -1465,18 +1465,28 @@ final class FileVoiceDiagnosticsPersistence
     throw StateError('Could not allocate a unique Voice report snapshot.');
   }
 
-  Future<void> _deleteStaleReportSnapshots() async {
+  Future<void> _deleteStaleReportSnapshots() => _deleteReportSnapshots(
+    staleBefore: DateTime.now().toUtc().subtract(_voiceReportSnapshotStaleAge),
+  );
+
+  /// Without [staleBefore] this is Clear's pass: every snapshot is a copy of
+  /// retained records, however recent, so all of them go and a failure
+  /// surfaces. The lock excludes a snapshot still being written; one an
+  /// exporter is still streaming is read through a descriptor that outlives
+  /// the unlink, and the exporter's own cleanup tolerates the missing entry.
+  Future<void> _deleteReportSnapshots({DateTime? staleBefore}) async {
     final parent = file.parent.absolute;
     if (!await parent.exists()) return;
     final ownedSnapshot = RegExp(
       '^${RegExp.escape(file.absolute.path)}\\.\\d+\\.[0-9a-f]{32}'
       r'\.voice-report-snapshot\.tmp$',
     );
-    final staleBefore = DateTime.now().toUtc().subtract(
-      _voiceReportSnapshotStaleAge,
-    );
     await for (final entity in parent.list(followLinks: false)) {
       if (entity is! File || !ownedSnapshot.hasMatch(entity.path)) continue;
+      if (staleBefore == null) {
+        await _deleteIfPresent(entity);
+        continue;
+      }
       try {
         final modifiedUtc = (await entity.stat()).modified.toUtc();
         if (modifiedUtc.isAfter(staleBefore)) continue;
