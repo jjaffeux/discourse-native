@@ -540,7 +540,11 @@ void main() {
     final topicId = h.shell.activeTabId!;
     h.shell.moveTabToPanel(topicId, ForumPanel.main);
     await tester.pumpAndSettle();
-    expect(h.shell.tabsForCurrentForum, hasLength(2));
+    expect(h.shell.tabsForCurrentForum, hasLength(3));
+    expect(
+      h.shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+      isTrue,
+    );
     expect(find.byType(TopicListView).hitTestable(), findsNothing);
     h.shell.selectTab(listId);
     await tester.pumpAndSettle();
@@ -877,6 +881,12 @@ void main() {
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
       await tester.tap(find.byTooltip('Dock side'));
       await tester.pumpAndSettle();
+      final restored = tester.getRect(find.byType(ComposerPanel));
+      expect(restored.right, workspace.right);
+      expect(restored.width, lessThan(workspace.width));
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      await tester.tap(find.byTooltip('Dock side'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Dock bottom'));
       await tester.pumpAndSettle();
       expect(
@@ -935,7 +945,7 @@ void main() {
   testWidgets('tabs preserve each topic position and the active draft', (
     tester,
   ) async {
-    final h = await _setup(tester);
+    final h = await _setup(tester, size: const Size(2200, 900));
     _openTopicTab(h.shell, h.topics.first);
     final firstTab = h.shell.activeTabId!;
     await tester.pumpAndSettle();
