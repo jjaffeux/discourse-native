@@ -15,7 +15,7 @@ final accordionExamples = ComponentExamples(
       'headings, base-nova visuals and controlled, local or borrowed-controller '
       'state. Headers remain bounded accessibility buttons; retained panel fields '
       'stay independently accessible. Desktop uses compact 40px artwork and touch '
-      'platforms use 48px targets. Host palette, font, radius, scaling, RTL and '
+      'platforms use the same visible bounds. Host palette, font, radius, scaling, RTL and '
       'reduced-motion settings remain live.',
   examples: [
     StyleguideExample(

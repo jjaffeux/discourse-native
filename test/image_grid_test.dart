@@ -1,5 +1,6 @@
 import 'dart:ui' show Tristate;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -453,7 +454,7 @@ void main() {
       expect(controller.page! % 3, 1);
     });
 
-    testWidgets('gives every control a 44px target and explicit semantics', (
+    testWidgets('controls use visible bounds and explicit semantics', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
@@ -479,8 +480,24 @@ void main() {
         final target = find.byKey(ValueKey('image-carousel-dot-$image'));
         expect(
           tester.getSize(target),
-          const Size.square(ImageGridCarousel.controlTargetSize),
+          Size(
+            image == 1 ? DCarouselDot.selectedWidth : DCarouselDot.diameter,
+            DCarouselDot.diameter,
+          ),
         );
+        final bounds = tester.getRect(target);
+        for (final outside in [
+          bounds.topCenter - const Offset(0, 1),
+          bounds.bottomCenter + const Offset(0, 1),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<PageView>(find.byType(PageView)).controller!.page! %
+                3,
+            0,
+          );
+        }
         final data = tester.getSemantics(target).getSemanticsData();
         expect(data.label, 'Go to image $image of 3');
         expect(data.flagsCollection.isButton, isTrue);
@@ -500,8 +517,8 @@ void main() {
           .widget<PageView>(find.byType(PageView))
           .controller!;
 
-      final second = tester.widget<InkWell>(
-        find.byKey(const ValueKey('image-carousel-dot-2-button')),
+      final second = tester.widget<DCarouselDot>(
+        find.byKey(const ValueKey('image-carousel-dot-2')),
       );
       second.focusNode!.requestFocus();
       await tester.pump();
@@ -511,8 +528,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.page! % 3, 1);
 
-      final third = tester.widget<InkWell>(
-        find.byKey(const ValueKey('image-carousel-dot-3-button')),
+      final third = tester.widget<DCarouselDot>(
+        find.byKey(const ValueKey('image-carousel-dot-3')),
       );
       third.focusNode!.requestFocus();
       await tester.pump();
@@ -523,7 +540,7 @@ void main() {
       expect(controller.page! % 3, 2);
     });
 
-    testWidgets('ten full-size dot targets fit a narrow carousel', (
+    testWidgets('ten natural dot targets fit a narrow carousel', (
       tester,
     ) async {
       await pumpGrid(tester, grid(10, mode: 'carousel'), width: 320);
@@ -532,7 +549,10 @@ void main() {
       for (var image = 1; image <= 10; image++) {
         expect(
           tester.getSize(find.byKey(ValueKey('image-carousel-dot-$image'))),
-          const Size.square(ImageGridCarousel.controlTargetSize),
+          Size(
+            image == 1 ? DCarouselDot.selectedWidth : DCarouselDot.diameter,
+            DCarouselDot.diameter,
+          ),
         );
       }
     });

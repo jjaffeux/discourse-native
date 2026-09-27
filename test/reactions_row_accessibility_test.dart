@@ -144,10 +144,7 @@ void main() {
         final target = find.byKey(const ValueKey('reaction-picker-surface'));
         DButton control() => tester.widget<DButton>(target);
         final bounds = tester.getRect(target);
-        expect(
-          bounds.size,
-          Size.square(platform == TargetPlatform.android ? 48 : 30),
-        );
+        expect(bounds.size, const Size.square(30));
         expect(control().size, DButtonSize.post);
         expect(control().onPressed, isNotNull);
         final edge = Offset(bounds.left + 1, bounds.center.dy);

@@ -469,6 +469,7 @@ void main() {
           showWeekNumbers: true,
           captionLayout: DCalendarCaptionLayout.dropdown,
           booked: (date) => date == DCalendarDate(2026, 9, 12),
+          cellSize: 48,
           dayBuilder: (context, details, child) => Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [child, if (!details.outside) const Text(r'$100')],

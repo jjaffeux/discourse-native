@@ -606,7 +606,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       size,
       scaler,
       context: context,
-    ).clamp(48.0, double.infinity);
+    );
     final text = TextPainter(
       text: TextSpan(
         text: label,

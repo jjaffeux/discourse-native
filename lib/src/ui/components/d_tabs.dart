@@ -477,8 +477,8 @@ class DTabList<T> extends StatelessWidget {
   final List<Widget> children;
   final DTabListVariant variant;
 
-  /// Animate navigation artwork to 85% without shrinking its touch targets.
-  /// Width stops shrinking at the minimum slot width; layout height stays fixed.
+  /// Animate navigation controls and their hit areas to 85%.
+  /// Width stops shrinking at the minimum control width.
   /// Independent actions retain their control geometry. Other variants ignore
   /// this option. Reduced motion changes it immediately.
   final bool navigationCompact;
@@ -500,10 +500,6 @@ class DTabList<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final root = _DTabScope.require<T>(context);
     final tokens = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
     assert(trailing == null || variant == DTabListVariant.navigation);
@@ -519,10 +515,11 @@ class DTabList<T> extends StatelessWidget {
         builder: (context, scale, _) => LayoutBuilder(
           builder: (context, constraints) {
             final minimumWidth =
-                children.length * DSpacing.touchTarget +
+                children.length * DControlStyle.height(size, context: context) +
                 (trailing == null
                     ? 0
-                    : DSpacing.touchTarget + 2 * DSpacing.controlGap);
+                    : DControlStyle.height(size, context: context) +
+                          2 * DSpacing.controlGap);
             final availableWidth = constraints.hasBoundedWidth
                 ? constraints.maxWidth
                 : minimumWidth;
@@ -540,15 +537,10 @@ class DTabList<T> extends StatelessWidget {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Transform.scale(
-                          scaleY: scale,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: tokens.muted,
-                              borderRadius: BorderRadius.circular(
-                                DRadius.panel,
-                              ),
-                            ),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: tokens.muted,
+                            borderRadius: BorderRadius.circular(DRadius.panel),
                           ),
                         ),
                       ),
@@ -565,7 +557,10 @@ class DTabList<T> extends StatelessWidget {
                                           ? math.max(
                                               tabConstraints.maxWidth,
                                               children.length *
-                                                  DSpacing.touchTarget,
+                                                  DControlStyle.height(
+                                                    size,
+                                                    context: context,
+                                                  ),
                                             )
                                           : null,
                                       child: _DTabListScope<T>(
@@ -582,11 +577,13 @@ class DTabList<T> extends StatelessWidget {
                                                 Expanded(child: child)
                                               else
                                                 ConstrainedBox(
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                        minWidth: DSpacing
-                                                            .touchTarget,
-                                                      ),
+                                                  constraints: BoxConstraints(
+                                                    minWidth:
+                                                        DControlStyle.height(
+                                                          size,
+                                                          context: context,
+                                                        ),
+                                                  ),
                                                   child: child,
                                                 ),
                                           ],
@@ -669,69 +666,21 @@ class DTabList<T> extends StatelessWidget {
       );
     }
 
-    final textScaler = MediaQuery.textScalerOf(context);
-    final textHeight =
-        textScaler.scale(DControlStyle.fontSize(size, context: context)) *
-        DControlStyle.lineHeight(size, context: context) /
-        DControlStyle.fontSize(size, context: context);
-    Widget visual;
-    if (root.orientation == Axis.horizontal && touch) {
-      visual = Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: Center(
-              child: Container(
-                // Preserve the inset when scaled text grows past the minimum
-                // control height (including the trigger's padding and border).
-                height: math.max(
-                  DControlStyle.scaledHeight(
-                    size,
-                    textScaler,
-                    context: context,
-                  ),
-                  textHeight + 12,
-                ),
-                decoration: decoration,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3.5),
-            child: scope,
-          ),
-        ],
-      );
-    } else {
-      visual = Container(
-        constraints: BoxConstraints(
-          minHeight: root.orientation == Axis.horizontal
-              ? DControlStyle.scaledHeight(
-                  size,
-                  MediaQuery.textScalerOf(context),
-                  context: context,
-                )
-              : 0,
-        ),
-        padding: const EdgeInsets.all(3),
-        decoration: decoration,
-        child: scope,
-      );
-    }
+    Widget visual = Container(
+      constraints: BoxConstraints(
+        minHeight: root.orientation == Axis.horizontal
+            ? DControlStyle.scaledHeight(
+                size,
+                MediaQuery.textScalerOf(context),
+                context: context,
+              )
+            : 0,
+      ),
+      padding: const EdgeInsets.all(3),
+      decoration: decoration,
+      child: scope,
+    );
     if (root.orientation == Axis.horizontal) {
-      visual = Container(
-        constraints: BoxConstraints(
-          minHeight: touch
-              ? DSpacing.touchTarget
-              : DControlStyle.scaledHeight(
-                  size,
-                  MediaQuery.textScalerOf(context),
-                  context: context,
-                ),
-        ),
-        alignment: Alignment.center,
-        child: visual,
-      );
       visual = SingleChildScrollView(
         controller: scrollController,
         scrollDirection: Axis.horizontal,
@@ -895,10 +844,6 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final list = _DTabListScope.require<T>(context);
     final size = widget.size ?? list.size;
     final tokens = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final selected = root.value == widget.value;
     final enabled = widget.enabled && root.enabled;
     focusNode.skipTraversal = _skipsTraversal;
@@ -937,22 +882,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       curve: Curves.easeOut,
       constraints: BoxConstraints(
         minHeight: navigation
-            ? 56
+            ? 56 * list.navigationScale
             : horizontalLine
-            ? (touch
-                  ? math.max(
-                      DSpacing.touchTarget,
-                      DControlStyle.scaledHeight(
-                            size,
-                            MediaQuery.textScalerOf(context),
-                            context: context,
-                          ) +
-                          14,
-                    )
-                  // The desktop row is the reference's label line with 11px
-                  // above and below. Control presets size boxed controls and
-                  // are not a floor here; the regular one is taller than that.
-                  : 0)
+            ? 0
             : DControlStyle.scaledHeight(
                     size,
                     MediaQuery.textScalerOf(context),
@@ -961,7 +893,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                   (flat ? 0 : 7),
       ),
       padding: navigation
-          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 14)
+          ? EdgeInsets.symmetric(
+              horizontal: 8 * list.navigationScale,
+              vertical: 14 * list.navigationScale,
+            )
           : horizontalLine
           ? const EdgeInsets.symmetric(vertical: 11)
           : flat
@@ -1014,7 +949,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           letterSpacing: 0,
         ),
         child: IconTheme.merge(
-          data: IconThemeData(color: foreground, size: navigation ? 22 : 16),
+          data: IconThemeData(
+            color: foreground,
+            size: navigation ? 22 * list.navigationScale : 16,
+          ),
           child: Align(
             alignment: root.orientation == Axis.horizontal
                 ? Alignment.center
@@ -1047,12 +985,6 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       );
     }
     if (!enabled) artwork = Opacity(opacity: .5, child: artwork);
-    if (navigation) {
-      // Scale paint inside the gesture and semantics owners, keeping targets
-      // at full size. Independent actions retain their own control geometry.
-      artwork = Transform.scale(scale: list.navigationScale, child: artwork);
-    }
-
     return Semantics(
       button: true,
       selected: selected,
@@ -1128,15 +1060,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                   root.state.select(widget.value);
                 }
               : null,
-          child: touch
-              ? ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minWidth: DSpacing.touchTarget,
-                    minHeight: DSpacing.touchTarget,
-                  ),
-                  child: Center(child: artwork),
-                )
-              : artwork,
+          child: artwork,
         ),
       ),
     );

@@ -454,7 +454,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     final selected = _currentValues.toSet();
     final compactInset = widget.density == DToggleDensity.compactInset;
     final gap = compactInset
-        ? 0.0
+        ? 2.0
         : widget.inset
         ? 2.0
         : widget.spacing * 4;
@@ -505,16 +505,6 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
         expandArtwork: widget.expanded,
-        targetAlignment: compactInset
-            ? index == 0
-                  ? AlignmentDirectional.centerEnd
-                  : AlignmentDirectional.centerStart
-            : null,
-        targetPadding: compactInset
-            ? index == 0
-                  ? const EdgeInsetsDirectional.only(end: 1)
-                  : const EdgeInsetsDirectional.only(start: 1)
-            : EdgeInsets.zero,
       );
       final itemEnabled = _groupInteractive && item.enabled;
       _focusFor(item).skipTraversal = index != _rovingIndex;
@@ -603,23 +593,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         ),
         borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
       );
-      group = compactInset
-          ? Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  key: const ValueKey('toggle-group-compact-frame'),
-                  width: 68,
-                  height: 32,
-                  child: DecoratedBox(decoration: decoration),
-                ),
-                group,
-              ],
-            )
-          : DecoratedBox(
-              decoration: decoration,
-              child: Padding(padding: const EdgeInsets.all(3), child: group),
-            );
+      group = DecoratedBox(
+        key: compactInset ? const ValueKey('toggle-group-compact-frame') : null,
+        decoration: decoration,
+        child: Padding(padding: const EdgeInsets.all(3), child: group),
+      );
       group = Align(
         alignment: AlignmentDirectional.centerStart,
         widthFactor: 1,

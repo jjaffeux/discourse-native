@@ -1041,10 +1041,6 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final tokens = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     return AnimatedBuilder(
       animation: widget.scope.controller,
       builder: (context, _) {
@@ -1098,12 +1094,7 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             ),
           ),
         );
-        if (touch) {
-          row = SizedBox(
-            height: DSpacing.touchTarget,
-            child: Center(child: row),
-          );
-        }
+
         return Semantics(
           button: true,
           selected: selected,

@@ -142,7 +142,7 @@ class DBreadcrumbLink extends StatefulWidget {
   final bool autofocus;
 
   /// Inline metadata uses 11px type and an intrinsic link target. Full-size
-  /// navigation keeps its separate 48px touch target.
+  /// navigation uses the visible label bounds.
   final bool compact;
 
   /// Creates a link whose destination and callback retain their route type.
@@ -223,9 +223,6 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
         : tokens.mutedForeground.withValues(
             alpha: tokens.mutedForeground.a * .5,
           );
-    final platform = Theme.of(context).platform;
-    final touch =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
 
     Widget result = Semantics(
       button: false,
@@ -261,39 +258,34 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
             onTap: enabled ? _activate : null,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: touch && !widget.compact ? 48 : 0,
+            child: AnimatedContainer(
+              duration: duration,
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(tokens.radius * .6),
+                border: _focused
+                    ? Border.all(color: tokens.focusRing, width: 1)
+                    : null,
               ),
-              child: AnimatedContainer(
-                duration: duration,
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(tokens.radius * .6),
-                  border: _focused
-                      ? Border.all(color: tokens.focusRing, width: 1)
-                      : null,
-                ),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: AnimatedDefaultTextStyle(
-                    duration: duration,
-                    curve: Curves.easeOut,
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      color: color,
-                      fontSize: widget.compact
-                          ? DiscourseTypography.micro
-                          : DiscourseTypography.sm,
-                      height: DiscourseTypography.lineHeightSmall,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                    ),
-                    child: IconTheme.merge(
-                      data: IconThemeData(color: color, size: 14),
-                      child: widget.child,
-                    ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: AnimatedDefaultTextStyle(
+                  duration: duration,
+                  curve: Curves.easeOut,
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    color: color,
+                    fontSize: widget.compact
+                        ? DiscourseTypography.micro
+                        : DiscourseTypography.sm,
+                    height: DiscourseTypography.lineHeightSmall,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                  ),
+                  child: IconTheme.merge(
+                    data: IconThemeData(color: color, size: 14),
+                    child: widget.child,
                   ),
                 ),
               ),

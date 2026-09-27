@@ -406,10 +406,6 @@ class DMenubarTrigger extends StatefulWidget {
 }
 
 class _DMenubarTriggerState extends State<DMenubarTrigger> {
-  bool _isTouch(BuildContext context) => switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
   bool _hovered = false;
   bool _pressed = false;
   bool _focused = false;
@@ -537,39 +533,33 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                           trigger.toggle();
                         }
                       : null,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: _isTouch(context) ? DSpacing.touchTarget : 0,
-                      minHeight: _isTouch(context) ? DSpacing.touchTarget : 0,
-                    ),
-                    child: Center(
-                      widthFactor: 1,
-                      heightFactor: 1,
-                      child: AnimatedContainer(
-                        duration: Duration.zero,
-                        constraints: BoxConstraints(
-                          minWidth: 0,
-                          minHeight: height,
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: AnimatedContainer(
+                      duration: Duration.zero,
+                      constraints: BoxConstraints(
+                        minWidth: 0,
+                        minHeight: height,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: active
+                            ? DControlStyle.rowHover(tokens)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          DControlStyle.rowRadius,
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: active
-                              ? DControlStyle.rowHover(tokens)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            DControlStyle.rowRadius,
-                          ),
-                        ),
-                        child: DefaultTextStyle(
-                          style: style,
-                          child: Center(
-                            widthFactor: 1,
-                            heightFactor: 1,
-                            child: widget.child,
-                          ),
+                      ),
+                      child: DefaultTextStyle(
+                        style: style,
+                        child: Center(
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: widget.child,
                         ),
                       ),
                     ),

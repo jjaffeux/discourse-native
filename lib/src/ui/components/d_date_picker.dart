@@ -1152,15 +1152,8 @@ class _DTimeInputState extends State<DTimeInput> {
   BuildContext context, {
   int numberOfMonths = 1,
 }) {
-  final platform = Theme.of(context).platform;
-  final touch =
-      platform == TargetPlatform.iOS || platform == TargetPlatform.android;
   final scaledText = MediaQuery.textScalerOf(context).scale(14);
-  final cell = [
-    28.0,
-    scaledText + 12,
-    if (touch) DSpacing.touchTarget,
-  ].reduce(math.max);
+  final cell = [28.0, scaledText + 12].reduce(math.max);
   final monthWidth = 16 + 7 * cell;
   final horizontalWidth =
       16 + numberOfMonths * 7 * cell + (numberOfMonths - 1) * 16;

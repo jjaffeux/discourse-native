@@ -422,10 +422,6 @@ class DAccordionTrigger extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS => true,
-      _ => false,
-    };
     return DCollapsibleTrigger(
       focusNode: focusNode,
       semanticLabel: semanticLabel,
@@ -436,7 +432,7 @@ class DAccordionTrigger extends StatelessWidget {
       builder: (context, state) => Opacity(
         opacity: state.disabled ? .5 : 1,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: touch ? 48 : 40),
+          constraints: const BoxConstraints(minHeight: 40),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(

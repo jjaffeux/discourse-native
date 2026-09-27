@@ -287,19 +287,12 @@ class _Trigger extends StatelessWidget {
     focusRingOpacity: 0.5,
     builder: (context, state) {
       final t = DTokens.of(context);
-      final touch =
-          Theme.of(context).platform == TargetPlatform.iOS ||
-          Theme.of(context).platform == TargetPlatform.android;
       return Opacity(
         opacity: state.disabled ? 0.5 : 1,
         child: Container(
           constraints: BoxConstraints(
-            minHeight: touch
-                ? 48
-                : small
-                ? 28
-                : 32,
-            minWidth: iconOnly ? (touch ? 48 : 32) : 0,
+            minHeight: small ? 28 : 32,
+            minWidth: iconOnly ? 32 : 0,
           ),
           padding: EdgeInsets.symmetric(
             horizontal: iconOnly ? 8 : 10,

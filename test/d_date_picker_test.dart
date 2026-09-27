@@ -481,8 +481,8 @@ void main() {
       size: const Size(320, 640),
     );
     final action = find.bySemanticsLabel('Select date');
-    expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
-    expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(action).width, 40);
+    expect(tester.getSize(action).height, 40);
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('time input reports only strict typed wall-clock values', (

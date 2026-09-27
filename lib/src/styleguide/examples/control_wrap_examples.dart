@@ -8,14 +8,10 @@ final controlWrapExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Consistent visible gaps between Native controls and rows.',
   notes:
-      'DControlWrap measures button and badge artwork, including nested groups. '
-      'It preserves their larger touch targets and spaces the painted edges. '
-      'Overlapping targets prioritize a painted control, then the closest edge. '
-      'Keyboard order and semantics stay with the original controls. '
-      'Use wrap: false for a nested tag row. Axis.vertical stacks painted rows; '
-      'DControlExpanded reserves the remaining space in a non-wrapping row. '
-      'Inside padded toolbars, reserveTouchTargets: false aligns the artwork '
-      'to the padding while retaining targets. Unmarked children use layout bounds.',
+      'DControlWrap spaces control layout bounds, including nested groups. '
+      'Gaps remain non-interactive. Keyboard order and semantics stay with each control. '
+      'Use wrap: false for one row. Axis.vertical stacks rows; '
+      'DControlExpanded reserves remaining space in a non-wrapping row.',
   examples: [
     StyleguideExample(
       title: 'Compact controls',
@@ -32,11 +28,11 @@ final controlWrapExamples = ComponentExamples(
     StyleguideExample(
       title: 'Aligned toolbar rows',
       description:
-          'Shared edge alignment and visible row gaps with full touch targets.',
+          'Shared edge alignment and visible row gaps with matching hit areas.',
       states: const ['Rows', 'Expanded', 'Touch', 'RTL', 'Large text'],
-      code: '''DControlWrap(direction: Axis.vertical, wrap: false,
-  reserveTouchTargets: false, spacing: 10, children: [
-    DControlWrap(wrap: false, reserveTouchTargets: false, children: [
+      code:
+          '''DControlWrap(direction: Axis.vertical, wrap: false, spacing: 10, children: [
+    DControlWrap(wrap: false, children: [
       previousButton,
       DControlExpanded(child: Text('September 2026', textAlign: TextAlign.center)),
       nextButton,
@@ -128,12 +124,10 @@ class _AlignedRowsExampleState extends State<_AlignedRowsExample> {
     child: DControlWrap(
       direction: Axis.vertical,
       wrap: false,
-      reserveTouchTargets: false,
       spacing: 10,
       children: [
         DControlWrap(
           wrap: false,
-          reserveTouchTargets: false,
           children: [
             DButton.iconOnly(
               size: DControlSize.chip,
@@ -156,7 +150,6 @@ class _AlignedRowsExampleState extends State<_AlignedRowsExample> {
         ),
         DControlWrap(
           wrap: false,
-          reserveTouchTargets: false,
           alignment: WrapAlignment.end,
           children: [
             DButton(

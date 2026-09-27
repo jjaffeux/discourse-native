@@ -54,7 +54,9 @@ void main() {
               tester.widget<DSeparator>(separator).endIndent;
           final scrollbar = find.descendant(
             of: find.byType(ComposerEditor),
-            matching: find.byType(RawScrollbar),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is RawScrollbar,
+            ),
           );
           expect(scrollbar, findsOneWidget);
           final bounds = tester.getRect(scrollbar);

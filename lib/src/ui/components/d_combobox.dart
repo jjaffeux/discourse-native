@@ -16,10 +16,6 @@ import 'd_input_group.dart';
 import 'd_popover.dart';
 import 'd_separator.dart';
 
-bool _isComboboxTouchPlatform(BuildContext context) =>
-    Theme.of(context).platform == TargetPlatform.iOS ||
-    Theme.of(context).platform == TargetPlatform.android;
-
 enum DComboboxChangeReason {
   input,
   itemPress,
@@ -1251,15 +1247,17 @@ class _ComboboxIconAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final touch = _isComboboxTouchPlatform(context);
-    final dimension = touch ? DSpacing.touchTarget : 24.0;
+    const dimension = 24.0;
     return Semantics(
       button: true,
       label: semanticLabel,
       child: IconButton(
         tooltip: '',
-        visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
-        constraints: BoxConstraints.tightFor(
+        visualDensity: VisualDensity.standard,
+        style: const ButtonStyle(
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        constraints: const BoxConstraints.tightFor(
           width: dimension,
           height: dimension,
         ),
@@ -1441,12 +1439,6 @@ class DComboboxItem<T> extends StatelessWidget {
         ),
       ),
     );
-    if (_isComboboxTouchPlatform(context)) {
-      item = ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: DSpacing.touchTarget),
-        child: Center(child: item),
-      );
-    }
     return item;
   }
 }

@@ -1034,7 +1034,7 @@ void _registerReactionAndLikeTests() {
         final grid = tester.getRect(find.byType(ReactionGrid));
         expect(grid.left, greaterThanOrEqualTo(12));
         expect(grid.right, lessThanOrEqualTo(308));
-        expect(grid.height, greaterThan(DSpacing.touchTarget * 2));
+        expect(grid.height, greaterThan(48.0 * 2));
         expect(find.byTooltip('More emojis').hitTestable(), findsOneWidget);
         expect(tester.takeException(), isNull);
 

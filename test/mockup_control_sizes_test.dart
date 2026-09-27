@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    testWidgets('$platform post controls paint 30px with accessible targets', (
+    testWidgets('$platform post controls use 30px visible targets', (
       tester,
     ) async {
       await _mount(
@@ -51,9 +51,9 @@ void main() {
       if (platform == TargetPlatform.iOS) {
         expect(
           tester.getSize(find.byKey(const Key('post-reaction'))).height,
-          48,
+          30,
         );
-        expect(tester.getSize(find.byKey(const Key('post-reply'))).height, 48);
+        expect(tester.getSize(find.byKey(const Key('post-reply'))).height, 30);
       }
     });
   }
@@ -104,10 +104,7 @@ void main() {
         expect(tester.getSize(chevron), const Size(9, 10));
         for (final key in ['filter', 'bookmark']) {
           final rect = tester.getRect(find.byKey(Key(key)));
-          if (platform != TargetPlatform.macOS) {
-            expect(rect.width, greaterThanOrEqualTo(48));
-            expect(rect.height, greaterThanOrEqualTo(48));
-          }
+          expect(rect.size, tester.getSize(_surface(Key(key))));
           await tester.tapAt(rect.topLeft + const Offset(1, 1));
         }
         expect(presses, 2);
@@ -136,7 +133,7 @@ void main() {
           matching: find.byType(AnimatedContainer),
         );
         expect(tester.getSize(artwork), const Size(38, 22));
-        expect(tester.getSize(find.byType(DSwitch)), const Size(48, 48));
+        expect(tester.getSize(find.byType(DSwitch)), const Size(38, 22));
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pumpAndSettle();
         expect(checked, isTrue);
@@ -189,10 +186,7 @@ void main() {
               matching: find.byType(GestureDetector),
             )
             .first;
-        expect(
-          tester.getSize(action).height,
-          platform == TargetPlatform.macOS ? 33.5 : 48,
-        );
+        expect(tester.getSize(action).height, 33.5);
         await tester.tapAt(tester.getRect(action).topLeft + const Offset(2, 2));
         await tester.pumpAndSettle();
         expect(picked, isTrue);

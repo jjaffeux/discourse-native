@@ -226,7 +226,7 @@ void main() {
           1,
         );
         if (platform == TargetPlatform.iOS) {
-          expect(tester.getSize(action).height, greaterThanOrEqualTo(48));
+          expect(tester.getSize(action).height, 40);
         }
         expect(tester.takeException(), isNull);
       }

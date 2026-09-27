@@ -16,7 +16,7 @@ final navigationMenuExamples = ComponentExamples(
       'ring, shared shadow, clipped viewport and 350ms panel travel. Links use '
       '8px padding and host-relative md radius. The 8px indicator diamond sits '
       'in a 6px strip. Pointer hover uses 50ms open/close delays; touch uses '
-      'press and iOS keeps a 48px target. Arrow keys rove logically in RTL, '
+      'press with matching hit areas on every platform. Arrow keys rove logically in RTL, '
       'Home/End move to boundaries, Up/Down enter content, and Escape/outside '
       'press dismiss. Framework Link composition maps to typed callbacks and '
       'active/current-page semantics. Core and bundled-plugin navigation was '

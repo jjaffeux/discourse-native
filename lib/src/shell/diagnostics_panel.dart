@@ -10,13 +10,10 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'diagnostics_text.dart';
-import 'resizable_pane.dart';
 
 const double diagnosticsPanelWidth = 440;
 
 const double diagnosticsPanelMinWidth = 320;
-
-const double diagnosticsPanelResizeHandleWidth = 12;
 
 class DiagnosticsPanel extends StatefulWidget {
   const DiagnosticsPanel({
@@ -101,21 +98,6 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         elevation: 12,
         child: SafeArea(
           left: false,
-          // The resize handle expands to a touch target. Keep compact controls
-          // outside that hit area while retaining the desktop inset.
-          minimum: EdgeInsetsDirectional.only(
-            start:
-                context
-                        .findAncestorWidgetOfExactType<ResizablePane>()
-                        ?.resizeEnabled ==
-                    true
-                ? DResizableHandle.resolveHitExtent(
-                        context,
-                        diagnosticsPanelResizeHandleWidth,
-                      ) -
-                      diagnosticsPanelResizeHandleWidth
-                : 0,
-          ).resolve(Directionality.of(context)),
           child: ListenableBuilder(
             key: const ValueKey('diagnostics-events-listener'),
             listenable: Listenable.merge([
@@ -425,12 +407,7 @@ class _PanelHeader extends StatelessWidget {
       height: 56,
       child: Row(
         children: [
-          SizedBox(
-            width: DResizableHandle.resolveHitExtent(
-              context,
-              diagnosticsPanelResizeHandleWidth,
-            ),
-          ),
+          SizedBox(width: DResizableHandle.visualExtent()),
           if (showingDetail)
             DButton.iconOnly(
               key: const ValueKey('diagnostics-detail-back'),

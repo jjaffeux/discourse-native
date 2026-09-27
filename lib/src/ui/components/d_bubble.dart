@@ -491,10 +491,6 @@ class _DBubbleContentState extends State<DBubbleContent> {
 
     final scope = _DBubbleScope.of(context);
     final tokens = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final shortcuts = <ShortcutActivator, Intent>{
       const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
       if (widget.action == DBubbleContentAction.button)
@@ -545,34 +541,28 @@ class _DBubbleContentState extends State<DBubbleContent> {
           onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minWidth: touch ? DSpacing.touchTarget : 0,
-              minHeight: touch ? DSpacing.touchTarget : 0,
-            ),
-            child: Align(
-              widthFactor: 1,
-              heightFactor: 1,
-              alignment: AlignmentDirectional.centerStart,
-              child: CustomPaint(
-                foregroundPainter: _BubbleFocusPainter(
-                  visible: _focused,
-                  color: tokens.focusRing,
-                  radius: scope.variant == DBubbleVariant.ghost
-                      ? 0
-                      : scope.quote ||
-                            scope.variant == DBubbleVariant.accent ||
-                            scope.variant == DBubbleVariant.neutral
-                      ? 12
-                      : tokens.radius * 1.4,
-                ),
-                child: SelectionContainer.disabled(
-                  child: ExcludeSemantics(
-                    excluding: widget.semanticLabel != null,
-                    child: Opacity(
-                      opacity: _enabled || widget.busy ? 1 : .5,
-                      child: _surface(context, interactive: true),
-                    ),
+          child: Align(
+            widthFactor: 1,
+            heightFactor: 1,
+            alignment: AlignmentDirectional.centerStart,
+            child: CustomPaint(
+              foregroundPainter: _BubbleFocusPainter(
+                visible: _focused,
+                color: tokens.focusRing,
+                radius: scope.variant == DBubbleVariant.ghost
+                    ? 0
+                    : scope.quote ||
+                          scope.variant == DBubbleVariant.accent ||
+                          scope.variant == DBubbleVariant.neutral
+                    ? 12
+                    : tokens.radius * 1.4,
+              ),
+              child: SelectionContainer.disabled(
+                child: ExcludeSemantics(
+                  excluding: widget.semanticLabel != null,
+                  child: Opacity(
+                    opacity: _enabled || widget.busy ? 1 : .5,
+                    child: _surface(context, interactive: true),
                   ),
                 ),
               ),

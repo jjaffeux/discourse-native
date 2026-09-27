@@ -231,60 +231,63 @@ class _DInputGroupState extends State<DInputGroup> {
       validationResult: invalid
           ? SemanticsValidationResult.invalid
           : SemanticsValidationResult.none,
-      child: MouseRegion(
-        cursor: widget.enabled
-            ? MouseCursor.defer
-            : SystemMouseCursors.forbidden,
-        child: Opacity(
-          opacity: widget.enabled && controlEnabled ? 1 : .5,
-          child: ExcludeFocus(
-            excluding: !widget.enabled,
-            child: IgnorePointer(
-              ignoring: !widget.enabled,
-              child: AnimatedContainer(
-                duration: DMotion.duration(
-                  context,
-                  widget.borderless
-                      ? Duration.zero
-                      : const Duration(milliseconds: 150),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        excludeFromSemantics: true,
+        onTap: _requestControlFocus,
+        child: MouseRegion(
+          cursor: widget.enabled
+              ? MouseCursor.defer
+              : SystemMouseCursors.forbidden,
+          child: Opacity(
+            opacity: widget.enabled && controlEnabled ? 1 : .5,
+            child: ExcludeFocus(
+              excluding: !widget.enabled,
+              child: IgnorePointer(
+                ignoring: !widget.enabled,
+                child: AnimatedContainer(
+                  duration: DMotion.duration(
+                    context,
+                    widget.borderless
+                        ? Duration.zero
+                        : const Duration(milliseconds: 150),
+                  ),
+                  constraints: BoxConstraints(
+                    minHeight:
+                        widget.viewportHeight ??
+                        (multiline
+                            ? 64
+                            : DControlStyle.scaledHeight(
+                                widget.size,
+                                MediaQuery.textScalerOf(context),
+                                context: context,
+                              )),
+                  ),
+                  decoration: _InputGroupSurfaceDecoration(
+                    backgroundColor: widget.borderless
+                        ? Colors.transparent
+                        : tokens.buttonTheme.outline.background,
+                    borderRadius: radius,
+                    borderColor: widget.borderless
+                        ? Colors.transparent
+                        : border,
+                    joinedAxis: joined?.axis,
+                    omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
+                  ),
+                  foregroundDecoration: _InputGroupRingDecoration(
+                    color: !widget.borderless && (invalid || focused)
+                        ? ring
+                        : ring.withValues(alpha: 0),
+                    radius: radius,
+                  ),
+                  child: DJoinedControlScope.boundary(child: content),
                 ),
-                constraints: BoxConstraints(
-                  minHeight:
-                      widget.viewportHeight ??
-                      (multiline
-                          ? 64
-                          : DControlStyle.scaledHeight(
-                              widget.size,
-                              MediaQuery.textScalerOf(context),
-                              context: context,
-                            )),
-                ),
-                decoration: _InputGroupSurfaceDecoration(
-                  backgroundColor: widget.borderless
-                      ? Colors.transparent
-                      : tokens.buttonTheme.outline.background,
-                  borderRadius: radius,
-                  borderColor: widget.borderless ? Colors.transparent : border,
-                  joinedAxis: joined?.axis,
-                  omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
-                ),
-                foregroundDecoration: _InputGroupRingDecoration(
-                  color: !widget.borderless && (invalid || focused)
-                      ? ring
-                      : ring.withValues(alpha: 0),
-                  radius: radius,
-                ),
-                child: DJoinedControlScope.boundary(child: content),
               ),
             ),
           ),
         ),
       ),
     );
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final inputPadding = EdgeInsetsDirectional.only(
       start: inlineStart.isEmpty
           ? DControlStyle.horizontalInset(widget.size)
@@ -300,18 +303,7 @@ class _DInputGroupState extends State<DInputGroup> {
       inputPadding: inputPadding,
       size: widget.size,
       enabled: widget.enabled,
-      child: touch && !multiline
-          ? GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _requestControlFocus,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: DSpacing.touchTarget,
-                ),
-                child: Align(heightFactor: 1, child: surface),
-              ),
-            )
-          : surface,
+      child: surface,
     );
   }
 }

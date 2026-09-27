@@ -15,8 +15,8 @@ final toggleGroupExamples = ComponentExamples(
     StyleguideExample(
       title: 'Compact inset icon choices',
       description:
-          'The Start page density control draws a 68×32px frame with two 30×26px choices. Each mobile choice keeps a separate 48×48px touch target.',
-      states: const ['Inset', 'Compact artwork', 'Mobile touch targets'],
+          'The Start page density control draws a 68×32px frame with two 30×26px choices. Each choice uses its visible bounds for interaction.',
+      states: const ['Inset', 'Compact artwork', 'Matching hit areas'],
       code:
           'DToggleGroup<bool>(inset: true, density: DToggleDensity.compactInset, allowEmptySelection: false, initialValues: const [true], items: const [DToggleGroupItem.iconOnly(value: false, semanticLabel: "Comfortable", icon: Icon(Icons.grid_view, size: 12)), DToggleGroupItem.iconOnly(value: true, semanticLabel: "Compact", icon: Icon(Icons.list, size: 12))])',
       builder: (_) => const DToggleGroup<bool>(

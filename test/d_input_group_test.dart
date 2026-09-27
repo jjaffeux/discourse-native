@@ -220,9 +220,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('touch keeps 48px hit bounds around mobile 44px artwork', (
-    tester,
-  ) async {
+  testWidgets('touch hit bounds match the mobile artwork', (tester) async {
     final focus = FocusNode();
     addTearDown(focus.dispose);
     await tester.pumpWidget(
@@ -243,7 +241,7 @@ void main() {
         ),
       ),
     );
-    expect(tester.getSize(find.byType(DInputGroup)).height, 48);
+    expect(tester.getSize(find.byType(DInputGroup)).height, 44);
     final decorated = tester.widgetList<AnimatedContainer>(
       find.descendant(
         of: find.byType(DInputGroup),

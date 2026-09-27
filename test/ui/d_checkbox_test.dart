@@ -56,7 +56,6 @@ void main() {
               direction: direction,
             ),
           );
-          final target = tester.getRect(find.byType(DCheckbox));
           final artwork = tester.getRect(find.byType(AnimatedContainer));
           final text = tester.renderObject<RenderParagraph>(
             find.text('First line\nSecond line'),
@@ -72,13 +71,11 @@ void main() {
             closeTo(text.localToGlobal(line.center).dy, .01),
           );
           expect(
-            target.size,
-            platform == TargetPlatform.iOS
-                ? const Size(48, 48)
-                : const Size(24, 32),
+            tester.getSize(find.byType(GestureDetector)),
+            const Size(16, 16),
           );
-          // Moving the artwork must not remove the bottom of the click target.
-          await tester.tapAt(Offset(target.center.dx, target.bottom - 1));
+          // Alignment spacing must not enlarge the click target.
+          await tester.tapAt(artwork.center);
           await tester.pump();
           expect(changes, 1);
         },
@@ -110,17 +107,12 @@ void main() {
             matching: find.byType(AnimatedContainer),
           ),
         );
-        expect(
-          target.size,
-          platform == TargetPlatform.iOS
-              ? const Size(48, 48)
-              : const Size(40, 32),
-        );
+        expect(target.size, const Size(16, 16));
         expect(
           direction == TextDirection.ltr ? artwork.left : artwork.right,
           direction == TextDirection.ltr ? target.left : target.right,
         );
-        // The empty trailing area must remain clickable.
+        // The inside trailing edge of the artwork is clickable.
         await tester.tapAt(
           Offset(
             direction == TextDirection.ltr ? target.right - 2 : target.left + 2,
@@ -158,12 +150,7 @@ void main() {
               matching: find.byType(AnimatedContainer),
             ),
           );
-          expect(
-            target.size,
-            platform == TargetPlatform.iOS
-                ? const Size(48, 48)
-                : const Size(24, 32),
-          );
+          expect(target.size, const Size(24, 16));
           expect(
             direction == TextDirection.ltr ? artwork.left : artwork.right,
             direction == TextDirection.ltr ? target.left : target.right,
@@ -550,7 +537,7 @@ void main() {
           ),
         ),
       );
-      expect(tester.getSize(find.byType(GestureDetector)), const Size(40, 32));
+      expect(tester.getSize(find.byType(GestureDetector)), const Size(16, 16));
       await tester.pumpWidget(
         host(
           Center(
@@ -564,7 +551,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(GestureDetector)), const Size(48, 48));
+      expect(tester.getSize(find.byType(GestureDetector)), const Size(16, 16));
       await tester.pumpWidget(
         host(
           DCheckbox(

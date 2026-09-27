@@ -91,7 +91,7 @@ void main() {
       );
       expect(
         tester.getSemantics(
-          find.descendant(of: bold, matching: find.byType(DToggle)),
+          find.descendant(of: bold, matching: find.byType(MergeSemantics)),
         ),
         isSemantics(
           label: 'Bold',
@@ -110,7 +110,7 @@ void main() {
       expect(boldFocus.hasPrimaryFocus, isTrue);
       expect(
         tester.getSemantics(
-          find.descendant(of: bold, matching: find.byType(DToggle)),
+          find.descendant(of: bold, matching: find.byType(MergeSemantics)),
         ),
         isSemantics(isFocusable: true, isFocused: true),
       );

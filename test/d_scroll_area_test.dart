@@ -14,6 +14,53 @@ void main() {
       body: Center(child: SizedBox(width: 200, height: 180, child: child)),
     ),
   );
+  testWidgets('touch scrollbar gestures stay inside the painted track', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      host(
+        DScrollArea(
+          controller: controller,
+          child: const SizedBox(height: 1000),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final paint = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint && widget.foregroundPainter is ScrollbarPainter,
+    );
+    final painter =
+        tester.widget<CustomPaint>(paint).foregroundPainter!
+            as ScrollbarPainter;
+    final bounds = tester.getRect(paint);
+    for (final kind in [
+      PointerDeviceKind.mouse,
+      PointerDeviceKind.touch,
+      PointerDeviceKind.trackpad,
+    ]) {
+      expect(painter.hitTestInteractive(const Offset(184, 100), kind), isFalse);
+      expect(painter.hitTestInteractive(const Offset(193, 100), kind), isFalse);
+      expect(painter.hitTestInteractive(const Offset(199, 100), kind), isFalse);
+      expect(
+        painter.hitTestOnlyThumbInteractive(const Offset(184, 10), kind),
+        isFalse,
+      );
+      expect(painter.hitTestInteractive(const Offset(196, 100), kind), isTrue);
+      expect(
+        painter.hitTestOnlyThumbInteractive(const Offset(196, 10), kind),
+        isTrue,
+      );
+    }
+    await tester.tapAt(bounds.topLeft + const Offset(184, 100));
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    await tester.tapAt(bounds.topLeft + const Offset(196, 100));
+    await tester.pumpAndSettle();
+    expect(controller.offset, greaterThan(0));
+  });
   testWidgets('automatic desktop scrollbars retain a clear side gap on hover', (
     tester,
   ) async {
@@ -117,7 +164,11 @@ void main() {
         );
         await tester.pumpAndSettle();
         colors.add(
-          tester.widget<RawScrollbar>(find.byType(RawScrollbar)).thumbColor!,
+          tester
+              .widget<RawScrollbar>(
+                find.byWidgetPredicate((widget) => widget is RawScrollbar),
+              )
+              .thumbColor!,
         );
         controller.jumpTo(100);
       }
@@ -137,7 +188,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.widget<RawScrollbar>(find.byType(RawScrollbar)).thumbColor,
+        tester
+            .widget<RawScrollbar>(
+              find.byWidgetPredicate((widget) => widget is RawScrollbar),
+            )
+            .thumbColor,
         Colors.red,
       );
     },
@@ -177,7 +232,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         for (final bar in tester.widgetList<RawScrollbar>(
-          find.byType(RawScrollbar),
+          find.byWidgetPredicate((widget) => widget is RawScrollbar),
         )) {
           final thumb = bar.thumbColor!;
           final a = thumb.computeLuminance();

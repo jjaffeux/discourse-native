@@ -354,23 +354,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'touch actions keep 48px targets without changing media artwork',
-    (tester) async {
-      await tester.pumpWidget(
-        _app(_attachment(withAction: true), platform: TargetPlatform.android),
-      );
-      expect(
-        tester.getSize(find.byType(DAttachmentAction)),
-        const Size(48, 48),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('media'))),
-        const Size(40, 40),
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('touch actions use their visible bounds beside media artwork', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(_attachment(withAction: true), platform: TargetPlatform.android),
+    );
+    expect(tester.getSize(find.byType(DAttachmentAction)), const Size(40, 40));
+    expect(
+      tester.getSize(find.byKey(const ValueKey('media'))),
+      const Size(40, 40),
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'presentational group scrolls from keyboard and borrows resources',

@@ -19,13 +19,13 @@ final buttonExamples = ComponentExamples(
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
       'Buttons use the theme’s control radius and no shadows. General desktop controls use 24/34/40px surfaces; mobile uses 40/44/48px '
-      'with at least 48px touch targets. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
+      'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette.',
   examples: [
     StyleguideExample(
       title: 'Application control sizes',
       description:
-          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Touch targets remain at least 48px.',
+          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Hit areas follow visible controls.',
       code:
           "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
       builder: (_) => const MockupControlSizesExample(),
@@ -144,7 +144,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Compact toolbar',
       description:
-          '24px-high surfaces, 32px icon actions and 14px icons, with 48px touch targets. Compare the shorter actions with a regular tag chip.',
+          '24px-high surfaces, 32px icon actions and 14px icons, with hit areas matching their surfaces. Compare the shorter actions with a regular tag chip.',
       code:
           "DButton.iconOnly(density: DButtonDensity.compactToolbar, variant: DButtonVariant.outline, icon: DIcon(DIcons.bookmark), tooltip: 'Bookmark', onPressed: bookmark)",
       builder: (_) => const _CompactToolbarExample(),
@@ -166,7 +166,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile navigation',
       description:
-          'Switch tabs to see the 240ms circle-to-rounded-square transition. 44px surfaces, 18px icons and 48px targets.',
+          'Switch tabs to see the 240ms circle-to-rounded-square transition. 44px surfaces, 18px icons and matching hit areas.',
       code:
           "DButton.iconOnly(density: DButtonDensity.mobileNavigation, shape: DButtonShape.pill, icon: DIcon(DIcons.layerGroup), tooltip: 'Topics', onPressed: openTopics)",
       builder: (_) => const _MobileNavigationExample(),
@@ -1173,7 +1173,7 @@ class _CompactToolbarExample extends StatefulWidget {
 class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
   var _bookmarked = false;
   var _notifications = 1;
-  var _action = 'Try the actions, including their invisible outer edges.';
+  var _action = 'Try the actions; only the visible controls activate.';
 
   @override
   Widget build(BuildContext context) => Column(

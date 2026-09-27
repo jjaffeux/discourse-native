@@ -18,7 +18,7 @@ final carouselExamples = ComponentExamples(
       'interaction stopping. The base-nova mapping is a 16px slide gap, 28px '
       'outline circular controls, 48px control offset, 16px chevrons, and host '
       'palette/font/radius tokens. The production cooked-post image carousel '
-      'uses this track while retaining its gallery dots and media rendering.',
+      'uses this track and DCarouselDot indicators. Dots use 10px artwork (22px when selected) with matching hit areas.',
   examples: [
     _example('Default', 'One full-width Card per snap.', const _CarouselDemo()),
     _example(

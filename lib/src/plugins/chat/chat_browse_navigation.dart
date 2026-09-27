@@ -44,6 +44,7 @@ class ChatBrowseNavigation extends StatelessWidget {
         DToggleGroup<ChatBrowsePage>(
           key: const ValueKey('chat-browse-navigation'),
           inset: true,
+          size: DControlSize.segment,
           scrollable: true,
           allowEmptySelection: false,
           values: [page],

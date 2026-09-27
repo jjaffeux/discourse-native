@@ -57,6 +57,36 @@ ChatChannel _channel(int id, String name, {int unread = 0}) => ChatChannel(
 );
 
 void main() {
+  for (final width in [320.0, 430.0, 900.0]) {
+    testWidgets('thread content aligns with its dividers at width $width', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        size: Size(width, 800),
+        platform: width < 600 ? TargetPlatform.iOS : TargetPlatform.macOS,
+      );
+      await _tab(tester, ChatBrowsePage.threads);
+
+      final row = find.byKey(const ValueKey('chat-my-thread-1'));
+      final content = find.descendant(
+        of: row,
+        matching: find.byType(DItemContent),
+      );
+      final divider = find.byType(DSeparator).first;
+      final inset = width < 600 ? 0.0 : 16.0;
+      expect(
+        tester.getRect(content).left,
+        closeTo(tester.getRect(divider).left + inset, .01),
+      );
+      expect(
+        tester.getRect(content).right,
+        closeTo(tester.getRect(divider).right - inset, .01),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final page in ChatBrowsePage.values) {
     testWidgets(
       '${page.name} shows skeleton rows until its request completes',
@@ -90,6 +120,24 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();
         expect(tester.takeException(), isNull);
+        if (page == ChatBrowsePage.threads) {
+          final content = find.descendant(
+            of: skeleton,
+            matching: find.byType(DItemContent),
+          );
+          final divider = find.descendant(
+            of: skeleton,
+            matching: find.byType(DSeparator),
+          );
+          expect(
+            tester.getRect(content.first).left,
+            tester.getRect(divider.first).left,
+          );
+          expect(
+            tester.getRect(content.first).right,
+            tester.getRect(divider.first).right,
+          );
+        }
         gate.complete();
         await request;
         await tester.pumpAndSettle();
@@ -366,8 +414,12 @@ class _Fixture {
   final Future<void> Function(Widget) show;
 }
 
-Future<_Fixture> _pump(WidgetTester tester) async {
-  await tester.binding.setSurfaceSize(const Size(900, 650));
+Future<_Fixture> _pump(
+  WidgetTester tester, {
+  Size size = const Size(900, 650),
+  TargetPlatform platform = TargetPlatform.macOS,
+}) async {
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final channels = [
     _channel(1, 'general', unread: 1),
@@ -427,7 +479,7 @@ Future<_Fixture> _pump(WidgetTester tester) async {
         child: PluginUiScope.own(
           chatPluginId,
           MaterialApp(
-            theme: AppTheme.dark,
+            theme: AppTheme.dark.copyWith(platform: platform),
             home: Scaffold(
               body: Builder(
                 builder: (context) {

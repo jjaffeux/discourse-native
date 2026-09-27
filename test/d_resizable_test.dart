@@ -101,7 +101,7 @@ void main() {
             find.byKey(const ValueKey('touch-group')),
           );
           final handle = tester.getRect(find.bySemanticsLabel('Touch resize'));
-          expect(handle.width, 48);
+          expect(handle.width, 1);
           expect(handle.left, greaterThanOrEqualTo(group.left));
           expect(handle.right, lessThanOrEqualTo(group.right));
           final line = tester.getRect(find.byKey(const ValueKey('touch-line')));
@@ -110,10 +110,7 @@ void main() {
             direction == TextDirection.ltr ? line.left : line.right,
             direction == TextDirection.ltr ? group.left : group.right,
           );
-          final point = Offset(
-            direction == TextDirection.ltr ? handle.right - 2 : handle.left + 2,
-            handle.center.dy,
-          );
+          final point = handle.center;
           final sign = direction == TextDirection.ltr ? 1.0 : -1.0;
           final gesture = await tester.startGesture(point);
           await gesture.moveBy(Offset(20 * sign, 0));

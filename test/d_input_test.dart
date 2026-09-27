@@ -684,30 +684,26 @@ void main() {
     },
   );
 
-  testWidgets(
-    'touch file selection keeps a 48px button target around the compact surface',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 300,
-                child: DFileInput(onPick: () async => null),
-              ),
+  testWidgets('touch file selection uses the compact surface bounds', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: DFileInput(onPick: () async => null),
             ),
           ),
         ),
-      );
-      expect(
-        tester.getSize(find.byType(DButton)).height,
-        greaterThanOrEqualTo(48),
-      );
-      expect(tester.getSize(find.byType(DFileInput)).height, 48);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    expect(tester.getSize(find.byType(DButton)).height, 44);
+    expect(tester.getSize(find.byType(DFileInput)).height, 44);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'file failure is retryable and a disabled picker completion cannot change selection',

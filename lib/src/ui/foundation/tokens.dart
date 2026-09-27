@@ -174,8 +174,6 @@ abstract final class DSpacing {
   /// Joined groups own their internal spacing; content and row gaps use the
   /// general spacing scale instead.
   static const double controlGap = 6;
-
-  static const double touchTarget = 48;
 }
 
 /// Repeated content insets measured across the reference pages.

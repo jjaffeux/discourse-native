@@ -66,7 +66,7 @@ void main() {
         tester.widget<DButton>(button).variant,
         DButtonVariant.transparentBackground,
       );
-      expect(tester.getSize(button), const Size.square(48));
+      expect(tester.getSize(button), const Size.square(44));
       expect(
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),

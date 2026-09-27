@@ -117,7 +117,9 @@ void main() {
     }
   });
 
-  testWidgets('attachment is a named 44-pixel keyboard link', (tester) async {
+  testWidgets('attachment is a named keyboard link with natural bounds', (
+    tester,
+  ) async {
     const launcher = MethodChannel('plugins.flutter.io/url_launcher');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -157,7 +159,7 @@ void main() {
 
       final target = find.bySemanticsLabel('Open attachment: notes.pdf, 12 KB');
       expect(target, findsOneWidget);
-      expect(tester.getSize(target).height, 44);
+      expect(tester.getSize(target).height, 41);
       expect(
         tester.getSemantics(target),
         isSemantics(

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -50,7 +51,7 @@ class DScrollBar extends StatelessWidget {
   Widget build(BuildContext context) => ScrollConfiguration(
     behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
     // Keep the viewport subtree mounted when the scrollbar is hidden.
-    child: RawScrollbar(
+    child: _NaturalScrollbar(
       controller: controller,
       thumbVisibility: showScrollbar && thumbVisibility,
       interactive: showScrollbar,
@@ -463,4 +464,80 @@ class _ScrollFocusRing extends CustomPainter {
   @override
   bool shouldRepaint(_ScrollFocusRing oldDelegate) =>
       radius != oldDelegate.radius || color != oldDelegate.color;
+}
+
+// RawScrollbar adds a 48px touch/trackpad region and hover padding internally.
+// Keep its scrolling lifecycle and gestures, but use exact painter bounds.
+class _NaturalScrollbar extends RawScrollbar {
+  const _NaturalScrollbar({
+    required super.child,
+    super.controller,
+    super.thumbVisibility,
+    super.interactive,
+    super.thickness,
+    super.crossAxisMargin,
+    super.mainAxisMargin,
+    super.padding,
+    super.radius,
+    super.minThumbLength,
+    super.thumbColor,
+    super.fadeDuration,
+    super.notificationPredicate,
+    super.scrollbarOrientation,
+  });
+
+  @override
+  RawScrollbarState<RawScrollbar> createState() => _NaturalScrollbarState();
+}
+
+class _NaturalScrollbarState extends RawScrollbarState<RawScrollbar> {
+  late final ScrollbarPainter _naturalPainter;
+
+  @override
+  ScrollbarPainter get scrollbarPainter => _naturalPainter;
+
+  @override
+  void initState() {
+    super.initState();
+    final original = super.scrollbarPainter;
+    _naturalPainter = _NaturalScrollbarPainter(
+      color: original.color,
+      fadeoutOpacityAnimation: original.fadeoutOpacityAnimation,
+    );
+    original.dispose();
+  }
+}
+
+class _NaturalScrollbarPainter extends ScrollbarPainter {
+  _NaturalScrollbarPainter({
+    required super.color,
+    required super.fadeoutOpacityAnimation,
+  });
+
+  @override
+  bool hitTestInteractive(
+    Offset position,
+    PointerDeviceKind kind, {
+    bool forHover = false,
+  }) {
+    // Flutter's track also includes the unpainted container margins.
+    final inset = switch (scrollbarOrientation) {
+      ScrollbarOrientation.top ||
+      ScrollbarOrientation.bottom => Offset(0, crossAxisMargin),
+      _ => Offset(crossAxisMargin, 0),
+    };
+    return super.hitTestInteractive(
+          position - inset,
+          PointerDeviceKind.mouse,
+        ) &&
+        super.hitTestInteractive(position + inset, PointerDeviceKind.mouse);
+  }
+
+  @override
+  bool hitTest(Offset? position) =>
+      position != null && hitTestInteractive(position, PointerDeviceKind.mouse);
+
+  @override
+  bool hitTestOnlyThumbInteractive(Offset position, PointerDeviceKind kind) =>
+      super.hitTestOnlyThumbInteractive(position, PointerDeviceKind.mouse);
 }

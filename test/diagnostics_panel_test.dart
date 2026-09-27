@@ -207,7 +207,7 @@ void main() {
         find.byKey(const ValueKey('diagnostics-panel')),
       );
       await tester.dragFrom(
-        Offset(panel.left + 1, panel.top + 28),
+        Offset(panel.left + .5, panel.top + 28),
         // The resize handle applies the full pointer displacement.
         const Offset(-140, 0),
       );
@@ -282,8 +282,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final handle = find.byKey(const ValueKey('diagnostics-resize-handle'));
-      // This test uses Android's coarse pointer metrics, even at desktop width.
-      expect(tester.getSize(handle).width, 48);
+      // The resize target matches the visible divider on Android too.
+      expect(tester.getSize(handle).width, 1);
       final node = tester.getSemantics(handle);
       final data = node.getSemanticsData();
       expect(data.label, 'Resize diagnostics panel');

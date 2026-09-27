@@ -103,7 +103,7 @@ void main() {
         final content = find.byKey(contentKey);
         final contentRect = tester.getRect(content);
         final handleRect = tester.getRect(handle);
-        expect(handleRect.width, 12);
+        expect(handleRect.width, 4);
         expect(contentRect.width, 228);
         expect(contentRect.overlaps(handleRect), isFalse);
         final growsRight =
@@ -160,7 +160,7 @@ void main() {
       );
       final viewport = tester.getRect(find.byType(ListView));
       final ltr = direction == TextDirection.ltr;
-      expect(handle.width, 2);
+      expect(handle.width, 1);
       // Content still paints all the way to the pane edge: no exposed gutter.
       expect(viewport, tester.getRect(find.byKey(const ValueKey('pane'))));
 
@@ -515,7 +515,7 @@ Future<void> _pumpPane(
   ResizablePaneEdge edge = ResizablePaneEdge.trailing,
   TextDirection direction = TextDirection.ltr,
   double maximumWidth = double.infinity,
-  double dividerWidth = 0,
+  double dividerWidth = 1,
   double gap = 0,
   Widget sibling = const SizedBox.shrink(),
   Widget child = const ColoredBox(color: Colors.blue),
@@ -541,7 +541,6 @@ Future<void> _pumpPane(
                 maximumWidth: maximumWidth,
                 dividerWidth: dividerWidth,
                 gap: gap,
-                handleWidth: gap > 0 ? gap : 2,
                 child: child,
               ),
               sibling,

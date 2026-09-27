@@ -12,6 +12,13 @@ import 'package:flutter/semantics.dart' show SemanticsValidationResult;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Finder controlSemantics([Finder? target]) => find
+    .descendant(
+      of: target ?? find.byType(DToggle),
+      matching: find.byType(MergeSemantics),
+    )
+    .first;
+
 void main() {
   Future<void> mount(
     WidgetTester tester,
@@ -85,8 +92,7 @@ void main() {
           of: find.byType(DToggle),
           matching: find.byType(GestureDetector),
         );
-        expect(tester.getSize(gesture).height, greaterThanOrEqualTo(48));
-        expect(tester.getSize(gesture).width, greaterThanOrEqualTo(48));
+        expect(tester.getRect(gesture), bounds);
       }
       await tester.tap(find.text('123'));
       await tester.pump();
@@ -263,14 +269,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    final node = tester.getSemantics(find.byType(DToggle));
+    final node = tester.getSemantics(controlSemantics());
     node.owner!.performAction(node.id, SemanticsAction.tap);
     await tester.pumpAndSettle();
 
     expect(changes, [false, true, false, true]);
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .flagsCollection
           .isToggled,
@@ -304,7 +310,7 @@ void main() {
     expect(changes, 1);
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .flagsCollection
           .isToggled,
@@ -314,7 +320,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .flagsCollection
           .isToggled,
@@ -351,7 +357,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .flagsCollection
           .isEnabled,
@@ -359,7 +365,7 @@ void main() {
     );
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .hasAction(SemanticsAction.tap),
       isTrue,
@@ -425,7 +431,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.longPress(toggle);
         await tester.pumpAndSettle();
-        final node = tester.getSemantics(toggle);
+        final node = tester.getSemantics(controlSemantics(toggle));
         expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
         expect(
           node.getSemanticsData().hasAction(SemanticsAction.longPress),
@@ -448,7 +454,7 @@ void main() {
         expect(longPresses, 3);
         expect(
           tester
-              .getSemantics(toggle)
+              .getSemantics(controlSemantics(toggle))
               .getSemanticsData()
               .hasAction(SemanticsAction.longPress),
           isFalse,
@@ -482,7 +488,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           tester.getSize(find.byType(DToggle)),
-          Size.square(platform == TargetPlatform.iOS ? 48 : entry.$2),
+          Size.square(platform == TargetPlatform.iOS ? entry.$4 : entry.$2),
         );
         expect(
           tester.getSize(
@@ -615,7 +621,7 @@ void main() {
     expect(decoration().border!.top.color, const Color(0xffaa0011));
     expect(
       tester
-          .getSemantics(find.byType(DToggle))
+          .getSemantics(controlSemantics())
           .getSemanticsData()
           .validationResult,
       SemanticsValidationResult.invalid,
@@ -753,7 +759,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(
         tester
-            .getSemantics(find.byType(DToggle))
+            .getSemantics(controlSemantics())
             .getSemanticsData()
             .flagsCollection
             .isToggled,
@@ -782,7 +788,7 @@ void main() {
       );
       expect(
         tester
-            .getSemantics(find.byType(DToggle))
+            .getSemantics(controlSemantics())
             .getSemanticsData()
             .flagsCollection
             .isToggled,

@@ -202,10 +202,6 @@ class _DItemState extends State<DItem> {
         : widget.variant == DItemVariant.outline
         ? tokens.surface
         : Colors.transparent;
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     Widget result = _ItemScope(
       size: widget.size,
       described: described,
@@ -223,7 +219,6 @@ class _DItemState extends State<DItem> {
             radius,
           ),
           child: interactiveRowSurface(
-            constraints: BoxConstraints(minHeight: touch && _active ? 48 : 0),
             foregroundDecoration: widget.selected && leadingSelection
                 ? BoxDecoration(
                     border: BorderDirectional(

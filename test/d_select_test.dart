@@ -1073,13 +1073,7 @@ void main() {
         final visual = tester.getRect(
           find.byKey(const Key('d-select-trigger-visual')),
         );
-        final target = Rect.fromCenter(
-          center: visual.center,
-          width: visual.width,
-          height: visual.height < DSpacing.touchTarget
-              ? DSpacing.touchTarget
-              : visual.height,
-        );
+        final target = visual;
         final popup = find.text('Joined');
 
         for (final point in [

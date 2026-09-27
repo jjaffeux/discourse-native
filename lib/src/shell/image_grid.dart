@@ -402,8 +402,6 @@ class ImageGridCarousel extends StatefulWidget {
 
   static const int maxDots = 10;
 
-  static const double controlTargetSize = 44;
-
   @override
   State<ImageGridCarousel> createState() => _ImageGridCarouselState();
 }
@@ -527,7 +525,10 @@ class _Controls extends StatelessWidget {
         if (total <= ImageGridCarousel.maxDots)
           Flexible(
             child: SizedBox(
-              width: total * ImageGridCarousel.controlTargetSize,
+              width:
+                  DCarouselDot.selectedWidth +
+                  (total - 1) * (DCarouselDot.diameter + DSpacing.sm) +
+                  2 * DSpacing.sm,
               child: _Dots(index: index, total: total, onSelect: onSelect),
             ),
           )
@@ -596,26 +597,28 @@ class _Dots extends StatelessWidget {
 
     return Material(
       color: theme.shell.panel,
-      borderRadius: BorderRadius.circular(
-        ImageGridCarousel.controlTargetSize / 2,
-      ),
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var dot = 0; dot < total; dot++)
-              _DotButton(
-                index: dot,
-                total: total,
-                selected: dot == index,
-                color: dot == index
-                    ? theme.colorScheme.onSurfaceVariant
-                    : theme.shell.divider,
-                onTap: () => onSelect(dot),
-              ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(DSpacing.sm),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: DSpacing.sm,
+            children: [
+              for (var dot = 0; dot < total; dot++)
+                _DotButton(
+                  index: dot,
+                  total: total,
+                  selected: dot == index,
+                  color: dot == index
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.shell.divider,
+                  onTap: () => onSelect(dot),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -679,42 +682,16 @@ class _DotButtonState extends State<_DotButton> {
     final number = widget.index + 1;
     final label = 'Go to image $number of ${widget.total}';
 
-    return Semantics(
+    return DCarouselDot(
       key: ValueKey('image-carousel-dot-$number'),
-      container: true,
-      button: true,
       selected: widget.selected,
-      label: label,
-      onTap: widget.onTap,
-      child: ExcludeSemantics(
-        child: DTooltip(
-          message: label,
-          excludeFromSemantics: true,
-          child: InkWell(
-            key: ValueKey('image-carousel-dot-$number-button'),
-            focusNode: _focusNode,
-            onFocusChange: (focused) {
-              if (focused) _reveal();
-            },
-            onTap: widget.onTap,
-            child: SizedBox.square(
-              dimension: ImageGridCarousel.controlTargetSize,
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                  width: widget.selected ? 22 : 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: widget.color,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+      semanticLabel: label,
+      color: widget.color,
+      focusNode: _focusNode,
+      onFocusChange: (focused) {
+        if (focused) _reveal();
+      },
+      onPressed: widget.onTap,
     );
   }
 }

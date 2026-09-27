@@ -280,10 +280,6 @@ class _DInputState extends FormFieldState<String> {
         BorderRadius.circular(t.buttonTheme.radius);
     final error = input.errorText ?? errorText;
     final isInvalid = input.invalid || error != null;
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final fontSize = DControlStyle.fontSize(size, context: context);
     final style =
         input.style ??
@@ -427,7 +423,6 @@ class _DInputState extends FormFieldState<String> {
           editor
         else
           _InputHitTarget(
-            touch: touch,
             onTap: input.enabled ? _focus.requestFocus : null,
             child: _InputSurface(
               filled: input.filled,
@@ -461,9 +456,8 @@ class _DInputState extends FormFieldState<String> {
 }
 
 class _InputHitTarget extends StatelessWidget {
-  const _InputHitTarget({required this.child, required this.touch, this.onTap});
+  const _InputHitTarget({required this.child, this.onTap});
   final Widget child;
-  final bool touch;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -474,14 +468,7 @@ class _InputHitTarget extends StatelessWidget {
       cursor: onTap == null
           ? SystemMouseCursors.forbidden
           : SystemMouseCursors.text,
-      child: touch
-          ? ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: DSpacing.touchTarget,
-              ),
-              child: Align(heightFactor: 1, child: child),
-            )
-          : child,
+      child: child,
     ),
   );
 }
@@ -762,10 +749,6 @@ class _DFileInputState extends FormFieldState<List<String>> {
 
   Widget _build() {
     final t = DTokens.of(context);
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
     final lineHeight =
         MediaQuery.textScalerOf(
           context,
@@ -809,9 +792,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                     children: [
                       Flexible(
                         child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: touch ? DSpacing.touchTarget : 24,
-                          ),
+                          constraints: const BoxConstraints(minHeight: 24),
                           // The field owns disabled opacity. Keep the actual
                           // Button disabled, but neutralize its additional fade.
                           child: Theme(

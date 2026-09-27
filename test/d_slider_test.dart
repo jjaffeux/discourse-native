@@ -49,10 +49,7 @@ void main() {
           ),
         );
         final slider = find.byType(DSlider);
-        expect(
-          tester.getSize(slider).height,
-          platform == TargetPlatform.macOS ? 26 : 48,
-        );
+        expect(tester.getSize(slider).height, 26);
         final end = direction == TextDirection.ltr
             ? tester.getTopRight(slider)
             : tester.getTopLeft(slider);
@@ -138,8 +135,8 @@ void main() {
         final reversed = vertical || direction == TextDirection.rtl;
         final extent = vertical ? size.height : size.width;
         final origin = reversed ? extent.toInt() - 3 : 2;
-        final x = vertical ? 23 : origin;
-        final y = vertical ? origin : 23;
+        final x = vertical ? (size.width / 2).floor() : origin;
+        final y = vertical ? origin : (size.height / 2).floor();
         final offset = (y * image.width + x) * 4;
         final color = Color.fromARGB(
           bytes.getUint8(offset + 3),
@@ -449,7 +446,7 @@ void main() {
             ),
           ),
         );
-        expect(tester.getSize(find.byType(DSlider)), const Size(32, 48));
+        expect(tester.getSize(find.byType(DSlider)), const Size(32, 12));
         final thumb = find.byWidgetPredicate(
           (w) => w is AnimatedContainer && w.constraints?.maxWidth == 12,
         );

@@ -2237,87 +2237,38 @@ class _HighlightedChatMessage extends StatelessWidget {
 class _JumpToPresent extends StatelessWidget {
   const _JumpToPresent({required this.onTap, this.pendingCount = 0});
 
-  static const double _targetSize = 44;
-  static const double _visualSize = 36;
-
   final VoidCallback onTap;
   final int pendingCount;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final label = pendingCount > 0
         ? 'Jump to latest messages, $pendingCount new'
         : 'Jump to latest messages';
-    return Semantics(
-      container: true,
-      button: true,
-      label: label,
-      child: DTooltip(
-        message: label,
-        excludeFromSemantics: true,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox.square(
-              dimension: _targetSize,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Material(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    shape: const CircleBorder(),
-                    elevation: 2,
-                    child: SizedBox.square(
-                      dimension: _visualSize,
-                      child: Center(
-                        child: ExcludeSemantics(
-                          child: DIcon(
-                            DIcons.chevronDown,
-                            size: 16,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (pendingCount > 0)
-                    Positioned(
-                      key: const ValueKey('chat-jump-pending-count'),
-                      right: 0,
-                      top: 0,
-                      child: ExcludeSemantics(
-                        child: Container(
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            pendingCount > 99 ? '99+' : '$pendingCount',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        DButton.iconOnly(
+          size: DControlSize.toolbar,
+          shape: DButtonShape.pill,
+          variant: DButtonVariant.secondary,
+          icon: const DIcon(DIcons.chevronDown),
+          semanticLabel: label,
+          tooltip: label,
+          onPressed: onTap,
+        ),
+        if (pendingCount > 0)
+          Positioned(
+            key: const ValueKey('chat-jump-pending-count'),
+            right: 0,
+            top: 0,
+            child: ExcludeSemantics(
+              child: DBadge.overlay(
+                child: Text(pendingCount > 99 ? '99+' : '$pendingCount'),
               ),
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }

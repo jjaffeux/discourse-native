@@ -60,8 +60,8 @@ void main() {
       await tester.pumpWidget(const _TestApp(child: _BasicMenubar()));
 
       final triggerSize = tester.getSize(find.byType(DMenubarTrigger).first);
-      expect(triggerSize.width, greaterThanOrEqualTo(DSpacing.touchTarget));
-      expect(triggerSize.height, greaterThanOrEqualTo(DSpacing.touchTarget));
+      expect(triggerSize.width, greaterThan(0));
+      expect(triggerSize.height, 44);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

@@ -347,7 +347,7 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final button = find.byKey(const ValueKey('mobile-mode-start'));
-      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(button).height, 46);
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(find.byType(MainContent), findsOneWidget);
@@ -1134,7 +1134,10 @@ void _registerShellNavigationTests() {
       );
       expect(scrollbar, findsOneWidget);
       final nativeScrollbar = tester.widget<RawScrollbar>(
-        find.descendant(of: scrollbar, matching: find.byType(RawScrollbar)),
+        find.descendant(
+          of: scrollbar,
+          matching: find.byWidgetPredicate((widget) => widget is RawScrollbar),
+        ),
       );
       expect(nativeScrollbar.thumbColor, Colors.transparent);
       expect(nativeScrollbar.interactive, isFalse);

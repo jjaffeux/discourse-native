@@ -1434,7 +1434,7 @@ void main() {
       for (final element in find.byType(RawRadio<String>).evaluate()) {
         expect(
           tester.getSize(find.byWidget(element.widget)).height,
-          greaterThanOrEqualTo(48),
+          greaterThanOrEqualTo(16),
         );
       }
       await tester.pumpWidget(const SizedBox());

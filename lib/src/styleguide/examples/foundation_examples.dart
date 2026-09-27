@@ -17,7 +17,7 @@ final foundationExamples = ComponentExamples(
       description:
           'One type scale for desktop and mobile. Page titles are 22/27.5, '
           'list titles 14.5/19.575 and reading text 14/23.1 logical pixels. '
-          'Zoom changes text; touch platforms retain larger hit targets.',
+          'Zoom changes text; hit areas follow visible controls on every platform.',
       states: const ['Typography', 'Radii', 'Spacing', 'Text scaling'],
       code:
           '''Text('Page title', style: Theme.of(context).textTheme.headlineSmall)
