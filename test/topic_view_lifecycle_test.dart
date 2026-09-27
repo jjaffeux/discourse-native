@@ -14,6 +14,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
+import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -112,11 +113,7 @@ void main() {
         final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
         final ImageProvider<Object> imageProvider = siteImage.cacheWidth == null
             ? MemoryImage(_tallPng)
-            : ResizeImage(
-                MemoryImage(_tallPng),
-                width: siteImage.cacheWidth,
-                policy: ResizeImagePolicy.fit,
-              );
+            : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
         await tester.runAsync(
           () => precacheImage(
             imageProvider,
@@ -209,11 +206,7 @@ void main() {
             final ImageProvider<Object> imageProvider =
                 siteImage.cacheWidth == null
                 ? MemoryImage(_tallPng)
-                : ResizeImage(
-                    MemoryImage(_tallPng),
-                    width: siteImage.cacheWidth,
-                    policy: ResizeImagePolicy.fit,
-                  );
+                : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
             await tester.runAsync(
               () => precacheImage(
                 imageProvider,

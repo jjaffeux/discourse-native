@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_images.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -112,6 +113,47 @@ void main() {
       },
     );
   }
+
+  group('resizing the lane', () {
+    setUp(() {
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+    });
+
+    testWidgets('keeps one decode of images narrower than it in pixels', (
+      tester,
+    ) async {
+      // Discourse's cooked `src` is the optimized 1x image, so on a high
+      // density screen the lane is usually wider in pixels than the source.
+      final decoded = await _resizeCookedImages(
+        tester,
+        source: const Size(640, 427),
+        laneWidths: [for (var step = 0; step <= 20; step++) 600 - 15.0 * step],
+      );
+
+      expect(decoded.growth, 0);
+      for (final image in decoded.images) {
+        expect(image.width, 640);
+      }
+    });
+
+    testWidgets('decodes images wider than it once per coarse step', (
+      tester,
+    ) async {
+      final decoded = await _resizeCookedImages(
+        tester,
+        source: const Size(1200, 800),
+        laneWidths: [for (var step = 0; step <= 20; step++) 300 - 1.0 * step],
+      );
+
+      // Twenty logical pixels at 3x span less than one 64-pixel step here.
+      expect(decoded.growth, lessThanOrEqualTo(decoded.images.length));
+      for (final image in decoded.images) {
+        expect(image.width, greaterThanOrEqualTo(280 * 3));
+        expect(image.width, lessThanOrEqualTo(1200));
+      }
+    });
+  });
 
   for (final change in ['url', 'repository', 'callback', 'unmount']) {
     testWidgets('pending byte metadata is retired on $change change', (
@@ -494,6 +536,106 @@ Future<void> _waitForImage(WidgetTester tester) async {
     }
   }
   fail('The image did not decode');
+}
+
+/// Pumps three cooked images of [source] size in a lane that steps through
+/// [laneWidths] at a device pixel ratio of 3, and reports how many image cache
+/// entries the resizing added and the bitmaps finally drawn.
+Future<({int growth, List<ui.Image> images})> _resizeCookedImages(
+  WidgetTester tester, {
+  required Size source,
+  required List<double> laneWidths,
+}) async {
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+  final bytes = await _pngBytes(
+    tester,
+    width: source.width.toInt(),
+    height: source.height.toInt(),
+  );
+  // A copy per response: identical bytes would share one cache key.
+  final repository = SiteImageRepository(
+    credentials: FakeApiCredentialReader(),
+    lifecycle: SiteLifecycle(),
+    client: MockClient(
+      (_) async => http.Response.bytes(Uint8List.fromList(bytes), 200),
+    ),
+  );
+  addTearDown(repository.dispose);
+  final urls = [for (var index = 0; index < 3; index++) '$_siteUrl/$index.png'];
+  for (final url in urls) {
+    await repository.load(siteUrl: _siteUrl, url: url);
+  }
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    siteImages: repository,
+  );
+  addTearDown(shell.dispose);
+  final width = ValueNotifier(laneWidths.first);
+  addTearDown(width.dispose);
+  final html = [
+    for (final url in urls)
+      '<p><img src="$url" width="${source.width.toInt()}" '
+          'height="${source.height.toInt()}"></p>',
+  ].join();
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ShellScope(
+        controller: shell,
+        child: SingleChildScrollView(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ValueListenableBuilder(
+              valueListenable: width,
+              builder: (context, width, _) => SizedBox(
+                width: width,
+                child: CookedHtml(siteUrl: _siteUrl, html: html),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  final cache = PaintingBinding.instance.imageCache;
+  int entries() => cache.currentSize + cache.pendingImageCount;
+  await _waitForImages(tester, urls.length);
+  final before = entries();
+
+  for (final laneWidth in laneWidths.skip(1)) {
+    width.value = laneWidth;
+    await tester.pump();
+  }
+  await _waitForImages(tester, urls.length);
+
+  return (
+    growth: entries() - before,
+    images: [
+      for (final raw in tester.widgetList<RawImage>(find.byType(RawImage)))
+        raw.image!,
+    ],
+  );
+}
+
+Future<void> _waitForImages(WidgetTester tester, int count) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    final raws = tester.widgetList<RawImage>(find.byType(RawImage));
+    if (PaintingBinding.instance.imageCache.pendingImageCount == 0 &&
+        raws.length == count &&
+        raws.every((raw) => raw.image != null)) {
+      return;
+    }
+  }
+  fail('The images did not decode');
 }
 
 SiteImageRepository _repository(Uint8List bytes) {

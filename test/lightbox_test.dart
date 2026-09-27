@@ -3,6 +3,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -463,7 +464,8 @@ void main() {
         ),
       );
       final provider = image.image as ResizeImage;
-      expect(provider.width, 1380);
+      // 690 logical pixels at 2x, rounded up so a resize can reuse it.
+      expect(provider.width, coarseDecodePixels(1380));
       expect(provider.allowUpscaling, isFalse);
     });
 

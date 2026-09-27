@@ -302,7 +302,7 @@ class LightboxTile extends StatelessWidget {
             : image.layoutWidth;
         final cacheWidth =
             logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
-            ? imagePhysicalPixels(context, logicalWidth)
+            ? imageDecodeWidth(context, logicalWidth)
             : null;
         final label = switch (image.description) {
           final description? when description.isNotEmpty =>

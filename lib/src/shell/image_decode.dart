@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 Size? safeImageLayoutSize(double? width, double? height) {
@@ -44,6 +44,151 @@ Size? parseSafeImageInformationSize(String? text) {
 int imagePhysicalPixels(BuildContext context, double logicalPixels) {
   final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
   return math.max(1, (logicalPixels * devicePixelRatio).ceil());
+}
+
+/// The physical width to decode an image at when it is drawn [logicalWidth]
+/// wide by a layout that can resize continuously.
+///
+/// Every distinct decode size is its own [ImageCache] entry and a full decode,
+/// so a width that followed the layout exactly would decode every visible
+/// image again for each pixel of a window resize, divider drag, sidebar toggle
+/// or rotation, and keep each result alive. Use [imagePhysicalPixels] for a
+/// size that does not follow the layout.
+int imageDecodeWidth(BuildContext context, double logicalWidth) =>
+    coarseDecodePixels(imagePhysicalPixels(context, logicalWidth));
+
+/// Rounds [physicalPixels] up to one of eight sizes per doubling.
+///
+/// Keeping the four leading bits bounds the extra width below an eighth of the
+/// request at every scale. A fixed step would instead inflate a small
+/// thumbnail several times over and still leave dozens of sizes across a
+/// desktop-wide drag. Rounding is always up, so a decode is never narrower
+/// than the image is drawn.
+int coarseDecodePixels(int physicalPixels) {
+  final step = 1 << math.max(0, physicalPixels.bitLength - 4);
+  return (physicalPixels + step - 1) ~/ step * step;
+}
+
+/// Decodes [bytes] to fit within [width] × [height] physical pixels, keeping
+/// the aspect ratio and never upscaling: [ResizeImagePolicy.fit] without
+/// `allowUpscaling`.
+///
+/// [ResizeImage] keys its cache entry on the requested bound, so every layout
+/// wider than the source decodes the same pixels again under a new key. This
+/// provider's key is the bound clamped to the source's own size instead, so
+/// all of those layouts share one bitmap. The size is read from the encoded
+/// header once per [bytes], before their first key; every later key is
+/// synchronous, so a cached bitmap still shows in the frame that asks for it.
+@immutable
+final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
+  const FittedMemoryImage(this.bytes, {this.width, this.height})
+    : assert(width != null || height != null);
+
+  final Uint8List bytes;
+  final int? width;
+  final int? height;
+
+  @override
+  Future<FittedMemoryImage> obtainKey(ImageConfiguration configuration) =>
+      (_sourceSizes[bytes] ??= _readSourceSize(bytes)).then((size) {
+        // A fit bound at or beyond the source in a dimension constrains
+        // nothing in it, so clamping never changes what the key decodes to.
+        final key = FittedMemoryImage(
+          bytes,
+          width: _clamp(width, size?.$1),
+          height: _clamp(height, size?.$2),
+        );
+        return key == this ? this : key;
+      });
+
+  static int? _clamp(int? bound, int? source) =>
+      bound == null || source == null ? bound : math.min(bound, source);
+
+  @override
+  ImageStreamCompleter loadImage(
+    FittedMemoryImage key,
+    ImageDecoderCallback decode,
+  ) {
+    final completer = MultiFrameImageStreamCompleter(
+      codec: _decode(key, decode),
+      scale: 1,
+    );
+    completer.addEphemeralErrorListener((_, _) {
+      // A synchronous failure can precede ImageCache registering this key.
+      scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
+    });
+    return completer;
+  }
+
+  static Future<ui.Codec> _decode(
+    FittedMemoryImage key,
+    ImageDecoderCallback decode,
+  ) async {
+    final buffer = await ui.ImmutableBuffer.fromUint8List(key.bytes);
+    return decode(
+      buffer,
+      getTargetSize: (sourceWidth, sourceHeight) =>
+          _fitWithin(sourceWidth, sourceHeight, key.width, key.height),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is FittedMemoryImage &&
+      identical(other.bytes, bytes) &&
+      other.width == width &&
+      other.height == height;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(bytes), width, height);
+}
+
+// By identity, as MemoryImage keys are: the site image cache hands every
+// widget showing a URL the same bytes.
+final _sourceSizes = Expando<Future<(int, int)?>>('encoded image size');
+
+Future<(int, int)?> _readSourceSize(Uint8List bytes) async {
+  ui.ImmutableBuffer? buffer;
+  ui.ImageDescriptor? descriptor;
+  (int, int)? size;
+  try {
+    buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    // Reads the header only; no frame is decoded.
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    size = (descriptor.width, descriptor.height);
+  } catch (_) {
+    // Unreadable bytes keep the requested bound; their decode reports them.
+  } finally {
+    descriptor?.dispose();
+    buffer?.dispose();
+  }
+  _sourceSizes[bytes] = SynchronousFuture(size);
+  return size;
+}
+
+ui.TargetImageSize _fitWithin(
+  int intrinsicWidth,
+  int intrinsicHeight,
+  int? maxWidth,
+  int? maxHeight,
+) {
+  // ResizeImage's arithmetic, so a bound decodes to the same size through
+  // either provider.
+  final aspectRatio = intrinsicWidth / intrinsicHeight;
+  var width = intrinsicWidth;
+  var height = intrinsicHeight;
+  if (maxWidth != null && width > maxWidth) {
+    width = maxWidth;
+    height = width ~/ aspectRatio;
+  }
+  if (maxHeight != null && height > maxHeight) {
+    height = maxHeight;
+    width = (height * aspectRatio).floor();
+  }
+  return ui.TargetImageSize(
+    width: math.max(1, width),
+    height: math.max(1, height),
+  );
 }
 
 ResizeImage memoryImageForLayout(

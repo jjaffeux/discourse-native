@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -8,6 +9,7 @@ import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -68,6 +70,96 @@ void main() {
     );
 
     expect(pixels, 41);
+  });
+
+  test('coarse decode sizes cover the request with eight per doubling', () {
+    var previous = 0;
+    for (var pixels = 1; pixels <= 8192; pixels++) {
+      final coarse = coarseDecodePixels(pixels);
+      expect(coarse, greaterThanOrEqualTo(pixels));
+      expect(coarse * 8, lessThan(pixels * 9), reason: 'at most 1/8 wider');
+      expect(coarse, greaterThanOrEqualTo(previous));
+      expect(coarseDecodePixels(coarse), coarse);
+      previous = coarse;
+    }
+    expect(
+      {
+        for (var pixels = 641; pixels <= 704; pixels++)
+          coarseDecodePixels(pixels),
+      },
+      {704},
+    );
+    expect({
+      for (var pixels = 1025; pixels <= 2048; pixels++)
+        coarseDecodePixels(pixels),
+    }, hasLength(8));
+  });
+
+  testWidgets('layout decode widths are coarse physical widths', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+
+    late List<int> widths;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            widths = [
+              for (final logical in [352.5, 370.0, 384.0, 384.5])
+                imageDecodeWidth(context, logical),
+            ];
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    // 705 to 768 physical pixels share one decode; 769 starts the next.
+    expect(widths, [768, 768, 768, 832]);
+  });
+
+  testWidgets('fitted memory images share one key for every bound beyond '
+      'the source', (tester) async {
+    PaintingBinding.instance.imageCache.clear();
+    addTearDown(PaintingBinding.instance.imageCache.clear);
+    final bytes = await _pngBytes(tester, width: 640, height: 427);
+    Future<FittedMemoryImage> keyFor(int width) => FittedMemoryImage(
+      bytes,
+      width: width,
+    ).obtainKey(ImageConfiguration.empty);
+    final source = FittedMemoryImage(bytes, width: 640);
+
+    // Only the first key waits, to read the encoded header.
+    expect(await tester.runAsync(() => keyFor(2304)), source);
+    for (final width in [640, 700, 1000, 2304, 5000]) {
+      expect(keyFor(width), isA<SynchronousFuture<FittedMemoryImage>>());
+      expect(await keyFor(width), source);
+    }
+    final wide = await _decode(tester, FittedMemoryImage(bytes, width: 5000));
+    expect(wide, (width: 640, height: 427), reason: 'never upscaled');
+
+    final narrow = FittedMemoryImage(bytes, width: 500);
+    expect(await keyFor(500), narrow);
+    expect(await _decode(tester, narrow), (
+      width: 500,
+      height: 333,
+    ), reason: 'never narrower than the bound');
+  });
+
+  testWidgets('unreadable bytes keep their requested bound as the key', (
+    tester,
+  ) async {
+    final provider = FittedMemoryImage(
+      Uint8List.fromList([1, 2, 3]),
+      width: 10,
+    );
+
+    expect(
+      await tester.runAsync(() => provider.obtainKey(ImageConfiguration.empty)),
+      provider,
+    );
   });
 
   testWidgets('chat thumbnails decode no wider than their layout', (
@@ -240,6 +332,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+Future<Uint8List> _pngBytes(
+  WidgetTester tester, {
+  required int width,
+  required int height,
+}) async => (await tester.runAsync(() async {
+  final image = await createTestImage(
+    width: width,
+    height: height,
+    cache: false,
+  );
+  try {
+    return (await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!.buffer.asUint8List();
+  } finally {
+    image.dispose();
+  }
+}))!;
+
+/// Resolves [provider] through the image cache and returns the size of its
+/// first frame.
+Future<({int width, int height})> _decode(
+  WidgetTester tester,
+  ImageProvider<Object> provider,
+) async => (await tester.runAsync(() {
+  final size = Completer<({int width, int height})>();
+  final stream = provider.resolve(ImageConfiguration.empty);
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (info, _) {
+      size.complete((width: info.image.width, height: info.image.height));
+      info.dispose();
+      stream.removeListener(listener);
+    },
+    onError: (error, stackTrace) {
+      size.completeError(error, stackTrace);
+      stream.removeListener(listener);
+    },
+  );
+  stream.addListener(listener);
+  return size.future;
+}))!;
 
 final class _RecordingDiagnosticsSink implements DiagnosticsSink {
   final List<String?> operations = [];

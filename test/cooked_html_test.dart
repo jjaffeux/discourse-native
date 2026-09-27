@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -412,12 +413,12 @@ void main() {
     expect(sent.url, Uri.parse('$siteUrl/secure-uploads/original/image.png'));
     expect(sent.headers['User-Api-Key'], 'account-key');
     expect(sent.headers['User-Api-Client-Id'], 'test-client');
-    final image = tester
+    final provider = tester
         .widgetList<Image>(find.byType(Image))
-        .firstWhere((image) => image.image is ResizeImage);
-    final provider = image.image as ResizeImage;
-    expect(provider.width, 800);
-    expect(provider.imageProvider, isA<MemoryImage>());
+        .map((image) => image.image)
+        .whereType<FittedMemoryImage>()
+        .single;
+    expect(provider.width, coarseDecodePixels(800));
   });
 
   for (final avatarClass in [
