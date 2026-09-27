@@ -41,7 +41,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   @override
   void initState() {
     super.initState();
-    _filterController = TextEditingController()..addListener(_filterChanged);
+    _filterController = TextEditingController();
     _scrollController = ScrollController()..addListener(_maybeLoadMore);
   }
 
@@ -69,7 +69,10 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     super.dispose();
   }
 
-  void _filterChanged() {
+  // Fed by the field's onChanged rather than a controller listener: the
+  // controller also notifies on focus and caret moves, and a reset for those
+  // would drop the pages already loaded.
+  void _filterChanged(String _) {
     _filterTimer?.cancel();
     _filterTimer = Timer(
       const Duration(milliseconds: 350),
@@ -153,6 +156,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
               size: DControlSize.field,
               key: const ValueKey('chat-browse-filter'),
               controller: _filterController,
+              onChanged: _filterChanged,
               labelText: 'Find a channel',
               prefix: const DIcon(DIcons.magnifyingGlass),
             ),
