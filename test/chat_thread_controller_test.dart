@@ -964,6 +964,178 @@ void main() {
   );
 
   test(
+    'a channel threads revalidation adds new threads to the pages already read',
+    () async {
+      final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(9, 0);
+      final pages = {
+        firstPage: ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 1): ChatThreadPage(
+          threads: [listedThread(2)],
+          hasMore: true,
+        ),
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 3): ChatThreadPage(
+          threads: [listedThread(4)],
+        ),
+      };
+      final api = FakeDiscourseApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+        chatChannelThreadPagesByKey: pages,
+      );
+      final subject = _controllerFor(api);
+      Iterable<int> ids() =>
+          subject.chat.channelThreads(site, 9).map((thread) => thread.id);
+      await subject.chat.loadChannels(site);
+      await subject.chat.loadChannelThreads(site, 9);
+      await subject.chat.loadChannelThreads(site, 9, more: true);
+      expect(ids(), [2, 1]);
+
+      pages[firstPage] = ChatThreadPage(
+        threads: [listedThread(3), listedThread(1)],
+        hasMore: true,
+      );
+      await subject.chat.loadChannelThreads(site, 9, revalidate: true);
+
+      expect(ids(), [3, 2, 1]);
+      expect(subject.chat.channelThreadsHaveMore(site, 9), isTrue);
+
+      // Thread 3 pushed the server's second page down by one row.
+      await subject.chat.loadChannelThreads(site, 9, more: true);
+
+      expect(
+        api.chatChannelThreadPagesRequested.map((request) => request.offset),
+        [0, 1, 0, 3],
+      );
+      expect(ids(), [4, 3, 2, 1]);
+      expect(subject.chat.channelThreadsHaveMore(site, 9), isFalse);
+    },
+  );
+
+  test(
+    'a failed channel threads revalidation keeps the held list quietly',
+    () async {
+      final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(9, 0);
+      final pages = {
+        firstPage: ChatThreadPage(threads: [listedThread(1)]),
+      };
+      final api = FakeDiscourseApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+        chatChannelThreadPagesByKey: pages,
+      );
+      final subject = _controllerFor(api);
+      await subject.chat.loadChannels(site);
+      await subject.chat.loadChannelThreads(site, 9);
+
+      pages.remove(firstPage);
+      await subject.chat.loadChannelThreads(site, 9, revalidate: true);
+
+      expect(api.chatChannelThreadPagesRequested, hasLength(2));
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+      expect(subject.chat.channelThreadsError(site, 9), isNull);
+    },
+  );
+
+  test(
+    'a channel threads revalidation joins a first page already in flight',
+    () async {
+      final api = FakeDiscourseApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+        chatChannelThreadPagesByKey: {
+          FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+            threads: [listedThread(1)],
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      await subject.chat.loadChannels(site);
+
+      final first = subject.chat.loadChannelThreads(site, 9);
+      final revalidation = subject.chat.loadChannelThreads(
+        site,
+        9,
+        revalidate: true,
+      );
+      await Future.wait([first, revalidation]);
+
+      expect(api.chatChannelThreadPagesRequested, hasLength(1));
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+    },
+  );
+
+  test(
+    'a channel threads revalidation supersedes a page already in flight',
+    () async {
+      final api = _SequencedThreadListApi(
+        chatChannelsBySite: {
+          site: ChatChannels(public: [followedChannel()]),
+        },
+      );
+      final subject = _controllerFor(api);
+      Iterable<int> ids() =>
+          subject.chat.channelThreads(site, 9).map((thread) => thread.id);
+      await subject.chat.loadChannels(site);
+
+      final initialStarted = api.nextChannelThreadPage();
+      final initial = subject.chat.loadChannelThreads(site, 9);
+      await initialStarted;
+      api.channelThreadPages[0].complete(
+        ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+      );
+      await initial;
+
+      final pageStarted = api.nextChannelThreadPage();
+      final page = subject.chat.loadChannelThreads(site, 9, more: true);
+      await pageStarted;
+      final revalidationStarted = api.nextChannelThreadPage();
+      final revalidation = subject.chat.loadChannelThreads(
+        site,
+        9,
+        revalidate: true,
+      );
+      api.channelThreadPages[1].complete(
+        ChatThreadPage(threads: [listedThread(2)]),
+      );
+      await page;
+
+      expect(ids(), [1]);
+      await revalidationStarted;
+      api.channelThreadPages[2].complete(
+        ChatThreadPage(
+          threads: [listedThread(3), listedThread(1)],
+          hasMore: true,
+        ),
+      );
+      await revalidation;
+
+      expect(ids(), [3, 1]);
+      expect(subject.chat.channelThreadsHaveMore(site, 9), isTrue);
+      expect(subject.chat.channelThreadsLoadingMore(site, 9), isFalse);
+
+      final nextStarted = api.nextChannelThreadPage();
+      final next = subject.chat.loadChannelThreads(site, 9, more: true);
+      await nextStarted;
+      expect(
+        api.chatChannelThreadPagesRequested.map((request) => request.offset),
+        [0, 1, 0, 2],
+      );
+      api.channelThreadPages[3].complete(
+        ChatThreadPage(threads: [listedThread(2)]),
+      );
+      await next;
+      expect(ids(), [3, 2, 1]);
+    },
+  );
+
+  test(
     'live tracking, deletion, and restoration reproject channel threads',
     () async {
       final api = FakeDiscourseApi(

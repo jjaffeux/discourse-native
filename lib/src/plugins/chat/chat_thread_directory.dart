@@ -6,7 +6,8 @@ import 'chat_thread.dart';
 
 /// Browses public channel threads, including threads the reader does not follow.
 /// Discourse exposes this directory per channel; reuse the controller's cached
-/// pages and load further pages only as the reader scrolls or requests them.
+/// pages, revalidating their first, and load further pages only as the reader
+/// scrolls or requests them.
 final class ChatThreadDirectory extends FrameSafeNotifier {
   ChatThreadDirectory(this.chat, this.siteUrl) {
     chat.addListener(notifySafely);
@@ -87,10 +88,13 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
           if (isDisposed || chat.isDisposed) return;
           if (!channel.threadingEnabled) continue;
           _channels[channel.id] = channel;
+          // A list held from an earlier visit misses threads started since,
+          // so reaching a channel revalidates it, as opening its list does.
           await chat.loadChannelThreads(
             siteUrl,
             channel.id,
             force: reset,
+            revalidate: true,
             directoryChannel: channel,
           );
         }
