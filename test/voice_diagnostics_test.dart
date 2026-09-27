@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
@@ -1019,6 +1020,90 @@ void main() {
           throwsA(isA<StateError>()),
         );
         expect(await _reportSnapshotFiles(file), isEmpty);
+      },
+    );
+
+    test('clear removes report snapshots however recently written', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'voice-diagnostics-clear-snapshots-',
+      );
+      addTearDown(() async {
+        if (await directory.exists()) await directory.delete(recursive: true);
+      });
+      final file = File('${directory.path}/voice.jsonl');
+      final now = DateTime.utc(2026, 8, 11, 16, 54, 45);
+      final persistence = FileVoiceDiagnosticsPersistence(file);
+      await persistence.append([
+        _record(1, now, event: 'orphaned.snapshot.event'),
+      ], nowUtc: now);
+      // An export interrupted before unlinking its snapshot leaves a private
+      // copy of the report behind.
+      final orphan = File(
+        '${file.absolute.path}.9999.${'b' * 32}'
+        '.voice-report-snapshot.tmp',
+      );
+      final similarlyNamed = File(
+        '${file.absolute.path}.9999.${'g' * 32}'
+        '.voice-report-snapshot.tmp',
+      );
+      await orphan.writeAsString(
+        await persistence.buildJsonReport(
+          generatedAtUtc: now,
+          reportFormatVersion: 1,
+          state: const {},
+        ),
+      );
+      await similarlyNamed.writeAsString('belongs to another protocol');
+      await FileVoiceDiagnosticsPersistence(file).load(nowUtc: now);
+      expect(await orphan.exists(), isTrue);
+
+      await persistence.clear();
+
+      expect(await _reportSnapshotFiles(file), isEmpty);
+      expect(await similarlyNamed.exists(), isTrue);
+      await persistence.close();
+    });
+
+    test(
+      'clear removes a snapshot an export is streaming without breaking it',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'voice-diagnostics-clear-streaming-snapshot-',
+        );
+        addTearDown(() async {
+          if (await directory.exists()) await directory.delete(recursive: true);
+        });
+        final file = File('${directory.path}/voice.jsonl');
+        final now = DateTime.utc(2026, 8, 11, 16, 54, 50);
+        final persistence = FileVoiceDiagnosticsPersistence(file);
+        await persistence.append([
+          _record(1, now, event: 'streaming.snapshot.event'),
+        ], nowUtc: now);
+        final overrides = _HeldSnapshotOverrides();
+        final report = StringBuffer();
+
+        final export = IOOverrides.runWithIOOverrides(
+          () => persistence.writeJsonReportTo(
+            report,
+            generatedAtUtc: now,
+            reportFormatVersion: 1,
+            state: const {},
+          ),
+          overrides,
+        );
+        await overrides.readStarted.future;
+        expect(await _reportSnapshotFiles(file), hasLength(1));
+
+        await persistence.clear();
+
+        expect(await _reportSnapshotFiles(file), isEmpty);
+        overrides.releaseRead.complete();
+        await export;
+        expect(_reportEventNames(report.toString()), [
+          'streaming.snapshot.event',
+        ]);
+        expect(await _reportSnapshotFiles(file), isEmpty);
+        await persistence.close();
       },
     );
 
@@ -2052,6 +2137,86 @@ final class _FailingOutputFile extends Fake implements File {
     final sink = file.openWrite(mode: mode, encoding: encoding);
     sink.addError(_outputFailure);
     return sink;
+  }
+}
+
+/// Keeps an export's snapshot on disk while it streams: unlinking the open
+/// snapshot fails, as on filesystems that reject it, and the first read waits
+/// for [releaseRead].
+final class _HeldSnapshotOverrides extends IOOverrides {
+  final Completer<void> readStarted = Completer<void>();
+  final Completer<void> releaseRead = Completer<void>();
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    if (!path.endsWith('.voice-report-snapshot.tmp')) return file;
+    return _HeldSnapshotFile(file, this);
+  }
+}
+
+final class _HeldSnapshotFile extends Fake implements File {
+  _HeldSnapshotFile(this.file, this.overrides);
+
+  final File file;
+  final _HeldSnapshotOverrides overrides;
+  bool _open = false;
+
+  @override
+  String get path => file.path;
+
+  @override
+  Directory get parent => file.parent;
+
+  @override
+  Future<bool> exists() => file.exists();
+
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) async {
+    await file.create(recursive: recursive, exclusive: exclusive);
+    return this;
+  }
+
+  @override
+  IOSink openWrite({
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+  }) => file.openWrite(mode: mode, encoding: encoding);
+
+  @override
+  Future<RandomAccessFile> open({FileMode mode = FileMode.read}) async {
+    final input = await file.open(mode: mode);
+    _open = true;
+    return _HeldSnapshotInput(input, overrides, onClose: () => _open = false);
+  }
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) async {
+    if (_open) throw FileSystemException('Cannot unlink an open file', path);
+    return file.delete(recursive: recursive);
+  }
+}
+
+final class _HeldSnapshotInput extends Fake implements RandomAccessFile {
+  _HeldSnapshotInput(this.input, this.overrides, {required this.onClose});
+
+  final RandomAccessFile input;
+  final _HeldSnapshotOverrides overrides;
+  final void Function() onClose;
+
+  @override
+  Future<Uint8List> read(int count) async {
+    if (!overrides.readStarted.isCompleted) {
+      overrides.readStarted.complete();
+      await overrides.releaseRead.future;
+    }
+    return input.read(count);
+  }
+
+  @override
+  Future<void> close() async {
+    await input.close();
+    onClose();
   }
 }
 
