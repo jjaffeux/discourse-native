@@ -2159,6 +2159,41 @@ void main() {
       },
     );
 
+    test('a participant who leaves and returns keeps their volume', () async {
+      final firstPeer = _FakePeerConnection();
+      final returnedPeer = _FakePeerConnection();
+      final peers = [firstPeer, returnedPeer];
+      final volumes = <double>[];
+      final media = MeshVoiceMediaSession(
+        join: _meshJoin(localUserId: 10, remoteUserId: 20),
+        localUserId: 10,
+        sendSignal: (_, _) async {},
+        audioPublishingAllowed: false,
+        createPeerConnection: (_) async => peers.removeAt(0),
+        setTrackVolume: (volume, _) async => volumes.add(volume),
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      await media.setParticipantVolume(20, .4);
+      final [local, remote] = media.join.room.participants;
+
+      await media.syncParticipants([local]);
+      await media.syncParticipants([local, remote]);
+      final track = _FakeTrack('returned-mic', 'audio');
+      returnedPeer.onTrack?.call(
+        rtc.RTCTrackEvent(
+          streams: [
+            _FakeStream('returned-stream', [track]),
+          ],
+          track: track,
+        ),
+      );
+      await _pumpEventQueue();
+
+      expect(firstPeer.closed, isTrue);
+      expect(volumes, [.4]);
+    });
+
     test(
       'reports speakers from inbound and local media-source levels',
       () async {
@@ -2535,6 +2570,42 @@ void main() {
         expect(volumes.last, .35);
       },
     );
+
+    test('a volume set before connecting reaches the later track', () async {
+      final laterRoom = _RemoteMediaRoom();
+      final laterRemote = _RemoteMediaParticipant('agent-dashboard');
+      final laterAudio = _RemoteMediaPublication<lk.RemoteAudioTrack>(
+        lk.TrackType.AUDIO,
+      );
+      laterRemote.trackPublications['mic'] = laterAudio;
+      laterRoom.participants[laterRemote.identity] = laterRemote;
+      final laterAdapter = _FakeLiveKitRoomAdapter(room: laterRoom);
+      final later = _liveKitSession(
+        laterAdapter,
+        setTrackVolume: (volume, track) async {
+          (track as _FakeTrack).volume = volume;
+        },
+      );
+      addTearDown(later.dispose);
+
+      await later.setParticipantVolume(-1400, .3);
+      await later.connect();
+      await later.syncParticipants([agent]);
+      final native = _FakeTrack('agent-mic', 'audio');
+      final track = _RemoteMediaAudioTrack(native);
+      laterAudio.track = track;
+      laterAdapter.onRoomEvent!(
+        lk.TrackSubscribedEvent(
+          participant: laterRemote,
+          publication: laterAudio,
+          track: track,
+        ),
+      );
+      await later.syncParticipants([agent]);
+
+      expect(native.stopped, isFalse);
+      expect(native.volume, .3);
+    });
 
     test(
       'demotion in an open room and removal stop audio; readmission restores subscriptions',

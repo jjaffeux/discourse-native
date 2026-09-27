@@ -339,6 +339,7 @@ final class FakeVoicePreferences implements VoicePreferences {
   final Map<(String, int, int), double> volumes = {};
   final Map<(String, int), bool> cameraEnabled = {};
   Future<bool> Function(String, int)? onReadCamera;
+  Future<void> Function(int userId)? onReadVolume;
   Future<void> Function(bool)? onWriteCamera;
   Future<VoiceDevicePreferences> Function()? onReadDevices;
 
@@ -370,7 +371,11 @@ final class FakeVoicePreferences implements VoicePreferences {
     int userId,
   ) async {
     if (rejectVolumeReads) throw StateError('volume storage unavailable');
-    return volumes[(siteUrl, roomId, userId)];
+    // Storage answers with what it held when the read was queued, so a write
+    // made while [onReadVolume] holds the read is not seen by it.
+    final saved = volumes[(siteUrl, roomId, userId)];
+    await onReadVolume?.call(userId);
+    return saved;
   }
 
   @override
@@ -1667,6 +1672,121 @@ void main() {
         );
       },
     );
+
+    group('saved participant volumes', () {
+      const sam = {'id': 1, 'username': 'sam', 'role': 'participant'};
+      const lee = {'id': 2, 'username': 'lee', 'role': 'participant'};
+      const kim = {'id': 3, 'username': 'kim', 'role': 'participant'};
+
+      void joinResponseLists(List<Map<String, Object>> participants) {
+        (transport.responses['POST /voice/rooms/7/join.json']!['room']
+                as Map<String, dynamic>)['active_participants'] =
+            participants;
+      }
+
+      ({Completer<void> started, Completer<void> gate}) holdVolumeReads() {
+        final started = Completer<void>();
+        final gate = Completer<void>();
+        preferences.onReadVolume = (_) async {
+          if (!started.isCompleted) started.complete();
+          await gate.future;
+        };
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        return (started: started, gate: gate);
+      }
+
+      test('joining applies them before the media connects', () async {
+        joinResponseLists([sam, lee, kim]);
+        preferences.volumes[(firstSite, 7, 2)] = 0.4;
+        final connectStarted = mediaFactory.nextConnectStarted =
+            Completer<void>();
+        final connectGate = mediaFactory.nextConnectGate = Completer<void>();
+        await controller.ensureLoaded(firstSite);
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await connectStarted.future;
+        await pumpEventQueue();
+        final media = mediaFactory.sessions.single;
+        expect(media.participantVolumes, {2: 0.4});
+
+        connectGate.complete();
+        await joining;
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(media.participantVolumes, {2: 0.4});
+      });
+
+      test('a participant who arrives later gets theirs', () async {
+        preferences.volumes[(firstSite, 7, 2)] = 0.4;
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(media.participantVolumes, isEmpty);
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [sam, lee],
+        });
+        await pumpEventQueue();
+
+        expect(media.participantVolumes, {2: 0.4});
+      });
+
+      test('a slider change made during the read wins', () async {
+        joinResponseLists([sam, lee]);
+        preferences.volumes[(firstSite, 7, 2)] = 0.4;
+        final read = holdVolumeReads();
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await read.started.future;
+        final media = mediaFactory.sessions.single;
+
+        await controller.setParticipantVolume(firstSite, 7, 2, 0.7);
+        read.gate.complete();
+        await pumpEventQueue();
+
+        expect(media.participantVolumes, {2: 0.7});
+        expect(preferences.volumes[(firstSite, 7, 2)], 0.7);
+      });
+
+      test('leaving during the read leaves the old media alone; rejoining '
+          'applies them to the new one', () async {
+        joinResponseLists([sam, lee]);
+        preferences.volumes[(firstSite, 7, 2)] = 0.4;
+        final read = holdVolumeReads();
+        await controller.ensureLoaded(firstSite);
+        final room = controller.room(firstSite, 7)!;
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+        await read.started.future;
+        final left = mediaFactory.sessions.single;
+
+        await controller.leave();
+        preferences.onReadVolume = null;
+        read.gate.complete();
+        await pumpEventQueue();
+        expect(left.participantVolumes, isEmpty);
+
+        await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+        await pumpEventQueue();
+        final rejoined = mediaFactory.sessions.last;
+        expect(rejoined, isNot(same(left)));
+        expect(rejoined.participantVolumes, {2: 0.4});
+        expect(left.participantVolumes, isEmpty);
+      });
+    });
 
     for (final captureEnabled in [false, true]) {
       test('keep stale saved-device failures private with deep capture '

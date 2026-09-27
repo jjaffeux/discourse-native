@@ -416,6 +416,12 @@ final class VoiceController extends ChangeNotifier {
   ({VoiceMediaSession media, int revision, bool remember})? _startingCamera;
   final Expando<_VoiceCameraRestore> _cameraRestores =
       Expando<_VoiceCameraRestore>();
+  // Per media session, the latest claim on each remote participant's volume:
+  // the read of their saved volume, or a slider change that supersedes it.
+  // Both media sessions keep a volume until they are disposed, so a
+  // participant is restored at most once per session.
+  final Expando<Map<int, Object>> _participantVolumeRevisions =
+      Expando<Map<int, Object>>();
 
   VoiceCallSnapshot? get call => _call;
 
@@ -1766,6 +1772,7 @@ final class VoiceController extends ChangeNotifier {
         room: call.room.withParticipants(participants),
         muted: canPublishAudio ? null : true,
       );
+      _restoreParticipantVolumes(_call!);
       _observe(() async {
         if (userId != null) {
           // The call already shows a demoted speaker muted, so silence the
@@ -2224,6 +2231,7 @@ final class VoiceController extends ChangeNotifier {
         (held) => _mergeRoom(held, roomResponse),
         updateCall: false,
       );
+      _restoreParticipantVolumes(_call!);
       if (systemCall case final NativeVoiceSystemCall nativeSystemCall) {
         nativeSystemCall.associateDiagnostics(correlationId);
       }
@@ -3113,7 +3121,11 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     if (_disposed) return;
     final normalized = volume.clamp(0, 1).toDouble();
-    await _call?.media.setParticipantVolume(userId, normalized);
+    final media = _call?.media;
+    if (media != null) {
+      (_participantVolumeRevisions[media] ??= {})[userId] = Object();
+    }
+    await media?.setParticipantVolume(userId, normalized);
     if (_disposed) return;
     await _persistPreference(
       () => _preferences.writeParticipantVolume(
@@ -3124,6 +3136,40 @@ final class VoiceController extends ChangeNotifier {
       ),
       'voice.preferences.writeVolume',
     );
+  }
+
+  /// Applies each remote participant's saved volume the first time [call]'s
+  /// media sees them, so they are heard at the volume chosen in an earlier
+  /// call. Both media sessions hold a volume until that participant's audio
+  /// arrives, so this starts as soon as the call has its media rather than
+  /// after connecting, when their first words would play at full volume.
+  void _restoreParticipantVolumes(VoiceCallSnapshot call) {
+    final siteSession = _siteSession(call.siteUrl);
+    final localUserId = _userIdFor(call.siteUrl);
+    final revisions = _participantVolumeRevisions[call.media] ??= {};
+    for (final participant in call.room.participants) {
+      final userId = participant.id;
+      if (userId == localUserId || revisions.containsKey(userId)) continue;
+      final revision = revisions[userId] = Object();
+      _observe(() async {
+        final volume = await participantVolume(
+          call.siteUrl,
+          call.room.id,
+          userId,
+        );
+        // The call may have been left or replaced during the read, and a
+        // slider change made meanwhile is newer than what was saved.
+        if (volume == 1 ||
+            !_isCurrentCall(call, siteSession) ||
+            !identical(
+              _participantVolumeRevisions[call.media]?[userId],
+              revision,
+            )) {
+          return;
+        }
+        await call.media.setParticipantVolume(userId, volume);
+      }, 'voice.media.restoreParticipantVolume');
+    }
   }
 
   Future<void> _restoreDevicePreferences() async {

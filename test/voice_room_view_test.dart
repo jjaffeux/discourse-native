@@ -1047,10 +1047,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(harness.media.sessions.single.participantVolumes.single, (
-        participantId: 2,
-        volume: 0.7,
-      ));
+      expect(harness.media.sessions.single.participantVolumes, [
+        (participantId: 2, volume: 0.4),
+        (participantId: 2, volume: 0.7),
+      ]);
       expect(preferences.participantVolumeWrites.single, (
         siteUrl: _siteUrl,
         roomId: 7,
