@@ -9,6 +9,7 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'content_reading_lane.dart';
 import 'preferences_controller.dart';
 import 'shell_controller.dart';
@@ -169,7 +170,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 Text(
                   'Preferences',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontSize: 22,
+                    fontSize: DiscourseTypography.xxl,
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),

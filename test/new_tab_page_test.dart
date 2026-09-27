@@ -404,7 +404,7 @@ void main() {
     expect(find.text('Opens a new tab in main panel'), findsOneWidget);
     expect(find.text('Open in secondary panel'), findsOneWidget);
     expect(find.text('Open in a new tab in secondary panel'), findsOneWidget);
-    expect(find.byType(DSkeleton), findsNWidgets(6));
+    expect(find.byKey(const ValueKey('panel-preview-line')), findsNWidgets(6));
     expect(find.text('This page'), findsNothing);
     expect(find.text('Opened link'), findsNothing);
     expect(find.text("Don't show again"), findsNothing);

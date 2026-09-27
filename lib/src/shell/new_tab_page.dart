@@ -13,6 +13,7 @@ import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'open_link.dart';
@@ -646,7 +647,10 @@ class _StartSection extends StatelessWidget {
         ? null
         : Text(
             entry.time!,
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w400),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.metadata,
+              fontWeight: FontWeight.w400,
+            ),
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
@@ -737,7 +741,10 @@ class _StartSection extends StatelessWidget {
         : Text(
             entry.time!,
             maxLines: 1,
-            style: TextStyle(fontSize: 11.5, color: tokens.mutedForeground),
+            style: TextStyle(
+              fontSize: DiscourseTypography.metadata,
+              color: tokens.mutedForeground,
+            ),
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
@@ -797,7 +804,7 @@ class _StartSection extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: DiscourseTypography.compact,
                         height: 18 / 13.5,
                         fontWeight: FontWeight.w600,
                         color: tokens.foreground,
@@ -850,7 +857,10 @@ class _StartSection extends StatelessWidget {
                   siteUrl: siteUrl,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, height: 1.38),
+                  style: const TextStyle(
+                    fontSize: DiscourseTypography.preview,
+                    height: 1.38,
+                  ),
                 ),
               ),
           ],
@@ -880,7 +890,7 @@ class _StartSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final headingStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-      fontSize: 13,
+      fontSize: DiscourseTypography.control,
       fontWeight: FontWeight.w700,
       color: tokens.foreground,
     );
@@ -1173,24 +1183,18 @@ class _PanelPreview extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: DSpacing.sm,
                   children: [
-                    DSkeleton(
-                      height: 5,
+                    _PanelPreviewLine(
                       color: highlightFirstLine
                           ? tokens.primary
                           : tokens.border,
-                      animate: false,
                     ),
-                    DSkeleton(
+                    _PanelPreviewLine(
                       width: constraints.maxWidth * .75,
-                      height: 5,
                       color: tokens.border,
-                      animate: false,
                     ),
-                    DSkeleton(
+                    _PanelPreviewLine(
                       width: constraints.maxWidth * .55,
-                      height: 5,
                       color: tokens.border,
-                      animate: false,
                     ),
                   ],
                 ),
@@ -1201,6 +1205,28 @@ class _PanelPreview extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Illustration artwork for a panel's content, not a loading placeholder: it
+/// is drawn in the illustration's own colors and never animates.
+class _PanelPreviewLine extends StatelessWidget {
+  const _PanelPreviewLine({required this.color, this.width});
+
+  final Color color;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Container(
+      key: const ValueKey('panel-preview-line'),
+      width: width,
+      height: 5,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(DTokens.of(context).radius * 0.8),
+      ),
+    ),
+  );
 }
 
 class _PanelGestureHint extends StatelessWidget {

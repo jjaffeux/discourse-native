@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/card_examples.dart';
+import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,7 +150,7 @@ void main() {
         tester.element(find.text('Forgot your password?')),
       ).style;
       expect(recoveryStyle.fontWeight, FontWeight.w400);
-      expect(recoveryStyle.height, 20 / 13);
+      expect(recoveryStyle.height, DiscourseTypography.lineHeightSmall);
 
       await tester.tap(find.text('Email'));
       await tester.pump();

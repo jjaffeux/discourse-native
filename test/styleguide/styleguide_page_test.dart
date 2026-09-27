@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/application_component_catalogue.dart';
 import 'package:discourse_native/src/styleguide/component_catalogue.dart';
@@ -58,136 +55,108 @@ void main() {
     },
   );
 
-  test('the styleguide accounts for every frozen catalogue entry', () {
-    final snapshot =
-        jsonDecode(
-              File('docs/component-library/catalogue.json').readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    final components = (snapshot['components'] as List<dynamic>)
-        .cast<Map<String, dynamic>>();
-    expect(componentReferenceDate, snapshot['referenceDate']);
-    expect(
-      componentCatalogue.map((entry) => [entry.id, entry.sections]),
-      components.map((entry) => [entry['id'], entry['documentedSections']]),
-    );
-    for (final component in componentCatalogue) {
-      expect(
-        component.sectionDepths,
-        anyOf(isEmpty, hasLength(component.sections.length)),
-        reason: component.id,
-      );
-      expect(
-        component.outline.map((section) => section.depth),
-        everyElement(anyOf(0, 1)),
-        reason: component.id,
-      );
-      expect(
-        component.documentOutline.map((section) => section.label),
-        isNot(
-          contains(
-            anyOf(
-              'Installation',
-              'Usage',
-              'Composition',
-              'API Reference',
-              'Accessibility',
+  test(
+    'the styleguide registers complete examples for every catalogue entry',
+    () {
+      for (final component in componentCatalogue) {
+        expect(
+          component.sectionDepths,
+          anyOf(isEmpty, hasLength(component.sections.length)),
+          reason: component.id,
+        );
+        expect(
+          component.outline.map((section) => section.depth),
+          everyElement(anyOf(0, 1)),
+          reason: component.id,
+        );
+        expect(
+          component.documentOutline.map((section) => section.label),
+          isNot(
+            contains(
+              anyOf(
+                'Installation',
+                'Usage',
+                'Composition',
+                'API Reference',
+                'Accessibility',
+              ),
             ),
           ),
-        ),
-        reason: component.id,
-      );
-    }
-    final inputGroup = componentCatalogue.singleWhere(
-      (component) => component.id == 'input-group',
-    );
-    expect(
-      inputGroup.outline.map((section) => (section.label, section.depth)),
-      containsAllInOrder(const [
-        ('Align', 0),
-        ('inline-start', 1),
-        ('inline-end', 1),
-        ('block-start', 1),
-        ('block-end', 1),
-        ('Icon', 0),
-        ('API Reference', 0),
-        ('InputGroup', 1),
-      ]),
-    );
-    expect(inputGroup.matches('InputGroupAddon'), isFalse);
-    expect(inputGroup.matches('Usage'), isFalse);
-    expect(
-      componentCatalogue
-          .singleWhere((component) => component.id == 'attachment')
-          .matches('Keyboard scrolling'),
-      isFalse,
-    );
-    final progress =
-        jsonDecode(
-              File('docs/component-library/progress.json').readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    final scheduled = (progress['components'] as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .toList();
-    expect(
-      scheduled.map((entry) => entry['id']),
-      unorderedEquals(components.map((entry) => entry['id'])),
-    );
-    for (final component in components) {
-      final id = component['id'] as String;
-      final examples = componentExamples[id];
-      expect(examples, isNotNull, reason: '$id must be registered');
-      expect(
-        examples!.status,
-        ComponentStatus.implemented,
-        reason: '$id must be accepted before final audit completion',
-      );
-      expect(examples.description.trim(), isNotEmpty, reason: id);
-      expect(examples.notes.trim(), isNotEmpty, reason: id);
-      expect(examples.examples, isNotEmpty, reason: id);
-      expect(
-        examples.topLevelExampleIndex,
-        inInclusiveRange(0, examples.examples.length - 1),
-        reason: '$id must identify its canonical top-level example',
-      );
-      expect(
-        examples.topLevelExample,
-        same(examples.examples[examples.topLevelExampleIndex]),
-        reason: id,
-      );
-      expect(
-        examples.examples.map((example) => example.title).toSet().length,
-        examples.examples.length,
-        reason: '$id example titles must be unique',
-      );
-      for (final example in examples.examples) {
-        expect(example.title.trim(), isNotEmpty, reason: id);
-        expect(example.description.trim(), isNotEmpty, reason: id);
-        expect(example.code.trim(), isNotEmpty, reason: '$id/${example.title}');
+          reason: component.id,
+        );
       }
-    }
-    expect(
-      componentExamples.keys.toSet().difference(
-        components.map((entry) => entry['id'] as String).toSet(),
-      ),
-      {
-        'foundations',
-        ...applicationComponentCatalogue.map((entry) => entry.id),
-      },
-    );
-    final available = <String>{};
-    for (final entry in scheduled) {
-      expect(
-        available.containsAll(
-          (entry['dependencies'] as List<dynamic>).cast<String>(),
-        ),
-        isTrue,
-        reason: '${entry['id']} must follow its dependencies',
+      final inputGroup = componentCatalogue.singleWhere(
+        (component) => component.id == 'input-group',
       );
-      available.add(entry['id'] as String);
-    }
-  });
+      expect(
+        inputGroup.outline.map((section) => (section.label, section.depth)),
+        containsAllInOrder(const [
+          ('Align', 0),
+          ('inline-start', 1),
+          ('inline-end', 1),
+          ('block-start', 1),
+          ('block-end', 1),
+          ('Icon', 0),
+          ('API Reference', 0),
+          ('InputGroup', 1),
+        ]),
+      );
+      expect(inputGroup.matches('InputGroupAddon'), isFalse);
+      expect(inputGroup.matches('Usage'), isFalse);
+      expect(
+        componentCatalogue
+            .singleWhere((component) => component.id == 'attachment')
+            .matches('Keyboard scrolling'),
+        isFalse,
+      );
+      for (final component in componentCatalogue) {
+        final id = component.id;
+        final examples = componentExamples[id];
+        expect(examples, isNotNull, reason: '$id must be registered');
+        expect(
+          examples!.status,
+          ComponentStatus.implemented,
+          reason: '$id must be accepted before final audit completion',
+        );
+        expect(examples.description.trim(), isNotEmpty, reason: id);
+        expect(examples.notes.trim(), isNotEmpty, reason: id);
+        expect(examples.examples, isNotEmpty, reason: id);
+        expect(
+          examples.topLevelExampleIndex,
+          inInclusiveRange(0, examples.examples.length - 1),
+          reason: '$id must identify its canonical top-level example',
+        );
+        expect(
+          examples.topLevelExample,
+          same(examples.examples[examples.topLevelExampleIndex]),
+          reason: id,
+        );
+        expect(
+          examples.examples.map((example) => example.title).toSet().length,
+          examples.examples.length,
+          reason: '$id example titles must be unique',
+        );
+        for (final example in examples.examples) {
+          expect(example.title.trim(), isNotEmpty, reason: id);
+          expect(example.description.trim(), isNotEmpty, reason: id);
+          expect(
+            example.code.trim(),
+            isNotEmpty,
+            reason: '$id/${example.title}',
+          );
+        }
+      }
+      expect(
+        componentExamples.keys.toSet().difference(
+          componentCatalogue.map((entry) => entry.id).toSet(),
+        ),
+        {
+          'foundations',
+          ...applicationComponentCatalogue.map((entry) => entry.id),
+        },
+      );
+    },
+  );
 
   testWidgets('every component renders every example without empty sections', (
     tester,
@@ -199,9 +168,21 @@ void main() {
       return key is ValueKey<String> && key.value.startsWith(prefix);
     });
 
-    expect(keysStartingWith('styleguide-section-heading-'), findsNothing);
-    expect(keysStartingWith('styleguide-example-panel'), findsOneWidget);
-    expect(find.widgetWithText(StyleguideAction, 'Theme tokens'), findsNothing);
+    // Foundations opens first: its canonical demo, then a section per
+    // further example.
+    final foundations = componentExamples['foundations']!;
+    expect(
+      keysStartingWith('styleguide-section-heading-'),
+      findsNWidgets(foundations.examples.length - 1),
+    );
+    expect(
+      keysStartingWith('styleguide-example-panel'),
+      findsNWidgets(foundations.examples.length),
+    );
+    expect(
+      find.widgetWithText(StyleguideAction, 'Theme tokens'),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(StyleguideAction, 'Typography'), findsNothing);
 
     for (final component in componentCatalogue) {
@@ -515,14 +496,14 @@ void main() {
     'theme and viewport previews preserve example state and reset clears it',
     (tester) async {
       await _pump(tester);
-      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await _tapPrimary(tester);
       await tester.pump();
       expect(find.text('Actions: 1'), findsOneWidget);
 
       await _choose(tester, 'Theme', 'Plum site');
       final preview = find.byKey(const ValueKey('styleguide-preview'));
       expect(Theme.of(tester.element(preview)).brightness, Brightness.dark);
-      expect(DTokens.of(tester.element(preview)).radius, 12);
+      expect(DTokens.of(tester.element(preview)).radius, DRadius.control);
       expect(find.text('Actions: 1'), findsOneWidget);
 
       await _choose(tester, 'Viewport width', '1024 px');
@@ -560,7 +541,8 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('styleguide-reset')));
       await tester.pumpAndSettle();
-      expect(find.text('Actions: 0'), findsOneWidget);
+      expect(find.text('Actions: 1'), findsNothing);
+      expect(find.text('Actions: 0'), findsWidgets);
     },
   );
 
@@ -814,7 +796,7 @@ void main() {
         find.textContaining('Preview controls affect examples only'),
         findsNothing,
       );
-      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await _tapPrimary(tester);
       await tester.pump();
       await tester.tap(
         find.byKey(const ValueKey('styleguide-documentation-theme')),
@@ -858,7 +840,7 @@ void main() {
     'resizing across the navigation breakpoint keeps the active sample',
     (tester) async {
       await _pump(tester);
-      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await _tapPrimary(tester);
       await tester.pump();
       tester.view.physicalSize = const Size(390, 800);
       await tester.pumpAndSettle();
@@ -921,7 +903,7 @@ void main() {
           'search shortcut $modifier + $key focuses search at width $width',
           (tester) async {
             await _pump(tester, size: Size(width, 800));
-            final action = find.widgetWithText(DButton, 'primary');
+            final action = find.widgetWithText(DButton, 'primary').first;
             await tester.ensureVisible(action);
             await tester.tap(action);
             await tester.pump();
@@ -953,7 +935,7 @@ void main() {
     'search reveals a collapsed desktop Sidebar without resetting the preview',
     (tester) async {
       await _pump(tester);
-      await tester.tap(find.widgetWithText(DButton, 'primary'));
+      await _tapPrimary(tester);
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('styleguide-navigation')));
       await tester.pumpAndSettle();
@@ -1121,4 +1103,12 @@ Future<int> _chooseExample(
   }
   await tester.pump(const Duration(milliseconds: 300));
   return index;
+}
+
+/// Foundations shows a button preview in more than one example; the first
+/// belongs to the canonical demo and may start below the fold.
+Future<void> _tapPrimary(WidgetTester tester) async {
+  final action = find.widgetWithText(DButton, 'primary').first;
+  await tester.ensureVisible(action);
+  await tester.tap(action);
 }

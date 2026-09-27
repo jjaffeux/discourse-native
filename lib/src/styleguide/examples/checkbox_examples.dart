@@ -114,7 +114,8 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
       description:
           'Align artwork with the first text line while retaining the full click target.',
       states: const ['Inline', 'Wrapped label'],
-      code: '''const style = TextStyle(fontSize: 14, height: 1.6);
+      code:
+          '''const style = TextStyle(fontSize: DiscourseTypography.sm, height: 1.6);
 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
   DCheckbox.defaultValue(inline: true, inlineTextStyle: style,
     semanticLabel: 'Review the task'),
@@ -125,13 +126,16 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         children: [
           DCheckbox.defaultValue(
             inline: true,
-            inlineTextStyle: TextStyle(fontSize: 14, height: 1.6),
+            inlineTextStyle: TextStyle(
+              fontSize: DiscourseTypography.sm,
+              height: 1.6,
+            ),
             semanticLabel: 'Review the task',
           ),
           Expanded(
             child: Text(
               'Review the task\nKeep its continuation aligned.',
-              style: TextStyle(fontSize: 14, height: 1.6),
+              style: TextStyle(fontSize: DiscourseTypography.sm, height: 1.6),
             ),
           ),
         ],

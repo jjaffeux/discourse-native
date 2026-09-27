@@ -59,7 +59,7 @@ Future<Uint8List> _capture(
               color: theme.colorScheme.surface,
               child: SizedBox(
                 width: 340,
-                height: 72,
+                height: 74,
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: KeyedSubtree(key: ValueKey(name), child: child),

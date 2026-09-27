@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/discourse_typography.dart';
+
 /// The reference form recipe: an icon heading above an outlined field group.
 class SettingsSection extends StatelessWidget {
   const SettingsSection({
@@ -38,7 +40,7 @@ class SettingsSection extends StatelessWidget {
               child: Text(
                 title,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: DiscourseTypography.control,
                   height: 1.5,
                   fontWeight: FontWeight.w700,
                   color: DTokens.of(context).foreground,
