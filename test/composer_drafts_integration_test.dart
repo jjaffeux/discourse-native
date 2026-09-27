@@ -1643,6 +1643,40 @@ void _registerComposerAndDraftTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
+    testWidgets(
+      'replying to a post while the draft is read keeps the local text',
+      (tester) async {
+        final drafts = _GatedDraftReadStore();
+        addTearDown(() {
+          if (!drafts.release.isCompleted) drafts.release.complete();
+        });
+        final offline = const ComposerDraft(reply: 'Written offline').encode();
+        await drafts.write('https://meta.discourse.org', 'topic_7', offline);
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+        );
+
+        await openComposer(tester, api, drafts: drafts);
+        expect(drafts.started.isCompleted, isTrue);
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+        shell.openReply(replyToPostNumber: 1, replyToUsername: 'sam');
+        await settleDraft(tester);
+
+        drafts.release.complete();
+        await tester.pumpAndSettle();
+        await settleDraft(tester);
+
+        expect(shell.visibleComposer?.text.text, 'Written offline');
+        expect(shell.visibleComposer?.target.replyToPostNumber, 1);
+        expect(api.draftsSaved, isEmpty);
+        expect(drafts.saved['https://meta.discourse.org::topic_7'], offline);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
     testWidgets('a failed local read is retried before close can delete', (
       tester,
     ) async {

@@ -146,6 +146,33 @@ void main() {
     expect(saves, hasLength(2));
   });
 
+  testWidgets('a reply with nothing in it yet saves its target with the text', (
+    tester,
+  ) async {
+    final saves = <ComposerDraftSave>[];
+    final composer = ComposerController(
+      _target,
+      onSaveDraft: (save) async {
+        saves.add(save);
+        return save.sequence + 1;
+      },
+    );
+    addTearDown(composer.dispose);
+
+    // A restore may still be reading the saved copy; this is not an edit.
+    composer.retarget(replyToPostNumber: 9, replyToUsername: 'nine');
+    expect(composer.draftRevision, 0);
+    expect(composer.draftPersistencePending, isFalse);
+    await tester.pump(ComposerController.draftDebounce);
+    expect(saves, isEmpty);
+
+    composer.text.text = 'A reply.';
+    await tester.pump(ComposerController.draftDebounce);
+    await tester.pump();
+    expect(saves.single.draft.reply, 'A reply.');
+    expect(saves.single.draft.replyToPostNumber, 9);
+  });
+
   test('a reply is not retargeted while its submit is out', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);

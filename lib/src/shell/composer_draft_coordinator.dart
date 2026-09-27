@@ -801,9 +801,11 @@ final class ComposerDraftCoordinator {
   Future<bool> _restoreDraft(
     ComposerController composer, {
     int? startingRevision,
+    ComposerTarget? startingTarget,
     UserDraft? listedDraft,
   }) async {
-    final target = composer.target;
+    // A retarget keeps the draft key, so this names the same draft throughout.
+    final target = startingTarget ?? composer.target;
     final lease = _lifecycle.capture(target.siteUrl);
     startingRevision ??= composer.draftRevision;
     final key = _sessions[composer]?._keyFor(target);
@@ -876,7 +878,11 @@ final class ComposerDraftCoordinator {
     if (!isCurrent()) return true;
     if (_listedDeletions.containsKey(key) ||
         _deletedGenerations[key] != deletedGeneration) {
-      return _restoreDraft(composer, startingRevision: startingRevision);
+      return _restoreDraft(
+        composer,
+        startingRevision: startingRevision,
+        startingTarget: target,
+      );
     }
     lease.commit(() {
       if (!_isCurrentComposer(composer)) return;
@@ -906,6 +912,12 @@ final class ComposerDraftCoordinator {
       // Body, title, category, tags and whisper all advance this revision.
       // Never restore an older snapshot over a choice made during the lookup.
       if (composer.draftRevision != startingRevision) return;
+      // A reply target chosen during the lookup does not advance it, because
+      // the composer held no draft yet. The snapshot's text is still wanted,
+      // but its target is older than that choice.
+      final retargeted =
+          composer.target.replyToPostNumber != target.replyToPostNumber ||
+          composer.target.replyToUsername != target.replyToUsername;
 
       if (!composer.restore(draft)) {
         composer.protectUnappliedDraft(draft, wasLocal: local != null);
@@ -914,9 +926,15 @@ final class ComposerDraftCoordinator {
       composer.setMinimumRequiredTags(
         _minimumRequiredTagsFor(target.siteUrl, composer.categoryId),
       );
-      if (draft.replyToPostNumber != null &&
-          target.replyToPostNumber == null &&
-          _isCurrentComposer(composer)) {
+      // The snapshot's reply target comes with its text unless the composer
+      // was opened on a post. A composer opened for a list row took the row's
+      // target only to stand in for the draft's, so whichever copy outranked
+      // the row brings its own, even when that is the topic. The same post is
+      // left alone: the row's target also knows whether it is a whisper.
+      final adoptsTarget = listedDraft != null
+          ? draft.replyToPostNumber != target.replyToPostNumber
+          : draft.replyToPostNumber != null && target.replyToPostNumber == null;
+      if (!retargeted && adoptsTarget && _isCurrentComposer(composer)) {
         composer.retarget(
           replyToPostNumber: draft.replyToPostNumber,
           replyToUsername: draft.replyToUsername,

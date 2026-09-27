@@ -671,13 +671,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _onMetadataChanged();
   }
 
+  /// Nothing has been typed, chosen or restored into this composer yet.
+  bool get _untouched =>
+      _draftRevision == 0 && !_restoredDraft && !_hasUnappliedDraft;
+
   void applyInitialTagsIfUntouched(Iterable<TopicTag> value) {
-    if (_disposed ||
-        _draftRevision != 0 ||
-        _restoredDraft ||
-        _hasUnappliedDraft) {
-      return;
-    }
+    if (_disposed || !_untouched) return;
     final next = List<TopicTag>.unmodifiable(value);
     if (listEquals(next, _tags)) return;
     _tags = next;
@@ -2646,9 +2645,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       );
 
   /// Points the reply at another post. The draft records the reply target,
-  /// so the change advances the draft revision and schedules a save like any
-  /// other draft field; a draft being restored passes [recordDraft] false,
-  /// since the target is the draft's own.
+  /// so once the composer holds a draft the change advances the draft
+  /// revision and schedules a save like any other draft field; a draft being
+  /// restored passes [recordDraft] false, since the target is the draft's own.
   void retarget({
     int? replyToPostNumber,
     String? replyToUsername,
@@ -2672,7 +2671,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     _target = next;
     _whisper = whisper;
-    if (recordDraft) {
+    // Before anything is typed or restored there is no draft to record the
+    // target in: the first save carries it. Saving the empty composer instead
+    // would put an empty reply over the copy a restore is still reading, and
+    // a restore takes any revision change for an edit that outranks it.
+    if (recordDraft && !_untouched) {
       _draftRevision++;
       _scheduleDraft();
     }

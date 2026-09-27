@@ -297,6 +297,75 @@ void main() {
       },
     );
 
+    for (final (label, postNumber, username) in [
+      ('another post', 3, 'sam'),
+      ('the topic', null, null),
+    ]) {
+      test('a newer local copy replying to $label keeps its target', () async {
+        const listed = UserDraft(
+          key: 'topic_7',
+          sequence: 4,
+          data: ComposerDraft(
+            reply: 'Listed reply',
+            replyToPostNumber: 5,
+            replyToUsername: 'alex',
+          ),
+        );
+        final newer = ComposerDraft(
+          reply: 'Newer local reply',
+          replyToPostNumber: postNumber,
+          replyToUsername: username,
+        );
+        final harness = _Harness(cachedSequence: 2);
+        addTearDown(harness.dispose);
+        await harness.localStore.write(_siteUrl, listed.key, newer.encode());
+        final composer = harness
+            .open(_replyTarget.replyingTo(5, 'alex'))
+            .composer;
+
+        harness.coordinator.startRestore(composer, listedDraft: listed);
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+        expect(composer.text.text, newer.reply);
+        expect(composer.target.replyToPostNumber, postNumber);
+        expect(composer.target.replyToUsername, username);
+        expect(composer.draftPersistencePending, isFalse);
+      });
+    }
+
+    test('a newer copy replying to the row\'s whisper keeps it one', () async {
+      const listed = UserDraft(
+        key: 'topic_7',
+        sequence: 4,
+        data: ComposerDraft(
+          reply: 'Listed reply',
+          replyToPostNumber: 5,
+          replyToUsername: 'alex',
+          whisper: true,
+        ),
+      );
+      const newer = ComposerDraft(
+        reply: 'Newer local reply',
+        replyToPostNumber: 5,
+        replyToUsername: 'alex',
+        whisper: true,
+      );
+      final harness = _Harness(cachedSequence: 2);
+      addTearDown(harness.dispose);
+      await harness.localStore.write(_siteUrl, listed.key, newer.encode());
+      final composer = harness
+          .open(_replyTarget.replyingTo(5, 'alex', replyingToWhisper: true))
+          .composer;
+
+      harness.coordinator.startRestore(composer, listedDraft: listed);
+      expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+      expect(composer.text.text, newer.reply);
+      expect(composer.target.replyToPostNumber, 5);
+      expect(composer.target.replyingToWhisper, isTrue);
+      expect(composer.whisper, isTrue);
+    });
+
     test('a row saved under another key is not restored', () async {
       const otherTopic = UserDraft(
         key: 'topic_8',
@@ -313,6 +382,77 @@ void main() {
       expect(composer.text.text, isEmpty);
       expect(composer.draftSequence, 2);
     });
+  });
+
+  group('retargeting while the draft is restored', () {
+    const offline = ComposerDraft(
+      reply: 'Written offline',
+      replyToPostNumber: 3,
+      replyToUsername: 'sam',
+    );
+
+    test('restores the local text under the newer reply target', () async {
+      final localStore = _GatedReadStore();
+      await localStore.write(_siteUrl, 'topic_7', offline.encode());
+      final harness = _Harness(cachedSequence: 2, localStore: localStore);
+      addTearDown(harness.dispose);
+      final composer = harness.open(_replyTarget).composer;
+      harness.coordinator.startRestore(composer);
+      await localStore.started.future;
+
+      composer.retarget(replyToPostNumber: 5, replyToUsername: 'alex');
+      localStore.gate.complete();
+      expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+      expect(composer.text.text, offline.reply);
+      expect(composer.target.replyToPostNumber, 5);
+      expect(composer.target.replyToUsername, 'alex');
+      expect(composer.draftPersistencePending, isFalse);
+      expect(await localStore.read(_siteUrl, 'topic_7'), offline.encode());
+
+      await composer.flushDraft();
+      final saved = ComposerDraft.decode(
+        harness.api.draftsSaved.single['data'],
+      );
+      expect(saved?.reply, offline.reply);
+      expect(saved?.replyToPostNumber, 5);
+    });
+
+    test(
+      'a composer replaced before the copy is read leaves it alone',
+      () async {
+        final localStore = _GatedReadStore();
+        await localStore.write(_siteUrl, 'topic_7', offline.encode());
+        final harness = _Harness(cachedSequence: 2, localStore: localStore);
+        addTearDown(harness.dispose);
+        final replaced = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(replaced);
+        await localStore.started.future;
+
+        replaced.retarget(replyToPostNumber: 5, replyToUsername: 'alex');
+        harness.coordinator.retire(replaced);
+        replaced.dispose();
+        harness.composers.remove(replaced);
+        final other = harness
+            .open(
+              const ComposerTarget(
+                siteUrl: _siteUrl,
+                topicId: 8,
+                slug: 'another-topic',
+                topicTitle: 'Another topic',
+              ),
+            )
+            .composer;
+        harness.coordinator.startRestore(other);
+        localStore.gate.complete();
+        expect(await harness.coordinator.finishRestore(other), isTrue);
+        await pumpEventQueue();
+
+        expect(other.text.text, isEmpty);
+        expect(harness.api.draftsSaved, isEmpty);
+        expect(await localStore.read(_siteUrl, 'topic_7'), offline.encode());
+      },
+    );
   });
 
   test('forgetting a site releases coordinator-owned sequence state', () {
