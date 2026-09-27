@@ -258,7 +258,7 @@ bool _hasUnsupportedSourceSyntax(
   return _heading.hasMatch(outsideCode) ||
       _quote.hasMatch(outsideCode) ||
       _list.hasMatch(outsideCode) ||
-      _tableDelimiter.hasMatch(outsideCode) ||
+      chatPreviewHasTableDelimiterRow(outsideCode) ||
       _html.hasMatch(outsideCode) ||
       _bbCode.hasMatch(outsideCode) ||
       _templateDirective.hasMatch(outsideCode) ||
@@ -281,21 +281,44 @@ void _mask(List<int> units, int start, int end) {
   }
 }
 
+/// Whether a line of [source] is a table delimiter row: two or more cells of
+/// at least three dashes, optionally colon-aligned, between optional outer
+/// pipes.
+///
+/// Every such row also holds a `--` the typographic check declines, so a whole
+/// projection cannot tell whether this matched; it is exposed to be pinned.
+@visibleForTesting
+bool chatPreviewHasTableDelimiterRow(String source) =>
+    _tableDelimiter.hasMatch(source);
+
+// These patterns read the whole message with its code masked to spaces, so a
+// code-heavy message is mostly lines of blanks. Where a line-anchored pattern
+// has to read past a run of space, the run is [_lineSpace] rather than `\s`,
+// which crosses line ends: from every line start the engine would take the
+// rest of a masked block and hand it back a character at a time, and given two
+// such runs side by side it tries every way of dividing the block between them
+// before failing.
+const String _lineSpace = r'[^\S\n\r\u2028\u2029]';
+
 final RegExp _heading = RegExp(r'^\s{0,3}#{1,6}(?:\s+|$)', multiLine: true);
 final RegExp _quote = RegExp(r'^\s{0,3}>', multiLine: true);
 final RegExp _list = RegExp(r'^\s{0,3}(?:[-+*]|\d+[.)])\s+', multiLine: true);
+// Each pipe owns the space after it, so no two runs of space are adjacent.
 final RegExp _tableDelimiter = RegExp(
-  r'^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$',
+  '^$_lineSpace*(?:[|]$_lineSpace*)?$_delimiterCell'
+  '(?:[|]$_lineSpace*$_delimiterCell)+(?:[|]$_lineSpace*)?\$',
   multiLine: true,
 );
+const String _delimiterCell = ':?-{3,}:?$_lineSpace*';
 final RegExp _html = RegExp(r'<!--|</?[a-zA-Z][^>]*>', caseSensitive: false);
-final RegExp _bbCode = RegExp(
-  r'\[/?[a-zA-Z][a-zA-Z0-9_-]*(?:\s+[^\]]*|=[^\]]*)?\]',
-);
+// One separator character: `[^\]]*` already takes the space after it, and a
+// `\s+` beside it would be a second run over the same blanks.
+final RegExp _bbCode = RegExp(r'\[/?[a-zA-Z][a-zA-Z0-9_-]*(?:[\s=][^\]]*)?\]');
 final RegExp _templateDirective = RegExp(r'\{\{[^\r\n{}]+\}\}');
 final RegExp _markdownEscape = RegExp(r'\\[*_~`\[\]#>\\]');
 final RegExp _slashCommand = RegExp(
-  r'^\s*/[a-zA-Z][a-zA-Z0-9_-]*(?:\s|$)',
+  '^$_lineSpace*'
+  r'/[a-zA-Z][a-zA-Z0-9_-]*(?:\s|$)',
   multiLine: true,
 );
 final RegExp _unknownEmoji = RegExp(r':[A-Z][A-Za-z0-9_+-]*:');

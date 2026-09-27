@@ -8,6 +8,8 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/scaling_benchmark.dart';
+
 void main() {
   const config = SiteConfig.unknown();
   final engine = ChatPreviewEngine();
@@ -146,10 +148,13 @@ void main() {
       '> quote',
       '# heading',
       '| a | b |\n| --- | --- |',
+      '| a | b |\n|---|:--:|',
+      'a | b\n--- | ---',
       '<strong>html</strong>',
       '[wrap]bbcode[/wrap]',
       r'\*escaped marker*',
       '/shrug hello',
+      'first\n  \n  /shrug hello',
       '@someone hello',
       '#category hello',
       ':wave: hello',
@@ -178,6 +183,88 @@ void main() {
       final result = project(raw);
 
       expect(result, isA<ProjectedPreview>());
+    });
+  });
+
+  group('table delimiter rows', () {
+    test('finds a row of two or more dash cells on its own line', () {
+      for (final raw in const [
+        '| a | b |\n|---|---|',
+        'a | b\n--- | ---',
+        '|:---|:---:|---:|',
+        '---|---',
+        '  | --- | --- |  ',
+        '---\t|\t---',
+        'text\n\n| --- | --- |\n\nmore',
+      ]) {
+        expect(
+          chatPreviewHasTableDelimiterRow(raw),
+          isTrue,
+          reason: raw.replaceAll('\n', r'\n'),
+        );
+      }
+    });
+
+    test('does not find one in a rule, a header, or a row split by a line', () {
+      for (final raw in const [
+        '---',
+        '| a | b |',
+        '--- ---',
+        '---\n| ---',
+        '--- |\n---',
+        '---\n\n| ---',
+        '---\r| ---',
+      ]) {
+        expect(
+          chatPreviewHasTableDelimiterRow(raw),
+          isFalse,
+          reason: raw.replaceAll('\n', r'\n'),
+        );
+      }
+    });
+  });
+
+  group('projection cost', () {
+    test('grows with the lines of a message, not with a power of them', () {
+      // Timed because the cost is inside the regexp engine. The source checks
+      // read the message with its code masked to blanks, so a check that reads
+      // on past a line end re-reads the rest of the block from every line. The
+      // cheapest shape comes first: the former patterns were cubic in it, and
+      // the timed calls cannot be interrupted by a test timeout.
+      String fenced(int lines, String Function(int line) code) {
+        final buffer = StringBuffer('Here is the fix:\n```ruby\n');
+        for (var line = 0; line < lines; line += 1) {
+          buffer.writeln(code(line));
+        }
+        return (buffer..write('```')).toString();
+      }
+
+      final shapes = <String, String Function(int lines)>{
+        'a fenced block of empty lines': (lines) => fenced(lines, (_) => ''),
+        'a fenced block of code': (lines) =>
+            fenced(lines, (line) => '  p $line'),
+        'an unclosed bracket before blank lines': (lines) =>
+            'see [this\n${'   \n' * lines}after',
+      };
+      for (final MapEntry(key: shape, value: message) in shapes.entries) {
+        final smallSource = message(50);
+        final largeSource = message(400);
+        // Only a projected message is one every check read to its end.
+        expect(project(smallSource), isA<ProjectedPreview>(), reason: shape);
+        expect(project(largeSource), isA<ProjectedPreview>(), reason: shape);
+
+        int nodes(String source) =>
+            (project(source) as ProjectedPreview).document.nodes.length;
+        final (:small, :large) = measureScaling(
+          () => nodes(smallSource),
+          () => nodes(largeSource),
+        );
+        expect(
+          large,
+          lessThan(small * 25),
+          reason: 'eight times $shape took ${large / small} times as long',
+        );
+      }
     });
   });
 
