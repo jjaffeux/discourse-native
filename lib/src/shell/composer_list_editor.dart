@@ -266,6 +266,7 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
             hintText: widget.item.isTask ? 'To-do' : 'List',
             enableBlockReordering: false,
             onKeyEvent: body.handleKey,
+            onEmptyBackspace: body.deleteAtStart,
             onExit: body.exit,
           ),
         ),
@@ -670,6 +671,35 @@ class ComposerListBodyController extends ComposerController {
     );
   }
 
+  void deleteAtStart() {
+    if (!isEditing ||
+        !_matches ||
+        !text.value.composing.isCollapsed ||
+        !text.selection.isCollapsed ||
+        text.selection.start != 0) {
+      return;
+    }
+    if (parent is ComposerListBodyController) {
+      outdent();
+      return;
+    }
+    final value = parent.value;
+    final boundary = _needsParagraphBoundary ? _item.newline : '';
+    _scheduleCommand(
+      value.text,
+      TextEditingValue(
+        text: value.text.replaceRange(
+          _item.start,
+          _item.end,
+          '$boundary${_item.body.text.replaceAll('\n', _item.newline)}',
+        ),
+        selection: TextSelection.collapsed(
+          offset: _item.start + boundary.length,
+        ),
+      ),
+    );
+  }
+
   KeyEventResult handleKey(KeyEvent event) {
     final isHorizontalArrow =
         event.logicalKey == LogicalKeyboardKey.arrowLeft ||
@@ -714,25 +744,7 @@ class ComposerListBodyController extends ComposerController {
     if (selection.isCollapsed &&
         selection.start == 0 &&
         event.logicalKey == LogicalKeyboardKey.backspace) {
-      if (parent is ComposerListBodyController) {
-        outdent();
-        return KeyEventResult.handled;
-      }
-      final value = parent.value;
-      final boundary = _needsParagraphBoundary ? _item.newline : '';
-      _scheduleCommand(
-        value.text,
-        TextEditingValue(
-          text: value.text.replaceRange(
-            _item.start,
-            _item.end,
-            '$boundary${_item.body.text.replaceAll('\n', _item.newline)}',
-          ),
-          selection: TextSelection.collapsed(
-            offset: _item.start + boundary.length,
-          ),
-        ),
-      );
+      deleteAtStart();
       return KeyEventResult.handled;
     }
     if (!keyboard.isShiftPressed &&

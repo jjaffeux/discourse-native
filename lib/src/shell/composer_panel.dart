@@ -1180,6 +1180,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
     required this.hintText,
     required this.onExit,
     this.onKeyEvent,
+    this.onEmptyBackspace,
     this.enableBlockReordering,
   });
 
@@ -1188,6 +1189,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
   final String hintText;
   final VoidCallback onExit;
   final KeyEventResult Function(KeyEvent)? onKeyEvent;
+  final VoidCallback? onEmptyBackspace;
   final bool? enableBlockReordering;
 
   @override
@@ -1239,6 +1241,7 @@ class ComposerRichBodyEditor extends StatelessWidget {
                 enclosing?.enableBlockReordering ??
                 true,
             onKeyEvent: onKeyEvent,
+            onEmptyBackspace: onEmptyBackspace,
             pickFiles: enclosing?.pickFiles ?? pickComposerFiles,
             pickImages: enclosing?.pickImages,
             readClipboardFiles:
@@ -1269,6 +1272,7 @@ class ComposerEditor extends StatefulWidget {
     this.onSuggestionAction,
     this.slashActions,
     this.onKeyEvent,
+    this.onEmptyBackspace,
   });
 
   final ComposerController composer;
@@ -1295,6 +1299,7 @@ class ComposerEditor extends StatefulWidget {
 
   /// Application shortcuts, after menu selection and before editor commands.
   final KeyEventResult Function(KeyEvent)? onKeyEvent;
+  final VoidCallback? onEmptyBackspace;
 
   @override
   State<ComposerEditor> createState() => _ComposerEditorState();
@@ -1852,6 +1857,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       controller: widget.composer.text
                         ..todosReadOnly = !widget.composer.isEditing,
                       readOnly: !widget.composer.isEditing,
+                      onEmptyBackspace: widget.onEmptyBackspace,
                       scrollController: _scroll,
                       focusNode: widget.composer.focus,
                       autofocus: widget.autofocus,

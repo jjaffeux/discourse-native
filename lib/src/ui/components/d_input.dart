@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/empty_input_controller.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
@@ -63,6 +64,7 @@ class DInput extends FormField<String> {
     this.onEditingComplete,
     this.onTap,
     this.onTapOutside,
+    this.onEmptyBackspace,
     this.keyboardType,
     this.textInputAction,
     this.textCapitalization = TextCapitalization.none,
@@ -133,6 +135,13 @@ class DInput extends FormField<String> {
   final ValueChanged<String>? onChanged, onSubmitted;
   final VoidCallback? onEditingComplete, onTap;
   final TapRegionCallback? onTapOutside;
+
+  /// A callback for backspace in an empty input on iOS and Android.
+  ///
+  /// Applies to enabled, writable inputs without [obscureText].
+  /// The keyboard's deletion boundary stays outside the supplied controller,
+  /// input formatters, callbacks, and saved form value.
+  final VoidCallback? onEmptyBackspace;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
@@ -165,6 +174,9 @@ class _DInputState extends FormFieldState<String> {
   DInputGroupControlScope? _group;
   late final String _resetValue;
   bool _syncing = false;
+  late final _emptyController = EmptyInputController()
+    ..addListener(_emptyChanged);
+  bool _usingEmptyController = false;
   DInput get input => widget as DInput;
   TextEditingController get _controller =>
       input.controller ?? _ownedController!;
@@ -201,6 +213,31 @@ class _DInputState extends FormFieldState<String> {
       // Selection and IME-only updates must never write back into the controller.
       super.didChange(_controller.text);
     }
+  }
+
+  void _emptyChanged() {
+    if (_usingEmptyController && !_syncing) {
+      _controller.value = _emptyController.editingValue;
+    }
+  }
+
+  TextEditingValue _formatEmptyInput(
+    TextEditingValue before,
+    TextEditingValue after,
+  ) {
+    if (before.text == EmptyInputController.boundary &&
+        after.text.isEmpty &&
+        before.composing.isCollapsed &&
+        after.composing.isCollapsed) {
+      input.onEmptyBackspace?.call();
+      return EmptyInputController.emptyValue;
+    }
+    final oldValue = _controller.value;
+    var next = EmptyInputController.decode(after);
+    for (final formatter in input.inputFormatters ?? <TextInputFormatter>[]) {
+      next = formatter.formatEditUpdate(oldValue, next);
+    }
+    return EmptyInputController.encode(next);
   }
 
   @override
@@ -264,8 +301,52 @@ class _DInputState extends FormFieldState<String> {
     _controller.removeListener(_changed);
     _focus.removeListener(_focusChanged);
     _ownedController?.dispose();
+    _emptyController.dispose();
     _ownedFocus?.dispose();
     super.dispose();
+  }
+
+  Widget _withEmptyHint(TextStyle hintStyle, Widget child) {
+    final platform = Theme.of(context).platform;
+    if (input.onEmptyBackspace == null ||
+        (platform != TargetPlatform.iOS &&
+            platform != TargetPlatform.android)) {
+      return child;
+    }
+    final direction = input.textDirection ?? Directionality.of(context);
+    final start = direction == TextDirection.ltr ? -1.0 : 1.0;
+    final horizontal = switch (input.textAlign) {
+      TextAlign.center => 0.0,
+      TextAlign.left => -1.0,
+      TextAlign.right => 1.0,
+      TextAlign.end => -start,
+      _ => start,
+    };
+    return Stack(
+      children: [
+        if (_usingEmptyController && input.hintText != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: Align(
+                  alignment: Alignment(horizontal, input.borderless ? -1 : 0),
+                  child: Text(
+                    input.hintText!,
+                    style: hintStyle,
+                    textAlign: input.textAlign,
+                    textDirection: input.textDirection,
+                    maxLines: input.maxLines,
+                    overflow: input.maxLines == 1
+                        ? TextOverflow.ellipsis
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        child,
+      ],
+    );
   }
 
   Widget _build() {
@@ -294,6 +375,24 @@ class _DInputState extends FormFieldState<String> {
         );
     final group = _group;
     final enabled = input.enabled && (group?.enabled ?? true);
+    final platform = Theme.of(context).platform;
+    _usingEmptyController =
+        input.onEmptyBackspace != null &&
+        enabled &&
+        !input.readOnly &&
+        !input.obscureText &&
+        (platform == TargetPlatform.iOS ||
+            platform == TargetPlatform.android) &&
+        _controller.text.isEmpty &&
+        _controller.value.composing.isCollapsed;
+    if (_usingEmptyController) {
+      _syncing = true;
+      try {
+        _emptyController.reset();
+      } finally {
+        _syncing = false;
+      }
+    }
     group?.report(_focus, enabled, isInvalid);
     final editor = TextFieldTapRegion(
       child: Row(
@@ -310,75 +409,91 @@ class _DInputState extends FormFieldState<String> {
               // Keep the editable role bounded to this editor. Without
               // a boundary it can merge into an entire page on macOS.
               container: true,
-              label: input.semanticLabel ?? input.labelText,
+              label: _usingEmptyController
+                  ? [
+                      ?input.semanticLabel ?? input.labelText,
+                      ?input.hintText,
+                    ].join('\n')
+                  : input.semanticLabel ?? input.labelText,
               isRequired: input.isRequired,
               validationResult: isInvalid
                   ? SemanticsValidationResult.invalid
                   : SemanticsValidationResult.none,
-              child: TextField(
-                controller: _controller,
-                focusNode: _focus,
-                enabled: enabled,
-                readOnly: input.readOnly,
-                autofocus: input.autofocus,
-                style: style,
-                strutStyle: input.strutStyle,
-                expands: input.expands,
-                maxLines: input.maxLines,
-                minLines: input.borderless && !input.expands ? 1 : null,
-                scrollController: input.scrollController,
-                showCursor: input.showCursor,
-                mouseCursor: input.mouseCursor,
-                onTapAlwaysCalled: input.onTapAlwaysCalled,
-                textAlignVertical: input.borderless
-                    ? TextAlignVertical.top
-                    : null,
-                scrollPadding: input.borderless
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.all(20),
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  isDense: true,
-                  // Compact density gives InputDecorator's child extra height
-                  // even with zero padding. A borderless editor must measure
-                  // its scroll viewport against its actual visible bounds.
-                  visualDensity: input.borderless
-                      ? VisualDensity.standard
+              child: _withEmptyHint(
+                style.copyWith(color: t.mutedForeground),
+                TextField(
+                  controller: _usingEmptyController
+                      ? _emptyController
+                      : _controller,
+                  focusNode: _focus,
+                  enabled: enabled,
+                  readOnly: input.readOnly,
+                  autofocus: input.autofocus,
+                  style: style,
+                  strutStyle: input.strutStyle,
+                  expands: input.expands,
+                  maxLines: input.maxLines,
+                  minLines: input.borderless && !input.expands ? 1 : null,
+                  scrollController: input.scrollController,
+                  showCursor: input.showCursor,
+                  mouseCursor: input.mouseCursor,
+                  onTapAlwaysCalled: input.onTapAlwaysCalled,
+                  textAlignVertical: input.borderless
+                      ? TextAlignVertical.top
                       : null,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
-                  filled: false,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: input.hintText,
-                  hintStyle: style.copyWith(color: t.mutedForeground),
-                  counterText: '',
+                  scrollPadding: input.borderless
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.all(20),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    isDense: true,
+                    // Compact density gives InputDecorator's child extra height
+                    // even with zero padding. A borderless editor must measure
+                    // its scroll viewport against its actual visible bounds.
+                    visualDensity: input.borderless
+                        ? VisualDensity.standard
+                        : null,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    filled: false,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: _usingEmptyController ? null : input.hintText,
+                    hintStyle: style.copyWith(color: t.mutedForeground),
+                    counterText: '',
+                  ),
+                  cursorColor: t.foreground,
+                  keyboardType: input.keyboardType,
+                  textInputAction: input.textInputAction,
+                  textCapitalization: input.textCapitalization,
+                  obscureText: input.obscureText,
+                  obscuringCharacter: input.obscuringCharacter,
+                  autocorrect: input.autocorrect,
+                  enableSuggestions: input.enableSuggestions,
+                  enableInteractiveSelection: input.enableInteractiveSelection,
+                  inputFormatters: _usingEmptyController
+                      ? [TextInputFormatter.withFunction(_formatEmptyInput)]
+                      : input.inputFormatters,
+                  autofillHints: input.autofillHints,
+                  maxLength: input.maxLength,
+                  maxLengthEnforcement: input.maxLengthEnforcement,
+                  textAlign: input.textAlign,
+                  textDirection: input.textDirection,
+                  undoController: input.undoController,
+                  contextMenuBuilder: input.contextMenuBuilder,
+                  onChanged: _usingEmptyController
+                      ? (_) => input.onChanged?.call(_controller.text)
+                      : input.onChanged,
+                  onSubmitted: _usingEmptyController
+                      ? (_) => input.onSubmitted?.call(_controller.text)
+                      : input.onSubmitted,
+                  onEditingComplete: input.onEditingComplete,
+                  onTap: input.onTap,
+                  onTapOutside: input.onTapOutside,
                 ),
-                cursorColor: t.foreground,
-                keyboardType: input.keyboardType,
-                textInputAction: input.textInputAction,
-                textCapitalization: input.textCapitalization,
-                obscureText: input.obscureText,
-                obscuringCharacter: input.obscuringCharacter,
-                autocorrect: input.autocorrect,
-                enableSuggestions: input.enableSuggestions,
-                enableInteractiveSelection: input.enableInteractiveSelection,
-                inputFormatters: input.inputFormatters,
-                autofillHints: input.autofillHints,
-                maxLength: input.maxLength,
-                maxLengthEnforcement: input.maxLengthEnforcement,
-                textAlign: input.textAlign,
-                textDirection: input.textDirection,
-                undoController: input.undoController,
-                contextMenuBuilder: input.contextMenuBuilder,
-                onChanged: input.onChanged,
-                onSubmitted: input.onSubmitted,
-                onEditingComplete: input.onEditingComplete,
-                onTap: input.onTap,
-                onTapOutside: input.onTapOutside,
               ),
             ),
           ),
