@@ -2495,15 +2495,31 @@ void main() {
             final touch =
                 Theme.of(tester.element(reply)).platform ==
                 TargetPlatform.android;
-            // Footer actions are 34px on desktop inside 8px padding.
-            expect(readerBar.height, touch ? 64 : 50);
-            expect(controlHeight, touch ? 48 : 34);
+            // Footer actions are 34px on desktop and 44px on touch inside 8px
+            // padding, and each answers exactly where it is painted.
+            expect(readerBar.height, touch ? 60 : 50);
+            expect(controlHeight, touch ? 44 : 34);
             for (final key in [
+              'topic-reply-button',
               'topic-progress-button',
               if (touch) 'inbox-previous-topic',
               if (touch) 'inbox-next-topic',
             ]) {
               final control = find.byKey(ValueKey(key));
+              expect(
+                tester.getRect(control),
+                tester.getRect(
+                  find.descendant(
+                    of: control,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is AnimatedContainer &&
+                          widget.decoration is DButtonDecoration,
+                    ),
+                  ),
+                ),
+                reason: key,
+              );
               expect(tester.getSize(control).height, controlHeight);
               expect(
                 tester.getRect(control).center.dy,
