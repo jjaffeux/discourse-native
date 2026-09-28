@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
+import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -1109,7 +1110,195 @@ void main() {
       expect(composer.draft.recipients, 'alex');
       expect(find.text('alex'), findsWidgets);
     });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'mobile message recipients sit above the toolbar with text scale $scale',
+        (tester) async {
+          final composer = ComposerController(
+            _privateMessageTarget.withRecipients(
+              'a-long-recipient-name-that-must-fit',
+            ),
+          );
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: 330 * tester.view.devicePixelRatio,
+          );
+          addTearDown(tester.view.resetViewInsets);
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            size: const Size(390, 800),
+            height: 800,
+            textScaler: TextScaler.linear(scale),
+          );
+
+          expect(find.text('To'), findsNothing);
+          expect(find.byType(DComboboxChips<String>), findsNothing);
+          expect(find.byType(DSheetContent), findsNothing);
+          final recipients = tester.getRect(
+            find.byKey(const ValueKey('composer-recipients')),
+          );
+          final title = tester.getRect(
+            find.byKey(const ValueKey('composer-topic-title')),
+          );
+          final toolbar = tester.getRect(
+            find.byKey(const ValueKey('composer-toolbar-scroll')),
+          );
+          expect(recipients.left, DSpacing.lg);
+          expect(recipients.right, lessThanOrEqualTo(390 - DSpacing.lg));
+          expect(recipients.top, greaterThan(title.bottom));
+          expect(recipients.bottom, lessThanOrEqualTo(toolbar.top));
+          expect(toolbar.bottom, lessThanOrEqualTo(470));
+          expect(
+            tester
+                .getRect(find.byKey(const ValueKey('composer-footer-blur')))
+                .top,
+            closeTo(recipients.center.dy, .01),
+          );
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      );
+    }
+
+    testWidgets(
+      'mobile recipient sheet searches, selects multiple users and groups, and removes selections',
+      (tester) async {
+        final composer = ComposerController(
+          _privateMessageTarget.withRecipients(''),
+        );
+        composer.title.text = 'A private message';
+        composer.text.text = 'Hello everyone in the group';
+        final api = _RecipientSearchApi();
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore(),
+          api: api,
+          authenticator: FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'api-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        await shell.load();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(390, 800),
+          height: 800,
+        );
+
+        final trigger = find.byKey(const ValueKey('composer-recipients'));
+        final input = find.byKey(const ValueKey('composer-recipients-input'));
+        Finder option(String name) => find.byWidgetPredicate(
+          (widget) =>
+              widget is DComboboxItem<String> && widget.option.value == name,
+        );
+        expect(find.text('To'), findsNothing);
+        expect(find.text('Recipients'), findsOneWidget);
+        expect(input, findsNothing);
+        expect(composer.canSubmit, isFalse);
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(
+          tester
+              .widget<DSheetContent>(find.byType(DSheetContent))
+              .fillAvailableHeight,
+          isTrue,
+        );
+
+        for (final name in ['alex', 'sam', 'team']) {
+          await tester.enterText(input, name);
+          await tester.pumpAndSettle();
+          expect(
+            api.userSearchesRequested,
+            contains((term: name, topicId: null)),
+          );
+          await tester.tap(option(name));
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(
+            tester
+                .widget<EditableText>(
+                  find.descendant(
+                    of: input,
+                    matching: find.byType(EditableText),
+                  ),
+                )
+                .focusNode
+                .hasFocus,
+            isTrue,
+          );
+        }
+        expect(composer.target.targetRecipients, 'alex,sam,team');
+        expect(composer.draft.recipients, 'alex,sam,team');
+        expect(composer.canSubmit, isTrue);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(find.text('3 recipients'), findsOneWidget);
+
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        // The empty search returns no results; saved selections must still
+        // be available to deselect when reopening the sheet.
+        for (final name in ['alex', 'sam', 'team']) {
+          expect(option(name), findsOneWidget);
+          await tester.tap(option(name));
+          await tester.pumpAndSettle();
+        }
+        expect(composer.target.targetRecipients, '');
+        expect(composer.canSubmit, isFalse);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.text('Recipients'), findsOneWidget);
+        expect(composer.title.text, 'A private message');
+        expect(composer.raw, 'Hello everyone in the group');
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
   });
+}
+
+class _RecipientSearchApi extends FakeDiscourseApi {
+  _RecipientSearchApi()
+    : super(
+        userSearches: {
+          'alex': [const FoundUser(username: 'alex')],
+          'sam': [const FoundUser(username: 'sam')],
+        },
+      );
+
+  @override
+  Future<FoundUsersAndGroups> searchUsersAndGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 6,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final found = await super.searchUsersAndGroups(
+      siteUrl: siteUrl,
+      term: term,
+      limit: limit,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return FoundUsersAndGroups(
+      users: found.users,
+      groups: term == 'team' ? const [FoundGroup(name: 'team')] : const [],
+    );
+  }
 }
 
 Future<void> _pressCommandE(WidgetTester tester) async {
