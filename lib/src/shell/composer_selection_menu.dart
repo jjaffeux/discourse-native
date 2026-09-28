@@ -182,6 +182,10 @@ class _ComposerFormattingControlsState
     child: ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
+        final selection = composer.text.selection;
+        if (inline && (!selection.isValid || selection.isCollapsed)) {
+          return const SizedBox.shrink();
+        }
         final pressed = composerSelectionFormats(composer.value);
         final bold = _toggle(
           'Bold',
@@ -294,20 +298,29 @@ class _ComposerFormattingControlsState
               )
             : null;
         if (inline) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.controlGap,
-            children: [
-              bold,
-              italic,
-              code,
-              link,
-              underline,
-              strike,
-              clear,
-              ?colors,
-              more,
-            ],
+          return Semantics(
+            key: const ValueKey('composer-formatting'),
+            container: true,
+            label: 'Formatting',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: DSpacing.controlGap,
+              children: [
+                bold,
+                italic,
+                code,
+                link,
+                underline,
+                strike,
+                clear,
+                ?colors,
+                more,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: DSeparator(orientation: Axis.vertical, length: 20),
+                ),
+              ],
+            ),
           );
         }
         return Column(

@@ -133,6 +133,38 @@ void main() {
         addTearDown(tester.view.resetViewInsets);
         await _pumpPanel(tester, shell, composer, size: const Size(340, 720));
 
+        void expectFormattingHidden() {
+          expect(
+            find.byKey(const ValueKey('composer-formatting')),
+            findsNothing,
+          );
+          for (final label in [
+            'Bold',
+            'Italic',
+            'Inline code',
+            'Link',
+            'Underline',
+            'Strikethrough',
+            'Clear formatting',
+            'More formatting',
+          ]) {
+            expect(find.byTooltip(label), findsNothing);
+          }
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('composer-toolbar-scroll')),
+              matching: find.byType(DSeparator),
+            ),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('composer-emoji-picker')),
+            findsOneWidget,
+          );
+          expect(find.byKey(const ValueKey('composer-insert')), findsOneWidget);
+        }
+
+        expectFormattingHidden();
         const original = TextEditingValue(
           text: 'format me',
           selection: TextSelection(baseOffset: 0, extentOffset: 6),
@@ -222,28 +254,25 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
         await tester.pumpAndSettle();
         expect(composer.raw, '[format](https://example.org) me');
+        expectFormattingHidden();
         composer.text.value = const TextEditingValue(
           text: 'hello',
           selection: TextSelection.collapsed(offset: 5),
         );
         await tester.pumpAndSettle();
-        expect(
-          tester
-              .widget<DToggle>(
-                find.byWidgetPredicate(
-                  (widget) =>
-                      widget is DToggle && widget.semanticLabel == 'Underline',
-                ),
-              )
-              .enabled,
-          isFalse,
+        expectFormattingHidden();
+
+        // A selection-only change must restore the controls immediately.
+        composer.text.selection = const TextSelection(
+          baseOffset: 0,
+          extentOffset: 5,
         );
+        await tester.pumpAndSettle();
         await tapTool('Bold');
-        expect(composer.raw, 'hello****');
-        expect(
-          composer.text.selection,
-          const TextSelection.collapsed(offset: 7),
-        );
+        expect(composer.raw, '**hello**');
+        composer.text.selection = const TextSelection.collapsed(offset: -1);
+        await tester.pumpAndSettle();
+        expectFormattingHidden();
         expect(
           find.byKey(const ValueKey('composer-selection-toolbar')),
           findsNothing,
@@ -301,6 +330,19 @@ void main() {
         expect(composer.raw, '[color=#4d94d5]format[/color] me');
         expect(composer.text.selection.textInside(composer.raw), 'format');
         expect(composer.focus.hasFocus, isTrue);
+        await tester.tap(color);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('composer-color-palette')),
+          findsOneWidget,
+        );
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        await tester.pumpAndSettle();
+        expect(color, findsNothing);
+        expect(
+          find.byKey(const ValueKey('composer-color-palette')),
+          findsNothing,
+        );
         expect(
           find.byKey(const ValueKey('composer-selection-toolbar')),
           findsNothing,

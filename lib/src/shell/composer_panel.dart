@@ -4012,16 +4012,11 @@ class _FormattingToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final composer = this.composer.activeEditor;
     if (context.isTouch) {
-      return Semantics(
-        key: const ValueKey('composer-formatting'),
-        container: true,
-        label: 'Formatting',
-        child: ComposerFormattingControls(
-          composer: composer,
-          inline: true,
-          onLink: () => unawaited(
-            showComposerLinkDialog(context: context, composer: composer),
-          ),
+      return ComposerFormattingControls(
+        composer: composer,
+        inline: true,
+        onLink: () => unawaited(
+          showComposerLinkDialog(context: context, composer: composer),
         ),
       );
     }
@@ -4124,10 +4119,11 @@ class _Toolbar extends StatelessWidget {
     return _ComposerToolbarOverflow(
       children: [
         _FormattingToolbar(composer: this.composer),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 6),
-          child: DSeparator(orientation: Axis.vertical, length: 20),
-        ),
+        if (!context.isTouch)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: DSeparator(orientation: Axis.vertical, length: 20),
+          ),
         if (uploadsEnabled)
           _ComposerUploadButton(
             composer: composer,
