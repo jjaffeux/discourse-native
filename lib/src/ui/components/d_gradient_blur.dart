@@ -40,9 +40,10 @@ class DGradientBlur extends StatelessWidget {
     final alignment = edge == DGradientBlurEdge.top
         ? Alignment.topCenter
         : Alignment.bottomCenter;
-    // Successive Gaussian variances add. These four passes reach the requested
-    // sigma together, with stronger passes restricted closer to the edge.
-    final unit = sigma / math.sqrt(85);
+    // Gaussian variances add: weights of 1 and 4 sum to 17 in variance.
+    // Two passes bound the backdrop work per frame while retaining a light
+    // blur across the fade and a stronger blur nearest the edge.
+    final unit = sigma / math.sqrt(17);
     return IgnorePointer(
       child: ExcludeSemantics(
         child: LayoutBuilder(
@@ -54,24 +55,24 @@ class DGradientBlur extends StatelessWidget {
             return Stack(
               fit: StackFit.expand,
               children: [
-                for (var pass = 0; pass < 4; pass++)
+                for (var pass = 0; pass < 2; pass++)
                   Align(
                     alignment: alignment,
                     child: SizedBox(
                       width: double.infinity,
-                      height: plateau + fade * (4 - pass) / 4,
+                      height: plateau + fade * (2 - pass) / 2,
                       child: ClipRect(
                         child: BackdropFilter(
                           filter: ui.ImageFilter.blur(
-                            sigmaX: unit * (1 << pass),
-                            sigmaY: unit * (1 << pass),
+                            sigmaX: unit * (pass == 0 ? 1 : 4),
+                            sigmaY: unit * (pass == 0 ? 1 : 4),
                           ),
                           child: CustomPaint(
                             painter: _BlurMask(
                               edge: edge,
                               transitionStart:
-                                  (plateau + fade * (3 - pass) / 4) /
-                                  (plateau + fade * (4 - pass) / 4),
+                                  (plateau + fade * (1 - pass) / 2) /
+                                  (plateau + fade * (2 - pass) / 2),
                             ),
                             child: const SizedBox.expand(),
                           ),
