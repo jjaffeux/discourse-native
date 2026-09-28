@@ -533,6 +533,30 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   BuildContext? _scrollOrigin;
   bool _dragging = false;
 
+  @override
+  void initState() {
+    super.initState();
+    widget.routeAnimation.addStatusListener(_onRouteStatus);
+  }
+
+  @override
+  void didUpdateWidget(_DSheetSwipeDismiss oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.routeAnimation == widget.routeAnimation) return;
+    oldWidget.routeAnimation.removeStatusListener(_onRouteStatus);
+    widget.routeAnimation.addStatusListener(_onRouteStatus);
+  }
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse ||
+        status == AnimationStatus.dismissed) {
+      // Controlled picker owners can forward a close over several frames.
+      // Keep the drag offset when their route starts closing, even if the
+      // fallback return animation has already been scheduled.
+      _travel.stop();
+    }
+  }
+
   void _start() {
     _travel.stop();
     _dragging = true;
@@ -606,6 +630,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   @override
   void dispose() {
+    widget.routeAnimation.removeStatusListener(_onRouteStatus);
     _travel.dispose();
     super.dispose();
   }
