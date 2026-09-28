@@ -191,7 +191,7 @@ void main() {
   for (final reducedMotion in [false, true]) {
     for (final brightness in Brightness.values) {
       testWidgets(
-        'full-height picker has an opaque themed backdrop and subtle scale ($brightness, reduced: $reducedMotion)',
+        'full-height picker has a darker opaque backdrop and subtle scale ($brightness, reduced: $reducedMotion)',
         (tester) async {
           final theme = ThemeData(brightness: brightness);
           final background = brightness == Brightness.dark
@@ -212,7 +212,11 @@ void main() {
           await tester.pump();
           await tester.pump();
           final barrier = find.byWidgetPredicate(
-            (widget) => widget is ModalBarrier && widget.color == background,
+            (widget) =>
+                widget is ModalBarrier &&
+                widget.color?.a == 1 &&
+                widget.color!.computeLuminance() <
+                    background.computeLuminance(),
           );
           expect(barrier, findsOneWidget);
           expect(

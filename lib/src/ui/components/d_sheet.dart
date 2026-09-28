@@ -161,12 +161,14 @@ class _DSheetSideScope extends InheritedWidget {
   const _DSheetSideScope({
     required this.side,
     required this.inset,
+    required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
     required super.child,
   });
 
   final DSheetSide side;
   final bool inset;
+  final bool fillAvailableHeight;
   final bool extendBehindKeyboard;
 
   static DSheetSide? maybeOf(BuildContext context) =>
@@ -174,6 +176,10 @@ class _DSheetSideScope extends InheritedWidget {
 
   static bool? insetOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.inset;
+
+  static bool? fillsAvailableHeightOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
+      ?.fillAvailableHeight;
 
   static bool? extendsBehindKeyboardOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
@@ -183,6 +189,7 @@ class _DSheetSideScope extends InheritedWidget {
   bool updateShouldNotify(_DSheetSideScope oldWidget) =>
       side != oldWidget.side ||
       inset != oldWidget.inset ||
+      fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
 
@@ -294,15 +301,13 @@ Widget _sheetLayout(
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
   final background = DTokens.of(context).background.withValues(alpha: 1);
-  // Writing sheets need a distinct canvas above their rounded edge while
+  // Full-height sheets share a distinct canvas above their rounded edge while
   // keeping the underlying application completely hidden.
-  final backdropColor = extendBehindKeyboard
-      ? Color.lerp(
-          background,
-          Colors.black,
-          Theme.of(context).brightness == Brightness.dark ? .32 : .12,
-        )!
-      : background;
+  final backdropColor = Color.lerp(
+    background,
+    Colors.black,
+    Theme.of(context).brightness == Brightness.dark ? .32 : .12,
+  )!;
   Widget backdrop = fillAvailableHeight
       ? presentation.buildBackdrop(color: backdropColor, blurSigma: 0)
       : presentation.buildBackdrop(blurSigma: 2);
@@ -321,6 +326,7 @@ Widget _sheetLayout(
   Widget popup = _DSheetSideScope(
     side: side,
     inset: inset,
+    fillAvailableHeight: fillAvailableHeight,
     extendBehindKeyboard: extendBehindKeyboard,
     child: extendBehindKeyboard
         ? Builder(
@@ -498,7 +504,10 @@ class DSheetContent extends StatelessWidget {
   final String closeSemanticLabel;
   final String? semanticLabel;
 
-  /// Overrides the surface fill. Defaults to [DTokens.surface].
+  /// The surface fill override.
+  ///
+  /// Defaults to opaque [DTokens.background] for full-height sheets and
+  /// [DTokens.surface] otherwise.
   final Color? backgroundColor;
 
   final double sidePanelMaxWidth;
@@ -553,6 +562,9 @@ class DSheetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final inset = _DSheetSideScope.insetOf(context) ?? this.inset;
+    final fillAvailableHeight =
+        _DSheetSideScope.fillsAvailableHeightOf(context) ??
+        this.fillAvailableHeight;
     final extendBehindKeyboard =
         _DSheetSideScope.extendsBehindKeyboardOf(context) ??
         this.extendBehindKeyboard;
@@ -627,7 +639,11 @@ class DSheetContent extends StatelessWidget {
           clipBehavior: inset || extendBehindKeyboard
               ? Clip.antiAlias
               : Clip.none,
-          color: backgroundColor ?? tokens.surface,
+          color:
+              backgroundColor ??
+              (fillAvailableHeight
+                  ? tokens.background.withValues(alpha: 1)
+                  : tokens.surface),
           textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontSize: DiscourseTypography.sm,
             height: 20 / 14,
