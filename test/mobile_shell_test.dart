@@ -1097,6 +1097,84 @@ void main() {
     },
   );
 
+  _mobileTest('Home to topic and back animates the contextual action', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(id: 7, canCreatePost: true),
+    );
+    await _tapDockTab(tester, 'start');
+    final transition = find.descendant(
+      of: _bar,
+      matching: find.byType(DActionTransition),
+    );
+    final element = tester.element(transition);
+    final dockRect = tester.getRect(
+      find.byKey(const ValueKey('mobile-mode-start')),
+    );
+    shell.openTopic(
+      const Topic(id: 7, slug: 'shared', title: 'Shared topic card'),
+    );
+    await tester.pump();
+    await tester.pump();
+    final reply = find.byKey(const ValueKey('mobile-topic-reply'));
+    for (var frame = 0; frame < 20 && reply.evaluate().isEmpty; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(reply, findsOneWidget);
+    expect(tester.element(transition), same(element));
+    await tester.pump(const Duration(milliseconds: 60));
+    Rect paintedReply() {
+      final box = tester.renderObject<RenderBox>(reply);
+      return Rect.fromPoints(
+        box.localToGlobal(Offset.zero),
+        box.localToGlobal(box.size.bottomRight(Offset.zero)),
+      );
+    }
+
+    final entering = paintedReply();
+    expect(
+      tester
+          .widget<FadeTransition>(
+            find
+                .ancestor(of: reply, matching: find.byType(FadeTransition))
+                .first,
+          )
+          .opacity
+          .value,
+      inExclusiveRange(0, 1),
+    );
+    await tester.pumpAndSettle();
+    final settled = paintedReply();
+    expect(entering.width, lessThan(settled.width * .92));
+    expect(entering.center.dy, greaterThan(settled.center.dy + 2));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('mobile-mode-start'))),
+      dockRect,
+    );
+    expect(shell.handleBack(), isTrue);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(reply, findsOneWidget);
+    expect(paintedReply().width, lessThan(settled.width));
+    expect(paintedReply().center.dy, greaterThan(settled.center.dy));
+    expect(
+      tester
+          .widget<FadeTransition>(
+            find
+                .ancestor(of: reply, matching: find.byType(FadeTransition))
+                .first,
+          )
+          .opacity
+          .value,
+      inExclusiveRange(0, 1),
+    );
+    await tester.pumpAndSettle();
+    expect(reply, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('dock slots keep their geometry across every tab', (
     tester,
   ) async {

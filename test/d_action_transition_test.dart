@@ -69,14 +69,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
     expect(_fade(tester, 'Reply').opacity.value, inExclusiveRange(0, 1));
     expect(tester.getRect(find.text('Neighbor')).left, neighborX);
-    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 180));
     expect(_fade(tester, 'Reply').opacity.value, 1);
 
     await _pump(tester, null);
     expect(find.byKey(const ValueKey('Reply')), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump(const Duration(milliseconds: 80));
     expect(_fade(tester, 'Reply').opacity.value, inExclusiveRange(0, 1));
-    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump(const Duration(milliseconds: 80));
     await tester.pump(const Duration(milliseconds: 16));
     expect(find.byKey(const ValueKey('Reply')), findsNothing);
     expect(tester.getRect(find.text('Neighbor')).left, neighborX);
