@@ -564,8 +564,26 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ],
           ),
         ),
-        if (primaryAction != null)
-          SizedBox(width: actionWidth, child: primaryAction),
+        SizedBox(
+          width: actionWidth,
+          child: DActionTransition(
+            // Never retain an outgoing action across a site/account change.
+            key: ValueKey((
+              shell.currentInstance?.url,
+              shell.currentAccountIdentity,
+            )),
+            child: primaryAction == null
+                ? null
+                : KeyedSubtree(
+                    key: ValueKey((
+                      selected,
+                      primaryAction.key,
+                      pageAction?.label,
+                    )),
+                    child: primaryAction,
+                  ),
+          ),
+        ),
       ],
     );
   }
