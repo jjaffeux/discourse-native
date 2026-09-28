@@ -234,10 +234,11 @@ void main() {
     expect(tagsBounds.top, categoryBounds.top);
     expect(categoryBounds.right, lessThanOrEqualTo(304));
     expect(tagsBounds.width, lessThanOrEqualTo(288));
-    expect(categoryBounds.height, greaterThanOrEqualTo(44));
-    expect(tagsBounds.height, greaterThanOrEqualTo(44));
+    final controlHeight = DControlStyle.height(DControlSize.toolbar);
+    expect(categoryBounds.height, controlHeight);
+    expect(tagsBounds.height, controlHeight);
     for (final action in [
-      find.byKey(const ValueKey('composer-mobile-options')),
+      find.byKey(const ValueKey('composer-close')),
       find.byTooltip('Create topic'),
     ]) {
       expect(action.hitTestable(), findsOneWidget);

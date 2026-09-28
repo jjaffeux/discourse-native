@@ -88,6 +88,106 @@ Widget _sheet<T>({
 );
 
 void main() {
+  for (final imperative in [false, true]) {
+    testWidgets(
+      'under-keyboard ${imperative ? 'helper' : 'sheet'} retains its full height and live insets',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewPadding);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewInsets);
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        const editorKey = ValueKey('sheet-editor');
+        DSheetContent content() => DSheetContent(
+          side: DSheetSide.bottom,
+          fillAvailableHeight: true,
+          extendBehindKeyboard: true,
+          scrollWholeSheet: false,
+          children: [
+            Expanded(
+              child: DInput(
+                key: editorKey,
+                focusNode: focus,
+                borderless: true,
+                maxLines: null,
+                expands: true,
+              ),
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => imperative
+                    ? DButton(
+                        label: const Text('Open'),
+                        onPressed: () {
+                          unawaited(
+                            showDSheet<void>(
+                              context: context,
+                              side: DSheetSide.bottom,
+                              fillAvailableHeight: true,
+                              extendBehindKeyboard: true,
+                              initialFocusNode: focus,
+                              builder: (_, _) => content(),
+                            ),
+                          );
+                        },
+                      )
+                    : DSheet<void>(
+                        initialFocusNode: focus,
+                        trigger: DSheetTrigger(
+                          builder: (_, open) => DButton(
+                            label: const Text('Open'),
+                            onPressed: open,
+                          ),
+                        ),
+                        content: content(),
+                      ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: find.byKey(editorKey),
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(editable, 'Retained draft');
+        final state = tester.state(editable);
+        for (final inset in [336.0, 210.0, 0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          tester.view.padding = FakeViewPadding(
+            top: 59,
+            bottom: inset == 0 ? 34 : 0,
+          );
+          await tester.pumpAndSettle();
+          final sheet = tester.getRect(find.byType(DSheetContent));
+          expect(sheet, const Rect.fromLTRB(0, 59 + DSpacing.sm, 390, 844));
+          expect(tester.getRect(find.byKey(editorKey)).bottom, 844);
+          expect(
+            MediaQuery.viewInsetsOf(tester.element(editable)).bottom,
+            inset,
+          );
+          expect(tester.state(editable), same(state));
+          expect(find.text('Retained draft'), findsOneWidget);
+          expect(focus.hasFocus, isTrue);
+        }
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final reducedMotion in [false, true]) {
     for (final brightness in Brightness.values) {
       testWidgets(

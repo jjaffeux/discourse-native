@@ -941,6 +941,7 @@ class _MobileShell extends StatelessWidget {
     canPop: false,
     onPopInvokedWithResult: (didPop, result) {
       if (didPop) return;
+      if (ComposerPresentationHost.hasMobileSheetOf(context)) return;
       final diagnostics = DiagnosticsScope.maybeRead(context);
       if (diagnostics?.isPanelOpen ?? false) {
         diagnostics!.closePanel();

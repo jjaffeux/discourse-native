@@ -380,7 +380,7 @@ void main() {
       composer.text.text = 'A saved topic draft with edits';
       await tester.pump();
       if (mobile) {
-        await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+        await tester.tap(find.byKey(const ValueKey('composer-close')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
       }
@@ -398,7 +398,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(composer.raw, 'A saved topic draft with edits');
       if (mobile) {
-        await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+        await tester.tap(find.byKey(const ValueKey('composer-close')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
       }
@@ -696,7 +696,10 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final frame = tester.getRect(find.byType(ComposerPanel));
-      expect(frame, const Rect.fromLTWH(0, 0, 390, 470));
+      expect(
+        frame,
+        const Rect.fromLTWH(0, DSpacing.sm, 390, 800 - DSpacing.sm),
+      );
       final submit = tester.getRect(
         find.byKey(const ValueKey('composer-submit')),
       );
@@ -733,6 +736,45 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('mobile X opens draft actions and Save draft closes safely', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'A topic to finish later';
+    composer.text.text = 'Keep this draft when I close the sheet.';
+    await tester.pumpAndSettle();
+    final close = find.byKey(const ValueKey('composer-close'));
+    expect(tester.widget<DButton>(close).shape, DButtonShape.pill);
+    expect(tester.getSize(close).width, tester.getSize(close).height);
+    expect(find.byKey(const ValueKey('composer-mobile-options')), findsNothing);
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(harness.shell.visibleComposer, same(composer));
+    expect(
+      tester
+          .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
+          .map((item) => (item.child as Text).data),
+      ['Discard', 'Minimize', 'Save draft'],
+    );
+    await tester.tap(find.text('Save draft'));
+    await tester.pumpAndSettle();
+    expect(harness.shell.visibleComposer, isNull);
+    final savedRequest =
+        (harness.shell.api.composerPersistence as FakeDiscourseApi)
+            .draftsSaved
+            .last;
+    expect(savedRequest['draftKey'], composer.target.draftKey);
+    final saved = ComposerDraft.decode(savedRequest['data'] as String);
+    expect(saved?.title, 'A topic to finish later');
+    expect(saved?.reply, 'Keep this draft when I close the sheet.');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('mobile keyboard and minimize preserve the draft and editor', (
     tester,
   ) async {
@@ -758,13 +800,16 @@ void main() {
         bottom: inset * tester.view.devicePixelRatio,
       );
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(ComposerPanel)).height, 800 - inset);
+      expect(
+        tester.getSize(find.byType(ComposerPanel)).height,
+        800 - DSpacing.sm,
+      );
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
       expect(composer.text.selection.extentOffset, 7);
     }
-    await tester.tap(find.byKey(const ValueKey('composer-mobile-options')));
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Minimize composer'));
+    await tester.tap(find.text('Minimize'));
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('reader-list')).hitTestable(),
@@ -1011,12 +1056,12 @@ class _Harness {
             ).copyWith(textScaler: TextScaler.linear(textScale)),
             child: DToaster(child: child!),
           ),
-          home: Scaffold(
-            body: DDirection(
-              textDirection: direction,
-              child: ComposerPresentationHost(
-                controller: presentation,
-                child: Row(
+          home: DDirection(
+            textDirection: direction,
+            child: ComposerPresentationHost(
+              controller: presentation,
+              child: Scaffold(
+                body: Row(
                   children: [
                     if (includeSidebar)
                       const SizedBox(width: 240, child: InstanceSidebar()),

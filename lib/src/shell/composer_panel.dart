@@ -89,6 +89,9 @@ Color _composerToolForeground(BuildContext context) {
   return Color.lerp(tokens.background, tokens.foreground, .5)!;
 }
 
+DControlSize _composerToolbarSize(BuildContext context) =>
+    context.isTouch ? DControlSize.large : DControlSize.toolbar;
+
 class ComposerPanel extends StatelessWidget {
   const ComposerPanel({
     super.key,
@@ -646,7 +649,8 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                   controller: _scroll,
                   // Paint beneath the floating footer while keeping the viewport's
                   // reveal bounds above it, so the caret stays clear of the tools.
-                  // The composer frame clips content at the keyboard boundary.
+                  // The full sheet clips at the screen edge, allowing content
+                  // to continue beneath a translucent system keyboard.
                   clipBehavior: Clip.none,
                   slivers: [
                     SliverPersistentHeader(
@@ -783,10 +787,10 @@ class _ComposerBottom extends StatelessWidget {
     );
     if (!mobile) return content;
 
-    // Taxonomy is one horizontally scrolling row, with 12px above and below
-    // its toolbar-size controls. Begin the blur at those controls' midpoint.
+    // Taxonomy is one horizontally scrolling row with standard top padding.
+    // Begin the blur at the controls' midpoint.
     final blurInset = showTaxonomy
-        ? 12 +
+        ? DSpacing.md +
               DControlStyle.scaledHeight(
                     DControlSize.toolbar,
                     MediaQuery.textScalerOf(context),
@@ -794,17 +798,25 @@ class _ComposerBottom extends StatelessWidget {
                   ) /
                   2
         : 0.0;
-    return Stack(
-      children: [
-        Positioned.fill(
-          top: blurInset,
-          child: const DGradientBlur(
-            key: ValueKey('composer-footer-blur'),
-            edge: DGradientBlurEdge.bottom,
-          ),
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: math.max(
+          MediaQuery.viewInsetsOf(context).bottom,
+          MediaQuery.paddingOf(context).bottom,
         ),
-        content,
-      ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: blurInset,
+            child: const DGradientBlur(
+              key: ValueKey('composer-footer-blur'),
+              edge: DGradientBlurEdge.bottom,
+            ),
+          ),
+          content,
+        ],
+      ),
     );
   }
 }
@@ -883,7 +895,12 @@ class _TopicTaxonomy extends StatelessWidget {
           }
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: EdgeInsets.fromLTRB(
+              DSpacing.lg,
+              DSpacing.md,
+              DSpacing.lg,
+              context.isTouch ? DSpacing.controlGap : DSpacing.md,
+            ),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Wrap(
@@ -4019,7 +4036,7 @@ class _FormattingToolbar extends StatelessWidget {
                 shortcut: DShortcut(_formattingShortcut(key)),
                 variant: DButtonVariant.transparentBackground,
                 foregroundColor: _composerToolForeground(context),
-                size: DButtonSize.toolbar,
+                size: _composerToolbarSize(context),
                 icon: DIcon(icon),
                 onPressed: composer.isEditing && !composer.loadingBody
                     ? () {
@@ -4034,7 +4051,7 @@ class _FormattingToolbar extends StatelessWidget {
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
               variant: DButtonVariant.transparentBackground,
               foregroundColor: _composerToolForeground(context),
-              size: DButtonSize.toolbar,
+              size: _composerToolbarSize(context),
               icon: const DIcon(DIcons.link),
               onPressed: composer.isEditing && !composer.loadingBody
                   ? () => unawaited(
@@ -4106,7 +4123,7 @@ class _Toolbar extends StatelessWidget {
                 tooltip: 'Add emoji',
                 variant: DButtonVariant.transparentBackground,
                 foregroundColor: _composerToolForeground(context),
-                size: DButtonSize.toolbar,
+                size: _composerToolbarSize(context),
                 onPressed: !composer.isEditing
                     ? null
                     : () => unawaited(
@@ -4163,7 +4180,7 @@ class _Toolbar extends StatelessWidget {
                 focusNode: trigger.focusNode,
                 variant: DButtonVariant.transparentBackground,
                 foregroundColor: _composerToolForeground(context),
-                size: DButtonSize.toolbar,
+                size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.plus),
               ),
@@ -4186,7 +4203,7 @@ class _Toolbar extends StatelessWidget {
                 focusNode: trigger.focusNode,
                 variant: DButtonVariant.transparentBackground,
                 foregroundColor: _composerToolForeground(context),
-                size: DButtonSize.toolbar,
+                size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
                 icon: const DIcon(DIcons.ellipsis),
               ),
@@ -4324,7 +4341,13 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
     final fadeColor = _composerFooterColor(context);
 
     return Container(
-      width: 38,
+      width:
+          DControlStyle.scaledHeight(
+            _composerToolbarSize(context),
+            MediaQuery.textScalerOf(context),
+            context: context,
+          ) +
+          DSpacing.xs,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: pointsRight ? Alignment.centerLeft : Alignment.centerRight,
@@ -4342,7 +4365,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.transparentBackground,
         foregroundColor: _composerToolForeground(context),
-        size: DButtonSize.toolbar,
+        size: _composerToolbarSize(context),
       ),
     );
   }
@@ -4455,7 +4478,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         icon: const DIcon(DIcons.paperclip),
         variant: DButtonVariant.transparentBackground,
         foregroundColor: _composerToolForeground(context),
-        size: DButtonSize.toolbar,
+        size: _composerToolbarSize(context),
       ),
     ),
   );
@@ -4692,7 +4715,12 @@ class _Footer extends StatelessWidget {
             ? null
             : Border(top: BorderSide(color: tokens.footerBorder)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.fromLTRB(
+        DSpacing.lg,
+        context.isTouch ? 0 : 10,
+        DSpacing.lg,
+        10,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
