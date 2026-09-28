@@ -597,6 +597,19 @@ void main() {
     expect(() => hashtag.colors.add('FFFFFF'), throwsUnsupportedError);
   });
 
+  test('draws a hashtag color in every shape a category color is saved', () {
+    // Core validates category colors as six or three hex digits and the
+    // hashtag search sends them as stored; shorthand read as plain hex would
+    // be an alpha-zero swatch.
+    final hashtag = FoundHashtag.fromJson(const {
+      'type': 'category',
+      'ref': 'parent:child',
+      'colors': ['abc', '#0088CC'],
+    })!;
+
+    expect(hashtag.colorValues, [0xFFAABBCC, 0xFF0088CC]);
+  });
+
   test('retains an unknown hashtag wire type without normalizing it', () {
     final hashtag = FoundHashtag.fromJson(const {
       'type': ' future-kind ',

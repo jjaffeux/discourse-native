@@ -112,16 +112,22 @@ bool _isLowSurrogate(int value) => value >= 0xDC00 && value <= 0xDFFF;
 
 /// Category colors are hex digits normally sent without a leading `#`, but
 /// sites also produce `#`-prefixed and CSS three-digit shorthand forms. Every
-/// serializer that carries a category color must resolve it through this one
-/// helper; anything unrecognized becomes Discourse's default category gray.
-int categoryColorValue(String color) {
+/// serializer that carries a category color must resolve it through this
+/// helper or [categoryColorValueOrNull]; anything unrecognized becomes
+/// Discourse's default category gray.
+int categoryColorValue(String color) =>
+    categoryColorValueOrNull(color) ?? 0xFF888888;
+
+/// [categoryColorValue]'s recognition, for a reader that draws its own
+/// fallback rather than Discourse's gray when the color is unrecognized.
+int? categoryColorValueOrNull(String color) {
   var hex = color.trim();
   if (hex.startsWith('#')) hex = hex.substring(1);
   if (hex.length == 3) {
     hex = [for (final digit in hex.split('')) '$digit$digit'].join();
   }
-  if (hex.length != 6) return 0xFF888888;
-  return int.tryParse('FF$hex', radix: 16) ?? 0xFF888888;
+  if (hex.length != 6) return null;
+  return int.tryParse('FF$hex', radix: 16);
 }
 
 /// Root-relative templates already include the forum's subfolder, while

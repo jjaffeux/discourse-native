@@ -1481,15 +1481,13 @@ class ChatChannel with Storable<ChatChannel> {
 
   static const String _routePrefix = 'chat-c-';
 
-  /// Discourse writes category colours as bare hex — `0088CC`, no leading
-  /// `#` — because they land in a stylesheet where it is added back.
+  /// The chatable carries the category colour as stored, which may be
+  /// three-digit shorthand; an unrecognized one stays null so each surface
+  /// draws its own muted fallback.
   static Color? _hexColor(Object? value) {
     final text = jsonText(value);
-    if (text == null) return null;
-    final digits = text.startsWith('#') ? text.substring(1) : text;
-    if (digits.length != 6) return null;
-    final parsed = int.tryParse(digits, radix: 16);
-    return parsed == null ? null : Color(0xFF000000 | parsed);
+    final color = text == null ? null : categoryColorValueOrNull(text);
+    return color == null ? null : Color(color);
   }
 
   @override
