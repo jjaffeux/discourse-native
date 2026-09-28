@@ -253,6 +253,7 @@ class _DSheetCurves extends StatefulWidget {
     BuildContext context,
     Animation<double> popupCurve,
     Animation<double> backdropCurve,
+    ValueNotifier<double> swipeProgress,
   )
   builder;
 
@@ -263,6 +264,7 @@ class _DSheetCurves extends StatefulWidget {
 class _DSheetCurvesState extends State<_DSheetCurves> {
   late CurvedAnimation _popup;
   late CurvedAnimation _backdrop;
+  final _swipeProgress = ValueNotifier(0.0);
 
   @override
   void initState() {
@@ -299,12 +301,13 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   @override
   void dispose() {
     _dispose();
+    _swipeProgress.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) =>
-      widget.builder(context, _popup, _backdrop);
+      widget.builder(context, _popup, _backdrop, _swipeProgress);
 }
 
 Widget _sheetPresentation(
@@ -321,11 +324,12 @@ Widget _sheetPresentation(
   bool retainKeyboardInsets = false,
 }) => _DSheetCurves(
   animation: presentation.animation,
-  builder: (context, popupCurve, backdropCurve) => _sheetLayout(
+  builder: (context, popupCurve, backdropCurve, swipeProgress) => _sheetLayout(
     context,
     presentation,
     popupCurve,
     backdropCurve,
+    swipeProgress,
     requestedSide,
     maxWidth,
     width,
@@ -343,6 +347,7 @@ Widget _sheetLayout(
   DDialogPresentation presentation,
   Animation<double> popupCurve,
   Animation<double> backdropCurve,
+  ValueNotifier<double> swipeProgress,
   DSheetSide requestedSide,
   double maxWidth,
   double? width,
@@ -356,8 +361,8 @@ Widget _sheetLayout(
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
   final background = DTokens.of(context).background.withValues(alpha: 1);
-  // Full-height sheets share a distinct canvas above their rounded edge while
-  // keeping the underlying application completely hidden.
+  // Full-height sheets start with an opaque canvas. A swipe reveals the
+  // underlying application as the sheet moves out of the viewport.
   final backdropColor = Color.lerp(
     background,
     Colors.black,
@@ -369,6 +374,12 @@ Widget _sheetLayout(
   if (animate && !fillAvailableHeight) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
+  backdrop = ValueListenableBuilder<double>(
+    valueListenable: swipeProgress,
+    builder: (context, progress, child) =>
+        Opacity(opacity: 1 - progress, child: child),
+    child: backdrop,
+  );
 
   final beginOffset = switch (side) {
     DSheetSide.center => const Offset(0, 40),
@@ -419,6 +430,7 @@ Widget _sheetLayout(
         routeAnimation: presentation.animation,
         popupCurve: popupCurve,
         scale: fillAvailableHeight,
+        swipeProgress: swipeProgress,
         child: content,
       ),
     );
@@ -565,6 +577,7 @@ class _DSheetSwipeDismiss extends StatefulWidget {
     required this.routeAnimation,
     required this.popupCurve,
     required this.scale,
+    required this.swipeProgress,
     required this.child,
   });
 
@@ -572,6 +585,7 @@ class _DSheetSwipeDismiss extends StatefulWidget {
   final Animation<double> routeAnimation;
   final Animation<double> popupCurve;
   final bool scale;
+  final ValueNotifier<double> swipeProgress;
   final Widget child;
 
   @override
@@ -590,6 +604,20 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   _DSheetDismissSimulation? _dismissal;
   double _dismissOrigin = 0;
   double _dismissCurve = 1;
+  double _swipeExtent = 1;
+
+  double get _offset {
+    final dismissal = _dismissal;
+    return dismissal == null
+        ? _travel.value
+        : _dismissOrigin +
+              dismissal.distance *
+                  (1 - widget.routeAnimation.value / dismissal.initialValue);
+  }
+
+  void _syncBackdrop() {
+    widget.swipeProgress.value = (_offset / _swipeExtent).clamp(0, 1);
+  }
 
   Simulation _beginDismissal(double velocity) {
     _travel.stop();
@@ -598,6 +626,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     final box = context.findRenderObject()! as RenderBox;
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final top = box.localToGlobal(Offset.zero).dy + _dismissOrigin;
+    _swipeExtent = math.max(1, viewportHeight - top + _dismissOrigin);
     return _dismissal = _DSheetDismissSimulation(
       math.max(1, viewportHeight - top),
       math.max(0, velocity),
@@ -615,6 +644,8 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   @override
   void initState() {
     super.initState();
+    _travel.addListener(_syncBackdrop);
+    widget.routeAnimation.addListener(_syncBackdrop);
     widget.routeAnimation.addStatusListener(_onRouteStatus);
   }
 
@@ -622,7 +653,9 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   void didUpdateWidget(_DSheetSwipeDismiss oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.routeAnimation == widget.routeAnimation) return;
+    oldWidget.routeAnimation.removeListener(_syncBackdrop);
     oldWidget.routeAnimation.removeStatusListener(_onRouteStatus);
+    widget.routeAnimation.addListener(_syncBackdrop);
     widget.routeAnimation.addStatusListener(_onRouteStatus);
   }
 
@@ -637,6 +670,11 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _start() {
+    final box = context.findRenderObject()! as RenderBox;
+    _swipeExtent = math.max(
+      1,
+      MediaQuery.sizeOf(context).height - box.localToGlobal(Offset.zero).dy,
+    );
     _clearPendingSimulation();
     _travel.stop();
     _dragging = true;
@@ -725,6 +763,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   @override
   void dispose() {
     _clearPendingSimulation();
+    widget.routeAnimation.removeListener(_syncBackdrop);
     widget.routeAnimation.removeStatusListener(_onRouteStatus);
     _travel.dispose();
     super.dispose();
@@ -735,13 +774,8 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     animation: Listenable.merge([_travel, widget.routeAnimation]),
     builder: (context, child) {
       final dismissal = _dismissal;
-      final offset = dismissal == null
-          ? _travel.value
-          : _dismissOrigin +
-                dismissal.distance *
-                    (1 - widget.routeAnimation.value / dismissal.initialValue);
       return Transform.translate(
-        offset: Offset(0, offset),
+        offset: Offset(0, _offset),
         child: _DSheetMotion(
           curve: dismissal == null
               ? widget.popupCurve
