@@ -41,22 +41,12 @@ class ComposerImageOptimizer {
 
     var cancelled = false;
     final aborted = abortTrigger.then((_) => cancelled = true);
-    // A cancelled queued job must not release the next job ahead of the
-    // image that currently owns the worker slot.
-    final previous = _queue ?? Future<void>.value();
-    final done = Completer<void>();
-    final tail = previous.then((_) => done.future);
-    _queue = tail;
-    unawaited(
-      tail.then((_) {
-        if (identical(_queue, tail)) _queue = null;
-      }),
-    );
+    Completer<void>? slot;
     Directory? directory;
     var retained = false;
     try {
-      await Future.any<Object?>([previous, aborted]);
-      if (cancelled) return original;
+      // The size limits are decided before queueing: a file that will never
+      // be encoded must not wait behind another composer's image.
       final length = await Future.any<int?>([
         file.length(),
         aborted.then((_) => null),
@@ -66,6 +56,20 @@ class ComposerImageOptimizer {
           length > composerImageMaxInputBytes) {
         return original;
       }
+      // A cancelled queued job must not release the next job ahead of the
+      // image that currently owns the worker slot.
+      final previous = _queue ?? Future<void>.value();
+      final done = Completer<void>();
+      slot = done;
+      final tail = previous.then((_) => done.future);
+      _queue = tail;
+      unawaited(
+        tail.then((_) {
+          if (identical(_queue, tail)) _queue = null;
+        }),
+      );
+      await Future.any<Object?>([previous, aborted]);
+      if (cancelled) return original;
       final root = await _temporaryDirectory();
       if (cancelled) return original;
       directory = await root.createTemp('composer-image-');
@@ -136,7 +140,7 @@ class ComposerImageOptimizer {
       return original;
     } finally {
       if (!retained && directory != null) await _removeDirectory(directory);
-      done.complete();
+      slot?.complete();
     }
   }
 }

@@ -343,6 +343,50 @@ void main() {
   });
 
   test(
+    'files outside the byte limits never wait for the active image',
+    () async {
+      final firstStarted = Completer<void>();
+      final firstStream = StreamController<List<int>>();
+      final first = prepare(
+        ComposerUploadFile(
+          name: 'one.jpg',
+          length: () async => 3,
+          openRead: () {
+            firstStarted.complete();
+            return firstStream.stream;
+          },
+        ),
+      );
+      await firstStarted.future;
+      var reads = 0;
+      ComposerUploadFile source(int length) => ComposerUploadFile(
+        name: 'photo.png',
+        length: () async => length,
+        openRead: () {
+          reads++;
+          throw StateError('Should not be read');
+        },
+      );
+      for (final entry in [
+        (source(10), const ComposerImageOptimization(bytesThreshold: 1 << 20)),
+        (source(composerImageMaxInputBytes + 1), settings),
+      ]) {
+        PreparedComposerUpload? result;
+        unawaited(
+          prepare(entry.$1, options: entry.$2).then((value) => result = value),
+        );
+        await pumpEventQueue();
+        expect(result?.file, same(entry.$1));
+      }
+      expect(reads, 0);
+      firstStream.add([1, 2, 3]);
+      await firstStream.close();
+      await first;
+      expect(await temporary.list().length, 0);
+    },
+  );
+
+  test(
     'cancelling a stalled source releases the queue and temporary files',
     () async {
       final started = Completer<void>();
