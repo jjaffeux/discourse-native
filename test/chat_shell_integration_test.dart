@@ -1824,14 +1824,25 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsNothing);
 
-        await tester.tap(
-          find.byKey(const ValueKey('sidebar-panel-switch-main')),
-        );
+        // `selectChatSidebar` scrolled the Chat tab to the row's leading edge,
+        // which clips Forum out of the tab row entirely.
+        const forumSwitch = ValueKey('sidebar-panel-switch-main');
+        await tester.ensureVisible(find.byKey(forumSwitch));
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(forumSwitch));
+        await tester.pumpAndSettle();
+        expect(sidebarDestination('Topics'), findsOneWidget);
+        expect(sidebarDestination('Bugs'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          findsNothing,
+        );
+
         await tester.tap(
           find.byKey(const ValueKey('sidebar-panel-switch-chat')),
         );
         await tester.pumpAndSettle();
+        expect(sidebarDestination('Topics'), findsNothing);
 
         expect(find.text('Unread'), findsOneWidget);
         expect(sidebarDestination('Bugs'), findsOneWidget);
