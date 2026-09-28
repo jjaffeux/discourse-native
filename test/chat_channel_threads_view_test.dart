@@ -87,6 +87,48 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
   });
 
+  testWidgets('Try again after a failed refresh reloads the first page', (
+    tester,
+  ) async {
+    final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0);
+    final pages = {
+      firstPage: ChatThreadPage(threads: [_thread(1)]),
+    };
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatChannelsBySite: {
+        _site: const ChatChannels(public: [_channel]),
+      },
+      chatChannelThreadPagesByKey: pages,
+    );
+    final controller = await _pump(tester, api);
+    Iterable<int> offsets() =>
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
+    expect(offsets(), [0]);
+
+    pages.remove(firstPage);
+    await controller.pluginSession
+        .require(chatShellService)
+        .hydratePluginRoute(
+          _site,
+          ChatPlugin.channelThreadsRouteId(_channelId),
+          force: true,
+        );
+    await tester.pumpAndSettle();
+    expect(offsets(), [0, 0]);
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsOneWidget);
+
+    pages[firstPage] = ChatThreadPage(threads: [_thread(2), _thread(1)]);
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+
+    expect(offsets(), [0, 0, 0]);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsNothing);
+    expect(find.text('Try again'), findsNothing);
+  });
+
   testWidgets('reopening the list adds new threads behind the held rows', (
     tester,
   ) async {

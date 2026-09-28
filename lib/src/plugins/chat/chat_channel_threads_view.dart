@@ -184,11 +184,16 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                   DButton(
                     label: Text(error == null ? 'Load more' : 'Try again'),
                     onPressed: () => unawaited(
-                      _chat.loadChannelThreads(
-                        widget.siteUrl,
-                        widget.channelId,
-                        more: true,
-                      ),
+                      error == null
+                          ? _chat.loadChannelThreads(
+                              widget.siteUrl,
+                              widget.channelId,
+                              more: true,
+                            )
+                          : _chat.retryChannelThreads(
+                              widget.siteUrl,
+                              widget.channelId,
+                            ),
                     ),
                   ),
                 ],

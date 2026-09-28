@@ -5539,6 +5539,24 @@ class ChatController extends FrameSafeNotifier {
     return request;
   }
 
+  /// Retries the load behind [channelThreadsError]. A failed page leaves more
+  /// to load, so a list with none left failed its first page or a forced
+  /// refresh, and asking it for a next page would send nothing.
+  Future<void> retryChannelThreads(
+    String siteUrl,
+    int channelId, {
+    ChatChannel? directoryChannel,
+  }) {
+    final more = channelThreadsHaveMore(siteUrl, channelId);
+    return loadChannelThreads(
+      siteUrl,
+      channelId,
+      more: more,
+      force: !more,
+      directoryChannel: directoryChannel,
+    );
+  }
+
   Future<void> _loadChannelThreads(
     String siteUrl,
     int channelId,
