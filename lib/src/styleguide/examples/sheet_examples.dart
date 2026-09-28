@@ -14,7 +14,9 @@ final sheetExamples = ComponentExamples(
       'Sheet preserves Dialog controller, typed-result, focus, nesting and '
       'dismissal ownership while matching base-nova edge geometry and motion. '
       'Physical sides remain physical in RTL; start and end are also available '
-      'for native direction-aware layouts. Swipe handles, detents and snap '
+      'for native direction-aware layouts. Full-height sheets use the page '
+      'surface over a darker opaque backdrop in both light and dark themes. '
+      'Swipe handles, detents and snap '
       'points belong to Drawer.',
   examples: [
     StyleguideExample(
