@@ -69,10 +69,9 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
       if (failed.isNotEmpty) {
         for (final channel in failed) {
           if (isDisposed || chat.isDisposed) return;
-          await chat.loadChannelThreads(
+          await chat.retryChannelThreads(
             siteUrl,
             channel.id,
-            more: chat.channelThreadsLoaded(siteUrl, channel.id),
             directoryChannel: channel,
           );
         }

@@ -3,7 +3,9 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -62,6 +64,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgets('Try again after a failed refresh reloads the first page', (
+    tester,
+  ) async {
+    final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(9, 0);
+    final pages = {
+      firstPage: ChatThreadPage(threads: [_thread(1)]),
+    };
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: _browsePages,
+      chatChannelThreadPagesByKey: pages,
+    );
+    final controller = await _pump(tester, api);
+    Iterable<int> offsets() =>
+        api.chatChannelThreadPagesRequested.map((request) => request.offset);
+    expect(offsets(), [0]);
+
+    pages.remove(firstPage);
+    await controller.pluginSession
+        .require(chatShellService)
+        .hydratePluginRoute(_site, ChatPlugin.myThreadsRouteId, force: true);
+    await tester.pumpAndSettle();
+    expect(offsets(), [0, 0]);
+    expect(find.text('Thread 1'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsOneWidget);
+
+    pages[firstPage] = ChatThreadPage(threads: [_thread(2), _thread(1)]);
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+
+    expect(offsets(), [0, 0, 0]);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Could not load this channel’s threads.'), findsNothing);
+    expect(find.text('Try again'), findsNothing);
   });
 
   testWidgets('reopening the directory adds new threads to a held channel', (
