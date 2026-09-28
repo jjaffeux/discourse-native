@@ -495,7 +495,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               siteUrl: widget.siteUrl,
               channelId: widget.target.channelId,
               threadId: widget.target.threadId,
-              focusRequest: _focusComposerRequest,
+              focusRequest: context.isTouch ? 0 : _focusComposerRequest,
               uploadDropController: _uploadDropController,
               editingMessage: _editingMessage,
               onEditMessage: _editMessage,

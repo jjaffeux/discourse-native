@@ -1256,6 +1256,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               _handleEditLastMessage(event, composer),
                           child: ComposerEditor(
                             composer: composer,
+                            autofocus: !mobile,
                             onKeyEvent: (event) =>
                                 _handleComposerKey(event, composer),
                             enableBlockReordering: false,

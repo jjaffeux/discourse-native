@@ -1802,6 +1802,8 @@ void main() {
           ),
         );
         expect(find.text('Send'), findsOneWidget);
+        await tester.tap(_composerField());
+        await tester.pump();
         expect(_field(tester).focusNode!.hasFocus, isTrue);
         expect(_field(tester).expands, isFalse);
         expect(_field(tester).minLines, 1);

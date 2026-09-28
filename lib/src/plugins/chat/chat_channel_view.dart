@@ -384,7 +384,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                   uploadDropController: _uploadDropController,
                   focusRequest:
                       _composerFocusRequest +
-                      (widget.autofocusComposer ? 1 : 0),
+                      (widget.autofocusComposer && !context.isTouch ? 1 : 0),
                   editingMessage: _editingMessage,
                   onEditMessage: _editMessage,
                   onEditFinished: _finishEditing,

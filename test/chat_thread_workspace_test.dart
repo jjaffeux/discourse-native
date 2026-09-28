@@ -146,6 +146,52 @@ void main() {
     SharedPreferences.setMockInitialValues(const {});
   });
 
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    for (final width in [390.0, 1000.0]) {
+      testWidgets('opening a thread composer on $platform at $width', (
+        tester,
+      ) async {
+        final fixture = await _fixture();
+        addTearDown(fixture.shell.dispose);
+
+        await _pumpWorkspace(
+          tester,
+          fixture.shell,
+          width: width,
+          platform: platform,
+        );
+
+        final fieldFinder = find.descendant(
+          of: find.byType(ChatThreadView),
+          matching: find.byType(TextField),
+        );
+        final field = tester.widget<TextField>(fieldFinder);
+        final autofocus = platform == TargetPlatform.macOS;
+        expect(field.focusNode!.hasPrimaryFocus, autofocus);
+        expect(tester.testTextInput.isVisible, autofocus);
+
+        fixture.shell.openChatThread(
+          siteUrl: _siteUrl,
+          channelId: _channelId,
+          threadId: _threadId,
+          focusComposer: true,
+        );
+        await tester.pumpAndSettle();
+        expect(field.focusNode!.hasPrimaryFocus, autofocus);
+        expect(tester.testTextInput.isVisible, autofocus);
+
+        await tester.tap(fieldFinder);
+        await tester.pumpAndSettle();
+        expect(field.focusNode!.hasPrimaryFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+      });
+    }
+  }
+
   for (final width in const [390.0, 1000.0]) {
     testWidgets(
       'thread route replaces the channel at ${width.toInt()} logical pixels',

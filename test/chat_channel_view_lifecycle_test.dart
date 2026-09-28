@@ -53,24 +53,49 @@ void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
-  testWidgets('opening a channel focuses its composer', (tester) async {
-    final controller = await _controller(
-      _ChatApi(
-        openPages: {
-          firstSite: [_messagesPage(1, 1)],
-        },
-      ),
-      sites: const [firstSite],
-    );
-    addTearDown(controller.dispose);
-    controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    for (final width in [390.0, 1000.0]) {
+      testWidgets('opening a channel composer on $platform at $width', (
+        tester,
+      ) async {
+        final controller = await _controller(
+          _ChatApi(
+            openPages: {
+              firstSite: [_messagesPage(1, 1)],
+            },
+          ),
+          sites: const [firstSite],
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 0));
+        await tester.binding.setSurfaceSize(Size(width, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(_TestView(controller: controller));
-    await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _TestView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: platform),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-    final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.focusNode!.hasPrimaryFocus, isTrue);
-  });
+        final fieldFinder = find.byType(TextField);
+        final field = tester.widget<TextField>(fieldFinder);
+        final autofocus = platform == TargetPlatform.macOS;
+        expect(field.focusNode!.hasPrimaryFocus, autofocus);
+        expect(tester.testTextInput.isVisible, autofocus);
+
+        await tester.tap(fieldFinder);
+        await tester.pumpAndSettle();
+        expect(field.focusNode!.hasPrimaryFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+      });
+    }
+  }
 
   for (final target in const <ChatStreamTarget>[
     ChatChannelTarget(9),
