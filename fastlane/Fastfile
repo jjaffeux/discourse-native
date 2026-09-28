@@ -1,6 +1,9 @@
 opt_out_usage
 
 require "fileutils"
+require "shellwords"
+require "spaceship"
+require "tempfile"
 
 APP_IDENTIFIER = "org.discourse.native"
 DEVELOPER_TEAM_ID = "6T3LU73T8S"
@@ -31,6 +34,33 @@ def required_api_key_path(options)
   expanded = File.expand_path(path)
   UI.user_error!("API-key JSON not found at #{expanded}") unless File.file?(expanded)
   expanded
+end
+
+def build_testflight_app(api_key_path:, **options)
+  token = Spaceship::ConnectAPI::Token.from_json_file(api_key_path)
+  if token.key_id.to_s.strip.empty? || token.issuer_id.to_s.strip.empty?
+    UI.user_error!(
+      "Xcode signing requires a team API key with key_id and issuer_id in the API-key JSON"
+    )
+  end
+
+  # Fastlane's API authentication is not passed to xcodebuild automatically.
+  # Tempfile keeps the extracted private key owner-readable only and removes it
+  # even when archiving or exporting fails.
+  Tempfile.create(["discourse-signing-", ".p8"]) do |key_file|
+    key_file.write(token.key_raw)
+    key_file.flush
+
+    # The pinned gym version forwards xcargs to both archive and exportArchive.
+    signing_args = Shellwords.join([
+      "-allowProvisioningUpdates",
+      "-authenticationKeyPath", key_file.path,
+      "-authenticationKeyID", token.key_id,
+      "-authenticationKeyIssuerID", token.issuer_id,
+      "DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
+    ])
+    build_app(**options, xcargs: signing_args)
+  end
 end
 
 def required_version(options)
@@ -186,7 +216,8 @@ lane :beta do |options|
       "--build-number=#{ios_build}"
     )
 
-    ios_artifact = build_app(
+    ios_artifact = build_testflight_app(
+      api_key_path: api_key_path,
       workspace: File.join(FULL_PROFILE_ROOT, "ios", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",
@@ -200,8 +231,7 @@ lane :beta do |options|
         signingStyle: "automatic",
         teamID: DEVELOPER_TEAM_ID,
         uploadSymbols: true
-      },
-      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
+      }
     )
 
     sh(
@@ -214,7 +244,8 @@ lane :beta do |options|
       "--build-number=#{macos_build}"
     )
 
-    macos_artifact = build_app(
+    macos_artifact = build_testflight_app(
+      api_key_path: api_key_path,
       workspace: File.join(FULL_PROFILE_ROOT, "macos", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",
@@ -229,8 +260,7 @@ lane :beta do |options|
         signingStyle: "automatic",
         teamID: DEVELOPER_TEAM_ID,
         uploadSymbols: true
-      },
-      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
+      }
     )
   end
 
