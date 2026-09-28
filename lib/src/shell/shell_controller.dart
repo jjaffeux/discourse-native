@@ -6557,6 +6557,35 @@ class ShellController extends FrameSafeNotifier
     ];
   }
 
+  /// The loaded post the open mega topic pages from on the [newer] side of
+  /// its window, or null where there is nothing to read past it by post
+  /// number.
+  ///
+  /// A mega topic's stream is only the run read so far
+  /// (TopicDetail.isMegaTopic), so past an end of the window that is also an
+  /// end of the stream the topic goes on by post number, until the window
+  /// holds the topic's last post id or its first post, as on the web client.
+  /// A summary stream is read whole and pages by id.
+  Post? _currentMegaTopicEdge({required bool newer}) {
+    final instance = currentInstance;
+    final detail = currentTopic;
+    if (instance == null || detail == null || !detail.isMegaTopic) return null;
+    final window = _currentPostWindow();
+    final stream = window.stream;
+    final range = window.range;
+    if (range == null || !identical(stream, detail.stream)) return null;
+    if (newer) {
+      if (range.$2 + 1 < stream.length ||
+          stream[range.$2] == detail.lastPostId) {
+        return null;
+      }
+      return store.read<Post>(instance.url, stream[range.$2]);
+    }
+    if (range.$1 > 0) return null;
+    final first = store.read<Post>(instance.url, stream.first);
+    return first != null && first.postNumber > 1 ? first : null;
+  }
+
   /// Whether the stream continues past the loaded window.
   ///
   /// The window is the longest contiguous run of loaded posts, so the post
@@ -6567,12 +6596,14 @@ class ShellController extends FrameSafeNotifier
     final range = window.range;
     return range == null
         ? window.stream.isNotEmpty
-        : range.$2 + 1 < window.stream.length;
+        : range.$2 + 1 < window.stream.length ||
+              _currentMegaTopicEdge(newer: true) != null;
   }
 
   bool get currentTopicHasEarlier {
     final range = _currentPostWindow().range;
-    return range != null && range.$1 > 0;
+    return range != null &&
+        (range.$1 > 0 || _currentMegaTopicEdge(newer: false) != null);
   }
 
   bool get currentTopicLoading {
@@ -7500,6 +7531,9 @@ class ShellController extends FrameSafeNotifier
   int get topicNavigationRevision =>
       _topicNavigationRevisions[activeTabId] ?? 0;
 
+  /// Opens the post at progress position [index], counted from one: its place
+  /// in the stream, or in a mega topic, whose stream is only the run read so
+  /// far, its post number (TopicViewportSnapshot.progressTotal).
   Future<bool> jumpToCurrentTopicIndex(int index) async {
     final instance = currentInstance;
     final route = currentContent;
@@ -7512,6 +7546,12 @@ class ShellController extends FrameSafeNotifier
         tabId == null ||
         currentTopicStreamIds.isEmpty) {
       return false;
+    }
+    if (topic.isMegaTopic && !currentTopicSummary) {
+      // Read around the number, as the web client's timeline jumps: a held
+      // post opens at once, and a number no post has opens the one after.
+      openCurrentTopicPost(math.max(index, 1));
+      return true;
     }
 
     final stream = currentTopicStreamIds;
@@ -7905,6 +7945,7 @@ class ShellController extends FrameSafeNotifier
           bookmarkVersionAtDispatch: bookmarkVersion,
           messageArchiveVersionAtDispatch: messageArchiveVersion,
           postRemovalVersionAtDispatch: postRemovalVersion,
+          positioned: requestedPostNumber != null,
         );
         _ensureMessageListParent(instance.url, tabId, detail);
         if (requestedPostNumber == null &&
@@ -8121,17 +8162,13 @@ class ShellController extends FrameSafeNotifier
     TopicPayload payload,
     int? versionAtDispatch,
   ) {
-    final topicId = payload.detail.id;
-    if (versionAtDispatch == null ||
-        versionAtDispatch == _topicPostRemovalVersion(siteUrl, topicId)) {
-      return payload;
-    }
-    final removals =
-        _removedTopicPosts[_topicKey(siteUrl, topicId)] ?? const {};
-    final removed = {
-      for (final MapEntry(key: postId, value: version) in removals.entries)
-        if (version > versionAtDispatch) postId,
-    };
+    if (versionAtDispatch == null) return payload;
+    final removed = _topicPostsRemovedSince(
+      siteUrl,
+      payload.detail.id,
+      versionAtDispatch,
+    );
+    if (removed.isEmpty) return payload;
     return (
       detail: removed.fold(
         payload.detail,
@@ -8144,12 +8181,31 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  Set<int> _topicPostsRemovedSince(
+    String siteUrl,
+    int topicId,
+    int versionAtDispatch,
+  ) {
+    if (versionAtDispatch == _topicPostRemovalVersion(siteUrl, topicId)) {
+      return const {};
+    }
+    final removals =
+        _removedTopicPosts[_topicKey(siteUrl, topicId)] ?? const {};
+    return {
+      for (final MapEntry(key: postId, value: version) in removals.entries)
+        if (version > versionAtDispatch) postId,
+    };
+  }
+
+  /// Stores a topic read. [positioned] says the read named the post the
+  /// reader is going to.
   TopicDetail _absorb(
     String siteUrl,
     TopicPayload response, {
     int? bookmarkVersionAtDispatch,
     int? messageArchiveVersionAtDispatch,
     int? postRemovalVersionAtDispatch,
+    bool positioned = false,
   }) {
     final payload = _withoutPostsRemovedSince(
       siteUrl,
@@ -8187,7 +8243,21 @@ class ShellController extends FrameSafeNotifier
         messageArchived: heldDetail.messageArchived,
       );
     }
-    final detail = store.put(siteUrl, incomingDetail);
+    var detail = store.put(siteUrl, incomingDetail);
+    // A mega topic keeps its run over a read of another part of it
+    // (TopicDetail.merge), but one that names a post is where the reader is
+    // going: its page becomes the run.
+    if (positioned && detail.isMegaTopic && incomingDetail.stream.isNotEmpty) {
+      final run = detail.stream.toSet();
+      if (!incomingDetail.stream.any(run.contains)) {
+        store.update<TopicDetail>(
+          siteUrl,
+          detail.id,
+          (held) => held.copyWith(stream: incomingDetail.stream),
+        );
+        detail = store.read<TopicDetail>(siteUrl, detail.id) ?? detail;
+      }
+    }
     _topicsStale.remove(_topicKey(siteUrl, detail.id));
     store.update<Topic>(
       siteUrl,
@@ -9241,7 +9311,13 @@ class ShellController extends FrameSafeNotifier
 
     final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
     final pending = readTab(tabId, () => _pendingPostIds(instance.url, detail));
-    if (pending.isEmpty) return;
+    if (pending.isEmpty) {
+      final edge = readTab(tabId, () => _currentMegaTopicEdge(newer: true));
+      if (edge != null) {
+        await _loadMegaTopicPage(instance.url, detail, edge, newer: true);
+      }
+      return;
+    }
     final requestIds = pending.take(boundedBatch).toList();
     // Recommendations are dynamic: resolve them only at the final window and
     // never replace an existing snapshot with a later empty response.
@@ -9337,7 +9413,13 @@ class ShellController extends FrameSafeNotifier
       tabId,
       () => _pendingEarlierPostIds(instance.url, detail, boundedBatch),
     );
-    if (pending.isEmpty) return;
+    if (pending.isEmpty) {
+      final edge = readTab(tabId, () => _currentMegaTopicEdge(newer: false));
+      if (edge != null) {
+        await _loadMegaTopicPage(instance.url, detail, edge, newer: false);
+      }
+      return;
+    }
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
     final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
@@ -9383,6 +9465,87 @@ class ShellController extends FrameSafeNotifier
     } finally {
       lease.commit(() {
         _earlierPostsLoading.remove(key);
+        _notify();
+      });
+    }
+  }
+
+  /// Reads the page of a mega topic past [edge] of its run by post number,
+  /// the newer side when [newer], under the loading flag of the page by ids
+  /// it stands in for.
+  Future<void> _loadMegaTopicPage(
+    String siteUrl,
+    TopicDetail detail,
+    Post edge, {
+    required bool newer,
+  }) async {
+    final topicId = detail.id;
+    final key = _topicKey(siteUrl, topicId);
+    final loading = newer ? _postsLoading : _earlierPostsLoading;
+    final lease = lifecycle.capture(siteUrl);
+    final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
+    final removalVersion = _topicPostRemovalVersion(siteUrl, topicId);
+
+    loading.add(key);
+    _notify();
+
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => credentials.apiKeyFor(siteUrl),
+      );
+      if (credential == null || !lease.isCurrent) return;
+      final posts = await api.topicContent.postsFromNumber(
+        siteUrl: siteUrl,
+        topicId: topicId,
+        postNumber: edge.postNumber,
+        ascending: newer,
+        apiKey: credential.value,
+      );
+      lease.commit(() {
+        // Paged in, a post this reader took out while the page was out would
+        // be back in the run for good.
+        final removed = _topicPostsRemovedSince(
+          siteUrl,
+          topicId,
+          removalVersion,
+        );
+        final page = [
+          for (final post in posts)
+            if (!removed.contains(post.id) &&
+                (newer
+                    ? post.postNumber > edge.postNumber
+                    : post.postNumber < edge.postNumber))
+              post,
+        ];
+        _putTopicPosts(
+          siteUrl,
+          topicId,
+          page,
+          bookmarkVersionAtDispatch: bookmarkVersion,
+        );
+        store.update<TopicDetail>(
+          siteUrl,
+          topicId,
+          (held) => held.withMegaTopicPage(
+            anchorPostId: edge.id,
+            newer: newer,
+            postIds: [for (final post in page) post.id],
+            lastPostIdAtDispatch: detail.lastPostId,
+          ),
+        );
+      });
+    } catch (error, stackTrace) {
+      if (isDisposed || !lease.isCurrent) return;
+      _reportOperationalError(
+        error,
+        stackTrace,
+        newer ? 'topic.loadMorePosts' : 'topic.loadEarlierPosts',
+        severity: DiagnosticSeverity.warning,
+      );
+    } finally {
+      lease.commit(() {
+        loading.remove(key);
         _notify();
       });
     }
@@ -10836,13 +10999,19 @@ class ShellController extends FrameSafeNotifier
     }
     unawaited(_ensureTopicComposerCapabilities(instance.url));
     if (!_replaceComposer()) return;
+    // A mega topic's run starts at the first post only when read from there.
+    final firstId = detail!.stream.firstOrNull;
+    final heldFirstPost =
+        !detail.isMegaTopic ||
+        (firstId != null &&
+            store.read<Post>(instance.url, firstId)?.postNumber == 1);
     final target = ComposerTarget(
       siteUrl: instance.url,
       tabId: activeTabId,
       topicId: route!.topicId!,
       slug: route.slug ?? '',
-      topicTitle: detail!.title,
-      editingPostId: detail.stream.firstOrNull,
+      topicTitle: detail.title,
+      editingPostId: heldFirstPost ? firstId : null,
       editingPostNumber: 1,
       mode: ComposerMode.tagsEdit,
       initialCategoryId: detail.categoryId,
@@ -14650,6 +14819,7 @@ class ShellController extends FrameSafeNotifier
           bookmarkVersionAtDispatch: bookmarkVersion,
           messageArchiveVersionAtDispatch: messageArchiveVersion,
           postRemovalVersionAtDispatch: postRemovalVersion,
+          positioned: postNumber != null,
         ),
       );
     } catch (error, stackTrace) {

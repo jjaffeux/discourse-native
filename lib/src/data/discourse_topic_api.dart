@@ -347,6 +347,34 @@ final class DiscourseTopicApi {
     );
   }
 
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _requirePositiveId(topicId, 'topicId');
+    _requirePositiveId(postNumber, 'postNumber');
+    // TopicsController#posts reads these as filter_post_number and asc.
+    final body = await _getObject(
+      Uri.parse('$siteUrl/t/$topicId/posts.json').replace(
+        queryParameters: {'post_number': '$postNumber', 'asc': '$ascending'},
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    // TopicView#filter_posts_by_post_number answers an earlier page nearest
+    // post first.
+    final posts = <Post>[
+      for (final post in jsonObjects(jsonObject(body['post_stream'])['posts']))
+        _models.post(post, siteUrl),
+    ]..sort((a, b) => a.postNumber.compareTo(b.postNumber));
+    return List.unmodifiable(posts);
+  }
+
   Future<TopicPostsPayload> _topicPosts({
     required String siteUrl,
     required int topicId,

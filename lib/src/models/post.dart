@@ -575,6 +575,9 @@ class TopicDetail with Storable<TopicDetail> {
     required this.title,
     required this.stream,
     this.messageBusLastId,
+    this.isMegaTopic = false,
+    this.lastPostId,
+    this.highestPostNumber = 0,
     this.gapsBefore = const {},
     this.gapsAfter = const {},
     this.postsCount = 0,
@@ -639,14 +642,31 @@ class TopicDetail with Storable<TopicDetail> {
     final postStream = jsonObject(json['post_stream']);
     final gaps = jsonObject(postStream['gaps']);
     final details = jsonObject(json['details']);
+    final isMegaTopic = postStream['isMegaTopic'] == true;
+    final posts = List<Post>.unmodifiable([
+      for (final post in jsonObjects(
+        postStream['posts'],
+      ).take(maximumInitialPosts))
+        Post.fromJson(post, siteUrl, extensions: extensions),
+    ]);
     return (
       detail: TopicDetail(
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
         messageBusLastId: jsonIntOrNull(json['message_bus_last_id']),
         stream: List.unmodifiable(
-          jsonArray(postStream['stream']).map(jsonIntOrNull).whereType<int>(),
+          isMegaTopic
+              ? {
+                  for (final post in posts)
+                    if (post.id > 0) post.id,
+                }
+              : jsonArray(
+                  postStream['stream'],
+                ).map(jsonIntOrNull).whereType<int>(),
         ),
+        isMegaTopic: isMegaTopic,
+        lastPostId: isMegaTopic ? jsonIntOrNull(postStream['lastId']) : null,
+        highestPostNumber: jsonInt(json['highest_post_number']),
         gapsBefore: _parsePostGaps(gaps['before']),
         gapsAfter: _parsePostGaps(gaps['after']),
         postsCount: jsonInt(json['posts_count']),
@@ -732,12 +752,7 @@ class TopicDetail with Storable<TopicDetail> {
         ),
         plugins: extensions.readTopic(json, siteUrl),
       ),
-      posts: List.unmodifiable([
-        for (final post in jsonObjects(
-          postStream['posts'],
-        ).take(maximumInitialPosts))
-          Post.fromJson(post, siteUrl, extensions: extensions),
-      ]),
+      posts: posts,
     );
   }
 
@@ -745,7 +760,24 @@ class TopicDetail with Storable<TopicDetail> {
   final String title;
   final int? messageBusLastId;
 
+  /// The topic's post ids in reading order, or for a mega topic, only the
+  /// contiguous run of them read so far.
   final List<int> stream;
+
+  /// Whether the site sent this topic without its stream of post ids, as
+  /// PostStreamSerializerMixin#post_stream does once it reaches
+  /// TopicView::MEGA_TOPIC_POSTS_COUNT posts. [stream] then starts as the
+  /// posts the payload carried and grows by pages read past either end of it
+  /// by post number, as the web client's PostStream#fetchNextWindow reads.
+  final bool isMegaTopic;
+
+  /// The id of the last post this reader can see, which a mega topic is sent
+  /// in place of its stream. As on the web client, a run that holds it has
+  /// reached the topic's end.
+  final int? lastPostId;
+
+  /// Counts a mega topic's progress, which has no stream to count.
+  final int highestPostNumber;
 
   final Map<int, List<int>> gapsBefore;
   final Map<int, List<int>> gapsAfter;
@@ -928,9 +960,59 @@ class TopicDetail with Storable<TopicDetail> {
   @override
   Object get storeId => id;
 
-  TopicDetail withPostId(int postId) => stream.contains(postId)
-      ? this
-      : copyWith(stream: [...stream, postId], postsCount: postsCount + 1);
+  TopicDetail withPostId(int postId) {
+    if (stream.contains(postId)) return this;
+    if (!isMegaTopic) {
+      return copyWith(stream: [...stream, postId], postsCount: postsCount + 1);
+    }
+    // Only a reply is newer than the topic's last post. It follows the run
+    // only where the run ends the topic; anywhere else, paging reaches it at
+    // its place after the posts not yet read.
+    final last = lastPostId;
+    if (last != null && postId <= last) return this;
+    return copyWith(
+      stream: stream.lastOrNull == last ? [...stream, postId] : null,
+      postsCount: postsCount + 1,
+      lastPostId: postId,
+    );
+  }
+
+  /// A mega topic with [postIds], a page read past its run by post number
+  /// from [anchorPostId], on the newer side when [newer].
+  ///
+  /// The page joins the run only at the end it was read from. Once the run no
+  /// longer ends at the anchor there, as after a jump moved it elsewhere in
+  /// the topic, the page continues nothing held.
+  ///
+  /// An empty newer page means the run already ends at the last post this
+  /// reader can see, whatever [lastPostId] still names: a post deleted or
+  /// hidden since the topic was read. That is concluded only while
+  /// [lastPostId] is still [lastPostIdAtDispatch]; a read that brought
+  /// another may name a reply the page was answered too early to include.
+  TopicDetail withMegaTopicPage({
+    required int anchorPostId,
+    required bool newer,
+    required List<int> postIds,
+    int? lastPostIdAtDispatch,
+  }) {
+    final end = newer ? stream.lastOrNull : stream.firstOrNull;
+    if (!isMegaTopic || end != anchorPostId) return this;
+    final held = stream.toSet();
+    final page = [
+      for (final id in postIds)
+        if (held.add(id)) id,
+    ];
+    if (page.isEmpty) {
+      return newer &&
+              lastPostId != anchorPostId &&
+              lastPostId == lastPostIdAtDispatch
+          ? copyWith(lastPostId: anchorPostId)
+          : this;
+    }
+    return copyWith(
+      stream: newer ? [...stream, ...page] : [...page, ...stream],
+    );
+  }
 
   TopicDetail withExpandedGap({
     required int anchorPostId,
@@ -1027,6 +1109,9 @@ class TopicDetail with Storable<TopicDetail> {
     title: title,
     messageBusLastId: messageBusLastId,
     stream: stream,
+    isMegaTopic: isMegaTopic,
+    lastPostId: lastPostId,
+    highestPostNumber: highestPostNumber,
     gapsBefore: gapsBefore,
     gapsAfter: gapsAfter,
     postsCount: postsCount,
@@ -1078,6 +1163,7 @@ class TopicDetail with Storable<TopicDetail> {
 
   @override
   TopicDetail merge(TopicDetail incoming) {
+    if (incoming.isMegaTopic) return _mergeMegaTopic(incoming);
     final arrived = incoming.stream.toSet();
     // A refetch can answer from before a reply that was just appended here,
     // so an id after every post it returned is kept. One it leaves out from
@@ -1108,9 +1194,37 @@ class TopicDetail with Storable<TopicDetail> {
     return this == merged ? this : merged;
   }
 
+  /// A mega topic's read is one page of it (see [isMegaTopic]). A page that
+  /// shares posts with the held run joins it, and the held posts either side
+  /// of it stay, as posts the web client paged in stay. One left out from
+  /// between the page's posts is no longer served to this reader. A page that
+  /// shares none is of another part of the topic, such as the opening page a
+  /// live reload reads while the reader is further in, and leaves the run
+  /// where the reader is; a read that names a post moves the run in
+  /// ShellController instead.
+  TopicDetail _mergeMegaTopic(TopicDetail incoming) {
+    final arrived = incoming.stream.toSet();
+    final first = stream.indexWhere(arrived.contains);
+    final run = first < 0
+        ? stream
+        : [
+            ...stream.take(first),
+            ...incoming.stream,
+            ...stream.skip(stream.lastIndexWhere(arrived.contains) + 1),
+          ];
+    var merged = listEquals(run, incoming.stream)
+        ? incoming
+        : incoming.copyWith(stream: run);
+    if (merged.recommendations == null && recommendations != null) {
+      merged = merged.copyWith(recommendations: recommendations);
+    }
+    return this == merged ? this : merged;
+  }
+
   TopicDetail copyWith({
     String? title,
     List<int>? stream,
+    int? lastPostId,
     Map<int, List<int>>? gapsBefore,
     Map<int, List<int>>? gapsAfter,
     int? postsCount,
@@ -1144,6 +1258,9 @@ class TopicDetail with Storable<TopicDetail> {
     title: title ?? this.title,
     messageBusLastId: messageBusLastId,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
+    isMegaTopic: isMegaTopic,
+    lastPostId: lastPostId ?? this.lastPostId,
+    highestPostNumber: highestPostNumber,
     gapsBefore: gapsBefore == null
         ? this.gapsBefore
         : _freezePostGaps(gapsBefore),
@@ -1207,6 +1324,9 @@ class TopicDetail with Storable<TopicDetail> {
           other.title == title &&
           other.messageBusLastId == messageBusLastId &&
           listEquals(other.stream, stream) &&
+          other.isMegaTopic == isMegaTopic &&
+          other.lastPostId == lastPostId &&
+          other.highestPostNumber == highestPostNumber &&
           _postGapsEqual(other.gapsBefore, gapsBefore) &&
           _postGapsEqual(other.gapsAfter, gapsAfter) &&
           other.postsCount == postsCount &&
@@ -1261,6 +1381,9 @@ class TopicDetail with Storable<TopicDetail> {
     title,
     messageBusLastId,
     Object.hashAll(stream),
+    isMegaTopic,
+    lastPostId,
+    highestPostNumber,
     _postGapsHash(gapsBefore),
     _postGapsHash(gapsAfter),
     postsCount,

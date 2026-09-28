@@ -1256,12 +1256,15 @@ void main() {
             'post_stream': gate(
               withFields({
                 'posts': [json, loose],
+                // A mega topic's stream is the posts it was sent with.
+                'isMegaTopic': gate(true),
+                'lastId': loose,
               }),
             ),
           }),
           site,
         ),
-        (payload) => payload.posts.isNotEmpty,
+        (payload) => payload.posts.isNotEmpty && payload.detail.isMegaTopic,
       );
       probe(
         'TopicList',

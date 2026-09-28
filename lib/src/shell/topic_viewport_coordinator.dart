@@ -1194,8 +1194,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         position.pixels >= position.maxScrollExtent - 0.5;
     final progress = atEnd ? visible : leading ?? visible;
     if (progress != null) {
-      final streamIndex = _streamIndex(snapshot.streamIds, progress.postId);
-      if (streamIndex >= 0) _setProgressPosition(streamIndex + 1);
+      final progressPosition = snapshot.progressByPostNumber
+          ? progress.postNumber
+          : _streamIndex(snapshot.streamIds, progress.postId) + 1;
+      if (progressPosition > 0) _setProgressPosition(progressPosition);
     }
 
     if (readable != null) {
@@ -1456,6 +1458,17 @@ final class TopicViewportSnapshot {
   final int readTimeWordCount;
   final int showTimeGapDays;
   final int navigationRevision;
+
+  /// Whether progress counts post numbers rather than places in the stream,
+  /// as the web client counts a mega topic's, whose stream holds only the run
+  /// read so far.
+  bool get progressByPostNumber => topic?.isMegaTopic == true && !summary;
+
+  /// How many progress positions the topic has, each of which
+  /// [ShellController.jumpToCurrentTopicIndex] opens.
+  int get progressTotal => progressByPostNumber
+      ? math.max(topic!.highestPostNumber, streamIds.length)
+      : streamIds.length;
 
   @override
   bool operator ==(Object other) =>

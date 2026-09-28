@@ -41,6 +41,19 @@ TopicDetail detail({
   canCreatePost: canCreatePost,
 );
 
+TopicDetail megaDetail({
+  required List<int> stream,
+  required int lastPostId,
+  int postsCount = 10000,
+}) => TopicDetail(
+  id: 7,
+  title: 'A mega topic',
+  stream: stream,
+  isMegaTopic: true,
+  lastPostId: lastPostId,
+  postsCount: postsCount,
+);
+
 PluginData feature(String value) =>
     PluginData.none.withValue(_topicFeatureKey, _TopicFeature(value));
 
@@ -97,7 +110,50 @@ void main() {
 
       expect(payload.detail.stream, [1, 2, 3]);
       expect(payload.detail.postsCount, 3);
+      expect(payload.detail.isMegaTopic, isFalse);
       expect(payload.posts.map((p) => p.id), [1]);
+    });
+
+    test('a mega topic holds the posts it was sent as its stream', () {
+      // Past TopicView::MEGA_TOPIC_POSTS_COUNT, PostStreamSerializerMixin
+      // sends no stream of ids: only a page of posts and the last post's id.
+      final payload = TopicDetail.parse(const {
+        'id': 7,
+        'title': 'A mega topic',
+        'posts_count': 12000,
+        'highest_post_number': 12040,
+        'post_stream': {
+          'isMegaTopic': true,
+          'lastId': 90000,
+          'posts': [
+            {
+              'id': 501,
+              'post_number': 1,
+              'username': 'sam',
+              'cooked': '<p>a</p>',
+            },
+            {
+              'id': 502,
+              'post_number': 2,
+              'username': 'sam',
+              'cooked': '<p>b</p>',
+            },
+            {
+              'id': 504,
+              'post_number': 4,
+              'username': 'sam',
+              'cooked': '<p>d</p>',
+            },
+          ],
+        },
+      }, site);
+
+      expect(payload.detail.isMegaTopic, isTrue);
+      expect(payload.detail.stream, [501, 502, 504]);
+      expect(payload.detail.lastPostId, 90000);
+      expect(payload.detail.highestPostNumber, 12040);
+      expect(payload.detail.postsCount, 12000);
+      expect(payload.posts.map((post) => post.id), [501, 502, 504]);
     });
 
     test('bounds eager posts while retaining the complete paging stream', () {
@@ -556,6 +612,103 @@ void main() {
       expect(topic.stream, [1, 2]);
       expect(topic.postsCount, 2);
     });
+
+    test('joins a mega topic run only where the run reaches its end', () {
+      final atEnd = megaDetail(
+        stream: [8, 9],
+        lastPostId: 9,
+        postsCount: 10000,
+      ).withPostId(10);
+
+      expect(atEnd.stream, [8, 9, 10]);
+      expect(atEnd.lastPostId, 10);
+      expect(atEnd.postsCount, 10001);
+
+      // The reply belongs after thousands of posts the reader has not paged
+      // through, which is where paging reaches it.
+      final further = megaDetail(
+        stream: [1, 2],
+        lastPostId: 9,
+        postsCount: 10000,
+      ).withPostId(10);
+
+      expect(further.stream, [1, 2]);
+      expect(further.lastPostId, 10);
+      expect(further.postsCount, 10001);
+    });
+
+    test('leaves a mega topic alone for a post older than its last', () {
+      // A re-read after a write to a post the reader has since left.
+      final held = megaDetail(stream: [8, 9], lastPostId: 9);
+
+      expect(held.withPostId(3), same(held));
+    });
+  });
+
+  group('paging a mega topic by post number', () {
+    test('a newer page follows the run it was read after', () {
+      final paged = megaDetail(
+        stream: [1, 2],
+        lastPostId: 9,
+      ).withMegaTopicPage(anchorPostId: 2, newer: true, postIds: [3, 4]);
+
+      expect(paged.stream, [1, 2, 3, 4]);
+      expect(paged.lastPostId, 9);
+    });
+
+    test('an earlier page precedes the run it was read before', () {
+      final paged = megaDetail(
+        stream: [5, 6],
+        lastPostId: 9,
+      ).withMegaTopicPage(anchorPostId: 5, newer: false, postIds: [3, 4]);
+
+      expect(paged.stream, [3, 4, 5, 6]);
+    });
+
+    test('a page read from an end the run has left joins nothing', () {
+      // A jump moved the reader's run while the page was out.
+      final held = megaDetail(stream: [700, 701], lastPostId: 900);
+
+      expect(
+        held.withMegaTopicPage(anchorPostId: 2, newer: true, postIds: [3, 4]),
+        same(held),
+      );
+      expect(
+        held.withMegaTopicPage(anchorPostId: 2, newer: false, postIds: [1]),
+        same(held),
+      );
+    });
+
+    test('an empty newer page ends the run the reader holds', () {
+      // The last post was deleted since the topic was read.
+      final held = megaDetail(stream: [7, 8], lastPostId: 9);
+
+      final ended = held.withMegaTopicPage(
+        anchorPostId: 8,
+        newer: true,
+        postIds: const [],
+        lastPostIdAtDispatch: 9,
+      );
+
+      expect(ended.stream, [7, 8]);
+      expect(ended.lastPostId, 8);
+    });
+
+    test('an empty newer page answered before a new last post ends '
+        'nothing', () {
+      // A reload named reply 10 while the page was out; the page predates it.
+      final held = megaDetail(stream: [7, 8], lastPostId: 10);
+
+      expect(
+        held.withMegaTopicPage(
+          anchorPostId: 8,
+          newer: true,
+          postIds: const [],
+          lastPostIdAtDispatch: 9,
+        ),
+        same(held),
+      );
+    });
   });
 
   group('removing a post', () {
@@ -701,6 +854,36 @@ void main() {
 
       expect(merged.stream, [1, 4]);
       expect(merged.gapsBefore[4], [2, 3]);
+    });
+
+    test('a mega topic joins a read that overlaps the run it holds', () {
+      final held = megaDetail(stream: [1, 2, 3, 4, 5, 6], lastPostId: 90);
+
+      expect(
+        held.merge(megaDetail(stream: [4, 5, 6, 7, 8], lastPostId: 91)).stream,
+        [1, 2, 3, 4, 5, 6, 7, 8],
+      );
+      final reread = held.merge(
+        megaDetail(stream: [1, 3], lastPostId: 91, postsCount: 10400),
+      );
+      // Post 2 is gone from between posts the read returned; the posts after
+      // the read's page are still the reader's.
+      expect(reread.stream, [1, 3, 4, 5, 6]);
+      expect(reread.lastPostId, 91);
+      expect(reread.postsCount, 10400);
+    });
+
+    test('a mega topic keeps its run over a read of another part of it', () {
+      // The opening page a live reload reads, while the reader is further in.
+      final held = megaDetail(stream: [5000, 5001], lastPostId: 90);
+
+      final merged = held.merge(
+        megaDetail(stream: [1, 2], lastPostId: 91, postsCount: 10401),
+      );
+
+      expect(merged.stream, [5000, 5001]);
+      expect(merged.lastPostId, 91);
+      expect(merged.postsCount, 10401);
     });
 
     test('takes the incoming optional-feature snapshot', () {
