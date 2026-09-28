@@ -18,6 +18,8 @@ it on success, removal, cancellation, or disposal.
   the site's byte threshold (default 524288 bytes).
 - Bake EXIF orientation before evaluating dimensions. Strip camera/EXIF and PNG
   text metadata, retaining ICC colour profiles.
+- Expand palette and grayscale PNGs to RGB before encoding. A grayscale PNG's
+  gray profile cannot describe the RGB result, so it is dropped.
 - Resize only when width exceeds the site's dimension threshold, to its width
   target (both default to 1920). Preserve aspect ratio and never upscale.
 - Encode opaque pixels as JPEG and transparent pixels as lossy WebP. Use the
