@@ -305,14 +305,6 @@ final class _EventCalendarState extends State<EventCalendar> {
       hasPopup: true,
       expanded: state.open,
       semanticLabel: label,
-      backgroundColor: Color.lerp(
-        DTokens.of(context).background,
-        DTokens.of(context).foreground,
-        .10,
-      ),
-      foregroundColor: lead
-          ? DTokens.of(context).foreground
-          : DTokens.of(context).mutedForeground,
       icon: DIcon(
         DIcons.chevronDown,
         size: DControlStyle.chevronDimension(DControlSize.filter),
@@ -333,8 +325,6 @@ final class _EventCalendarState extends State<EventCalendar> {
     Widget navigation(int direction) => DButton.iconOnly(
       variant: DButtonVariant.outline,
       size: DControlSize.chip,
-      backgroundColor: Color.lerp(tokens.background, tokens.foreground, .10),
-      foregroundColor: tokens.mutedForeground,
       icon: DIcon(
         direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
         size: 11,
@@ -406,12 +396,6 @@ final class _EventCalendarState extends State<EventCalendar> {
                   DButton(
                     variant: DButtonVariant.outline,
                     size: DControlSize.chip,
-                    backgroundColor: Color.lerp(
-                      tokens.background,
-                      tokens.foreground,
-                      .10,
-                    ),
-                    foregroundColor: tokens.mutedForeground,
                     label: const Text('Today'),
                     onPressed: _today,
                   ),
