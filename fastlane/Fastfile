@@ -36,11 +36,19 @@ def required_api_key_path(options)
   expanded
 end
 
-def build_testflight_app(api_key_path:, **options)
+def build_testflight_app(api_key_path:, provisioning_profile: nil, **options)
   token = Spaceship::ConnectAPI::Token.from_json_file(api_key_path)
   if token.key_id.to_s.strip.empty? || token.issuer_id.to_s.strip.empty?
     UI.user_error!(
       "Xcode signing requires a team API key with key_id and issuer_id in the API-key JSON"
+    )
+  end
+
+  unless provisioning_profile.to_s.strip.empty?
+    options[:export_options] = options.fetch(:export_options).merge(
+      signingStyle: "manual",
+      signingCertificate: "Apple Distribution",
+      provisioningProfiles: { APP_IDENTIFIER => provisioning_profile }
     )
   end
 
@@ -218,6 +226,7 @@ lane :beta do |options|
 
     ios_artifact = build_testflight_app(
       api_key_path: api_key_path,
+      provisioning_profile: ENV["FASTLANE_IOS_PROVISIONING_PROFILE"],
       workspace: File.join(FULL_PROFILE_ROOT, "ios", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",
@@ -246,6 +255,7 @@ lane :beta do |options|
 
     macos_artifact = build_testflight_app(
       api_key_path: api_key_path,
+      provisioning_profile: ENV["FASTLANE_MACOS_PROVISIONING_PROFILE"],
       workspace: File.join(FULL_PROFILE_ROOT, "macos", "Runner.xcworkspace"),
       scheme: "Runner",
       configuration: "Release",

@@ -117,6 +117,45 @@ class SigningTest < Minitest::Test
     assert_match "team API key", error.message
   end
 
+  def test_selects_local_distribution_signing_when_a_profile_is_configured
+    export_options = {
+      method: "app-store",
+      signingStyle: "automatic",
+      teamID: "6T3LU73T8S",
+      uploadSymbols: true
+    }
+    build = lambda do |**options|
+      assert_equal export_options.merge(
+        signingStyle: "manual",
+        signingCertificate: "Apple Distribution",
+        provisioningProfiles: { "org.discourse.native" => "Local App Store profile" }
+      ), options.fetch(:export_options)
+      refute options.key?(:provisioning_profile)
+    end
+
+    SIGNING_FASTFILE.stub(:build_app, build) do
+      SIGNING_FASTFILE.build_testflight_app(
+        api_key_path: @api_key_path,
+        provisioning_profile: "Local App Store profile",
+        export_options: export_options
+      )
+    end
+    assert_equal "automatic", export_options.fetch(:signingStyle)
+  end
+
+  def test_preserves_automatic_signing_for_a_blank_local_profile
+    export_options = { signingStyle: "automatic" }
+    build = ->(**options) { assert_equal export_options, options.fetch(:export_options) }
+
+    SIGNING_FASTFILE.stub(:build_app, build) do
+      SIGNING_FASTFILE.build_testflight_app(
+        api_key_path: @api_key_path,
+        provisioning_profile: " ",
+        export_options: export_options
+      )
+    end
+  end
+
   private
 
   def write_api_key
