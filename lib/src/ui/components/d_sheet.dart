@@ -114,21 +114,60 @@ class DSheet<T> extends StatelessWidget {
       content.inset,
       content.animateSize,
       content.fillAvailableHeight,
+      content.extendBehindKeyboard,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
   );
 }
 
+/// Sheet presentation for a retained surface whose host owns its visibility.
+///
+/// Mount in a full viewport outside a resizing [Scaffold]. The host owns back
+/// handling and excludes the covered content from focus and semantics. Hide
+/// [DSheetContent.showCloseButton] or supply [DSheetContent.closeButton] with
+/// the host's close action; route-owned [DSheetClose] is unavailable here.
+class DSheetViewport extends StatelessWidget {
+  const DSheetViewport({super.key, required this.content});
+
+  final DSheetContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(!content.showCloseButton || content.closeButton != null);
+    return FocusScope(
+      child: _sheetPresentation(
+        context,
+        DDialogPresentation(
+          content: content,
+          animation: const AlwaysStoppedAnimation(1),
+          barrierLabel: 'Sheet background',
+          dismissOnBarrier: false,
+          onBarrierDismiss: () {},
+        ),
+        content.side,
+        content.sidePanelMaxWidth,
+        content.sidePanelWidth,
+        content.inset,
+        content.animateSize,
+        content.fillAvailableHeight,
+        content.extendBehindKeyboard,
+      ),
+    );
+  }
+}
+
 class _DSheetSideScope extends InheritedWidget {
   const _DSheetSideScope({
     required this.side,
     required this.inset,
+    required this.extendBehindKeyboard,
     required super.child,
   });
 
   final DSheetSide side;
   final bool inset;
+  final bool extendBehindKeyboard;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -136,9 +175,15 @@ class _DSheetSideScope extends InheritedWidget {
   static bool? insetOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.inset;
 
+  static bool? extendsBehindKeyboardOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
+      ?.extendBehindKeyboard;
+
   @override
   bool updateShouldNotify(_DSheetSideScope oldWidget) =>
-      side != oldWidget.side || inset != oldWidget.inset;
+      side != oldWidget.side ||
+      inset != oldWidget.inset ||
+      extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
 
 // A CurvedAnimation holds a status listener on the route animation until it
@@ -215,6 +260,7 @@ Widget _sheetPresentation(
   bool inset,
   bool animateSize,
   bool fillAvailableHeight,
+  bool extendBehindKeyboard,
 ) => _DSheetCurves(
   animation: presentation.animation,
   builder: (context, popupCurve, backdropCurve) => _sheetLayout(
@@ -228,6 +274,7 @@ Widget _sheetPresentation(
     inset,
     animateSize,
     fillAvailableHeight,
+    extendBehindKeyboard,
   ),
 );
 
@@ -242,6 +289,7 @@ Widget _sheetLayout(
   bool inset,
   bool animateSize,
   bool fillAvailableHeight,
+  bool extendBehindKeyboard,
 ) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -266,7 +314,16 @@ Widget _sheetLayout(
   Widget popup = _DSheetSideScope(
     side: side,
     inset: inset,
-    child: fillAvailableHeight
+    extendBehindKeyboard: extendBehindKeyboard,
+    child: extendBehindKeyboard
+        ? Builder(
+            builder: (context) => MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: presentation.content,
+            ),
+          )
+        : fillAvailableHeight
         ? MediaQuery.removeViewInsets(
             context: context,
             removeBottom: true,
@@ -334,13 +391,18 @@ Widget _sheetLayout(
         right: side == DSheetSide.left || side == DSheetSide.center
             ? null
             : margin,
-        top: fillAvailableHeight
+        top: extendBehindKeyboard
+            ? safeTop + DSpacing.sm
+            : fillAvailableHeight
             ? pickerTop
             : side == DSheetSide.bottom
             ? null
             : margin,
         bottom: fillAvailableHeight
-            ? MediaQuery.viewInsetsOf(context).bottom + margin
+            ? (extendBehindKeyboard
+                      ? 0.0
+                      : MediaQuery.viewInsetsOf(context).bottom) +
+                  margin
             : side == DSheetSide.top
             ? null
             : margin,
@@ -408,7 +470,9 @@ class DSheetContent extends StatelessWidget {
     this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
     this.fillAvailableHeight = false,
+    this.extendBehindKeyboard = false,
   }) : assert(sideAccessoryWidth > 0),
+       assert(!extendBehindKeyboard || fillAvailableHeight),
        assert(
          sideAccessory == null ||
              (side != DSheetSide.top && side != DSheetSide.bottom),
@@ -464,14 +528,27 @@ class DSheetContent extends StatelessWidget {
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
 
-  /// Fills the viewport above the keyboard with space above the sheet.
+  /// Whether the sheet fills the viewport above the keyboard.
+  ///
   /// The top gap is at least 11% of the viewport and 24px below the safe area.
+  /// [extendBehindKeyboard] instead fills to the bottom of the viewport with
+  /// an 8px gap below the top safe area.
   final bool fillAvailableHeight;
+
+  /// Whether a full-height sheet paints behind the keyboard.
+  ///
+  /// The live bottom view inset remains available to the content, which must
+  /// keep controls and scroll reveal bounds above it. Bottom safe-area padding
+  /// is also content-owned. An edge-to-edge sheet has rounded top corners.
+  final bool extendBehindKeyboard;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final inset = _DSheetSideScope.insetOf(context) ?? this.inset;
+    final extendBehindKeyboard =
+        _DSheetSideScope.extendsBehindKeyboardOf(context) ??
+        this.extendBehindKeyboard;
     final resolved =
         _DSheetSideScope.maybeOf(context) ??
         side.resolve(Directionality.of(context));
@@ -513,6 +590,8 @@ class DSheetContent extends StatelessWidget {
           };
     final radius = inset
         ? BorderRadius.circular(DRadius.panel)
+        : extendBehindKeyboard
+        ? const BorderRadius.vertical(top: Radius.circular(DRadius.panel * 2))
         : BorderRadius.zero;
     Widget surface = DecoratedBox(
       decoration: BoxDecoration(
@@ -538,7 +617,9 @@ class DSheetContent extends StatelessWidget {
         child: Material(
           animationDuration: Duration.zero,
           borderRadius: radius,
-          clipBehavior: inset ? Clip.antiAlias : Clip.none,
+          clipBehavior: inset || extendBehindKeyboard
+              ? Clip.antiAlias
+              : Clip.none,
           color: backgroundColor ?? tokens.surface,
           textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontSize: DiscourseTypography.sm,
@@ -548,8 +629,11 @@ class DSheetContent extends StatelessWidget {
             color: tokens.foreground,
           ),
           child: SafeArea(
+            bottom: !extendBehindKeyboard,
             minimum: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
+              bottom: extendBehindKeyboard
+                  ? 0
+                  : MediaQuery.viewInsetsOf(context).bottom,
             ),
             child: Stack(
               children: [
@@ -800,6 +884,7 @@ Future<T?> showDSheet<T>({
   bool inset = false,
   bool animateSize = false,
   bool fillAvailableHeight = false,
+  bool extendBehindKeyboard = false,
   bool useRootNavigator = false,
   bool modal = true,
   bool dismissOnBarrier = true,
@@ -811,6 +896,7 @@ Future<T?> showDSheet<T>({
 }) {
   assert(sidePanelMaxWidth > 0);
   assert(sidePanelWidth == null || sidePanelWidth > 0);
+  assert(!extendBehindKeyboard || fillAvailableHeight);
   return showDDialog<T>(
     context: context,
     builder: builder,
@@ -831,6 +917,7 @@ Future<T?> showDSheet<T>({
       inset,
       animateSize,
       fillAvailableHeight,
+      extendBehindKeyboard,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

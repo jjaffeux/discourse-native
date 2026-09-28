@@ -43,6 +43,11 @@ class ComposerPresentationHost extends StatefulWidget {
   static Listenable layoutChangesOf(BuildContext context) =>
       _ComposerPresentationScope.of(context)._presentation;
 
+  /// Reports whether the presented sheet owns mobile back navigation.
+  static bool hasMobileSheetOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()!
+      .hasMobileSheet;
+
   /// Reveals sidebar destinations while retaining the current draft and dock.
   static void redockForNavigation(BuildContext context) {
     if (context.isTouch) return;
@@ -81,6 +86,12 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   ComposerController? _knownVisibleComposer;
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
+
+  _ComposerEntry? get _mobileSheetEntry {
+    if (!context.isTouch || _activeDock == null) return null;
+    final entry = _entries[_presentableComposer];
+    return entry?.minimized == false ? entry : null;
+  }
 
   void _syncDocks() {
     // Park the editor until its dock is mounted, preserving editing state
@@ -225,12 +236,22 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     _activeDock = _docks
         .where((dock) => dock.mounted && dock.widget.enabled)
         .lastOrNull;
+    final mobileSheet = _mobileSheetEntry;
     return _ComposerPresentationScope(
       owner: this,
+      hasMobileSheet: mobileSheet != null,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(child: widget.child),
+          Positioned.fill(
+            child: ExcludeFocus(
+              excluding: mobileSheet != null,
+              child: ExcludeSemantics(
+                excluding: mobileSheet != null,
+                child: widget.child,
+              ),
+            ),
+          ),
           for (final entry in _entries.values)
             if (entry.composer != current || _activeDock == null)
               ExcludeFocus(
@@ -249,6 +270,46 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                   ),
                 ),
               ),
+          if (mobileSheet != null)
+            Positioned.fill(
+              child: PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, result) {
+                  if (!didPop) {
+                    unawaited(
+                      closeComposerFromPanel(
+                        context: context,
+                        composer: mobileSheet.composer,
+                      ),
+                    );
+                  }
+                },
+                child: DSheetViewport(
+                  content: DSheetContent(
+                    key: const ValueKey('composer-mobile-sheet'),
+                    side: DSheetSide.bottom,
+                    fillAvailableHeight: true,
+                    extendBehindKeyboard: true,
+                    scrollWholeSheet: false,
+                    showCloseButton: false,
+                    semanticLabel: 'Composer',
+                    backgroundColor: Theme.of(context).shell.content,
+                    children: [
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, bounds) => _surface(
+                            mobileSheet,
+                            placement: ComposerPlacement.fullScreen,
+                            mobile: true,
+                            size: bounds.biggest,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -265,8 +326,15 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
 }
 
 class _ComposerPresentationScope extends InheritedWidget {
-  const _ComposerPresentationScope({required this.owner, required super.child});
+  const _ComposerPresentationScope({
+    required this.owner,
+    required this.hasMobileSheet,
+    required super.child,
+  });
   final _ComposerPresentationHostState owner;
+  // Keep this presentation snapshot stable throughout a back event, even if
+  // another PopScope callback synchronously starts saving and hides the draft.
+  final bool hasMobileSheet;
   static _ComposerPresentationHostState of(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()!
       .owner;
@@ -347,10 +415,17 @@ class _ComposerDockState extends State<ComposerDock> {
     final owner = _ComposerPresentationScope.of(context);
     final active = identical(owner._activeDock, this);
     final composer = active ? owner._presentableComposer : null;
-    final entry = owner._entries[composer];
+    final mobile = context.isTouch;
+    final composerEntry = owner._entries[composer];
+    // The host presents expanded mobile editors outside the resizing shell.
+    final entry = mobile && composerEntry?.minimized == false
+        ? null
+        : composerEntry;
     if (!identical(_visibleComposer, composer)) {
       _visibleComposer = composer;
-      if (composer != null && entry != null && !entry.minimized) {
+      if (composer != null &&
+          composerEntry != null &&
+          !composerEntry.minimized) {
         // Autofocus may already have run while the retained editor was parked
         // offstage. Request focus after its visible dock has been laid out.
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -358,7 +433,7 @@ class _ComposerDockState extends State<ComposerDock> {
               identical(owner._activeDock, this) &&
               identical(owner._presentableComposer, composer) &&
               !composer.isDisposed &&
-              !entry.minimized) {
+              !composerEntry.minimized) {
             composer.focus.requestFocus();
           }
         });
@@ -429,7 +504,6 @@ class _ComposerDockState extends State<ComposerDock> {
             identical(owner._presentableComposer, composer),
       );
     }
-    final mobile = context.isTouch;
     return LayoutBuilder(
       builder: (context, constraints) {
         final placement = owner._presentation.effectivePlacement(
@@ -699,7 +773,7 @@ class _ComposerSurface extends StatelessWidget {
                     height: minimized ? entry.size.height : size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,
-                    onExitFullScreen: onExitFullScreen,
+                    onExitFullScreen: mobile ? null : onExitFullScreen,
                     onMinimize: onMinimize,
                   ),
                 ),

@@ -217,12 +217,42 @@ class ComposerHeader extends StatelessWidget {
         child: Row(
           spacing: DSpacing.controlGap,
           children: [
-            DButton.iconOnly(
-              key: const ValueKey('composer-close'),
-              onPressed: onClose,
-              icon: const DIcon(DIcons.xmark),
-              tooltip: closeTooltip,
-              variant: DButtonVariant.outline,
+            DDropdownMenu(
+              content: DDropdownMenuContent(
+                semanticLabel: 'Composer actions',
+                children: [
+                  DDropdownMenuItem(
+                    key: const ValueKey('composer-cancel'),
+                    variant: DDropdownMenuItemVariant.destructive,
+                    onPressed: onDiscard,
+                    child: const Text('Discard'),
+                  ),
+                  DDropdownMenuItem(
+                    key: const ValueKey('composer-minimize'),
+                    onPressed: onMinimize,
+                    child: const Text('Minimize'),
+                  ),
+                  DDropdownMenuItem(
+                    key: const ValueKey('composer-save-draft'),
+                    onPressed: composer.canSaveDraft ? onClose : null,
+                    child: const Text('Save draft'),
+                  ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, trigger) => DButton.iconOnly(
+                  key: const ValueKey('composer-close'),
+                  onPressed: trigger.toggle,
+                  icon: const DIcon(DIcons.xmark),
+                  tooltip: 'Composer actions',
+                  semanticLabel: 'Composer actions',
+                  variant: DButtonVariant.outline,
+                  shape: DButtonShape.pill,
+                  focusNode: trigger.focusNode,
+                  hasPopup: true,
+                  expanded: trigger.open,
+                ),
+              ),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -236,50 +266,6 @@ class ComposerHeader extends StatelessWidget {
                     if (composer.canSaveDraft && !target.isEdit)
                       _DraftSaveFailure(composer: composer),
                   ],
-                ),
-              ),
-            ),
-            DDropdownMenu(
-              content: DDropdownMenuContent(
-                children: [
-                  if (!atDestination &&
-                      !target.createsTopic &&
-                      target.topicId > 0)
-                    DDropdownMenuItem(
-                      key: const ValueKey('composer-return-to-topic'),
-                      onPressed: () => ShellScope.read(context).openTopicPost(
-                        siteUrl: target.siteUrl,
-                        topicId: target.topicId,
-                        postNumber:
-                            target.replyToPostNumber ??
-                            target.editingPostNumber ??
-                            1,
-                      ),
-                      child: const Text('Return to topic'),
-                    ),
-                  if (onMinimize != null)
-                    DDropdownMenuItem(
-                      onPressed: onMinimize,
-                      child: const Text('Minimize composer'),
-                    ),
-                  DDropdownMenuItem(
-                    key: const ValueKey('composer-cancel'),
-                    onPressed: onDiscard,
-                    child: const Text('Discard'),
-                  ),
-                ],
-              ),
-              child: DDropdownMenuTrigger(
-                builder: (context, trigger) => DButton.iconOnly(
-                  key: const ValueKey('composer-mobile-options'),
-                  tooltip: 'Composer actions',
-                  semanticLabel: 'Composer actions',
-                  icon: const DIcon(DIcons.ellipsis),
-                  variant: DButtonVariant.transparentBackground,
-                  focusNode: trigger.focusNode,
-                  hasPopup: true,
-                  expanded: trigger.open,
-                  onPressed: trigger.toggle,
                 ),
               ),
             ),

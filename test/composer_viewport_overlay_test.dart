@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -8,10 +10,13 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+
+const _captureKey = ValueKey('mobile-sheet-capture');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +57,7 @@ void main() {
         ShellScope(
           controller: controller,
           child: MaterialApp(
-            theme: AppTheme.light,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.linux),
             home: const AdaptiveShell(),
           ),
         ),
@@ -89,7 +94,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'full mobile shell blurs composer edges above the keyboard in $brightness',
+      'full mobile sheet extends behind the keyboard in $brightness',
       (tester) async {
         const user = DiscourseUser(
           id: 7,
@@ -135,7 +140,10 @@ void main() {
               theme: AppTheme.forBrightness(
                 brightness,
               ).copyWith(platform: TargetPlatform.iOS),
-              home: const AdaptiveShell(),
+              home: const RepaintBoundary(
+                key: _captureKey,
+                child: AdaptiveShell(),
+              ),
             ),
           ),
         );
@@ -179,10 +187,7 @@ void main() {
             .01,
           ),
         );
-        expect(
-          tester.getRect(bottomBlur).bottom,
-          tester.getRect(find.byType(ComposerPanel)).bottom,
-        );
+        expect(tester.getRect(bottomBlur).bottom, 844 - 336);
         expect(
           tester
               .widget<CustomScrollView>(
@@ -192,15 +197,89 @@ void main() {
           Clip.none,
         );
 
+        expect(tester.getRect(find.byType(ComposerPanel)).bottom, 844);
         expect(
-          tester.getRect(find.byType(ComposerPanel)).bottom,
-          lessThanOrEqualTo(844 - 336),
+          tester.getRect(find.byType(ComposerPanel)).top,
+          59 + DSpacing.sm,
+        );
+        final sheet = tester.widget<DSheetContent>(
+          find.byKey(const ValueKey('composer-mobile-sheet')),
+        );
+        expect(sheet.extendBehindKeyboard, isTrue);
+        final backgroundToken = DTokens.of(panelContext).background;
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is ModalBarrier &&
+                widget.color == backgroundToken.withValues(alpha: 1),
+          ),
+          findsOneWidget,
         );
         expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
         expect(find.byTooltip('Composer options'), findsNothing);
         expect(find.text('Dock side'), findsNothing);
+
+        final composer = controller.visibleComposer!;
+        composer.focus.unfocus();
+        composer.text.value = TextEditingValue(
+          text: List.generate(
+            60,
+            (i) => 'Line $i ${'word ' * (i % 5 + 1)}',
+          ).join('\n'),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+        await tester.pumpAndSettle();
+        final before = await _pixelsUnderKeyboard(tester);
+        final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+        final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+        final footerBefore = tester.getRect(
+          find.byKey(const ValueKey('composer-footer')),
+        );
+        await tester.drag(viewport, const Offset(0, -137));
+        await tester.pumpAndSettle();
+        expect(scroll.offset, greaterThan(50));
+        final after = await _pixelsUnderKeyboard(tester);
+        expect(
+          [
+            for (var i = 0; i < before.length; i++)
+              if (before[i] != after[i]) i,
+          ].length,
+          greaterThan(100),
+          reason: 'Scrolling the sheet must repaint text behind the keyboard.',
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('composer-footer'))),
+          footerBefore,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('composer-mobile-sheet')),
+          findsNothing,
+        );
         expect(tester.takeException(), isNull);
       },
     );
   }
+}
+
+Future<List<int>> _pixelsUnderKeyboard(WidgetTester tester) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_captureKey),
+  );
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    try {
+      final data = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      return [
+        for (var y = 528; y < 588; y++)
+          for (var x = 16; x < 374; x++)
+            data.getUint32((y * image.width + x) * 4),
+      ];
+    } finally {
+      image.dispose();
+    }
+  }))!;
 }

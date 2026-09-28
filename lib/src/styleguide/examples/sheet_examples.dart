@@ -18,6 +18,64 @@ final sheetExamples = ComponentExamples(
       'points belong to Drawer.',
   examples: [
     StyleguideExample(
+      title: 'Behind the keyboard',
+      description:
+          'A rounded sheet over an opaque background. The sheet content scrolls '
+          'behind the system keyboard; bottom scroll padding keeps the final '
+          'field reachable above it.',
+      code: '''DSheetContent(
+  side: DSheetSide.bottom,
+  fillAvailableHeight: true,
+  extendBehindKeyboard: true,
+  scrollWholeSheet: false,
+  children: [Expanded(child: scrollableEditor)],
+)''',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) => _trigger('Open writing sheet', open),
+        ),
+        content: DSheetContent(
+          side: DSheetSide.bottom,
+          fillAvailableHeight: true,
+          extendBehindKeyboard: true,
+          scrollWholeSheet: false,
+          children: [
+            Expanded(
+              child: Builder(
+                builder: (context) => SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    DSpacing.lg,
+                    DSpacing.xxl,
+                    DSpacing.lg,
+                    MediaQuery.viewInsetsOf(context).bottom +
+                        MediaQuery.paddingOf(context).bottom +
+                        DSpacing.lg,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const DSheetHeader(
+                        children: [DSheetTitle(child: Text('Write a draft'))],
+                      ),
+                      for (var index = 0; index < 12; index++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: DSpacing.lg),
+                          child: DInput(
+                            semanticLabel: 'Paragraph ${index + 1}',
+                            hintText: 'Paragraph ${index + 1}',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      states: const ['keyboard', 'scrolling', 'opaque backdrop'],
+    ),
+    StyleguideExample(
       title: 'Centered reading panel',
       description:
           'A full-height inset panel using the page background, centered within its workspace.',
