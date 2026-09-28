@@ -131,9 +131,16 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       _error = result.error;
       if (result.page case final page?) {
         _nextOffset = offset + page.rowCount;
+        // Channels created or joined between pages shift the server's
+        // offsets, so a page can repeat a channel already listed.
+        final ids = {for (final channel in _channels) channel.id};
         _channels = reset
             ? page.channels
-            : List.unmodifiable([..._channels, ...page.channels]);
+            : List.unmodifiable([
+                ..._channels,
+                for (final channel in page.channels)
+                  if (ids.add(channel.id)) channel,
+              ]);
         _hasMore = page.hasMore && page.rowCount > 0;
       } else if (reset) {
         _channels = const [];
