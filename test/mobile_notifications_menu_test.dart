@@ -106,11 +106,24 @@ void main() {
       expect(rect.left, greaterThanOrEqualTo(UserMenuPanel.margin));
       expect(rect.right, lessThanOrEqualTo(320 - UserMenuPanel.margin));
       expect(rect.bottom, lessThanOrEqualTo(800 - UserMenuPanel.margin));
+      // Each tab answers exactly where its pill is painted, and the pill
+      // grows to hold its label at 200% text.
       for (final tab in find.byType(DTabTrigger<String>).evaluate()) {
+        final trigger = find.byWidget(tab.widget);
+        final bounds = tester.getRect(trigger);
         expect(
-          tester.getSize(find.byWidget(tab.widget)).height,
-          greaterThanOrEqualTo(48),
+          bounds,
+          tester.getRect(
+            find.descendant(
+              of: trigger,
+              matching: find.byType(AnimatedContainer),
+            ),
+          ),
         );
+        final label = tester.getRect(
+          find.descendant(of: trigger, matching: find.byType(Text)),
+        );
+        expect(bounds.expandToInclude(label), bounds);
       }
       final focus = tester
           .widget<FocusableActionDetector>(

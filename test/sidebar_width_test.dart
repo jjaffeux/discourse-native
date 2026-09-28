@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction;
+import 'dart:ui' show PointerDeviceKind, SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -348,52 +349,110 @@ void main() {
     expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 140);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('resize handle supports keyboard and semantics adjustment', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final controller = await _controller();
-    await _pumpShell(tester, controller, const Size(1200, 800));
+  testWidgets(
+    'resize handle is its visible grip and adjusts by keyboard and semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final controller = await _controller();
+      await _pumpShell(tester, controller, const Size(1200, 800));
 
-    final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
-    expect(tester.getSize(handle).width, 12);
-    final divider = find.descendant(
-      of: handle,
-      matching: find.byType(ColoredBox),
-    );
-    expect(divider, findsOneWidget);
-    expect(tester.getSize(divider).width, 0);
-    expect(
-      tester.widget<ColoredBox>(divider).color,
-      Theme.of(tester.element(divider)).shell.divider,
-    );
-    final data = tester.getSemantics(handle).getSemanticsData();
-    expect(data.label, 'Resize sidebar');
-    expect(data.value, '${AdaptiveShell.sidebarWidth.toInt()} pixels wide');
-    expect(data.hasAction(SemanticsAction.increase), isTrue);
-    expect(data.hasAction(SemanticsAction.decrease), isTrue);
+      final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
+      // The grip centred in the panel gap is the whole target; the rest of the
+      // gap is not a resize strip.
+      final grip = tester.getRect(
+        find.descendant(
+          of: handle,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.decoration is BoxDecoration &&
+                widget.constraints ==
+                    const BoxConstraints.tightFor(width: 4, height: 24),
+          ),
+        ),
+      );
+      expect(tester.getRect(handle), grip);
+      expect(tester.getSemantics(handle).rect.size, grip.size);
+      final sidebarRight = tester
+          .getTopRight(
+            find.ancestor(
+              of: find.byType(InstanceSidebar),
+              matching: find.byType(ResizablePane),
+            ),
+          )
+          .dx;
+      expect(grip.center.dx, sidebarRight - workspacePanelGap / 2);
+      for (final outside in [
+        grip.centerLeft - const Offset(1, 0),
+        grip.centerRight + const Offset(1, 0),
+        grip.topCenter - const Offset(0, 1),
+        grip.bottomCenter + const Offset(0, 1),
+      ]) {
+        await tester.dragFrom(
+          outside,
+          const Offset(40, 0),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          _sidebarWidth(tester),
+          AdaptiveShell.sidebarWidth,
+          reason: 'Drag outside $grip from $outside',
+        );
+      }
+      await tester.dragFrom(
+        grip.topLeft + const Offset(1, 1),
+        const Offset(40, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 40);
+      await tester.dragFrom(
+        grip.topLeft + const Offset(41, 1),
+        const Offset(-40, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
+      final divider = find.descendant(
+        of: handle,
+        matching: find.byType(ColoredBox),
+      );
+      expect(divider, findsOneWidget);
+      expect(tester.getSize(divider).width, 0);
+      expect(
+        tester.widget<ColoredBox>(divider).color,
+        Theme.of(tester.element(divider)).shell.divider,
+      );
+      final data = tester.getSemantics(handle).getSemanticsData();
+      expect(data.label, 'Resize sidebar');
+      expect(data.value, '${AdaptiveShell.sidebarWidth.toInt()} pixels wide');
+      expect(data.hasAction(SemanticsAction.increase), isTrue);
+      expect(data.hasAction(SemanticsAction.decrease), isTrue);
 
-    final focus = tester.widget<Focus>(
-      find.byKey(const ValueKey('sidebar-resize-focus')),
-    );
-    focus.focusNode!.requestFocus();
-    await tester.pump();
+      final focus = tester.widget<Focus>(
+        find.byKey(const ValueKey('sidebar-resize-focus')),
+      );
+      focus.focusNode!.requestFocus();
+      await tester.pump();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 16);
-    expect(
-      (await SharedPreferences.getInstance()).getDouble(
-        SidebarWidthStore.storageKey,
-      ),
-      AdaptiveShell.sidebarWidth + 16,
-    );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth + 16);
+      expect(
+        (await SharedPreferences.getInstance()).getDouble(
+          SidebarWidthStore.storageKey,
+        ),
+        AdaptiveShell.sidebarWidth + 16,
+      );
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
-    semantics.dispose();
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(_sidebarWidth(tester), AdaptiveShell.sidebarWidth);
+      semantics.dispose();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('narrow navigation preserves the permanent sidebar preference', (
     tester,

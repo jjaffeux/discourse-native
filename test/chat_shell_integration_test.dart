@@ -2956,24 +2956,50 @@ void _registerChatShellTests() {
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
-        expect(tester.getSize(settingsTab).height, 62);
+        // Line tabs are their label line with 11px above and below on every
+        // platform, and answer exactly where they are painted; the rest of
+        // the 58px tab bar is not a target.
+        final settingsRect = tester.getRect(settingsTab);
         expect(
-          tester
-              .getSize(
-                find.descendant(
-                  of: settingsTab,
-                  matching: find.byType(AnimatedContainer),
-                ),
-              )
-              .height,
-          62,
+          settingsRect,
+          tester.getRect(
+            find.descendant(
+              of: settingsTab,
+              matching: find.byType(AnimatedContainer),
+            ),
+          ),
         );
-        expect(
-          tester
-              .getSize(find.byKey(const ValueKey('chat-channel-info-tabs')))
-              .height,
-          62,
+        expect(settingsRect.top, tester.getRect(settingsLabel).top - 11);
+        expect(settingsRect.bottom, tester.getRect(settingsLabel).bottom + 11);
+        expect(settingsRect.height, 43);
+        final tabBar = tester.getRect(
+          find.byKey(const ValueKey('chat-channel-info-tabs')),
         );
+        expect(tabBar.height, 58);
+        final membersTab = tester.getRect(
+          find.byKey(const ValueKey('chat-channel-info-members-tab')),
+        );
+        expect(membersTab.height, settingsRect.height);
+        final settingsContent = shell.currentContent?.id;
+        for (final outside in [
+          membersTab.topCenter - const Offset(0, 1),
+          membersTab.bottomCenter + const Offset(0, 1),
+        ]) {
+          expect(tabBar.contains(outside), isTrue);
+          await tester.tapAt(outside);
+          await tester.pumpAndSettle();
+          expect(
+            shell.currentContent?.id,
+            settingsContent,
+            reason: 'Tap outside $membersTab at $outside',
+          );
+        }
+        await tester.tapAt(membersTab.topCenter + const Offset(0, 1));
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'chat-c-9-info-members');
+        await tester.tap(settingsTab);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, settingsContent);
         final settingsStyle = DefaultTextStyle.of(
           tester.element(settingsLabel),
         ).style;
@@ -4009,8 +4035,28 @@ void _registerChatShellTests() {
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
-        expect(tester.getSize(heart).width, greaterThanOrEqualTo(44));
-        expect(tester.getSize(heart).height, greaterThanOrEqualTo(44));
+        // Each reaction answers exactly where its 24px pill is painted, on
+        // touch platforms too.
+        final heartPill = tester.getRect(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-reaction-heart')),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        expect(heartPill.height, 24);
+        expect(tester.getRect(heart), heartPill);
+        for (final outside in [
+          heartPill.topCenter - const Offset(0, 1),
+          heartPill.bottomCenter + const Offset(0, 1),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pumpAndSettle();
+          expect(
+            api.chatReactionsSet,
+            isEmpty,
+            reason: 'Tap outside $heartPill at $outside',
+          );
+        }
         expect(
           tester.getSemantics(heart),
           isSemantics(

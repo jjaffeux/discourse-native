@@ -351,7 +351,43 @@ void main() {
     expect(gap(), 12);
     final width = tester.getSize(list).width;
     final handle = find.byKey(const ValueKey('inbox-list-resize-handle'));
-    expect(tester.getSize(handle).width, 12);
+    // The grip centred in the gutter is the whole target; the rest of the
+    // gutter is not a resize strip.
+    final grip = tester.getRect(
+      find.descendant(
+        of: handle,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              widget.constraints ==
+                  const BoxConstraints.tightFor(width: 4, height: 24),
+        ),
+      ),
+    );
+    expect(tester.getRect(handle), grip);
+    expect(
+      grip.center.dx,
+      (tester.getRect(list).right + tester.getRect(reader).left) / 2,
+    );
+    for (final outside in [
+      grip.centerLeft - const Offset(1, 0),
+      grip.centerRight + const Offset(1, 0),
+      grip.topCenter - const Offset(0, 1),
+      grip.bottomCenter + const Offset(0, 1),
+    ]) {
+      await tester.dragFrom(
+        outside,
+        const Offset(50, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(list).width,
+        width,
+        reason: 'Drag outside $grip from $outside',
+      );
+    }
     await tester.drag(handle, const Offset(50, 0));
     await tester.pumpAndSettle();
     expect(tester.getSize(list).width, greaterThan(width));
@@ -2459,15 +2495,31 @@ void main() {
             final touch =
                 Theme.of(tester.element(reply)).platform ==
                 TargetPlatform.android;
-            // Footer actions are 34px on desktop inside 8px padding.
-            expect(readerBar.height, touch ? 64 : 50);
-            expect(controlHeight, touch ? 48 : 34);
+            // Footer actions are 34px on desktop and 44px on touch inside 8px
+            // padding, and each answers exactly where it is painted.
+            expect(readerBar.height, touch ? 60 : 50);
+            expect(controlHeight, touch ? 44 : 34);
             for (final key in [
+              'topic-reply-button',
               'topic-progress-button',
               if (touch) 'inbox-previous-topic',
               if (touch) 'inbox-next-topic',
             ]) {
               final control = find.byKey(ValueKey(key));
+              expect(
+                tester.getRect(control),
+                tester.getRect(
+                  find.descendant(
+                    of: control,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is AnimatedContainer &&
+                          widget.decoration is DButtonDecoration,
+                    ),
+                  ),
+                ),
+                reason: key,
+              );
               expect(tester.getSize(control).height, controlHeight);
               expect(
                 tester.getRect(control).center.dy,
