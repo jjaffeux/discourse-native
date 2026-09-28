@@ -73,10 +73,9 @@ class FoundHashtag {
 
   final List<String> colors;
 
-  static int _value(String color) =>
-      int.tryParse('FF$color', radix: 16) ?? 0xFF888888;
-
-  List<int> get colorValues => [for (final color in colors) _value(color)];
+  List<int> get colorValues => [
+    for (final color in colors) categoryColorValue(color),
+  ];
 
   @override
   bool operator ==(Object other) =>

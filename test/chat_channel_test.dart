@@ -380,6 +380,14 @@ void main() {
       expect(channel.categoryColor, const Color(0xFF0088CC));
     });
 
+    test('reads the three-digit shorthand a category colour may be', () {
+      // Core validates category colours as six or three hex digits and the
+      // channel's chatable carries the value as stored.
+      final channel = channelFrom(categoryChannel(color: 'abc'));
+
+      expect(channel.categoryColor, const Color(0xFFAABBCC));
+    });
+
     test('retains the category identity behind a public channel', () {
       final channel = channelFrom(categoryChannel());
 

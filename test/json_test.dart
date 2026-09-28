@@ -185,4 +185,20 @@ void main() {
       expect(jsonTitle('', ''), '');
     });
   });
+
+  group('categoryColorValueOrNull', () {
+    test('reads every shape a category color is saved or sent in', () {
+      expect(categoryColorValueOrNull('0088CC'), 0xFF0088CC);
+      expect(categoryColorValueOrNull('#0088CC'), 0xFF0088CC);
+      expect(categoryColorValueOrNull('abc'), 0xFFAABBCC);
+      expect(categoryColorValueOrNull(' #abc '), 0xFFAABBCC);
+    });
+
+    test('answers null where categoryColorValue answers default gray', () {
+      for (final unrecognized in ['', 'nope', 'abcd', '0088CCFF', 'ggg']) {
+        expect(categoryColorValueOrNull(unrecognized), isNull);
+        expect(categoryColorValue(unrecognized), 0xFF888888);
+      }
+    });
+  });
 }
