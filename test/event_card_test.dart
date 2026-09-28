@@ -1,10 +1,11 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
@@ -293,6 +294,44 @@ void main() {
     },
   );
 
+  for (final state in [null, 'is_closed', 'is_expired']) {
+    testWidgets(
+      'an organizer can export and invite ${state == null ? 'on an open event' : 'nowhere once $state'}',
+      (tester) async {
+        final current = eventJson(overrides: {?state: true});
+        ports.transport.responders['GET /discourse-post-event/events/42.json'] =
+            (_) => {'event': current};
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: PostEventCard(
+                  site: eventSite,
+                  event: PostEvent.decode(current)!,
+                  controller: ports.controller,
+                  navigation: EventNavigation(
+                    host: _Routes(),
+                    editor: PluginPostEditorHost(
+                      open: (_, _, {focusText}) => false,
+                    ),
+                    controller: ports.controller,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Event actions'));
+        await tester.pumpAndSettle();
+        expect(find.text('Edit event'), findsOneWidget);
+        final offered = state == null ? findsOneWidget : findsNothing;
+        expect(find.text('Export calendar'), offered);
+        expect(find.text('Invite people'), offered);
+      },
+    );
+  }
+
   testWidgets('cooked fallback remains readable without hydration or actions', (
     tester,
   ) async {
@@ -313,3 +352,5 @@ void main() {
     expect(ports.transport.requests, isEmpty);
   });
 }
+
+final class _Routes extends Fake implements PluginRouteNavigationHost {}

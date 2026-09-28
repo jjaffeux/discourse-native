@@ -14,7 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/event_export_platform.dart';
 import 'support/event_fixtures.dart';
 
-const _calendar = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n';
+const _calendar =
+    'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:42\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n';
 const _failure = 'Unable to load this event. Try again.';
 
 void main() {
@@ -180,6 +181,22 @@ void main() {
       transport.exports.last.complete(_calendar);
       await tester.pumpAndSettle();
       expect(selector.filenames, hasLength(1));
+    });
+
+    _testDesktopWidgets('an empty calendar says why and is never saved', (
+      tester,
+    ) async {
+      await pump(tester);
+      export(tester)!();
+      await tester.pump();
+      transport.exports.single.complete('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
+      await tester.pumpAndSettle();
+      expect(selector.filenames, isEmpty);
+      expect(
+        find.text('This event has no dates left to export.'),
+        findsOneWidget,
+      );
+      expect(export(tester), isNotNull);
     });
 
     for (final change in ['event', 'account refresh']) {
