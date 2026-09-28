@@ -227,6 +227,7 @@ class DCommand<T> extends StatefulWidget {
     this.onEscape,
     this.semanticLabel = 'Commands',
     this.outlined = false,
+    this.backgroundColor,
   }) : assert(query == null || initialQuery == ''),
        assert(value == null || initialValue == null);
 
@@ -248,6 +249,11 @@ class DCommand<T> extends StatefulWidget {
   final VoidCallback? onEscape;
   final String semanticLabel;
   final bool outlined;
+
+  /// The background of the command surface and its results scrollbar.
+  ///
+  /// Defaults to [DTokens.surface].
+  final Color? backgroundColor;
 
   @override
   State<DCommand<T>> createState() => _DCommandState<T>();
@@ -386,12 +392,14 @@ class _DCommandState<T> extends State<DCommand<T>> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final radius = BorderRadius.circular(DRadius.panel);
+    final backgroundColor = widget.backgroundColor ?? tokens.surface;
     return _DCommandScope<T>(
       controller: _controller,
       filter: widget.filter ?? _defaultCommandFilter,
       shouldFilter: widget.shouldFilter,
       loading: widget.loading,
       disablePointerSelection: widget.disablePointerSelection,
+      backgroundColor: backgroundColor,
       child: Focus(
         canRequestFocus: false,
         skipTraversal: true,
@@ -402,7 +410,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
           label: widget.semanticLabel,
           child: Material(
             animationDuration: Duration.zero,
-            color: tokens.surface,
+            color: backgroundColor,
             shape: RoundedRectangleBorder(
               borderRadius: radius,
               side: widget.outlined
@@ -454,6 +462,7 @@ class _DCommandScope<T> extends InheritedWidget {
     required this.shouldFilter,
     required this.loading,
     required this.disablePointerSelection,
+    required this.backgroundColor,
     required super.child,
   });
 
@@ -462,6 +471,7 @@ class _DCommandScope<T> extends InheritedWidget {
   final bool shouldFilter;
   final bool loading;
   final bool disablePointerSelection;
+  final Color backgroundColor;
 
   static _DCommandScope<T> of<T>(BuildContext context) {
     final scope = context
@@ -476,7 +486,8 @@ class _DCommandScope<T> extends InheritedWidget {
       filter != oldWidget.filter ||
       shouldFilter != oldWidget.shouldFilter ||
       loading != oldWidget.loading ||
-      disablePointerSelection != oldWidget.disablePointerSelection;
+      disablePointerSelection != oldWidget.disablePointerSelection ||
+      backgroundColor != oldWidget.backgroundColor;
 }
 
 /// The native editable query field. Borrowed editing resources are not disposed.
@@ -796,7 +807,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         }
         const padding = EdgeInsets.symmetric(vertical: DSpacing.xs);
         Widget scroll({double minHeight = 0}) => DScrollBar(
-          backgroundColor: DTokens.of(context).surface,
+          backgroundColor: scope.backgroundColor,
           controller: _scroll,
           thumbVisibility: false,
           child: SingleChildScrollView(
