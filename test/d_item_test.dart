@@ -133,7 +133,7 @@ void main() {
         final action = find.byKey(actionKey);
         double opacity() => tester
             .widget<Opacity>(
-              find.ancestor(of: action, matching: find.byType(Opacity)),
+              find.ancestor(of: action, matching: find.byType(Opacity)).first,
             )
             .opacity;
         expect(opacity(), 0);
@@ -220,7 +220,7 @@ void main() {
         expect(
           tester
               .widget<Opacity>(
-                find.ancestor(of: action, matching: find.byType(Opacity)),
+                find.ancestor(of: action, matching: find.byType(Opacity)).first,
               )
               .opacity,
           1,
@@ -905,6 +905,92 @@ void main() {
     },
   );
 
+  testWidgets('toggling enabled keeps the row and its children mounted', (
+    tester,
+  ) async {
+    for (final dragData in [null, 'site-7']) {
+      final mounts = <State>[];
+      for (final enabled in [false, true, false]) {
+        await tester.pumpWidget(
+          host(
+            DItem(
+              enabled: enabled,
+              dragData: dragData,
+              onPressed: () {},
+              children: [
+                DItemContent(children: [_MountProbe(mounts)]),
+              ],
+            ),
+          ),
+        );
+      }
+      expect(mounts, hasLength(1), reason: 'dragData: $dragData');
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('disabling a row mid-press does not leave it pressed', (
+    tester,
+  ) async {
+    for (final dragData in [null, 'site-7']) {
+      var enabled = true;
+      var activated = 0;
+      late StateSetter update;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return DItem(
+                enabled: enabled,
+                dragData: dragData,
+                onPressed: () => activated++,
+                children: const [
+                  DItemContent(children: [Text('Connect')]),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+      Color? fill() =>
+          (tester
+                      .widget<Container>(
+                        find.descendant(
+                          of: find.byType(DItem),
+                          matching: find.byWidgetPredicate(
+                            (widget) =>
+                                widget is Container &&
+                                widget.decoration is BoxDecoration,
+                          ),
+                        ),
+                      )
+                      .decoration!
+                  as BoxDecoration)
+              .color;
+      final resting = fill();
+
+      final press = await tester.startGesture(
+        tester.getCenter(find.text('Connect')),
+      );
+      await tester.pump(kPressTimeout);
+      expect(fill(), isNot(resting), reason: 'dragData: $dragData');
+
+      update(() => enabled = false);
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'dragData: $dragData');
+      await press.up();
+      await tester.pump();
+      update(() => enabled = true);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull, reason: 'dragData: $dragData');
+      expect(fill(), resting, reason: 'dragData: $dragData');
+      expect(activated, 0, reason: 'dragData: $dragData');
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets(
     'item surfaces follow live tokens with consistent Linear corners',
     (tester) async {
@@ -1182,38 +1268,68 @@ void main() {
   ) async {
     var taps = 0;
     String? dropped;
-    await tester.pumpWidget(
-      host(
-        Column(
-          children: [
-            DItem(
-              dragData: 'topic-42',
-              onPressed: () => taps++,
-              children: const [
-                DItemContent(children: [Text('Drag topic')]),
-              ],
-            ),
-            const SizedBox(height: 40),
-            DDragRegion<String>(
-              accepts: (data) => data == 'topic-42',
-              onMove: (_, _) {},
-              onDrop: (data, _) => dropped = data,
-              onLeave: () {},
-              child: const SizedBox(height: 100, child: Text('Target')),
-            ),
-          ],
-        ),
+    Widget rows({bool enabled = true}) => host(
+      Column(
+        children: [
+          DItem(
+            enabled: enabled,
+            dragData: 'topic-42',
+            onPressed: () => taps++,
+            children: const [
+              DItemContent(children: [Text('Drag topic')]),
+            ],
+          ),
+          const SizedBox(height: 40),
+          DDragRegion<String>(
+            accepts: (data) => data == 'topic-42',
+            onMove: (_, _) {},
+            onDrop: (data, _) => dropped = data,
+            onLeave: () {},
+            child: const SizedBox(height: 100, child: Text('Target')),
+          ),
+        ],
       ),
     );
+    Future<void> drag() async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Drag topic')),
+      );
+      await gesture.moveTo(tester.getCenter(find.text('Target')));
+      await gesture.up();
+      await tester.pump();
+    }
+
+    await tester.pumpWidget(rows());
     await tester.tap(find.text('Drag topic'));
     expect(taps, 1);
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Drag topic')),
-    );
-    await gesture.moveTo(tester.getCenter(find.text('Target')));
-    await gesture.up();
-    await tester.pump();
+    await drag();
     expect(dropped, 'topic-42');
     expect(taps, 1);
+
+    dropped = null;
+    await tester.pumpWidget(rows(enabled: false));
+    await drag();
+    expect(dropped, isNull, reason: 'a disabled row offers no payload');
+    expect(taps, 1);
   });
+}
+
+class _MountProbe extends StatefulWidget {
+  const _MountProbe(this.mounts);
+
+  final List<State> mounts;
+
+  @override
+  State<_MountProbe> createState() => _MountProbeState();
+}
+
+class _MountProbeState extends State<_MountProbe> {
+  @override
+  void initState() {
+    super.initState();
+    widget.mounts.add(this);
+  }
+
+  @override
+  Widget build(BuildContext context) => const Text('Site');
 }

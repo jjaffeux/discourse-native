@@ -140,6 +140,7 @@ class _DItemState extends State<DItem> {
   @override
   void didUpdateWidget(DItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_active) _pressed = false;
     if (widget.focusNode != null && _ownedFocus != null) {
       _ownedFocus!.dispose();
       _ownedFocus = null;
@@ -350,6 +351,7 @@ class _DItemState extends State<DItem> {
             excludeFromSemantics: true,
             onTapDown: _active ? (_) => setState(() => _pressed = true) : null,
             onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
+            // Always set, so the tap recognizer outlives a mid-press disable.
             onTapCancel: () => setState(() => _pressed = false),
             onTap: _active
                 ? () {
@@ -391,11 +393,14 @@ class _DItemState extends State<DItem> {
       label: widget.semanticLabel,
       selected: widget.selected ? true : null,
       onTap: _active ? widget.onPressed : null,
-      child: widget.enabled ? result : Opacity(opacity: .5, child: result),
+      // Toggling enabled keeps the tree shape: a remount would recreate child
+      // state and dispose the tap recognizer of a pointer still down.
+      child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
     );
-    if (!widget.enabled || widget.dragData == null) return item;
+    if (widget.dragData == null) return item;
     return Draggable<Object>(
       data: widget.dragData!,
+      maxSimultaneousDrags: widget.enabled ? null : 0,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: widget.dragFeedback ?? const SizedBox.shrink(),
       child: item,
