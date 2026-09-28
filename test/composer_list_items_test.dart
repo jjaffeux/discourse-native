@@ -24,7 +24,7 @@ const complexTask =
 
 Finder editable(ComposerController composer) => find.byWidgetPredicate(
   (widget) =>
-      widget is EditableText && identical(widget.controller, composer.text),
+      widget is EditableText && identical(widget.focusNode, composer.focus),
 );
 
 Future<ComposerController> pumpEditor(
@@ -81,6 +81,23 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .map((widget) => widget.composer)
     .whereType<ComposerListBodyController>()
     .toList();
+
+void mobileBackspace(WidgetTester tester) {
+  // iOS edits the native value without sending a hardware key event. At the
+  // start of an empty native buffer it sends no update at all.
+  final value = TextEditingValue.fromJSON(tester.testTextInput.editingState!);
+  final selection = value.selection;
+  final start = selection.isCollapsed
+      ? (selection.start - 1).clamp(0, value.text.length)
+      : selection.start;
+  if (start == selection.end) return;
+  tester.testTextInput.updateEditingValue(
+    TextEditingValue(
+      text: value.text.replaceRange(start, selection.end, ''),
+      selection: TextSelection.collapsed(offset: start),
+    ),
+  );
+}
 
 void main() {
   for (final platform in [
@@ -1103,6 +1120,78 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('iOS keyboard Backspace removes an empty todo', (tester) async {
+    final root = await pumpEditor(
+      tester,
+      '- [ ] ',
+      platform: TargetPlatform.iOS,
+    );
+    final body = bodies(tester).single;
+    body.requestFocus();
+    await tester.pumpAndSettle();
+    expect(body.focus.hasPrimaryFocus, isTrue);
+    expect(find.byType(DCheckbox), findsOneWidget);
+
+    mobileBackspace(tester);
+    await tester.pumpAndSettle();
+
+    expect(root.text.text, isEmpty);
+    expect(find.byType(DCheckbox), findsNothing);
+    expect(root.focus.hasPrimaryFocus, isTrue);
+    root.history.undo();
+    await tester.pumpAndSettle();
+    expect(root.text.text, '- [ ] ');
+    expect(find.byType(DCheckbox), findsOneWidget);
+    root.history.redo();
+    await tester.pumpAndSettle();
+    expect(root.text.text, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mobile Backspace clears text then removes its todo on $platform',
+      (tester) async {
+        final root = await pumpEditor(tester, '- [ ] A', platform: platform);
+        final body = bodies(tester).single;
+        body.text.selection = const TextSelection.collapsed(offset: 1);
+        body.requestFocus();
+        await tester.pumpAndSettle();
+        mobileBackspace(tester);
+        await tester.pumpAndSettle();
+        expect(root.text.text, '- [ ] ');
+        expect(find.byType(DCheckbox), findsOneWidget);
+        expect(find.text('To-do'), findsOneWidget);
+        mobileBackspace(tester);
+        await tester.pumpAndSettle();
+        expect(root.text.text, '');
+        expect(root.focus.hasPrimaryFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('mobile Backspace outdents an empty nested todo on $platform', (
+      tester,
+    ) async {
+      final root = await pumpEditor(
+        tester,
+        '- [ ] Parent\n  - [ ] ',
+        platform: platform,
+      );
+      bodies(tester).last.requestFocus();
+      await tester.pumpAndSettle();
+      mobileBackspace(tester);
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [ ] Parent\n- [ ] ');
+      expect(find.byType(DCheckbox), findsNWidgets(2));
+      mobileBackspace(tester);
+      await tester.pumpAndSettle();
+      expect(root.text.text, '- [ ] Parent\n\n');
+      expect(find.byType(DCheckbox), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'Return exits an empty top-level task and Backspace unwraps its whole body',

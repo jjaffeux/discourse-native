@@ -217,6 +217,26 @@ final inputExamples = ComponentExamples(
         ],
       ),
     ),
+    StyleguideExample(
+      title: 'Mobile empty backspace',
+      description:
+          'The mobile keyboard can signal backspace in an empty inline field. '
+          'Todo rows use this to leave the list while keeping their saved text empty.',
+      states: const ['iOS', 'Android', 'Empty', 'Keyboard'],
+      code:
+          "DInput(borderless: true, hintText: 'To-do', onEmptyBackspace: exitList)",
+      builder: (_) {
+        var deletes = 0;
+        return StatefulBuilder(
+          builder: (context, setState) => DInput(
+            borderless: true,
+            hintText: 'To-do',
+            helperText: 'Empty backspaces: $deletes',
+            onEmptyBackspace: () => setState(() => deletes++),
+          ),
+        );
+      },
+    ),
   ],
 );
 
