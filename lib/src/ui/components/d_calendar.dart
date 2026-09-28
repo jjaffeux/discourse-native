@@ -1566,9 +1566,13 @@ class _DCalendarDayButtonState extends State<DCalendarDayButton> {
             onTapDown: widget.onPressed == null
                 ? null
                 : (_) => setState(() => _pressed = true),
+            // Disabling a day discards this recognizer mid-build, where its
+            // cancel must not rebuild a press didUpdateWidget has released.
             onTapCancel: widget.onPressed == null
                 ? null
-                : () => setState(() => _pressed = false),
+                : () {
+                    if (_pressed) setState(() => _pressed = false);
+                  },
             onTapUp: widget.onPressed == null
                 ? null
                 : (_) => setState(() => _pressed = false),

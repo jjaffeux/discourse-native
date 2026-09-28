@@ -624,6 +624,68 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('disabling a pressed trigger releases its pressed fill', (
+    tester,
+  ) async {
+    final disabled = ValueNotifier(false);
+    addTearDown(disabled.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: disabled,
+          builder: (context, value, _) => DNavigationMenu<String>(
+            child: DNavigationMenuList<String>(
+              children: [
+                DNavigationMenuItem<String>(
+                  value: 'docs',
+                  disabled: value,
+                  trigger: const DNavigationMenuTrigger(child: Text('Docs')),
+                  content: const DNavigationMenuContent(child: Text('Guides')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Color? fill() =>
+        (tester
+                    .widget<Container>(
+                      find
+                          .ancestor(
+                            of: find.text('Docs'),
+                            matching: find.byWidgetPredicate(
+                              (widget) =>
+                                  widget is Container &&
+                                  widget.decoration is BoxDecoration,
+                            ),
+                          )
+                          .first,
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+    final resting = fill();
+
+    final press = await tester.startGesture(
+      tester.getCenter(find.text('Docs')),
+    );
+    await tester.pump();
+    expect(fill(), isNot(resting));
+
+    disabled.value = true;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await press.up();
+    await tester.pump();
+    disabled.value = false;
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(fill(), resting);
+    expect(find.text('Guides'), findsNothing);
+  });
+
   testWidgets(
     'disabled dynamic entry is skipped and narrow RTL does not overflow',
     (tester) async {

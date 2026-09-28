@@ -2,6 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -157,6 +158,58 @@ void main() {
       );
     },
   );
+
+  testWidgets('disabling a pressed day releases its pressed fill', (
+    tester,
+  ) async {
+    final target = DCalendarDate(2026, 9, 10);
+    final disabled = ValueNotifier(false);
+    addTearDown(disabled.dispose);
+    await pump(
+      tester,
+      ValueListenableBuilder<bool>(
+        valueListenable: disabled,
+        builder: (context, value, _) => DCalendar(
+          initialDisplayedMonth: september,
+          disabled: (date) => value && date == target,
+        ),
+      ),
+    );
+    final day = find.byWidgetPredicate(
+      (widget) =>
+          widget is DCalendarDayButton &&
+          widget.semanticLabel == 'Thursday, September 10, 2026',
+    );
+    Color? fill() =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: day,
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+    final resting = fill();
+
+    // The month pager competes for the pointer, so the press shows only once
+    // it outlasts the press timeout.
+    final press = await tester.startGesture(tester.getCenter(day));
+    await tester.pump(kPressTimeout);
+    expect(fill(), isNot(resting));
+
+    disabled.value = true;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await press.up();
+    await tester.pump();
+    disabled.value = false;
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(fill(), resting);
+  });
 
   testWidgets('controller updates selection and displayed month', (
     tester,

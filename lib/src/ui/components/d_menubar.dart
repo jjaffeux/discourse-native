@@ -466,6 +466,12 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
     final root = _MenubarScope.of(context);
     final menu = _MenubarMenuScope.of(context);
     final enabled = !root.widget.disabled && menu.enabled;
+    // Disabling drops the tap handlers: no tap-up will release a press still
+    // down, and the discarded recognizer cancels it mid-build, where the
+    // cancel must find nothing left to rebuild. Enablement arrives through
+    // the menubar and menu scopes, and a menu's flag changes without
+    // notifying, so only this build is sure to run before the handlers go.
+    if (!enabled) _pressed = false;
     final tokens = DTokens.of(context);
     return DDropdownMenuTrigger(
       focusNode: menu.focusNode,
@@ -525,7 +531,9 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                       ? (_) => setState(() => _pressed = true)
                       : null,
                   onTapCancel: enabled
-                      ? () => setState(() => _pressed = false)
+                      ? () {
+                          if (_pressed) setState(() => _pressed = false);
+                        }
                       : null,
                   onTapUp: enabled
                       ? (_) {

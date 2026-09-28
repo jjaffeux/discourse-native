@@ -985,6 +985,15 @@ class _NavigationActionState extends State<_NavigationAction> {
   bool _focused = false;
   bool _pressed = false;
 
+  // Disabling drops the tap handlers: no tap-up will release a press still
+  // down, and the discarded recognizer cancels it mid-build, where the cancel
+  // must find nothing left to rebuild.
+  @override
+  void didUpdateWidget(_NavigationAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.disabled) _pressed = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
@@ -1036,7 +1045,9 @@ class _NavigationActionState extends State<_NavigationAction> {
               ? (_) => setState(() => _pressed = true)
               : null,
           onTapCancel: interactive
-              ? () => setState(() => _pressed = false)
+              ? () {
+                  if (_pressed) setState(() => _pressed = false);
+                }
               : null,
           onTapUp: interactive ? (_) => setState(() => _pressed = false) : null,
           onTap: interactive ? widget.onPressed : null,

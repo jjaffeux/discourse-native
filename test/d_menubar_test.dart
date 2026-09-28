@@ -341,6 +341,60 @@ void main() {
     );
   });
 
+  testWidgets('disabling a pressed trigger releases its pressed fill', (
+    tester,
+  ) async {
+    Widget menubar({bool disabled = false, bool menuEnabled = true}) =>
+        _TestApp(
+          child: DMenubar(
+            disabled: disabled,
+            children: [
+              DMenubarMenu(
+                enabled: menuEnabled,
+                trigger: const DMenubarTrigger(child: Text('File')),
+                content: const DMenubarContent(
+                  children: [DMenubarItem(child: Text('New Tab'))],
+                ),
+              ),
+            ],
+          ),
+        );
+    Color? fill() =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: find.byType(DMenubarTrigger),
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+
+    for (final disabledMenubar in [
+      menubar(disabled: true),
+      menubar(menuEnabled: false),
+    ]) {
+      await tester.pumpWidget(menubar());
+      final resting = fill();
+      final press = await tester.startGesture(
+        tester.getCenter(find.text('File')),
+      );
+      await tester.pump();
+      expect(fill(), isNot(resting));
+
+      await tester.pumpWidget(disabledMenubar);
+      expect(tester.takeException(), isNull);
+      await press.up();
+      await tester.pumpWidget(menubar());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(fill(), resting);
+      expect(find.text('New Tab'), findsNothing);
+    }
+  });
+
   testWidgets('re-enabled roots restore a keyboard entry point', (
     tester,
   ) async {
