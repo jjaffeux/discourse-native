@@ -728,11 +728,16 @@ void main() {
           final gesture = await tester.startGesture(
             tester.getCenter(find.byType(DSheetTitle)),
           );
-          await gesture.moveBy(const Offset(0, 30));
-          await gesture.moveBy(const Offset(0, 150));
-          await tester.pump();
+          var elapsed = Duration.zero;
+          for (var sample = 0; sample < 12; sample++) {
+            elapsed += const Duration(milliseconds: 8);
+            await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
+            await tester.pump(const Duration(milliseconds: 8));
+          }
           var previousTop = tester.getTopLeft(sheet).dy;
-          await gesture.up();
+          var previousSpeed = 1500.0;
+          var moving = false;
+          await gesture.up(timeStamp: elapsed);
 
           for (var frame = 0; frame < 30; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
@@ -744,8 +749,18 @@ void main() {
               reason:
                   'The sheet must not move upward after release (frame $frame).',
             );
+            // Controlled picker owners first propagate the close request.
+            // Once the exit starts, it must retain the release velocity.
+            if (top > previousTop + .01 || moving) {
+              moving = true;
+              final speed = (top - previousTop) / .016;
+              expect(speed, greaterThanOrEqualTo(previousSpeed - 5));
+              previousSpeed = speed;
+            }
             previousTop = top;
           }
+          expect(moving, isTrue);
+          expect(previousTop + previousSpeed * .032, greaterThanOrEqualTo(844));
           expect(sheet, findsNothing);
           expect(tester.takeException(), isNull);
         },

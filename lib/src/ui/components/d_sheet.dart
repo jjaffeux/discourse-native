@@ -417,27 +417,17 @@ Widget _sheetLayout(
       builder: (context, close) => _DSheetSwipeDismiss(
         onDismiss: close,
         routeAnimation: presentation.animation,
+        popupCurve: popupCurve,
+        scale: fillAvailableHeight,
         child: content,
       ),
     );
-  }
-  if (animate) {
-    if (fillAvailableHeight) {
-      popup = ScaleTransition(
-        scale: Tween<double>(begin: .97, end: 1).animate(popupCurve),
-        child: popup,
-      );
-    }
-    popup = FadeTransition(
-      opacity: popupCurve,
-      child: AnimatedBuilder(
-        animation: popupCurve,
-        child: popup,
-        builder: (context, child) => Transform.translate(
-          offset: Offset.lerp(beginOffset, Offset.zero, popupCurve.value)!,
-          child: child,
-        ),
-      ),
+  } else {
+    popup = _DSheetMotion(
+      curve: popupCurve,
+      beginOffset: beginOffset,
+      scale: fillAvailableHeight,
+      child: popup,
     );
   }
 
@@ -510,15 +500,78 @@ Widget _sheetLayout(
       : layout;
 }
 
+class _DSheetMotion extends StatelessWidget {
+  const _DSheetMotion({
+    required this.curve,
+    required this.beginOffset,
+    required this.scale,
+    required this.child,
+  });
+
+  final Animation<double> curve;
+  final Offset beginOffset;
+  final bool scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return FadeTransition(
+      opacity: curve,
+      child: AnimatedBuilder(
+        animation: curve,
+        child: scale
+            ? ScaleTransition(
+                scale: Tween<double>(begin: .97, end: 1).animate(curve),
+                child: child,
+              )
+            : child,
+        builder: (context, child) => Transform.translate(
+          offset: Offset.lerp(beginOffset, Offset.zero, curve.value)!,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+// Start the exit at the swipe's release velocity. Slow swipes accelerate to
+// finish within 320ms; a faster swipe coasts without losing any of its speed.
+class _DSheetDismissSimulation extends Simulation {
+  _DSheetDismissSimulation(this.distance, this.velocity, this.initialValue)
+    : acceleration = math.max(0, 2 * (distance - velocity * .32) / (.32 * .32));
+
+  final double distance;
+  final double velocity;
+  final double initialValue;
+  final double acceleration;
+
+  @override
+  double x(double time) =>
+      initialValue *
+      (1 - (velocity * time + acceleration * time * time / 2) / distance);
+
+  @override
+  double dx(double time) =>
+      -initialValue * (velocity + acceleration * time) / distance;
+
+  @override
+  bool isDone(double time) => x(time) <= 0;
+}
+
 class _DSheetSwipeDismiss extends StatefulWidget {
   const _DSheetSwipeDismiss({
     required this.onDismiss,
     required this.routeAnimation,
+    required this.popupCurve,
+    required this.scale,
     required this.child,
   });
 
   final VoidCallback onDismiss;
   final Animation<double> routeAnimation;
+  final Animation<double> popupCurve;
+  final bool scale;
   final Widget child;
 
   @override
@@ -532,6 +585,32 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
   bool _dragging = false;
+  DOverlayRoute<dynamic, Object>? _route;
+  Simulation? Function()? _pendingSimulation;
+  _DSheetDismissSimulation? _dismissal;
+  double _dismissOrigin = 0;
+  double _dismissCurve = 1;
+
+  Simulation _beginDismissal(double velocity) {
+    _travel.stop();
+    _dismissOrigin = _travel.value;
+    _dismissCurve = widget.popupCurve.value;
+    final box = context.findRenderObject()! as RenderBox;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final top = box.localToGlobal(Offset.zero).dy + _dismissOrigin;
+    return _dismissal = _DSheetDismissSimulation(
+      math.max(1, viewportHeight - top),
+      math.max(0, velocity),
+      widget.routeAnimation.value,
+    );
+  }
+
+  void _clearPendingSimulation() {
+    if (_route?.reverseSimulationBuilder == _pendingSimulation) {
+      _route?.reverseSimulationBuilder = null;
+    }
+    _pendingSimulation = null;
+  }
 
   @override
   void initState() {
@@ -558,6 +637,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _start() {
+    _clearPendingSimulation();
     _travel.stop();
     _dragging = true;
   }
@@ -568,11 +648,18 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   void _restore() {
     if (!mounted) return;
-    _travel.animateTo(
-      0,
-      duration: DMotion.duration(context, DMotion.change),
-      curve: Curves.easeOutCubic,
-    );
+    final pending = _pendingSimulation;
+    _travel
+        .animateTo(
+          0,
+          duration: DMotion.duration(context, DMotion.change),
+          curve: Curves.easeOutCubic,
+        )
+        .whenCompleteOrCancel(() {
+          if (mounted && _dismissal == null && _pendingSimulation == pending) {
+            _clearPendingSimulation();
+          }
+        });
   }
 
   void _finish(double velocity, {bool cancelled = false}) {
@@ -581,6 +668,13 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     _scrollOrigin = null;
     if (!cancelled &&
         (_travel.value >= 72 || (_travel.value >= 18 && velocity >= 700))) {
+      final route = ModalRoute.of(context);
+      if (!MediaQuery.disableAnimationsOf(context) &&
+          route is DOverlayRoute<dynamic, Object>) {
+        _route = route;
+        _pendingSimulation = () => _beginDismissal(velocity);
+        route.reverseSimulationBuilder = _pendingSimulation;
+      }
       widget.onDismiss();
       // Controlled owners can decline the close request. Let their route
       // update before deciding whether the sheet needs to settle back.
@@ -630,6 +724,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   @override
   void dispose() {
+    _clearPendingSimulation();
     widget.routeAnimation.removeStatusListener(_onRouteStatus);
     _travel.dispose();
     super.dispose();
@@ -637,9 +732,26 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _travel,
-    builder: (context, child) =>
-        Transform.translate(offset: Offset(0, _travel.value), child: child),
+    animation: Listenable.merge([_travel, widget.routeAnimation]),
+    builder: (context, child) {
+      final dismissal = _dismissal;
+      final offset = dismissal == null
+          ? _travel.value
+          : _dismissOrigin +
+                dismissal.distance *
+                    (1 - widget.routeAnimation.value / dismissal.initialValue);
+      return Transform.translate(
+        offset: Offset(0, offset),
+        child: _DSheetMotion(
+          curve: dismissal == null
+              ? widget.popupCurve
+              : AlwaysStoppedAnimation(_dismissCurve),
+          beginOffset: const Offset(0, 40),
+          scale: widget.scale,
+          child: child!,
+        ),
+      );
+    },
     child: Listener(
       onPointerDown: (event) {
         if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
