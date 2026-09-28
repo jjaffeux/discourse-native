@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'private_storage.dart';
@@ -14,10 +15,16 @@ abstract interface class ClientIdPersistence {
 }
 
 final class PreferencesClientIdPersistence implements ClientIdPersistence {
-  const PreferencesClientIdPersistence() : _key = 'discourse_native.client_id';
+  const PreferencesClientIdPersistence({bool development = false})
+    : _key = development
+          ? 'discourse_native.dev.client_id'
+          : 'discourse_native.client_id';
 
-  const PreferencesClientIdPersistence.pushRegistration()
-    : _key = 'discourse_native.push_client_id';
+  const PreferencesClientIdPersistence.pushRegistration({
+    bool development = false,
+  }) : _key = development
+           ? 'discourse_native.dev.push_client_id'
+           : 'discourse_native.push_client_id';
 
   final String _key;
 
@@ -54,10 +61,19 @@ class SecureStore {
 
   static const String _legacyClientIdEntry = 'client_id';
   static const String _pushClientIdEntry = 'push_client_id';
-  static const ClientIdPersistence _defaultClientIds =
-      PreferencesClientIdPersistence();
-  static const ClientIdPersistence _defaultPushClientIds =
-      PreferencesClientIdPersistence.pushRegistration();
+  // Match the separate macOS development credential service. The old shared
+  // preferences belong to release: importing them into development can send
+  // a production client ID alongside a different key and trigger a duplicate
+  // UserApiKeyClient insert on the server.
+  static bool get _developmentIdentity =>
+      defaultTargetPlatform == TargetPlatform.macOS && !kReleaseMode;
+
+  static ClientIdPersistence get _defaultClientIds => _developmentIdentity
+      ? const PreferencesClientIdPersistence(development: true)
+      : const PreferencesClientIdPersistence();
+  static ClientIdPersistence get _defaultPushClientIds => _developmentIdentity
+      ? const PreferencesClientIdPersistence.pushRegistration(development: true)
+      : const PreferencesClientIdPersistence.pushRegistration();
   static final SerialOperationQueue _clientIdOperations =
       SerialOperationQueue();
   static final Expando<_ApiKeyState> _apiKeyStates = Expando<_ApiKeyState>(

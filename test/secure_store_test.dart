@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // Fault injection at shared_preferences' platform boundary is test-only.
@@ -9,6 +10,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 void main() {
+  test(
+    'macOS development keeps its identity across release launches',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.client_id': 'release-install',
+        'discourse_native.push_client_id': 'release-token',
+      });
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      SecureStore openDevelopment() => SecureStore(
+        storage: _FakeStorage(),
+        tokenGenerator: () => 'development-install',
+      );
+      final development = openDevelopment();
+      expect(await development.readPushClientId(), isNull);
+      expect(await development.readOrCreateClientId(), 'development-install');
+      await development.writePushClientId('development-token');
+
+      final release = SecureStore(
+        storage: _FakeStorage(),
+        clientIds: const PreferencesClientIdPersistence(),
+        pushClientIds: const PreferencesClientIdPersistence.pushRegistration(),
+      );
+      expect(await release.readOrCreateClientId(), 'release-install');
+      expect(await release.readPushClientId(), 'release-token');
+      await release.writePushClientId('rotated-release-token');
+
+      final relaunched = openDevelopment();
+      expect(await relaunched.readOrCreateClientId(), 'development-install');
+      expect(await relaunched.readPushClientId(), 'development-token');
+      expect(await release.readPushClientId(), 'rotated-release-token');
+    },
+  );
+
   group('client ID preferences', () {
     const key = 'discourse_native.client_id';
     const apiKeyEntry = 'api_key::https://meta.discourse.org';
