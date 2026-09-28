@@ -468,15 +468,24 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         onPressed: action.onPressed,
       );
     } else if (showReply) {
-      primaryAction = DButton(
-        key: const ValueKey('mobile-topic-reply'),
-        icon: const DIcon(DIcons.reply),
-        label: const Text('Reply'),
-        tooltip: 'Reply to this topic',
-        shape: DButtonShape.pill,
-        density: DButtonDensity.mobileDockAction,
-        onPressed: shell.openReply,
-      );
+      primaryAction = showLabel
+          ? DButton(
+              key: const ValueKey('mobile-topic-reply'),
+              icon: const DIcon(DIcons.reply),
+              label: const Text('Reply'),
+              tooltip: 'Reply to this topic',
+              shape: DButtonShape.pill,
+              density: DButtonDensity.mobileDockAction,
+              onPressed: shell.openReply,
+            )
+          : DButton.iconOnly(
+              key: const ValueKey('mobile-topic-reply'),
+              icon: const DIcon(DIcons.reply),
+              tooltip: 'Reply to this topic',
+              shape: DButtonShape.pill,
+              density: DButtonDensity.mobileDockAction,
+              onPressed: shell.openReply,
+            );
     } else if (showNewMessage) {
       primaryAction = MessageCreateButton(
         showLabel: showLabel,
