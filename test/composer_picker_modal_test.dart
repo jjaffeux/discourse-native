@@ -712,6 +712,47 @@ void main() {
     expect(find.byType(DSheetContent), findsOneWidget);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final action in ['composer-category-action', 'composer-add-tag']) {
+      testWidgets(
+        '$action swipe continues down through dismissal on $platform',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await pumpComposer(tester, platform: platform);
+          await open(tester, ValueKey(action));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          final sheet = find.byType(DSheetContent);
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byType(DSheetTitle)),
+          );
+          await gesture.moveBy(const Offset(0, 30));
+          await gesture.moveBy(const Offset(0, 150));
+          await tester.pump();
+          var previousTop = tester.getTopLeft(sheet).dy;
+          await gesture.up();
+
+          for (var frame = 0; frame < 30; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            if (sheet.evaluate().isEmpty) break;
+            final top = tester.getTopLeft(sheet).dy;
+            expect(
+              top,
+              greaterThanOrEqualTo(previousTop - .01),
+              reason:
+                  'The sheet must not move upward after release (frame $frame).',
+            );
+            previousTop = top;
+          }
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('the tag selector uses the same dropdown on touch', (
     tester,
   ) async {
