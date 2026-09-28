@@ -8,6 +8,7 @@ import '../models/post.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_picker.dart';
 
@@ -64,6 +65,18 @@ class TopicHeaderTags extends StatelessWidget {
               : const SizedBox.shrink();
         }
         final theme = Theme.of(context);
+        final tokens = DTokens.of(context);
+        final mobile = context.isTouch;
+        // Native mockup: raised surface, outlined pill, secondary text.
+        final background = mobile
+            ? Color.lerp(tokens.background, tokens.foreground, .10)
+            : null;
+        final foreground = mobile
+            ? Color.lerp(tokens.background, tokens.foreground, .62)
+            : null;
+        final border = mobile
+            ? Color.lerp(tokens.background, tokens.foreground, .22)
+            : null;
         final style = theme.textTheme.bodySmall?.copyWith(
           fontSize: DControlStyle.fontSize(
             DControlSize.filter,
@@ -162,6 +175,9 @@ class TopicHeaderTags extends StatelessWidget {
                     key: key,
                     variant: DBadgeVariant.secondary,
                     size: DBadgeSize.control,
+                    backgroundColor: background,
+                    foregroundColor: foreground,
+                    borderColor: border,
                     onPressed: open,
                     semanticLabel: semanticLabel,
                     leading: saving ? const DSpinner() : null,
@@ -175,6 +191,9 @@ class TopicHeaderTags extends StatelessWidget {
                     key: key,
                     variant: DBadgeVariant.secondary,
                     size: DBadgeSize.control,
+                    backgroundColor: background,
+                    foregroundColor: foreground,
+                    borderColor: border,
                     onPressed: () => onTagNavigate(tag),
                     semanticLabel: semanticLabel,
                     child: Text(
