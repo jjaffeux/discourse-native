@@ -1261,6 +1261,10 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
   @override
   void didUpdateWidget(_DropdownMenuItemSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Disabling drops the tap handlers: no tap-up will release a press still
+    // down, and the discarded recognizer cancels it mid-build, where the
+    // cancel must find nothing left to rebuild.
+    if (!widget.enabled) _pressed = false;
     if (oldWidget.focusNode != widget.focusNode ||
         oldWidget.label != widget.label ||
         oldWidget.enabled != widget.enabled) {
@@ -1411,7 +1415,9 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
                     }
                   : null,
               onTapCancel: widget.enabled
-                  ? () => setState(() => _pressed = false)
+                  ? () {
+                      if (_pressed) setState(() => _pressed = false);
+                    }
                   : null,
               onTapUp: widget.enabled
                   ? (_) {

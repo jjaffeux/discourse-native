@@ -705,6 +705,67 @@ void main() {
     expect(find.text('Profile selected'), findsOneWidget);
   });
 
+  testWidgets('disabling a pressed row releases its pressed fill', (
+    tester,
+  ) async {
+    final enabled = ValueNotifier(true);
+    addTearDown(enabled.dispose);
+    await pumpMenu(
+      tester,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: enabled,
+        builder: (context, value, _) => DDropdownMenu(
+          content: DDropdownMenuContent(
+            children: [
+              const DDropdownMenuItem(onPressed: _noop, child: Text('Profile')),
+              DDropdownMenuItem(
+                onPressed: value ? _noop : null,
+                child: const Text('Billing'),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger.button(label: const Text('Open')),
+        ),
+      ),
+    );
+    await open(tester);
+    Color? fill() =>
+        (tester
+                    .widget<Container>(
+                      find
+                          .ancestor(
+                            of: find.text('Billing'),
+                            matching: find.byWidgetPredicate(
+                              (widget) =>
+                                  widget is Container &&
+                                  widget.decoration is BoxDecoration,
+                            ),
+                          )
+                          .first,
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color;
+    final resting = fill();
+
+    final press = await tester.startGesture(
+      tester.getCenter(find.text('Billing')),
+    );
+    await tester.pump();
+    expect(fill(), isNot(resting));
+
+    enabled.value = false;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await press.up();
+    await tester.pump();
+    enabled.value = true;
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(fill(), resting);
+  });
+
   testWidgets('checkboxes and radio values are controlled and remain open', (
     tester,
   ) async {
