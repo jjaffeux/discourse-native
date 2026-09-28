@@ -16,8 +16,9 @@ final sheetExamples = ComponentExamples(
       'Physical sides remain physical in RTL; start and end are also available '
       'for native direction-aware layouts. Full-height sheets use the page '
       'surface over a darker opaque backdrop in both light and dark themes. '
-      'Swipe handles, detents and snap '
-      'points belong to Drawer.',
+      'Mobile bottom sheets dismiss with a downward touch swipe from their '
+      'header or the top of scrolling content; dismissOnSwipe can disable it. '
+      'Swipe handles, detents and snap points belong to Drawer.',
   examples: [
     StyleguideExample(
       title: 'Behind the keyboard',

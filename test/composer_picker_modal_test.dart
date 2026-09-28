@@ -705,6 +705,11 @@ void main() {
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
+    await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    await open(tester, const ValueKey('composer-category-action'));
+    expect(find.byType(DSheetContent), findsOneWidget);
   });
 
   testWidgets('the tag selector uses the same dropdown on touch', (
@@ -717,5 +722,10 @@ void main() {
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
+    await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    await open(tester, const ValueKey('composer-add-tag'));
+    expect(find.byType(DSheetContent), findsOneWidget);
   });
 }

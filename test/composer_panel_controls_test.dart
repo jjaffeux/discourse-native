@@ -1477,7 +1477,7 @@ void main() {
         expect(composer.target.targetRecipients, 'alex,sam,team');
         expect(composer.draft.recipients, 'alex,sam,team');
         expect(composer.canSubmit, isTrue);
-        await tester.tap(find.byTooltip('Close'));
+        await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
         expect(find.text('3 recipients'), findsOneWidget);
