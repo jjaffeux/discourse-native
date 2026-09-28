@@ -30,6 +30,45 @@ const _target = ComposerTarget(
 );
 
 void main() {
+  for (final scale in [1.0, 1.5]) {
+    testWidgets(
+      'text selection excludes paragraph spacing at scale $scale',
+      (tester) async {
+        const source = '**word**\n\n**word**';
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.text.value = const TextEditingValue(
+          text: source,
+          selection: TextSelection(baseOffset: 2, extentOffset: 6),
+        );
+        await _pumpEditor(tester, composer, textScale: scale);
+        final render = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final first = render
+            .getBoxesForSelection(
+              const TextSelection(baseOffset: 2, extentOffset: 6),
+            )
+            .single
+            .toRect();
+        final last = render
+            .getBoxesForSelection(
+              const TextSelection(baseOffset: 12, extentOffset: 16),
+            )
+            .single
+            .toRect();
+        expect(first.height, closeTo(last.height, .01));
+        expect(last.top - first.top, greaterThan(render.preferredLineHeight));
+        expect(composer.raw, source);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   for (final newline in ['\n', '\r\n']) {
     for (final separator in [newline, '$newline$newline']) {
       for (final gallery in [false, true]) {
@@ -56,7 +95,7 @@ void main() {
             final render = tester
                 .state<EditableTextState>(find.byType(EditableText))
                 .renderEditable;
-            render.selectionHeightStyle = ui.BoxHeightStyle.tight;
+            expect(render.selectionHeightStyle, ui.BoxHeightStyle.tight);
             final previews = find.byType(
               gallery ? ComposerImageGalleryPreview : ComposerImagePreview,
             );

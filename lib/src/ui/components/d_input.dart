@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show SemanticsValidationResult;
+import 'dart:ui' show BoxHeightStyle, SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +43,7 @@ class DInput extends FormField<String> {
     this.expands = false,
     this.scrollController,
     this.strutStyle,
+    this.selectionHeightStyle,
     this.showCursor,
     this.mouseCursor,
     this.onTapAlwaysCalled = false,
@@ -119,6 +120,9 @@ class DInput extends FormField<String> {
 
   /// Rich inline content may supply its own line metrics, including widgets.
   final StrutStyle? strutStyle;
+
+  /// Controls selection highlight height; null preserves Flutter's default.
+  final BoxHeightStyle? selectionHeightStyle;
   final bool? showCursor;
   final MouseCursor? mouseCursor;
   final bool onTapAlwaysCalled;
@@ -431,6 +435,7 @@ class _DInputState extends FormFieldState<String> {
                   autofocus: input.autofocus,
                   style: style,
                   strutStyle: input.strutStyle,
+                  selectionHeightStyle: input.selectionHeightStyle,
                   expands: input.expands,
                   maxLines: input.maxLines,
                   minLines: input.borderless && !input.expands ? 1 : null,
