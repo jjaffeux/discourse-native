@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui'
     show CheckedState, SemanticsAction, SemanticsActionEvent, Tristate;
 
@@ -18,12 +19,14 @@ void main() {
         bool checked = false;
         await _pump(
           tester,
-          StatefulBuilder(
-            builder: (context, setState) => DCheckbox(
-              contentPadding: EdgeInsets.zero,
-              value: checked,
-              onChanged: (value) => setState(() => checked = value ?? false),
-              title: const DLabel(child: Text('Accept terms')),
+          Center(
+            child: StatefulBuilder(
+              builder: (context, setState) => DCheckbox(
+                contentPadding: EdgeInsets.zero,
+                value: checked,
+                onChanged: (value) => setState(() => checked = value ?? false),
+                title: const DLabel(child: Text('Accept terms')),
+              ),
             ),
           ),
         );
@@ -43,10 +46,25 @@ void main() {
           CheckedState.isFalse,
         );
         expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
-        expect(
-          tester.getSize(find.byType(DCheckbox)).height,
-          greaterThanOrEqualTo(48),
+        // Tests default to Android: the row is as tall as its artwork and
+        // label on touch platforms too, with no touch band around it.
+        final row = tester.getRect(find.byType(DCheckbox));
+        final artwork = tester.getRect(
+          find.descendant(
+            of: find.byType(DCheckbox),
+            matching: find.byType(AnimatedContainer),
+          ),
         );
+        final label = tester.getRect(find.text('Accept terms'));
+        expect(row.height, math.max(artwork.height, label.height));
+        for (final outside in [
+          Offset(label.center.dx, row.top - 1),
+          Offset(label.center.dx, row.bottom + 1),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pump();
+          expect(checked, isFalse, reason: 'Tap outside $row at $outside');
+        }
 
         await tester.tap(find.text('Accept terms'));
         await tester.pump();
