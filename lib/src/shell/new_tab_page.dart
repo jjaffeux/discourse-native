@@ -676,7 +676,9 @@ class _StartSection extends StatelessWidget {
   final Widget? content;
 
   Widget _row(BuildContext context, _StartPageEntry entry) {
-    if (!compact) return _comfortableRow(context, entry);
+    final canDrag =
+        entry.path != null && ShellScope.of(context).desktopPanelsEnabled;
+    if (!compact) return _comfortableRow(context, entry, canDrag: canDrag);
     final tokens = DTokens.of(context);
     final metadata = (entry.count ?? 0) > 0
         ? DBadge(
@@ -696,14 +698,14 @@ class _StartSection extends StatelessWidget {
       size: compact ? DItemSize.xs : DItemSize.standard,
       link: entry.path != null,
       onPressed: entry.onPressed,
-      dragData: entry.path == null
+      dragData: !canDrag
           ? null
           : StartPageDrag(
               siteUrl: siteUrl,
               path: entry.path!,
               title: entry.title,
             ),
-      dragFeedback: entry.path == null
+      dragFeedback: !canDrag
           ? null
           : Transform.translate(
               offset: const Offset(DSpacing.md, 20),
@@ -763,7 +765,11 @@ class _StartSection extends StatelessWidget {
           );
   }
 
-  Widget _comfortableRow(BuildContext context, _StartPageEntry entry) {
+  Widget _comfortableRow(
+    BuildContext context,
+    _StartPageEntry entry, {
+    required bool canDrag,
+  }) {
     final tokens = DTokens.of(context);
     final accent = entry.color ?? tokens.primary;
     final metadata = entry.reminderAt != null
@@ -788,14 +794,14 @@ class _StartSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       link: entry.path != null,
       onPressed: entry.onPressed,
-      dragData: entry.path == null
+      dragData: !canDrag
           ? null
           : StartPageDrag(
               siteUrl: siteUrl,
               path: entry.path!,
               title: entry.title,
             ),
-      dragFeedback: entry.path == null
+      dragFeedback: !canDrag
           ? null
           : Transform.translate(
               offset: const Offset(DSpacing.md, 20),
