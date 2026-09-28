@@ -228,49 +228,54 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
     owner: widget.composer,
     scrollController: widget.scrollController,
     semanticLabel: '${widget.item.label} item',
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.item.isTask)
-          DCheckbox(
-            inline: true,
-            size: DControlStyle.isTouch(context)
-                ? DCheckboxSize.large
-                : DCheckboxSize.standard,
-            inlineTextStyle:
-                context
+    child: Padding(
+      padding: widget.item.isTask
+          ? const EdgeInsets.only(bottom: DSpacing.sm)
+          : EdgeInsets.zero,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.item.isTask)
+            DCheckbox(
+              inline: true,
+              size: DControlStyle.isTouch(context)
+                  ? DCheckboxSize.large
+                  : DCheckboxSize.standard,
+              inlineTextStyle:
+                  context
+                      .findAncestorWidgetOfExactType<ComposerEditor>()
+                      ?.textStyle ??
+                  Theme.of(context).textTheme.bodyLarge,
+              value: widget.item.checked,
+              readOnly: !body.isEditing,
+              semanticLabel: widget.item.body.text.split('\n').first.isEmpty
+                  ? 'To-do'
+                  : widget.item.body.text.split('\n').first,
+              onChanged: (_) => body.toggle(),
+            )
+          else
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: DSpacing.md),
+              child: Text(
+                widget.item.number != null ? '${widget.item.number}.' : '•',
+                style: context
                     .findAncestorWidgetOfExactType<ComposerEditor>()
-                    ?.textStyle ??
-                Theme.of(context).textTheme.bodyLarge,
-            value: widget.item.checked,
-            readOnly: !body.isEditing,
-            semanticLabel: widget.item.body.text.split('\n').first.isEmpty
-                ? 'To-do'
-                : widget.item.body.text.split('\n').first,
-            onChanged: (_) => body.toggle(),
-          )
-        else
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: DSpacing.md),
-            child: Text(
-              widget.item.number != null ? '${widget.item.number}.' : '•',
-              style: context
-                  .findAncestorWidgetOfExactType<ComposerEditor>()
-                  ?.textStyle,
+                    ?.textStyle,
+              ),
+            ),
+          Expanded(
+            child: ComposerRichBodyEditor(
+              composer: body,
+              label: 'List item content',
+              hintText: widget.item.isTask ? 'To-do' : 'List',
+              enableBlockReordering: false,
+              onKeyEvent: body.handleKey,
+              onEmptyBackspace: body.deleteAtStart,
+              onExit: body.exit,
             ),
           ),
-        Expanded(
-          child: ComposerRichBodyEditor(
-            composer: body,
-            label: 'List item content',
-            hintText: widget.item.isTask ? 'To-do' : 'List',
-            enableBlockReordering: false,
-            onKeyEvent: body.handleKey,
-            onEmptyBackspace: body.deleteAtStart,
-            onExit: body.exit,
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

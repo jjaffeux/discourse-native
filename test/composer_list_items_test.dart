@@ -364,7 +364,7 @@ void main() {
           final nextBefore = tester.getRect(find.byType(DCheckbox).last);
           final body = bodies(tester).first;
           final bodyBefore = tester.getRect(editable(body));
-          expect(nextBefore.top, closeTo(imageBefore.bottom, .1));
+          expect(nextBefore.top, closeTo(imageBefore.bottom + DSpacing.sm, .1));
 
           await tester.tap(image);
           await tester.pumpAndSettle();
