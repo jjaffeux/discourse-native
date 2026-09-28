@@ -13,10 +13,44 @@ final checkboxExamples = ComponentExamples(
       'DCheckbox.defaultValue for local default state. Null is mixed with '
       'tristate enabled. DCheckboxFormField integrates validation, save and reset. '
       'Independent actions belong outside title/subtitle. Reference control is '
-      '16px with 14px Lucide artwork and a matching hit area. '
+      '16px with 14px Lucide artwork; DCheckboxSize.large is 24px with 21px '
+      'artwork. Both sizes have matching hit areas. '
       'Use the shared preview controls for live light/dark/custom palettes, '
       '360px width, 200% text, RTL and reduced motion.',
   examples: [
+    StyleguideExample(
+      title: 'Sizes',
+      description:
+          'Standard 16px and large 24px checkboxes. Mobile todos use the large size; inline spacing stays outside the hit area.',
+      states: const ['Standard', 'Large', 'Unchecked', 'Checked', 'Mixed'],
+      code: '''DCheckbox.defaultValue(size: DCheckboxSize.large)
+DCheckbox.defaultValue(size: DCheckboxSize.large, defaultValue: true)
+DCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, defaultValue: null)''',
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final size in DCheckboxSize.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: DSpacing.md),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final value in <bool?>[false, true, null])
+                    DCheckbox.defaultValue(
+                      size: size,
+                      inline: true,
+                      tristate: true,
+                      defaultValue: value,
+                      semanticLabel: '${size.name} checkbox',
+                    ),
+                  Text(size == DCheckboxSize.large ? '24px' : '16px'),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Basic and description',
       description:
@@ -277,7 +311,7 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
     StyleguideExample(
       title: 'Inline',
       description:
-          'Standard label spacing on desktop; full targets on touch platforms.',
+          'An 8px gap separates the checkbox from text and stays outside its hit area.',
       code: 'DCheckbox.defaultValue(inline: true, semanticLabel: "To-do")',
       builder: (_) => const Row(
         mainAxisSize: MainAxisSize.min,

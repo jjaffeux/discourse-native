@@ -58,14 +58,19 @@ Widget? cookedTodoWidgetBuilder(
         ? targets[index]
         : null;
     final interactive = target != null && !target.permanent && onToggle != null;
-    return DCheckbox(
-      inline: true,
-      value: box.classes.contains('checked'),
-      readOnly: !interactive,
-      semanticLabel: label.isEmpty ? 'To-do' : label,
-      onChanged: (checked) {
-        if (interactive) onToggle(target, checked == true);
-      },
+    return Builder(
+      builder: (context) => DCheckbox(
+        inline: true,
+        size: DControlStyle.isTouch(context)
+            ? DCheckboxSize.large
+            : DCheckboxSize.standard,
+        value: box.classes.contains('checked'),
+        readOnly: !interactive,
+        semanticLabel: label.isEmpty ? 'To-do' : label,
+        onChanged: (checked) {
+          if (interactive) onToggle(target, checked == true);
+        },
+      ),
     );
   }
 

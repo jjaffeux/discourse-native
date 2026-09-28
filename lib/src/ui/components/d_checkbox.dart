@@ -7,6 +7,9 @@ import 'package:flutter/services.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
 
+/// Checkbox artwork sizes with matching hit areas, in logical pixels.
+enum DCheckboxSize { standard, large }
+
 /// A shadcn checkbox with native focus, keyboard and semantic ownership.
 ///
 /// The default constructor is controlled: update [value] in [onChanged]. A null
@@ -19,7 +22,8 @@ import 'd_label.dart';
 /// other independently interactive content outside those slots. [secondary]
 /// remains outside the control's semantics and focus owner. Borrowed [focusNode]
 /// is never disposed. The unlabelled control and its hit area are 16×16 logical
-/// pixels on every platform. Inline spacing stays outside the hit area.
+/// pixels for [DCheckboxSize.standard] and 24×24 for [DCheckboxSize.large].
+/// Inline spacing stays outside the hit area.
 class DCheckbox extends StatefulWidget {
   const DCheckbox({
     super.key,
@@ -29,6 +33,7 @@ class DCheckbox extends StatefulWidget {
     this.enabled = true,
     this.invalid = false,
     this.readOnly = false,
+    this.size = DCheckboxSize.standard,
     this.title,
     this.subtitle,
     this.secondary,
@@ -52,6 +57,7 @@ class DCheckbox extends StatefulWidget {
     this.enabled = true,
     this.invalid = false,
     this.readOnly = false,
+    this.size = DCheckboxSize.standard,
     this.title,
     this.subtitle,
     this.secondary,
@@ -76,6 +82,7 @@ class DCheckbox extends StatefulWidget {
 
   /// Remains focusable and visually enabled, but refuses all value changes.
   final bool readOnly;
+  final DCheckboxSize size;
   final Widget? title;
   final Widget? subtitle;
   final Widget? secondary;
@@ -151,6 +158,11 @@ class _DCheckboxState extends State<DCheckbox> {
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final checked = _current == true;
+    final dimension = switch (widget.size) {
+      DCheckboxSize.standard => 16.0,
+      DCheckboxSize.large => 24.0,
+    };
+    final artworkScale = dimension / 16;
     final border = checked
         ? tokens.primary
         : widget.invalid
@@ -169,8 +181,8 @@ class _DCheckboxState extends State<DCheckbox> {
         : null;
     final artwork = AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 150)),
-      width: 16,
-      height: 16,
+      width: dimension,
+      height: dimension,
       decoration: BoxDecoration(
         color: checked
             ? tokens.primary
@@ -179,11 +191,11 @@ class _DCheckboxState extends State<DCheckbox> {
                 alpha: tokens.colors.outlineVariant.a * .3,
               )
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4 * artworkScale),
         border: Border.all(color: border),
       ),
       foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(4 * artworkScale),
         border: Border.all(
           color: ring ?? Colors.transparent,
           width: 3,
@@ -192,7 +204,7 @@ class _DCheckboxState extends State<DCheckbox> {
       ),
       child: Center(
         child: CustomPaint(
-          size: const Size.square(14),
+          size: Size.square(14 * artworkScale),
           painter: _CheckboxMark(
             _current,
             checked ? tokens.primaryForeground : tokens.foreground,
@@ -203,7 +215,7 @@ class _DCheckboxState extends State<DCheckbox> {
     Widget content = widget.title == null
         ? artwork
         : ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 16),
+            constraints: BoxConstraints(minHeight: dimension),
             child: Row(
               crossAxisAlignment: widget.subtitle == null
                   ? CrossAxisAlignment.center
@@ -324,7 +336,7 @@ class _DCheckboxState extends State<DCheckbox> {
             .center
             .dy;
         painter.dispose();
-        top = (center - 8).clamp(0, double.infinity);
+        top = (center - dimension / 2).clamp(0, double.infinity);
       }
       padding = padding.add(
         EdgeInsetsDirectional.only(top: top, end: DSpacing.sm),

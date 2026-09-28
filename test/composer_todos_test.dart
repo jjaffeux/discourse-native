@@ -179,6 +179,7 @@ void main() {
     WidgetTester tester, {
     bool dark = false,
     double scale = 1,
+    TargetPlatform platform = TargetPlatform.macOS,
   }) async {
     final composer = ComposerController(
       const ComposerTarget(
@@ -192,7 +193,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-          platform: TargetPlatform.macOS,
+          platform: platform,
         ),
         home: Scaffold(
           body: MediaQuery(
@@ -217,49 +218,62 @@ void main() {
     return composer;
   }
 
-  testWidgets('todo artwork aligns with text and uses the standard label gap', (
-    tester,
-  ) async {
-    final composer = await pump(tester);
-    await tester.enterText(
-      find.byType(EditableText),
-      'Paragraph\n[ ] Open\n[x] Done',
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'todo artwork aligns and toggles at the visible edge on $platform',
+      (tester) async {
+        final composer = await pump(tester, platform: platform);
+        await tester.enterText(
+          find.byType(EditableText),
+          'Paragraph\n[ ] Open\n[x] Done',
+        );
+        await tester.pumpAndSettle();
+        final editable = tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable;
+        final textStart = editable
+            .localToGlobal(
+              editable
+                  .getLocalRectForCaret(const TextPosition(offset: 0))
+                  .topLeft,
+            )
+            .dx;
+        final artwork = find.descendant(
+          of: find.byType(DCheckbox),
+          matching: find.byType(AnimatedContainer),
+        );
+        expect(artwork, findsNWidgets(2));
+        for (final marker in artwork.evaluate()) {
+          expect(
+            tester.getTopLeft(find.byWidget(marker.widget)).dx,
+            closeTo(textStart, 0.1),
+          );
+        }
+        final firstArtwork = tester.getRect(artwork.first);
+        final contentStart = editable.localToGlobal(
+          editable
+              .getBoxesForSelection(
+                const TextSelection(baseOffset: 14, extentOffset: 15),
+              )
+              .first
+              .toRect()
+              .topLeft,
+        );
+        expect(contentStart.dx - firstArtwork.right, closeTo(8, 0.1));
+        expect(
+          firstArtwork.size,
+          Size.square(platform == TargetPlatform.macOS ? 16 : 24),
+        );
+        await tester.tapAt(firstArtwork.bottomRight - const Offset(1, 1));
+        await tester.pump();
+        expect(composer.text.text, 'Paragraph\n[x] Open\n[x] Done');
+      },
     );
-    await tester.pumpAndSettle();
-    final editable = tester
-        .state<EditableTextState>(find.byType(EditableText))
-        .renderEditable;
-    final textStart = editable
-        .localToGlobal(
-          editable.getLocalRectForCaret(const TextPosition(offset: 0)).topLeft,
-        )
-        .dx;
-    final artwork = find.descendant(
-      of: find.byType(DCheckbox),
-      matching: find.byType(AnimatedContainer),
-    );
-    expect(artwork, findsNWidgets(2));
-    for (final marker in artwork.evaluate()) {
-      expect(
-        tester.getTopLeft(find.byWidget(marker.widget)).dx,
-        closeTo(textStart, 0.1),
-      );
-    }
-    final firstArtwork = tester.getRect(artwork.first);
-    final contentStart = editable.localToGlobal(
-      editable
-          .getBoxesForSelection(
-            const TextSelection(baseOffset: 14, extentOffset: 15),
-          )
-          .first
-          .toRect()
-          .topLeft,
-    );
-    expect(contentStart.dx - firstArtwork.right, closeTo(8, 0.1));
-    await tester.tap(find.byType(DCheckbox).first);
-    await tester.pump();
-    expect(composer.text.text, 'Paragraph\n[x] Open\n[x] Done');
-  });
+  }
 
   testWidgets('typing after clicking a todo returns keyboard focus to text', (
     tester,
