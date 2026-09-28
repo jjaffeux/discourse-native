@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/composer_image_codec.dart';
@@ -84,6 +85,58 @@ void main() {
     expect(decoded.getPixel(50, 5).a, 255);
     await result.dispose();
   });
+
+  test(
+    'grayscale PNGs become neutral RGB without their gray profile',
+    () async {
+      const unresized = ComposerImageOptimization(
+        bytesThreshold: 1,
+        resizeDimensionsThreshold: 1000,
+      );
+      for (final (name, source, output) in [
+        ('gray.png', _gray(), 'gray.jpg'),
+        ('gray16.png', _gray(format: img.Format.uint16), 'gray16.jpg'),
+        ('opaque-la.png', _gray(alpha: 255), 'opaque-la.jpg'),
+        (
+          'opaque-la16.png',
+          _gray(format: img.Format.uint16, alpha: 255),
+          'opaque-la16.jpg',
+        ),
+        ('translucent-la.png', _gray(alpha: 128), 'translucent-la.webp'),
+      ]) {
+        final result = await prepare(
+          _file(name, img.encodePng(source, level: 0)),
+          options: unresized,
+        );
+        expect(result.file.name, output);
+        final bytes = await _read(result.file);
+        final decoded = output.endsWith('.webp')
+            ? img.decodeWebP(bytes)!
+            : img.decodeJpg(bytes)!;
+        expect((decoded.width, decoded.height), (120, 80), reason: name);
+        var worstLevel = 0;
+        var worstSpread = 0;
+        for (final pixel in decoded) {
+          final level = _grayLevel(pixel.x, pixel.y);
+          final channels = [pixel.r, pixel.g, pixel.b];
+          for (final channel in channels) {
+            final error = (channel - level).abs().toInt();
+            if (error > worstLevel) worstLevel = error;
+          }
+          final spread = (channels.reduce(math.max) - channels.reduce(math.min))
+              .toInt();
+          if (spread > worstSpread) worstSpread = spread;
+        }
+        expect(worstLevel, lessThanOrEqualTo(4), reason: name);
+        expect(worstSpread, lessThanOrEqualTo(3), reason: name);
+        if (output.endsWith('.webp')) {
+          expect(decoded.getPixel(60, 40).a, 128, reason: name);
+        }
+        expect(decoded.iccProfile, isNull, reason: name);
+        await result.dispose();
+      }
+    },
+  );
 
   test(
     'JPEG orientation is baked before resizing and EXIF is removed',
@@ -433,6 +486,32 @@ img.Image _image({bool alpha = false}) {
       (pixel.x + pixel.y) % 256,
       alpha && pixel.x < 60 ? 128 : 255,
     );
+  }
+  return image;
+}
+
+/// A smooth ramp keeps lossy JPEG and WebP within a few levels of the source
+/// at every pixel.
+int _grayLevel(int x, int y) => 40 + x + y;
+
+/// Grayscale PNGs decode to one channel, or two with alpha, and may only
+/// carry a gray colour profile.
+img.Image _gray({img.Format format = img.Format.uint8, int? alpha}) {
+  final scale = format == img.Format.uint16 ? 257 : 1;
+  final image = img.Image(
+    width: 120,
+    height: 80,
+    format: format,
+    numChannels: alpha == null ? 1 : 2,
+  );
+  image.iccProfile = img.IccProfile(
+    'Gray',
+    img.IccProfileCompression.none,
+    Uint8List(128)..setAll(16, 'GRAY'.codeUnits),
+  );
+  for (final pixel in image) {
+    pixel.r = _grayLevel(pixel.x, pixel.y) * scale;
+    if (alpha != null) pixel.a = alpha * scale;
   }
   return image;
 }

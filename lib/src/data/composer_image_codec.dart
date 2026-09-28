@@ -50,7 +50,15 @@ String? encodeComposerImage({
   // them so wide-gamut photos do not change colour on re-encoding.
   image.exif = img.ExifData();
   image.textData?.clear();
-  if (image.hasPalette) image = image.convert(numChannels: transparent ? 4 : 3);
+  // The JPEG encoder reads one-channel gray as red alone, and 16-bit
+  // gray+alpha as red with alpha for green, so gray is copied into every
+  // colour channel first. A gray PNG may only carry a gray profile, which
+  // cannot describe the RGB result.
+  final gray = !image.hasPalette && image.numChannels < 3;
+  if (image.hasPalette || gray) {
+    image = image.convert(numChannels: transparent ? 4 : 3);
+  }
+  if (gray) image.iccProfile = null;
   if (image.width > resizeThreshold && image.width > resizeTarget) {
     image = img.copyResize(
       image,
