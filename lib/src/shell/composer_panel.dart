@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show BoxHeightStyle;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -1894,6 +1895,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
                           ? SystemMouseCursors.click
                           : null,
                       style: widget.textStyle,
+                      // Paragraph spacers must not enlarge text highlights.
+                      selectionHeightStyle: BoxHeightStyle.tight,
                       // TextField's forced default strut discards a WidgetSpan's
                       // intrinsic height. Let every projected component define
                       // its paragraph line so its visual and hit-test bounds agree.
