@@ -89,6 +89,31 @@ Widget _sheet<T>({
 );
 
 void main() {
+  double visibleOpacity(WidgetTester tester, Finder finder) {
+    var opacity = 1.0;
+    for (final element
+        in find
+            .ancestor(of: finder, matching: find.byType(Opacity))
+            .evaluate()) {
+      opacity *= (element.widget as Opacity).opacity;
+    }
+    for (final element
+        in find
+            .ancestor(of: finder, matching: find.byType(FadeTransition))
+            .evaluate()) {
+      opacity *= (element.widget as FadeTransition).opacity.value;
+    }
+    return opacity;
+  }
+
+  double backdropOpacity(WidgetTester tester) => visibleOpacity(
+    tester,
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is ModalBarrier && widget.semanticsLabel == 'Dismiss sheet',
+    ),
+  );
+
   Future<void> openSwipeSheet(
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.iOS,
@@ -156,6 +181,43 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final reducedMotion in [false, true]) {
+      testWidgets(
+        'backdrop follows a cancelled $platform swipe (reduced: $reducedMotion)',
+        (tester) async {
+          await openSwipeSheet(
+            tester,
+            platform: platform,
+            disableAnimations: reducedMotion,
+          );
+          final sheet = find.byType(DSheetContent);
+          final bounds = tester.getRect(sheet);
+          expect(backdropOpacity(tester), 1);
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.text('Swipe sheet')),
+          );
+          await gesture.moveBy(const Offset(0, 30));
+          await gesture.moveBy(const Offset(0, 120));
+          await tester.pump();
+          final firstOpacity = backdropOpacity(tester);
+          expect(firstOpacity, inExclusiveRange(0, 1));
+          expect(visibleOpacity(tester, sheet), 1);
+
+          await gesture.moveBy(const Offset(0, 120));
+          await tester.pump();
+          final lowerOpacity = backdropOpacity(tester);
+          expect(lowerOpacity, lessThan(firstOpacity));
+          await gesture.moveBy(const Offset(0, -80));
+          await tester.pump();
+          expect(backdropOpacity(tester), greaterThan(lowerOpacity));
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+          expect(backdropOpacity(tester), 1);
+          expect(tester.getRect(sheet), bounds);
+        },
+      );
+    }
+
     for (final (speed, origin) in [
       (400.0, 'header'),
       (1800.0, 'header'),
@@ -190,6 +252,8 @@ void main() {
           await tester.pump(sampleDuration);
         }
         final releaseTop = tester.getTopLeft(sheet).dy;
+        var previousOpacity = backdropOpacity(tester);
+        expect(previousOpacity, inExclusiveRange(0, 1));
         await gesture.up(timeStamp: elapsed);
         await tester.pump();
 
@@ -199,6 +263,10 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
           if (sheet.evaluate().isEmpty) break;
           final top = tester.getTopLeft(sheet).dy;
+          final opacity = backdropOpacity(tester);
+          expect(opacity, lessThanOrEqualTo(previousOpacity));
+          expect(visibleOpacity(tester, sheet), 1);
+          previousOpacity = opacity;
           final frameSpeed = (top - previousTop) / .016;
           expect(
             frameSpeed,
@@ -209,6 +277,7 @@ void main() {
           previousSpeed = frameSpeed;
         }
         expect(sheet, findsNothing);
+        expect(previousOpacity, lessThan(.15));
         expect(
           previousTop + previousSpeed * .032,
           greaterThanOrEqualTo(844),
@@ -251,6 +320,7 @@ void main() {
         expect(scroll.offset, lessThan(400));
         expect(scroll.offset, greaterThan(0));
         expect(tester.getRect(sheet), bounds);
+        expect(backdropOpacity(tester), 1);
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
         await tester.drag(find.byType(ListView), const Offset(0, 240));
@@ -338,6 +408,7 @@ void main() {
     expect(changes.single.open, isFalse);
     expect(changes.single.reason, DSheetChangeReason.close);
     expect(tester.getRect(find.byType(DSheetContent)), bounds);
+    expect(backdropOpacity(tester), 1);
   });
 
   for (final scenario in ['disabled', 'desktop', 'side', 'mouse']) {

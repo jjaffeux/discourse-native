@@ -19,7 +19,8 @@ final sheetExamples = ComponentExamples(
       'Mobile bottom sheets dismiss with a downward touch swipe from their '
       'header or the top of scrolling content; dismissOnSwipe can disable it. '
       'The exit preserves release velocity, accelerating slower swipes until '
-      'the sheet clears the screen. '
+      'the sheet clears the screen. The backdrop fades with swipe progress '
+      'to reveal the screen underneath and restores if the swipe is cancelled. '
       'Swipe handles, detents and snap points belong to Drawer.',
   examples: [
     StyleguideExample(
