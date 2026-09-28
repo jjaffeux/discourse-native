@@ -194,6 +194,81 @@ void main() {
     },
   );
   testWidgets(
+    'Tab focus paints a plain grouped divider ring past its 1px hit strip',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      final c = DResizableController();
+      addTearDown(c.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => DFocusHighlight(child: child!),
+          home: Center(
+            child: SizedBox(
+              key: const ValueKey('group'),
+              width: 301,
+              height: 200,
+              child: DResizablePanelGroup(
+                controller: c,
+                children: [
+                  const DResizablePanel(id: 'a', child: Text('A')),
+                  DResizableHandle(
+                    focusNode: focus,
+                    focusedDividerThickness: 3,
+                    dividerKey: const ValueKey('divider'),
+                    gestureKey: const ValueKey('gesture'),
+                  ),
+                  const DResizablePanel(id: 'b', child: Text('B')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(focus.hasPrimaryFocus, isTrue);
+
+      final gesture = find.byKey(const ValueKey('gesture'));
+      final strip = tester.getRect(gesture);
+      expect(strip.width, 1);
+      final target = tester.renderObject(gesture);
+      bool hits(double dx) => tester
+          .hitTestOnBinding(Offset(dx, strip.center.dy))
+          .path
+          .any((entry) => entry.target == target);
+      expect(hits(strip.center.dx), isTrue);
+      expect(hits(strip.left - .5), isFalse);
+      expect(hits(strip.right + .5), isFalse);
+
+      final ring = find.descendant(
+        of: find.byType(DResizableHandle),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is Container &&
+              w.decoration is BoxDecoration &&
+              (w.decoration! as BoxDecoration).border != null,
+        ),
+      );
+      final divider = find.byKey(const ValueKey('divider'));
+      final root = tester.renderObject(find.byType(DResizableHandle));
+      final group = tester.getRect(find.byKey(const ValueKey('group')));
+      for (final painted in [ring, divider]) {
+        final rect = tester.getRect(painted);
+        expect(rect.width, 3);
+        expect(rect.center.dx, strip.center.dx);
+        expect(group.contains(rect.topLeft), isTrue);
+        expect(group.contains(rect.bottomRight - const Offset(1, 1)), isTrue);
+        RenderObject child = tester.renderObject(painted);
+        while (child != root) {
+          final parent = child.parent!;
+          expect(parent.describeApproximatePaintClip(child), isNull);
+          child = parent;
+        }
+      }
+    },
+  );
+  testWidgets(
     'pixel-preserving panel survives container resize while relative panel absorbs space',
     (tester) async {
       final c = DResizableController();
