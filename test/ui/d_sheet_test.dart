@@ -156,6 +156,69 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final (speed, origin) in [
+      (400.0, 'header'),
+      (1800.0, 'header'),
+      (4000.0, 'header'),
+      (1800.0, 'scroll'),
+      (1800.0, 'helper'),
+    ]) {
+      testWidgets('swipe exit retains $speed px/s from $origin on $platform', (
+        tester,
+      ) async {
+        await openSwipeSheet(
+          tester,
+          platform: platform,
+          imperative: origin == 'helper',
+        );
+        final sheet = find.byType(DSheetContent);
+        final gesture = await tester.startGesture(
+          tester.getCenter(
+            origin == 'scroll'
+                ? find.byType(ListView)
+                : find.text('Swipe sheet'),
+          ),
+        );
+        var elapsed = Duration.zero;
+        final sampleDuration = Duration(
+          microseconds: (12 / speed * 1e6).round(),
+        );
+        // Build a real velocity history instead of a drag with zero timestamps.
+        for (var step = 0; step < (origin == 'scroll' ? 24 : 12); step++) {
+          elapsed += sampleDuration;
+          await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
+          await tester.pump(sampleDuration);
+        }
+        final releaseTop = tester.getTopLeft(sheet).dy;
+        await gesture.up(timeStamp: elapsed);
+        await tester.pump();
+
+        var previousTop = releaseTop;
+        var previousSpeed = speed;
+        for (var frame = 0; frame < 22; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (sheet.evaluate().isEmpty) break;
+          final top = tester.getTopLeft(sheet).dy;
+          final frameSpeed = (top - previousTop) / .016;
+          expect(
+            frameSpeed,
+            greaterThanOrEqualTo(previousSpeed - 5),
+            reason: 'A dismissing swipe must not lose speed (frame $frame).',
+          );
+          previousTop = top;
+          previousSpeed = frameSpeed;
+        }
+        expect(sheet, findsNothing);
+        expect(
+          previousTop + previousSpeed * .032,
+          greaterThanOrEqualTo(844),
+          reason:
+              'The sheet should travel offscreen instead of fading in place.',
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     for (final imperative in [false, true]) {
       testWidgets(
         'swipe closes the $platform ${imperative ? 'helper' : 'sheet'} header',

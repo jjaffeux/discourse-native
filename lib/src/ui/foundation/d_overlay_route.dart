@@ -115,6 +115,15 @@ class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
   @override
   final Duration reverseTransitionDuration;
 
+  /// Optional gesture physics for the next authorized closing transition.
+  /// Setting this does not request or authorize dismissal.
+  Simulation? Function()? reverseSimulationBuilder;
+
+  @override
+  Simulation? createSimulation({required bool forward}) =>
+      (!forward ? reverseSimulationBuilder?.call() : null) ??
+      super.createSimulation(forward: forward);
+
   bool _authorized = false;
   bool _wasCurrentWhenAuthorized = false;
   Route<dynamic>? _previousRoute;
