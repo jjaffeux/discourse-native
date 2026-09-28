@@ -61,6 +61,67 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.offset, greaterThan(0));
   });
+  testWidgets(
+    'faded thumbs reappear when a mouse hovers only the painted band',
+    (tester) async {
+      for (final direction in TextDirection.values) {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          host(
+            Directionality(
+              textDirection: direction,
+              child: DScrollArea(
+                key: ValueKey(direction),
+                controller: controller,
+                thumbVisibility: false,
+                child: const SizedBox(height: 1000),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final paint = find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint &&
+              widget.foregroundPainter is ScrollbarPainter,
+        );
+        final opacity =
+            (tester.widget<CustomPaint>(paint).foregroundPainter!
+                    as ScrollbarPainter)
+                .fadeoutOpacityAnimation;
+        final bounds = tester.getRect(paint);
+        // The 4px band sits 2px inside the 200px-wide area's trailing edge.
+        Offset at(double x) =>
+            bounds.topLeft +
+            Offset(direction == TextDirection.ltr ? x : 200 - x, 100);
+        expect(opacity.value, 0);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: at(100));
+        // Flutter's faded hover target spans 48px around the thumb and its
+        // track includes the unpainted margins on both sides of the band.
+        for (final x in [184.0, 193.0, 199.0]) {
+          await mouse.moveTo(at(x));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(opacity.value, 0, reason: '$direction x=$x is off the band');
+        }
+        await mouse.moveTo(at(196));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(opacity.value, 1, reason: '$direction hover reveals the thumb');
+
+        await mouse.down(at(196) - const Offset(0, 90));
+        await mouse.moveBy(const Offset(0, 60));
+        await mouse.up();
+        await mouse.removePointer();
+        await tester.pumpAndSettle();
+        expect(controller.offset, greaterThan(0));
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
   testWidgets('automatic desktop scrollbars retain a clear side gap on hover', (
     tester,
   ) async {

@@ -514,24 +514,61 @@ class _NaturalScrollbarPainter extends ScrollbarPainter {
     required super.fadeoutOpacityAnimation,
   });
 
+  Size? _size;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _size = size;
+    super.paint(canvas, size);
+  }
+
+  // The column the thumb travels in. Flutter's track also includes the
+  // unpainted container margins, and its touch and faded mouse-hover targets
+  // add a 48px circle around the thumb; only this band is interactive.
+  bool _bandContains(Offset position) {
+    final size = _size;
+    final direction = textDirection;
+    if (size == null || direction == null) return false;
+    final inset = padding.resolve(direction);
+    final band = switch (scrollbarOrientation) {
+      ScrollbarOrientation.top => Rect.fromLTWH(
+        inset.left,
+        inset.top + crossAxisMargin,
+        size.width - inset.horizontal,
+        thickness,
+      ),
+      ScrollbarOrientation.bottom => Rect.fromLTWH(
+        inset.left,
+        size.height - inset.bottom - crossAxisMargin - thickness,
+        size.width - inset.horizontal,
+        thickness,
+      ),
+      ScrollbarOrientation.left => Rect.fromLTWH(
+        inset.left + crossAxisMargin,
+        inset.top,
+        thickness,
+        size.height - inset.vertical,
+      ),
+      _ => Rect.fromLTWH(
+        size.width - inset.right - crossAxisMargin - thickness,
+        inset.top,
+        thickness,
+        size.height - inset.vertical,
+      ),
+    };
+    return band.contains(position);
+  }
+
+  // A faded thumb is revealed by a mouse hovering its band, so native fading
+  // does not leave it unreachable until the content is scrolled.
   @override
   bool hitTestInteractive(
     Offset position,
     PointerDeviceKind kind, {
     bool forHover = false,
-  }) {
-    // Flutter's track also includes the unpainted container margins.
-    final inset = switch (scrollbarOrientation) {
-      ScrollbarOrientation.top ||
-      ScrollbarOrientation.bottom => Offset(0, crossAxisMargin),
-      _ => Offset(crossAxisMargin, 0),
-    };
-    return super.hitTestInteractive(
-          position - inset,
-          PointerDeviceKind.mouse,
-        ) &&
-        super.hitTestInteractive(position + inset, PointerDeviceKind.mouse);
-  }
+  }) =>
+      _bandContains(position) &&
+      super.hitTestInteractive(position, kind, forHover: forHover);
 
   @override
   bool hitTest(Offset? position) =>
