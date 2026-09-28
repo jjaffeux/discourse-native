@@ -1,16 +1,14 @@
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
-
-/// Fades and gently scales a contextual action as it appears or changes.
+/// Reveals a contextual action with a short upward movement and scale.
 ///
 /// Pass `null` to remove the action. Give different actions different keys;
 /// updates to the same widget type and key preserve its state without replaying
 /// the entrance. The initial action appears immediately. Reduced motion also
 /// makes subsequent changes immediate.
 ///
-/// Outgoing actions remain visible for 120 milliseconds, but cannot receive
-/// input, focus, or accessibility actions. Incoming actions settle in 180
+/// Outgoing actions remain visible for 160 milliseconds, but cannot receive
+/// input, focus, or accessibility actions. Incoming actions settle in 240
 /// milliseconds. Layout reserves the largest child's size during a transition;
 /// the caller can constrain the slot to keep adjacent controls stationary.
 class DActionTransition extends StatelessWidget {
@@ -24,10 +22,10 @@ class DActionTransition extends StatelessWidget {
       return child ?? const SizedBox.shrink();
     }
     return AnimatedSwitcher(
-      duration: DMotion.change,
-      reverseDuration: const Duration(milliseconds: 120),
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 160),
       switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchOutCurve: Curves.easeInOutCubic,
       transitionBuilder: _transition,
       layoutBuilder: _layout,
       child: child,
@@ -44,7 +42,10 @@ class DActionTransition extends StatelessWidget {
         child: FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            scale: Tween<double>(begin: .92, end: 1).animate(animation),
+            // Grow upward within the slot so all painted bounds remain
+            // available to hit testing throughout the movement.
+            alignment: Alignment.bottomCenter,
+            scale: Tween<double>(begin: .72, end: 1).animate(animation),
             child: child,
           ),
         ),
