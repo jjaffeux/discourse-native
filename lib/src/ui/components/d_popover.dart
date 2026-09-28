@@ -708,7 +708,9 @@ class _DPopoverState extends State<DPopover>
           open: _open,
           onOpenChangeComplete: widget.onOpenChangeComplete,
           restoreFocus: widget.restoreFocus,
-          finalFocusNode: _triggerFocus,
+          // Return directly to the previous editor instead of hiding its
+          // keyboard by focusing the sheet's button first.
+          finalFocusNode: _previousFocus ?? _triggerFocus,
           onOpenChanged: (details) {
             if (details.open) return;
             _request(false, switch (details.reason) {

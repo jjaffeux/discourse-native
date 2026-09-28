@@ -822,6 +822,116 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final keyboard in [0.0, 300.0]) {
+    testWidgets(
+      'picker focus and swipe keep the composer fixed (keyboard: $keyboard)',
+      (tester) async {
+        final harness = await _Harness.create(
+          tester,
+          mobile: true,
+          size: const Size(390, 800),
+        );
+        final composer = harness.shell.visibleComposer!;
+        composer.text.text = 'Keep the editor in place.';
+        composer.focus.requestFocus();
+        addTearDown(tester.view.resetViewInsets);
+        void setKeyboard(double inset) {
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: inset * tester.view.devicePixelRatio,
+          );
+        }
+
+        setKeyboard(keyboard);
+        await tester.pumpAndSettle();
+        final panel = find.byType(ComposerPanel);
+        final toolbar = find.byKey(const ValueKey('composer-toolbar-scroll'));
+        final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+        final bounds = [
+          tester.getRect(panel),
+          tester.getRect(toolbar),
+          tester.getRect(viewport),
+        ];
+        void expectStill() {
+          expect(tester.getRect(panel), bounds[0]);
+          expect(tester.getRect(toolbar), bounds[1]);
+          expect(tester.getRect(viewport), bounds[2]);
+        }
+
+        await tester.tap(
+          find.byKey(const ValueKey('composer-category-action')),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.pump();
+        final picker = find.byType(DSheetTitle);
+        expect(picker, findsOneWidget);
+        for (final inset in [0.0, 180.0, 330.0]) {
+          setKeyboard(inset);
+          await tester.pump(const Duration(milliseconds: 70));
+          expectStill();
+        }
+        await tester.pumpAndSettle();
+        for (final inset in [180.0, 0.0, 330.0]) {
+          setKeyboard(inset);
+          await tester.pumpAndSettle();
+          expectStill();
+          final surface = find
+              .ancestor(of: picker, matching: find.byType(DSheetContent))
+              .first;
+          expect(
+            tester.getBottomLeft(surface).dy,
+            closeTo(800 - inset - DSpacing.md, 1),
+          );
+        }
+        showDSheet<void>(
+          context: tester.element(picker),
+          side: DSheetSide.bottom,
+          builder: (_, _) => const DSheetContent(
+            side: DSheetSide.bottom,
+            children: [
+              DSheetHeader(
+                children: [DSheetTitle(child: Text('Nested picker'))],
+              ),
+            ],
+          ),
+        ).ignore();
+        await tester.pumpAndSettle();
+        setKeyboard(210);
+        await tester.pump();
+        expectStill();
+        await tester.tap(find.byTooltip('Close').last);
+        await tester.pumpAndSettle();
+        expect(find.text('Nested picker'), findsNothing);
+        expectStill();
+        final gesture = await tester.startGesture(tester.getCenter(picker));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 150));
+        await tester.pump();
+        expectStill();
+        await gesture.up();
+        await tester.pump();
+        // The underlying route is current again before the sheet finishes
+        // closing, while the keyboard is still handing focus back.
+        setKeyboard(0);
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(picker, findsOneWidget);
+        expectStill();
+        setKeyboard(keyboard);
+        await tester.pumpAndSettle();
+        expect(picker, findsNothing);
+        expectStill();
+        expect(composer.focus.hasFocus, isTrue);
+        expect(composer.raw, 'Keep the editor in place.');
+
+        // Once the picker is gone, real keyboard changes resize the composer.
+        setKeyboard(keyboard == 0 ? 300 : 0);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(toolbar), isNot(bounds[1]));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('mobile overflow arrow scales with draft and viewport changes', (
     tester,
   ) async {
