@@ -201,8 +201,13 @@ final class SiteVideoSourceResolver {
     }
   }
 
-  static bool _isSecureUpload(Uri url) =>
-      url.pathSegments.contains('secure-uploads');
+  // Core still serves the pre-rename `secure-media-uploads` route with the
+  // same permission check, so posts cooked before the rename need a key too.
+  // Matching a segment rather than a leading prefix keeps subfolder installs.
+  static bool _isSecureUpload(Uri url) => url.pathSegments.any(
+    (segment) =>
+        segment == 'secure-uploads' || segment == 'secure-media-uploads',
+  );
 
   void _requireCurrent(SiteLease lease) {
     if (_closed) throw StateError('Video source resolver is closed.');
