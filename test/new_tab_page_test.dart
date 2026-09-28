@@ -1240,59 +1240,114 @@ void main() {
     }
   });
 
-  testWidgets('dragging a Start page row onto tabs opens a new tab', (
-    tester,
-  ) async {
-    final previousPlatform = debugDefaultTargetPlatformOverride;
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    try {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-      });
-      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final compact in [true, false]) {
+      testWidgets(
+        '${platform.name} Start page links do not drag in '
+        '${compact ? 'compact' : 'comfortable'} layout but still open on tap',
+        (tester) async {
+          final previousPlatform = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = platform;
+          try {
+            SharedPreferences.setMockInitialValues({
+              'discourse_native.panel_tutorial_dismissed': true,
+              'discourse_native.start_page_compact': compact,
+            });
+            await pumpShell(tester, phone, api: _apiWithLatestTopic());
+            final shell = ShellScope.read(
+              tester.element(find.byType(MainContent).first),
+            );
+            shell.pushContent(ContentRoute.newTab());
+            await tester.pumpAndSettle();
+
+            final source = find.byKey(
+              const ValueKey('start-page-recent-topic-42'),
+            );
+            expect(source, findsOneWidget);
+            final gesture = await tester.startGesture(tester.getCenter(source));
+            await gesture.moveBy(const Offset(60, 0));
+            await tester.pump();
+            expect(
+              find.byKey(const ValueKey('start-page-drag-feedback')),
+              findsNothing,
+            );
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(find.byType(NewTabPage), findsOneWidget);
+
+            await tester.tap(source);
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.topicId, 42);
+          } finally {
+            debugDefaultTargetPlatformOverride = previousPlatform;
+          }
+        },
       );
-      shell.selectInstance(0);
-      shell.openTopicUrl('/t/recent-topic/42');
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      final before = shell.tabsForCurrentForum.length;
-      final existingIds = shell.tabsForCurrentForum
-          .map((tab) => tab.id)
-          .toSet();
-      final source = find.byKey(const ValueKey('start-page-recent-topic-42'));
-      expect(source, findsOneWidget);
-      final target = find.byType(CurrentForumTabsBar).first;
-      final gesture = await tester.startGesture(tester.getCenter(source));
-      await gesture.moveTo(tester.getCenter(target));
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('start-page-drag-feedback')),
-        findsOneWidget,
-      );
-      final placeholder = find.byKey(
-        const ValueKey('forum-tab-drop-placeholder'),
-      );
-      expect(placeholder, findsOneWidget);
-      final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
-      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
-      await tester.pump();
-      final leftInsertion = tester.getRect(placeholder).left;
-      await gesture.moveTo(Offset(tabBar.right - 8, tabBar.center.dy));
-      await tester.pump();
-      expect(tester.getRect(placeholder).left, greaterThan(leftInsertion));
-      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
-      await tester.pump();
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(shell.tabsForCurrentForum, hasLength(before + 1));
-      expect(existingIds, isNot(contains(shell.tabsForCurrentForum.first.id)));
-      expect(shell.tabsForCurrentForum.first.currentContent.topicId, 42);
-    } finally {
-      debugDefaultTargetPlatformOverride = previousPlatform;
     }
-  });
+  }
+
+  for (final compact in [true, false]) {
+    testWidgets(
+      'dragging a ${compact ? 'compact' : 'comfortable'} Start page row onto tabs opens a new tab',
+      (tester) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          SharedPreferences.setMockInitialValues({
+            'discourse_native.panel_tutorial_dismissed': true,
+            'discourse_native.start_page_compact': compact,
+          });
+          await pumpShell(tester, desktop, api: _apiWithLatestTopic());
+          final shell = ShellScope.read(
+            tester.element(find.byType(MainContent).first),
+          );
+          shell.selectInstance(0);
+          shell.openTopicUrl('/t/recent-topic/42');
+          shell.pushContent(ContentRoute.newTab());
+          await tester.pumpAndSettle();
+          final before = shell.tabsForCurrentForum.length;
+          final existingIds = shell.tabsForCurrentForum
+              .map((tab) => tab.id)
+              .toSet();
+          final source = find.byKey(
+            const ValueKey('start-page-recent-topic-42'),
+          );
+          expect(source, findsOneWidget);
+          final target = find.byType(CurrentForumTabsBar).first;
+          final gesture = await tester.startGesture(tester.getCenter(source));
+          await gesture.moveTo(tester.getCenter(target));
+          await tester.pump();
+          expect(
+            find.byKey(const ValueKey('start-page-drag-feedback')),
+            findsOneWidget,
+          );
+          final placeholder = find.byKey(
+            const ValueKey('forum-tab-drop-placeholder'),
+          );
+          expect(placeholder, findsOneWidget);
+          final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
+          await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+          await tester.pump();
+          final leftInsertion = tester.getRect(placeholder).left;
+          await gesture.moveTo(Offset(tabBar.right - 8, tabBar.center.dy));
+          await tester.pump();
+          expect(tester.getRect(placeholder).left, greaterThan(leftInsertion));
+          await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+          await tester.pump();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(shell.tabsForCurrentForum, hasLength(before + 1));
+          expect(
+            existingIds,
+            isNot(contains(shell.tabsForCurrentForum.first.id)),
+          );
+          expect(shell.tabsForCurrentForum.first.currentContent.topicId, 42);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      },
+    );
+  }
 
   testWidgets('releasing a Start page link below the tab bar opens no tab', (
     tester,
