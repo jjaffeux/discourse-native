@@ -117,6 +117,202 @@ void main() {
       },
     );
 
+    testWidgets(
+      'mobile keyboard toolbar formats selections without a selection popover',
+      (tester) async {
+        final composer = ComposerController(_replyTarget);
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        tester.view.physicalSize =
+            const Size(340, 720) * tester.view.devicePixelRatio;
+        addTearDown(tester.view.resetPhysicalSize);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 250 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        await _pumpPanel(tester, shell, composer, size: const Size(340, 720));
+
+        const original = TextEditingValue(
+          text: 'format me',
+          selection: TextSelection(baseOffset: 0, extentOffset: 6),
+        );
+        composer.text.value = original;
+        composer.focus.requestFocus();
+        await tester.pumpAndSettle();
+        final toolbar = find.byKey(const ValueKey('composer-toolbar-scroll'));
+        expect(tester.getRect(toolbar).bottom, lessThanOrEqualTo(470));
+        expect(
+          find.byKey(const ValueKey('composer-selection-toolbar')),
+          findsNothing,
+        );
+        expect(find.byTooltip('Color'), findsNothing);
+
+        Future<void> tapTool(String label) async {
+          final tool = find.descendant(
+            of: toolbar,
+            matching: find.byTooltip(label),
+          );
+          await Scrollable.ensureVisible(tester.element(tool), alignment: .5);
+          await tester.pumpAndSettle();
+          await tester.tap(tool);
+          await tester.pumpAndSettle();
+        }
+
+        for (final (label, formatted) in [
+          ('Bold', '**format** me'),
+          ('Italic', '*format* me'),
+          ('Inline code', '`format` me'),
+          ('Underline', '<ins>format</ins> me'),
+          ('Strikethrough', '~~format~~ me'),
+        ]) {
+          composer.text.value = original;
+          await tester.pumpAndSettle();
+          await tapTool(label);
+          expect(composer.raw, formatted);
+          expect(composer.text.selection.textInside(composer.raw), 'format');
+          expect(composer.focus.hasFocus, isTrue);
+          final toggle = tester.widget<DToggle>(
+            find.byWidgetPredicate(
+              (widget) => widget is DToggle && widget.semanticLabel == label,
+            ),
+          );
+          expect(toggle.pressed, isTrue);
+          await tapTool(label);
+          expect(composer.raw, original.text);
+          await tapTool(label);
+          await tapTool('Clear formatting');
+          expect(composer.raw, original.text);
+          expect(composer.history.undo(), isTrue);
+          expect(composer.raw, formatted);
+        }
+
+        for (final (label, tag) in [
+          ('Superscript', 'sup'),
+          ('Subscript', 'sub'),
+          ('Keyboard key', 'kbd'),
+        ]) {
+          composer.text.value = original;
+          await tester.pumpAndSettle();
+          await tapTool('More formatting');
+          expect(composer.focus.hasFocus, isTrue);
+          await tester.tap(find.text(label));
+          await tester.pumpAndSettle();
+          expect(composer.raw, '<$tag>format</$tag> me');
+          expect(composer.text.selection.textInside(composer.raw), 'format');
+          expect(composer.focus.hasFocus, isTrue);
+        }
+        composer.text.value = original;
+        await tester.pumpAndSettle();
+        await tapTool('Link');
+        expect(
+          tester
+              .widget<DInput>(
+                find.byKey(const ValueKey('composer-link-anchor')),
+              )
+              .controller!
+              .text,
+          'format',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('composer-link-url')),
+          'https://example.org',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
+        await tester.pumpAndSettle();
+        expect(composer.raw, '[format](https://example.org) me');
+        composer.text.value = const TextEditingValue(
+          text: 'hello',
+          selection: TextSelection.collapsed(offset: 5),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DToggle>(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is DToggle && widget.semanticLabel == 'Underline',
+                ),
+              )
+              .enabled,
+          isFalse,
+        );
+        await tapTool('Bold');
+        expect(composer.raw, 'hello****');
+        expect(
+          composer.text.selection,
+          const TextSelection.collapsed(offset: 7),
+        );
+        expect(
+          find.byKey(const ValueKey('composer-selection-toolbar')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+
+    testWidgets(
+      'mobile toolbar colors fit large text and preserve the editor selection',
+      (tester) async {
+        final composer = ComposerController(_replyTarget);
+        final shell = _ComposerColorShell();
+        await shell.load();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        tester.view.physicalSize =
+            const Size(340, 800) * tester.view.devicePixelRatio;
+        addTearDown(tester.view.resetPhysicalSize);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 250 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(340, 800),
+          textScaler: const TextScaler.linear(2),
+        );
+        composer.text.value = const TextEditingValue(
+          text: 'format me',
+          selection: TextSelection(baseOffset: 0, extentOffset: 6),
+        );
+        composer.focus.requestFocus();
+        await tester.pumpAndSettle();
+        final color = find.byTooltip('Color');
+        await Scrollable.ensureVisible(tester.element(color), alignment: .5);
+        await tester.pumpAndSettle();
+        await tester.tap(color);
+        await tester.pumpAndSettle();
+        expect(composer.focus.hasFocus, isTrue);
+        final palette = tester.getRect(
+          find.byKey(const ValueKey('composer-color-palette')),
+        );
+        expect(palette.left, greaterThanOrEqualTo(0));
+        expect(palette.right, lessThanOrEqualTo(340));
+        expect(palette.bottom, lessThanOrEqualTo(550));
+        await tester.tap(find.bySemanticsLabel('Text color: Blue').first);
+        await tester.pumpAndSettle();
+        expect(composer.raw, '[color=#4d94d5]format[/color] me');
+        expect(composer.text.selection.textInside(composer.raw), 'format');
+        expect(composer.focus.hasFocus, isTrue);
+        expect(
+          find.byKey(const ValueKey('composer-selection-toolbar')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+
     testWidgets('Linux formatting hints match their keyboard actions', (
       tester,
     ) async {
@@ -1376,6 +1572,20 @@ Future<void> _pumpPanel(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+final class _ComposerColorShell extends ShellController {
+  _ComposerColorShell()
+    : super(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+
+  @override
+  bool supportsComposerColors(String siteUrl) => true;
 }
 
 final class _InteractionTrackingShellController extends ShellController {
