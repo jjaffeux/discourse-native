@@ -528,16 +528,9 @@ void _registerTopicReadingTests() {
             ),
           ),
           tester.getCenter(newTopic),
-          // Keep the click outside the sidebar divider's resize hit region.
-          Offset(
-            tester
-                    .getRect(
-                      find.byKey(const ValueKey('sidebar-resize-handle')),
-                    )
-                    .left -
-                12,
-            tester.getCenter(newTopic).dy,
-          ),
+          // The empty trailing end of the row: the whole visible row is the
+          // target, not just its icon and label.
+          tester.getRect(newTopicTile).centerRight - const Offset(12, 0),
         ]) {
           await tester.tapAt(position, kind: PointerDeviceKind.mouse);
           await tester.pumpAndSettle();
