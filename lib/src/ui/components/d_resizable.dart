@@ -983,8 +983,11 @@ class _DResizableHandleState extends State<DResizableHandle> {
                 onDoubleTap: enabled && !widget.disableDoubleClick
                     ? _binding?.onReset ?? widget.onReset
                     : null,
+                // The focus ring and focused divider are wider than the hit
+                // strip; they paint past it while hit testing stays within it.
                 child: Stack(
                   fit: StackFit.expand,
+                  clipBehavior: Clip.none,
                   children: [
                     line,
                     if (widget.withHandle)
