@@ -8,8 +8,9 @@ final actionTransitionExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Quick, gentle entrances and exits for contextual actions.',
   notes:
-      'Actions rise, fade and scale from 72% to full size over 240ms, and leave '
-      'in 160ms. Use a stable key for each action and null for an empty slot. '
+      'Actions fade and scale around their center from 72% to full size over '
+      '240ms, and leave in 160ms. Use a stable key for each action and null for '
+      'an empty slot. '
       'Outgoing actions immediately leave hit testing, focus and semantics. '
       'A fixed slot keeps neighboring controls still. Reduced motion switches '
       'immediately, including when enabled during a transition.',
