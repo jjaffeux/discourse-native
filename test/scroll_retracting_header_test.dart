@@ -14,6 +14,7 @@ Future<void> _mount(
   Object? identity,
   int count = 100,
   FocusNode? focusNode,
+  VoidCallback? onHeaderPressed,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -29,7 +30,7 @@ Future<void> _mount(
               height: 80,
               child: DButton(
                 focusNode: focusNode,
-                onPressed: () {},
+                onPressed: onHeaderPressed ?? () {},
                 label: const Text('Header action'),
               ),
             ),
@@ -133,6 +134,35 @@ void main() {
     expect(tester.getTopLeft(body).dy, 25);
     await _wheel(tester, -55);
     expect(tester.getTopLeft(body).dy, 80);
+  });
+
+  testWidgets('visible header buttons accept taps throughout retraction', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var taps = 0;
+    await _mount(tester, onHeaderPressed: () => taps++);
+    final body = find.byKey(_body);
+
+    for (final delta in [20.0, 40.0, 20.0, -20.0]) {
+      await _wheel(tester, delta);
+      final visibleHeight = tester.getTopLeft(body).dy;
+      if (visibleHeight == 0) {
+        expect(find.byType(DButton).hitTestable(), findsNothing);
+        await tester.tapAt(const Offset(195, 1));
+        expect(taps, 2);
+      } else {
+        expect(visibleHeight, lessThan(80));
+        final before = taps;
+        await tester.tapAt(Offset(195, visibleHeight / 2));
+        expect(taps, before + 1);
+        // The clipped button must not intercept taps below its visible bounds.
+        await tester.tapAt(Offset(195, visibleHeight + 1));
+        expect(taps, before + 1);
+      }
+    }
+    expect(taps, 3);
   });
 
   testWidgets('reaching the top fully reveals the header', (tester) async {

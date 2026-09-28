@@ -207,16 +207,14 @@ class _DPageSurfaceState extends State<DPageSurface> {
                   excluding: _hiddenExtent > 0,
                   child: ExcludeFocus(
                     excluding: _hiddenExtent > 0,
-                    child: IgnorePointer(
-                      ignoring: _hiddenExtent > 0,
-                      child: TickerMode(
-                        enabled: _hiddenExtent == 0,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Focus(
-                            focusNode: _headerFocus,
-                            child: widget.header!,
-                          ),
+                    // The extent and clip restrict hits to the visible slice.
+                    child: TickerMode(
+                      enabled: _hiddenExtent == 0,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Focus(
+                          focusNode: _headerFocus,
+                          child: widget.header!,
                         ),
                       ),
                     ),
