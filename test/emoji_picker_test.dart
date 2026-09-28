@@ -248,7 +248,7 @@ void main() {
         await tester.tap(find.text('Open emoji'));
         await tester.pumpAndSettle();
         expect(tester.widget<EditableText>(input).controller.text, isEmpty);
-        await tester.tap(find.byTooltip('Close'));
+        await tester.drag(find.text('Emoji'), const Offset(0, 180));
         await tester.pumpAndSettle();
         expect(selected, isNull);
         expect(sheet, findsNothing);

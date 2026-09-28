@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +89,217 @@ Widget _sheet<T>({
 );
 
 void main() {
+  Future<void> openSwipeSheet(
+    WidgetTester tester, {
+    TargetPlatform platform = TargetPlatform.iOS,
+    bool imperative = false,
+    bool dismissOnSwipe = true,
+    bool controlled = false,
+    bool disableAnimations = false,
+    DSheetSide side = DSheetSide.bottom,
+    ScrollController? scroll,
+    ValueChanged<DSheetChangeDetails<void>>? onOpenChanged,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    DSheetContent content() => DSheetContent(
+      side: side,
+      fillAvailableHeight: true,
+      scrollWholeSheet: false,
+      children: [
+        const DSheetHeader(children: [DSheetTitle(child: Text('Swipe sheet'))]),
+        Expanded(
+          child: ListView.builder(
+            controller: scroll,
+            itemCount: 50,
+            itemBuilder: (_, index) =>
+                SizedBox(height: 48, child: Text('Item $index')),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      _host(
+        Builder(
+          builder: (context) => imperative
+              ? DButton(
+                  label: const Text('Open'),
+                  onPressed: () => unawaited(
+                    showDSheet<void>(
+                      context: context,
+                      side: side,
+                      fillAvailableHeight: true,
+                      dismissOnSwipe: dismissOnSwipe,
+                      builder: (_, _) => content(),
+                    ),
+                  ),
+                )
+              : DSheet<void>(
+                  open: controlled ? true : null,
+                  dismissOnSwipe: dismissOnSwipe,
+                  onOpenChanged: onOpenChanged,
+                  trigger: DSheetTrigger(
+                    builder: (_, open) =>
+                        DButton(label: const Text('Open'), onPressed: open),
+                  ),
+                  content: content(),
+                ),
+        ),
+        theme: ThemeData(platform: platform),
+        size: const Size(390, 844),
+        disableAnimations: disableAnimations,
+      ),
+    );
+    if (!controlled) await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final imperative in [false, true]) {
+      testWidgets(
+        'swipe closes the $platform ${imperative ? 'helper' : 'sheet'} header',
+        (tester) async {
+          await openSwipeSheet(
+            tester,
+            platform: platform,
+            imperative: imperative,
+          );
+          await tester.drag(find.text('Swipe sheet'), const Offset(0, 180));
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'swipe scrolls normally then dismisses at the top on $platform',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openSwipeSheet(tester, platform: platform, scroll: scroll);
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        scroll.jumpTo(400);
+        await tester.pumpAndSettle();
+        await tester.drag(find.byType(ListView), const Offset(0, 120));
+        await tester.pumpAndSettle();
+        expect(scroll.offset, lessThan(400));
+        expect(scroll.offset, greaterThan(0));
+        expect(tester.getRect(sheet), bounds);
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.drag(find.byType(ListView), const Offset(0, 240));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'cancelled and ballistic overscroll keep the $platform sheet open',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openSwipeSheet(tester, platform: platform, scroll: scroll);
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        final list = find.byType(ListView);
+        final gesture = await tester.startGesture(tester.getCenter(list));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 180));
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+
+        scroll.jumpTo(300);
+        await tester.pumpAndSettle();
+        await tester.fling(list, const Offset(0, 150), 1800);
+        await tester.pumpAndSettle();
+        expect(scroll.offset, closeTo(0, .01));
+        expect(tester.getRect(sheet), bounds);
+
+        // The same drag can scroll to the top and then pull the sheet down.
+        scroll.jumpTo(80);
+        await tester.pumpAndSettle();
+        await tester.drag(list, const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      },
+    );
+  }
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'short, upward and cancelled swipes restore the sheet (reduced: $reducedMotion)',
+      (tester) async {
+        await openSwipeSheet(tester, disableAnimations: reducedMotion);
+        final title = find.text('Swipe sheet');
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        for (final delta in [
+          const Offset(0, 35),
+          const Offset(0, -150),
+          const Offset(150, 0),
+        ]) {
+          await tester.drag(title, delta);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), bounds);
+        }
+        final gesture = await tester.startGesture(tester.getCenter(title));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 150));
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        await tester.fling(title, const Offset(0, 65), 1200);
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      },
+    );
+  }
+
+  testWidgets('a controlled sheet can decline swipe dismissal', (tester) async {
+    final changes = <DSheetChangeDetails<void>>[];
+    await openSwipeSheet(tester, controlled: true, onOpenChanged: changes.add);
+    final bounds = tester.getRect(find.byType(DSheetContent));
+    await tester.drag(find.text('Swipe sheet'), const Offset(0, 180));
+    await tester.pumpAndSettle();
+    expect(changes.single.open, isFalse);
+    expect(changes.single.reason, DSheetChangeReason.close);
+    expect(tester.getRect(find.byType(DSheetContent)), bounds);
+  });
+
+  for (final scenario in ['disabled', 'desktop', 'side', 'mouse']) {
+    testWidgets('$scenario does not swipe-dismiss', (tester) async {
+      await openSwipeSheet(
+        tester,
+        dismissOnSwipe: scenario != 'disabled',
+        platform: scenario == 'desktop'
+            ? TargetPlatform.macOS
+            : TargetPlatform.iOS,
+        side: scenario == 'side' ? DSheetSide.right : DSheetSide.bottom,
+      );
+      final bounds = tester.getRect(find.byType(DSheetContent));
+      await tester.drag(
+        find.text('Swipe sheet'),
+        const Offset(0, 180),
+        kind: scenario == 'mouse'
+            ? PointerDeviceKind.mouse
+            : PointerDeviceKind.touch,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(DSheetContent)), bounds);
+    });
+  }
+
   for (final imperative in [false, true]) {
     testWidgets(
       'under-keyboard ${imperative ? 'helper' : 'sheet'} retains its full height and live insets',

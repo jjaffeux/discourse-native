@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -56,6 +57,7 @@ class DSheet<T> extends StatelessWidget {
     this.modal = true,
     this.dismissOnBarrier = true,
     this.dismissOnEscape = true,
+    this.dismissOnSwipe = true,
     this.barrierLabel = 'Dismiss sheet',
     this.routeSettings,
     this.initialFocusNode,
@@ -79,6 +81,10 @@ class DSheet<T> extends StatelessWidget {
   final bool modal;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
+
+  /// Allows touch drags down from a bottom sheet's header or the top of its
+  /// scrollable content on mobile. Uses the same close request as [DSheetClose].
+  final bool dismissOnSwipe;
   final String barrierLabel;
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
@@ -115,6 +121,7 @@ class DSheet<T> extends StatelessWidget {
       content.animateSize,
       content.fillAvailableHeight,
       content.extendBehindKeyboard,
+      dismissOnSwipe,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -152,6 +159,7 @@ class DSheetViewport extends StatelessWidget {
         content.animateSize,
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
+        false,
       ),
     );
   }
@@ -268,6 +276,7 @@ Widget _sheetPresentation(
   bool animateSize,
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
+  bool dismissOnSwipe,
 ) => _DSheetCurves(
   animation: presentation.animation,
   builder: (context, popupCurve, backdropCurve) => _sheetLayout(
@@ -282,6 +291,7 @@ Widget _sheetPresentation(
     animateSize,
     fillAvailableHeight,
     extendBehindKeyboard,
+    dismissOnSwipe,
   ),
 );
 
@@ -297,6 +307,7 @@ Widget _sheetLayout(
   bool animateSize,
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
+  bool dismissOnSwipe,
 ) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -350,6 +361,22 @@ Widget _sheetLayout(
           )
         : presentation.content,
   );
+  final mobile = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS ||
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
+  if (dismissOnSwipe && mobile && side == DSheetSide.bottom) {
+    final content = popup;
+    popup = DSheetClose<void>(
+      builder: (context, close) => _DSheetSwipeDismiss(
+        onDismiss: close,
+        routeAnimation: presentation.animation,
+        child: content,
+      ),
+    );
+  }
   if (animate) {
     if (fillAvailableHeight) {
       popup = ScaleTransition(
@@ -431,6 +458,152 @@ Widget _sheetLayout(
     },
   );
   return fillAvailableHeight ? _DSheetKeyboardInsets(child: layout) : layout;
+}
+
+class _DSheetSwipeDismiss extends StatefulWidget {
+  const _DSheetSwipeDismiss({
+    required this.onDismiss,
+    required this.routeAnimation,
+    required this.child,
+  });
+
+  final VoidCallback onDismiss;
+  final Animation<double> routeAnimation;
+  final Widget child;
+
+  @override
+  State<_DSheetSwipeDismiss> createState() => _DSheetSwipeDismissState();
+}
+
+class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
+    with SingleTickerProviderStateMixin {
+  late final _travel = AnimationController.unbounded(vsync: this);
+  int? _pointer;
+  VelocityTracker? _velocity;
+  BuildContext? _scrollOrigin;
+  bool _dragging = false;
+
+  void _start() {
+    _travel.stop();
+    _dragging = true;
+  }
+
+  void _update(double delta) {
+    _travel.value = math.max(0, _travel.value + delta);
+  }
+
+  void _restore() {
+    if (!mounted) return;
+    _travel.animateTo(
+      0,
+      duration: DMotion.duration(context, DMotion.change),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _finish(double velocity, {bool cancelled = false}) {
+    if (!_dragging) return;
+    _dragging = false;
+    _scrollOrigin = null;
+    if (!cancelled &&
+        (_travel.value >= 72 || (_travel.value >= 18 && velocity >= 700))) {
+      widget.onDismiss();
+      // Controlled owners can decline the close request. Let their route
+      // update before deciding whether the sheet needs to settle back.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            widget.routeAnimation.status != AnimationStatus.reverse &&
+            widget.routeAnimation.status != AnimationStatus.dismissed) {
+          _restore();
+        }
+      });
+    } else {
+      _restore();
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (_pointer == null ||
+        notification.metrics.axisDirection != AxisDirection.down ||
+        (_scrollOrigin != null && _scrollOrigin != notification.context)) {
+      return false;
+    }
+    double delta = 0;
+    if (notification is OverscrollNotification &&
+        notification.dragDetails != null &&
+        notification.overscroll < 0 &&
+        notification.metrics.pixels <= notification.metrics.minScrollExtent) {
+      delta = -notification.overscroll;
+    } else if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      // Bouncing physics report movement outside the scroll range instead
+      // of OverscrollNotification. Only the part beyond the top drags us.
+      final pixels = notification.metrics.pixels;
+      final minimum = notification.metrics.minScrollExtent;
+      final previous = pixels - (notification.scrollDelta ?? 0);
+      delta = math.max(0, minimum - pixels) - math.max(0, minimum - previous);
+      if (_scrollOrigin != null && delta == 0) {
+        delta = math.min(0, notification.dragDetails!.delta.dy);
+      }
+    }
+    if (delta != 0) {
+      if (!_dragging) _start();
+      _scrollOrigin = notification.context;
+      _update(delta);
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    _travel.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _travel,
+    builder: (context, child) =>
+        Transform.translate(offset: Offset(0, _travel.value), child: child),
+    child: Listener(
+      onPointerDown: (event) {
+        if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
+        _pointer = event.pointer;
+        _velocity = VelocityTracker.withKind(event.kind)
+          ..addPosition(event.timeStamp, event.position);
+      },
+      onPointerMove: (event) {
+        if (event.pointer == _pointer) {
+          _velocity?.addPosition(event.timeStamp, event.position);
+        }
+      },
+      onPointerUp: (event) {
+        if (event.pointer != _pointer) return;
+        if (_scrollOrigin != null) {
+          _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
+        }
+        _pointer = null;
+        _velocity = null;
+      },
+      onPointerCancel: (event) {
+        if (event.pointer != _pointer) return;
+        _finish(0, cancelled: true);
+        _pointer = null;
+        _velocity = null;
+      },
+      child: GestureDetector(
+        supportedDevices: const {PointerDeviceKind.touch},
+        onVerticalDragStart: (_) => _start(),
+        onVerticalDragUpdate: (details) => _update(details.delta.dy),
+        onVerticalDragEnd: (details) => _finish(details.primaryVelocity ?? 0),
+        onVerticalDragCancel: () => _finish(0, cancelled: true),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: widget.child,
+        ),
+      ),
+    ),
+  );
 }
 
 // Scaffold can consume the opening control's keyboard inset. Observe the view
@@ -912,6 +1085,7 @@ Future<T?> showDSheet<T>({
   bool modal = true,
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
+  bool dismissOnSwipe = true,
   String barrierLabel = 'Dismiss sheet',
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
@@ -941,6 +1115,7 @@ Future<T?> showDSheet<T>({
       animateSize,
       fillAvailableHeight,
       extendBehindKeyboard,
+      dismissOnSwipe,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

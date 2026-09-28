@@ -418,7 +418,7 @@ void main() {
         expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
 
-        await tester.tap(find.byTooltip('Close'));
+        await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         expect(tester.takeException(), isNull);
