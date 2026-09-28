@@ -486,8 +486,11 @@ class _InvitationsState extends State<_Invitations> {
   String? _error;
   bool _sending = false;
   Future<void> _send() async {
+    // The server matches usernames exactly and reports success when none
+    // match, so a mention prefix would invite nobody without an error.
     final names = _names.text
         .split(RegExp(r'[\s,]+'))
+        .map((s) => s.replaceFirst(RegExp(r'^@'), ''))
         .where((s) => s.isNotEmpty)
         .toSet()
         .toList();

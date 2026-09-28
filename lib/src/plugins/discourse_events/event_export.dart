@@ -68,7 +68,18 @@ Future<String> eventCalendar(
       !calendar.contains('END:VCALENDAR')) {
     throw const FormatException('Invalid calendar response');
   }
+  if (!_eventComponent.hasMatch(calendar)) {
+    throw const EmptyEventCalendarException();
+  }
   return calendar;
+}
+
+final _eventComponent = RegExp(r'^BEGIN:VEVENT\r?$', multiLine: true);
+
+/// A well-formed calendar holding no event, which would import nothing. The
+/// feed leaves out closed events and anything before its default window.
+final class EmptyEventCalendarException implements Exception {
+  const EmptyEventCalendarException();
 }
 
 /// Share a server-generated snapshot, never a feed URL containing credentials.

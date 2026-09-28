@@ -62,6 +62,24 @@ void main() {
     },
   );
 
+  test(
+    'a calendar without an event is refused instead of saved empty',
+    () async {
+      // The feed leaves out closed events and anything before its window.
+      final transport = _TextTransport()
+        ..result = Future.value(
+          'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'
+          'X-WR-CALNAME:BEGIN:VEVENT\r\nEND:VCALENDAR\r\n',
+        );
+      final ports = EventTestPorts(transport: transport);
+      addTearDown(ports.close);
+      await expectLater(
+        eventCalendar(ports.controller, eventSite, eventId: 42),
+        throwsA(isA<EmptyEventCalendarException>()),
+      );
+    },
+  );
+
   test('a retired view does not fetch after credential lookup', () async {
     final transport = _TextTransport();
     final ports = EventTestPorts(transport: transport);

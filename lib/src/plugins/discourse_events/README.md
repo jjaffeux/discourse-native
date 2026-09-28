@@ -163,7 +163,10 @@ limit retains daily occurrences throughout the year. Server event-query limits
 still apply. Late requests are discarded after date, filter, site, or account
 changes. Future occurrences never borrow current attendance authority. Calendar export downloads the authenticated server ICS snapshot
 and shares/saves a file; it never exports an API-key-bearing URL. Server feed
-windows and occurrence limits still apply. An export belongs to the initiating
+windows and occurrence limits still apply: the feed leaves out closed events
+and anything before its default three-month window, so, as on the web, a
+closed or expired event's card offers neither export nor invitations, and a
+snapshot with no `VEVENT` is refused rather than saved. An export belongs to the initiating
 event or calendar view and account through the fetch and native save dialog.
 Replacing that owner silently retires the export; ownership is checked before
 starting a file write or publishing an error. A share already handed to the OS

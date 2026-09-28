@@ -857,7 +857,9 @@ class _PostEventCardState extends State<PostEventCard> {
       if (mounted && operation.isCurrent) {
         DToast.show(
           context,
-          eventError(error, reading: true),
+          error is EmptyEventCalendarException
+              ? 'This event has no dates left to export.'
+              : eventError(error, reading: true),
           type: DToastType.error,
         );
       }
@@ -886,6 +888,10 @@ class _PostEventCardState extends State<PostEventCard> {
         );
       }
       final available = handle.authoritative && !handle.pending;
+      // As on the web: the calendar feed leaves a closed or expired event
+      // out, and an invitation to one that has started notifies nobody.
+      final expiredOrClosed =
+          event.flag('is_expired') || event.flag('is_closed');
       final accountRevision = widget.controller.accountRevision(widget.site);
       bool currentAccount() =>
           handle.controller.isAccountCurrent(handle.site, accountRevision);
@@ -922,10 +928,10 @@ class _PostEventCardState extends State<PostEventCard> {
         onEdit: available && event.canManage
             ? () => widget.navigation.edit(widget.site, event)
             : null,
-        onInvite: available && event.canManage
+        onInvite: available && !expiredOrClosed && event.canManage
             ? () => showEventInvitations(context, handle)
             : null,
-        onExport: available && !_exporting
+        onExport: available && !expiredOrClosed && !_exporting
             ? () => unawaited(_export(handle, accountRevision))
             : null,
         onOpen: () => widget.navigation.openEvent(widget.site, event),
