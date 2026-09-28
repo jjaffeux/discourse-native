@@ -1148,7 +1148,8 @@ void main() {
     await tester.pumpAndSettle();
     final settled = paintedReply();
     expect(entering.width, lessThan(settled.width * .92));
-    expect(entering.center.dy, greaterThan(settled.center.dy + 2));
+    expect(entering.center.dx, closeTo(settled.center.dx, .001));
+    expect(entering.center.dy, closeTo(settled.center.dy, .001));
     expect(
       tester.getRect(find.byKey(const ValueKey('mobile-mode-start'))),
       dockRect,
@@ -1158,7 +1159,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
     expect(reply, findsOneWidget);
     expect(paintedReply().width, lessThan(settled.width));
-    expect(paintedReply().center.dy, greaterThan(settled.center.dy));
+    expect(paintedReply().center.dx, closeTo(settled.center.dx, .001));
+    expect(paintedReply().center.dy, closeTo(settled.center.dy, .001));
     expect(
       tester
           .widget<FadeTransition>(

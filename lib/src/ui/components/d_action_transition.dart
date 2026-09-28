@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// Reveals a contextual action with a short upward movement and scale.
+/// Fades and scales a contextual action around the button's center.
 ///
 /// Pass `null` to remove the action. Give different actions different keys;
 /// updates to the same widget type and key preserve its state without replaying
@@ -42,9 +42,7 @@ class DActionTransition extends StatelessWidget {
         child: FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            // Grow upward within the slot so all painted bounds remain
-            // available to hit testing throughout the movement.
-            alignment: Alignment.bottomCenter,
+            alignment: Alignment.center,
             scale: Tween<double>(begin: .72, end: 1).animate(animation),
             child: child,
           ),
