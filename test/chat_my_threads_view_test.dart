@@ -138,20 +138,116 @@ void main() {
     expect(find.text('Thread 2'), findsOneWidget);
     expect(find.text('Thread 3'), findsOneWidget);
   });
+
+  testWidgets('a selected channel pages its own threads, not the directory', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: {
+        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+          channels: [_general],
+          hasMore: true,
+        ),
+      },
+      chatChannelThreadPagesByKey: _generalPages(),
+    );
+    await _pump(tester, api);
+    await _selectChannel(tester, 'general');
+    expect(find.text('Load more'), findsOneWidget);
+
+    await tester.tap(find.text('Load more'));
+    await tester.pumpAndSettle();
+
+    expect(_threadPages(api), [(9, 0), (9, 1)]);
+    expect(api.chatBrowseRequested.map((request) => request.offset), [0]);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
+
+    await _selectChannel(tester, 'All channels');
+    expect(find.text('Load more'), findsOneWidget);
+  });
+
+  testWidgets('a selected channel leaves out another channel’s failed load', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: {
+        FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+          channels: [
+            _general,
+            ChatChannel(
+              id: 10,
+              title: 'design',
+              kind: ChatChannelKind.category,
+              threadingEnabled: true,
+            ),
+          ],
+        ),
+      },
+      chatChannelThreadPagesByKey: _generalPages(),
+    );
+    await _pump(tester, api);
+    expect(_threadPages(api), [(9, 0), (10, 0)]);
+    expect(find.text('Could not load this channel’s threads.'), findsOneWidget);
+
+    await _selectChannel(tester, 'general');
+    expect(find.text('Could not load this channel’s threads.'), findsNothing);
+    await tester.tap(find.text('Load more'));
+    await tester.pumpAndSettle();
+
+    expect(_threadPages(api), [(9, 0), (10, 0), (9, 1)]);
+    expect(find.text('Thread 2'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
+
+    await _selectChannel(tester, 'All channels');
+    expect(find.text('Could not load this channel’s threads.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+  });
 }
+
+const _general = ChatChannel(
+  id: 9,
+  title: 'general',
+  kind: ChatChannelKind.category,
+  threadingEnabled: true,
+);
 
 final _browsePages = {
   FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
-    channels: [
-      ChatChannel(
-        id: 9,
-        title: 'general',
-        kind: ChatChannelKind.category,
-        threadingEnabled: true,
-      ),
-    ],
+    channels: [_general],
   ),
 };
+
+/// Two pages of channel 9's threads, the first reporting more.
+Map<String, ChatThreadPage> _generalPages() => {
+  FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+    threads: [_thread(1)],
+    hasMore: true,
+  ),
+  FakeDiscourseApi.chatChannelThreadPageKey(9, 1): ChatThreadPage(
+    threads: [_thread(2)],
+  ),
+};
+
+Iterable<(int, int)> _threadPages(FakeDiscourseApi api) => api
+    .chatChannelThreadPagesRequested
+    .map((request) => (request.channelId, request.offset));
+
+Future<void> _selectChannel(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('chat-threads-channel-filter')));
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics &&
+          widget.properties.inMutuallyExclusiveGroup == true &&
+          widget.properties.label == label,
+    ),
+  );
+  await tester.pumpAndSettle();
+}
 
 ChatThread _thread(int id) => ChatThread(
   id: id,

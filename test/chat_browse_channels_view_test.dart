@@ -94,6 +94,35 @@ void main() {
       expect(find.text('Load more'), findsNothing);
     });
 
+    testWidgets('lists a channel repeated by the next page once, in place', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1), _channel(2)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(offset: 2): ChatChannelBrowsePage(
+            channels: [_channel(2), _channel(3)],
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect(_offsets(api), [0, 2]);
+      for (final id in [1, 2, 3]) {
+        expect(_card(id), findsOneWidget);
+      }
+      final tops = [
+        for (final id in [1, 2, 3]) tester.getTopLeft(_card(id)).dy,
+      ];
+      expect(tops, orderedEquals([...tops]..sort()));
+    });
+
     testWidgets('pages and retries while all received channels are filtered', (
       tester,
     ) async {

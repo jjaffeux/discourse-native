@@ -67,7 +67,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scroll.hasClients ||
-        _directory.error != null ||
+        _directory.error(_channelId) != null ||
         _scroll.position.extentAfter >
             paginationPrefetchDistance(_scroll.position)) {
       return;
@@ -87,7 +87,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
         for (final thread in all)
           if (_channelId == null || thread.channelId == _channelId) thread,
       ];
-      final error = _directory.error;
+      final error = _directory.error(_channelId);
       final hasMore = _directory.hasMore(_channelId);
       final hasFooter = _directory.loading || error != null || hasMore;
       Widget item(BuildContext context, int index) {
