@@ -13,6 +13,7 @@ import 'open_link.dart';
 import 'quote_panel.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
+import 'topic_title.dart';
 import 'user_card.dart';
 
 class QuoteData {
@@ -56,13 +57,13 @@ class QuoteData {
     return QuoteData(
       username: element.attributes['data-username']?.nullIfEmpty,
       avatarUrl: avatar?.attributes['src']?.nullIfEmpty,
-      title: _title(titleEl),
+      title: _title(titleEl, linked: link != null),
       link: link?.attributes['href']?.nullIfEmpty,
       bodyHtml: (blockquote?.innerHtml ?? '').trim(),
     );
   }
 
-  static String? _title(dom.Element? titleEl) {
+  static String? _title(dom.Element? titleEl, {required bool linked}) {
     if (titleEl == null) return null;
 
     final buffer = StringBuffer();
@@ -80,16 +81,37 @@ class QuoteData {
       if (node is dom.Text) {
         buffer.write(node.data);
       } else if (node is dom.Element && !_outsideTitle(node)) {
-        pushChildren(node);
+        if (_isEmoji(node)) {
+          buffer.write(_shortcode(node));
+        } else {
+          pushChildren(node);
+        }
       }
     }
     final text = buffer.toString().trim();
 
-    final trimmed = text.endsWith(':')
+    // Core writes the colon after a `username:` attribution; a linked title is
+    // the topic's own text, colon included.
+    final trimmed = !linked && text.endsWith(':')
         ? text.substring(0, text.length - 1).trim()
         : text;
     return trimmed.nullIfEmpty;
   }
+
+  static bool _isEmoji(dom.Element element) =>
+      element.localName == 'img' && element.classes.contains('emoji');
+
+  // Core unescapes a linked title's `:tada:` and 🎉 alike into an image named
+  // bare, `tada`, where a post body's image keeps the colons. Either way the
+  // title carries the shortcode, which is what a topic title is drawn from.
+  static String _shortcode(dom.Element emoji) {
+    final attributes = emoji.attributes;
+    final named = attributes['alt']?.nullIfEmpty ?? attributes['title'] ?? '';
+    final name = named.replaceAll(_shortcodeColons, '');
+    return name.isEmpty ? '' : ':$name:';
+  }
+
+  static final RegExp _shortcodeColons = RegExp(r'^:|:$');
 
   // A same-site topic link is cooked as a quote whose title carries the
   // topic's category badge after the topic link. The badge names the
@@ -159,6 +181,16 @@ class _Header extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final link = data.link;
+    final titleStyle = theme.textTheme.labelMedium?.copyWith(
+      color: muted,
+      fontWeight: FontWeight.w600,
+    );
+    // A linked title is a topic title, so its shortcodes draw as the site's
+    // emoji; a username attribution is a name and stays plain text. Artwork
+    // needs the shell, which quotes rendered outside one do not have.
+    final emojiSite = link != null && ShellScope.maybeRead(context) != null
+        ? siteUrl
+        : null;
 
     final row = Row(
       children: [
@@ -178,15 +210,21 @@ class _Header extends StatelessWidget {
         ],
         if (data.title case final title?)
           Flexible(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: muted,
-                fontWeight: FontWeight.w600,
+            child: switch (emojiSite) {
+              final site? => TopicTitle(
+                title,
+                siteUrl: site,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
               ),
-            ),
+              null => Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              ),
+            },
           ),
         if (link != null) ...[
           const SizedBox(width: 4),

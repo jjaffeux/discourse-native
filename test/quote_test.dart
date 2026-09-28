@@ -1,13 +1,22 @@
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/quote_panel.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const String postQuote = '''
 <aside class="quote no-group" data-username="martin" data-post="14" data-topic="322551">
@@ -31,19 +40,36 @@ const String crossTopicQuote = '''
 </aside>
 ''';
 
-String sameSiteTopicLink(String categoryBadge) =>
+String sameSiteTopicLink(String categoryBadge, {String title = 'Some topic'}) =>
     '''
 <aside class="quote" data-post="1" data-topic="341126">
 <div class="title">
 <div class="quote-controls"></div>
 <img alt="" width="24" height="24" src="https://cdn.example.com/martin.png" class="avatar">
 <div class="quote-title__text-content">
-<a href="https://meta.discourse.org/t/some-topic/341126">Some topic</a> $categoryBadge
+<a href="https://meta.discourse.org/t/some-topic/341126">$title</a> $categoryBadge
 </div>
 </div>
 <blockquote><p>The first post of the topic, excerpted.</p></blockquote>
 </aside>
 ''';
+
+String crossTopicQuoteTitled(String title) =>
+    '''
+<aside class="quote no-group" data-username="sam" data-post="1" data-topic="1234">
+<div class="title">
+<div class="quote-controls"></div>
+<img alt="" width="24" height="24" src="https://cdn.example.com/sam.png" class="avatar"><a href="https://meta.discourse.org/t/a-topic/1234/1">$title</a></div>
+<blockquote><p>Quoted across topics.</p></blockquote>
+</aside>
+''';
+
+// Core's `performEmojiUnescape` output for a title's `:tada:` or 🎉: the
+// image names the emoji bare, without the shortcode's colons.
+const String titleEmoji =
+    '<img width="20" height="20" '
+    "src='https://meta.discourse.org/images/emoji/twitter/tada.png?v=12' "
+    "title='tada' alt='tada' class='emoji'>";
 
 const String plainBlockquote =
     '<blockquote>\n<p>Just a markdown quote.</p>\n</blockquote>';
@@ -112,6 +138,60 @@ void main() {
       }
     });
 
+    test(
+      'keeps a linked title\'s emoji as the shortcode it was cooked from',
+      () {
+        const shapes = {
+          'emoji and text': (
+            '$titleEmoji Release party',
+            ':tada: Release party',
+          ),
+          'emoji only': (titleEmoji, ':tada:'),
+          'toned': (
+            "<img src='/images/emoji/twitter/wave/4.png?v=12' "
+                "title='wave:t4' alt='wave:t4' class='emoji'> Hello",
+            ':wave:t4: Hello',
+          ),
+          'titled only': (
+            "<img src='/images/emoji/twitter/tada.png?v=12' title='tada' "
+                "class='emoji'> Release party",
+            ':tada: Release party',
+          ),
+          'colon-wrapped alt': (
+            "<img src='/images/emoji/twitter/tada.png?v=12' title=':tada:' "
+                "alt=':tada:' class='emoji'> Release party",
+            ':tada: Release party',
+          ),
+        };
+
+        for (final MapEntry(key: shape, value: (markup, expected))
+            in shapes.entries) {
+          expect(
+            parse(sameSiteTopicLink('', title: markup)).title,
+            expected,
+            reason: 'topic link, $shape',
+          );
+          expect(
+            parse(crossTopicQuoteTitled(markup)).title,
+            expected,
+            reason: 'cross-topic quote, $shape',
+          );
+        }
+      },
+    );
+
+    test('keeps a linked title\'s own trailing colon', () {
+      expect(
+        parse(sameSiteTopicLink('', title: 'Help needed:')).title,
+        'Help needed:',
+      );
+      expect(
+        parse(crossTopicQuoteTitled('Help needed:')).title,
+        'Help needed:',
+      );
+      expect(parse(postQuote).title, 'martin');
+    });
+
     test('reads a bare markdown blockquote as a quote with no attribution', () {
       final data = parse(plainBlockquote);
 
@@ -155,6 +235,59 @@ void main() {
         find.textContaining('combining New and Unread', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('draws a linked title\'s emoji with the site artwork', (
+      tester,
+    ) async {
+      installTestMediaPipeline(
+        client: MockClient((_) async => http.Response('', 404)),
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('meta.example')]),
+        api: FakeDiscourseApi(
+          emojisBySite: {
+            'https://meta.example': const [
+              SiteEmoji(name: 'tada', url: '/images/emoji/twitter/tada.png'),
+            ],
+          },
+        ),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: QuoteBlock(
+                    data: parse(
+                      sameSiteTopicLink('', title: '$titleEmoji Release party'),
+                    ),
+                    siteUrl: 'https://meta.example',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage)).name,
+          'tada',
+        );
+        expect(find.bySemanticsLabel(':tada: Release party'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
     });
 
     testWidgets('source attribution is a named keyboard link', (tester) async {
