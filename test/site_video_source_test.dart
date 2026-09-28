@@ -81,6 +81,64 @@ void main() {
     },
   );
 
+  test(
+    'legacy secure-media-uploads URLs are resolved like secure uploads',
+    () async {
+      final requests = <http.Request>[];
+      final resolver = SiteVideoSourceResolver(
+        credentials: const _Credentials(apiKey: 'secret'),
+        lifecycle: SiteLifecycle(),
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.host == 'meta.discourse.org') {
+            return http.Response(
+              '',
+              302,
+              headers: {'location': 'https://cdn.example.com/signed/demo.mp4'},
+            );
+          }
+          return http.Response('', 200);
+        }),
+      );
+      addTearDown(resolver.close);
+
+      // Core still routes the pre-rename prefix so old cooked posts keep
+      // working, including under a subfolder install.
+      for (final (site, legacy) in [
+        (siteUrl, '$siteUrl/secure-media-uploads/original/demo.mp4'),
+        (
+          '$siteUrl/forum',
+          '$siteUrl/forum/secure-media-uploads/original/demo.mp4',
+        ),
+      ]) {
+        requests.clear();
+        final source = await resolver.resolve(
+          siteUrl: site,
+          url: Uri.parse(legacy),
+        );
+
+        expect(
+          source.url,
+          Uri.parse('https://cdn.example.com/signed/demo.mp4'),
+          reason: legacy,
+        );
+        expect(requests, hasLength(2), reason: legacy);
+        expect(requests.first.method, 'HEAD', reason: legacy);
+        expect(requests.first.url, Uri.parse(legacy), reason: legacy);
+        expect(
+          requests.first.headers['User-Api-Key'],
+          'secret',
+          reason: legacy,
+        );
+        expect(
+          requests.last.headers,
+          isNot(contains('User-Api-Key')),
+          reason: legacy,
+        );
+      }
+    },
+  );
+
   test('same-origin protected source is not handed to a media stack', () async {
     final resolver = SiteVideoSourceResolver(
       credentials: const _Credentials(apiKey: 'secret', clientIdValue: ''),
