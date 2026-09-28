@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/d_overlay_route.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -160,9 +161,49 @@ class DSheetViewport extends StatelessWidget {
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
         false,
+        retainKeyboardInsets: true,
       ),
     );
   }
+}
+
+// A retained sheet stays visible beneath picker routes. Its keyboard belongs
+// to its own editor, so another route's focus handoff must not resize it.
+class _DSheetRetainedKeyboardInsets extends StatefulWidget {
+  const _DSheetRetainedKeyboardInsets({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DSheetRetainedKeyboardInsets> createState() =>
+      _DSheetRetainedKeyboardInsetsState();
+}
+
+class _DSheetRetainedKeyboardInsetsState
+    extends State<_DSheetRetainedKeyboardInsets> {
+  EdgeInsets? _insets;
+  EdgeInsets? _padding;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+    valueListenable: DOverlayRoute.modalCoverCountOf(context),
+    builder: (context, covers, child) {
+      final media = MediaQuery.of(context);
+      if (covers == 0 || _insets == null) {
+        _insets = media.viewInsets;
+        _padding = media.padding;
+      }
+      return DOverlayKeyboardMetrics(
+        viewInsets: media.viewInsets,
+        padding: media.padding,
+        child: MediaQuery(
+          data: media.copyWith(viewInsets: _insets, padding: _padding),
+          child: child!,
+        ),
+      );
+    },
+    child: widget.child,
+  );
 }
 
 class _DSheetSideScope extends InheritedWidget {
@@ -276,8 +317,9 @@ Widget _sheetPresentation(
   bool animateSize,
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
-  bool dismissOnSwipe,
-) => _DSheetCurves(
+  bool dismissOnSwipe, {
+  bool retainKeyboardInsets = false,
+}) => _DSheetCurves(
   animation: presentation.animation,
   builder: (context, popupCurve, backdropCurve) => _sheetLayout(
     context,
@@ -292,6 +334,7 @@ Widget _sheetPresentation(
     fillAvailableHeight,
     extendBehindKeyboard,
     dismissOnSwipe,
+    retainKeyboardInsets: retainKeyboardInsets,
   ),
 );
 
@@ -307,8 +350,9 @@ Widget _sheetLayout(
   bool animateSize,
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
-  bool dismissOnSwipe,
-) {
+  bool dismissOnSwipe, {
+  bool retainKeyboardInsets = false,
+}) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
   final background = DTokens.of(context).background.withValues(alpha: 1);
@@ -457,7 +501,13 @@ Widget _sheetLayout(
       );
     },
   );
-  return fillAvailableHeight ? _DSheetKeyboardInsets(child: layout) : layout;
+  return fillAvailableHeight
+      ? _DSheetKeyboardInsets(
+          child: retainKeyboardInsets
+              ? _DSheetRetainedKeyboardInsets(child: layout)
+              : layout,
+        )
+      : layout;
 }
 
 class _DSheetSwipeDismiss extends StatefulWidget {

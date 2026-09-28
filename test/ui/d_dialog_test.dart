@@ -888,7 +888,7 @@ void main() {
       );
       expect(fieldNode.rect.width, greaterThan(250));
       expect(fieldNode.rect.height, lessThan(100));
-      expect(closeNode.rect.size, const Size.square(48));
+      expect(closeNode.rect.size, tester.getSize(find.byTooltip('Close')));
       expect(fieldNode.parent, same(closeNode.parent));
     } finally {
       semantics.dispose();

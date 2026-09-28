@@ -10,12 +10,21 @@ class DOverlayEnvironment {
     required this.directionality,
   });
 
-  factory DOverlayEnvironment.capture(BuildContext context) =>
-      DOverlayEnvironment(
-        theme: Theme.of(context),
-        mediaQuery: MediaQuery.of(context),
-        directionality: Directionality.of(context),
-      );
+  factory DOverlayEnvironment.capture(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = context
+        .dependOnInheritedWidgetOfExactType<DOverlayKeyboardMetrics>();
+    return DOverlayEnvironment(
+      theme: Theme.of(context),
+      mediaQuery: keyboard == null
+          ? media
+          : media.copyWith(
+              viewInsets: keyboard.viewInsets,
+              padding: keyboard.padding,
+            ),
+      directionality: Directionality.of(context),
+    );
+  }
 
   final ThemeData theme;
   final MediaQueryData mediaQuery;
@@ -40,6 +49,23 @@ class DOverlayEnvironment {
   int get hashCode => Object.hash(theme, mediaQuery, directionality);
 }
 
+/// Live keyboard metrics for overlays opened from a retained surface.
+class DOverlayKeyboardMetrics extends InheritedWidget {
+  const DOverlayKeyboardMetrics({
+    super.key,
+    required this.viewInsets,
+    required this.padding,
+    required super.child,
+  });
+
+  final EdgeInsets viewInsets;
+  final EdgeInsets padding;
+
+  @override
+  bool updateShouldNotify(DOverlayKeyboardMetrics oldWidget) =>
+      viewInsets != oldWidget.viewInsets || padding != oldWidget.padding;
+}
+
 typedef DOverlayPageBuilder<T, Configuration extends Object> =
     Widget Function(
       BuildContext context,
@@ -53,6 +79,15 @@ typedef DOverlayPageBuilder<T, Configuration extends Object> =
 /// route prevents uncoordinated system pops, reports them through
 /// [onPopBlocked], and remains mounted for its full reverse transition.
 class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
+  static final _modalCoverCounts = Expando<ValueNotifier<int>>();
+
+  /// Modal overlays covering this route, including their closing transitions.
+  static ValueListenable<int> modalCoverCountOf(BuildContext context) {
+    final route = ModalRoute.of(context);
+    if (route == null) return const AlwaysStoppedAnimation(0);
+    return _modalCoverCounts[route] ??= ValueNotifier(0);
+  }
+
   DOverlayRoute({
     super.settings,
     super.requestFocus = true,
@@ -82,6 +117,40 @@ class DOverlayRoute<T, Configuration extends Object> extends PopupRoute<T> {
 
   bool _authorized = false;
   bool _wasCurrentWhenAuthorized = false;
+  Route<dynamic>? _previousRoute;
+  ValueNotifier<int>? _coverCount;
+
+  void _syncCoverage() {
+    final previous = _previousRoute;
+    final next = previous != null && configuration.value != null && modal
+        ? (_modalCoverCounts[previous] ??= ValueNotifier(0))
+        : null;
+    if (identical(next, _coverCount)) return;
+    _coverCount?.value--;
+    _coverCount = next;
+    _coverCount?.value++;
+  }
+
+  @override
+  void install() {
+    super.install();
+    configuration.addListener(_syncCoverage);
+  }
+
+  @override
+  void didChangePrevious(Route<dynamic>? previousRoute) {
+    super.didChangePrevious(previousRoute);
+    _previousRoute = previousRoute;
+    _syncCoverage();
+  }
+
+  @override
+  void dispose() {
+    configuration.removeListener(_syncCoverage);
+    _coverCount?.value--;
+    _coverCount = null;
+    super.dispose();
+  }
 
   Configuration get currentConfiguration => configuration.value!;
   bool get wasCurrentWhenAuthorized => _wasCurrentWhenAuthorized;
