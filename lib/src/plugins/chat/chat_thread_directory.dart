@@ -33,24 +33,40 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
       if (chat.channelThreads(siteUrl, channel.id).isNotEmpty) channel,
   ];
 
-  String? get error =>
-      _directoryError ??
-      _channels.keys
-          .map((id) => chat.channelThreadsError(siteUrl, id))
-          .whereType<String>()
-          .firstOrNull;
+  /// A view filtered to a channel the directory has reached shows only that
+  /// channel's threads, so its error, remaining pages and next load are that
+  /// channel's alone: further directory pages add no rows to it. Until the
+  /// directory reaches the channel, paging the directory is how it arrives.
+  ChatChannel? _selected(int? channelId) => _channels[channelId];
 
-  bool hasMore(int? channelId) =>
-      _moreChannels ||
-      _channels.keys.any(
-        (id) =>
-            (channelId == null || id == channelId) &&
-            chat.channelThreadsHaveMore(siteUrl, id),
-      );
+  String? error(int? channelId) {
+    if (_selected(channelId) case final channel?) {
+      return chat.channelThreadsError(siteUrl, channel.id);
+    }
+    return _directoryError ??
+        _channels.keys
+            .map((id) => chat.channelThreadsError(siteUrl, id))
+            .whereType<String>()
+            .firstOrNull;
+  }
+
+  bool hasMore(int? channelId) {
+    if (_selected(channelId) case final channel?) {
+      return chat.channelThreadsHaveMore(siteUrl, channel.id);
+    }
+    return _moreChannels ||
+        _channels.keys.any(
+          (id) =>
+              (channelId == null || id == channelId) &&
+              chat.channelThreadsHaveMore(siteUrl, id),
+        );
+  }
 
   Future<void> load({bool reset = false, int? channelId}) async {
     if (loading || isDisposed || chat.isDisposed) return;
-    if (!reset && loaded && error == null && !hasMore(channelId)) return;
+    if (!reset && loaded && error(channelId) == null && !hasMore(channelId)) {
+      return;
+    }
     loading = true;
     notifySafely();
     try {
@@ -62,11 +78,27 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
         _nextChannel = 0;
         _directoryError = null;
       }
+      final selected = _selected(channelId);
       final failed = [
         for (final channel in _channels.values)
           if (chat.channelThreadsError(siteUrl, channel.id) != null) channel,
       ];
-      if (failed.isNotEmpty) {
+      if (selected != null) {
+        if (chat.channelThreadsError(siteUrl, selected.id) == null) {
+          await chat.loadChannelThreads(
+            siteUrl,
+            selected.id,
+            more: true,
+            directoryChannel: selected,
+          );
+        } else {
+          await chat.retryChannelThreads(
+            siteUrl,
+            selected.id,
+            directoryChannel: selected,
+          );
+        }
+      } else if (failed.isNotEmpty) {
         for (final channel in failed) {
           if (isDisposed || chat.isDisposed) return;
           await chat.retryChannelThreads(
