@@ -1,3 +1,4 @@
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 /// Core limits a topic title to 255 characters. Its fancy-title fallback is
@@ -70,10 +71,22 @@ String? jsonText(Object? value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
+/// An emoji image stands as its shortcode, which is what core's own plain
+/// excerpt writes in its place. Cooked HTML and `keep_emoji_images` excerpts
+/// (PostItemExcerpt) carry the `<img>` instead, and an image has no text:
+/// dropping it would split a sentence around a double space and leave an
+/// emoji-only post blank.
 String? jsonHtmlText(Object? value) {
   final source = jsonText(value);
   if (source == null) return null;
-  return jsonText(html.parseFragment(source).text);
+  final fragment = html.parseFragment(source);
+  for (final emoji in fragment.querySelectorAll('img.emoji')) {
+    final shortcode =
+        jsonText(emoji.attributes['alt']) ??
+        jsonText(emoji.attributes['title']);
+    emoji.replaceWith(dom.Text(shortcode ?? ''));
+  }
+  return jsonText(fragment.text);
 }
 
 DateTime? jsonDate(Object? value) => switch (value) {
