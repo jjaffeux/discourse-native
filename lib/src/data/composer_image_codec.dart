@@ -27,8 +27,9 @@ String? encodeComposerImage({
       dimensions.width * dimensions.height > composerImageMaxPixels) {
     return null;
   }
+  final jpeg = bytes[0] == 0xff;
   img.Image? image;
-  if (bytes[0] == 0xff) {
+  if (jpeg) {
     // startDecode would allocate coefficient buffers once just to report
     // dimensions, then decodeFrame would allocate them a second time.
     image = img.decodeJpg(bytes);
@@ -70,6 +71,9 @@ String? encodeComposerImage({
       interpolation: img.Interpolation.average,
     );
   }
+  if (!transparent) {
+    image.iccProfile = _jpegIccProfile(image.iccProfile, fromJpeg: jpeg);
+  }
   final encoded = transparent
       ? img.encodeWebP(image, lossless: false, quality: quality)
       : img.encodeJpg(image, quality: quality);
@@ -85,6 +89,32 @@ String? encodeComposerImage({
   }
   File(outputPath).writeAsBytesSync(encoded);
   return transparent ? 'webp' : 'jpg';
+}
+
+/// A JPEG APP2 segment holds `ICC_PROFILE\0`, a one-based sequence number,
+/// the segment count, then that part of the profile; its 16-bit length counts
+/// itself and the signature.
+const _jpegIccSegmentData = 0xffff - 2 - 12;
+
+/// package:image writes an ICC profile into a single APP2 segment, emitting
+/// the stored bytes verbatim after the signature, and its JPEG decoder stores
+/// everything after the signature of the last such segment it reads. A PNG
+/// profile therefore needs the sequence prefix added, a JPEG profile already
+/// has it and is whole only when it came from segment 1 of 1, and a profile
+/// that needs several segments cannot be written. Other decoders ignore or
+/// misread anything else and show wide-gamut pixels as sRGB, so it is dropped.
+img.IccProfile? _jpegIccProfile(
+  img.IccProfile? profile, {
+  required bool fromJpeg,
+}) {
+  if (profile == null) return null;
+  final data = profile.decompressed();
+  if (fromJpeg && (data.length < 2 || data[0] != 1 || data[1] != 1)) {
+    return null;
+  }
+  final segment = fromJpeg ? data : Uint8List.fromList([1, 1, ...data]);
+  if (segment.length > _jpegIccSegmentData) return null;
+  return img.IccProfile(profile.name, img.IccProfileCompression.none, segment);
 }
 
 /// Reads dimensions without starting a decoder. JPEG startDecode allocates

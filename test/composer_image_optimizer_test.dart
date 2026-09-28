@@ -138,6 +138,94 @@ void main() {
     },
   );
 
+  test('a PNG profile becomes one complete JPEG ICC segment', () async {
+    final profile = _profile(536);
+    final source = img.encodePng(
+      _image()
+        ..iccProfile = img.IccProfile(
+          'Display P3',
+          img.IccProfileCompression.none,
+          profile,
+        ),
+      level: 0,
+    );
+    final result = await prepare(_file('screenshot.png', source));
+    expect(result.file.name, 'screenshot.jpg');
+    expect(_iccSegments(await _read(result.file)), [
+      [1, 1, ...profile],
+    ]);
+    await result.dispose();
+  });
+
+  test(
+    'a JPEG profile keeps one sequence prefix and a split one is dropped',
+    () async {
+      final profile = _profile(536);
+      final first = Uint8List.sublistView(profile, 0, 300);
+      final second = Uint8List.sublistView(profile, 300);
+      for (final (name, segments, expected) in [
+        (
+          'single.jpg',
+          [
+            [1, 1, ...profile],
+          ],
+          [
+            [1, 1, ...profile],
+          ],
+        ),
+        (
+          'split.jpg',
+          [
+            [1, 2, ...first],
+            [2, 2, ...second],
+          ],
+          <List<int>>[],
+        ),
+        (
+          'reordered.jpg',
+          [
+            [2, 2, ...second],
+            [1, 2, ...first],
+          ],
+          <List<int>>[],
+        ),
+      ]) {
+        final source = _file(name, _jpegWithIcc(_image(), segments));
+        final result = await prepare(source);
+        expect(result.file, isNot(same(source)), reason: name);
+        expect(_iccSegments(await _read(result.file)), expected, reason: name);
+        await result.dispose();
+      }
+    },
+  );
+
+  test('a profile too large for one JPEG segment is dropped', () async {
+    for (final (length, kept) in [(65519, true), (65520, false)]) {
+      final profile = _profile(length);
+      final source = img.encodePng(
+        _image()
+          ..iccProfile = img.IccProfile(
+            'Large',
+            img.IccProfileCompression.none,
+            profile,
+          ),
+        level: 0,
+      );
+      final result = await prepare(_file('large.png', source));
+      expect(result.file.name, 'large.jpg', reason: '$length');
+      expect(
+        _iccSegments(await _read(result.file)),
+        kept
+            ? [
+                [1, 1, ...profile],
+              ]
+            : isEmpty,
+        reason: '$length',
+      );
+      await result.dispose();
+    }
+  });
+
   test(
     'JPEG orientation is baked before resizing and EXIF is removed',
     () async {
@@ -514,6 +602,55 @@ img.Image _gray({img.Format format = img.Format.uint8, int? alpha}) {
     if (alpha != null) pixel.a = alpha * scale;
   }
   return image;
+}
+
+/// Incompressible bytes behind a big-endian size header, so a PNG carrying
+/// the profile stays larger than the JPEG made from it.
+Uint8List _profile(int length) {
+  final random = math.Random(length);
+  final profile = Uint8List(length);
+  for (var i = 4; i < length; i++) {
+    profile[i] = random.nextInt(256);
+  }
+  ByteData.sublistView(profile).setUint32(0, length);
+  return profile;
+}
+
+final _iccSignature = 'ICC_PROFILE\x00'.codeUnits;
+
+/// A quality-100 JPEG whose APP2 segments carry [segments], each written after
+/// `ICC_PROFILE\0` exactly as given.
+Uint8List _jpegWithIcc(img.Image image, List<List<int>> segments) {
+  final jpeg = img.encodeJpg(image, quality: 100);
+  final afterApp0 = 4 + ByteData.sublistView(jpeg).getUint16(4);
+  final bytes = BytesBuilder(copy: false)..add(jpeg.sublist(0, afterApp0));
+  for (final segment in segments) {
+    final length = 2 + _iccSignature.length + segment.length;
+    bytes
+      ..add([0xff, 0xe2, length >> 8, length & 0xff])
+      ..add(_iccSignature)
+      ..add(segment);
+  }
+  bytes.add(jpeg.sublist(afterApp0));
+  return bytes.takeBytes();
+}
+
+/// What follows `ICC_PROFILE\0` in each APP2 segment ahead of the scan.
+List<Uint8List> _iccSegments(Uint8List jpeg) {
+  final view = ByteData.sublistView(jpeg);
+  final segments = <Uint8List>[];
+  var offset = 2;
+  while (jpeg[offset] == 0xff && jpeg[offset + 1] != 0xda) {
+    final length = view.getUint16(offset + 2);
+    final body = jpeg.sublist(offset + 4, offset + 2 + length);
+    if (jpeg[offset + 1] == 0xe2 &&
+        body.length >= _iccSignature.length &&
+        listEquals(body.sublist(0, _iccSignature.length), _iccSignature)) {
+      segments.add(body.sublist(_iccSignature.length));
+    }
+    offset += 2 + length;
+  }
+  return segments;
 }
 
 ComposerUploadFile _file(String name, Uint8List bytes) => ComposerUploadFile(
