@@ -304,7 +304,7 @@ class ComposerPanel extends StatelessWidget {
                                     target: target,
                                   ),
                                 ),
-                              if (target.isPrivateMessage)
+                              if (!mobile && target.isPrivateMessage)
                                 ComposerRecipients(composer: composer),
                               if ((!mobile &&
                                       (target.isNewTopic ||
@@ -768,9 +768,11 @@ class _ComposerBottom extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showRecipients = mobile && composer.target.isPrivateMessage;
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (showRecipients) ComposerRecipients(composer: composer),
         if (showTaxonomy)
           Align(
             alignment: AlignmentDirectional.centerStart,
@@ -787,9 +789,9 @@ class _ComposerBottom extends StatelessWidget {
     );
     if (!mobile) return content;
 
-    // Taxonomy is one horizontally scrolling row with standard top padding.
+    // Recipients and taxonomy use the same control row and top padding.
     // Begin the blur at the controls' midpoint.
-    final blurInset = showTaxonomy
+    final blurInset = showTaxonomy || showRecipients
         ? DSpacing.md +
               DControlStyle.scaledHeight(
                     DControlSize.toolbar,
