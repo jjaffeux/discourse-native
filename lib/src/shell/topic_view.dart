@@ -731,7 +731,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         _keyboardPostEndTarget == _keyboardPost.value) {
       return true;
     }
-    final posts = snapshot.streamIds;
+    // A mega topic's progress positions are post numbers, so a step past its
+    // loaded posts has no stream place to jump to; paging extends them.
+    final posts = snapshot.progressByPostNumber
+        ? snapshot.postIds
+        : snapshot.streamIds;
     final current = _keyboardPost.value ?? _visibleContextCurrentPostId;
     if (current != null && _scrollWithinPost(current, direction)) return true;
     final currentIndex = current == null
@@ -2030,7 +2034,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           ? null
           : _buildTopicBottomBar(
               controller,
-              snapshot.streamIds.length,
+              snapshot.progressTotal,
               snapshot,
               loadingRow: row,
               loading: true,
@@ -2643,13 +2647,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 listenable: _viewportState.progressPositionListenable,
                 builder: (context, _) {
                   final position = _progressPosition;
-                  if (position == null || snapshot.streamIds.length <= 1) {
+                  if (position == null || snapshot.progressTotal <= 1) {
                     return const SizedBox.shrink();
                   }
                   return TopicProgressPopover(
                     controller: controller,
                     position: position,
-                    total: snapshot.streamIds.length,
+                    total: snapshot.progressTotal,
                     floating: true,
                   );
                 },
@@ -2659,11 +2663,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ],
       footer: controller.mobileNavigationEnabled
           ? null
-          : _buildTopicBottomBar(
-              controller,
-              snapshot.streamIds.length,
-              snapshot,
-            ),
+          : _buildTopicBottomBar(controller, snapshot.progressTotal, snapshot),
       overlaySidebar: showOverlaySidebar
           ? _TopicSidebarPanel(
               width: _sidebarOverlayWidth(context),

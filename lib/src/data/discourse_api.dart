@@ -693,6 +693,23 @@ class DiscourseApi
   );
 
   @override
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  }) => _topic.postsFromNumber(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postNumber: postNumber,
+    ascending: ascending,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
   Future<PostRevision> postRevision({
     required String siteUrl,
     required int postId,

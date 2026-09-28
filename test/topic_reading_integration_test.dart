@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -5087,6 +5088,253 @@ void _registerTopicReadingTests() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
+
+  group('mega topics', () {
+    const topicId = _MegaTopicApi.topicId;
+    const slug = _MegaTopicApi.slug;
+    const ids = _MegaTopicApi.ids;
+
+    Future<({ShellController controller, _MegaTopicApi api})> open({
+      int? postNumber,
+    }) async {
+      final api = _MegaTopicApi();
+      addTearDown(api.close);
+      final controller = await _readerController(api);
+      addTearDown(controller.dispose);
+      // The site's tracker starts after the load settles.
+      await pumpEventQueue();
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: topicId,
+          slug: slug,
+          title: _MegaTopicApi.title,
+          postNumber: postNumber,
+        ),
+      );
+      await controller.loadTopic(topicId, slug, postNumber: postNumber);
+      return (controller: controller, api: api);
+    }
+
+    test(
+      'shows the posts it opened with and pages newer ones by number',
+      () async {
+        final (:controller, :api) = await open();
+
+        expect(controller.currentPostIds, ids(1, 20));
+        expect(controller.currentTopicHasMore, isTrue);
+        expect(controller.currentTopicHasEarlier, isFalse);
+
+        await controller.loadMorePosts();
+
+        final page = api.pageRequests.single;
+        expect(page.path, '/t/$topicId/posts.json');
+        expect(page.queryParameters, {'post_number': '20', 'asc': 'true'});
+        expect(controller.currentPostIds, ids(1, 40));
+        expect(controller.currentTopicHasMore, isTrue);
+      },
+    );
+
+    test('pages earlier posts by number until it holds the first', () async {
+      final (:controller, :api) = await open(postNumber: 30);
+
+      expect(controller.currentPostIds, ids(25, 44));
+      expect(controller.currentTopicHasEarlier, isTrue);
+
+      await controller.loadEarlierPosts();
+
+      expect(api.pageRequests.single.queryParameters, {
+        'post_number': '25',
+        'asc': 'false',
+      });
+      expect(controller.currentPostIds, ids(5, 44));
+
+      await controller.loadEarlierPosts();
+
+      expect(controller.currentPostIds, ids(1, 44));
+      expect(controller.currentTopicHasEarlier, isFalse);
+    });
+
+    test('a progress jump reads around the post number it names', () async {
+      final (:controller, :api) = await open();
+
+      expect(
+        await controller.jumpToCurrentTopicIndex(
+          _MegaTopicApi.highestPostNumber,
+        ),
+        isTrue,
+      );
+      await pumpEventQueue();
+
+      expect(api.topicPostNumbersOpened.last, _MegaTopicApi.highestPostNumber);
+      expect(
+        controller.currentPostIds,
+        ids(
+          _MegaTopicApi.highestPostNumber - 5,
+          _MegaTopicApi.highestPostNumber,
+        ),
+      );
+      // The run now holds the topic's last post id, so the reader is at its
+      // end, and can read back from it.
+      expect(controller.currentTopicHasMore, isFalse);
+      expect(controller.currentTopicHasEarlier, isTrue);
+    });
+
+    test(
+      'a reload of the opening page keeps the run the reader is in',
+      () async {
+        final (:controller, :api) = await open(postNumber: 5000);
+        expect(controller.currentPostIds, ids(4995, 5014));
+
+        // What a live `created` message reads: the unpositioned opening page.
+        FakeSiteTracker.built.single.deliverTopicMessage('/topic/$topicId', {
+          'type': 'created',
+          'id': _MegaTopicApi.idOf(_MegaTopicApi.highestPostNumber + 1),
+        });
+        await pumpEventQueue();
+
+        expect(api.topicPostNumbersOpened, [5000, null]);
+        expect(controller.currentPostIds, ids(4995, 5014));
+        expect(controller.currentTopicHasMore, isTrue);
+      },
+    );
+
+    test(
+      'a newer page that lands after a jump moved the run joins nothing',
+      () async {
+        final (:controller, :api) = await open();
+        final gate = api.pageGate = Completer<void>();
+
+        final paging = controller.loadMorePosts();
+        await pumpEventQueue();
+        expect(api.pageRequests, hasLength(1));
+        controller.openCurrentTopicPost(5000);
+        await pumpEventQueue();
+        expect(controller.currentPostIds, ids(4995, 5014));
+
+        gate.complete();
+        await paging;
+
+        expect(controller.currentTopic?.stream, ids(4995, 5014));
+        expect(controller.currentPostIds, ids(4995, 5014));
+      },
+    );
+  });
+}
+
+/// A topic past TopicView::MEGA_TOPIC_POSTS_COUNT, answered as core answers
+/// one: a page of posts and its last post's id, with no stream of post ids.
+/// Pages past that read go through the real client, so each test reads the
+/// request it sent.
+final class _MegaTopicApi extends FakeDiscourseApi {
+  _MegaTopicApi() : super(feeds: const {'/latest.json': []});
+
+  static const topicId = 4242;
+  static const slug = 'a-mega-topic';
+  static const title = 'A mega topic';
+  static const highestPostNumber = 12000;
+
+  /// Post ids run apart from post numbers, as they do on any busy site.
+  static int idOf(int postNumber) => 700000 + postNumber;
+
+  static List<int> ids(int first, int last) => [
+    for (var number = first; number <= last; number++) idOf(number),
+  ];
+
+  static Map<String, Object?> _wirePost(int number) => {
+    'id': idOf(number),
+    'post_number': number,
+    'username': 'reader',
+    'cooked': '<p>Post $number body</p>',
+  };
+
+  final pageRequests = <Uri>[];
+  Completer<void>? pageGate;
+
+  // TopicView#filter_posts_by_post_number: a chunk past the named post, the
+  // nearest first, so an earlier page arrives newest first.
+  late final _client = DiscourseApi(
+    client: MockClient((request) async {
+      pageRequests.add(request.url);
+      await pageGate?.future;
+      final from = int.parse(request.url.queryParameters['post_number']!);
+      final numbers = request.url.queryParameters['asc'] == 'true'
+          ? [
+              for (
+                var n = from + 1;
+                n <= highestPostNumber && n <= from + 20;
+                n++
+              )
+                n,
+            ]
+          : [for (var n = from - 1; n >= 1 && n >= from - 20; n--) n];
+      return http.Response(
+        jsonEncode({
+          'post_stream': {
+            'posts': [for (final number in numbers) _wirePost(number)],
+          },
+        }),
+        200,
+      );
+    }),
+  );
+
+  @override
+  void close() {
+    super.close();
+    _client.close();
+  }
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    topicsOpened.add(id);
+    topicPostNumbersOpened.add(postNumber);
+    // TopicView#filter_posts_near: a quarter of a chunk before the post.
+    final first = postNumber == null || postNumber <= 5 ? 1 : postNumber - 5;
+    return TopicDetail.parse({
+      'id': id,
+      'title': title,
+      'posts_count': highestPostNumber,
+      'highest_post_number': highestPostNumber,
+      'post_stream': {
+        'isMegaTopic': true,
+        'lastId': idOf(highestPostNumber),
+        'posts': [
+          for (
+            var number = first;
+            number < first + 20 && number <= highestPostNumber;
+            number++
+          )
+            _wirePost(number),
+        ],
+      },
+    }, siteUrl);
+  }
+
+  @override
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  }) => _client.postsFromNumber(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postNumber: postNumber,
+    ascending: ascending,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 }
 
 final class _ServerResumeTopicApi extends FakeDiscourseApi {
@@ -5141,6 +5389,11 @@ final class _ServerResumeTopicApi extends FakeDiscourseApi {
 Future<({ShellController controller, _ServerResumeTopicApi api})>
 _serverResumeFixture() async {
   final api = _ServerResumeTopicApi();
+  return (controller: await _readerController(api), api: api);
+}
+
+/// A signed-in reader of [_ServerResumeTopicApi.siteUrl], with no widgets.
+Future<ShellController> _readerController(FakeDiscourseApi api) async {
   final authenticator = FakeAuthenticator()
     ..keys[_ServerResumeTopicApi.siteUrl] = 'key';
   final controller = ShellController(
@@ -5156,7 +5409,7 @@ _serverResumeFixture() async {
     trackers: FakeSiteTracker.reset(),
   );
   await controller.load();
-  return (controller: controller, api: api);
+  return controller;
 }
 
 class _FailingNewTopicMetadataApi extends FakeDiscourseApi {

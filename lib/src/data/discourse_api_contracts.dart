@@ -599,6 +599,18 @@ abstract interface class TopicContentApi {
     String? clientId,
   });
 
+  /// Reads a page of posts after [postNumber], or before it unless
+  /// [ascending], answered in topic order. This is how a mega topic pages
+  /// (TopicDetail.isMegaTopic): it has no stream of ids to ask for.
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  });
+
   Future<PostLikers> postLikers({
     required String siteUrl,
     required int postId,

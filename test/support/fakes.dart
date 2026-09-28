@@ -2121,6 +2121,38 @@ class FakeDiscourseApi
     );
   }
 
+  final List<({int topicId, int postNumber, bool ascending})>
+  postNumberPageFetches = [];
+
+  /// Answers from [postsById], a chunk past [postNumber] in topic order.
+  @override
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    postNumberPageFetches.add((
+      topicId: topicId,
+      postNumber: postNumber,
+      ascending: ascending,
+    ));
+    if (postGate != null) await postGate!.future;
+    final past = [
+      for (final post in postsById.values)
+        if (ascending
+            ? post.postNumber > postNumber
+            : post.postNumber < postNumber)
+          post,
+    ]..sort((a, b) => a.postNumber.compareTo(b.postNumber));
+    const chunk = TopicDetail.maximumInitialPosts;
+    return ascending
+        ? past.take(chunk).toList()
+        : past.skip(past.length > chunk ? past.length - chunk : 0).toList();
+  }
+
   @override
   Future<UserCard> userCard({
     required String siteUrl,

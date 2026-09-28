@@ -3643,6 +3643,60 @@ void _writeGroups() {
       expect(posts.single.raw, 'hi');
     });
 
+    test(
+      'pages a mega topic by post number, in topic order both ways',
+      () async {
+        final asked = <Uri>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            asked.add(request.url);
+            // TopicView#filter_posts_by_post_number answers an earlier page
+            // nearest post first.
+            final numbers = request.url.queryParameters['asc'] == 'true'
+                ? [21, 22]
+                : [19, 18];
+            return http.Response(
+              jsonEncode({
+                'post_stream': {
+                  'posts': [
+                    for (final number in numbers)
+                      {
+                        'id': 100 + number,
+                        'post_number': number,
+                        'username': 'sam',
+                        'cooked': '<p>$number</p>',
+                      },
+                  ],
+                },
+              }),
+              200,
+            );
+          }),
+        );
+
+        final newer = await api.postsFromNumber(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 12,
+          postNumber: 20,
+          ascending: true,
+        );
+        final earlier = await api.postsFromNumber(
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 12,
+          postNumber: 20,
+          ascending: false,
+        );
+
+        expect(asked.map((url) => url.path), everyElement('/t/12/posts.json'));
+        expect(asked.map((url) => url.queryParameters), [
+          {'post_number': '20', 'asc': 'true'},
+          {'post_number': '20', 'asc': 'false'},
+        ]);
+        expect(newer.map((post) => post.postNumber), [21, 22]);
+        expect(earlier.map((post) => post.postNumber), [18, 19]);
+      },
+    );
+
     test('asks for and parses more topics on a final post window', () async {
       late Uri asked;
       final api = DiscourseApi(
