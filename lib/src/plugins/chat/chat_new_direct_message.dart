@@ -559,6 +559,9 @@ class _ChatNewDirectMessageDialogState
     return DCommand<String>(
       key: const ValueKey('chat-destination-command'),
       controller: _command,
+      backgroundColor: widget.sheet
+          ? DTokens.of(context).background.withValues(alpha: 1)
+          : null,
       shouldFilter: false,
       loop: true,
       vimBindings: false,

@@ -11,6 +11,8 @@ final commandExamples = ComponentExamples(
       'This is the frozen base-nova/cmdk composition mapped to native Flutter '
       'editing, focus and semantics. DCommand owns query, filtering, highlight '
       'and keyboard navigation; DCommandDialog composes the shared DDialog owner. '
+      'Use backgroundColor to match a containing sheet or page; the results '
+      'scrollbar shares that color. '
       'Search uses case-insensitive ranked matching across value and keywords, '
       'or accepts a custom score/filtering opt-out for server-owned results. '
       'Arrow, Home/End, modified-arrow and Ctrl-N/P/J/K navigation keeps the '
@@ -97,6 +99,7 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
     children: [
       DCommand<String>(
         outlined: true,
+        backgroundColor: DTokens.of(context).background,
         loop: true,
         onSelected: (value) => setState(() => _message = 'Selected $value'),
         child: const Column(
@@ -389,6 +392,7 @@ class _ArabicCommand extends StatelessWidget {
 
 const _compositionCode = '''DCommand<String>(
   outlined: true,
+  backgroundColor: DTokens.of(context).background,
   loop: true,
   onSelected: run,
   child: Column(children: [

@@ -40,10 +40,15 @@ void main() {
     WidgetTester tester, {
     double scale = 1,
     bool rtl = false,
+    bool dark = false,
   }) async {
     await tester.pumpWidget(
       StartChattingFixture(shell: shell, textScale: scale, rtl: rtl),
     );
+    if (dark) {
+      await tester.tap(find.text('Dark appearance'));
+      await tester.pumpAndSettle();
+    }
     tester
         .widget<DButton>(find.byKey(const ValueKey('open-start-chatting')))
         .focusNode!
@@ -353,50 +358,77 @@ void main() {
     }),
   );
 
-  testWidgets('touch opens a full-height sheet above the keyboard', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await pump(tester);
-    final input = find.descendant(
-      of: search,
-      matching: find.byType(EditableText),
+  for (final dark in [false, true]) {
+    testWidgets(
+      'touch opens a unified ${dark ? 'dark' : 'light'} sheet above the keyboard',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await pump(tester, dark: dark);
+        void expectUnifiedSurface() {
+          final background = DTokens.of(
+            tester.element(sheet),
+          ).background.withValues(alpha: 1);
+          for (final part in [search, find.byType(DSheetTitle)]) {
+            final surface = tester.widget<Material>(
+              find.ancestor(of: part, matching: find.byType(Material)).first,
+            );
+            expect(surface.color, background);
+          }
+          final scrollbar = tester.widget<DScrollBar>(
+            find.descendant(of: sheet, matching: find.byType(DScrollBar)),
+          );
+          expect(scrollbar.backgroundColor, background);
+        }
+
+        expectUnifiedSurface();
+        final input = find.descendant(
+          of: search,
+          matching: find.byType(EditableText),
+        );
+        expect(dialog, findsNothing);
+        expect(tester.getSize(sheet).height, greaterThan(700));
+        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+        expect(tester.getTopLeft(sheet).dx, DSpacing.md);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+        expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
+        final list = find.byKey(
+          const ValueKey('chat-new-direct-message-results'),
+        );
+        expect(tester.getBottomLeft(list).dy, lessThanOrEqualTo(544));
+        expect(
+          tester.getSize(list).height,
+          greaterThan(tester.getSize(sheet).height / 2),
+          reason: 'results take the space the keyboard leaves',
+        );
+
+        await tester.tap(startGroup);
+        await tester.pumpAndSettle();
+        await query(tester, 'maya');
+        await tester.tap(user('maya'));
+        await tester.pumpAndSettle();
+        expect(tester.getBottomLeft(createGroup).dy, lessThanOrEqualTo(544));
+        expectUnifiedSurface();
+        expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
-    expect(dialog, findsNothing);
-    expect(tester.getSize(sheet).height, greaterThan(700));
-    expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-    expect(tester.getTopLeft(sheet).dx, DSpacing.md);
-    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-    expect(tester.testTextInput.isVisible, isTrue);
-
-    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-    expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
-    final list = find.byKey(const ValueKey('chat-new-direct-message-results'));
-    expect(tester.getBottomLeft(list).dy, lessThanOrEqualTo(544));
-    expect(
-      tester.getSize(list).height,
-      greaterThan(tester.getSize(sheet).height / 2),
-      reason: 'results take the space the keyboard leaves',
-    );
-
-    await tester.tap(startGroup);
-    await tester.pumpAndSettle();
-    await query(tester, 'maya');
-    await tester.tap(user('maya'));
-    await tester.pumpAndSettle();
-    expect(tester.getBottomLeft(createGroup).dy, lessThanOrEqualTo(544));
-    expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
-    expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-    expect(sheet, findsNothing);
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  }
 
   testWidgets('narrow RTL and large text keep group controls reachable', (
     tester,
