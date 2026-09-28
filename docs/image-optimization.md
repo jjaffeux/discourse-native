@@ -6,7 +6,8 @@ files selected through a picker, pasted, or dropped. `ComposerUploadPreparer`
 keeps the codec replaceable without changing upload transport or UI.
 
 `ComposerImageOptimizer` uses `image` 4.10.1 in a disposable isolate. One job runs
-at a time across composers; network uploads remain concurrent. Inputs and outputs
+at a time across composers; files outside the byte limits return before joining
+that queue, and network uploads remain concurrent. Inputs and outputs
 use app temporary storage rather than passing pixel buffers between isolates.
 The controller retains the prepared file through network retries and releases
 it on success, removal, cancellation, or disposal.
