@@ -16,13 +16,23 @@ class DGradientBlur extends StatelessWidget {
     super.key,
     this.edge = DGradientBlurEdge.top,
     this.sigma = 12,
-  }) : assert(sigma >= 0 && sigma < double.infinity);
+    this.fullStrengthExtent = 0,
+  }) : assert(sigma >= 0 && sigma < double.infinity),
+       assert(fullStrengthExtent >= 0 && fullStrengthExtent < double.infinity);
 
-  /// The edge with the strongest blur; the opposite edge remains clear.
+  /// The edge from which the full-strength region extends.
   final DGradientBlurEdge edge;
 
   /// The combined Gaussian blur sigma at the strongest edge.
   final double sigma;
+
+  /// The distance from [edge] that stays fully blurred, in logical pixels.
+  ///
+  /// The remaining height fades toward the opposite edge. Set this to the
+  /// keyboard inset to continue a footer's blur underneath the keyboard without
+  /// stretching its fade. Values at least as tall as the widget blur the entire
+  /// bounds at full strength.
+  final double fullStrengthExtent;
 
   @override
   Widget build(BuildContext context) {
@@ -35,33 +45,43 @@ class DGradientBlur extends StatelessWidget {
     final unit = sigma / math.sqrt(85);
     return IgnorePointer(
       child: ExcludeSemantics(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            for (var pass = 0; pass < 4; pass++)
-              Align(
-                alignment: alignment,
-                child: FractionallySizedBox(
-                  widthFactor: 1,
-                  heightFactor: (4 - pass) / 4,
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ui.ImageFilter.blur(
-                        sigmaX: unit * (1 << pass),
-                        sigmaY: unit * (1 << pass),
-                      ),
-                      child: CustomPaint(
-                        painter: _BlurMask(
-                          edge: edge,
-                          transitionStart: (3 - pass) / (4 - pass),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final height = constraints.maxHeight;
+            if (height == 0) return const SizedBox.expand();
+            final plateau = math.min(fullStrengthExtent, height);
+            final fade = height - plateau;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                for (var pass = 0; pass < 4; pass++)
+                  Align(
+                    alignment: alignment,
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: plateau + fade * (4 - pass) / 4,
+                      child: ClipRect(
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(
+                            sigmaX: unit * (1 << pass),
+                            sigmaY: unit * (1 << pass),
+                          ),
+                          child: CustomPaint(
+                            painter: _BlurMask(
+                              edge: edge,
+                              transitionStart:
+                                  (plateau + fade * (3 - pass) / 4) /
+                                  (plateau + fade * (4 - pass) / 4),
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
                         ),
-                        child: const SizedBox.expand(),
                       ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

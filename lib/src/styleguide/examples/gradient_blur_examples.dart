@@ -10,7 +10,9 @@ final gradientBlurExamples = ComponentExamples(
   notes:
       'Place DGradientBlur in a bounded stack after the scrolling content and '
       'before the controls. The opposite edge stays clear, with no surface-color '
-      'overlay. The blur ignores pointer input and contributes no semantics.',
+      'overlay. Use fullStrengthExtent to continue the blur beneath a keyboard '
+      'without stretching the fade. The blur ignores pointer input and '
+      'contributes no semantics.',
   examples: [
     StyleguideExample(
       title: 'Floating controls',
@@ -32,11 +34,27 @@ final gradientBlurExamples = ComponentExamples(
 ])''',
       builder: (_) => const _GradientBlurExample(),
     ),
+    StyleguideExample(
+      title: 'Continued blur',
+      description:
+          'The bottom blur fades in behind the action, then stays at full '
+          'strength below it. A composer uses the keyboard inset for this region.',
+      code: '''Positioned(
+  bottom: 0, left: 0, right: 0, height: 72 + keyboardInset,
+  child: DGradientBlur(
+    edge: DGradientBlurEdge.bottom,
+    fullStrengthExtent: keyboardInset,
+  ),
+)''',
+      builder: (_) => const _GradientBlurExample(fullStrengthExtent: 64),
+    ),
   ],
 );
 
 class _GradientBlurExample extends StatefulWidget {
-  const _GradientBlurExample();
+  const _GradientBlurExample({this.fullStrengthExtent = 0});
+
+  final double fullStrengthExtent;
 
   @override
   State<_GradientBlurExample> createState() => _GradientBlurExampleState();
@@ -60,7 +78,12 @@ class _GradientBlurExampleState extends State<_GradientBlurExample> {
           DScrollArea(
             controller: _scroll,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 72, 16, 72),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                72,
+                16,
+                72 + widget.fullStrengthExtent,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: 16,
@@ -78,12 +101,15 @@ class _GradientBlurExampleState extends State<_GradientBlurExample> {
             height: 72,
             child: DGradientBlur(),
           ),
-          const Positioned(
+          Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            height: 72,
-            child: DGradientBlur(edge: DGradientBlurEdge.bottom),
+            height: 72 + widget.fullStrengthExtent,
+            child: DGradientBlur(
+              edge: DGradientBlurEdge.bottom,
+              fullStrengthExtent: widget.fullStrengthExtent,
+            ),
           ),
           PositionedDirectional(
             top: 12,
@@ -97,7 +123,7 @@ class _GradientBlurExampleState extends State<_GradientBlurExample> {
             ),
           ),
           PositionedDirectional(
-            bottom: 12,
+            bottom: 12 + widget.fullStrengthExtent,
             end: 16,
             child: DButton.iconOnly(
               shape: DButtonShape.pill,

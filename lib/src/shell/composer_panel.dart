@@ -195,9 +195,9 @@ class ComposerPanel extends StatelessWidget {
           mobileSubmit: mobile && !minimized
               ? DButton.iconOnly(
                   key: const ValueKey('composer-submit'),
-                  size: DButtonSize.toolbar,
-                  icon: const DIcon(DIcons.plus),
+                  icon: const DIcon(DIcons.arrowUp),
                   variant: DButtonVariant.primary,
+                  shape: DButtonShape.pill,
                   tooltip: submitLabel,
                   semanticLabel: submitLabel,
                   loading: busy,
@@ -798,25 +798,25 @@ class _ComposerBottom extends StatelessWidget {
                   ) /
                   2
         : 0.0;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: math.max(
-          MediaQuery.viewInsetsOf(context).bottom,
-          MediaQuery.paddingOf(context).bottom,
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            top: blurInset,
-            child: const DGradientBlur(
-              key: ValueKey('composer-footer-blur'),
-              edge: DGradientBlurEdge.bottom,
-            ),
+    final bottomInset = math.max(
+      MediaQuery.viewInsetsOf(context).bottom,
+      MediaQuery.paddingOf(context).bottom,
+    );
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: blurInset,
+          child: DGradientBlur(
+            key: const ValueKey('composer-footer-blur'),
+            edge: DGradientBlurEdge.bottom,
+            fullStrengthExtent: bottomInset,
           ),
-          content,
-        ],
-      ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: content,
+        ),
+      ],
     );
   }
 }

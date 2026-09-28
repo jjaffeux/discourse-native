@@ -187,7 +187,11 @@ void main() {
             .01,
           ),
         );
-        expect(tester.getRect(bottomBlur).bottom, 844 - 336);
+        expect(tester.getRect(bottomBlur).bottom, 844);
+        expect(
+          tester.widget<DGradientBlur>(bottomBlur).fullStrengthExtent,
+          336,
+        );
         expect(
           tester
               .widget<CustomScrollView>(
@@ -207,13 +211,18 @@ void main() {
         );
         expect(sheet.extendBehindKeyboard, isTrue);
         final backgroundToken = DTokens.of(panelContext).background;
-        expect(
+        final backdrop = tester.widget<ModalBarrier>(
           find.byWidgetPredicate(
             (widget) =>
                 widget is ModalBarrier &&
-                widget.color == backgroundToken.withValues(alpha: 1),
+                widget.semanticsLabel == 'Sheet background',
           ),
-          findsOneWidget,
+        );
+        expect(backdrop.color!.a, 1);
+        expect(
+          backdrop.color!.computeLuminance(),
+          lessThan(backgroundToken.computeLuminance()),
+          reason: 'The opaque backdrop must separate the rounded sheet edge.',
         );
         expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
         expect(find.byTooltip('Composer options'), findsNothing);
