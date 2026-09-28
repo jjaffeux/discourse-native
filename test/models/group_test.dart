@@ -293,6 +293,40 @@ void main() {
     expect(activity.hasMore, isFalse);
   });
 
+  test('activity excerpts keep the emoji core sends as images', () {
+    // GroupPostSerializer's PostItemExcerpt keeps emoji as `<img>` markup.
+    const tada =
+        '<img src="/images/emoji/twitter/tada.png?v=12" title=":tada:" '
+        'class="emoji" alt=":tada:" loading="lazy" width="20" height="20">';
+    const thumbsUp =
+        '<img src="/images/emoji/twitter/+1.png?v=12" title=":+1:" '
+        'class="emoji only-emoji" alt=":+1:" loading="lazy" width="20" '
+        'height="20">';
+    final activity = GroupActivityPage.fromWire(const {
+      'posts': [
+        {
+          'id': 21,
+          'topic_id': 10,
+          'post_number': 3,
+          'topic_title': 'Launch',
+          'excerpt': 'Great work $tada team',
+        },
+        {
+          'id': 22,
+          'topic_id': 10,
+          'post_number': 4,
+          'topic_title': 'Launch',
+          'excerpt': thumbsUp,
+        },
+      ],
+    }, siteUrl);
+
+    expect(activity.posts.map((post) => post.plainExcerpt), [
+      'Great work :tada: team',
+      ':+1:',
+    ]);
+  });
+
   test('requesters decode their membership reason', () {
     final requesters = GroupRequestersPage.fromWire(const {
       'members': [

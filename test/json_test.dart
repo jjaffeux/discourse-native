@@ -105,6 +105,62 @@ void main() {
     });
   });
 
+  group('jsonHtmlText', () {
+    // PostItemExcerpt's `keep_emoji_images: true` markup, as core writes it.
+    const heart =
+        '<img src="/images/emoji/twitter/heart.png?v=12" title=":heart:" '
+        'class="emoji" alt=":heart:" loading="lazy" width="20" height="20">';
+
+    test('reads the text of markup', () {
+      expect(
+        jsonHtmlText('<p>Hello <b>world</b> &amp; you</p>'),
+        'Hello world & you',
+      );
+    });
+
+    test('writes a kept emoji image as its shortcode, as core excerpts do', () {
+      expect(
+        jsonHtmlText('<p>Great work $heart team</p>'),
+        'Great work :heart: team',
+      );
+      expect(jsonHtmlText('<p>$heart$heart</p>'), ':heart::heart:');
+    });
+
+    test('keeps an emoji-only excerpt from reading as empty', () {
+      expect(
+        jsonHtmlText(
+          '<p><img src="/images/emoji/twitter/+1.png?v=12" title=":+1:" '
+          'class="emoji only-emoji" alt=":+1:"></p>',
+        ),
+        ':+1:',
+      );
+    });
+
+    test('falls back to the title of an emoji without alt text', () {
+      expect(
+        jsonHtmlText(
+          '<p>Go <img src="/uploads/parrot.gif" title=":parrot:" '
+          'class="emoji emoji-custom"></p>',
+        ),
+        'Go :parrot:',
+      );
+      expect(jsonHtmlText('<p><img src="e.png" class="emoji"></p>'), isNull);
+    });
+
+    test('leaves other images out of the text', () {
+      expect(
+        jsonHtmlText('<p>See <img src="/uploads/chart.png" alt="chart"></p>'),
+        'See',
+      );
+    });
+
+    test('answers null for what has no text', () {
+      expect(jsonHtmlText(null), isNull);
+      expect(jsonHtmlText(7), isNull);
+      expect(jsonHtmlText('<p> </p>'), isNull);
+    });
+  });
+
   group('jsonDate', () {
     test('parses what Discourse sends', () {
       expect(
