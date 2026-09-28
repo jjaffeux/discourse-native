@@ -6,7 +6,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'gradient-blur',
     name: 'Gradient blur',
-    sections: ['Floating controls'],
+    sections: ['Floating controls', 'Continued blur'],
   ),
   ComponentReference(
     id: 'control-wrap',

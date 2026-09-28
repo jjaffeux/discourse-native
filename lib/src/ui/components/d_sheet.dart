@@ -293,11 +293,18 @@ Widget _sheetLayout(
 ) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
+  final background = DTokens.of(context).background.withValues(alpha: 1);
+  // Writing sheets need a distinct canvas above their rounded edge while
+  // keeping the underlying application completely hidden.
+  final backdropColor = extendBehindKeyboard
+      ? Color.lerp(
+          background,
+          Colors.black,
+          Theme.of(context).brightness == Brightness.dark ? .32 : .12,
+        )!
+      : background;
   Widget backdrop = fillAvailableHeight
-      ? presentation.buildBackdrop(
-          color: DTokens.of(context).background.withValues(alpha: 1),
-          blurSigma: 0,
-        )
+      ? presentation.buildBackdrop(color: backdropColor, blurSigma: 0)
       : presentation.buildBackdrop(blurSigma: 2);
   if (animate && !fillAvailableHeight) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);

@@ -20,7 +20,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Behind the keyboard',
       description:
-          'A rounded sheet over an opaque background. The sheet content scrolls '
+          'A rounded sheet over a darker opaque background. The content scrolls '
           'behind the system keyboard; bottom scroll padding keeps the final '
           'field reachable above it.',
       code: '''DSheetContent(
