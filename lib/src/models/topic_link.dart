@@ -37,23 +37,29 @@ class TopicLink {
       return null;
     }
 
-    // Which segment holds the id is what tells the two shapes apart. A link
-    // with three segments is read as `/t/slug/id` rather than `/t/id/post`,
-    // which is how Discourse's own router resolves the ambiguity.
-    final slugged = segments.length >= 3;
-    final id = int.tryParse(slugged ? segments[2] : segments[1]);
+    // `/t/id/post` and `/t/slug/id` have the same length, so the second
+    // segment tells them apart: core never writes an all-digit slug, Rails
+    // routes such a link as `/t/id/post`, and the web client redirects an
+    // all-digit "slug" to the topic it names. Core writes the slugless shape
+    // when it titles a quote of a topic anonymous users cannot see.
+    final slugless = segments.length == 2 || _allDigits.hasMatch(segments[1]);
+    final idIndex = slugless ? 1 : 2;
+    final id = int.tryParse(segments[idIndex]);
     if (id == null || id <= 0) return null;
 
-    final postNumber = slugged && segments.length >= 4
-        ? int.tryParse(segments[3])
+    final postIndex = idIndex + 1;
+    final postNumber = segments.length > postIndex
+        ? int.tryParse(segments[postIndex])
         : null;
     return TopicLink(
       uri: uri,
       topicId: id,
-      slug: slugged ? segments[1] : '',
+      slug: slugless ? '' : segments[1],
       postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
     );
   }
+
+  static final _allDigits = RegExp(r'^[0-9]+$');
 
   String get placeholderTitle {
     final words = slug.replaceAll('-', ' ').trim();
