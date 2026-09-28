@@ -30,6 +30,93 @@ Widget host(
 );
 
 void main() {
+  for (final size in DCheckboxSize.values) {
+    for (final direction in TextDirection.values) {
+      testWidgets('$size has matching artwork and hit bounds in $direction', (
+        tester,
+      ) async {
+        var changes = 0;
+        await tester.pumpWidget(
+          host(
+            Center(
+              child: DCheckbox.defaultValue(
+                size: size,
+                inline: true,
+                onChanged: (_) => changes++,
+              ),
+            ),
+            platform: TargetPlatform.iOS,
+            direction: direction,
+          ),
+        );
+        final artwork = tester.getRect(find.byType(AnimatedContainer));
+        final dimension = size == DCheckboxSize.large ? 24.0 : 16.0;
+        expect(artwork.size, Size.square(dimension));
+        expect(tester.getRect(find.byType(GestureDetector)), artwork);
+        expect(
+          tester.getSize(find.byType(DCheckbox)),
+          Size(dimension + 8, dimension),
+        );
+        for (final corner in [
+          artwork.topLeft + const Offset(1, 1),
+          artwork.bottomRight - const Offset(1, 1),
+        ]) {
+          await tester.tapAt(corner);
+          await tester.pumpAndSettle();
+        }
+        expect(changes, 2);
+        // The inline label gap and surrounding space are not part of the target.
+        for (final outside in [
+          Offset(artwork.left - 2, artwork.center.dy),
+          Offset(artwork.right + 2, artwork.center.dy),
+          Offset(artwork.center.dx, artwork.top - 2),
+          Offset(artwork.center.dx, artwork.bottom + 2),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pump();
+        }
+        expect(changes, 2);
+      });
+    }
+  }
+
+  testWidgets('large inline checkbox aligns with scaled multiline text', (
+    tester,
+  ) async {
+    const style = TextStyle(fontSize: 14, height: 1.6);
+    await tester.pumpWidget(
+      host(
+        const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DCheckbox.defaultValue(
+              size: DCheckboxSize.large,
+              inline: true,
+              inlineTextStyle: style,
+            ),
+            Expanded(child: Text('First line\nSecond line', style: style)),
+          ],
+        ),
+        scale: 2,
+      ),
+    );
+    final artwork = tester.getRect(find.byType(AnimatedContainer));
+    final text = tester.renderObject<RenderParagraph>(
+      find.text('First line\nSecond line'),
+    );
+    final firstLine = text
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 10),
+        )
+        .first
+        .toRect();
+    expect(
+      artwork.center.dy,
+      closeTo(text.localToGlobal(firstLine.center).dy, .01),
+    );
+    expect(tester.getRect(find.byType(GestureDetector)), artwork);
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final direction in TextDirection.values) {
       testWidgets(

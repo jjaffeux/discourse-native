@@ -83,6 +83,49 @@ List<ComposerListBodyController> bodies(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('nested todo sizes and edge taps on $platform at $scale', (
+        tester,
+      ) async {
+        final composer = await pumpEditor(
+          tester,
+          '- [ ] Parent\n  - [ ] Child',
+          platform: platform,
+          scale: scale,
+          width: 600,
+        );
+        final boxes = find.byType(DCheckbox);
+        expect(boxes, findsNWidgets(2));
+        final dimension = platform == TargetPlatform.macOS ? 16.0 : 24.0;
+        for (var index = 0; index < 2; index++) {
+          final artwork = find.descendant(
+            of: boxes.at(index),
+            matching: find.byType(AnimatedContainer),
+          );
+          final target = find.descendant(
+            of: boxes.at(index),
+            matching: find.byType(GestureDetector),
+          );
+          expect(tester.getSize(artwork), Size.square(dimension));
+          expect(tester.getRect(target), tester.getRect(artwork));
+          await tester.tapAt(
+            tester.getRect(artwork).bottomRight - const Offset(1, 1),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(composer.text.text, '- [x] Parent\n  - [x] Child');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      });
+    }
+  }
+
   for (final font in [
     'assets/fonts/OpenSans.ttf',
     if (Platform.isMacOS) '/System/Library/Fonts/SFNS.ttf',

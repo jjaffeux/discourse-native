@@ -213,6 +213,9 @@ class ComposerTodoMarker extends StatelessWidget {
         children: [
           DCheckbox(
             inline: true,
+            size: DControlStyle.isTouch(context)
+                ? DCheckboxSize.large
+                : DCheckboxSize.standard,
             value: checked,
             semanticLabel: label.isEmpty ? 'To-do' : label,
             readOnly: onChanged == null,

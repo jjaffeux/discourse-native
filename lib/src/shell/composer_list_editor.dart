@@ -234,6 +234,9 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
         if (widget.item.isTask)
           DCheckbox(
             inline: true,
+            size: DControlStyle.isTouch(context)
+                ? DCheckboxSize.large
+                : DCheckboxSize.standard,
             inlineTextStyle:
                 context
                     .findAncestorWidgetOfExactType<ComposerEditor>()

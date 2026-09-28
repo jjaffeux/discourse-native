@@ -828,52 +828,69 @@ void main() {
     );
   }
 
-  for (final canEdit in [true, false]) {
-    testWidgets('posted checkbox interaction follows can_edit=$canEdit', (
-      tester,
-    ) async {
-      final api = ChecklistApi()..writeGates.add(Completer<void>());
-      final shell = await shellFor(api, initial: post(canEdit: canEdit));
-      addTearDown(shell.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: ShellScope(
-            controller: shell,
-            child: Scaffold(
-              body: ValueListenableBuilder<Post?>(
-                valueListenable: shell.store.ref<Post>(site, 22),
-                builder: (context, post, _) => CookedHtml(
-                  html: post!.cooked,
-                  post: post,
-                  siteUrl: site,
-                  containingTopic: const PluginContainingTopic(
-                    id: 7,
-                    slug: 'topic',
-                    archived: false,
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final canEdit in [true, false]) {
+      testWidgets(
+        'posted checkbox interaction follows can_edit=$canEdit on $platform',
+        (tester) async {
+          final api = ChecklistApi()..writeGates.add(Completer<void>());
+          final shell = await shellFor(api, initial: post(canEdit: canEdit));
+          addTearDown(shell.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: ShellScope(
+                controller: shell,
+                child: Scaffold(
+                  body: ValueListenableBuilder<Post?>(
+                    valueListenable: shell.store.ref<Post>(site, 22),
+                    builder: (context, post, _) => CookedHtml(
+                      html: post!.cooked,
+                      post: post,
+                      siteUrl: site,
+                      containingTopic: const PluginContainingTopic(
+                        id: 7,
+                        slug: 'topic',
+                        archived: false,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<DCheckbox>(find.byType(DCheckbox).first).readOnly,
+            !canEdit,
+          );
+          final artwork = tester.getRect(
+            find.descendant(
+              of: find.byType(DCheckbox).first,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(
+            artwork.size,
+            Size.square(platform == TargetPlatform.macOS ? 16 : 24),
+          );
+          await tester.tapAt(artwork.bottomRight - const Offset(1, 1));
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
+            canEdit,
+          );
+          expect(api.calls.length, canEdit ? 1 : 0);
+          api.writeGates.single.complete();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
       );
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<DCheckbox>(find.byType(DCheckbox).first).readOnly,
-        !canEdit,
-      );
-      await tester.tap(find.byType(DCheckbox).first);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
-        canEdit,
-      );
-      expect(api.calls.length, canEdit ? 1 : 0);
-      api.writeGates.single.complete();
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
+    }
   }
 
   testWidgets('post-body wrapper keeps an editable checklist interactive', (
