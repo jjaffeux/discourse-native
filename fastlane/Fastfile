@@ -67,7 +67,7 @@ def build_testflight_app(api_key_path:, provisioning_profile: nil, **options)
       "-authenticationKeyIssuerID", token.issuer_id,
       "DEVELOPMENT_TEAM=#{DEVELOPER_TEAM_ID}"
     ])
-    build_app(**options, xcargs: signing_args)
+    build_app(**options, xcargs: signing_args, xcodebuild_formatter: "xcbeautify")
   end
 end
 
