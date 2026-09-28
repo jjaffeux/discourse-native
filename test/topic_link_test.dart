@@ -38,6 +38,36 @@ void main() {
       expect(link.slug, isEmpty);
     });
 
+    // Core titles an off-topic quote of a topic anonymous users cannot see
+    // with its slugless URL plus the quoted post number.
+    test('reads a slugless link to a post as the topic, not a slug', () {
+      final link = parse('/t/123/4')!;
+
+      expect(link.topicId, 123);
+      expect(link.postNumber, 4);
+      expect(link.slug, isEmpty);
+
+      final first = parse('https://meta.discourse.org/t/123/1')!;
+      expect(first.topicId, 123);
+      expect(first.postNumber, 1);
+      expect(first.slug, isEmpty);
+
+      final named = parse('https://meta.discourse.org/t/123/last')!;
+      expect(named.topicId, 123);
+      expect(named.postNumber, isNull);
+      expect(named.slug, isEmpty);
+
+      final slugged = parse('/t/some-slug/123')!;
+      expect(slugged.topicId, 123);
+      expect(slugged.postNumber, isNull);
+      expect(slugged.slug, 'some-slug');
+
+      final sluggedPost = parse('/t/some-slug/123/4')!;
+      expect(sluggedPost.topicId, 123);
+      expect(sluggedPost.postNumber, 4);
+      expect(sluggedPost.slug, 'some-slug');
+    });
+
     test('resolves a site-relative link, which is how posts are written', () {
       expect(parse('/t/a-real-topic/12345')?.topicId, 12345);
     });
@@ -80,6 +110,27 @@ void main() {
         )?.topicId,
         7,
       );
+    });
+
+    test('reads a slugless link to a post under the forum\'s subfolder', () {
+      for (final url in const [
+        '/forum/t/123/4',
+        'https://example.com/forum/t/123/4',
+      ]) {
+        final link = TopicLink.parse(url, siteUrl: 'https://example.com/forum');
+
+        expect(link?.topicId, 123, reason: url);
+        expect(link?.postNumber, 4, reason: url);
+        expect(link?.slug, isEmpty, reason: url);
+      }
+
+      final slugged = TopicLink.parse(
+        '/forum/t/some-slug/123/4',
+        siteUrl: 'https://example.com/forum',
+      );
+      expect(slugged?.topicId, 123);
+      expect(slugged?.postNumber, 4);
+      expect(slugged?.slug, 'some-slug');
     });
 
     test('rejects oversized and credential-bearing links', () {
