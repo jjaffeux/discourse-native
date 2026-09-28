@@ -139,6 +139,39 @@ void main() {
     },
   );
 
+  testWidgets('keyboard focus ring leaves the trail layout unchanged', (
+    tester,
+  ) async {
+    await pumpBreadcrumb(
+      tester,
+      basicBreadcrumb(onHome: () {}, onComponents: () {}),
+    );
+    final link = find.byType(DBreadcrumbLink).first;
+    final label = find.text('Home');
+    final page = find.byType(DBreadcrumbPage);
+    final ring = DTokens.of(tester.element(link)).focusRing;
+    final unfocused = (
+      tester.getRect(link),
+      tester.getRect(label),
+      tester.getRect(page),
+    );
+    expect(link, isNot(paints..drrect(color: ring)));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(
+      Focus.of(tester.element(label)).hasFocus,
+      isTrue,
+      reason: 'Tab reaches the first link',
+    );
+    expect((
+      tester.getRect(link),
+      tester.getRect(label),
+      tester.getRect(page),
+    ), unfocused);
+    expect(link, paints..drrect(color: ring));
+  });
+
   testWidgets('typed route callback and adapter preserve destination type', (
     tester,
   ) async {

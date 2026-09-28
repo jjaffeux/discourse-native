@@ -261,7 +261,10 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
             child: AnimatedContainer(
               duration: duration,
               curve: Curves.easeOut,
-              decoration: BoxDecoration(
+              // Painted over the label inside its own bounds: a decoration
+              // border would inset the label and resize the trail on focus,
+              // and an outside stroke would be clipped by scroll overflow.
+              foregroundDecoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(tokens.radius * .6),
                 border: _focused
                     ? Border.all(color: tokens.focusRing, width: 1)
