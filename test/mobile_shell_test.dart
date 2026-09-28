@@ -1049,6 +1049,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest(
+    'trailing actions animate across routes while dock slots stay put',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      final topic = find.byKey(const ValueKey('mobile-new-topic'));
+      final start = find.byKey(const ValueKey('mobile-mode-start'));
+      final startRect = tester.getRect(start);
+      final actionCenter = tester.getCenter(topic);
+      await tester.tap(start);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(topic, findsOneWidget);
+      final fade = tester.widget<FadeTransition>(
+        find.ancestor(of: topic, matching: find.byType(FadeTransition)).first,
+      );
+      expect(fade.opacity.value, inExclusiveRange(0, 1));
+      expect(tester.getRect(start), startRect);
+      await tester.tapAt(actionCenter);
+      expect(shell.visibleComposer, isNull);
+      await tester.pumpAndSettle();
+      expect(topic, findsNothing);
+
+      await _tapDockTab(tester, 'topics', settle: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        tester
+            .widget<FadeTransition>(
+              find
+                  .ancestor(of: topic, matching: find.byType(FadeTransition))
+                  .first,
+            )
+            .opacity
+            .value,
+        inExclusiveRange(0, 1),
+      );
+      expect(tester.getRect(start), startRect);
+      // Replace an action before its entrance has finished.
+      await _tapDockTab(tester, 'panel/chat', settle: false);
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(topic, findsNothing);
+      expect(find.byKey(const ValueKey('mobile-panel-action')), findsOneWidget);
+      expect(tester.getRect(start), startRect);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('dock slots keep their geometry across every tab', (
     tester,
   ) async {

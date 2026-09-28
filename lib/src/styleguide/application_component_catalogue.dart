@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'action-transition',
+    name: 'Action transition',
+    sections: ['Contextual action', 'Reduced motion'],
+  ),
+  ComponentReference(
     id: 'gradient-blur',
     name: 'Gradient blur',
     sections: ['Floating controls', 'Continued blur'],

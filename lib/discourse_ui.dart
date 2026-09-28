@@ -8,6 +8,7 @@ export 'src/shell/topic_tag_selector.dart';
 export 'src/theme/d_icon.dart';
 export 'src/theme/d_icon_sets.dart' show DIconSet, DIconSetScope;
 export 'src/ui/components/d_accordion.dart';
+export 'src/ui/components/d_action_transition.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
