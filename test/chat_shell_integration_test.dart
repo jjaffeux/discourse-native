@@ -4035,8 +4035,28 @@ void _registerChatShellTests() {
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
-        expect(tester.getSize(heart).width, greaterThanOrEqualTo(44));
-        expect(tester.getSize(heart).height, greaterThanOrEqualTo(44));
+        // Each reaction answers exactly where its 24px pill is painted, on
+        // touch platforms too.
+        final heartPill = tester.getRect(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-reaction-heart')),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        expect(heartPill.height, 24);
+        expect(tester.getRect(heart), heartPill);
+        for (final outside in [
+          heartPill.topCenter - const Offset(0, 1),
+          heartPill.bottomCenter + const Offset(0, 1),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pumpAndSettle();
+          expect(
+            api.chatReactionsSet,
+            isEmpty,
+            reason: 'Tap outside $heartPill at $outside',
+          );
+        }
         expect(
           tester.getSemantics(heart),
           isSemantics(
