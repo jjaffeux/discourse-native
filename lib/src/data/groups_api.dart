@@ -559,7 +559,7 @@ final class GroupsApi {
     required String apiKey,
     required int groupId,
     required Map<String, Object?> values,
-    bool updateExistingUsers = false,
+    bool? updateExistingUsers,
     String? clientId,
   }) async {
     final body = await _write(
@@ -570,8 +570,9 @@ final class GroupsApi {
       method: 'PUT',
       body: {
         'group': values,
-        if (updateExistingUsers)
-          'update_existing_users': updateExistingUsers.toString(),
+        // Core reads a JSON false as blank, the same as leaving it out.
+        if (updateExistingUsers != null)
+          'update_existing_users': '$updateExistingUsers',
       },
     );
     final groupJson = jsonObject(body['group']);

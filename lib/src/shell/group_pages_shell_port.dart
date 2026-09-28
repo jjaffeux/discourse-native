@@ -517,10 +517,21 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   Future<bool> saveManage(
     GroupPagesOwner owner,
     Group group,
-    GroupManageUpdate update,
-  ) async {
+    GroupManageUpdate update, {
+    Future<bool?> Function(int userCount)? applyToExistingUsers,
+  }) async {
     final instance = _instance(owner);
     if (instance == null) return false;
-    return _shell.groups.updateGroup(instance, group, update.values);
+    return _shell.groups.updateGroup(
+      instance,
+      group,
+      update.values,
+      applyToExistingUsers: applyToExistingUsers == null
+          ? null
+          : (userCount) async {
+              final apply = await applyToExistingUsers(userCount);
+              return isCurrent(owner) ? apply : null;
+            },
+    );
   }
 }

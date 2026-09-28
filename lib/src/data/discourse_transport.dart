@@ -502,6 +502,7 @@ final class DiscourseTransport {
       errors: errors,
       statusCode: response.statusCode,
       retryAfter: DiscourseRequestCoordinator.explicitRetryAfter(response),
+      affectedUserCount: jsonIntOrNull(decoded['user_count']),
     );
   }
 

@@ -607,6 +607,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('management', () {
+    const managed = Group(
+      id: 4,
+      name: 'staff',
+      fullName: 'Staff',
+      canAdminGroup: true,
+    );
+
+    for (final (choice, answer) in [
+      ('keep-existing-member-preferences', false),
+      ('update-existing-member-preferences', true),
+    ]) {
+      testWidgets('a save held for existing members sends $choice', (
+        tester,
+      ) async {
+        final host = _MembershipHost(managed)
+          ..route = GroupRoute.detail(
+            'staff',
+            section: GroupRoute.manage,
+            subsection: GroupRoute.profile,
+          );
+        addTearDown(host.dispose);
+        await host.pump(tester);
+
+        await tester.enterText(
+          find.byKey(const ValueKey('group-field-full_name')),
+          'Staff Team',
+        );
+        await tester.pump();
+        final save = find.byKey(const ValueKey('save-group-profile'));
+        await tester.ensureVisible(save);
+        await tester.pumpAndSettle();
+        await tester.tap(save);
+        // The save button spins while the question is open, so nothing settles.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.text('Update existing members?'), findsOneWidget);
+        expect(find.textContaining('3 existing members'), findsOneWidget);
+        await tester.tap(find.byKey(ValueKey(choice)));
+        await tester.pumpAndSettle();
+
+        expect(host.port.existingUserAnswers, [answer]);
+        expect(find.text('Update existing members?'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 }
 
 final class _MembershipHost {
@@ -805,6 +854,20 @@ final class _Port implements GroupPagesPort {
   @override
   void openMembershipRequest(GroupPagesOwner owner, String messageUrl) =>
       openedRequests.add((owner: owner, messageUrl: messageUrl));
+
+  final existingUserAnswers = <bool?>[];
+
+  @override
+  Future<bool> saveManage(
+    GroupPagesOwner owner,
+    Group group,
+    GroupManageUpdate update, {
+    Future<bool?> Function(int userCount)? applyToExistingUsers,
+  }) async {
+    final answer = await applyToExistingUsers?.call(3);
+    existingUserAnswers.add(answer);
+    return answer != null;
+  }
 
   @override
   bool isCurrent(GroupPagesOwner value) => value == owner;

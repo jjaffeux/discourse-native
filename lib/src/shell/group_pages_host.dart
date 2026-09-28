@@ -199,6 +199,27 @@ class _GroupDetailView extends StatelessWidget {
     }
   }
 
+  // Asked as the web's save asks; either answer saves the change, while
+  // dismissing the question saves nothing.
+  Future<bool?> _applyToExistingUsers(BuildContext context, int userCount) {
+    if (!context.mounted) return Future.value();
+    final members = userCount == 1 ? 'member' : 'members';
+    return showDiscourseAlertDialog<bool>(
+      context: context,
+      title: const Text('Update existing members?'),
+      description: Text(
+        'This change also affects the notification preferences of '
+        '$userCount existing $members. Apply it to them too?',
+      ),
+      cancelLabel: const Text('Only new members'),
+      actionLabel: Text('Update $userCount $members'),
+      cancelResult: false,
+      actionResult: true,
+      cancelKey: const ValueKey('keep-existing-member-preferences'),
+      actionKey: const ValueKey('update-existing-member-preferences'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final owner = coordinator.childIdentity!.owner;
@@ -299,7 +320,13 @@ class _GroupDetailView extends StatelessWidget {
                     port.handleRequest(owner, group, requester, action),
           onSaveManage: group == null
               ? null
-              : (update) => port.saveManage(owner, group, update),
+              : (update) => port.saveManage(
+                  owner,
+                  group,
+                  update,
+                  applyToExistingUsers: (userCount) =>
+                      _applyToExistingUsers(context, userCount),
+                ),
         );
       },
     );

@@ -125,6 +125,7 @@ class WriteException implements Exception, DiagnosticErrorCause {
     this.statusCode,
     this.retryAfter,
     this.notSent = false,
+    this.affectedUserCount,
     this.cause,
     this.causeStackTrace,
   });
@@ -143,6 +144,10 @@ class WriteException implements Exception, DiagnosticErrorCause {
   /// [WriteFailure.unreachable] failure may have been applied with only the
   /// answer lost.
   final bool notSent;
+
+  /// How many existing users a refused change would reach, when the site
+  /// refuses it until told whether it applies to them (`user_count`).
+  final int? affectedUserCount;
 
   final Object? cause;
   final StackTrace? causeStackTrace;

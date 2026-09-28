@@ -1399,21 +1399,60 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
   }
 
+  /// Core refuses a change to notification defaults that members already
+  /// hold until told whether it applies to them. [applyToExistingUsers]
+  /// answers with how many it reaches: true updates them, false leaves them
+  /// as they are, and null abandons the save.
   Future<bool> updateGroup(
     DiscourseInstance instance,
     Group group,
     Map<String, Object?> values, {
-    bool updateExistingUsers = false,
-  }) => _mutate(instance, group, 'groups.update', (apiKey, clientId) async {
-    await api.updateGroup(
+    Future<bool?> Function(int userCount)? applyToExistingUsers,
+  }) async {
+    final lease = lifecycle.capture(instance.url);
+    int? affectedUsers;
+    final saved = await _updateGroup(
+      instance,
+      group,
+      values,
+      onFailure: (error) => affectedUsers = switch (error) {
+        WriteException(statusCode: 422, :final affectedUserCount?)
+            when affectedUserCount > 0 =>
+          affectedUserCount,
+        _ => null,
+      },
+    );
+    final userCount = affectedUsers;
+    if (saved || userCount == null || applyToExistingUsers == null) {
+      return saved;
+    }
+    final apply = await applyToExistingUsers(userCount);
+    // The answer was given for this account's save, not for whichever one
+    // the site holds by the time it arrives.
+    if (apply == null || isDisposed || !lease.isCurrent) return false;
+    return _updateGroup(instance, group, values, updateExistingUsers: apply);
+  }
+
+  Future<bool> _updateGroup(
+    DiscourseInstance instance,
+    Group group,
+    Map<String, Object?> values, {
+    bool? updateExistingUsers,
+    ValueSetter<Object>? onFailure,
+  }) => _mutate(
+    instance,
+    group,
+    'groups.update',
+    (apiKey, clientId) => api.updateGroup(
       siteUrl: instance.url,
       apiKey: apiKey,
       clientId: clientId,
       groupId: group.id,
       values: values,
       updateExistingUsers: updateExistingUsers,
-    );
-  });
+    ),
+    onFailure: onFailure,
+  );
 
   Future<bool> _mutate(
     DiscourseInstance instance,

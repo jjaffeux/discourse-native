@@ -235,7 +235,20 @@ final class GroupManageController extends ChangeNotifier {
     _ => const {},
   };
 
-  Map<String, Object?> _valuesForSubsection(String subsection) =>
+  /// Core reads a default list a save leaves out as empty and counts each
+  /// default held at that level as one to delete, refusing the save while
+  /// members hold it, so every save sends back the held ones. An empty list
+  /// is left out instead: sent, it deletes defaults the payload may not have
+  /// shown, as tags are withheld from an admin while tagging is off.
+  Map<String, Object?> _valuesForSubsection(String subsection) => {
+    for (final key in groupCategoryKeys)
+      if (_integerList(key) case final ids when ids.isNotEmpty) key: ids,
+    for (final key in groupTagKeys)
+      if (_stringList(key) case final names when names.isNotEmpty) key: names,
+    ..._subsectionValues(subsection),
+  };
+
+  Map<String, Object?> _subsectionValues(String subsection) =>
       switch (subsection) {
         GroupRoute.profile => {
           'name': _value('name'),

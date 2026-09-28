@@ -865,6 +865,48 @@ void main() {
         ),
       );
     });
+
+    test('writes preserve how many users a refused change reaches', () async {
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'user_count': 3,
+                'errors': ['This change affects 3 existing group members.'],
+              }),
+              422,
+            ),
+          ),
+        ),
+        const Duration(seconds: 1),
+        1024,
+      );
+
+      await expectLater(
+        transport.write(
+          Uri.parse('https://example.com/groups/7.json'),
+          siteUrl: 'https://example.com',
+          method: 'PUT',
+          apiKey: 'secret',
+          body: const {},
+        ),
+        throwsA(
+          isA<WriteException>()
+              .having(
+                (error) => error.failure,
+                'failure',
+                WriteFailure.validation,
+              )
+              .having((error) => error.statusCode, 'statusCode', 422)
+              .having(
+                (error) => error.affectedUserCount,
+                'affectedUserCount',
+                3,
+              ),
+        ),
+      );
+    });
   });
 
   group('whether a failed write reached the site', () {
