@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -34,8 +35,8 @@ import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_title.dart';
 
-part 'topic_row_content.dart';
 part 'conversation_topic_card.dart';
+part 'topic_row_content.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
 typedef _TopicListCursor = ({int topicId, int index, bool keyboard});
@@ -620,7 +621,7 @@ class _TopicListViewState extends State<TopicListView> {
       return _Message(
         icon: DIcons.triangleExclamation,
         text: error,
-        actionLabel: 'Retry',
+        actionLabel: appL10n.retry,
         onAction: () => unawaited(
           feed.pageError
               ? controller.loadMoreFeed(destination)
@@ -637,10 +638,10 @@ class _TopicListViewState extends State<TopicListView> {
       return _Message(
         icon: DIcons.inbox,
         text: controller.topicListContent?.topicListSearch.isNotEmpty == true
-            ? 'No topics found. Try another search or change the filters.'
+            ? appL10n.noTopicsFoundTryAnotherSearchOrChangeTheFilters
             : controller.currentFeedIsUnread
-            ? "You're all caught up."
-            : 'Nothing here yet.',
+            ? appL10n.youReAllCaughtUp
+            : appL10n.nothingHereYet,
       );
     }
 
@@ -880,11 +881,11 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
   String get _semanticsLabel {
     if (destination == 'messages' ||
         destination.startsWith('messages-group-')) {
-      return 'Loading messages';
+      return appL10n.loadingMessages;
     }
     return destination == 'filter'
-        ? 'Loading filtered topics'
-        : 'Loading topics';
+        ? appL10n.loadingFilteredTopics
+        : appL10n.loadingTopics;
   }
 
   @override
@@ -992,8 +993,10 @@ class _IncomingBanner extends StatelessWidget {
   final VoidCallback onTap;
 
   String get _label {
-    final noun = newTopicsOnly ? 'new topic' : 'new or updated topic';
-    return 'See $count $noun${count == 1 ? '' : 's'}';
+    final noun = newTopicsOnly
+        ? appL10n.newTopicTopiclistview
+        : appL10n.newOrUpdatedTopic;
+    return appL10n.see(count, (noun).toString());
   }
 
   @override
@@ -1065,7 +1068,7 @@ class _FeedErrorBanner extends StatelessWidget {
     action: DAlertAction(
       child: DButton(
         key: const ValueKey('topic-feed-error-retry'),
-        label: const Text('Retry'),
+        label: Text(context.l10n.retry),
         onPressed: onRetry,
         variant: DButtonVariant.link,
       ),
@@ -1400,7 +1403,7 @@ class _CategoryBreadcrumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final parent = this.parent;
     return DBreadcrumb(
-      semanticLabel: 'Category path',
+      semanticLabel: context.l10n.categoryPath,
       child: DBreadcrumbList(
         spacing: 1.5,
         children: [
@@ -1416,7 +1419,9 @@ class _CategoryBreadcrumb extends StatelessWidget {
                   compact: compact,
                   siteUrl: siteUrl,
                   label: parent.name,
-                  semanticLabel: 'Parent category: ${parent.name}',
+                  semanticLabel: context.l10n.parentCategory(
+                    (parent.name).toString(),
+                  ),
                   onTap: () => onOpen(parent),
                 ),
               ),
@@ -1446,7 +1451,9 @@ class _CategoryBreadcrumb extends StatelessWidget {
                       compact: compact,
                       siteUrl: siteUrl,
                       label: category.name,
-                      semanticLabel: 'Category: ${category.name}',
+                      semanticLabel: context.l10n.categoryTopiclistview(
+                        (category.name).toString(),
+                      ),
                       onTap: () => onOpen(category),
                     ),
                   ),
@@ -1538,7 +1545,7 @@ class _TopicTag extends StatelessWidget {
               .62,
             )
           : DTokens.of(context).mutedForeground,
-      semanticLabel: 'Tag: ${tag.name}',
+      semanticLabel: context.l10n.tag((tag.name).toString()),
       onPressed: onTap,
       child: Text(tag.name),
     ),
@@ -1556,7 +1563,7 @@ class _TopicTagOverflow extends StatelessWidget {
     child: DBadge(
       key: const ValueKey('topic-row-tag-overflow'),
       variant: DBadgeVariant.outline,
-      semanticLabel: '$count more ${count == 1 ? 'tag' : 'tags'}',
+      semanticLabel: context.l10n.moreTopiclistview(count),
       child: Text('+$count'),
     ),
   );

@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_bookmark.dart';
@@ -384,7 +385,7 @@ final class ChatShellService
   BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;
 
   @override
-  String get bookmarkFilterLabel => 'Chat';
+  String get bookmarkFilterLabel => appL10n.chat;
 
   @override
   BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark) {
@@ -412,9 +413,12 @@ final class ChatShellService
         : '#${title.replaceFirst(RegExp(r'^#'), '')}';
     return BookmarkPresentation(
       title: title.isEmpty
-          ? '${author ?? 'Someone'} in chat'
-          : '${author ?? 'Someone'} in $channelLabel',
-      typeLabel: 'Chat',
+          ? appL10n.inChat((author ?? appL10n.someone).toString())
+          : appL10n.messageInChatshellservice(
+              (author ?? appL10n.someone).toString(),
+              (channelLabel).toString(),
+            ),
+      typeLabel: appL10n.chat,
       filterLabel: bookmarkFilterLabel,
       contextLabel: title.isEmpty ? null : title,
       icon: DIcons.comment,
@@ -439,9 +443,9 @@ final class ChatShellService
   void openChats() {
     _activateSeparatedPane();
     _host.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: ChatPlugin.inboxRouteId,
-        label: 'Browse chats',
+        label: appL10n.browseChats,
         icon: DIcons.comment,
       ),
     );
@@ -450,9 +454,9 @@ final class ChatShellService
   void openChannels() {
     _activateSeparatedPane();
     _host.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: ChatPlugin.channelsRouteId,
-        label: 'Chat',
+        label: appL10n.chat,
         icon: DIcons.comments,
       ),
     );
@@ -461,9 +465,9 @@ final class ChatShellService
   void openBrowseChannels() {
     _activateSeparatedPane();
     _host.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: ChatPlugin.browseRouteId,
-        label: 'Browse channels',
+        label: appL10n.browseChannels,
         icon: DIcons.list,
       ),
     );
@@ -472,9 +476,9 @@ final class ChatShellService
   void openMyThreads() {
     _activateSeparatedPane();
     _host.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: ChatPlugin.myThreadsRouteId,
-        label: 'Browse threads',
+        label: appL10n.browseThreads,
         icon: DIcons.comments,
       ),
     );
@@ -483,9 +487,9 @@ final class ChatShellService
   void openSearch() {
     _activateSeparatedPane();
     _host.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: ChatPlugin.searchRouteId,
-        label: 'Search',
+        label: appL10n.search,
         icon: DIcons.magnifyingGlass,
       ),
     );
@@ -582,7 +586,7 @@ final class ChatShellService
       _host.pushContent(
         ContentRoute(
           id: routeId,
-          title: 'Threads',
+          title: appL10n.threads,
           subtitle: channel!.title,
           icon: DIcons.comments,
         ),
@@ -603,7 +607,7 @@ final class ChatShellService
       _host.pushContent(
         ContentRoute(
           id: routeId,
-          title: 'Threads',
+          title: appL10n.threads,
           subtitle: channel!.title,
           icon: DIcons.comments,
         ),
@@ -627,7 +631,7 @@ final class ChatShellService
         chatRoute?.channelId != channelId ||
         shellRoute == null ||
         channel == null) {
-      return 'The topic composer is no longer available here.';
+      return appL10n.theTopicComposerIsNoLongerAvailableHere;
     }
     bool sourceStillCurrent() =>
         !_disposed && _host.currentContent?.id == shellRoute.id;
@@ -645,7 +649,7 @@ final class ChatShellService
     return switch (result) {
       OpenComposerResult.opened => null,
       OpenComposerResult.unavailable || OpenComposerResult.sourceChanged =>
-        'The topic composer is no longer available here.',
+        appL10n.theTopicComposerIsNoLongerAvailableHere,
     };
   }
 
@@ -709,7 +713,7 @@ final class ChatShellService
       _host.pushContent(
         ContentRoute(
           id: route.routeId,
-          title: route.isThread ? 'Thread' : channel.title,
+          title: route.isThread ? appL10n.thread : channel.title,
           subtitle: route.isThread ? channel.title : null,
           icon: route.isThread ? DIcons.comments : DIcons.comment,
           openInMainPanel: mainPanel,
@@ -755,7 +759,7 @@ final class ChatShellService
         _host.pushContent(
           ContentRoute(
             id: route.routeId,
-            title: 'Thread',
+            title: appL10n.thread,
             subtitle: channel.title,
             icon: DIcons.comments,
           ),

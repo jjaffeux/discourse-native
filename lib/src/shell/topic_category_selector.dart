@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
@@ -29,7 +30,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.parent,
     this.includeAll = false,
     this.clearSelectionLabel,
-    this.placeholder = 'Categories',
+    this._placeholder,
     this.keyPrefix = 'category-selector',
     this.size = DButtonSize.regular,
     this.valueKey,
@@ -46,7 +47,8 @@ class TopicCategorySelector extends StatefulWidget {
   final TopicCategory? parent;
   final bool includeAll;
   final String? clearSelectionLabel;
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.categories;
   final String keyPrefix;
   final DButtonSize size;
   final Key? valueKey;
@@ -69,7 +71,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
           setState(() {
             _results = const [];
             _loading = false;
-            _error = "Couldn't load categories.";
+            _error = appL10n.couldnTLoadCategories;
           });
         },
       );
@@ -182,7 +184,9 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         if (_canClear)
           DComboboxOption(
             value: 0,
-            label: widget.clearSelectionLabel ?? 'All $noun',
+            label:
+                widget.clearSelectionLabel ??
+                context.l10n.allTopiccategoryselector((noun).toString()),
             itemKey: ValueKey(('$prefix-option', 0)),
           ),
         for (final category in matches)
@@ -225,12 +229,25 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
               semanticLabel: selected == null
                   ? parent == null
                         ? widget.includeAll
-                              ? 'Filter by category'
-                              : 'Choose category'
+                              ? context.l10n.filterByCategory
+                              : context.l10n.chooseCategory
                         : widget.includeAll
-                        ? 'Filter by subcategory of ${parent.name}'
-                        : 'Choose subcategory of ${parent.name}'
-                  : '${parent == null ? 'Category' : 'Subcategory'}: $label',
+                        ? context.l10n.filterBySubcategoryOf(
+                            (parent.name).toString(),
+                          )
+                        : context.l10n.chooseSubcategoryOf(
+                            (parent.name).toString(),
+                          )
+                  : context.l10n.messageTopiccategoryselector(
+                      (parent == null).toString(),
+                      ((parent == null) ? (context.l10n.category) : '')
+                          .toString(),
+                      (label).toString(),
+                      ((!(parent == null))
+                              ? (context.l10n.subcategoryTopiccategoryselector)
+                              : '')
+                          .toString(),
+                    ),
               onPressed: widget.onSelected == null ? null : trigger.toggle,
               focusNode: trigger.focusNode,
               expanded: trigger.open,
@@ -242,16 +259,20 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         fullScreenOnMobile: true,
         key: ValueKey('$prefix-popover'),
         semanticLabel: parent == null
-            ? 'Categories'
-            : 'Subcategories of ${parent.name}',
+            ? context.l10n.categories
+            : context.l10n.subcategoriesOf((parent.name).toString()),
         width: 320,
         children: [
           Padding(
             padding: const EdgeInsets.all(4),
             child: DComboboxInput<int>(
               key: ValueKey('$prefix-query'),
-              placeholder: 'Filter $noun',
-              semanticLabel: 'Filter $noun',
+              placeholder: context.l10n.filterTopiccategoryselector(
+                (noun).toString(),
+              ),
+              semanticLabel: context.l10n.filterTopiccategoryselector(
+                (noun).toString(),
+              ),
               registerAsAnchor: false,
               autofocus: context.isTouch,
               showTrigger: false,
@@ -288,7 +309,9 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
             DComboboxStatus(
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Text(_error ?? 'No matching $noun.'),
+                child: Text(
+                  _error ?? context.l10n.noMatching((noun).toString()),
+                ),
               ),
             ),
         ],

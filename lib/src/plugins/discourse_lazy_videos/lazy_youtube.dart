@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -26,7 +27,7 @@ YoutubeVideoData? parseLazyYoutubeVideo(dom.Element element) {
   final title =
       element.attributes['data-video-title']?.trim().nullIfEmpty ??
       image?.attributes['title']?.trim().nullIfEmpty ??
-      (videoId == null ? 'YouTube playlist' : 'YouTube video');
+      (videoId == null ? appL10n.youTubePlaylist : appL10n.youTubeVideo);
 
   return YoutubeVideoData(
     videoId: videoId,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_agents.dart';
@@ -59,7 +60,7 @@ class _VoiceAgentInviteActionState extends State<VoiceAgentInviteAction> {
       return widget.controller.canInviteAgent(widget.siteUrl, widget.roomId)
           ? DButton(
               variant: DButtonVariant.outline,
-              label: const Text('Invite agent'),
+              label: Text(context.l10n.inviteAgent),
               onPressed: () {
                 final controller = widget.controller;
                 final siteUrl = widget.siteUrl;
@@ -140,15 +141,15 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
       final enabled =
           available && !state.loading && !state.sending && !state.sent;
       return DDialogContent(
-        semanticLabel: 'Invite voice agent',
+        semanticLabel: context.l10n.inviteVoiceAgent,
         maxWidth: 480,
         children: [
-          const DDialogHeader(
+          DDialogHeader(
             children: [
-              DDialogTitle(child: Text('Invite agent')),
+              DDialogTitle(child: Text(context.l10n.inviteAgent)),
               DDialogDescription(
                 child: Text(
-                  'Choose a deployed agent or enter its dispatch name.',
+                  context.l10n.chooseADeployedAgentOrEnterItsDispatchName,
                 ),
               ),
             ],
@@ -157,13 +158,17 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
             child: DFieldGroup(
               children: [
                 if (state.sent)
-                  const DAlert(
-                    title: DAlertTitle(child: Text('Agent invitation sent.')),
+                  DAlert(
+                    title: DAlertTitle(
+                      child: Text(context.l10n.agentInvitationSent),
+                    ),
                   )
                 else if (!available)
-                  const DAlert(
+                  DAlert(
                     title: DAlertTitle(
-                      child: Text('This invitation is no longer available.'),
+                      child: Text(
+                        context.l10n.thisInvitationIsNoLongerAvailable,
+                      ),
                     ),
                   )
                 else ...[
@@ -172,7 +177,7 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
                   if (manual)
                     DInput(
                       controller: _name,
-                      labelText: 'Agent name',
+                      labelText: context.l10n.agentName,
                       enabled: enabled,
                       onChanged: (_) => setState(() {}),
                       onSubmitted: enabled
@@ -182,8 +187,8 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
                   else
                     DSelect<String>.controlled(
                       value: selected,
-                      label: const Text('Deployed agent'),
-                      placeholder: 'Choose an agent',
+                      label: Text(context.l10n.deployedAgent),
+                      placeholder: context.l10n.chooseAnAgent,
                       isExpanded: true,
                       enabled: enabled,
                       entries: [
@@ -206,10 +211,10 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
                           enabled: enabled,
                           onPressedChanged: (value) =>
                               setState(() => _manual = value),
-                          child: const Text('Type a name'),
+                          child: Text(context.l10n.typeAName),
                         ),
                       DButton(
-                        label: const Text('Refresh agents'),
+                        label: Text(context.l10n.refreshAgents),
                         variant: DButtonVariant.outline,
                         onPressed: enabled && !state.loading
                             ? () => state.refresh()
@@ -230,16 +235,18 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
             children: [
               DDialogClose<void>(
                 builder: (context, close) => DButton(
-                  label: Text(state.sent ? 'Done' : 'Cancel'),
+                  label: Text(
+                    state.sent ? context.l10n.done : context.l10n.cancel,
+                  ),
                   variant: DButtonVariant.outline,
                   onPressed: close,
                 ),
               ),
               if (!state.sent && available)
                 DButton(
-                  label: const Text('Send invitation'),
+                  label: Text(context.l10n.sendInvitation),
                   loading: state.sending,
-                  loadingSemanticLabel: 'Sending invitation',
+                  loadingSemanticLabel: context.l10n.sendingInvitation,
                   onPressed: enabled
                       ? () => state.submit(manual ? _name.text : selected ?? '')
                       : null,

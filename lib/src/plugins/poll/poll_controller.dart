@@ -1,6 +1,8 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'poll.dart';
 import 'poll_data.dart';
 import 'polls_api.dart';
@@ -103,8 +105,8 @@ class PollController extends FrameSafeNotifier
   }) async {
     if (isDisposed || !poll.isOpen) return const PollVoteWriteResult.saved();
     if (archived || _posts.topicArchived(siteUrl, topicId)) {
-      return const PollVoteWriteResult.refused(
-        'Voting is unavailable in archived topics.',
+      return PollVoteWriteResult.refused(
+        appL10n.votingIsUnavailableInArchivedTopics,
       );
     }
     final lease = _requests.capture(siteUrl);

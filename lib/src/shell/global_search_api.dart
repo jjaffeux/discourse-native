@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
 import '../models/json.dart';
@@ -21,21 +23,18 @@ class GlobalSearchApi {
 
   /// Keep recoverable failures actionable without displaying raw URLs or
   /// exception text, which may contain a private search expression.
-  static String failureMessage(
-    Object exception, {
-    String fallback = 'Search could not load. Please try again.',
-  }) {
+  static String failureMessage(Object exception, {String? fallback}) {
     Object? cause = exception;
     for (var depth = 0; depth < 4 && cause != null; depth++) {
       if (cause is TimeoutException) {
-        return 'The search timed out. Please try again.';
+        return appL10n.theSearchTimedOutPleaseTryAgain;
       }
       if (cause is SiteLookupException) {
         switch (cause.statusCode) {
           case 409:
-            return 'The forum is busy. Please try again.';
+            return appL10n.theForumIsBusyPleaseTryAgain;
           case 429:
-            return 'Too many searches. Wait a moment before trying again.';
+            return appL10n.tooManySearchesWaitAMomentBeforeTryingAgain;
         }
         cause = cause.cause;
         continue;
@@ -43,7 +42,7 @@ class GlobalSearchApi {
       if (cause is FormatException) return cause.message;
       break;
     }
-    return fallback;
+    return fallback ?? appL10n.searchCouldNotLoadPleaseTryAgain;
   }
 
   Future<Map<String, dynamic>> _get(
@@ -120,22 +119,20 @@ class GlobalSearchApi {
   }) async {
     final r = request, c = r.capabilities;
     if (!c.scopes.contains(r.scope)) {
-      throw const FormatException('Search is unavailable.');
+      throw FormatException(appL10n.searchIsUnavailable);
     }
     if (r.query.length > 2048 || r.conditions.length > 30) {
-      throw const FormatException('Search is too long.');
+      throw FormatException(appL10n.searchIsTooLong);
     }
     for (final condition in r.conditions) {
       if (globalSearchFilter(condition.filterId, c)?.scope != r.scope) {
-        throw const FormatException(
-          'Use a filter from the selected search type.',
-        );
+        throw FormatException(appL10n.useAFilterFromTheSelectedSearchType);
       }
       final error = validateGlobalSearchCondition(condition, c);
       if (error != null) throw FormatException(error);
     }
     if (globalSearchTerm(r).length > 2048) {
-      throw const FormatException('Search is too long.');
+      throw FormatException(appL10n.searchIsTooLong);
     }
     if (r.page < 0 ||
         (r.scope == GlobalSearchScope.forum
@@ -144,10 +141,10 @@ class GlobalSearchApi {
             ? r.page > 10
             : r.page > 100) ||
         r.offset < 0) {
-      throw const FormatException('Search page is out of range.');
+      throw FormatException(appL10n.searchPageIsOutOfRange);
     }
     if (!globalSearchOrders(r.scope, c).any((o) => o.value == r.order)) {
-      throw const FormatException('This ordering is unavailable.');
+      throw FormatException(appL10n.thisOrderingIsUnavailable);
     }
     if (r.scope == GlobalSearchScope.all) {
       final sections = <GlobalSearchSection>[];
@@ -167,7 +164,7 @@ class GlobalSearchApi {
                 scope: GlobalSearchScope.forum,
                 error: failureMessage(
                   error,
-                  fallback: 'Topics, users and groups could not load.',
+                  fallback: appL10n.topicsUsersAndGroupsCouldNotLoad,
                 ),
               ),
             );
@@ -194,7 +191,9 @@ class GlobalSearchApi {
                       scope: scope,
                       error: failureMessage(
                         error,
-                        fallback: '${scope.label} search could not load.',
+                        fallback: appL10n.searchCouldNotLoadGlobalsearchapi(
+                          (scope.label).toString(),
+                        ),
                       ),
                     ),
                   );
@@ -217,7 +216,7 @@ class GlobalSearchApi {
           )
           .firstOrNull;
       if (provider == null) {
-        throw const FormatException('Search is unavailable.');
+        throw FormatException(appL10n.searchIsUnavailable);
       }
       return provider.search(_context(siteUrl, apiKey, clientId), r);
     }
@@ -451,7 +450,7 @@ class GlobalSearchApi {
           source: source,
           searchLogId: searchLogId,
         ),
-        _ => throw const FormatException('Unsupported search result.'),
+        _ => throw FormatException(appL10n.unsupportedSearchResult),
       };
 
   Future<void> clearRecentSearches({
@@ -561,7 +560,7 @@ class GlobalSearchApi {
     if (page < 1) throw ArgumentError.value(page, 'page');
     final query = term.trim();
     if (query.length > 250) {
-      throw const FormatException('Use a shorter category name.');
+      throw FormatException(appL10n.useAShorterCategoryName);
     }
     final queryTransport = transport is PluginJsonQueryTransport
         ? transport as PluginJsonQueryTransport
@@ -572,7 +571,7 @@ class GlobalSearchApi {
     if (apiKey == null && queryTransport == null) {
       final body = await _get(siteUrl, '/site.json', null, clientId);
       if (body['lazy_load_categories'] == true) {
-        throw const FormatException('Category search is unavailable.');
+        throw FormatException(appL10n.categorySearchIsUnavailable);
       }
       final choices = _categoryChoices(body, query);
       return GlobalSearchCategoryPage(choices: choices, total: choices.length);
@@ -605,7 +604,7 @@ class GlobalSearchApi {
     final count = jsonObjects(body['categories']).length;
     final total = jsonIntOrNull(body['categories_count']);
     if (count == 0 && total != null && (page - 1) * limit < total) {
-      throw const FormatException('More categories couldn’t load.');
+      throw FormatException(appL10n.moreCategoriesCouldnTLoad);
     }
     return GlobalSearchCategoryPage(
       choices: _categoryChoices(body, ''),

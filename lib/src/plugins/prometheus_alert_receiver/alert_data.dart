@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const prometheusAlertReceiverPluginId = PluginId(
@@ -10,13 +11,18 @@ const alertDataKey = PluginDataKey<AlertData>(
 );
 
 enum AlertStatus {
-  firing('Firing'),
-  suppressed('Silenced'),
-  stale('Stale'),
-  resolved('History');
+  firing(),
+  suppressed(),
+  stale(),
+  resolved();
 
-  const AlertStatus(this.label);
-  final String label;
+  const AlertStatus();
+  String get label => switch (this) {
+    firing => appL10n.firing,
+    suppressed => appL10n.silenced,
+    stale => appL10n.stale,
+    resolved => appL10n.history,
+  };
 }
 
 @immutable
@@ -51,7 +57,7 @@ final class PrometheusAlert {
       externalUrl: jsonText(json['external_url']),
       generatorUrl: jsonText(json['generator_url']),
       linkUrl: jsonText(json['link_url']),
-      linkText: jsonText(json['link_text']) ?? 'Open Link',
+      linkText: jsonText(json['link_text']) ?? appL10n.openLink,
       lastSuppressedAt: jsonDate(json['last_suppressed_at'])?.toUtc(),
     );
   }
@@ -180,7 +186,7 @@ final class AlertGroup {
   final List<PrometheusAlert> alerts;
   final bool defaultCollapsed;
 
-  String get heading => datacenter.isEmpty ? 'Alerts' : datacenter;
+  String get heading => datacenter.isEmpty ? appL10n.alerts : datacenter;
   bool get showDescription =>
       alerts.any((alert) => alert.description.isNotEmpty);
 }

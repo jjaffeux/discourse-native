@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
@@ -140,7 +141,7 @@ class AggregateViewState extends State<AggregateView> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    'Topics',
+                                    context.l10n.topics,
                                     style: theme.textTheme.titleMedium,
                                   ),
                                 ),
@@ -180,12 +181,12 @@ class AggregateViewState extends State<AggregateView> {
                                 child: _AggregateEmptyState(
                                   icon: DIcons.inbox,
                                   title: state.includedForums == 0
-                                      ? 'No forums selected'
-                                      : 'No matching topics',
+                                      ? context.l10n.noForumsSelected
+                                      : context.l10n.noMatchingTopics,
                                   message: '',
                                   actionLabel: state.includedForums == 0
-                                      ? 'Choose forums'
-                                      : 'Refresh',
+                                      ? context.l10n.chooseForums
+                                      : context.l10n.refresh,
                                   onAction: state.includedForums == 0
                                       ? () => controller.aggregate
                                             .setFiltersCollapsed(false)
@@ -293,7 +294,7 @@ class _AggregateInlineFilters extends StatelessWidget {
     content: DPopoverContent(
       width: 640,
       align: DPopoverAlign.end,
-      semanticLabel: 'Forum filters',
+      semanticLabel: context.l10n.forumFilters,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -310,7 +311,9 @@ class _AggregateInlineFilters extends StatelessWidget {
     child: DPopoverTrigger(
       builder: (context, trigger) => DButton.iconOnly(
         key: const ValueKey('aggregate-filter-collapse'),
-        tooltip: _hasFilters ? 'Edit active filters' : 'Forum filters',
+        tooltip: _hasFilters
+            ? context.l10n.editActiveFilters
+            : context.l10n.forumFilters,
         icon: const DIcon(DNativeIcons.filterLines),
         size: DButtonSize.large,
         variant: _hasFilters
@@ -435,14 +438,14 @@ class _AggregateForumFilterRowState extends State<_AggregateForumFilterRow> {
       },
       inputKey: ValueKey('aggregate-query-${forum.url}'),
       clearKey: ValueKey('aggregate-query-clear-${forum.url}'),
-      hintText: 'Use forum default',
+      hintText: appL10n.useForumDefault,
       padding: EdgeInsets.zero,
       enabled: enabled && _included,
       tokenized: true,
     );
     final apply = DButton(
       key: ValueKey('aggregate-apply-${forum.url}'),
-      label: const Text('Apply'),
+      label: Text(appL10n.apply),
       variant: DButtonVariant.outline,
       loading: _saving,
       onPressed: enabled && dirty ? _apply : null,
@@ -489,18 +492,20 @@ class _AggregateTabsBar extends StatelessWidget {
     final tabs = controller.aggregateTabs;
     return ForumTabsBar(
       key: const ValueKey('aggregate-tabs'),
-      forumName: 'Aggregate',
+      forumName: context.l10n.aggregate,
       items: [
         for (var index = 0; index < tabs.length; index++)
           ForumTabItem(
             id: tabs[index].id,
-            title: tabs[index].name ?? 'Aggregate ${index + 1}',
+            title:
+                tabs[index].name ??
+                context.l10n.aggregateAggregateview((index + 1).toString()),
             icon: DIcons.circleNodes,
           ),
         if (controller.aggregateSettingsOpen)
-          const ForumTabItem(
+          ForumTabItem(
             id: 'settings',
-            title: 'Settings',
+            title: context.l10n.settings,
             icon: DIcons.gear,
           ),
       ],
@@ -508,7 +513,7 @@ class _AggregateTabsBar extends StatelessWidget {
         for (final tab in controller.recentlyClosedAggregateTabs)
           ForumTabItem(
             id: tab.id,
-            title: tab.name ?? 'Aggregate tab',
+            title: tab.name ?? context.l10n.aggregateTab,
             icon: DIcons.circleNodes,
           ),
       ],
@@ -569,9 +574,9 @@ class _AggregateTopicRow extends StatelessWidget {
             final message = switch (result) {
               AggregateTopicOpenResult.opened => null,
               AggregateTopicOpenResult.tabLimitReached =>
-                'This forum already has 20 tabs. Close one and try again.',
+                context.l10n.thisForumAlreadyHas20TabsCloseOneAndTryAgain,
               AggregateTopicOpenResult.unavailable =>
-                'That topic is no longer available.',
+                context.l10n.thatTopicIsNoLongerAvailable,
             };
             if (message != null) {
               DToast.show(context, message);
@@ -592,13 +597,11 @@ class _PartialFailureBanner extends StatelessWidget {
     variant: DAlertVariant.destructive,
     icon: const DIcon(DIcons.triangleExclamation),
     description: DAlertDescription(
-      child: Text(
-        '$failed ${failed == 1 ? 'forum could' : 'forums could'} not be refreshed.',
-      ),
+      child: Text(context.l10n.notBeRefreshed(failed)),
     ),
     action: DAlertAction(
       child: DButton(
-        label: const Text('Retry'),
+        label: Text(context.l10n.retry),
         onPressed: onRetry,
         variant: DButtonVariant.link,
       ),

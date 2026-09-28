@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -225,8 +226,10 @@ final class ImageTooLargeException implements Exception {
   final int height;
 
   @override
-  String toString() =>
-      'Image of ${width}x$height pixels exceeds the decode limit';
+  String toString() => appL10n.imageOfXPixelsExceedsTheDecodeLimit(
+    (width).toString(),
+    (height).toString(),
+  );
 }
 
 /// Decodes [bytes] to fit within [width] × [height] physical pixels, keeping

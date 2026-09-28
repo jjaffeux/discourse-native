@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'assign_data.dart';
@@ -69,7 +70,7 @@ final class AssignPlugin
   List<PluginNotificationType> get notificationTypes => assignNotificationTypes;
 
   @override
-  List<PluginNotificationFeedSource> get notificationFeeds => const [
+  List<PluginNotificationFeedSource> get notificationFeeds => [
     assignNotificationFeed,
   ];
 
@@ -88,7 +89,7 @@ final class AssignPlugin
       PluginUserMenuSection(
         id: notificationsSection,
         icon: DIcons.userPlus,
-        label: 'Assign list',
+        label: appL10n.assignList,
         badge: unreadCount,
         notificationTypes: assignNotificationFeed.filterByTypes,
         linkWhenActive: fullListPath,
@@ -139,7 +140,7 @@ final class AssignPlugin
     }
     return PluginGroupTab(
       section: 'assigned',
-      label: 'Assigned',
+      label: appL10n.assigned,
       icon: DIcons.userPlus,
       count: record.assignmentCount,
     );
@@ -195,7 +196,7 @@ final class AssignPlugin
           .add(assignment);
     }
     return [
-      Text('Assigned to', style: style),
+      Text(context.l10n.assignedToAssignmenttopiclist, style: style),
       for (final group in grouped.values)
         Semantics(
           container: true,
@@ -205,7 +206,7 @@ final class AssignPlugin
                   assignment,
                   assignment.isPostAssignment
                       ? _postLabel(assignment.postNumber)
-                      : 'Topic',
+                      : context.l10n.topic,
                 ),
               )
               .join('; '),
@@ -219,7 +220,8 @@ final class AssignPlugin
                   size: 20,
                 ),
                 Text(group.first.assignee.displayName, style: style),
-                if (group.first.assignee.isGroup) Text('· group', style: style),
+                if (group.first.assignee.isGroup)
+                  Text(context.l10n.groupAssignplugin, style: style),
                 Text(
                   group
                       .map(
@@ -251,7 +253,7 @@ final class AssignPlugin
     return [
       AssignmentTopicListSummary(
         assignments: assignments,
-        onOpen: () => onOpen(property: 'Assignments'),
+        onOpen: () => onOpen(property: context.l10n.assignments),
       ),
     ];
   }
@@ -357,7 +359,7 @@ final class AssignPlugin
         _TopicAssignmentPropertyRow(
           key: const Key('assign-topic-property'),
           assignment: direct,
-          targetLabel: 'Topic',
+          targetLabel: appL10n.topic,
           onChange: canAssign
               ? (anchorContext) => unawaited(
                   showAssignmentEditor(
@@ -375,7 +377,7 @@ final class AssignPlugin
                     siteUrl: siteUrl,
                     target: target,
                     assignment: direct,
-                    targetLabel: 'Topic',
+                    targetLabel: appL10n.topic,
                   ),
                 )
               : null,
@@ -394,7 +396,7 @@ final class AssignPlugin
     ];
     return [
       TopicPropertySection(
-        label: 'Assignments',
+        label: appL10n.assignments,
         layout: TopicPropertySectionLayout.standalone,
         showHeader: false,
         values: values,
@@ -410,10 +412,12 @@ final class AssignPlugin
                   ),
                 ),
           tooltip: direct != null
-              ? 'Manage assignment to ${direct.assignee.displayName}'
+              ? appL10n.manageAssignmentTo(
+                  (direct.assignee.displayName).toString(),
+                )
               : canAssign
-              ? 'Assign topic'
-              : 'Manage assignments',
+              ? appL10n.assignTopic
+              : appL10n.manageAssignments,
           size: DButtonSize.filter,
           variant: DButtonVariant.outline,
           onPressed: direct != null || !canAssign
@@ -451,7 +455,7 @@ final class AssignPlugin
                       Flexible(
                         child: Text(
                           direct == null
-                              ? 'Assign topic'
+                              ? appL10n.assignTopic
                               : direct.assignee.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -464,8 +468,10 @@ final class AssignPlugin
                     ],
                   ),
                   tooltip: direct == null
-                      ? 'Assign topic'
-                      : 'Manage assignment to ${direct.assignee.displayName}',
+                      ? appL10n.assignTopic
+                      : appL10n.manageAssignmentTo(
+                          (direct.assignee.displayName).toString(),
+                        ),
                   size: DButtonSize.regular,
                   variant: DButtonVariant.outline,
                   onPressed: direct != null
@@ -486,10 +492,8 @@ final class AssignPlugin
               DButton(
                 key: const Key('assign-topic-header-details'),
                 icon: const DIcon(DIcons.userPlus),
-                label: Text(
-                  '${postAssignments.length} assigned post${postAssignments.length == 1 ? '' : 's'}',
-                ),
-                tooltip: 'Manage assignments',
+                label: Text(appL10n.assignedPost(postAssignments.length)),
+                tooltip: appL10n.manageAssignments,
                 size: DButtonSize.regular,
                 variant: DButtonVariant.ghost,
                 onPressed: showDetails,
@@ -533,7 +537,7 @@ final class AssignPlugin
               if (topicAssignments.direct case final direct?)
                 _AssignmentRowData(
                   assignment: direct,
-                  label: 'Topic',
+                  label: context.l10n.topic,
                   onTap: canEdit
                       ? (anchorContext) => unawaited(
                           showAssignmentEditor(
@@ -650,10 +654,12 @@ final class AssignPlugin
           placement: assignedToCurrentUser
               ? PostActionPlacement.toolbar
               : PostActionPlacement.overflow,
-          label: existing == null ? 'Assign post' : 'Edit assignment',
+          label: existing == null
+              ? appL10n.assignPost
+              : appL10n.editAssignmentAssignmentsheet,
           tooltip: existing == null
-              ? 'Assign this post'
-              : 'Edit this post assignment',
+              ? appL10n.assignThisPost
+              : appL10n.editThisPostAssignment,
           onInvoke: openEditor,
           onInvokeAnchored: (_) => openEditor(),
         ),
@@ -681,16 +687,21 @@ final class AssignPlugin
     return PluginSmallAction(
       icon: _smallActionIcon(code),
       phrase: switch (code) {
-        'assigned' || 'assigned_group' => 'assigned $who',
+        'assigned' ||
+        'assigned_group' => appL10n.assignedAssignplugin((who).toString()),
         'assigned_to_post' ||
-        'assigned_group_to_post' => 'assigned $who to a post',
-        'unassigned' || 'unassigned_group' => 'unassigned $who',
-        'unassigned_from_post' ||
-        'unassigned_group_from_post' => 'unassigned $who from a post',
-        'reassigned' || 'reassigned_group' => 'reassigned $who',
-        'details_change' => 'changed assignment details for $who',
-        'note_change' => 'changed assignment note for $who',
-        'status_change' => 'changed assignment status for $who',
+        'assigned_group_to_post' => appL10n.assignedToAPost((who).toString()),
+        'unassigned' ||
+        'unassigned_group' => appL10n.unassignedAssignplugin((who).toString()),
+        'unassigned_from_post' || 'unassigned_group_from_post' =>
+          appL10n.unassignedFromAPost((who).toString()),
+        'reassigned' ||
+        'reassigned_group' => appL10n.reassigned((who).toString()),
+        'details_change' => appL10n.changedAssignmentDetailsFor(
+          (who).toString(),
+        ),
+        'note_change' => appL10n.changedAssignmentNoteFor((who).toString()),
+        'status_change' => appL10n.changedAssignmentStatusFor((who).toString()),
         _ => code,
       },
     );
@@ -775,10 +786,10 @@ class _AssignTopicButton extends StatelessWidget {
       width: double.infinity,
       child: DButton(
         key: const Key('assign-topic-button'),
-        label: const Text('Assign topic'),
+        label: Text(context.l10n.assignTopic),
         icon: const DIcon(DIcons.userPlus),
         variant: DButtonVariant.primary,
-        semanticLabel: 'Topic unassigned. Assign topic',
+        semanticLabel: context.l10n.topicUnassignedAssignTopic,
         onPressed: () => onTap(anchorContext),
       ),
     ),
@@ -856,7 +867,9 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
         ),
         link: openTarget != null,
         onPressed: openTarget,
-        semanticLabel: openTarget == null ? null : 'Open $targetLabel',
+        semanticLabel: openTarget == null
+            ? null
+            : context.l10n.openAssignplugin((targetLabel).toString()),
         children: [
           DItemMedia(
             variant: DItemMediaVariant.avatar,
@@ -872,7 +885,11 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
               DItemDescription(
                 child: ExcludeSemantics(
                   child: Text(
-                    isPost ? 'Assigned to · $targetLabel' : 'Assigned to',
+                    isPost
+                        ? context.l10n.assignedToAssignplugin(
+                            (targetLabel).toString(),
+                          )
+                        : context.l10n.assignedToAssignmenttopiclist,
                   ),
                 ),
               ),
@@ -891,8 +908,10 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                     builder: (anchorContext) => DButton.iconOnly(
                       key: changeKey,
                       icon: const DIcon(DIcons.pencil),
-                      tooltip: 'Change assignee',
-                      semanticLabel: 'Change $actionTarget assignment',
+                      tooltip: context.l10n.changeAssignee,
+                      semanticLabel: context.l10n.changeAssignment(
+                        (actionTarget).toString(),
+                      ),
                       variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
                       onPressed: writing
@@ -905,8 +924,10 @@ class _TopicAssignmentPropertyRow extends StatelessWidget {
                     builder: (anchorContext) => DButton.iconOnly(
                       key: removeKey,
                       icon: const DIcon(DIcons.xmark),
-                      tooltip: 'Remove assignment',
-                      semanticLabel: 'Remove $actionTarget assignment',
+                      tooltip: context.l10n.removeAssignment,
+                      semanticLabel: context.l10n.removeAssignmentAssignplugin(
+                        (actionTarget).toString(),
+                      ),
                       variant: DButtonVariant.destructive,
                       size: DButtonSize.small,
                       loading: writing,
@@ -941,10 +962,10 @@ Future<void> _removeAssignment({
   if (permit == null) return;
   toast!.add(
     DToastOptions(
-      description: '$targetLabel assignment removed',
+      description: appL10n.assignmentRemoved((targetLabel).toString()),
       type: DToastType.success,
       action: DToastAction(
-        label: 'Undo',
+        label: appL10n.undo,
         dismissOnPressed: true,
         onPressed: () => unawaited(
           _restoreAssignment(
@@ -996,8 +1017,9 @@ bool _canAssignRecord(
   return controller.canAssign(siteUrl, target);
 }
 
-String _postLabel(int? postNumber) =>
-    postNumber == null ? 'Post' : 'Post #$postNumber';
+String _postLabel(int? postNumber) => postNumber == null
+    ? appL10n.post
+    : appL10n.postAssignplugin((postNumber).toString());
 
 int _comparePostAssignments(Assignment left, Assignment right) {
   final leftNumber = _validPostNumber(left);

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -189,16 +190,16 @@ Future<List<TopicTag>?> showTopicTagPicker({
       context: context,
       side: DSheetSide.bottom,
       inset: true,
-      barrierLabel: 'Dismiss tags picker',
+      barrierLabel: appL10n.dismissTagsPicker,
       initialFocusNode: queryFocus,
       fillAvailableHeight: true,
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
-        semanticLabel: 'Tags',
+        semanticLabel: appL10n.tags,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
         children: [
-          const DSheetHeader(children: [DSheetTitle(child: Text('Tags'))]),
+          DSheetHeader(children: [DSheetTitle(child: Text(appL10n.tags))]),
           Expanded(
             child: _TagPickerFocusOwner(
               focusNode: queryFocus,
@@ -230,7 +231,7 @@ Future<List<TopicTag>?> showTopicTagPicker({
   }
   return TopicTaxonomyPickerAnchor.show<List<TopicTag>>(
     anchorContext: anchorContext,
-    title: 'Tags',
+    title: appL10n.tags,
     popoverKey: const ValueKey('topic-tag-picker-popover'),
     builder: (pickerContext, close) => TopicTagPicker(
       selectedTags: selectedTags,
@@ -315,9 +316,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       },
       onError: (_, _) {
         setState(() {
-          _result = const TopicTagSearch(
-            forbiddenMessage: "Couldn't load tags.",
-          );
+          _result = TopicTagSearch(forbiddenMessage: appL10n.couldnTLoadTags);
           _loading = false;
         });
       },
@@ -428,7 +427,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       queryKey: const ValueKey('topic-tag-picker-query'),
       queryController: _query,
       queryFocusNode: _queryFocus,
-      queryHint: 'Find or add tags…',
+      queryHint: context.l10n.findOrAddTags,
       onQueryChanged: (value) {
         _changed(value);
         setState(() {});
@@ -440,7 +439,10 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
           DButton(
             key: const ValueKey('topic-tag-picker-create'),
             icon: const DIcon(DIcons.plus),
-            label: Text('Create new tag: “${newTag.name}”', maxLines: 2),
+            label: Text(
+              context.l10n.createNewTag((newTag.name).toString()),
+              maxLines: 2,
+            ),
             variant: DButtonVariant.ghost,
             onPressed: () => _choose(newTag),
           ),
@@ -501,7 +503,9 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                                       tag.name,
                                     )),
                                     icon: const DIcon(DIcons.upRightFromSquare),
-                                    tooltip: 'Open tag ${tag.name}',
+                                    tooltip: context.l10n.openTag(
+                                      (tag.name).toString(),
+                                    ),
                                     onPressed: () => widget.onTagNavigate!(tag),
                                     isLink: true,
                                     variant: DButtonVariant.ghost,
@@ -524,8 +528,8 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               _result.explanation == null)
             TopicTaxonomyPickerMessage(
               _query.text.trim().isEmpty
-                  ? 'No tags available.'
-                  : 'No matching tags.',
+                  ? context.l10n.noTagsAvailable
+                  : context.l10n.noMatchingTags,
             ),
         ],
       ],

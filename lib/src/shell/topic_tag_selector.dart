@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/latest_wins_queued_lookup_controller.dart';
@@ -24,7 +25,7 @@ class TopicTagSelector extends StatefulWidget {
     this.capabilities = const TopicComposerCapabilities(),
     this.multiple = true,
     this.includeAll = false,
-    this.placeholder = 'Tag',
+    this._placeholder,
     this.semanticLabel,
     this.keyPrefix = 'tag-selector',
     this.size = DButtonSize.regular,
@@ -39,7 +40,8 @@ class TopicTagSelector extends StatefulWidget {
   final TopicComposerCapabilities capabilities;
   final bool multiple;
   final bool includeAll;
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.tagTopictagselector;
   final String? semanticLabel;
   final String keyPrefix;
   final DButtonSize size;
@@ -59,7 +61,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
     onError: (_, _) => _received(
       widget.includeAll
           ? TopicTagSearch(tags: _knownMatches(_query))
-          : const TopicTagSearch(forbiddenMessage: "Couldn't load tags."),
+          : TopicTagSearch(forbiddenMessage: appL10n.couldnTLoadTags),
     ),
   );
   Timer? _debounce;
@@ -197,7 +199,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
   Widget build(BuildContext context) {
     final selected = widget.selectedTags;
     final label = selected.length > 1
-        ? '${selected.length} tags'
+        ? context.l10n.tagsTopictagselectorValue((selected.length).toString())
         : selected.firstOrNull?.name ?? widget.placeholder;
     final prefix = widget.keyPrefix;
     final newTag = _newTag;
@@ -215,14 +217,14 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       if (widget.includeAll)
         DComboboxOption(
           value: _all,
-          label: 'All tags',
+          label: context.l10n.allTags,
           itemKey: ValueKey('$prefix-all'),
         ),
       for (final tag in visibleResults.where(_selected)) tagOption(tag),
       if (newTag != null)
         DComboboxOption(
           value: newTag,
-          label: 'Create new tag: “${newTag.name}”',
+          label: context.l10n.createNewTag((newTag.name).toString()),
           itemKey: ValueKey('$prefix-create'),
         ),
       for (final tag in visibleResults.where((tag) => !_selected(tag)))
@@ -239,7 +241,9 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
             widget.semanticLabel ??
             (selected.isEmpty
                 ? widget.placeholder
-                : 'Tags: ${selected.map((tag) => tag.name).join(', ')}'),
+                : context.l10n.tagsTopictagselector(
+                    (selected.map((tag) => tag.name).join(', ')).toString(),
+                  )),
         onPressed: widget.onChanged == null ? null : trigger.toggle,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
@@ -250,15 +254,15 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       sheetOnMobile: widget.sheetOnMobile,
       fullScreenOnMobile: true,
       key: ValueKey('$prefix-popover'),
-      semanticLabel: 'Tags',
+      semanticLabel: context.l10n.tags,
       width: 280,
       children: [
         Padding(
           padding: const EdgeInsets.all(4),
           child: DComboboxInput<TopicTag>(
             key: ValueKey('$prefix-query'),
-            placeholder: 'Search tags…',
-            semanticLabel: 'Search tags',
+            placeholder: context.l10n.searchTags,
+            semanticLabel: context.l10n.searchTagsTopictagselector,
             registerAsAnchor: false,
             autofocus: context.isTouch,
             showTrigger: false,
@@ -299,8 +303,8 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
               child: Text(
                 _result.explanation ??
                     (_query.trim().isEmpty
-                        ? 'No tags are available.'
-                        : 'No matching tags.'),
+                        ? context.l10n.noTagsAreAvailable
+                        : context.l10n.noMatchingTags),
               ),
             ),
           ),

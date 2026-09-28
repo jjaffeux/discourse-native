@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'assignment.dart';
@@ -26,7 +27,7 @@ class AssignmentTopicListSummary extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          'Assigned to',
+          context.l10n.assignedToAssignmenttopiclist,
           style: TextStyle(color: DTokens.of(context).mutedForeground),
         ),
         _Assignee(assignment: first),
@@ -35,8 +36,12 @@ class AssignmentTopicListSummary extends StatelessWidget {
             onPressed: onOpen,
             size: DButtonSize.small,
             variant: DButtonVariant.ghost,
-            semanticLabel: 'Open topic to view all ${all.length} assignments',
-            tooltip: 'View all ${all.length} assignments in topic',
+            semanticLabel: context.l10n.openTopicToViewAllAssignments(
+              (all.length).toString(),
+            ),
+            tooltip: context.l10n.viewAllAssignmentsInTopic(
+              (all.length).toString(),
+            ),
             label: Text('+${all.length - 1}'),
           ),
       ],

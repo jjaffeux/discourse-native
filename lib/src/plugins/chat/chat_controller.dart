@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_api.dart';
@@ -1035,17 +1036,17 @@ class ChatController extends FrameSafeNotifier {
     bool starred,
   ) async {
     if (isDisposed || channelId <= 0) {
-      return 'This channel can no longer be changed.';
+      return appL10n.thisChannelCanNoLongerBeChanged;
     }
     final held = channel(siteUrl, channelId);
     if (held == null || !held.membership.following) {
-      return 'Only followed channels can be starred.';
+      return appL10n.onlyFollowedChannelsCanBeStarred;
     }
     if (held.membership.starred == starred) return null;
 
     final key = _streamKey(siteUrl, channelId);
     if (_channelStarWrites.containsKey(key)) {
-      return 'Another channel change is still finishing.';
+      return appL10n.anotherChannelChangeIsStillFinishing;
     }
     final token = Object();
     final lease = _requests.capture(siteUrl);
@@ -1075,7 +1076,7 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       if (apiKey == null) {
         project(held.membership.starred);
-        return 'Reconnect this site to change the channel.';
+        return appL10n.reconnectThisSiteToChangeTheChannel;
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
@@ -1117,14 +1118,14 @@ class ChatController extends FrameSafeNotifier {
     ChatChannelNotificationLevel? notificationLevel,
   }) async {
     if (isDisposed || channelId <= 0) {
-      return 'This channel can no longer be changed.';
+      return appL10n.thisChannelCanNoLongerBeChanged;
     }
     if (muted == null && notificationLevel == null) {
-      return 'Choose a channel notification setting to change.';
+      return appL10n.chooseAChannelNotificationSettingToChange;
     }
     final held = channel(siteUrl, channelId);
     if (held == null || !held.membership.following) {
-      return 'Only followed channels have notification settings.';
+      return appL10n.onlyFollowedChannelsHaveNotificationSettings;
     }
     final projectedMembership = held.membership.withNotifications(
       muted: muted,
@@ -1134,7 +1135,7 @@ class ChatController extends FrameSafeNotifier {
 
     final key = _streamKey(siteUrl, channelId);
     if (_channelNotificationWrites.containsKey(key)) {
-      return 'Another notification change is still finishing.';
+      return appL10n.anotherNotificationChangeIsStillFinishing;
     }
     final token = Object();
     final lease = _requests.capture(siteUrl);
@@ -1185,7 +1186,7 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       if (apiKey == null) {
         project(held.membership);
-        return 'Reconnect this site to change channel notifications.';
+        return appL10n.reconnectThisSiteToChangeChannelNotifications;
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
@@ -1288,11 +1289,11 @@ class ChatController extends FrameSafeNotifier {
     int limit = 20,
   }) async {
     if (isDisposed || channelId <= 0) {
-      return (page: null, error: 'This member list is no longer available.');
+      return (page: null, error: appL10n.thisMemberListIsNoLongerAvailable);
     }
     final held = channel(siteUrl, channelId);
     if (held == null || !held.membership.following) {
-      return (page: null, error: 'Only followed channels show their members.');
+      return (page: null, error: appL10n.onlyFollowedChannelsShowTheirMembers);
     }
     final lease = _requests.capture(siteUrl);
     bool isCurrent() => !isDisposed && lease.isCurrent;
@@ -1303,7 +1304,7 @@ class ChatController extends FrameSafeNotifier {
       if (apiKey == null) {
         return (
           page: null,
-          error: 'Reconnect this site to see channel members.',
+          error: appL10n.reconnectThisSiteToSeeChannelMembers,
         );
       }
       final clientId = requestCredentials.clientId;
@@ -1329,7 +1330,7 @@ class ChatController extends FrameSafeNotifier {
       if (isCurrent()) {
         _report(error, stackTrace, 'chat.loadChannelMembers');
       }
-      return (page: null, error: "Couldn't load this channel's members.");
+      return (page: null, error: appL10n.couldnTLoadThisChannelSMembers);
     }
   }
 
@@ -1343,7 +1344,7 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed) {
       return (
         page: null,
-        error: 'The channel directory is no longer available.',
+        error: appL10n.theChannelDirectoryIsNoLongerAvailable,
       );
     }
     final lease = _requests.capture(siteUrl);
@@ -1355,7 +1356,7 @@ class ChatController extends FrameSafeNotifier {
       if (apiKey == null) {
         return (
           page: null,
-          error: 'Reconnect this site to browse chat channels.',
+          error: appL10n.reconnectThisSiteToBrowseChatChannels,
         );
       }
       final clientId = requestCredentials.clientId;
@@ -1377,7 +1378,7 @@ class ChatController extends FrameSafeNotifier {
       return (page: null, error: error.message);
     } catch (error, stackTrace) {
       if (isCurrent()) _report(error, stackTrace, 'chat.browseChannels');
-      return (page: null, error: "Couldn't load chat channels.");
+      return (page: null, error: appL10n.couldnTLoadChatChannels);
     }
   }
 
@@ -1406,7 +1407,7 @@ class ChatController extends FrameSafeNotifier {
   }) async {
     final held = channel(siteUrl, channelId);
     if (held == null || !canEditChannelMetadata(siteUrl, channelId)) {
-      return 'This channel cannot be edited.';
+      return appL10n.thisChannelCannotBeEdited;
     }
     if (name == null &&
         slug == null &&
@@ -1415,10 +1416,10 @@ class ChatController extends FrameSafeNotifier {
       return null;
     }
     if (slug != null && (slug.trim().isEmpty || slug.trim().length > 100)) {
-      return 'The channel slug must be between 1 and 100 characters.';
+      return appL10n.theChannelSlugMustBeBetween1And100Characters;
     }
     if (description != null && description.length > 280) {
-      return 'The channel description cannot exceed 280 characters.';
+      return appL10n.theChannelDescriptionCannotExceed280Characters;
     }
     final nextName = name?.trim();
     final nextSlug = slug?.trim();
@@ -1437,7 +1438,7 @@ class ChatController extends FrameSafeNotifier {
 
     final key = _streamKey(siteUrl, channelId);
     if (_channelSettingsWrites.containsKey(key)) {
-      return 'Another channel change is still finishing.';
+      return appL10n.anotherChannelChangeIsStillFinishing;
     }
     final token = _ChannelSettingsWrite();
     final lease = _requests.capture(siteUrl);
@@ -1471,7 +1472,7 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       if (apiKey == null) {
         restoreThreading();
-        return 'Reconnect this site to edit the channel.';
+        return appL10n.reconnectThisSiteToEditTheChannel;
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
@@ -1542,7 +1543,7 @@ class ChatController extends FrameSafeNotifier {
     if (held == null ||
         !canEditChannelMetadata(siteUrl, channelId) ||
         held.status != ChatChannelStatus.open) {
-      return Future.value('Threading cannot be changed for this channel.');
+      return Future.value(appL10n.searchThreadingCannotBeChanged);
     }
     return updateChannelMetadata(siteUrl, channelId, threadingEnabled: enabled);
   }
@@ -1565,17 +1566,17 @@ class ChatController extends FrameSafeNotifier {
     final held = channel(siteUrl, channelId);
     final target = closed ? ChatChannelStatus.closed : ChatChannelStatus.open;
     if (held == null || !canChangeChannelStatus(siteUrl, channelId)) {
-      return 'This channel’s status cannot be changed.';
+      return appL10n.thisChannelSStatusCannotBeChanged;
     }
     if (held.status == target) return null;
     if ((closed && held.status != ChatChannelStatus.open) ||
         (!closed && held.status != ChatChannelStatus.closed)) {
-      return 'This channel’s status cannot be changed.';
+      return appL10n.thisChannelSStatusCannotBeChanged;
     }
 
     final key = _streamKey(siteUrl, channelId);
     if (_channelSettingsWrites.containsKey(key)) {
-      return 'Another channel change is still finishing.';
+      return appL10n.anotherChannelChangeIsStillFinishing;
     }
     final token = _ChannelSettingsWrite();
     final lease = _requests.capture(siteUrl);
@@ -1590,7 +1591,7 @@ class ChatController extends FrameSafeNotifier {
       final requestCredentials = await _requests.credentialsFor(siteUrl);
       final apiKey = requestCredentials.apiKey;
       if (!isCurrent()) return null;
-      if (apiKey == null) return 'Reconnect this site to change the channel.';
+      if (apiKey == null) return appL10n.reconnectThisSiteToChangeTheChannel;
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
       token.receivedStatus = false;
@@ -1635,20 +1636,20 @@ class ChatController extends FrameSafeNotifier {
     bool following,
   ) async {
     if (isDisposed || candidate.id <= 0) {
-      return 'This channel can no longer be changed.';
+      return appL10n.thisChannelCanNoLongerBeChanged;
     }
     final held = channel(siteUrl, candidate.id) ?? candidate;
     if (held.isDirectMessage && following) {
-      return 'Direct messages cannot be joined from Browse Channels.';
+      return appL10n.directMessagesCannotBeJoinedFromBrowseChannels;
     }
     if (held.membership.following == following) return null;
     if (following && (!held.canJoin || held.status != ChatChannelStatus.open)) {
-      return 'This channel cannot be joined.';
+      return appL10n.thisChannelCannotBeJoined;
     }
 
     final key = _streamKey(siteUrl, held.id);
     if (_channelFollowWrites.containsKey(key)) {
-      return 'Another channel change is still finishing.';
+      return appL10n.anotherChannelChangeIsStillFinishing;
     }
     final token = Object();
     final lease = _requests.capture(siteUrl);
@@ -1664,7 +1665,7 @@ class ChatController extends FrameSafeNotifier {
       final apiKey = requestCredentials.apiKey;
       if (!isCurrent()) return null;
       if (apiKey == null) {
-        return 'Reconnect this site to change the channel.';
+        return appL10n.reconnectThisSiteToChangeTheChannel;
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
@@ -2570,7 +2571,7 @@ class ChatController extends FrameSafeNotifier {
       ref.value = ref.value.copyWith(
         loading: false,
         fetched: true,
-        error: 'Could not load pinned messages.',
+        error: appL10n.couldNotLoadPinnedMessages,
       );
     } finally {
       if (identical(_pinListRequests[key], request)) {
@@ -2716,20 +2717,22 @@ class ChatController extends FrameSafeNotifier {
   }) async {
     final held = _store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canFlagMessage(siteUrl, held)) {
-      return 'This message can no longer be flagged.';
+      return appL10n.thisMessageCanNoLongerBeFlagged;
     }
     if (!flagType.enabled ||
         !flagType.appliesToTarget(chatMessageWireType) ||
         !held.availableFlags.contains(flagType.nameKey)) {
-      return 'This flag reason is no longer available.';
+      return appL10n.thisFlagReasonIsNoLongerAvailable;
     }
     final submittedMessage = flagType.requireMessage ? message ?? '' : null;
     final minimum = flagMessageMinimumLength(siteUrl);
     final length = submittedMessage?.length ?? 0;
     if (flagType.requireMessage &&
         (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return 'Your message must be between $minimum and '
-          '${PostFlagType.maximumMessageLength} characters.';
+      return appL10n.yourMessageMustBeBetweenAndCharacters(
+        (minimum).toString(),
+        (PostFlagType.maximumMessageLength).toString(),
+      );
     }
 
     final key = (siteUrl: siteUrl, messageId: messageId);
@@ -2738,7 +2741,7 @@ class ChatController extends FrameSafeNotifier {
         _messageDeletionWrites.containsKey(key) ||
         _messagePinWrites.containsKey(key) ||
         _messageRebakeWrites.containsKey(key)) {
-      return 'Another message change is still finishing.';
+      return appL10n.anotherMessageChangeIsStillFinishing;
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -2760,7 +2763,7 @@ class ChatController extends FrameSafeNotifier {
       if (current == null ||
           !canFlagMessage(siteUrl, current) ||
           !current.availableFlags.contains(flagType.nameKey)) {
-        return 'This message can no longer be flagged.';
+        return appL10n.thisMessageCanNoLongerBeFlagged;
       }
       await api.flagChatMessage(
         siteUrl: siteUrl,
@@ -2800,7 +2803,7 @@ class ChatController extends FrameSafeNotifier {
   }) async {
     final held = _store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canPinMessage(siteUrl, held)) {
-      return 'This message can no longer be ${pinned ? 'pinned' : 'unpinned'}.';
+      return appL10n.thisMessageCanNoLongerBe((pinned).toString());
     }
     if (held.pinned == pinned) return null;
 
@@ -2810,7 +2813,7 @@ class ChatController extends FrameSafeNotifier {
         _messageDeletionWrites.containsKey(key) ||
         _messageFlagWrites.containsKey(key) ||
         _messageRebakeWrites.containsKey(key)) {
-      return 'Another message change is still finishing.';
+      return appL10n.anotherMessageChangeIsStillFinishing;
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -2849,7 +2852,7 @@ class ChatController extends FrameSafeNotifier {
       final current = _store.read<ChatMessage>(siteUrl, messageId);
       if (current == null || !canPinMessage(siteUrl, current)) {
         project(held.pinned);
-        return 'This message can no longer be ${pinned ? 'pinned' : 'unpinned'}.';
+        return appL10n.thisMessageCanNoLongerBe((pinned).toString());
       }
       await api.updateChatMessagePinned(
         siteUrl: siteUrl,
@@ -2921,12 +2924,14 @@ class ChatController extends FrameSafeNotifier {
     Iterable<int> messageIds,
   ) async {
     final ids = messageIds.toSet().toList()..sort();
-    if (ids.isEmpty) return 'Select at least one message.';
+    if (ids.isEmpty) return appL10n.selectAtLeastOneMessage;
     if (ids.length > maximumBulkDeleteMessages) {
-      return 'Select no more than $maximumBulkDeleteMessages messages to delete.';
+      return appL10n.selectNoMoreThanMessagesToDelete(
+        (maximumBulkDeleteMessages).toString(),
+      );
     }
     if (!canDeleteMessages(siteUrl, channelId, ids)) {
-      return 'One or more messages can no longer be deleted.';
+      return appL10n.oneOrMoreMessagesCanNoLongerBeDeleted;
     }
 
     final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
@@ -2936,7 +2941,7 @@ class ChatController extends FrameSafeNotifier {
           _messagePinWrites.containsKey(key) ||
           _messageFlagWrites.containsKey(key) ||
           _messageRebakeWrites.containsKey(key)) {
-        return 'Another message change is still finishing.';
+        return appL10n.anotherMessageChangeIsStillFinishing;
       }
     }
 
@@ -2959,7 +2964,7 @@ class ChatController extends FrameSafeNotifier {
       final clientId = requestCredentials.clientId;
       if (!ownsRequest()) return null;
       if (!canDeleteMessages(siteUrl, channelId, ids)) {
-        return 'One or more messages can no longer be deleted.';
+        return appL10n.oneOrMoreMessagesCanNoLongerBeDeleted;
       }
 
       await api.deleteChatMessages(
@@ -3034,14 +3039,11 @@ class ChatController extends FrameSafeNotifier {
   ) async {
     final ids = messageIds.toSet().toList()..sort();
     if (!canMoveMessages(siteUrl, channelId, ids)) {
-      return (
-        move: null,
-        error: 'One or more messages can no longer be moved.',
-      );
+      return (move: null, error: appL10n.oneOrMoreMessagesCanNoLongerBeMoved);
     }
     final destinations = messageMoveDestinations(siteUrl, channelId);
     if (!destinations.any((channel) => channel.id == destinationChannelId)) {
-      return (move: null, error: 'Choose another public channel.');
+      return (move: null, error: appL10n.chooseAnotherPublicChannel);
     }
 
     final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
@@ -3053,7 +3055,7 @@ class ChatController extends FrameSafeNotifier {
           _messageRebakeWrites.containsKey(key)) {
         return (
           move: null,
-          error: 'Another message change is still finishing.',
+          error: appL10n.anotherMessageChangeIsStillFinishing,
         );
       }
     }
@@ -3083,7 +3085,7 @@ class ChatController extends FrameSafeNotifier {
           ).any((channel) => channel.id == destinationChannelId)) {
         return (
           move: null,
-          error: 'The selected messages or destination changed.',
+          error: appL10n.theSelectedMessagesOrDestinationChanged,
         );
       }
 
@@ -3132,8 +3134,8 @@ class ChatController extends FrameSafeNotifier {
             : canRestoreMessage(siteUrl, held));
     if (!allowed) {
       return deleted
-          ? 'This message can no longer be deleted.'
-          : 'This message can no longer be restored.';
+          ? appL10n.thisMessageCanNoLongerBeDeleted
+          : appL10n.thisMessageCanNoLongerBeRestored;
     }
 
     final key = (siteUrl: siteUrl, messageId: messageId);
@@ -3142,7 +3144,7 @@ class ChatController extends FrameSafeNotifier {
         _messagePinWrites.containsKey(key) ||
         _messageFlagWrites.containsKey(key) ||
         _messageRebakeWrites.containsKey(key)) {
-      return 'Another message change is still finishing.';
+      return appL10n.anotherMessageChangeIsStillFinishing;
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -3166,8 +3168,8 @@ class ChatController extends FrameSafeNotifier {
               ? canDeleteMessage(siteUrl, current)
               : canRestoreMessage(siteUrl, current))) {
         return deleted
-            ? 'This message can no longer be deleted.'
-            : 'This message can no longer be restored.';
+            ? appL10n.thisMessageCanNoLongerBeDeleted
+            : appL10n.thisMessageCanNoLongerBeRestored;
       }
       if (deleted) {
         await api.deleteChatMessage(
@@ -3238,7 +3240,7 @@ class ChatController extends FrameSafeNotifier {
   Future<String?> rebakeMessage(String siteUrl, int messageId) async {
     final held = _store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canRebakeMessage(siteUrl, held)) {
-      return 'This message can no longer be rebuilt.';
+      return appL10n.thisMessageCanNoLongerBeRebuilt;
     }
 
     final key = (siteUrl: siteUrl, messageId: messageId);
@@ -3247,7 +3249,7 @@ class ChatController extends FrameSafeNotifier {
         _messageDeletionWrites.containsKey(key) ||
         _messagePinWrites.containsKey(key) ||
         _messageFlagWrites.containsKey(key)) {
-      return 'Another message change is still finishing.';
+      return appL10n.anotherMessageChangeIsStillFinishing;
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -3267,7 +3269,7 @@ class ChatController extends FrameSafeNotifier {
       if (!ownsRequest()) return null;
       final current = _store.read<ChatMessage>(siteUrl, messageId);
       if (current == null || !canRebakeMessage(siteUrl, current)) {
-        return 'This message can no longer be rebuilt.';
+        return appL10n.thisMessageCanNoLongerBeRebuilt;
       }
       await api.rebakeChatMessage(
         siteUrl: siteUrl,
@@ -3300,21 +3302,21 @@ class ChatController extends FrameSafeNotifier {
   ) async {
     final ids = messageIds.toSet().toList()..sort();
     if (ids.isEmpty) {
-      return (markdown: null, error: 'Select at least one message.');
+      return (markdown: null, error: appL10n.selectAtLeastOneMessage);
     }
     for (final id in ids) {
       final held = _store.read<ChatMessage>(siteUrl, id);
       if (id <= 0 || held == null || held.channelId != channelId) {
         return (
           markdown: null,
-          error: 'One of those messages is no longer available.',
+          error: appL10n.oneOfThoseMessagesIsNoLongerAvailable,
         );
       }
     }
 
     final key = (siteUrl: siteUrl, channelId: channelId);
     if (_messageQuoteWrites.containsKey(key)) {
-      return (markdown: null, error: 'That transcript is still being built.');
+      return (markdown: null, error: appL10n.thatTranscriptIsStillBeingBuilt);
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -3368,11 +3370,13 @@ class ChatController extends FrameSafeNotifier {
   }) async {
     final held = _store.read<ChatMessage>(siteUrl, messageId);
     if (held == null || !canEditMessage(siteUrl, held)) {
-      return 'This message can no longer be edited.';
+      return appL10n.thisMessageCanNoLongerBeEdited;
     }
-    if (raw.trim().isEmpty) return 'A message cannot be empty.';
+    if (raw.trim().isEmpty) return appL10n.aMessageCannotBeEmpty;
     if (raw.length > ChatMessage.maximumEditLength) {
-      return 'Messages can be at most ${ChatMessage.maximumEditLength} characters.';
+      return appL10n.messagesCanBeAtMostCharacters(
+        (ChatMessage.maximumEditLength).toString(),
+      );
     }
     final editedUploads = List<ChatUpload>.unmodifiable(
       (uploads ?? held.uploads).take(ChatMessage.maximumUploadsPerMessage),
@@ -3393,7 +3397,7 @@ class ChatController extends FrameSafeNotifier {
         _messagePinWrites.containsKey(key) ||
         _messageFlagWrites.containsKey(key) ||
         _messageRebakeWrites.containsKey(key)) {
-      return 'Another edit is still finishing.';
+      return appL10n.anotherEditIsStillFinishing;
     }
     final request = Object();
     final lease = _requests.capture(siteUrl);
@@ -3449,7 +3453,7 @@ class ChatController extends FrameSafeNotifier {
           current.raw != raw ||
           !hasUploadIds(current.uploads)) {
         rollback();
-        return 'This message changed before the edit could be saved.';
+        return appL10n.thisMessageChangedBeforeTheEditCouldBeSaved;
       }
       await api.editChatMessage(
         siteUrl: siteUrl,
@@ -3574,7 +3578,7 @@ class ChatController extends FrameSafeNotifier {
   ) {
     final held = channelId == null ? null : channel(siteUrl, channelId);
     if (held != null && messageIds.contains(held.lastMessageId)) {
-      _putChannel(siteUrl, held.withLastMessagePreview('Message deleted'));
+      _putChannel(siteUrl, held.withLastMessagePreview(appL10n.messageDeleted));
     }
   }
 
@@ -3813,7 +3817,7 @@ class ChatController extends FrameSafeNotifier {
       lease.commit(() {
         if (messageReactors(siteUrl, channelId, messageId, filter: filter) ==
             null) {
-          _reactorErrors[key] = 'Could not find out who reacted.';
+          _reactorErrors[key] = appL10n.couldNotFindOutWhoReacted;
         }
       });
     } finally {
@@ -3918,7 +3922,7 @@ class ChatController extends FrameSafeNotifier {
         ChatStreamState(
           fetchedOnce: true,
           fetches: current.fetches,
-          error: 'You no longer have access to this channel.',
+          error: appL10n.youNoLongerHaveAccessToThisChannel,
           revision: current.revision + 1,
         ),
       );
@@ -5370,7 +5374,7 @@ class ChatController extends FrameSafeNotifier {
       _report(error, stackTrace, 'chat.loadChannels');
       if (_channelRevalidations.contains(key)) return;
       lease.commit(() {
-        _errors[key] = 'Could not load this site’s chat channels.';
+        _errors[key] = appL10n.couldNotLoadThisSiteSChatChannels;
       });
     } finally {
       if (identical(_channelRefreshes[siteUrl], refresh)) {
@@ -5473,7 +5477,7 @@ class ChatController extends FrameSafeNotifier {
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       _report(error, stackTrace, 'chat.loadMyThreads');
       lease.commit(() {
-        _errors[key] = 'Could not load your chat threads.';
+        _errors[key] = appL10n.couldNotLoadYourChatThreads;
       });
     } finally {
       _endThreadListRefresh(siteUrl, refresh);
@@ -5622,7 +5626,7 @@ class ChatController extends FrameSafeNotifier {
       // The held list is still the reader's; the next visit revalidates it.
       if (merge) return;
       lease.commit(() {
-        _errors[key] = 'Could not load this channel’s threads.';
+        _errors[key] = appL10n.couldNotLoadThisChannelSThreads;
       });
     } finally {
       _endThreadListRefresh(siteUrl, refresh);
@@ -5729,7 +5733,7 @@ class ChatController extends FrameSafeNotifier {
         _showStreamNotice(
           siteUrl,
           target,
-          'That message is unavailable. Showing the thread instead.',
+          appL10n.thatMessageIsUnavailableShowingTheThreadInstead,
         );
       }
     }
@@ -5844,8 +5848,8 @@ class ChatController extends FrameSafeNotifier {
               fetchedOnce: true,
               error: window.messageIds.isEmpty
                   ? terminal
-                        ? 'This thread is no longer available.'
-                        : 'Could not load this thread.'
+                        ? appL10n.thisThreadIsNoLongerAvailable
+                        : appL10n.couldNotLoadThisThread
                   : null,
               threadUnavailable: terminal,
             ),
@@ -6352,8 +6356,8 @@ class ChatController extends FrameSafeNotifier {
             fetchedOnce: true,
             error: replacesDestination
                 ? target.threadId == null
-                      ? 'Could not load this channel.'
-                      : 'Could not load this thread.'
+                      ? appL10n.couldNotLoadThisChannel
+                      : appL10n.couldNotLoadThisThread
                 : null,
           ),
         );

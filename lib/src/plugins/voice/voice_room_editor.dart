@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_controller.dart';
@@ -74,17 +75,23 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   Widget build(BuildContext context) => DDialogContent(
     showCloseButton: false,
     maxWidth: 520,
-    semanticLabel: _room == null ? 'Create voice room' : 'Edit voice room',
+    semanticLabel: _room == null
+        ? context.l10n.createVoiceRoom
+        : context.l10n.editVoiceRoom,
     children: [
       DDialogHeader(
         children: [
           DDialogTitle(
             child: Text(
-              _room == null ? 'Create voice room' : 'Edit voice room',
+              _room == null
+                  ? context.l10n.createVoiceRoom
+                  : context.l10n.editVoiceRoom,
             ),
           ),
-          const DDialogDescription(
-            child: Text('Choose how people join and participate in your room.'),
+          DDialogDescription(
+            child: Text(
+              context.l10n.chooseHowPeopleJoinAndParticipateInYourRoom,
+            ),
           ),
         ],
       ),
@@ -97,28 +104,28 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             spacing: DSpacing.lg,
             children: [
               DFieldSet(
-                semanticLabel: 'Room details',
+                semanticLabel: context.l10n.roomDetails,
                 children: [
                   DInput(
                     isRequired: true,
                     controller: _name,
                     autofocus: true,
                     onChanged: (_) => setState(() {}),
-                    labelText: 'Name',
-                    hintText: 'e.g. Community lounge',
+                    labelText: context.l10n.name,
+                    hintText: context.l10n.voiceRoomNameExample,
                     validator: (value) {
                       final name = value?.trim() ?? '';
-                      if (name.isEmpty) return 'Enter a room name.';
+                      if (name.isEmpty) return context.l10n.enterARoomName;
                       if (name.runes.length > 80) {
-                        return 'Use 80 characters or fewer.';
+                        return context.l10n.use80CharactersOrFewer;
                       }
                       return null;
                     },
                   ),
                   DTextarea(
                     controller: _description,
-                    labelText: 'Description',
-                    hintText: 'What will people talk about? (optional)',
+                    labelText: context.l10n.description,
+                    hintText: context.l10n.whatWillPeopleTalkAboutOptional,
                     minLines: 2,
                     maxLines: 5,
                   ),
@@ -127,35 +134,43 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
               const DFieldSeparator(),
               DFieldSet(
                 children: [
-                  const DFieldLegend(child: Text('Room settings')),
+                  DFieldLegend(child: Text(context.l10n.roomSettings)),
                   DFieldGroup(
                     variant: DFieldGroupVariant.choice,
                     children: [
                       DSwitchTile(
                         value: _isPublic,
                         onChanged: (value) => setState(() => _isPublic = value),
-                        title: const DFieldLabel(child: Text('Public room')),
-                        subtitle: const DFieldDescription(
-                          child: Text('Visible to everyone on the forum.'),
+                        title: DFieldLabel(
+                          child: Text(context.l10n.publicRoom),
+                        ),
+                        subtitle: DFieldDescription(
+                          child: Text(context.l10n.visibleToEveryoneOnTheForum),
                         ),
                       ),
                       DSwitchTile(
                         value: _stage,
                         onChanged: (value) => setState(() => _stage = value),
-                        title: const DFieldLabel(child: Text('Stage room')),
-                        subtitle: const DFieldDescription(
+                        title: DFieldLabel(child: Text(context.l10n.stageRoom)),
+                        subtitle: DFieldDescription(
                           child: Text(
-                            'People join as listeners until invited to speak.',
+                            context
+                                .l10n
+                                .peopleJoinAsListenersUntilInvitedToSpeak,
                           ),
                         ),
                       ),
                       DSwitchTile(
                         value: _video,
                         onChanged: (value) => setState(() => _video = value),
-                        title: const DFieldLabel(child: Text('Allow video')),
-                        subtitle: const DFieldDescription(
+                        title: DFieldLabel(
+                          child: Text(context.l10n.allowVideo),
+                        ),
+                        subtitle: DFieldDescription(
                           child: Text(
-                            'Let participants share their camera and screen.',
+                            context
+                                .l10n
+                                .letParticipantsShareTheirCameraAndScreen,
                           ),
                         ),
                       ),
@@ -177,11 +192,11 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                             child: DInput(
                               controller: _maximum,
                               keyboardType: TextInputType.number,
-                              labelText: 'Maximum participants',
-                              hintText: 'Forum default',
+                              labelText: context.l10n.maximumParticipants,
+                              hintText: context.l10n.forumDefault,
                               helperText: _stage
-                                  ? 'Optional, 2–200 people.'
-                                  : 'Optional, 2–50 people.',
+                                  ? context.l10n.optional2200People
+                                  : context.l10n.optional250People,
                               validator: (value) => _validateNumber(
                                 value,
                                 min: 2,
@@ -194,7 +209,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                             child: DSelect<VoiceQualityProfile>.controlled(
                               isExpanded: true,
                               value: _quality,
-                              label: const Text('Maximum media quality'),
+                              label: Text(context.l10n.maximumMediaQuality),
                               onChanged: (value) =>
                                   setState(() => _quality = value ?? _quality),
                               entries: [
@@ -224,8 +239,8 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const DAccordionTrigger(
-                          child: Text('Advanced settings'),
+                        DAccordionTrigger(
+                          child: Text(context.l10n.advancedSettings),
                         ),
                         DAccordionContent(
                           child: DFieldGroup(
@@ -233,20 +248,23 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                               DInput(
                                 controller: _chatChannel,
                                 keyboardType: TextInputType.number,
-                                labelText: 'Chat channel ID (optional)',
+                                labelText: context.l10n.chatChannelIDOptional,
                                 hintText: 'e.g. 42',
-                                helperText:
-                                    'Use a channel with threading enabled for room conversations.',
+                                helperText: context
+                                    .l10n
+                                    .useAChannelWithThreadingEnabledForRoomConversations,
                                 validator: (value) =>
                                     _validateNumber(value, min: 1),
                               ),
                               DInput(
                                 controller: _chatIdle,
                                 keyboardType: TextInputType.number,
-                                labelText: 'New chat thread after (minutes)',
+                                labelText:
+                                    context.l10n.newChatThreadAfterMinutes,
                                 hintText: '15',
-                                helperText:
-                                    'Start a fresh thread after 2–1,440 minutes of inactivity. Defaults to 15.',
+                                helperText: context
+                                    .l10n
+                                    .startAFreshThreadAfter21440MinutesOfInactivity,
                                 validator: (value) =>
                                     _validateNumber(value, min: 2, max: 1440),
                               ),
@@ -255,8 +273,8 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                                   value: _livekit,
                                   onChanged: (value) =>
                                       setState(() => _livekit = value),
-                                  title: const DFieldLabel(
-                                    child: Text('Use LiveKit'),
+                                  title: DFieldLabel(
+                                    child: Text(context.l10n.useLiveKit),
                                   ),
                                 ),
                             ],
@@ -276,13 +294,17 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           DDialogClose<VoiceRoomDraft>(
             builder: (context, close) => DButton(
               onPressed: close,
-              label: const Text('Cancel'),
+              label: Text(context.l10n.cancel),
               variant: DButtonVariant.outline,
             ),
           ),
           DButton(
             onPressed: _name.text.trim().isEmpty ? null : _save,
-            label: Text(_room == null ? 'Create room' : 'Save changes'),
+            label: Text(
+              _room == null
+                  ? context.l10n.createRoom
+                  : context.l10n.saveChanges,
+            ),
             variant: DButtonVariant.primary,
           ),
         ],
@@ -291,9 +313,9 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   );
 
   String _qualityLabel(VoiceQualityProfile quality) => switch (quality) {
-    VoiceQualityProfile.standard => 'Standard',
-    VoiceQualityProfile.high => 'High',
-    VoiceQualityProfile.maximum => 'Maximum',
+    VoiceQualityProfile.standard => appL10n.standard,
+    VoiceQualityProfile.high => appL10n.high,
+    VoiceQualityProfile.maximum => appL10n.maximum,
   };
 
   String? _validateNumber(String? value, {required int min, int? max}) {
@@ -302,8 +324,8 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
     final number = int.tryParse(text);
     if (number == null || number < min || (max != null && number > max)) {
       return max == null
-          ? 'Enter a whole number of $min or more.'
-          : 'Enter a whole number from $min to $max.';
+          ? appL10n.enterAWholeNumberOfOrMore((min).toString())
+          : appL10n.enterAWholeNumberFromTo((min).toString(), (max).toString());
     }
     return null;
   }

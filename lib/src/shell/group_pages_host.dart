@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
@@ -65,8 +66,11 @@ class _GroupPagesHostState extends State<GroupPagesHost> {
       port: widget.port,
       registry: widget.registry,
     ),
-    GroupPagesPageKind.unknown => const Center(
-      child: Text('Unknown group route.', key: ValueKey('unknown-group-route')),
+    GroupPagesPageKind.unknown => Center(
+      child: Text(
+        context.l10n.unknownGroupRoute,
+        key: const ValueKey('unknown-group-route'),
+      ),
     ),
     GroupPagesPageKind.none => const SizedBox.shrink(),
   };
@@ -156,12 +160,10 @@ class _GroupDetailView extends StatelessWidget {
         if (!group.publicAdmission) {
           final confirmed = await showDiscourseAlertDialog<bool>(
             context: context,
-            title: Text('Leave ${group.label}?'),
-            description: const Text(
-              "You won't be able to join it again on your own.",
-            ),
-            cancelLabel: const Text('Cancel'),
-            actionLabel: const Text('Leave group'),
+            title: Text(appL10n.leaveGrouppageshost((group.label).toString())),
+            description: Text(appL10n.youWonTBeAbleToJoinItAgainOnYour),
+            cancelLabel: Text(appL10n.cancel),
+            actionLabel: Text(appL10n.leaveGroup),
             cancelResult: false,
             actionResult: true,
             actionKey: const ValueKey('confirm-leave-group'),
@@ -206,13 +208,18 @@ class _GroupDetailView extends StatelessWidget {
     final members = userCount == 1 ? 'member' : 'members';
     return showDiscourseAlertDialog<bool>(
       context: context,
-      title: const Text('Update existing members?'),
+      title: Text(appL10n.updateExistingMembers),
       description: Text(
-        'This change also affects the notification preferences of '
-        '$userCount existing $members. Apply it to them too?',
+        appL10n
+            .thisChangeAlsoAffectsTheNotificationPreferencesOfExistingApplyIt(
+              (userCount).toString(),
+              (members).toString(),
+            ),
       ),
-      cancelLabel: const Text('Only new members'),
-      actionLabel: Text('Update $userCount $members'),
+      cancelLabel: Text(appL10n.onlyNewMembers),
+      actionLabel: Text(
+        appL10n.update((userCount).toString(), (members).toString()),
+      ),
       cancelResult: false,
       actionResult: true,
       cancelKey: const ValueKey('keep-existing-member-preferences'),
@@ -367,12 +374,16 @@ class _MembershipRequestDialogState extends State<_MembershipRequestDialog> {
   @override
   Widget build(BuildContext context) => DDialogContent(
     key: const ValueKey('group-request-dialog'),
-    semanticLabel: 'Request to join ${widget.group.label}',
+    semanticLabel: context.l10n.requestToJoin((widget.group.label).toString()),
     maxWidth: 460,
     children: [
       DDialogHeader(
         children: [
-          DDialogTitle(child: Text('Request to join ${widget.group.label}')),
+          DDialogTitle(
+            child: Text(
+              context.l10n.requestToJoin((widget.group.label).toString()),
+            ),
+          ),
         ],
       ),
       DTextarea(
@@ -380,19 +391,19 @@ class _MembershipRequestDialogState extends State<_MembershipRequestDialog> {
         minLines: 3,
         maxLines: 8,
         autofocus: true,
-        labelText: 'Reason',
+        labelText: context.l10n.reason,
         onChanged: (_) => setState(() {}),
       ),
       DDialogFooter(
         children: [
           DButton(
-            label: const Text('Cancel'),
+            label: Text(context.l10n.cancel),
             variant: DButtonVariant.outline,
             onPressed: widget.controller.close,
           ),
           DButton(
             key: const ValueKey('send-group-request'),
-            label: const Text('Send request'),
+            label: Text(context.l10n.sendRequest),
             variant: DButtonVariant.primary,
             onPressed: _canSend
                 ? () => widget.controller.close(_reason.text)

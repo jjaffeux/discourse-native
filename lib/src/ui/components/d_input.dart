@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show BoxHeightStyle, SemanticsValidationResult;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -803,8 +804,8 @@ class DFileInput extends FormField<List<String>> {
     required this.onPick,
     this.size = DControlSize.regular,
     this.onChanged,
-    this.label = 'Choose file',
-    this.emptyLabel = 'No file chosen',
+    this._label,
+    this._emptyLabel,
     super.initialValue = const [],
     super.enabled = true,
     super.validator,
@@ -815,7 +816,9 @@ class DFileInput extends FormField<List<String>> {
   final DControlSize size;
   final Future<List<String>?> Function() onPick;
   final ValueChanged<List<String>>? onChanged;
-  final String label, emptyLabel;
+  final String? _label, _emptyLabel;
+  String get label => _label ?? appL10n.chooseFile;
+  String get emptyLabel => _emptyLabel ?? appL10n.noFileChosen;
   @override
   FormFieldState<List<String>> createState() => _DFileInputState();
 }
@@ -842,7 +845,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
       }
     } catch (_) {
       if (mounted && generation == _generation) {
-        setState(() => _pickerError = 'Could not choose a file. Try again.');
+        setState(() => _pickerError = appL10n.couldNotChooseAFileTryAgain);
       }
     } finally {
       if (mounted && generation == _generation) setState(() => _busy = false);
@@ -931,7 +934,7 @@ class _DFileInputState extends FormFieldState<List<String>> {
                               variant: DButtonVariant.ghost,
                               size: input.size,
                               label: Text(
-                                _busy ? 'Choosing…' : input.label,
+                                _busy ? appL10n.choosing : input.label,
                                 maxLines: 1,
                                 style: style.copyWith(
                                   fontWeight: FontWeight.w500,

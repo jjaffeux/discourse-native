@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'event_api.dart';
@@ -501,5 +502,5 @@ String eventError(Object error, {bool reading = false}) =>
     error is WriteException
     ? error.message
     : reading
-    ? 'Unable to load this event. Try again.'
-    : 'Unable to confirm the change. The event has been refreshed; check your response before trying again.';
+    ? appL10n.unableToLoadThisEventTryAgain
+    : appL10n.unableToConfirmTheChangeTheEventHasBeenRefreshedCheck;

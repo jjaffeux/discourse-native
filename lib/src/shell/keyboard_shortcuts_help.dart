@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,20 +10,14 @@ import 'shell_sheet.dart';
 Future<void> showKeyboardShortcuts(BuildContext context) async {
   await showShellSheet<void>(
     context: context,
-    title: 'Keyboard shortcuts',
+    title: appL10n.keyboardShortcuts,
     dialogOnDesktop: true,
     builder: (context) => SingleChildScrollView(
       key: const ValueKey('keyboard-shortcuts-help'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Shift+J and Shift+K select topics without opening them. '
-            'J and K move through posts in the open topic. '
-            'When no topic is open, J and K select topics in the list. '
-            'G then J or K opens the next or previous topic. '
-            'Navigation shortcuts pause while you type or use a menu.',
-          ),
+          Text(appL10n.shiftJAndShiftKSelectTopicsWithoutOpeningThemJ),
           const SizedBox(height: 16),
           for (final command in ReadingCommand.values)
             _ShortcutRow(
@@ -37,30 +32,33 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
             ),
           const DSeparator(),
           _ShortcutRow(
-            label: 'Back in current tab',
+            label: appL10n.backInCurrentTab,
             shortcuts: [contentBackShortcutForPlatform(defaultTargetPlatform)],
           ),
           _ShortcutRow(
-            label: 'Forward in current tab',
+            label: appL10n.forwardInCurrentTab,
             shortcuts: [
               contentForwardShortcutForPlatform(defaultTargetPlatform),
             ],
           ),
           _ShortcutRow(
-            label: 'Refresh current tab',
+            label: appL10n.refreshCurrentTab,
             shortcuts: [refreshTabShortcutForPlatform(defaultTargetPlatform)],
           ),
-          const _ShortcutRow(label: 'New topic', shortcuts: [newTopicShortcut]),
-          const _ShortcutRow(
-            label: 'Reply to topic',
-            shortcuts: [topicReplyShortcut],
-          ),
-          const _ShortcutRow(
-            label: 'Bookmark topic',
-            shortcuts: [topicBookmarkShortcut],
+          _ShortcutRow(
+            label: appL10n.newTopic,
+            shortcuts: const [newTopicShortcut],
           ),
           _ShortcutRow(
-            label: 'Submit composer',
+            label: appL10n.replyToTopic,
+            shortcuts: const [topicReplyShortcut],
+          ),
+          _ShortcutRow(
+            label: appL10n.bookmarkTopic,
+            shortcuts: const [topicBookmarkShortcut],
+          ),
+          _ShortcutRow(
+            label: appL10n.submitComposer,
             shortcuts: [
               primaryShortcutForPlatform(
                 defaultTargetPlatform,
@@ -68,16 +66,16 @@ Future<void> showKeyboardShortcuts(BuildContext context) async {
               ),
             ],
           ),
-          const _ShortcutRow(
-            label: 'Close composer',
-            shortcuts: [SingleActivator(LogicalKeyboardKey.escape)],
+          _ShortcutRow(
+            label: appL10n.closeComposer,
+            shortcuts: const [SingleActivator(LogicalKeyboardKey.escape)],
           ),
           _ShortcutRow(
-            label: 'Global search',
+            label: appL10n.globalSearch,
             shortcuts: [searchShortcutForPlatform(defaultTargetPlatform)],
           ),
           _ShortcutRow(
-            label: 'Contextual search',
+            label: appL10n.contextualSearch,
             shortcuts: [
               searchShortcutForPlatform(
                 defaultTargetPlatform,
@@ -116,7 +114,7 @@ class _ShortcutRow extends StatelessWidget {
             spacing: DSpacing.sm,
             children: [
               for (var i = 0; i < shortcuts.length; i++) ...[
-                if (i > 0) const Text('or'),
+                if (i > 0) Text(context.l10n.orAppsettingspage),
                 if (shortcuts[i] case final SingleActivator shortcut)
                   DShortcutKeycaps(
                     shortcut: prefix == null

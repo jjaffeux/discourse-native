@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -33,8 +34,8 @@ class ChatChannelInfoView extends StatelessWidget {
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
         if (channel == null) {
-          return const Center(
-            child: Text('This channel is no longer available.'),
+          return Center(
+            child: Text(context.l10n.thisChannelIsNoLongerAvailable),
           );
         }
 
@@ -128,10 +129,12 @@ class _ChannelInfoTabs extends StatelessWidget {
                         variant: DTabListVariant.line,
                         size: DControlSize.large,
                         children: [
-                          const DTabTrigger(
-                            key: ValueKey('chat-channel-info-settings-tab'),
+                          DTabTrigger(
+                            key: const ValueKey(
+                              'chat-channel-info-settings-tab',
+                            ),
                             value: ChatChannelInfoTab.settings,
-                            child: Text('Settings'),
+                            child: Text(context.l10n.settings),
                           ),
                           DTabTrigger(
                             key: const ValueKey(
@@ -140,8 +143,10 @@ class _ChannelInfoTabs extends StatelessWidget {
                             value: ChatChannelInfoTab.members,
                             child: Text(
                               channel.isCategoryChannel
-                                  ? 'Members (${channel.membershipsCount})'
-                                  : 'Members',
+                                  ? context.l10n.members(
+                                      (channel.membershipsCount).toString(),
+                                    )
+                                  : context.l10n.membersChatchannelinfoview,
                             ),
                           ),
                         ],
@@ -212,8 +217,8 @@ class _ChannelSettings extends StatelessWidget {
       valueListenable: chat.channelRef(siteUrl, channelId),
       builder: (context, channel, _) {
         if (channel == null) {
-          return const Center(
-            child: Text('This channel is no longer available.'),
+          return Center(
+            child: Text(context.l10n.thisChannelIsNoLongerAvailable),
           );
         }
         final canEdit = chat.canEditChannelMetadata(siteUrl, channelId);
@@ -273,17 +278,18 @@ class _ChannelSettings extends StatelessWidget {
                           if (channel.status == ChatChannelStatus.open &&
                               membership.following)
                             _InfoSection(
-                              title: 'Your notifications',
+                              title: context.l10n.yourNotifications,
                               children: [
                                 _InfoRow(
-                                  label: 'Mute channel',
-                                  description:
-                                      'Hide unread indicators and stop channel notifications.',
+                                  label: context.l10n.muteChannel,
+                                  description: context
+                                      .l10n
+                                      .hideUnreadIndicatorsAndStopChannelNotifications,
                                   action: DSwitch(
                                     key: const ValueKey(
                                       'chat-channel-muted-setting',
                                     ),
-                                    semanticLabel: 'Mute channel',
+                                    semanticLabel: context.l10n.muteChannel,
                                     value: membership.muted,
                                     onChanged: notificationBusy
                                         ? null
@@ -297,9 +303,10 @@ class _ChannelSettings extends StatelessWidget {
                                 ),
                                 if (!membership.muted)
                                   _InfoRow(
-                                    label: 'Push notifications',
-                                    description:
-                                        'Choose which activity should reach this device.',
+                                    label: context.l10n.pushNotifications,
+                                    description: context
+                                        .l10n
+                                        .chooseWhichActivityShouldReachThisDevice,
                                     action: SizedBox(
                                       width: 170,
                                       child:
@@ -325,27 +332,32 @@ class _ChannelSettings extends StatelessWidget {
                                                       );
                                                     }
                                                   },
-                                            entries: const [
+                                            entries: [
                                               DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .never,
-                                                label: 'Never',
-                                                child: Text('Never'),
+                                                label: context.l10n.never,
+                                                child: Text(context.l10n.never),
                                               ),
                                               DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .mention,
-                                                label: 'Mentions only',
-                                                child: Text('Mentions only'),
+                                                label:
+                                                    context.l10n.mentionsOnly,
+                                                child: Text(
+                                                  context.l10n.mentionsOnly,
+                                                ),
                                               ),
                                               DSelectOption(
                                                 value:
                                                     ChatChannelNotificationLevel
                                                         .always,
-                                                label: 'All activity',
-                                                child: Text('All activity'),
+                                                label: context.l10n.allActivity,
+                                                child: Text(
+                                                  context.l10n.allActivity,
+                                                ),
                                               ),
                                             ],
                                             initialValue:
@@ -359,17 +371,18 @@ class _ChannelSettings extends StatelessWidget {
                           if (channel.status == ChatChannelStatus.open &&
                               canEdit)
                             _InfoSection(
-                              title: 'Conversation',
+                              title: context.l10n.conversation,
                               children: [
                                 _InfoRow(
-                                  label: 'Threaded replies',
-                                  description:
-                                      'Replies open as separate conversations alongside the main channel.',
+                                  label: context.l10n.threadedReplies,
+                                  description: context
+                                      .l10n
+                                      .repliesOpenAsSeparateConversationsAlongsideTheMainChannel,
                                   action: DSwitch(
                                     key: const ValueKey(
                                       'chat-channel-threading-switch',
                                     ),
-                                    semanticLabel: 'Enable threads',
+                                    semanticLabel: context.l10n.enableThreads,
                                     value: channel.threadingEnabled,
                                     onChanged: settingsBusy
                                         ? null
@@ -381,13 +394,14 @@ class _ChannelSettings extends StatelessWidget {
                               ],
                             ),
                           _InfoSection(
-                            title: 'Channel information',
+                            title: context.l10n.channelInformation,
                             children: [
                               if (channel.isCategoryChannel)
                                 _InfoRow(
-                                  label: 'Category',
-                                  description:
-                                      'Controls visibility and membership rules.',
+                                  label: context.l10n.category,
+                                  description: context
+                                      .l10n
+                                      .controlsVisibilityAndMembershipRules,
                                   action: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -412,15 +426,16 @@ class _ChannelSettings extends StatelessWidget {
                                       Text(
                                         channel.categoryName ??
                                             channel.slug ??
-                                            'Category',
+                                            context.l10n.category,
                                       ),
                                     ],
                                   ),
                                 ),
                               _InfoRow(
-                                label: 'Message history',
-                                description:
-                                    'Messages are removed after the retention period.',
+                                label: context.l10n.messageHistory,
+                                description: context
+                                    .l10n
+                                    .messagesAreRemovedAfterTheRetentionPeriod,
                                 action: Text(
                                   _retentionLabel(
                                     channel.isDirectMessage
@@ -437,25 +452,29 @@ class _ChannelSettings extends StatelessWidget {
                           ),
                           if (canChangeStatus)
                             _InfoSection(
-                              title: 'Channel management',
+                              title: context.l10n.channelManagement,
                               children: [
                                 _InfoRow(
                                   label:
                                       channel.status == ChatChannelStatus.closed
-                                      ? 'Channel is closed.'
-                                      : 'Channel is open.',
+                                      ? context.l10n.channelIsClosed
+                                      : context.l10n.channelIsOpen,
                                   description:
                                       channel.status == ChatChannelStatus.closed
-                                      ? 'Opening lets members post in this channel again.'
-                                      : 'Closing prevents non-staff members from posting.',
+                                      ? context
+                                            .l10n
+                                            .openingLetsMembersPostInThisChannelAgain
+                                      : context
+                                            .l10n
+                                            .closingPreventsNonStaffMembersFromPosting,
                                   action: DButton(
                                     key: const ValueKey(
                                       'chat-channel-toggle-status',
                                     ),
                                     label: Text(
                                       channel.status == ChatChannelStatus.closed
-                                          ? 'Open channel'
-                                          : 'Close channel',
+                                          ? context.l10n.openChannel
+                                          : context.l10n.closeChannel,
                                     ),
                                     onPressed: () => unawaited(
                                       showChatChannelStatusDialog(
@@ -473,11 +492,14 @@ class _ChannelSettings extends StatelessWidget {
                             ),
                           if (membership.following && channel.isCategoryChannel)
                             _InfoSection(
-                              title: 'Leave this channel',
+                              title: context.l10n.leaveThisChannel,
                               children: [
                                 _InfoRow(
                                   value: Text(
-                                    'Remove ${channel.title} from your sidebar and stop following its conversations.',
+                                    context.l10n
+                                        .removeFromYourSidebarAndStopFollowingItsConversations(
+                                          (channel.title).toString(),
+                                        ),
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
@@ -489,14 +511,14 @@ class _ChannelSettings extends StatelessWidget {
                                   ),
                                   action: DButton(
                                     key: const ValueKey('chat-channel-leave'),
-                                    label: const Text('Leave channel'),
+                                    label: Text(context.l10n.leaveChannel),
                                     onPressed: () =>
                                         unawaited(_leave(context, channel)),
                                     icon: const DIcon(DIcons.rightFromBracket),
                                     variant: DButtonVariant.outline,
                                     size: DButtonSize.small,
                                     loading: followingBusy,
-                                    loadingLabel: const Text('Leaving…'),
+                                    loadingLabel: Text(context.l10n.leaving),
                                   ),
                                 ),
                               ],
@@ -515,7 +537,7 @@ class _ChannelSettings extends StatelessWidget {
   }
 
   static String _retentionLabel(int days) =>
-      days > 0 ? countLabel(days, 'day') : 'Forever';
+      days > 0 ? countLabel(days, CountNoun.day) : appL10n.forever;
 }
 
 class _ChannelSummary extends StatelessWidget {
@@ -566,7 +588,7 @@ class _ChannelSummary extends StatelessWidget {
                 const SizedBox(height: 2),
                 DText(
                   channel.description ??
-                      'Tell people what this channel is about.',
+                      context.l10n.tellPeopleWhatThisChannelIsAbout,
                   variant: DTextVariant.muted,
                 ),
                 const SizedBox(height: 4),
@@ -589,7 +611,7 @@ class _ChannelSummary extends StatelessWidget {
 
     Widget editButton() => DButton(
       key: const ValueKey('chat-channel-edit-details'),
-      label: const Text('Edit details'),
+      label: Text(context.l10n.editDetails),
       onPressed: onEdit,
       icon: const DIcon(DIcons.pencil),
       variant: DButtonVariant.outline,
@@ -881,10 +903,10 @@ class _ChannelMembersState extends State<_ChannelMembers> {
                   autofocus: true,
                   onChanged: _filterChanged,
                   textInputAction: TextInputAction.search,
-                  decoration: const InputDecoration(
-                    hintText: 'Filter members',
-                    prefixIcon: DIcon(DIcons.magnifyingGlass),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: context.l10n.filterMembers,
+                    prefixIcon: const DIcon(DIcons.magnifyingGlass),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
@@ -910,7 +932,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
             Text(error, textAlign: TextAlign.center),
             const SizedBox(height: 8),
             DButton(
-              label: const Text('Retry'),
+              label: Text(appL10n.retry),
               onPressed: () => unawaited(_load(reset: true)),
             ),
           ],
@@ -920,7 +942,9 @@ class _ChannelMembersState extends State<_ChannelMembers> {
     final hasFooter = _loading || _canLoadMore || _error != null;
     if (_members.isEmpty && !hasFooter) {
       return Center(
-        child: Text(_filter.isEmpty ? 'No members.' : 'No members found.'),
+        child: Text(
+          _filter.isEmpty ? appL10n.noMembers : appL10n.noMembersFound,
+        ),
       );
     }
     return ListView.builder(
@@ -949,7 +973,9 @@ class _ChannelMembersState extends State<_ChannelMembers> {
                             const SizedBox(height: 8),
                           ],
                           DButton(
-                            label: Text(_error == null ? 'Load more' : 'Retry'),
+                            label: Text(
+                              _error == null ? appL10n.loadMore : appL10n.retry,
+                            ),
                             onPressed: () => unawaited(_load()),
                           ),
                         ],

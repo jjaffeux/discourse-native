@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -70,7 +71,7 @@ class ChatChannelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
-    final title = channel?.title ?? 'Chat';
+    final title = channel?.title ?? context.l10n.chat;
     final direct = channel?.isDirectMessage == true;
     final user = direct && channel!.users.length == 1
         ? channel!.users.single
@@ -88,15 +89,17 @@ class ChatChannelHeader extends StatelessWidget {
     final secondary = theme.discourse.primaryHigh;
     final emphasis = TextStyle(color: secondary, fontWeight: FontWeight.w600);
     final metadata = <InlineSpan>[
-      TextSpan(text: direct ? 'Direct message' : 'Channel'),
+      TextSpan(
+        text: direct ? context.l10n.directMessage : context.l10n.channel,
+      ),
       if (stream.fetchedOnce || activity.messageCount > 0)
         TextSpan(
           children: [
             TextSpan(text: '${activity.messageCount}$suffix', style: emphasis),
             TextSpan(
               text: activity.messageCount == 1 && !partial
-                  ? ' message'
-                  : ' messages',
+                  ? context.l10n.messageChatchannelheader
+                  : context.l10n.messagesChatchannelheader,
             ),
           ],
         ),
@@ -105,7 +108,9 @@ class ChatChannelHeader extends StatelessWidget {
           children: [
             TextSpan(text: '$threadCount$suffix', style: emphasis),
             TextSpan(
-              text: threadCount == 1 && !partial ? ' thread' : ' threads',
+              text: threadCount == 1 && !partial
+                  ? context.l10n.threadChatchannelheader
+                  : context.l10n.threadsChatchannelheader,
             ),
           ],
         ),
@@ -113,7 +118,9 @@ class ChatChannelHeader extends StatelessWidget {
         TextSpan(
           children: [
             TextSpan(
-              text: 'last ${_dayLabel(latest, now ?? DateTime.now())} at ',
+              text: context.l10n.lastAt(
+                (_dayLabel(latest, now ?? DateTime.now())).toString(),
+              ),
             ),
             TextSpan(
               text: clockTimeLabel(context, latest.toLocal()).toLowerCase(),
@@ -135,7 +142,7 @@ class ChatChannelHeader extends StatelessWidget {
             variant: DButtonVariant.inline,
             density: DButtonDensity.backLink,
             icon: const DIcon(DIcons.chevronLeft),
-            label: const Text('Chat'),
+            label: Text(context.l10n.chat),
             onPressed: onBack,
           ),
           const SizedBox(height: 10),
@@ -158,7 +165,7 @@ class ChatChannelHeader extends StatelessWidget {
                 child: DButton(
                   key: const ValueKey('content-header-title-action'),
                   variant: DButtonVariant.inline,
-                  semanticLabel: 'Open $title details',
+                  semanticLabel: context.l10n.openDetails((title).toString()),
                   onPressed: onOpenDetails,
                   label: DText(
                     title,

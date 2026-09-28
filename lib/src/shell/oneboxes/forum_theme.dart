@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -24,12 +25,10 @@ Widget? forumThemeOneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   }
   final theme = ForumThemeShare.decode(code.text);
   if (theme == null) {
-    return const DAlert(
+    return DAlert(
       variant: DAlertVariant.destructive,
       description: DAlertDescription(
-        child: Text(
-          'This shared theme is incomplete or invalid. Ask for a new copy.',
-        ),
+        child: Text(appL10n.thisSharedThemeIsIncompleteOrInvalidAskForANew),
       ),
     );
   }
@@ -121,7 +120,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
       }
     } catch (_) {
       if (mounted && operation == _operation) {
-        setState(() => _error = 'Could not save theme. Try again.');
+        setState(() => _error = appL10n.couldNotSaveThemeTryAgain);
       }
     } finally {
       if (mounted && operation == _operation) setState(() => _busy = false);
@@ -163,7 +162,9 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                 MediaQuery.textScalerOf(context).scale(14) >= 23;
             final thumbnail = Semantics(
               image: true,
-              label: '${widget.theme.name} forum appearance preview',
+              label: context.l10n.forumAppearancePreview(
+                (widget.theme.name).toString(),
+              ),
               child: ColoredBox(
                 color: preview.shell.sidebar,
                 child: Padding(
@@ -187,7 +188,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Custom theme',
+                    context.l10n.customTheme,
                     style: host.textTheme.bodySmall?.copyWith(
                       color: tokens.mutedForeground,
                     ),
@@ -211,24 +212,24 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                       ),
                       DToggleGroup<Brightness>(
                         key: const ValueKey('shared-theme-appearance'),
-                        semanticLabel: 'Theme preview appearance',
+                        semanticLabel: context.l10n.themePreviewAppearance,
                         values: [brightness],
                         allowEmptySelection: false,
                         variant: DToggleVariant.outline,
                         size: DToggleSize.small,
                         spacing: 0,
-                        items: const [
+                        items: [
                           DToggleGroupItem.iconOnly(
                             value: Brightness.light,
-                            icon: Icon(Icons.light_mode_outlined),
-                            semanticLabel: 'Preview light theme',
-                            tooltip: 'Light preview',
+                            icon: const Icon(Icons.light_mode_outlined),
+                            semanticLabel: context.l10n.previewLightTheme,
+                            tooltip: context.l10n.lightPreview,
                           ),
                           DToggleGroupItem.iconOnly(
                             value: Brightness.dark,
-                            icon: Icon(Icons.dark_mode_outlined),
-                            semanticLabel: 'Preview dark theme',
-                            tooltip: 'Dark preview',
+                            icon: const Icon(Icons.dark_mode_outlined),
+                            semanticLabel: context.l10n.previewDarkTheme,
+                            tooltip: context.l10n.darkPreview,
                           ),
                         ],
                         onChanged: (values) =>
@@ -244,15 +245,19 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                       DButton(
                         size: DButtonSize.post,
                         key: const ValueKey('use-shared-theme'),
-                        label: Text(using ? 'Using theme' : 'Use theme'),
+                        label: Text(
+                          using
+                              ? context.l10n.usingTheme
+                              : context.l10n.useTheme,
+                        ),
                         icon: DIcon(using ? DIcons.check : DIcons.chevronRight),
                         iconPosition: using
                             ? DButtonIconPosition.start
                             : DButtonIconPosition.end,
                         loading: _busy,
-                        loadingSemanticLabel: 'Saving theme',
+                        loadingSemanticLabel: context.l10n.savingTheme,
                         tooltip: settings == null || site == null
-                            ? 'Open this theme in a connected forum.'
+                            ? context.l10n.openThisThemeInAConnectedForum
                             : null,
                         onPressed:
                             using || settings == null || site == null || _busy
@@ -262,7 +267,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                       if (using && _canUndo)
                         DButton(
                           size: DButtonSize.post,
-                          label: const Text('Undo'),
+                          label: Text(context.l10n.undo),
                           variant: DButtonVariant.transparentBackground,
                           onPressed: _busy
                               ? null

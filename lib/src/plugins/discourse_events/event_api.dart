@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'event_data.dart';
 
 final class EventApi {
@@ -24,7 +26,7 @@ final class EventApi {
     );
     final event = PostEvent.decode(json['event']);
     if (event == null || event.id != id || event.topicId == null) {
-      throw const FormatException('Invalid event response');
+      throw FormatException(appL10n.invalidEventResponse);
     }
     return event;
   }
@@ -65,7 +67,7 @@ final class EventApi {
       clientId: credentials.clientId,
     );
     if (json['events'] is! List) {
-      throw const FormatException('Invalid event list');
+      throw FormatException(appL10n.invalidEventList);
     }
     return List.unmodifiable([
       for (final raw in json['events'] as List) ?PostEvent.decode(raw),
@@ -90,7 +92,7 @@ final class EventApi {
       clientId: credentials.clientId,
     );
     if (json['invitees'] is! List) {
-      throw const FormatException('Invalid participant list');
+      throw FormatException(appL10n.invalidParticipantList);
     }
     return List.unmodifiable([
       for (final raw in json['invitees'] as List) ?EventInvitee.decode(raw),

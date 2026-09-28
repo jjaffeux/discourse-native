@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -42,10 +43,10 @@ class MessageCreateButton extends StatelessWidget {
       final button = showLabel
           ? DButton(
               key: const ValueKey('new-message-button'),
-              label: const Text('New message', softWrap: true, maxLines: 2),
+              label: Text(context.l10n.newMessage, softWrap: true, maxLines: 2),
               shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
-              tooltip: 'New message',
+              tooltip: context.l10n.newMessage,
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
               density: density,
@@ -55,7 +56,7 @@ class MessageCreateButton extends StatelessWidget {
               shape: pill ? DButtonShape.pill : DButtonShape.rounded,
               key: const ValueKey('new-message-button'),
               icon: DIcon(pill ? DIcons.plus : DIcons.farPenToSquare),
-              tooltip: 'New message',
+              tooltip: context.l10n.newMessage,
               variant: DButtonVariant.primary,
               size: DButtonSize.action,
               density: density,

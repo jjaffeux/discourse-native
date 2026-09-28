@@ -822,18 +822,18 @@ void main() {
     });
 
     test('keeps recommendations when a partial refetch omits them', () {
-      const recommendations = TopicRecommendations(
+      final recommendations = TopicRecommendations(
         sources: [
           TopicRecommendationSource(
             definition: coreSuggestedTopicRecommendationSource,
-            topics: [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
+            topics: const [Topic(id: 8, title: 'Suggested', slug: 'suggested')],
           ),
         ],
       );
-      const held = TopicDetail(
+      final held = TopicDetail(
         id: 7,
         title: 'A real topic',
-        stream: [1],
+        stream: const [1],
         recommendations: recommendations,
       );
 

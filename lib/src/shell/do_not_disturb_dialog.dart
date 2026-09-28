@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/do_not_disturb.dart';
@@ -111,8 +112,8 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
     );
     if (!opened && toast?.isDisposed == false && ownsAccount()) {
       toast!.add(
-        const DToastOptions(
-          description: 'Could not open notification preferences.',
+        DToastOptions(
+          description: appL10n.couldNotOpenNotificationPreferences,
           type: DToastType.error,
         ),
       );
@@ -123,7 +124,7 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Pause notifications for…'),
+      title: Text(context.l10n.pauseNotificationsFor),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Column(
@@ -165,11 +166,11 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
       ),
       actions: [
         DButton(
-          label: const Text('Set a notification schedule'),
+          label: Text(context.l10n.setANotificationSchedule),
           onPressed: _saving == null ? _openSchedule : null,
         ),
         DButton(
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
           onPressed: _saving == null ? () => Navigator.of(context).pop() : null,
         ),
       ],

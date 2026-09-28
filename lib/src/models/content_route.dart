@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icon.dart';
@@ -11,14 +12,14 @@ import 'site_config.dart';
 import 'topic.dart';
 
 enum TopPeriod {
-  all('all', 'All time'),
-  yearly('yearly', 'Year'),
-  quarterly('quarterly', 'Quarter'),
-  monthly('monthly', 'Month'),
-  weekly('weekly', 'Week'),
-  daily('daily', 'Today');
+  all('all'),
+  yearly('yearly'),
+  quarterly('quarterly'),
+  monthly('monthly'),
+  weekly('weekly'),
+  daily('daily');
 
-  const TopPeriod(this.queryValue, this.label);
+  const TopPeriod(this.queryValue);
 
   static TopPeriod fromQueryValue(String value) => values.firstWhere(
     (period) => period.queryValue == value,
@@ -26,7 +27,14 @@ enum TopPeriod {
   );
 
   final String queryValue;
-  final String label;
+  String get label => switch (this) {
+    all => appL10n.allTime,
+    yearly => appL10n.year,
+    quarterly => appL10n.quarter,
+    monthly => appL10n.month,
+    weekly => appL10n.week,
+    daily => appL10n.todayDcalendarevents,
+  };
 }
 
 enum TopicListMode {
@@ -145,14 +153,19 @@ enum TopicListMode {
 }
 
 enum MessageListMode {
-  inbox('Inbox'),
-  unread('Unread'),
-  sent('Sent'),
-  archive('Archive');
+  inbox(),
+  unread(),
+  sent(),
+  archive();
 
-  const MessageListMode(this.label);
+  const MessageListMode();
 
-  final String label;
+  String get label => switch (this) {
+    inbox => appL10n.inbox,
+    unread => appL10n.unread,
+    sent => appL10n.sent,
+    archive => appL10n.archive,
+  };
 
   bool get supportsGroup => this != sent;
 
@@ -223,28 +236,25 @@ class ContentRoute {
   factory ContentRoute.badges(BadgeRoute route, {String? title}) =>
       ContentRoute(
         id: route.id,
-        title: title ?? (route.isDirectory ? 'Badges' : 'Badge'),
+        title: title ?? (route.isDirectory ? appL10n.badges : appL10n.badge),
         icon: DIcons.certificate,
         badgeRoute: route,
       );
 
-  factory ContentRoute.preferences() => const ContentRoute(
+  factory ContentRoute.preferences() => ContentRoute(
     id: 'preferences',
-    title: 'Preferences',
+    title: appL10n.preferences,
     icon: DIcons.gear,
   );
 
-  factory ContentRoute.newTab() => const ContentRoute(
-    id: 'new-tab',
-    title: 'Start page',
-    icon: DIcons.house,
-  );
+  factory ContentRoute.newTab() =>
+      ContentRoute(id: 'new-tab', title: appL10n.startPage, icon: DIcons.house);
 
   bool get isNewTab => id == 'new-tab';
 
-  factory ContentRoute.appearance() => const ContentRoute(
+  factory ContentRoute.appearance() => ContentRoute(
     id: 'appearance',
-    title: 'Settings',
+    title: appL10n.settings,
     icon: DIcons.gear,
   );
 
@@ -254,20 +264,20 @@ class ContentRoute {
     String? feedPath,
   }) => ContentRoute(
     id: route.id,
-    title: title ?? route.groupName ?? 'Groups',
+    title: title ?? route.groupName ?? appL10n.groups,
     icon: DIcons.users,
     feedPath: feedPath,
     groupRoute: route,
   );
 
-  factory ContentRoute.allCategories() => const ContentRoute(
+  factory ContentRoute.allCategories() => ContentRoute(
     id: 'all-categories',
-    title: 'Categories',
+    title: appL10n.categories,
     icon: DIcons.layerGroup,
   );
 
   factory ContentRoute.userActivity() =>
-      const ContentRoute(id: 'activity', title: 'Activity', icon: DIcons.list);
+      ContentRoute(id: 'activity', title: appL10n.activity, icon: DIcons.list);
 
   factory ContentRoute.messages({
     String? groupName,
@@ -283,7 +293,7 @@ class ContentRoute {
     }
     return ContentRoute(
       id: _messageRouteId(group, mode),
-      title: 'Messages',
+      title: appL10n.messages,
       icon: DIcons.inbox,
       messageGroupName: group,
     );
@@ -299,7 +309,7 @@ class ContentRoute {
 
   factory ContentRoute.topicList(TopicListMode mode) => ContentRoute(
     id: mode.routeId,
-    title: 'Topics',
+    title: appL10n.topics,
     icon: DIcons.layerGroup,
     feedPath: mode.feedPath,
   );
@@ -327,7 +337,7 @@ class ContentRoute {
     );
     return ContentRoute(
       id: 'topic-list-filter-$uri',
-      title: 'Topics',
+      title: appL10n.topics,
       icon: DIcons.layerGroup,
       feedPath: uri.toString(),
     );
@@ -349,7 +359,7 @@ class ContentRoute {
     );
     return ContentRoute(
       id: 'topic-list-filter-$uri',
-      title: 'Topics',
+      title: appL10n.topics,
       icon: DIcons.layerGroup,
       feedPath: uri.toString(),
     );
@@ -397,7 +407,7 @@ class ContentRoute {
 
   ContentRoute.fromDestination(SidebarDestination destination)
     : id = destination.id == 'filter' ? 'latest' : destination.id,
-      title = destination.id == 'filter' ? 'Topics' : destination.label,
+      title = destination.id == 'filter' ? appL10n.topics : destination.label,
       icon = destination.icon,
       subtitle = null,
       color = destination.routeColor ?? destination.color,
@@ -420,14 +430,16 @@ class ContentRoute {
   String get tabTitle {
     if (isAdvancedTopicFilter) return title;
     return switch (TopicListMode.fromRoute(this)) {
-      TopicListMode.latest => 'Latest',
-      TopicListMode.newActivity => 'New',
-      TopicListMode.newTopics => 'New - topics',
-      TopicListMode.newReplies => 'New - replies',
-      TopicListMode.unread => 'Unread',
-      TopicListMode.unseen => 'Unseen',
-      TopicListMode.popular => 'Trending',
-      final mode? => 'Top - ${mode.topPeriod!.label.toLowerCase()}',
+      TopicListMode.latest => appL10n.latest,
+      TopicListMode.newActivity => appL10n.messageNew,
+      TopicListMode.newTopics => appL10n.newTopicsContentroute,
+      TopicListMode.newReplies => appL10n.newRepliesContentroute,
+      TopicListMode.unread => appL10n.unread,
+      TopicListMode.unseen => appL10n.unseen,
+      TopicListMode.popular => appL10n.trending,
+      final mode? => appL10n.topContentroute(
+        (mode.topPeriod!.label.toLowerCase()).toString(),
+      ),
       null => title,
     };
   }
@@ -707,7 +719,7 @@ class ContentRoute {
         id.isEmpty ||
         title is! String ||
         iconName is! String) {
-      throw const FormatException('Invalid content route');
+      throw FormatException(appL10n.invalidContentRoute);
     }
 
     final colorValue = json['color'];
@@ -717,13 +729,13 @@ class ContentRoute {
     final messageGroupName = json['message_group_name'];
     final rawGroupRoute = json['group_route'];
     if (topicId != null && (topicId is! int || topicId <= 0)) {
-      throw const FormatException('Invalid content route topic id');
+      throw FormatException(appL10n.invalidContentRouteTopicId);
     }
     if (postNumber != null && (postNumber is! int || postNumber <= 0)) {
-      throw const FormatException('Invalid content route post number');
+      throw FormatException(appL10n.invalidContentRoutePostNumber);
     }
     if (feedPath != null && !_isSafeFeedPath(feedPath)) {
-      throw const FormatException('Invalid content route feed path');
+      throw FormatException(appL10n.invalidContentRouteFeedPath);
     }
     if (messageGroupName != null &&
         (messageGroupName is! String ||
@@ -736,7 +748,7 @@ class ContentRoute {
                   mode.supportsGroup &&
                   id == _messageRouteId(messageGroupName, mode),
             ))) {
-      throw const FormatException('Invalid content route message group');
+      throw FormatException(appL10n.invalidContentRouteMessageGroup);
     }
     final GroupRoute? groupRoute;
     if (rawGroupRoute == null) {
@@ -746,10 +758,10 @@ class ContentRoute {
         Map<String, dynamic>.from(rawGroupRoute),
       );
       if (topicId != null || messageGroupName != null || id != groupRoute.id) {
-        throw const FormatException('Invalid content group route');
+        throw FormatException(appL10n.invalidContentGroupRoute);
       }
     } else {
-      throw const FormatException('Invalid content group route');
+      throw FormatException(appL10n.invalidContentGroupRoute);
     }
     final rawBadgeRoute = json['badge_route'];
     final BadgeRoute? badgeRoute;
@@ -762,16 +774,16 @@ class ContentRoute {
           groupRoute != null ||
           feedPath != null ||
           id != badgeRoute.id) {
-        throw const FormatException('Invalid content badge route');
+        throw FormatException(appL10n.invalidContentBadgeRoute);
       }
     } else {
-      throw const FormatException('Invalid content badge route');
+      throw FormatException(appL10n.invalidContentBadgeRoute);
     }
     final route = ContentRoute(
       id: id,
       openInSecondaryPanel: json['open_in_secondary_panel'] == true,
       openInMainPanel: json['open_in_main_panel'] == true,
-      title: id == 'new-tab' ? 'Start page' : title,
+      title: id == 'new-tab' ? appL10n.startPage : title,
       // Upgrade the speech bubble saved by older topic tabs without changing
       // the durable icon of routes that deliberately chose another glyph.
       icon:

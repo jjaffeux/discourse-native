@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/aggregate_preferences_store.dart';
@@ -558,7 +559,9 @@ final class AggregateFeedController extends FrameSafeNotifier {
                 return;
               }
               final instance = forums[index].instance;
-              failures[instance.url] = "Couldn't refresh ${instance.host}.";
+              failures[instance.url] = appL10n.couldnTRefresh(
+                (instance.host).toString(),
+              );
               _report(error, stackTrace, 'aggregate.loadForum');
             })
             .whenComplete(() {
@@ -702,8 +705,9 @@ final class AggregateFeedController extends FrameSafeNotifier {
               if (!_ownsSource(tab, source, revision)) return;
               source.complete = true;
               source.nextPagePath = null;
-              failures[source.instance.url] =
-                  "Couldn't load more from ${source.instance.host}.";
+              failures[source.instance.url] = appL10n.couldnTLoadMoreFrom(
+                (source.instance.host).toString(),
+              );
               _report(error, stackTrace, 'aggregate.loadPage');
             }),
         ]);

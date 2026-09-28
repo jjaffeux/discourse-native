@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -59,7 +60,7 @@ class DSheet<T> extends StatelessWidget {
     this.dismissOnBarrier = true,
     this.dismissOnEscape = true,
     this.dismissOnSwipe = true,
-    this.barrierLabel = 'Dismiss sheet',
+    this._barrierLabel,
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
@@ -86,7 +87,8 @@ class DSheet<T> extends StatelessWidget {
   /// Allows touch drags down from a bottom sheet's header or the top of its
   /// scrollable content on mobile. Uses the same close request as [DSheetClose].
   final bool dismissOnSwipe;
-  final String barrierLabel;
+  final String? _barrierLabel;
+  String get barrierLabel => _barrierLabel ?? appL10n.dismissSheet;
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
@@ -149,7 +151,7 @@ class DSheetViewport extends StatelessWidget {
         DDialogPresentation(
           content: content,
           animation: const AlwaysStoppedAnimation(1),
-          barrierLabel: 'Sheet background',
+          barrierLabel: context.l10n.sheetBackground,
           dismissOnBarrier: false,
           onBarrierDismiss: () {},
         ),
@@ -831,7 +833,7 @@ class DSheetContent extends StatelessWidget {
     this.side = DSheetSide.right,
     this.showCloseButton = true,
     this.closeButton,
-    this.closeSemanticLabel = 'Close',
+    this._closeSemanticLabel,
     this.semanticLabel,
     this.backgroundColor,
     this.sidePanelMaxWidth = 384,
@@ -861,7 +863,8 @@ class DSheetContent extends StatelessWidget {
   final DSheetSide side;
   final bool showCloseButton;
   final Widget? closeButton;
-  final String closeSemanticLabel;
+  final String? _closeSemanticLabel;
+  String get closeSemanticLabel => _closeSemanticLabel ?? appL10n.close;
   final String? semanticLabel;
 
   /// The surface fill override.
@@ -1273,7 +1276,7 @@ Future<T?> showDSheet<T>({
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
   bool dismissOnSwipe = true,
-  String barrierLabel = 'Dismiss sheet',
+  String? barrierLabel,
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
@@ -1288,7 +1291,7 @@ Future<T?> showDSheet<T>({
     modal: modal,
     dismissOnBarrier: dismissOnBarrier,
     dismissOnEscape: dismissOnEscape,
-    barrierLabel: barrierLabel,
+    barrierLabel: barrierLabel ?? appL10n.dismissSheet,
     routeSettings: routeSettings,
     initialFocusNode: initialFocusNode,
     finalFocusNode: finalFocusNode,

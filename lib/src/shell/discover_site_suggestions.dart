@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../data/discover_sites.dart';
@@ -51,7 +52,7 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
         const DSeparator(),
         const SizedBox(height: DSpacing.lg),
         Text(
-          'Suggested communities',
+          context.l10n.suggestedCommunities,
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
@@ -67,7 +68,7 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                 child: Column(
                   children: [
                     Text(
-                      'Suggestions are unavailable right now.',
+                      context.l10n.suggestionsAreUnavailableRightNow,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: tokens.mutedForeground,
                       ),
@@ -75,7 +76,7 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                     const SizedBox(height: DSpacing.sm),
                     DButton(
                       variant: DButtonVariant.outline,
-                      label: const Text('Try again'),
+                      label: Text(context.l10n.tryAgain),
                       onPressed: () => setState(() {
                         _load = widget.source.load();
                       }),
@@ -138,7 +139,8 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
                     );
                     return loading
                         ? DSkeletonRegion(
-                            semanticsLabel: 'Loading suggested communities',
+                            semanticsLabel:
+                                context.l10n.loadingSuggestedCommunities,
                             color: skeletonFill(
                               context,
                               on: SkeletonSurface.floating,
@@ -156,7 +158,7 @@ class _DiscoverSiteSuggestionsState extends State<DiscoverSiteSuggestions> {
         Center(
           child: DButton(
             variant: DButtonVariant.link,
-            label: const Text('Discover more communities'),
+            label: Text(context.l10n.discoverMoreCommunities),
             icon: const DIcon(DIcons.upRightFromSquare, size: 12),
             iconPosition: DButtonIconPosition.end,
             onPressed: () => openExternalLink(DiscoverSites.browseUrl),

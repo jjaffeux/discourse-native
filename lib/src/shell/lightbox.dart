@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -312,8 +313,8 @@ class LightboxTile extends StatelessWidget {
             : null;
         final label = switch (image.description) {
           final description? when description.isNotEmpty =>
-            'Open image: $description',
-          _ => 'Open image',
+            context.l10n.openImageLightbox((description).toString()),
+          _ => context.l10n.openImageLightboxValue,
         };
         void activate() => open(context);
         final thumbnail = image.thumbnailSrc;
@@ -471,7 +472,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       final filename = imageDownloadFilename(title: image.title, url: url);
       DToast.show(
         context,
-        'Saved $filename.',
+        appL10n.saved((filename).toString()),
         id: 'image-download',
         type: DToastType.success,
       );
@@ -480,7 +481,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       if (mounted) {
         DToast.show(
           context,
-          "Couldn't download image.",
+          appL10n.couldnTDownloadImage,
           id: 'image-download',
           type: DToastType.error,
         );
@@ -980,26 +981,32 @@ class _Chrome extends StatelessWidget {
                 const Spacer(),
               _Button(
                 icon: DIcons.circleMinus,
-                tooltip: 'Zoom out',
+                tooltip: context.l10n.zoomOut,
                 onTap: onZoomOut,
               ),
               _Button(
                 icon: DIcons.expand,
-                tooltip: 'Reset zoom',
+                tooltip: context.l10n.resetZoom,
                 onTap: onResetZoom,
               ),
               _Button(
                 icon: DIcons.circlePlus,
-                tooltip: 'Zoom in',
+                tooltip: context.l10n.zoomIn,
                 onTap: onZoomIn,
               ),
               if (downloadHref != null)
                 _Button(
                   icon: DIcons.download,
-                  tooltip: downloading ? 'Downloading…' : 'Download',
+                  tooltip: downloading
+                      ? context.l10n.downloading
+                      : context.l10n.download,
                   onTap: downloading ? null : onDownload,
                 ),
-              _Button(icon: DIcons.xmark, tooltip: 'Close', onTap: onClose),
+              _Button(
+                icon: DIcons.xmark,
+                tooltip: context.l10n.close,
+                onTap: onClose,
+              ),
             ],
           ),
         ),
@@ -1096,7 +1103,9 @@ class _Arrow extends StatelessWidget {
           onPressed: enabled ? onTap : null,
           variant: DButtonVariant.secondary,
           size: DButtonSize.large,
-          tooltip: icon == DIcons.chevronLeft ? 'Previous image' : 'Next image',
+          tooltip: icon == DIcons.chevronLeft
+              ? context.l10n.previousImage
+              : context.l10n.nextImage,
           icon: DIcon(icon),
         ),
       ),

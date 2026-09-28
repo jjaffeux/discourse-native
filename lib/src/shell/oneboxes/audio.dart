@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -29,10 +30,10 @@ class AudioOneboxData {
     try {
       filename = source.pathSegments.lastWhere(
         (part) => part.isNotEmpty,
-        orElse: () => 'Audio',
+        orElse: () => appL10n.audio,
       );
     } on FormatException {
-      filename = 'Audio';
+      filename = appL10n.audio;
     }
     return AudioOneboxData(
       source: source,

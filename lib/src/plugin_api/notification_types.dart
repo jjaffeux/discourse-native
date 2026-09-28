@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
@@ -317,7 +318,7 @@ ResolvedNotification fallbackNotification(DiscourseNotification notification) =>
       presentation: NotificationPresentation(
         icon: DIcons.bell,
         phrase: notification.title.isEmpty
-            ? 'New notification'
+            ? appL10n.newNotification
             : notification.title,
       ),
       path: notificationTopicPath(notification),
@@ -339,7 +340,7 @@ ResolvedNotification? _decodeCoreNotification(
   final type = notification.typeId.value;
   final data = notification.data;
   final title = _coreTopicTitle(notification);
-  final group = jsonText(data['group_name']) ?? 'a group';
+  final group = jsonText(data['group_name']) ?? appL10n.aGroup;
   final count = jsonInt(data['count'] ?? data['inbox_count']);
   final namesActor = switch (type) {
     12 ||
@@ -362,35 +363,44 @@ ResolvedNotification? _decodeCoreNotification(
                   data['username'] ??
                   data['original_username'],
             ) ??
-            'Someone'
+            appL10n.someone
       : null;
   final phrase = switch (type) {
-    1 || 15 => 'mentioned you in $title',
-    2 => 'replied to $title',
-    3 => 'quoted you in $title',
-    4 => 'edited your post in $title',
-    5 => 'liked your post in $title',
-    19 => 'liked ${_posts(count)}',
-    39 => 'linked ${_posts(count)}',
-    11 => 'linked to your post from $title',
-    6 => 'sent you $title',
-    7 || 13 => 'invited you to $title',
-    8 => 'accepted your invitation',
-    9 || 36 => 'posted in $title',
-    17 => 'created $title',
-    10 => 'moved $title',
+    1 || 15 => appL10n.mentionedYouInNotificationtypes((title).toString()),
+    2 => appL10n.repliedTo((title).toString()),
+    3 => appL10n.quotedYouIn((title).toString()),
+    4 => appL10n.editedYourPostIn((title).toString()),
+    5 => appL10n.likedYourPostIn((title).toString()),
+    19 => appL10n.liked((_posts(count)).toString()),
+    39 => appL10n.linked((_posts(count)).toString()),
+    11 => appL10n.linkedToYourPostFrom((title).toString()),
+    6 => appL10n.sentYou((title).toString()),
+    7 || 13 => appL10n.invitedYouToNotificationtypes((title).toString()),
+    8 => appL10n.acceptedYourInvitation,
+    9 || 36 => appL10n.postedIn((title).toString()),
+    17 => appL10n.created((title).toString()),
+    10 => appL10n.moved((title).toString()),
     12 => switch (jsonText(data['badge_name'])) {
-      final badge? => 'You earned the $badge badge',
-      null => 'You earned a badge',
+      final badge? => appL10n.youEarnedTheBadge((badge).toString()),
+      null => appL10n.youEarnedABadge,
     },
-    16 => '${countLabel(count, 'message')} in your $group inbox',
-    22 => "You're now a member of $group",
-    23 => '${countLabel(count, 'membership request')} for $group',
-    18 || 24 => 'Reminder: ${_reminderTitle(notification)}',
-    20 => 'Your post in $title was approved',
-    37 => 'New features are available',
-    38 => 'There is new advice on your site dashboard',
-    14 => notification.title.isEmpty ? 'New notification' : notification.title,
+    16 => appL10n.inYourInbox(
+      (countLabel(count, CountNoun.message)).toString(),
+      (group).toString(),
+    ),
+    22 => appL10n.youReNowAMemberOf((group).toString()),
+    23 => appL10n.messageFor(
+      (countLabel(count, CountNoun.membershipRequest)).toString(),
+      (group).toString(),
+    ),
+    18 || 24 => appL10n.reminderNotificationtypes(
+      (_reminderTitle(notification)).toString(),
+    ),
+    20 => appL10n.yourPostInWasApproved((title).toString()),
+    37 => appL10n.newFeaturesAreAvailable,
+    38 => appL10n.thereIsNewAdviceOnYourSiteDashboard,
+    14 =>
+      notification.title.isEmpty ? appL10n.newNotification : notification.title,
     41 => _upcomingChangePhrase(data, automaticallyPromoted: false),
     42 => _upcomingChangePhrase(data, automaticallyPromoted: true),
     _ => null,
@@ -492,7 +502,7 @@ String? _corePath(String siteUrl, DiscourseNotification notification) {
 String _coreTopicTitle(DiscourseNotification notification) {
   final payloadTitle = notification.data['topic_title'];
   if (payloadTitle is String && payloadTitle.isNotEmpty) return payloadTitle;
-  return notification.title.isEmpty ? 'a topic' : notification.title;
+  return notification.title.isEmpty ? appL10n.aTopic : notification.title;
 }
 
 /// A reminder names what was bookmarked. A post or topic bookmark carries
@@ -507,7 +517,7 @@ String _reminderTitle(DiscourseNotification notification) {
   if (notification.title.isNotEmpty) return notification.title;
   final title = data['title'];
   if (title is String && title.isNotEmpty) return title;
-  return 'a topic';
+  return appL10n.aTopic;
 }
 
 String _upcomingChangePhrase(
@@ -523,24 +533,36 @@ String _upcomingChangePhrase(
 
   if (names.isEmpty) {
     return automaticallyPromoted
-        ? 'Upcoming changes were automatically enabled'
-        : 'Upcoming changes are available for preview';
+        ? appL10n.upcomingChangesWereAutomaticallyEnabled
+        : appL10n.upcomingChangesAreAvailableForPreview;
   }
   if (count <= 1) {
     return automaticallyPromoted
-        ? "'${names.first}' has been automatically enabled"
-        : "'${names.first}' is available for preview";
+        ? appL10n.hasBeenAutomaticallyEnabled((names.first).toString())
+        : appL10n.isAvailableForPreview((names.first).toString());
   }
   if (count == 2 && names.length > 1) {
     return automaticallyPromoted
-        ? "'${names[0]}' and '${names[1]}' were automatically enabled"
-        : "'${names[0]}' and '${names[1]}' are available for preview";
+        ? appL10n.andWereAutomaticallyEnabled(
+            (names[0]).toString(),
+            (names[1]).toString(),
+          )
+        : appL10n.andAreAvailableForPreview(
+            (names[0]).toString(),
+            (names[1]).toString(),
+          );
   }
 
   final otherCount = count - 1;
   return automaticallyPromoted
-      ? "'${names.first}' and $otherCount more changes were automatically enabled"
-      : "'${names.first}' and $otherCount more changes are available for preview";
+      ? appL10n.andMoreChangesWereAutomaticallyEnabled(
+          (names.first).toString(),
+          (otherCount).toString(),
+        )
+      : appL10n.andMoreChangesAreAvailableForPreview(
+          (names.first).toString(),
+          (otherCount).toString(),
+        );
 }
 
 String _upcomingChangePath(Map<String, Object?> data) {
@@ -605,5 +627,6 @@ bool _isAsciiBadgeSlugCodeUnit(int value) =>
     value == 0x5F ||
     (value >= 0x61 && value <= 0x7A);
 
-String _posts(int count) =>
-    count <= 1 ? 'one of your posts' : '$count of your posts';
+String _posts(int count) => count <= 1
+    ? appL10n.oneOfYourPosts
+    : appL10n.ofYourPosts((count).toString());

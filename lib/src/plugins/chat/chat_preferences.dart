@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_plugin_data.dart';
@@ -17,7 +18,7 @@ PluginUserPreferenceSection? chatUserPreferenceSection(
 
   return PluginUserPreferenceSection(
     section: chatPreferenceSection,
-    title: 'Chat',
+    title: appL10n.chat,
     icon: DIcons.comment,
     content: _ChatPreferenceForm(
       selectedMode: _effectiveMode(
@@ -56,22 +57,22 @@ class _ChatPreferenceForm extends StatelessWidget {
           isExpanded: true,
           key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
           value: selectedMode,
-          label: const Text('Show separate sidebar modes for forum and chat'),
-          entries: const [
+          label: Text(context.l10n.showSeparateSidebarModesForForumAndChat),
+          entries: [
             DSelectOption(
               value: ChatSeparateSidebarPreference.always,
-              label: 'Always',
-              child: Text('Always'),
+              label: context.l10n.always,
+              child: Text(context.l10n.always),
             ),
             DSelectOption(
               value: ChatSeparateSidebarPreference.fullscreen,
-              label: 'When chat is in fullscreen',
-              child: Text('When chat is in fullscreen'),
+              label: context.l10n.whenChatIsInFullscreen,
+              child: Text(context.l10n.whenChatIsInFullscreen),
             ),
             DSelectOption(
               value: ChatSeparateSidebarPreference.never,
-              label: 'Never',
-              child: Text('Never'),
+              label: context.l10n.never,
+              child: Text(context.l10n.never),
             ),
           ],
           onChanged: enabled

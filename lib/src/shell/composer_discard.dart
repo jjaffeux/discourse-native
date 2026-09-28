@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -29,7 +30,7 @@ Future<void> closeComposerFromPanel({
         if (context.mounted) {
           DToast.show(
             context,
-            'This draft could not be saved yet. Please try again.',
+            appL10n.thisDraftCouldNotBeSavedYetPleaseTryAgain,
             type: DToastType.error,
           );
         }
@@ -107,8 +108,8 @@ Future<void> requestComposerDiscard({
   }
 }
 
-const _pendingOperationMessage =
-    'Finish the current operation before closing this draft.';
+String get _pendingOperationMessage =>
+    appL10n.finishTheCurrentOperationBeforeClosingThisDraft;
 
 bool _hasPendingOperation(ComposerController composer) =>
     composer.submitting ||
@@ -151,8 +152,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
     if (widget.composer.draftRevision != widget.confirmedRevision) {
       setState(() {
         _error =
-            'This draft changed while the confirmation was open. '
-            'Cancel, review it, and try again.';
+            appL10n.thisDraftChangedWhileTheConfirmationWasOpenCancelReviewIt;
       });
       return;
     }
@@ -181,8 +181,8 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
   Widget build(BuildContext context) {
     final editing = widget.composer.target.isEdit;
     final message = editing
-        ? 'Do you want to discard your changes?'
-        : 'Do you want to discard your post?';
+        ? context.l10n.doYouWantToDiscardYourChanges
+        : context.l10n.doYouWantToDiscardYourPost;
     return DDialogContent(
       key: const ValueKey('composer-discard-dialog'),
       semanticLabel: message,
@@ -210,13 +210,15 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
               onPressed: _discarding ? null : () => unawaited(_discard()),
               loading: _discarding,
               icon: const DIcon(DIcons.trashCan),
-              label: Text(editing ? 'Discard changes' : 'Discard'),
+              label: Text(
+                editing ? context.l10n.discardChanges : context.l10n.discard,
+              ),
             ),
             DButton(
               key: const ValueKey('composer-cancel-discard'),
               variant: DButtonVariant.transparentBackground,
               onPressed: _discarding ? null : _closeDialog,
-              label: const Text('Cancel'),
+              label: Text(context.l10n.cancel),
             ),
           ],
         ),

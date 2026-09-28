@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -47,7 +48,7 @@ class ChatUploadDropController {
     final composer = _composer;
     if (composer == null || !canAccept) return;
     if (dropContainsDirectory(items)) {
-      composer.showNotice('Folders cannot be uploaded here.');
+      composer.showNotice(appL10n.foldersCannotBeUploadedHere);
     }
     final selection = composer.text.selection;
     final offset = selection.isValid
@@ -306,7 +307,7 @@ class _ChatComposerState extends State<ChatComposer> {
       ComposerTargetRequest(
         kind: ChatPlugin.messageComposerTarget,
         siteUrl: widget.siteUrl,
-        title: channel?.title ?? 'Chat',
+        title: channel?.title ?? appL10n.chat,
         data: {
           ChatPlugin.composerChannelId: widget.channelId,
           ChatPlugin.composerThreadId: ?widget.threadId,
@@ -628,7 +629,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final visible = context.isTouch && TickerMode.valuesOf(context).enabled;
     final action = MobileFooterAction(
       key: const ValueKey('chat-composer-send'),
-      label: widget.editingMessage == null ? 'Send' : 'Save',
+      label: widget.editingMessage == null ? appL10n.send : appL10n.save,
       icon: DIcons.paperPlane,
       onPressed: _canSend(composer) ? _mobileSubmit : null,
       loading: _sending,
@@ -863,8 +864,8 @@ class _ChatComposerState extends State<ChatComposer> {
       if (_ownsComposer(host, composer, sourceKey)) {
         composer.showNotice(
           photos
-              ? "Couldn't open the photo library."
-              : "Couldn't open the file picker.",
+              ? appL10n.couldnTOpenThePhotoLibrary
+              : appL10n.couldnTOpenTheFilePicker,
         );
       }
     } finally {
@@ -1009,8 +1010,8 @@ class _ChatComposerState extends State<ChatComposer> {
               ),
               child: Text(
                 channel.userSilenced
-                    ? 'You cannot send chat messages.'
-                    : 'This chat is read-only.',
+                    ? context.l10n.youCannotSendChatMessages
+                    : context.l10n.thisChatIsReadOnly,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -1087,7 +1088,7 @@ class _ChatComposerState extends State<ChatComposer> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Replying to @${reply.username}',
+                  context.l10n.replyingTo((reply.username).toString()),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium,
@@ -1107,7 +1108,7 @@ class _ChatComposerState extends State<ChatComposer> {
           DButton.iconOnly(
             key: const ValueKey('chat-composer-cancel-reply'),
             onPressed: _clearReply,
-            tooltip: 'Cancel reply',
+            tooltip: context.l10n.cancelReply,
             icon: const DIcon(DIcons.xmark),
             variant: DButtonVariant.ghost,
           ),
@@ -1189,10 +1190,10 @@ class _ChatComposerState extends State<ChatComposer> {
     final theme = Theme.of(context);
     final channel = _chat?.channel(widget.siteUrl, widget.channelId);
     final hint = channel == null
-        ? 'Message chat'
+        ? context.l10n.messageChat
         : channel.isDirectMessage
-        ? 'Message ${channel.title}'
-        : 'Message #${channel.title}';
+        ? context.l10n.message((channel.title).toString())
+        : context.l10n.messageChatcomposer((channel.title).toString());
     final mobile = context.isTouch;
     final actionInShell =
         mobile && MobileFooterActionScope.maybeOf(context) != null;
@@ -1278,7 +1279,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               return [
                                 if (enabled && composer.canUpload)
                                   ComposerSlashAction(
-                                    label: 'Files',
+                                    label: context.l10n.files,
                                     icon: DIcons.paperclip,
                                     keywords: const [
                                       'image',
@@ -1289,7 +1290,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                   ),
                                 if (enabled && composer.canUpload)
                                   ComposerSlashAction(
-                                    label: 'Photo Library',
+                                    label: context.l10n.photoLibrary,
                                     icon: DIcons.paperclip,
                                     keywords: const [
                                       'image',
@@ -1303,7 +1304,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                     (gifs?.isAvailable(widget.siteUrl) ??
                                         false))
                                   ComposerSlashAction(
-                                    label: 'Insert GIF',
+                                    label: context.l10n.insertGIF,
                                     icon: gifsPickerIcon,
                                     onInvoke: () => unawaited(_pickGif()),
                                   ),
@@ -1312,7 +1313,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                         .siteConfigFor(composer.target.siteUrl)
                                         .emojiEnabled)
                                   ComposerSlashAction(
-                                    label: 'Emoji',
+                                    label: context.l10n.emoji,
                                     icon: DIcons.discourseEmojis,
                                     keywords: const ['reaction', 'smile'],
                                     onInvoke: () => unawaited(
@@ -1404,7 +1405,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                   widget.editingMessage?.id,
                                 )),
                                 content: DDropdownMenuContent(
-                                  semanticLabel: 'Add to message',
+                                  semanticLabel: context.l10n.addToMessage,
                                   side: DPopoverSide.top,
                                   width: 192,
                                   children: [
@@ -1424,7 +1425,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                                 }
                                               }
                                             : null,
-                                        child: const Text('Files'),
+                                        child: Text(context.l10n.files),
                                       ),
                                     if (canUpload)
                                       DDropdownMenuItem(
@@ -1442,7 +1443,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                                 }
                                               }
                                             : null,
-                                        child: const Text('Photo Library'),
+                                        child: Text(context.l10n.photoLibrary),
                                       ),
                                     if (canInsertGif)
                                       DDropdownMenuItem(
@@ -1460,7 +1461,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                                 }
                                               }
                                             : null,
-                                        child: const Text('Insert GIF'),
+                                        child: Text(context.l10n.insertGIF),
                                       ),
                                   ],
                                 ),
@@ -1475,7 +1476,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                       DIcons.plus,
                                       key: ValueKey('chat-composer-add-icon'),
                                     ),
-                                    tooltip: 'Add to message',
+                                    tooltip: context.l10n.addToMessage,
                                     variant: DButtonVariant.ghost,
                                   ),
                                 ),
@@ -1522,7 +1523,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                             icon: const DIcon(
                                               DIcons.discourseEmojis,
                                             ),
-                                            tooltip: 'Add emoji',
+                                            tooltip: context.l10n.addEmoji,
                                             variant: DButtonVariant.ghost,
                                           ),
                                     ),
@@ -1539,7 +1540,7 @@ class _ChatComposerState extends State<ChatComposer> {
                             key: const ValueKey('chat-composer-edit-cancel'),
                             onPressed: _savingEdit ? null : _cancelEdit,
                             icon: const DIcon(DIcons.xmark),
-                            tooltip: 'Cancel edit',
+                            tooltip: context.l10n.cancelEdit,
                             variant: DButtonVariant.ghost,
                           ),
                         ),
@@ -1578,12 +1579,16 @@ class _ChatComposerState extends State<ChatComposer> {
 
   Widget _sendButton(ComposerController composer) => DButton(
     key: const ValueKey('chat-composer-send'),
-    label: Text(widget.editingMessage == null ? 'Send' : 'Save'),
-    loadingLabel: Text(widget.editingMessage == null ? 'Send' : 'Save'),
+    label: Text(widget.editingMessage == null ? appL10n.send : appL10n.save),
+    loadingLabel: Text(
+      widget.editingMessage == null ? appL10n.send : appL10n.save,
+    ),
     onPressed: _canSend(composer) ? () => _send(composer) : null,
     loading: _sending,
     icon: const DIcon(DIcons.paperPlane, size: 16),
-    tooltip: widget.editingMessage == null ? 'Send message' : 'Save edit',
+    tooltip: widget.editingMessage == null
+        ? appL10n.sendMessage
+        : appL10n.saveEdit,
     variant: DButtonVariant.primary,
   );
 }
@@ -1637,17 +1642,18 @@ class _ChatJoinChannelPromptState extends State<_ChatJoinChannelPrompt> {
               maxLines: 2,
               child: Text(
                 canJoin
-                    ? 'Join #${channel.title} to start chatting'
-                    : 'You can’t join #${channel.title}',
+                    ? context.l10n.joinToStartChatting(
+                        (channel.title).toString(),
+                      )
+                    : context.l10n.youCanTJoin((channel.title).toString()),
               ),
             ),
             DItemDescription(
               maxLines: null,
               child: Text(
                 canJoin
-                    ? 'You’ll be able to post and reply, and it’ll show up '
-                          'in your channel list.'
-                    : 'This channel isn’t open to new members right now.',
+                    ? context.l10n.youLlBeAbleToPostAndReplyAndItLl
+                    : context.l10n.thisChannelIsnTOpenToNewMembersRightNow,
               ),
             ),
           ],
@@ -1657,8 +1663,8 @@ class _ChatJoinChannelPromptState extends State<_ChatJoinChannelPrompt> {
             children: [
               DButton(
                 key: const ValueKey('chat-composer-join-button'),
-                label: const Text('Join channel'),
-                loadingLabel: const Text('Joining…'),
+                label: Text(context.l10n.joinChannel),
+                loadingLabel: Text(context.l10n.joining),
                 variant: DButtonVariant.primary,
                 loading: _joining,
                 onPressed: _joining ? null : () => unawaited(_join()),

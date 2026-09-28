@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -307,8 +308,10 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
 
     return Semantics(
       container: true,
-      label: title == null ? 'Quote' : 'Quote from $title',
-      hint: 'Read only. Use the remove quote button to delete it.',
+      label: title == null
+          ? context.l10n.quote
+          : context.l10n.quoteFrom((title).toString()),
+      hint: context.l10n.readOnlyUseTheRemoveQuoteButtonToDeleteIt,
       child: QuotePanel(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -340,7 +343,7 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
               top: 0,
               right: 0,
               child: DTooltip(
-                message: 'Remove quote',
+                message: context.l10n.removeQuote,
                 child: SizedBox(
                   key: removeKey,
                   width: 24,

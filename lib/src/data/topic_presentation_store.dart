@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/topic_presentation.dart';
@@ -17,7 +18,7 @@ class TopicPresentationStore {
         key: storageKey,
         readOperation: 'topicPresentation.read',
         writeOperation: 'topicPresentation.write',
-        writeFailureMessage: 'Could not save topic view.',
+        writeFailureMessage: appL10n.couldNotSaveTopicView,
       );
 
   Future<TopicPresentation> read() async {

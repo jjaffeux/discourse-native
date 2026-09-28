@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'scalar_preference_repository.dart';
 
 abstract interface class DiagnosticsPanelWidthPersistence {
@@ -39,7 +40,7 @@ final class DiagnosticsPanelWidthStore {
         key: storageKey,
         readOperation: 'diagnosticsPanel.readWidth',
         writeOperation: 'diagnosticsPanel.writeWidth',
-        writeFailureMessage: 'Could not persist the diagnostics panel width.',
+        writeFailureMessage: appL10n.couldNotPersistTheDiagnosticsPanelWidth,
       );
 
   Future<double?> read() => _repository.read();

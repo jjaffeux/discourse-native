@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -292,7 +293,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                     extendBehindKeyboard: true,
                     scrollWholeSheet: false,
                     showCloseButton: false,
-                    semanticLabel: 'Composer',
+                    semanticLabel: context.l10n.composer,
                     backgroundColor: Theme.of(context).shell.content,
                     children: [
                       Expanded(
@@ -708,7 +709,7 @@ class _ComposerDockState extends State<ComposerDock> {
               else
                 readerPanel,
               DResizableHandle(
-                semanticLabel: 'Resize composer',
+                semanticLabel: context.l10n.resizeComposer,
                 withHandle: !mobile,
                 dividerThickness: mobile ? 1 : 0,
                 focusedDividerThickness: 3,
@@ -789,8 +790,8 @@ class _ComposerSurface extends StatelessWidget {
                   composer: composer,
                   minimized: true,
                   closeTooltip: composer.canSaveDraft
-                      ? 'Save and close'
-                      : 'Close composer',
+                      ? context.l10n.saveAndClose
+                      : context.l10n.closeComposer,
                   onClose: () => unawaited(
                     closeComposerFromPanel(
                       context: context,

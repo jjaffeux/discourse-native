@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/uri_path.dart';
@@ -412,67 +413,101 @@ class DiscourseInstance {
       ),
   ]);
 
-  static const List<SidebarSection> _anonymousSections = [
-    SidebarSection(
-      id: 'community',
-      title: 'Community',
-      showHeader: false,
-      collapsible: false,
-      destinations: [
-        SidebarDestination(
-          id: 'latest',
-          label: 'Topics',
-          icon: DIcons.layerGroup,
-        ),
-        SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
-      ],
-      moreDestinations: [
-        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
-        SidebarDestination(
-          id: 'badges',
-          label: 'Badges',
-          icon: DIcons.certificate,
-        ),
-      ],
-    ),
-  ];
+  static final _anonymousSectionsByLocale = <String, List<SidebarSection>>{};
+  static List<SidebarSection> get _anonymousSections =>
+      _anonymousSectionsByLocale.putIfAbsent(
+        appL10n.localeName,
+        () => [
+          SidebarSection(
+            id: 'community',
+            title: appL10n.community,
+            showHeader: false,
+            collapsible: false,
+            destinations: [
+              SidebarDestination(
+                id: 'latest',
+                label: appL10n.topics,
+                icon: DIcons.layerGroup,
+              ),
+              SidebarDestination(
+                id: 'users',
+                label: appL10n.users,
+                icon: DIcons.user,
+              ),
+            ],
+            moreDestinations: [
+              SidebarDestination(
+                id: 'groups',
+                label: appL10n.groups,
+                icon: DIcons.users,
+              ),
+              SidebarDestination(
+                id: 'badges',
+                label: appL10n.badges,
+                icon: DIcons.certificate,
+              ),
+            ],
+          ),
+        ],
+      );
 
   static final List<SidebarSection> _connectedSections = _withoutDestinations(
     _staffSections,
     {'admin'},
   );
 
-  static const List<SidebarSection> _staffSections = [
-    SidebarSection(
-      id: 'community',
-      title: 'Community',
-      showHeader: false,
-      collapsible: false,
-      destinations: [
-        SidebarDestination(
-          id: 'latest',
-          label: 'Topics',
-          icon: DIcons.layerGroup,
-        ),
-        SidebarDestination(
-          id: 'messages',
-          label: 'Messages',
-          icon: DIcons.inbox,
-        ),
-        SidebarDestination(id: 'drafts', label: 'Drafts', icon: DIcons.pencil),
-        SidebarDestination(id: 'users', label: 'Users', icon: DIcons.user),
-      ],
-      moreDestinations: [
-        SidebarDestination(id: 'groups', label: 'Groups', icon: DIcons.users),
-        SidebarDestination(
-          id: 'badges',
-          label: 'Badges',
-          icon: DIcons.certificate,
-        ),
-        SidebarDestination(id: 'admin', label: 'Admin', icon: DIcons.wrench),
-      ],
-    ),
-  ];
+  static final _staffSectionsByLocale = <String, List<SidebarSection>>{};
+  static List<SidebarSection> get _staffSections =>
+      _staffSectionsByLocale.putIfAbsent(
+        appL10n.localeName,
+        () => [
+          SidebarSection(
+            id: 'community',
+            title: appL10n.community,
+            showHeader: false,
+            collapsible: false,
+            destinations: [
+              SidebarDestination(
+                id: 'latest',
+                label: appL10n.topics,
+                icon: DIcons.layerGroup,
+              ),
+              SidebarDestination(
+                id: 'messages',
+                label: appL10n.messages,
+                icon: DIcons.inbox,
+              ),
+              SidebarDestination(
+                id: 'drafts',
+                label: appL10n.drafts,
+                icon: DIcons.pencil,
+              ),
+              SidebarDestination(
+                id: 'users',
+                label: appL10n.users,
+                icon: DIcons.user,
+              ),
+            ],
+            moreDestinations: [
+              SidebarDestination(
+                id: 'groups',
+                label: appL10n.groups,
+                icon: DIcons.users,
+              ),
+              SidebarDestination(
+                id: 'badges',
+                label: appL10n.badges,
+                icon: DIcons.certificate,
+              ),
+              SidebarDestination(
+                id: 'admin',
+                label: appL10n.admin,
+                icon: DIcons.wrench,
+              ),
+            ],
+          ),
+        ],
+      );
 
   SidebarDestination get defaultDestination =>
       sections.first.destinations.first;

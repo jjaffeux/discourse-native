@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
@@ -74,7 +75,7 @@ class _TopicCreateControl extends StatelessWidget {
     return IntrinsicWidth(
       child: DButtonGroup(
         mainAxisSize: MainAxisSize.max,
-        semanticLabel: 'Topic creation actions',
+        semanticLabel: context.l10n.topicCreationActions,
         children: [
           DButtonGroupExpanded(child: mainButton),
           DButtonGroupSeparator(color: tokens.buttonTheme.primary.background),
@@ -91,8 +92,8 @@ class _TopicCreateControl extends StatelessWidget {
                 final button = DButton.iconOnly(
                   key: TopicCreateButton.draftsButtonKey,
                   icon: const DIcon(DIcons.chevronDown, size: 10),
-                  tooltip: 'Open the latest drafts menu',
-                  semanticLabel: 'Open the latest drafts menu',
+                  tooltip: context.l10n.openTheLatestDraftsMenu,
+                  semanticLabel: context.l10n.openTheLatestDraftsMenu,
                   onPressed: state.toggle,
                   focusNode: state.focusNode,
                   hasPopup: true,
@@ -143,22 +144,22 @@ class _TopicCreateControl extends StatelessWidget {
     final noun = otherDraftCount == 1 ? 'draft' : 'drafts';
 
     return DDropdownMenuContent(
-      semanticLabel: 'Recent drafts',
+      semanticLabel: appL10n.recentDrafts,
       align: DPopoverAlign.end,
       width: math.min(350, MediaQuery.sizeOf(context).width - 24),
       children: [
         DDropdownMenuItem(
           onPressed: () => controller.openDrafts(siteUrl),
-          child: const Text('All drafts'),
+          child: Text(appL10n.allDrafts),
         ),
         const DDropdownMenuSeparator(),
         if (feed.loading && drafts.isEmpty)
-          const DDropdownMenuItem(
-            key: ValueKey('recent-drafts-loading'),
-            child: Text('Loading drafts…'),
+          DDropdownMenuItem(
+            key: const ValueKey('recent-drafts-loading'),
+            child: Text(appL10n.loadingDraftsTopiccreatebutton),
           )
         else if (feed.error != null && drafts.isEmpty)
-          const DDropdownMenuLabel(child: Text("Couldn't load drafts."))
+          DDropdownMenuLabel(child: Text(appL10n.couldnTLoadDrafts))
         else
           for (final draft in drafts)
             DDropdownMenuItem(
@@ -176,13 +177,21 @@ class _TopicCreateControl extends StatelessWidget {
         if (otherDraftCount > 0 && !feed.loading) ...[
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(
-            semanticLabel: 'View all drafts, $otherDraftCount other $noun',
+            semanticLabel: appL10n.viewAllDraftsOther(
+              (otherDraftCount).toString(),
+              (noun).toString(),
+            ),
             onPressed: () => controller.openDrafts(siteUrl),
             child: Wrap(
               spacing: DSpacing.md,
               children: [
-                Text('+$otherDraftCount other $noun'),
-                const Text('view all drafts'),
+                Text(
+                  appL10n.otherTopiccreatebutton(
+                    (otherDraftCount).toString(),
+                    (noun).toString(),
+                  ),
+                ),
+                Text(appL10n.viewAllDrafts),
               ],
             ),
           ),
@@ -207,15 +216,15 @@ class TopicCreateAction extends StatelessWidget {
   Widget build(BuildContext context) => DButton(
     key: TopicCreateButton.buttonKey,
     label: Text(
-      'New topic',
+      context.l10n.newTopic,
       softWrap: true,
       maxLines: 2,
       style: compact ? const TextStyle(fontWeight: FontWeight.w500) : null,
     ),
     icon: const DIcon(DIcons.plus),
-    tooltip: 'New topic',
+    tooltip: context.l10n.newTopic,
     shortcut: const DShortcut(newTopicShortcut),
-    semanticLabel: 'New topic',
+    semanticLabel: context.l10n.newTopic,
     onPressed: onPressed,
     variant: DButtonVariant.primary,
     size: DButtonSize.action,

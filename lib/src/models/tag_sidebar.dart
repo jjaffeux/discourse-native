@@ -1,12 +1,13 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../theme/d_icons.dart';
 import 'sidebar.dart';
 import 'sidebar_tag.dart';
 import 'topic_tag.dart';
 
 /// The tag directory, whether reached from the sidebar or a `/tags` link.
-const allTagsDestination = SidebarDestination(
+SidebarDestination get allTagsDestination => SidebarDestination(
   id: 'all-tags',
-  label: 'All tags',
+  label: appL10n.allTags,
   icon: DIcons.list,
 );
 
@@ -19,7 +20,7 @@ SidebarSection? buildTagSidebarSection({
 
   return SidebarSection(
     id: 'tags',
-    title: 'Tags',
+    title: appL10n.tags,
     destinations: List.unmodifiable([
       for (final tag in tags) ?buildTagDestination(tag, username: username),
       allTagsDestination,

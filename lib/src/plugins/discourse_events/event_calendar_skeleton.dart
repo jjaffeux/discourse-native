@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'event_data.dart';
@@ -20,7 +21,7 @@ final class EventCalendarSkeleton extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     return SingleChildScrollView(
       child: DSkeletonRegion(
-        semanticsLabel: 'Loading events',
+        semanticsLabel: context.l10n.loadingEvents,
         color: skeletonFill(context),
         child: switch (view) {
           EventCalendarView.schedule ||

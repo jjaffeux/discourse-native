@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'event_card.dart' show eventResponseLabel;
@@ -77,7 +78,7 @@ class _ParticipantsState extends State<_Participants> {
       setState(() {
         _rows = null;
         _loading = false;
-        _error = 'Participant details are no longer available.';
+        _error = appL10n.participantDetailsAreNoLongerAvailable;
       });
     }
   }
@@ -159,12 +160,12 @@ class _ParticipantsState extends State<_Participants> {
       maxWidth: 520,
       spacing: 12,
       contentPadding: EdgeInsets.zero,
-      closeSemanticLabel: 'Close participants',
+      closeSemanticLabel: context.l10n.closeParticipants,
       children: [
-        const Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(16, 4, 44, 4),
+        Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 44, 4),
           child: DDialogHeader(
-            children: [DDialogTitle(child: Text('Participants'))],
+            children: [DDialogTitle(child: Text(context.l10n.participants))],
           ),
         ),
         Padding(
@@ -172,8 +173,8 @@ class _ParticipantsState extends State<_Participants> {
           child: DInput(
             controller: _search,
             focusNode: _searchFocus,
-            hintText: 'Search participants',
-            semanticLabel: 'Search participants',
+            hintText: context.l10n.searchParticipants,
+            semanticLabel: context.l10n.searchParticipants,
             enabled: _available,
             autocorrect: false,
             textInputAction: TextInputAction.search,
@@ -184,7 +185,7 @@ class _ParticipantsState extends State<_Participants> {
                     onPressed: _available ? _clearSearch : null,
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
-                    tooltip: 'Clear search',
+                    tooltip: context.l10n.clearSearch,
                     icon: const Icon(Icons.close),
                   ),
             onChanged: _searchChanged,
@@ -212,7 +213,9 @@ class _ParticipantsState extends State<_Participants> {
                         child: DTabTrigger<String>(
                           value: type,
                           child: Text(
-                            type == 'all' ? 'All' : eventResponseLabel(type),
+                            type == 'all'
+                                ? context.l10n.all
+                                : eventResponseLabel(type),
                           ),
                         ),
                       ),
@@ -222,8 +225,11 @@ class _ParticipantsState extends State<_Participants> {
             ),
             DTabPanel<String>(
               value: _type ?? 'all',
-              semanticLabel:
-                  'Participants: ${_type == null ? 'All' : eventResponseLabel(_type)}',
+              semanticLabel: context.l10n.participantsEventparticipants(
+                (_type == null).toString(),
+                ((!(_type == null)) ? (eventResponseLabel(_type)) : '')
+                    .toString(),
+              ),
               child: SizedBox(
                 height: math.min(336, MediaQuery.sizeOf(context).height * .5),
                 child: _buildResults(context),
@@ -235,7 +241,7 @@ class _ParticipantsState extends State<_Participants> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Showing up to 200 people. Search to narrow the list.',
+              context.l10n.showingUpTo200PeopleSearchToNarrowTheList,
               style: Theme.of(
                 context,
               ).textTheme.bodySmall!.copyWith(color: tokens.mutedForeground),
@@ -251,7 +257,9 @@ class _ParticipantsState extends State<_Participants> {
                     child: Semantics(
                       liveRegion: true,
                       child: Text(
-                        _rows == null ? '' : '${_rows!.length} shown',
+                        _rows == null
+                            ? ''
+                            : context.l10n.shown((_rows!.length).toString()),
                         style: Theme.of(context).textTheme.bodySmall!.copyWith(
                           color: tokens.mutedForeground,
                         ),
@@ -259,7 +267,10 @@ class _ParticipantsState extends State<_Participants> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  DButton(label: const Text('Done'), onPressed: widget.onClose),
+                  DButton(
+                    label: Text(context.l10n.done),
+                    onPressed: widget.onClose,
+                  ),
                 ],
               ),
             ),
@@ -283,16 +294,16 @@ class _ParticipantsState extends State<_Participants> {
                 children: [
                   DEmptyTitle(
                     _error != null
-                        ? 'Unable to load participants'
-                        : 'No participants found',
+                        ? context.l10n.unableToLoadParticipants
+                        : context.l10n.noParticipantsFound,
                   ),
                   DEmptyDescription(
                     _error ??
                         (searching
-                            ? 'Try another name or username.'
+                            ? context.l10n.tryAnotherNameOrUsername
                             : _type != null
-                            ? 'Try a different response filter.'
-                            : 'No participants to show yet.'),
+                            ? context.l10n.tryADifferentResponseFilter
+                            : context.l10n.noParticipantsToShowYet),
                   ),
                 ],
               ),
@@ -301,10 +312,10 @@ class _ParticipantsState extends State<_Participants> {
                   variant: DButtonVariant.outline,
                   label: Text(
                     _error != null
-                        ? 'Try again'
+                        ? context.l10n.tryAgain
                         : searching
-                        ? 'Clear search'
-                        : 'Show all participants',
+                        ? context.l10n.clearSearch
+                        : context.l10n.showAllParticipants,
                   ),
                   onPressed: _error != null
                       ? () => unawaited(_load())
@@ -337,7 +348,7 @@ class _ParticipantSkeleton extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: DSkeletonRegion(
-        semanticsLabel: 'Loading participants',
+        semanticsLabel: context.l10n.loadingParticipants,
         color: skeletonFill(context, on: SkeletonSurface.floating),
         child: Column(
           children: [
@@ -441,12 +452,12 @@ class _ParticipantRow extends StatelessWidget {
               Text(eventResponseLabel(invitee.status)),
               if (invitee.recurring)
                 DTooltip(
-                  message: 'Every occurrence',
+                  message: context.l10n.everyOccurrence,
                   child: Icon(
                     Icons.repeat,
                     size: 14,
                     color: tokens.mutedForeground,
-                    semanticLabel: 'Every occurrence',
+                    semanticLabel: context.l10n.everyOccurrence,
                   ),
                 ),
             ],
@@ -497,7 +508,7 @@ class _InvitationsState extends State<_Invitations> {
     if (names.isEmpty || _sending) return;
     if (!widget.handle.authoritative ||
         widget.handle.event?.canManage != true) {
-      setState(() => _error = 'You can no longer manage this event.');
+      setState(() => _error = appL10n.youCanNoLongerManageThisEvent);
       return;
     }
     setState(() {
@@ -511,7 +522,7 @@ class _InvitationsState extends State<_Invitations> {
     } else {
       setState(() {
         _sending = false;
-        _error = widget.handle.error ?? 'Unable to send invitations.';
+        _error = widget.handle.error ?? appL10n.unableToSendInvitations;
       });
     }
   }
@@ -524,21 +535,23 @@ class _InvitationsState extends State<_Invitations> {
 
   @override
   Widget build(BuildContext context) => DiscourseAlertDialog(
-    title: const Text('Invite people'),
+    title: Text(context.l10n.invitePeople),
     content: SizedBox(
       width: 400,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Send event notifications to these usernames. For private events, access is still determined by the allowed groups.',
+          Text(
+            context
+                .l10n
+                .sendEventNotificationsToTheseUsernamesForPrivateEventsAccessIs,
           ),
           TextField(
             style: Theme.of(context).textTheme.bodyMedium,
             controller: _names,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Usernames, separated by commas',
+            decoration: InputDecoration(
+              labelText: context.l10n.usernamesSeparatedByCommas,
             ),
             onSubmitted: (_) => _send(),
           ),
@@ -548,13 +561,13 @@ class _InvitationsState extends State<_Invitations> {
     ),
     actions: [
       DButton(
-        label: const Text('Send invitations'),
+        label: Text(context.l10n.sendInvitations),
         loading: _sending,
         onPressed: _sending ? null : _send,
         variant: DButtonVariant.primary,
       ),
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: _sending ? null : () => Navigator.pop(context),
       ),
     ],

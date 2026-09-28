@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../theme/d_icon.dart';
@@ -121,8 +122,8 @@ const coreSuggestedTopicRecommendationSourceId = TopicRecommendationSourceId(
 
 const coreSuggestedTopicRecommendationLegacyStoredId = 'suggested';
 
-const coreSuggestedTopicRecommendationSource =
+final coreSuggestedTopicRecommendationSource =
     TopicRecommendationSourceDefinition(
       id: coreSuggestedTopicRecommendationSourceId,
-      label: 'Suggested',
+      label: appL10n.suggested,
     );

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -204,9 +205,9 @@ final class BadgesController extends FrameSafeNotifier {
         loaded: true,
         error: fetchingRecipients
             ? null
-            : "Couldn't load ${route.isDirectory ? 'badges' : 'this badge'}.",
+            : appL10n.couldnTLoad((route.isDirectory).toString()),
         recipientsError: fetchingRecipients
-            ? "Couldn't load badge recipients."
+            ? appL10n.couldnTLoadBadgeRecipients
             : null,
       );
       notifySafely();

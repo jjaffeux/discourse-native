@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'composer_draft.dart';
@@ -93,16 +94,16 @@ class UserDraft {
       (isNewTopic ? data?.title : title) ??
       title ??
       data?.title ??
-      'Untitled draft';
+      appL10n.untitledDraft;
 
   String get kindLabel {
     if (key.startsWith('new_private_message')) {
-      return 'New personal message draft';
+      return appL10n.newPersonalMessageDraft;
     }
-    if (isNewTopic) return 'New topic draft';
-    if (isEdit) return 'Edit topic draft';
-    if (isPrivateMessage) return 'Personal message draft';
-    return 'Reply draft';
+    if (isNewTopic) return appL10n.newTopicDraft;
+    if (isEdit) return appL10n.editTopicDraft;
+    if (isPrivateMessage) return appL10n.personalMessageDraft;
+    return appL10n.replyDraft;
   }
 
   String get excerpt => _excerpt ?? _normalizeExcerpt(data?.reply ?? '');

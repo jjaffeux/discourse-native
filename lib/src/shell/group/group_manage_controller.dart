@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
@@ -229,8 +230,8 @@ final class GroupManageController extends ChangeNotifier {
       !_disposed && generation == _submissionGeneration;
 
   Map<String, String> _validationErrors() => switch (subsection) {
-    GroupRoute.profile when _value('name').isEmpty => const {
-      'name': 'Enter a group name.',
+    GroupRoute.profile when _value('name').isEmpty => {
+      'name': appL10n.enterAGroupName,
     },
     _ => const {},
   };
@@ -329,7 +330,7 @@ final class GroupManageController extends ChangeNotifier {
 
 String _defaultErrorMessage(Object error) => _saveFailureMessage;
 
-const _saveFailureMessage = "Couldn't save that group change.";
+String get _saveFailureMessage => appL10n.couldnTSaveThatGroupChange;
 
 bool _mapsEqual(Map<String, Object?> first, Map<String, Object?> second) {
   if (first.length != second.length) return false;

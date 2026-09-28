@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/focus_highlight.dart';
-
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_popover.dart';
@@ -52,9 +52,9 @@ class DColorPickerPresets extends StatelessWidget {
     required this.onChanged,
     this.selected,
     this.recentColors = const [],
-    this.recentLabel = 'Recently used',
+    this._recentLabel,
     this.onReset,
-    this.resetLabel = 'Default',
+    this._resetLabel,
     this.appearance = DColorPresetAppearance.text,
   });
 
@@ -63,9 +63,11 @@ class DColorPickerPresets extends StatelessWidget {
   final ValueChanged<DColorPreset>? onChanged;
   final DColorPreset? selected;
   final List<DColorPreset> recentColors;
-  final String recentLabel;
+  final String? _recentLabel;
+  String get recentLabel => _recentLabel ?? appL10n.recentlyUsed;
   final VoidCallback? onReset;
-  final String resetLabel;
+  final String? _resetLabel;
+  String get resetLabel => _resetLabel ?? appL10n.messageDefault;
   final DColorPresetAppearance appearance;
 
   Widget _swatch(BuildContext context, DColorPreset? preset) {
@@ -275,19 +277,19 @@ class _DColorPickerState extends State<DColorPicker> {
               },
             ),
             _slider(
-              'Hue',
+              context.l10n.hue,
               _hsv.hue,
               360,
               (value) => _change(_hsv.withHue(value)),
             ),
             _slider(
-              'Saturation',
+              context.l10n.saturation,
               _hsv.saturation * 100,
               100,
               (value) => _change(_hsv.withSaturation(value / 100)),
             ),
             _slider(
-              'Brightness',
+              context.l10n.brightness,
               _hsv.value * 100,
               100,
               (value) => _change(_hsv.withValue(value / 100)),
@@ -430,7 +432,7 @@ class _InlineColorPaletteState extends State<_InlineColorPalette> {
           ? hex(_proposedColor(_color.hue - 3, _color.lightness))
           : null,
       slider: true,
-      hint: 'Left and right change hue. Up and down change lightness.',
+      hint: context.l10n.leftAndRightChangeHueUpAndDownChangeLightness,
       enabled: _enabled,
       focusable: _enabled,
       focused: _focused,
@@ -442,9 +444,9 @@ class _InlineColorPaletteState extends State<_InlineColorPalette> {
           : null,
       customSemanticsActions: _enabled
           ? {
-              const CustomSemanticsAction(label: 'Lighter'): () =>
+              CustomSemanticsAction(label: context.l10n.lighter): () =>
                   _change(_color.hue, _color.lightness + .02),
-              const CustomSemanticsAction(label: 'Darker'): () =>
+              CustomSemanticsAction(label: context.l10n.darker): () =>
                   _change(_color.hue, _color.lightness - .02),
             }
           : null,

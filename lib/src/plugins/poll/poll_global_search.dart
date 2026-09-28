@@ -1,22 +1,23 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 final class PollGlobalSearch extends GlobalSearchContribution {
   const PollGlobalSearch() : super('poll');
   @override
-  List<GlobalSearchFilter> get filters => const [
+  List<GlobalSearchFilter> get filters => [
     GlobalSearchFilter(
       id: "polls",
-      label: "Polls",
+      label: appL10n.polls,
       scope: GlobalSearchScope.forum,
       kind: GlobalSearchFilterKind.choice,
       icon: "status",
-      group: "Extensions",
-      operators: [GlobalSearchFilterOperator("is", "is")],
-      help: "Find posts containing polls.",
+      group: appL10n.extensions,
+      operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+      help: appL10n.findPostsContainingPolls,
       choices: [
         GlobalSearchFilterChoice(
           value: "polls",
-          label: "Contains a poll",
+          label: appL10n.containsAPoll,
           token: "in:polls",
         ),
       ],

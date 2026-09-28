@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 import 'chat_channel_list_preferences.dart';
 import 'chat_plugin_data.dart';
@@ -155,7 +156,7 @@ final class ChatChannelListController extends FrameSafeNotifier {
       if (!current()) return false;
       state.overrides.remove(field);
       if (isFilter && wasBypassed) state.bypassed.add(section);
-      state.errors[field] = 'Could not save channel preferences. Try again.';
+      state.errors[field] = appL10n.couldNotSaveChannelPreferencesTryAgain;
       return false;
     } finally {
       if (current()) {

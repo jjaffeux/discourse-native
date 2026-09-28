@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -22,13 +23,12 @@ enum DDatePickerCloseBehavior { never, onSelection }
 
 @immutable
 class DDatePickerLabels {
-  const DDatePickerLabels({
-    this.placeholder = 'Pick a date',
-    this.calendar = 'Select date',
-  });
+  const DDatePickerLabels({this._placeholder, this._calendar});
 
-  final String placeholder;
-  final String calendar;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.pickADate;
+  final String? _calendar;
+  String get calendar => _calendar ?? appL10n.selectDate;
 }
 
 /// A typed shadcn Date Picker composition built from Button, Popover and the
@@ -526,7 +526,7 @@ class DDateRangePicker extends StatefulWidget {
     super.key,
     this.initialValue,
     this.onChanged,
-    this.label = 'Date Picker Range',
+    this._label = defaultLocalizedLabel,
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
     this.size = DButtonSize.regular,
@@ -555,7 +555,7 @@ class DDateRangePicker extends StatefulWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.label = 'Date Picker Range',
+    this._label = defaultLocalizedLabel,
     this.labels = const DDatePickerLabels(),
     this.enabled = true,
     this.size = DButtonSize.regular,
@@ -583,7 +583,9 @@ class DDateRangePicker extends StatefulWidget {
   final DCalendarRange? value;
   final DCalendarRange? initialValue;
   final ValueChanged<DCalendarRange?>? onChanged;
-  final String? label;
+  final String? _label;
+  String? get label =>
+      _label == defaultLocalizedLabel ? appL10n.datePickerRange : _label;
   final DDatePickerLabels labels;
   final bool enabled;
   final DButtonSize size;
@@ -728,7 +730,7 @@ class DDatePickerInput extends StatefulWidget {
     this.label,
     this.description,
     this.errorText,
-    this.placeholder = 'June 01, 2025',
+    this._placeholder,
     this.labels = const DDatePickerLabels(),
     this.calendarLabels = const DCalendarLabels(),
     this.semanticLabel,
@@ -763,7 +765,7 @@ class DDatePickerInput extends StatefulWidget {
     this.label,
     this.description,
     this.errorText,
-    this.placeholder = 'June 01, 2025',
+    this._placeholder,
     this.labels = const DDatePickerLabels(),
     this.calendarLabels = const DCalendarLabels(),
     this.semanticLabel,
@@ -794,7 +796,8 @@ class DDatePickerInput extends StatefulWidget {
   final DPopoverController? popoverController;
   final DCalendarController? calendarController;
   final String? label, description, errorText, semanticLabel;
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.june012025;
   final DDatePickerLabels labels;
   final DCalendarLabels calendarLabels;
   final bool enabled;
@@ -1027,7 +1030,8 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
               DInputGroupInput(
                 controller: _text,
                 focusNode: _focus,
-                semanticLabel: widget.semanticLabel ?? widget.label ?? 'Date',
+                semanticLabel:
+                    widget.semanticLabel ?? widget.label ?? context.l10n.date,
                 hintText: widget.placeholder,
                 invalid: invalid,
                 enabled: widget.enabled,
@@ -1060,7 +1064,7 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
     }
     final errors = <String?>[
       widget.errorText,
-      if (_invalidText) 'Enter a valid date',
+      if (_invalidText) context.l10n.enterAValidDate,
     ];
     return SizedBox(
       width: widget.width,
@@ -1132,11 +1136,13 @@ class _DTimeInputState extends State<DTimeInput> {
     child: DInput(
       controller: _controller,
       labelText: widget.label,
-      semanticLabel: widget.label ?? 'Time',
-      hintText: widget.includeSeconds ? 'HH:mm:ss' : 'HH:mm',
+      semanticLabel: widget.label ?? context.l10n.time,
+      hintText: widget.includeSeconds
+          ? context.l10n.inputTimeWithSeconds
+          : context.l10n.inputTime,
       keyboardType: TextInputType.datetime,
       invalid: _invalid,
-      errorText: _invalid ? 'Enter a valid time' : null,
+      errorText: _invalid ? context.l10n.enterAValidTime : null,
       enabled: widget.enabled,
       onChanged: _changed,
     ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'assign_services.dart';
@@ -50,8 +51,8 @@ Future<void> showAssignmentEditor({
       ? 'topic'
       : 'post';
   final title = existing == null
-      ? 'Assign $targetName'
-      : 'Edit $targetName assignment';
+      ? appL10n.assign((targetName).toString())
+      : appL10n.editAssignment((targetName).toString());
   // Keep the opening presentation for this route's lifetime so a resize does
   // not remount the form or discard its draft and in-flight operations.
   final drawer = MediaQuery.sizeOf(context).width < 768;
@@ -91,7 +92,7 @@ Future<void> showAssignmentEditor({
   if (drawer) {
     return showDDrawer<void>(
       context: context,
-      barrierLabel: 'Dismiss $targetName assignment',
+      barrierLabel: appL10n.dismissAssignment((targetName).toString()),
       showSwipeHandle: true,
       requestInitialFocus: false,
       canDismiss: canDismiss,
@@ -100,7 +101,7 @@ Future<void> showAssignmentEditor({
   }
   return showDDialog<void>(
     context: context,
-    barrierLabel: 'Dismiss $targetName assignment',
+    barrierLabel: appL10n.dismissAssignment((targetName).toString()),
     canDismiss: canDismiss,
     builder: (_, controller) => editor(controller.close),
   );
@@ -118,7 +119,7 @@ class AssignmentEditor extends StatefulWidget {
     this.statuses = const [],
     this.onComplete,
     this.onCancel,
-    this.title = 'Assign topic',
+    this._title,
     this.drawer = false,
     this.searchDebounce = const Duration(milliseconds: 300),
   });
@@ -132,7 +133,8 @@ class AssignmentEditor extends StatefulWidget {
   final List<String> statuses;
   final VoidCallback? onComplete;
   final VoidCallback? onCancel;
-  final String title;
+  final String? _title;
+  String get title => _title ?? appL10n.assignTopic;
   final bool drawer;
   final Duration searchDebounce;
 
@@ -410,7 +412,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             initialValue: _status,
             enabled: !_saving,
             onChanged: (value) => setState(() => _status = value),
-            label: const Text('Status'),
+            label: Text(context.l10n.status),
             child: Column(
               spacing: DSpacing.sm,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -426,7 +428,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     );
     final cancel = DButton(
       key: const Key('assignment-cancel'),
-      label: const Text('Cancel'),
+      label: Text(context.l10n.cancel),
       onPressed: _saving ? null : widget.onCancel,
       variant: DButtonVariant.outline,
       size: widget.drawer ? DControlSize.large : DControlSize.regular,
@@ -435,10 +437,10 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       key: const Key('assignment-save'),
       label: Text(
         widget.existing != null
-            ? 'Save changes'
+            ? context.l10n.saveChanges
             : _selected == null
-            ? 'Assign'
-            : 'Assign to @${_selected!.identifier}',
+            ? context.l10n.assignAssignmentsheet
+            : context.l10n.assignTo((_selected!.identifier).toString()),
         maxLines: null,
       ),
       onPressed: _saving || _searching || _selected == null ? null : _save,
@@ -451,7 +453,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         ? null
         : DButton(
             key: const Key('assignment-unassign'),
-            label: const Text('Unassign'),
+            label: Text(context.l10n.unassign),
             onPressed: _saving ? null : _remove,
             variant: DButtonVariant.destructive,
             size: widget.drawer ? DControlSize.large : DControlSize.regular,
@@ -462,8 +464,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       icon: const DIcon(DIcons.xmark),
       variant: DButtonVariant.ghost,
       size: DControlSize.small,
-      tooltip: 'Close',
-      semanticLabel: 'Close assignment',
+      tooltip: context.l10n.close,
+      semanticLabel: context.l10n.closeAssignment,
     );
     final viewportSize = MediaQuery.sizeOf(context);
     // Let the header and search scroll when large text or the keyboard would
@@ -482,7 +484,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             close,
           ],
         ),
-        const DDrawerDescription(child: Text('Choose one person or group.')),
+        DDrawerDescription(child: Text(context.l10n.chooseOnePersonOrGroup)),
       ],
     );
     final drawerForm = Padding(
@@ -539,8 +541,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                       ),
                       child: DDialogTitle(child: Text(widget.title)),
                     ),
-                    const DDialogDescription(
-                      child: Text('Choose one person or group.'),
+                    DDialogDescription(
+                      child: Text(context.l10n.chooseOnePersonOrGroup),
                     ),
                   ],
                 ),
@@ -555,15 +557,18 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   Widget _search() => DField(
     enabled: !_saving,
     children: [
-      DFieldLabel(focusNode: _searchFocus, child: const Text('Assign to')),
+      DFieldLabel(
+        focusNode: _searchFocus,
+        child: Text(appL10n.assignToAssignmentsheet),
+      ),
       DInputGroup(
         children: [
           DInputGroupInput(
             key: const Key('assignment-search'),
             controller: _searchController,
             focusNode: _searchFocus,
-            semanticLabel: 'Search users or groups',
-            hintText: 'Search users or groups…',
+            semanticLabel: appL10n.searchUsersOrGroups,
+            hintText: appL10n.searchUsersOrGroupsAssignmentsheet,
             enabled: !_saving,
             onChanged: _onSearchChanged,
             onSubmitted: _onSearchChanged,
@@ -584,9 +589,9 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         MediaQuery.sizeOf(context).width /
             MediaQuery.textScalerOf(context).scale(1) <
         360;
-    const groupBadge = DBadge(
+    final groupBadge = DBadge(
       variant: DBadgeVariant.outline,
-      child: Text('Group'),
+      child: Text(appL10n.group),
     );
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -596,8 +601,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         DFieldDescription(
           child: Text(
             _searchController.text.trim().isEmpty
-                ? 'Suggested'
-                : 'Search results',
+                ? appL10n.suggested
+                : appL10n.searchResults,
           ),
         ),
         if (_results.isEmpty && !_searching && !_searchFailed)
@@ -605,12 +610,12 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             key: const Key('assignment-empty-results'),
             container: true,
             liveRegion: true,
-            child: const DEmpty(
+            child: DEmpty(
               children: [
                 DEmptyHeader(
                   children: [
-                    DEmptyTitle('No matching users or groups.'),
-                    DEmptyDescription('Try a different name or username.'),
+                    DEmptyTitle(appL10n.noMatchingUsersOrGroups),
+                    DEmptyDescription(appL10n.tryADifferentNameOrUsername),
                   ],
                 ),
               ],
@@ -644,8 +649,11 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                         ),
                         value: _assigneeKey(assignee),
                         card: true,
-                        semanticLabel:
-                            '${assignee.displayName}, ${assignee.isGroup ? 'group' : 'user'} @${assignee.identifier}',
+                        semanticLabel: appL10n.messageAssignmentsheet(
+                          (assignee.isGroup).toString(),
+                          (assignee.displayName).toString(),
+                          (assignee.identifier).toString(),
+                        ),
                         label: ExcludeSemantics(
                           child: Row(
                             children: [
@@ -674,7 +682,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                           ),
                         ),
                         trailing: assignee.isGroup && !stackGroupBadge
-                            ? const ExcludeSemantics(child: groupBadge)
+                            ? ExcludeSemantics(child: groupBadge)
                             : null,
                       ),
                   ],
@@ -686,7 +694,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             !_results.any((item) => _sameAssignee(item, selected)))
           DFieldDescription(
             key: const Key('assignment-selected-summary'),
-            child: Text('Selected: @${selected.identifier}'),
+            child: Text(appL10n.selected((selected.identifier).toString())),
           ),
       ],
     );
@@ -714,12 +722,12 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                   DIcon(_noteOpen ? DIcons.chevronDown : DIcons.plus, size: 16),
                   Text(
                     _noteOpen
-                        ? 'Hide note'
+                        ? appL10n.hideNote
                         : _noteController.text.isEmpty
-                        ? 'Add a note'
-                        : 'Edit note',
+                        ? appL10n.addANote
+                        : appL10n.editNote,
                   ),
-                  const DFieldDescription(child: Text('Optional')),
+                  DFieldDescription(child: Text(appL10n.optional)),
                 ],
               ),
             ),
@@ -732,18 +740,18 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             children: [
               DFieldLabel(
                 focusNode: _noteFocus,
-                child: const Text('Note (optional)'),
+                child: Text(appL10n.noteOptional),
               ),
               DTextarea(
                 key: const Key('assignment-note'),
                 controller: _noteController,
                 focusNode: _noteFocus,
-                semanticLabel: 'Note (optional)',
+                semanticLabel: appL10n.noteOptional,
                 enabled: !_saving,
                 minLines: 3,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                hintText: 'Add context for the assignee…',
+                hintText: appL10n.addContextForTheAssignee,
               ),
             ],
           ),
@@ -764,7 +772,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                     ? 'assignment-retry-suggestions'
                     : 'assignment-retry-search',
               ),
-              label: const Text('Retry'),
+              label: Text(appL10n.retry),
               onPressed: _saving || _searching
                   ? null
                   : _suggestions == null
@@ -837,17 +845,23 @@ class AssignmentDetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle = <String>[
       if (assignment.assignee.isGroup)
-        'Group @${assignment.assignee.groupName}'
+        context.l10n.groupAssignmentsheet(
+          (assignment.assignee.groupName).toString(),
+        )
       else
         '@${assignment.assignee.username}',
       if (_nullableText(assignment.status) case final status?)
-        'Status: $status',
-      if (_nullableText(assignment.note) case final note?) 'Note: $note',
+        context.l10n.statusAssignmentsheet((status).toString()),
+      if (_nullableText(assignment.note) case final note?)
+        context.l10n.note((note).toString()),
     ];
     final label = [
-      '$targetLabel assigned to ${assignment.assignee.displayName}',
+      context.l10n.assignedTo(
+        (targetLabel).toString(),
+        (assignment.assignee.displayName).toString(),
+      ),
       ...subtitle,
-      if (onTap != null) 'Edit assignment',
+      if (onTap != null) context.l10n.editAssignmentAssignmentsheet,
     ].join('. ');
 
     return DItem(
@@ -870,7 +884,10 @@ class AssignmentDetailRow extends StatelessWidget {
               maxLines: null,
               child: ExcludeSemantics(
                 child: Text(
-                  '$targetLabel assigned to ${assignment.assignee.displayName}',
+                  context.l10n.assignedTo(
+                    (targetLabel).toString(),
+                    (assignment.assignee.displayName).toString(),
+                  ),
                 ),
               ),
             ),
@@ -889,13 +906,20 @@ class AssignmentDetailRow extends StatelessWidget {
 
 String assignmentSummary(Assignment assignment, String targetLabel) {
   final identity = assignment.assignee.isGroup
-      ? 'group @${assignment.assignee.groupName}'
-      : 'user @${assignment.assignee.username}';
+      ? appL10n.groupAssignmentsheetValue(
+          (assignment.assignee.groupName).toString(),
+        )
+      : appL10n.userAssignmentsheet((assignment.assignee.username).toString());
   final parts = <String>[
-    '$targetLabel assigned to ${assignment.assignee.displayName}',
+    appL10n.assignedTo(
+      (targetLabel).toString(),
+      (assignment.assignee.displayName).toString(),
+    ),
     identity,
-    if (_nullableText(assignment.status) case final status?) 'status $status',
-    if (_nullableText(assignment.note) case final note?) 'note $note',
+    if (_nullableText(assignment.status) case final status?)
+      appL10n.statusAssignmentsheetValue((status).toString()),
+    if (_nullableText(assignment.note) case final note?)
+      appL10n.noteAssignmentsheet((note).toString()),
   ];
   return parts.join(', ');
 }

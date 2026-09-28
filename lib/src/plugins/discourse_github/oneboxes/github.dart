@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:html/dom.dart' as dom;
@@ -263,9 +264,7 @@ class GithubLineCounts extends StatelessWidget {
     if (url == null) return counts;
 
     return _GithubInlineLink(
-      label:
-          '$additions ${additions == 1 ? 'addition' : 'additions'}, '
-          '$deletions ${deletions == 1 ? 'deletion' : 'deletions'}',
+      label: context.l10n.messageGithub(additions, deletions),
       url: url,
       siteUrl: siteUrl,
       child: counts,

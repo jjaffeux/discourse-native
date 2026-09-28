@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter/services.dart';
@@ -136,7 +137,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     _dismiss(clearSelection: true);
     DToast.show(
       context,
-      'Quote copied to clipboard.',
+      appL10n.quoteCopiedToClipboard,
       type: DToastType.success,
     );
   }
@@ -242,20 +243,20 @@ class _PostTextSelectionToolbar extends StatelessWidget {
             (
               key: const ValueKey('quote-selection'),
               icon: DIcons.quoteLeft,
-              label: 'Quote',
+              label: context.l10n.quote,
               onPressed: onQuote,
             ),
           if (canEdit)
             (
               key: const ValueKey('edit-selection'),
               icon: DIcons.pencil,
-              label: 'Edit',
+              label: context.l10n.edit,
               onPressed: onEdit,
             ),
           (
             key: const ValueKey('copy-quote-selection'),
             icon: DIcons.copy,
-            label: 'Copy quote',
+            label: context.l10n.copyQuote,
             onPressed: onCopyQuote,
           ),
         ];

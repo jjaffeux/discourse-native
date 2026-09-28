@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -198,7 +199,7 @@ class DDialog<T> extends StatefulWidget {
     this.modal = true,
     this.dismissOnBarrier = true,
     this.dismissOnEscape = true,
-    this.barrierLabel = 'Dismiss dialog',
+    this._barrierLabel,
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
@@ -226,7 +227,8 @@ class DDialog<T> extends StatefulWidget {
   final bool modal;
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
-  final String barrierLabel;
+  final String? _barrierLabel;
+  String get barrierLabel => _barrierLabel ?? appL10n.dismissDialog;
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
@@ -720,7 +722,7 @@ class DDialogContent extends StatelessWidget {
     required this.children,
     this.showCloseButton = true,
     this.closeButton,
-    this.closeSemanticLabel = 'Close',
+    this._closeSemanticLabel,
     this.maxWidth = 384,
     this.semanticLabel,
     this.contentPadding = const EdgeInsets.symmetric(horizontal: DSpacing.lg),
@@ -731,7 +733,8 @@ class DDialogContent extends StatelessWidget {
   final List<Widget> children;
   final bool showCloseButton;
   final Widget? closeButton;
-  final String closeSemanticLabel;
+  final String? _closeSemanticLabel;
+  String get closeSemanticLabel => _closeSemanticLabel ?? appL10n.close;
   final double maxWidth;
   final String? semanticLabel;
   final EdgeInsetsGeometry contentPadding;
@@ -886,13 +889,14 @@ class DDialogFooter extends StatelessWidget {
     super.key,
     required this.children,
     this.showCloseButton = false,
-    this.closeLabel = 'Close',
+    this._closeLabel,
     this.wideAlignment = WrapAlignment.end,
   });
 
   final List<Widget> children;
   final bool showCloseButton;
-  final String closeLabel;
+  final String? _closeLabel;
+  String get closeLabel => _closeLabel ?? appL10n.close;
 
   /// Horizontal action alignment at the 640px responsive breakpoint.
   ///
@@ -1033,7 +1037,7 @@ Future<T?> showDDialog<T>({
   bool dismissOnBarrier = true,
   bool dismissOnEscape = true,
   bool Function()? canDismiss,
-  String barrierLabel = 'Dismiss dialog',
+  String? barrierLabel,
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
@@ -1051,7 +1055,7 @@ Future<T?> showDDialog<T>({
       content: Builder(
         builder: (dialogContext) => builder(dialogContext, controller),
       ),
-      barrierLabel: barrierLabel,
+      barrierLabel: barrierLabel ?? appL10n.dismissDialog,
       dismissOnBarrier: dismissOnBarrier,
       dismissOnEscape: dismissOnEscape,
       initialFocusNode: initialFocusNode,

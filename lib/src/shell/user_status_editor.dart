@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -200,12 +201,12 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       if (endsAt == null) {
         setState(
           () => _error =
-              'That local time does not exist because of daylight saving time.',
+              appL10n.thatLocalTimeDoesNotExistBecauseOfDaylightSavingTime,
         );
         return;
       }
       if (!endsAt.isAfter(DateTime.now())) {
-        setState(() => _error = 'Choose a time in the future.');
+        setState(() => _error = appL10n.chooseATimeInTheFuture);
         return;
       }
       setState(() {
@@ -236,7 +237,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     if (!_canAct) return;
     final description = _description.text.trim();
     if (description.isEmpty) {
-      setState(() => _error = 'Enter a status description.');
+      setState(() => _error = appL10n.enterAStatusDescription);
       return;
     }
     setState(() {
@@ -293,7 +294,7 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
         ? null
         : tz.TZDateTime.from(customEndsAt, _readerLocation);
     return AlertDialog(
-      title: const Text('Set custom status'),
+      title: Text(context.l10n.setCustomStatus),
       content: SizedBox(
         width: 430,
         child: SingleChildScrollView(
@@ -307,12 +308,12 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   DButton.iconOnly(
                     onPressed: _busy ? null : _pickEmoji,
                     variant: DButtonVariant.outline,
-                    tooltip: 'Choose status emoji',
+                    tooltip: context.l10n.chooseStatusEmoji,
                     icon: SiteEmojiImage(
                       siteUrl: widget.siteUrl,
                       name: _emoji,
                       size: 24,
-                      alt: 'Status emoji',
+                      alt: context.l10n.statusEmoji,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -324,10 +325,10 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                       enabled: !_busy,
                       maxLength: 100,
                       textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: 'What’s your status?',
-                        hintText: 'What are you up to?',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.whatSYourStatus,
+                        hintText: context.l10n.whatAreYouUpTo,
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) {
                         if (_canAct) setState(() => _error = null);
@@ -342,33 +343,33 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               const SizedBox(height: 10),
               DSelect<_StatusExpiry>.controlled(
                 isExpanded: true,
-                label: const Text('Clear after'),
+                label: Text(context.l10n.clearAfter),
                 value: _expiry,
-                entries: const [
+                entries: [
                   DSelectOption(
                     value: _StatusExpiry.never,
-                    label: 'Never',
-                    child: Text('Never'),
+                    label: context.l10n.never,
+                    child: Text(context.l10n.never),
                   ),
                   DSelectOption(
                     value: _StatusExpiry.oneHour,
-                    label: '1 hour',
-                    child: Text('1 hour'),
+                    label: context.l10n.message1Hour,
+                    child: Text(context.l10n.message1Hour),
                   ),
                   DSelectOption(
                     value: _StatusExpiry.twoHours,
-                    label: '2 hours',
-                    child: Text('2 hours'),
+                    label: context.l10n.message2Hours,
+                    child: Text(context.l10n.message2Hours),
                   ),
                   DSelectOption(
                     value: _StatusExpiry.tomorrow,
-                    label: 'Tomorrow',
-                    child: Text('Tomorrow'),
+                    label: context.l10n.tomorrow,
+                    child: Text(context.l10n.tomorrow),
                   ),
                   DSelectOption(
                     value: _StatusExpiry.custom,
-                    label: 'Custom date and time',
-                    child: Text('Custom date and time'),
+                    label: context.l10n.customDateAndTime,
+                    child: Text(context.l10n.customDateAndTime),
                   ),
                 ],
                 onChanged: _busy
@@ -382,8 +383,12 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
               if (until != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Until ${MaterialLocalizations.of(context).formatMediumDate(until)} '
-                  '${clockTimeLabel(context, until)}',
+                  context.l10n.until(
+                    (MaterialLocalizations.of(
+                      context,
+                    ).formatMediumDate(until)).toString(),
+                    (clockTimeLabel(context, until)).toString(),
+                  ),
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -400,13 +405,13 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                       },
                 contentPadding: EdgeInsets.zero,
 
-                title: const DLabel(child: Text('Pause notifications')),
+                title: DLabel(child: Text(context.l10n.pauseNotifications)),
               ),
               if (preview != null) ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Text('Preview: '),
+                    Text(context.l10n.preview),
                     Flexible(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -444,15 +449,15 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
       actions: [
         if (widget.initialStatus != null)
           DButton(
-            label: const Text('Clear status'),
+            label: Text(context.l10n.clearStatus),
             onPressed: _busy ? null : _clear,
           ),
         DButton(
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
         ),
         DButton(
-          label: const Text('Save'),
+          label: Text(context.l10n.save),
           onPressed: _save,
           variant: DButtonVariant.primary,
           loading: _busy,

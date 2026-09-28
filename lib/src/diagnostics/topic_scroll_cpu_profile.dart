@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:vm_service/vm_service.dart' as vm;
 
 import 'topic_scroll_raster_profile.dart';
@@ -180,9 +181,9 @@ Map<String, Object?> summarizeTopicCpuProfile(
 
 String _functionName(vm.ProfileFunction function) {
   final json = function.toJson()['function'];
-  if (json is! Map) return 'Unknown';
+  if (json is! Map) return appL10n.unknown;
   final name = json['name'];
-  if (name is! String || name.isEmpty) return 'Unknown';
+  if (name is! String || name.isEmpty) return appL10n.unknown;
   final owner = json['owner'];
   final ownerName = owner is Map && owner['type'] == '@Class'
       ? owner['name']

@@ -1,10 +1,11 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'http_transport.dart';
 
 /// Validates persisted forum identities without accepting user-input shorthand.
 /// Subfolder paths are retained; trailing slashes match connected-site storage.
 String requireStoredForumBase(Object? value) {
   if (value is! String) {
-    throw const FormatException('Invalid stored forum base URL.');
+    throw FormatException(appL10n.invalidStoredForumBaseURL);
   }
 
   final Uri parsed;
@@ -13,7 +14,7 @@ String requireStoredForumBase(Object? value) {
   } on FormatException {
     // Uri.parse's exception retains its source. Do not put a damaged value
     // (which may contain credentials) into diagnostics.
-    throw const FormatException('Invalid stored forum base URL.');
+    throw FormatException(appL10n.invalidStoredForumBaseURL);
   }
 
   final safe = requireSafeHttpUrl(parsed);

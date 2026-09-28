@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -408,7 +409,7 @@ class _GifPlaybackControlState extends State<_GifPlaybackControl> {
             data: inheritedMediaQuery.copyWith(disableAnimations: !_playing),
             child: widget.child,
           );
-    final action = _playing ? 'Pause GIF' : 'Play GIF';
+    final action = _playing ? context.l10n.pauseGIF : context.l10n.playGIF;
 
     return Stack(
       fit: StackFit.passthrough,
@@ -438,7 +439,7 @@ final class SiteImageUnavailableException implements Exception {
   final String url;
 
   @override
-  String toString() => 'Site image is unavailable: $url';
+  String toString() => appL10n.siteImageIsUnavailable((url).toString());
 }
 
 final class SiteImageWidgetFactory extends WidgetFactory {
@@ -839,27 +840,27 @@ class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
       setState(() => _open = open);
     },
     content: DContextMenuContent(
-      semanticLabel: 'Open link',
+      semanticLabel: context.l10n.openLinkOpenlink,
       children: [
         DContextMenuItem(
           onPressed: () =>
               _openLink(context, newTab: false, panel: ForumPanel.main),
-          child: const Text('Open in main panel'),
+          child: Text(context.l10n.openInMainPanel),
         ),
         DContextMenuItem(
           onPressed: () =>
               _openLink(context, newTab: false, panel: ForumPanel.secondary),
-          child: const Text('Open in secondary panel'),
+          child: Text(context.l10n.openInSecondaryPanel),
         ),
         DContextMenuItem(
           onPressed: () =>
               _openLink(context, newTab: true, panel: ForumPanel.main),
-          child: const Text('Open in new main tab'),
+          child: Text(context.l10n.openInNewMainTab),
         ),
         DContextMenuItem(
           onPressed: () =>
               _openLink(context, newTab: true, panel: ForumPanel.secondary),
-          child: const Text('Open in new secondary tab'),
+          child: Text(context.l10n.openInNewSecondaryTab),
         ),
       ],
     ),

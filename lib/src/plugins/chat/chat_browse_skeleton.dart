@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
@@ -30,7 +31,9 @@ class ChatBrowseSkeleton extends StatelessWidget {
     final channels = page == ChatBrowsePage.channels;
     final content = DSkeletonRegion(
       key: ValueKey('chat-browse-${page.name}-skeleton'),
-      semanticsLabel: 'Loading ${page.name}',
+      semanticsLabel: context.l10n.loadingChatbrowseskeleton(
+        (page.name).toString(),
+      ),
       color: skeletonFill(context),
       child: Column(
         children: [

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
@@ -99,9 +100,9 @@ class ChatMobileSidebar extends StatelessWidget {
                       if (index < channels.length) return row(channels[index]);
                       final roomIndex = index - channels.length;
                       if (channels.isNotEmpty && roomIndex == 0) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('Voice rooms'),
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(context.l10n.voiceRooms),
                         );
                       }
                       return ChatInboxRoomRow(
@@ -119,9 +120,9 @@ class ChatMobileSidebar extends StatelessWidget {
                           row(channel),
                         ],
                         if (rooms.isNotEmpty && channels.isNotEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Text('Voice rooms'),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(context.l10n.voiceRooms),
                           ),
                         for (final room in rooms) ChatInboxRoomRow(room: room),
                       ],

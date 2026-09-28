@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show SemanticsRole;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -648,7 +649,10 @@ class _DCarouselContentState extends State<DCarouselContent> {
                 final index = _logicalPage(page);
                 return Semantics(
                   container: true,
-                  label: 'Slide ${index + 1} of $_count',
+                  label: context.l10n.slideOf(
+                    (index + 1).toString(),
+                    (_count).toString(),
+                  ),
                   child: Padding(
                     padding: _scope.orientation == Axis.horizontal
                         ? EdgeInsetsDirectional.only(end: widget.spacing)
@@ -736,7 +740,8 @@ class _DCarouselNavigationState extends State<DCarouselNavigation> {
             child: const DIcon(DIcons.chevronDown, size: 16),
           );
     final label =
-        widget.semanticLabel ?? (previous ? 'Previous slide' : 'Next slide');
+        widget.semanticLabel ??
+        (previous ? context.l10n.previousSlide : context.l10n.nextSlide);
     return PositionedDirectional(
       start: horizontal ? (previous ? 0 : null) : 0,
       end: horizontal ? (!previous ? 0 : null) : 0,

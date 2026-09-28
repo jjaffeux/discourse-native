@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -43,7 +44,7 @@ class ComposerSelectionMenu extends StatelessWidget {
         },
         content: DDropdownMenuContent(
           key: const ValueKey('composer-selection-toolbar'),
-          semanticLabel: 'Text formatting',
+          semanticLabel: context.l10n.textFormatting,
           autofocus: false,
           side: DPopoverSide.top,
           align: DPopoverAlign.center,
@@ -188,7 +189,7 @@ class _ComposerFormattingControlsState
         }
         final pressed = composerSelectionFormats(composer.value);
         final bold = _toggle(
-          'Bold',
+          context.l10n.bold,
           const DIcon(DIcons.bold),
           pressed('**'),
           () => _mark(ComposerMark.bold),
@@ -196,7 +197,7 @@ class _ComposerFormattingControlsState
           selectionOnly: !inline,
         );
         final italic = _toggle(
-          'Italic',
+          context.l10n.italic,
           const DIcon(DIcons.italic),
           pressed('*'),
           () => _mark(ComposerMark.italic),
@@ -204,13 +205,13 @@ class _ComposerFormattingControlsState
           selectionOnly: !inline,
         );
         final underline = _toggle(
-          'Underline',
+          context.l10n.underline,
           const Icon(Icons.format_underlined),
           pressed('ins'),
           () => _format((value) => toggleComposerTag(value, 'ins')),
         );
         final clear = DButton.iconOnly(
-          tooltip: 'Clear formatting',
+          tooltip: context.l10n.clearFormatting,
           icon: const Icon(Icons.format_clear),
           variant: DButtonVariant.ghost,
           size: _size,
@@ -220,14 +221,14 @@ class _ComposerFormattingControlsState
         );
         final link = DButton.iconOnly(
           key: inline ? const ValueKey('composer-format-link') : null,
-          tooltip: 'Link',
+          tooltip: context.l10n.link,
           icon: const DIcon(DIcons.link),
           variant: DButtonVariant.ghost,
           size: _size,
           onPressed: _enabled ? widget.onLink : null,
         );
         final strike = _toggle(
-          'Strikethrough',
+          context.l10n.strikethrough,
           const Icon(Icons.format_strikethrough),
           pressed('~~'),
           () => _format(
@@ -237,7 +238,7 @@ class _ComposerFormattingControlsState
           ),
         );
         final code = _toggle(
-          'Inline code',
+          context.l10n.inlineCode,
           const DIcon(DIcons.code),
           pressed('code'),
           () => _mark(ComposerMark.inlineCode),
@@ -247,15 +248,15 @@ class _ComposerFormattingControlsState
         final more = DDropdownMenu(
           restoreFocus: false,
           content: DDropdownMenuContent(
-            semanticLabel: 'More formatting',
+            semanticLabel: context.l10n.moreFormatting,
             autofocus: !inline,
             side: DPopoverSide.top,
             width: 180,
             children: [
-              for (final (label, tag) in const [
-                ('Superscript', 'sup'),
-                ('Subscript', 'sub'),
-                ('Keyboard key', 'kbd'),
+              for (final (label, tag) in [
+                (context.l10n.superscript, 'sup'),
+                (context.l10n.subscript, 'sub'),
+                (context.l10n.keyboardKey, 'kbd'),
               ])
                 DPopoverClose(
                   builder: (context, close) => TextFieldTapRegion(
@@ -275,7 +276,7 @@ class _ComposerFormattingControlsState
           ),
           child: DDropdownMenuTrigger(
             builder: (context, state) => DButton.iconOnly(
-              tooltip: 'More formatting',
+              tooltip: context.l10n.moreFormatting,
               icon: const DIcon(DIcons.ellipsis),
               variant: DButtonVariant.ghost,
               size: _size,
@@ -301,7 +302,7 @@ class _ComposerFormattingControlsState
           return Semantics(
             key: const ValueKey('composer-formatting'),
             container: true,
-            label: 'Formatting',
+            label: context.l10n.formatting,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               spacing: DSpacing.controlGap,

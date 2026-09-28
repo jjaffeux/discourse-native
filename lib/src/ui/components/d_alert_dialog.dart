@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -23,7 +24,7 @@ class DAlertDialog<T> extends StatelessWidget {
     this.onOpenChanged,
     this.useRootNavigator = false,
     this.dismissOnEscape = true,
-    this.barrierLabel = 'Alert dialog',
+    this._barrierLabel,
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
@@ -37,7 +38,8 @@ class DAlertDialog<T> extends StatelessWidget {
   final ValueChanged<DDialogChangeDetails<T>>? onOpenChanged;
   final bool useRootNavigator;
   final bool dismissOnEscape;
-  final String barrierLabel;
+  final String? _barrierLabel;
+  String get barrierLabel => _barrierLabel ?? appL10n.alertDialog;
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
@@ -536,7 +538,7 @@ Future<T?> showDAlertDialog<T>({
   required DDialogContentBuilder<T> builder,
   bool useRootNavigator = false,
   bool dismissOnEscape = true,
-  String barrierLabel = 'Alert dialog',
+  String? barrierLabel,
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
@@ -546,7 +548,7 @@ Future<T?> showDAlertDialog<T>({
   useRootNavigator: useRootNavigator,
   dismissOnBarrier: false,
   dismissOnEscape: dismissOnEscape,
-  barrierLabel: barrierLabel,
+  barrierLabel: barrierLabel ?? appL10n.alertDialog,
   routeSettings: routeSettings,
   initialFocusNode: initialFocusNode,
   finalFocusNode: finalFocusNode,

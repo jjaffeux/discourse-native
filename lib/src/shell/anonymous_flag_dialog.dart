@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/d_toast.dart';
@@ -15,8 +16,10 @@ Uri illegalContentMailtoUri({
   // Mailto spaces must be %20; queryParameters uses form-style '+'.
   query:
       {
-            'subject': 'Illegal content: $topicTitle',
-            'body': 'This post $postUrl contains illegal content.',
+            'subject': appL10n.illegalContent((topicTitle).toString()),
+            'body': appL10n.thisPostContainsIllegalContent(
+              (postUrl).toString(),
+            ),
           }.entries
           .map(
             (entry) =>
@@ -34,20 +37,19 @@ Future<void> showAnonymousIllegalContentDialog({
   final send = await showDiscourseDialog<bool>(
     context: context,
     builder: (dialogContext) => DiscourseAlertDialog(
-      title: const Text('Report illegal content'),
-      content: const Text(
-        'This site accepts illegal-content reports by email. Your mail '
-        'application will open with the post link and subject filled in.',
+      title: Text(appL10n.reportIllegalContent),
+      content: Text(
+        appL10n.thisSiteAcceptsIllegalContentReportsByEmailYourMailApplication,
       ),
       actions: [
         AdaptiveDialogAction(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancel'),
+          child: Text(appL10n.cancel),
         ),
         AdaptiveDialogAction(
           kind: AdaptiveDialogActionKind.primary,
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Open email'),
+          child: Text(appL10n.openEmail),
         ),
       ],
     ),
@@ -63,7 +65,7 @@ Future<void> showAnonymousIllegalContentDialog({
   if (!opened && context.mounted) {
     DToast.show(
       context,
-      "Couldn't open a mail application.",
+      appL10n.couldnTOpenAMailApplication,
       type: DToastType.error,
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -442,7 +443,9 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     return DDropdownMenu(
       sheetOnMobile: true,
       content: DDropdownMenuContent(
-        semanticLabel: '${block.label} actions',
+        semanticLabel: appL10n.actionsComposerblocksurface(
+          (block.label).toString(),
+        ),
         children: [
           DDropdownMenuItem(
             onPressed:
@@ -454,7 +457,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     _move(position - 1);
                   }
                 : null,
-            child: const Text('Move up'),
+            child: Text(appL10n.moveUp),
           ),
           DDropdownMenuItem(
             onPressed:
@@ -466,7 +469,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     _move(position + 2);
                   }
                 : null,
-            child: const Text('Move down'),
+            child: Text(appL10n.moveDown),
           ),
         ],
       ),
@@ -475,7 +478,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           key: ValueKey('composer-block-handle-${block.id}'),
           data: drag,
           density: DButtonDensity.composerBlock,
-          label: 'Drag to move or click to open menu',
+          label: appL10n.dragToMoveOrClickToOpenMenu,
           enabled:
               composer.blocks.enabled &&
               block.movable &&
@@ -539,7 +542,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     children: [
       DButton.iconOnly(
         key: ValueKey('composer-block-add-${emptyLine?.start ?? block?.id}'),
-        tooltip: 'Add block',
+        tooltip: appL10n.addBlock,
         density: DButtonDensity.composerBlock,
         backgroundColor: const Color(0x00000000),
         variant: DButtonVariant.transparentBackground,
@@ -557,7 +560,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           key: ValueKey('composer-block-empty-handle-${emptyLine.start}'),
           data: emptyLine,
           density: DButtonDensity.composerBlock,
-          label: 'Empty paragraph actions',
+          label: appL10n.emptyParagraphActions,
           // There is no indexed block to move until this line has content.
           enabled: false,
           onPressed: null,

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -35,17 +36,17 @@ final class BookmarkReminderCalculator {
     return [
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.laterToday,
-        label: 'In 2 hours',
+        label: appL10n.in2Hours,
         instant: now.add(const Duration(hours: 2)).toUtc(),
       ),
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.tomorrow,
-        label: 'Tomorrow',
+        label: appL10n.tomorrow,
         instant: _instant(_dayAtEight(wallNow, 1)),
       ),
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.inThreeDays,
-        label: 'In 3 days',
+        label: appL10n.in3Days,
         instant: _instant(_dayAtEight(wallNow, 3)),
       ),
     ];
@@ -79,7 +80,7 @@ final class BookmarkReminderCalculator {
       suggestions.add(
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.laterToday,
-          label: 'Later today',
+          label: appL10n.laterToday,
           instant: _instant(candidate),
         ),
       );
@@ -87,7 +88,7 @@ final class BookmarkReminderCalculator {
     suggestions.add(
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.tomorrow,
-        label: 'Tomorrow',
+        label: appL10n.tomorrow,
         instant: _instant(_dayAtEight(wallNow, 1)),
       ),
     );
@@ -95,7 +96,7 @@ final class BookmarkReminderCalculator {
       suggestions.add(
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.laterThisWeek,
-          label: 'Later this week',
+          label: appL10n.laterThisWeek,
           instant: _instant(_dayAtEight(wallNow, 2)),
         ),
       );
@@ -105,7 +106,7 @@ final class BookmarkReminderCalculator {
       suggestions.add(
         BookmarkReminderSuggestion(
           preset: BookmarkReminderPreset.thisWeekend,
-          label: 'This weekend',
+          label: appL10n.thisWeekend,
           instant: _instant(_dayAtEight(wallNow, untilSaturday)),
         ),
       );
@@ -120,7 +121,7 @@ final class BookmarkReminderCalculator {
     suggestions.add(
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.nextMonday,
-        label: untilMonday >= 7 ? 'Next Monday' : 'Monday',
+        label: untilMonday >= 7 ? appL10n.nextMonday : appL10n.monday,
         instant: _instant(_dayAtEight(wallNow, untilMonday)),
       ),
     );
@@ -130,7 +131,7 @@ final class BookmarkReminderCalculator {
     suggestions.add(
       BookmarkReminderSuggestion(
         preset: BookmarkReminderPreset.nextMonth,
-        label: 'Next month',
+        label: appL10n.nextMonth,
         instant: _instant(nextMonth),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,10 +14,10 @@ import 'composer_details_body_controller.dart';
 import 'composer_embedded_editor.dart';
 import 'composer_panel.dart';
 
-const composerDetailsSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('core'),
+ComposerSyntaxKind get composerDetailsSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('core'),
   name: 'details',
-  label: 'Details',
+  label: appL10n.details,
 );
 
 void insertComposerDetails(ComposerController composer) {
@@ -407,7 +408,7 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.composer,
     scrollController: widget.composer.text.imageScrollController,
-    semanticLabel: 'Details editor',
+    semanticLabel: context.l10n.detailsEditor,
     child: _editor(context),
   );
 
@@ -435,8 +436,8 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
                     maxLines: 3,
                     controller: _summary,
                     focusNode: _summaryFocus,
-                    semanticLabel: 'Details summary',
-                    hintText: 'Summary',
+                    semanticLabel: context.l10n.detailsSummary,
+                    hintText: context.l10n.summary,
                     style: context
                         .findAncestorWidgetOfExactType<ComposerEditor>()
                         ?.textStyle,
@@ -456,8 +457,8 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
                       child: ComposerRichBodyEditor(
                         key: const ValueKey('details-body'),
                         composer: _body,
-                        label: 'Details content',
-                        hintText: 'Write here…',
+                        label: context.l10n.detailsContent,
+                        hintText: context.l10n.writeHere,
                         onExit: _leave,
                       ),
                     ),
@@ -480,12 +481,12 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
           onPressed: widget.composer.isEditing
               ? () => _remove(keepContent: true)
               : null,
-          child: const Text('Remove details, keep content'),
+          child: Text(context.l10n.removeDetailsKeepContent),
         ),
         DContextMenuItem(
           variant: DContextMenuItemVariant.destructive,
           onPressed: widget.composer.isEditing ? _remove : null,
-          child: const Text('Delete details'),
+          child: Text(context.l10n.deleteDetails),
         ),
       ],
     ),
@@ -493,7 +494,9 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
       focusable: false,
       child: DButton(
         key: const ValueKey('details-disclosure'),
-        semanticLabel: _open ? 'Collapse details' : 'Expand details',
+        semanticLabel: _open
+            ? context.l10n.collapseDetails
+            : context.l10n.expandDetails,
         expanded: _open,
         variant: DButtonVariant.transparentBackground,
         label: DIcon(

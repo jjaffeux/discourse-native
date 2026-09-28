@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_diagnostics.dart';
@@ -51,7 +52,7 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
   String get diagnosticsId => 'voice';
 
   @override
-  String get diagnosticsLabel => 'Voice';
+  String get diagnosticsLabel => appL10n.voice;
 
   @override
   Listenable get diagnosticsStatusListenable => _diagnosticsStatus;
@@ -61,7 +62,7 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
 
   @override
   String? get diagnosticsRecordingLabel =>
-      isDiagnosticsRecording ? 'Voice capture recording' : null;
+      isDiagnosticsRecording ? appL10n.voiceCaptureRecording : null;
 
   @override
   void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
@@ -158,7 +159,7 @@ final class VoiceDiagnosticsPlugin extends PluginAppLifecycle
   ) {
     final controller = _controller;
     if (controller == null) {
-      return const Center(child: Text('Voice diagnostics are unavailable.'));
+      return Center(child: Text(context.l10n.voiceDiagnosticsAreUnavailable));
     }
     final report = VoiceDiagnosticsReport(
       diagnostics: diagnostics,

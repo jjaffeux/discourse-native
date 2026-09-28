@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const int voiceDiagnosticsFormatVersion = 1;
@@ -472,8 +473,12 @@ abstract final class VoiceDiagnosticsRedactor {
     // An empty field leaks nothing and shows that a remote candidate arrived
     // before the description carrying its password.
     String redact(String value) => value.isEmpty ? value : '<redacted>';
-    return 'Cand[$head:${redact(match.group(2)!)}:'
-        '${redact(match.group(3)!)}${match.group(4)}';
+    return appL10n.cand(
+      (head).toString(),
+      (redact(match.group(2)!)).toString(),
+      (redact(match.group(3)!)).toString(),
+      (match.group(4)).toString(),
+    );
   }
 
   static Map<String, Object?> data(

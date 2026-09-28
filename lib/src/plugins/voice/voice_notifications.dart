@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'voice_icons.dart';
 
 abstract final class VoiceNotificationTypes {
@@ -22,14 +24,16 @@ ResolvedNotification? _decodeVoiceInvitation(
   }
 
   final data = notification.data;
-  final actor = jsonText(data['display_username']) ?? 'Someone';
-  final roomName = jsonText(data['room_name']) ?? 'a voice room';
+  final actor = jsonText(data['display_username']) ?? appL10n.someone;
+  final roomName = jsonText(data['room_name']) ?? appL10n.aVoiceRoom;
   final isCall = data['call'] == true;
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: isCall ? VoiceIcons.phone : DIcons.microphoneLines,
       actor: actor,
-      phrase: isCall ? 'is calling you' : 'invited you to join $roomName',
+      phrase: isCall
+          ? appL10n.isCallingYou
+          : appL10n.invitedYouToJoin((roomName).toString()),
     ),
     path: _voiceInvitationPath(data),
   );

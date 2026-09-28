@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'live_refresh_id.dart';
 
 /// Which arrivals one topic list announces: what core's `notifyIncoming`
@@ -51,9 +52,11 @@ final class IncomingTopicsFilter {
       Object.hash(countsBumps, categoryId, Object.hashAllUnordered(tagIds));
 
   @override
-  String toString() =>
-      'IncomingTopicsFilter.${countsBumps ? 'latest' : 'created'}'
-      '(categoryId: $categoryId, tagIds: $tagIds)';
+  String toString() => appL10n.incomingTopicsFilterCategoryIdTagIds(
+    (countsBumps).toString(),
+    (categoryId).toString(),
+    (tagIds).toString(),
+  );
 }
 
 final class _Arrival {

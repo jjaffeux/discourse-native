@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const reactionsDataKey = PluginDataKey<Reactions>(
@@ -55,7 +56,11 @@ class Reaction {
   int get hashCode => Object.hash(id, count, canUndo);
 
   @override
-  String toString() => 'Reaction($id, count: $count, canUndo: $canUndo)';
+  String toString() => appL10n.reactionCountCanUndo(
+    (id).toString(),
+    (count).toString(),
+    (canUndo).toString(),
+  );
 }
 
 @immutable
@@ -171,5 +176,9 @@ class Reactions {
       Object.hash(Object.hashAll(entries), mine, usedMainReaction, userCount);
 
   @override
-  String toString() => 'Reactions($entries, mine: $mine, users: $userCount)';
+  String toString() => appL10n.reactionsMineUsers(
+    (entries).toString(),
+    (mine).toString(),
+    (userCount).toString(),
+  );
 }

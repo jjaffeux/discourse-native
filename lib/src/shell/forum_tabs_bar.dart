@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -591,7 +592,9 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           role: SemanticsRole.tabBar,
                           container: true,
                           explicitChildNodes: true,
-                          label: 'Open tabs in ${widget.forumName}',
+                          label: context.l10n.openTabsIn(
+                            (widget.forumName).toString(),
+                          ),
                           child: Row(
                             key: _tabRowKey,
                             mainAxisSize: MainAxisSize.min,
@@ -637,8 +640,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                     moveToPanelLabel: widget.panel == null
                                         ? null
                                         : widget.panel == ForumPanel.main
-                                        ? 'Move to secondary panel'
-                                        : 'Move to main panel',
+                                        ? context.l10n.moveToSecondaryPanel
+                                        : context.l10n.moveToMainPanel,
                                   ),
                                 ),
                                 if (index != widget.items.length - 1)
@@ -950,7 +953,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
             }
           },
           content: DDropdownMenuContent(
-            semanticLabel: 'Browse tabs',
+            semanticLabel: context.l10n.browseTabs,
             width: panelWidth,
             cornerRadius: 12,
             constraints: BoxConstraints(
@@ -975,7 +978,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
                         onChanged: (_) => setState(() {}),
                         size: DControlSize.large,
                         textInputAction: TextInputAction.search,
-                        hintText: 'Search tabs...',
+                        hintText: context.l10n.searchTabs,
                         prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
                       ),
                       const SizedBox(height: 10),
@@ -1002,7 +1005,9 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
                                 focusNode: _focusFor('open-${item.id}'),
                                 onTap: () => _select(item.id),
                                 trailing: _TabSwitcherRowAction(
-                                  label: 'Close ${item.title}',
+                                  label: context.l10n.closeForumtabsbar(
+                                    (item.title).toString(),
+                                  ),
                                   icon: DIcons.xmark,
                                   onPressed: () => widget.onClose(item.id),
                                 ),
@@ -1044,8 +1049,10 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
           child: DDropdownMenuTrigger(
             builder: (context, state) => DButton.iconOnly(
               key: const ValueKey('forum-tabs-switcher'),
-              semanticLabel: 'Browse tabs in ${widget.forumName}',
-              tooltip: 'Browse tabs',
+              semanticLabel: context.l10n.browseTabsIn(
+                (widget.forumName).toString(),
+              ),
+              tooltip: context.l10n.browseTabs,
               variant: DButtonVariant.outline,
               size: DControlSize.tabAction,
               icon: const DIcon(DIcons.chevronDown),
@@ -1071,9 +1078,9 @@ class _TabSwitcherHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = switch (kind) {
-      ForumTabKind.list => 'Lists',
-      ForumTabKind.chat => 'Chats',
-      ForumTabKind.topic => 'Topics',
+      ForumTabKind.list => context.l10n.lists,
+      ForumTabKind.chat => context.l10n.chats,
+      ForumTabKind.topic => context.l10n.topics,
     };
     return Semantics(
       header: true,
@@ -1138,9 +1145,9 @@ class _TabSwitcherHistoryToggle extends StatelessWidget {
         label: Text.rich(
           TextSpan(
             children: [
-              const TextSpan(
-                text: 'Recently closed ',
-                style: TextStyle(fontWeight: FontWeight.w600),
+              TextSpan(
+                text: context.l10n.recentlyClosed,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               TextSpan(
                 text: '$count',
@@ -1439,7 +1446,7 @@ class _ForumTabDropPlaceholder extends StatelessWidget {
     role: SemanticsRole.tab,
     selected: false,
     enabled: false,
-    label: 'Drop ${item.title} here',
+    label: context.l10n.dropHere((item.title).toString()),
     liveRegion: true,
     child: Center(
       child: Container(
@@ -1476,7 +1483,7 @@ class ForumTabDragFeedback extends StatelessWidget {
           selected: true,
           onSelect: () {},
           onClose: () {},
-          closeLabel: 'Close ${item.title}',
+          closeLabel: context.l10n.closeForumtabsbar((item.title).toString()),
           child: Row(
             children: [
               if (item.icon case final icon?) ...[
@@ -1509,8 +1516,8 @@ class _NewTabButton extends StatelessWidget {
     child: DButton.iconOnly(
       key: const ValueKey('forum-tabs-add'),
       tooltip: onPressed == null
-          ? 'Close a tab before opening another'
-          : 'Open a new tab',
+          ? context.l10n.closeATabBeforeOpeningAnother
+          : context.l10n.openANewTab,
       shortcut: onPressed == null
           ? null
           : DShortcut(
@@ -1559,7 +1566,9 @@ class _ForumTabScrollButton extends StatelessWidget {
       ),
       alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
       child: DButton.iconOnly(
-        tooltip: forward ? 'Show more tabs' : 'Show previous tabs',
+        tooltip: forward
+            ? context.l10n.showMoreTabs
+            : context.l10n.showPreviousTabs,
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.outline,
@@ -1603,7 +1612,8 @@ class _ForumTab extends StatefulWidget {
 }
 
 class _ForumTabState extends State<_ForumTab> {
-  static const _renameAction = CustomSemanticsAction(label: 'Rename');
+  static CustomSemanticsAction get _renameAction =>
+      CustomSemanticsAction(label: appL10n.rename);
   static const _dotGap = 3.0;
 
   bool _selectedOnPointerDown = false;
@@ -1699,11 +1709,19 @@ class _ForumTabState extends State<_ForumTab> {
         : '${widget.item.title}, $description';
     if (!badge.isVisible) return title;
     if (badge.dot) {
-      return '$title, '
-          '${badge.urgent ? 'urgent unread activity' : 'unread activity'}';
+      return appL10n.messageForumtabsbar(
+        (badge.urgent).toString(),
+        (title).toString(),
+        ((badge.urgent) ? (appL10n.urgentUnreadActivity) : '').toString(),
+        ((!(badge.urgent)) ? (appL10n.unreadActivity) : '').toString(),
+      );
     }
-    return '$title, ${badge.count} '
-        '${badge.count == 1 ? 'unread item' : 'unread items'}';
+    return appL10n.messageForumtabsbarValue(
+      badge.count,
+      (title).toString(),
+      ((badge.count == 1) ? (appL10n.unreadItem) : '').toString(),
+      ((!(badge.count == 1)) ? (appL10n.unreadItems) : '').toString(),
+    );
   }
 
   Widget _badge(BuildContext context) {
@@ -1892,8 +1910,9 @@ class _ForumTabState extends State<_ForumTab> {
           onTap: widget.onSelect,
           customSemanticsActions: {
             if (widget.onRename != null) _renameAction: _startRenaming,
-            const CustomSemanticsAction(label: 'Move left'): ?widget.onMoveLeft,
-            const CustomSemanticsAction(label: 'Move right'):
+            CustomSemanticsAction(label: context.l10n.moveLeft):
+                ?widget.onMoveLeft,
+            CustomSemanticsAction(label: context.l10n.moveRight):
                 ?widget.onMoveRight,
           },
           onClose: widget.onClose,
@@ -1912,7 +1931,9 @@ class _ForumTabState extends State<_ForumTab> {
             onTapCancel: _handleTapCancel,
             onDoubleTap: widget.onRename == null ? null : _startRenaming,
             onClose: widget.onClose,
-            closeLabel: 'Close ${widget.item.title}',
+            closeLabel: context.l10n.closeForumtabsbar(
+              (widget.item.title).toString(),
+            ),
             closeShortcut: DShortcut(
               primaryShortcutForPlatform(
                 Theme.of(context).platform,
@@ -1980,7 +2001,8 @@ class _ForumTabActions extends StatefulWidget {
 }
 
 class _ForumTabActionsState extends State<_ForumTabActions> {
-  static const _showActions = CustomSemanticsAction(label: 'Show tab actions');
+  static CustomSemanticsAction get _showActions =>
+      CustomSemanticsAction(label: appL10n.showTabActions);
   final _trigger = DContextMenuTriggerController();
 
   @override
@@ -1998,7 +2020,7 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
     },
     child: DContextMenu(
       content: DContextMenuContent(
-        semanticLabel: 'Tab actions',
+        semanticLabel: context.l10n.tabActions,
         width: 280,
         children: [
           if (widget.moveToPanel != null)
@@ -2020,12 +2042,12 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
                   )
                 : null,
             onPressed: widget.onClose,
-            child: const Text('Close tab'),
+            child: Text(context.l10n.closeTab),
           ),
           DContextMenuItem(
             key: ValueKey('forum-tab-menu-close-others-${widget.tabId}'),
             onPressed: widget.onCloseOthers,
-            child: const Text('Close other tabs'),
+            child: Text(context.l10n.closeOtherTabs),
           ),
         ],
       ),
@@ -2189,7 +2211,7 @@ class CurrentForumTabsBar extends StatelessWidget {
                   DButton.iconOnly(
                     key: ValueKey('add-empty-${panel?.name}'),
                     icon: const DIcon(DIcons.plus),
-                    tooltip: 'Open a new tab',
+                    tooltip: context.l10n.openANewTab,
                     variant: DButtonVariant.inline,
                     onPressed: controller.canCreateTab
                         ? () => controller.createTab(panel: panel)

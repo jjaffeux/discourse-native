@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -172,9 +173,18 @@ class _AlertTableState extends State<_AlertTable> {
                             Flexible(
                               child: Text(
                                 '${group.heading} (${group.alerts.length})',
-                                semanticsLabel:
-                                    '${collapsed ? 'Expand' : 'Collapse'} '
-                                    '${group.status.label}: ${group.heading} (${group.alerts.length})',
+                                semanticsLabel: context.l10n.messageAlerttables(
+                                  (collapsed).toString(),
+                                  ((collapsed) ? (context.l10n.expand) : '')
+                                      .toString(),
+                                  (group.status.label).toString(),
+                                  (group.heading).toString(),
+                                  (group.alerts.length).toString(),
+                                  ((!(collapsed))
+                                          ? (context.l10n.collapse)
+                                          : '')
+                                      .toString(),
+                                ),
                               ),
                             ),
                           ],
@@ -187,7 +197,7 @@ class _AlertTableState extends State<_AlertTable> {
                   _AlertLinkButton(
                     uri: manager,
                     siteUrl: widget.siteUrl,
-                    label: 'Open Alertmanager',
+                    label: context.l10n.openAlertmanager,
                     icon: DIcons.list,
                   ),
               ],
@@ -251,7 +261,7 @@ class _AlertTableState extends State<_AlertTable> {
     final link = widget.settings.process(alert.linkUrl, alert, now: now);
     final theme = Theme.of(context);
     final identifier = Text(
-      alert.identifier.isEmpty ? 'Alert' : alert.identifier,
+      alert.identifier.isEmpty ? appL10n.alert : alert.identifier,
     );
     return DTableRow(
       cells: [
@@ -286,11 +296,13 @@ class _AlertTableState extends State<_AlertTable> {
                 ),
               if (alert.wasRecentlySilenced(now))
                 DTooltip(
-                  message:
-                      'Previously silenced on '
-                      '${DateFormat.yMMMd().format(alert.lastSuppressedAt!.toLocal())}',
+                  message: appL10n.previouslySilencedOn(
+                    (DateFormat.yMMMd().format(
+                      alert.lastSuppressedAt!.toLocal(),
+                    )).toString(),
+                  ),
                   child: Text(
-                    'Previously silenced',
+                    appL10n.previouslySilenced,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary,
                     ),
@@ -328,7 +340,7 @@ class _AlertTableState extends State<_AlertTable> {
               if (widget.onQuote case final quote?)
                 _AlertActionButton(
                   icon: DIcons.quoteLeft,
-                  label: 'Quote Alert',
+                  label: appL10n.quoteAlert,
                   onPressed: () => quote(alert),
                 ),
             ],
@@ -395,7 +407,7 @@ class _AlertActionButton extends StatelessWidget {
 String _alertDateRangeHtml(PrometheusAlert alert) {
   final start = alert.start;
   final end = alert.end;
-  if (start == null) return 'Unknown time';
+  if (start == null) return appL10n.unknownTime;
   final startDate = _dateHtml(start);
   if (end == null) return startDate;
   final sameDay =

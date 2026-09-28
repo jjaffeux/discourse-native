@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -24,14 +25,15 @@ class DMenubar extends StatefulWidget {
     this.disabled = false,
     this.loopFocus = true,
     this.orientation = Axis.horizontal,
-    this.semanticLabel = 'Menu bar',
+    this._semanticLabel,
   });
 
   final List<Widget> children;
   final bool disabled;
   final bool loopFocus;
   final Axis orientation;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.menuBar;
 
   @override
   State<DMenubar> createState() => _DMenubarState();

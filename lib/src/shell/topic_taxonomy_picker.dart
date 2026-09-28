@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'platform.dart';
@@ -42,7 +43,7 @@ class _TopicTaxonomyPickerAnchorState extends State<TopicTaxonomyPickerAnchor> {
     if (context.isTouch) {
       return showDDrawer<T>(
         context: context,
-        barrierLabel: 'Dismiss ${title.toLowerCase()} picker',
+        barrierLabel: appL10n.dismissPicker((title.toLowerCase()).toString()),
         showSwipeHandle: true,
         builder: (context, drawer) => DDrawerContent(
           semanticLabel: title,

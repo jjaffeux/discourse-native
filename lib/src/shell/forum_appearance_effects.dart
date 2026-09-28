@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
@@ -46,7 +47,7 @@ class ForumAppearanceEffects extends StatelessWidget {
           _opacityField(tokens),
         DField(
           children: [
-            const DFieldLabel(child: Text('Texture')),
+            DFieldLabel(child: Text(context.l10n.texture)),
             DToggleGroup<ForumBackgroundEffect>(
               key: const ValueKey('theme-texture'),
               values: [effects.effect],
@@ -54,27 +55,27 @@ class ForumAppearanceEffects extends StatelessWidget {
               inset: true,
               expanded: true,
               density: DToggleDensity.tile,
-              semanticLabel: 'Texture',
-              items: const [
+              semanticLabel: context.l10n.texture,
+              items: [
                 DToggleGroupItem(
                   value: ForumBackgroundEffect.normal,
-                  icon: ThemeIcon(ThemeIcons.none),
-                  child: Text('None'),
+                  icon: const ThemeIcon(ThemeIcons.none),
+                  child: Text(context.l10n.none),
                 ),
                 DToggleGroupItem(
                   value: ForumBackgroundEffect.paper,
-                  icon: ThemeIcon(ThemeIcons.paper),
-                  child: Text('Paper'),
+                  icon: const ThemeIcon(ThemeIcons.paper),
+                  child: Text(context.l10n.paper),
                 ),
                 DToggleGroupItem(
                   value: ForumBackgroundEffect.lava,
-                  icon: ThemeIcon(ThemeIcons.lava),
-                  child: Text('Lava lamp'),
+                  icon: const ThemeIcon(ThemeIcons.lava),
+                  child: Text(context.l10n.lavaLamp),
                 ),
                 DToggleGroupItem(
                   value: ForumBackgroundEffect.gradient,
-                  icon: ThemeIcon(ThemeIcons.gradient),
-                  child: Text('Gradient'),
+                  icon: const ThemeIcon(ThemeIcons.gradient),
+                  child: Text(context.l10n.gradient),
                 ),
               ],
               onChanged: (values) =>
@@ -83,7 +84,7 @@ class ForumAppearanceEffects extends StatelessWidget {
           ],
         ),
         _RampField(
-          label: 'Intensity',
+          label: context.l10n.intensity,
           value: effects.noiseIntensity,
           ramp: DSliderRamp(
             startColor: Color.lerp(tokens.background, Colors.black, .14),
@@ -98,7 +99,7 @@ class ForumAppearanceEffects extends StatelessWidget {
   }
 
   Widget _opacityField(DTokens tokens) => _RampField(
-    label: 'Opacity',
+    label: appL10n.opacity,
     value: 1 - effects.transparency / ForumBackground.maxTransparency,
     readout: '${((1 - effects.transparency) * 100).round()}%',
     ramp: DSliderRamp(
@@ -131,7 +132,7 @@ class ForumTintField extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     return _RampField(
-      label: 'Tint',
+      label: context.l10n.tint,
       value: value,
       readout: '${(value * ForumBackground.maxTint * 100).round()}%',
       ramp: DSliderRamp(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_controller.dart';
@@ -60,7 +61,9 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
           alignment: Alignment.topCenter,
           child: Semantics(
             liveRegion: true,
-            label: '${caller.name ?? caller.username} is calling you',
+            label: context.l10n.isCallingYouVoiceincomingcall(
+              (caller.name ?? caller.username).toString(),
+            ),
             child: Material(
               elevation: 12,
               borderRadius: BorderRadius.circular(14),
@@ -97,7 +100,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                               style: theme.textTheme.titleSmall,
                             ),
                             Text(
-                              'is calling you…',
+                              context.l10n.isCallingYouVoiceincomingcallValue,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelSmall,
@@ -109,7 +112,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                       DButton(
                         onPressed: _answering ? null : _answer,
                         icon: const DIcon(VoiceIcons.phone),
-                        label: const Text('Answer'),
+                        label: Text(context.l10n.answer),
                         variant: DButtonVariant.primary,
                         loading: _answering,
                       ),
@@ -117,7 +120,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
                       DButton(
                         onPressed: widget.controller.declineIncomingCall,
                         icon: const DIcon(DIcons.phoneSlash),
-                        label: const Text('Decline'),
+                        label: Text(context.l10n.decline),
                         variant: DButtonVariant.destructive,
                       ),
                     ],

@@ -15,10 +15,10 @@ final class DiscourseSiteApi {
     if (trimmed.length > maximumForumAddressLength) {
       // Do not echo or redact a rejected oversized value: it may contain a
       // credential whose terminating delimiter lies beyond any safe prefix.
-      throw const SiteLookupException(
+      throw SiteLookupException(
         SiteLookupFailure.unreachable,
-        'that forum address',
-        cause: FormatException('Forum address is too long.'),
+        appL10n.thatForumAddress,
+        cause: const FormatException('Forum address is too long.'),
       );
     }
     // Do not trim the two slashes that belong to a bare scheme. Turning

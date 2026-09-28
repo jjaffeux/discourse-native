@@ -224,13 +224,15 @@ final class DiscourseComposerApi {
         file.length().then<int?>((value) => value),
       ]);
       if (resolvedLength == null) {
-        throw const ComposerUploadException('Upload cancelled.');
+        throw ComposerUploadException(appL10n.uploadCancelled);
       }
       fileLength = resolvedLength;
     } on ComposerUploadException {
       rethrow;
     } catch (_) {
-      throw ComposerUploadException("Couldn't read ${file.name}.");
+      throw ComposerUploadException(
+        appL10n.couldnTRead((file.name).toString()),
+      );
     }
     // The validator only measures a file once all of it has arrived.
     if (sizeLimit case ComposerUploadSizeLimit(
@@ -262,8 +264,8 @@ final class DiscourseComposerApi {
       } catch (error) {
         throw ComposerUploadException(
           error is http.RequestAbortedException
-              ? 'Upload cancelled.'
-              : "Couldn't upload ${file.name}.",
+              ? appL10n.uploadCancelled
+              : appL10n.couldnTUpload((file.name).toString()),
         );
       }
 
@@ -295,7 +297,7 @@ final class DiscourseComposerApi {
             ready.future.then((_) => false),
           ]);
           if (cancelled) {
-            throw const ComposerUploadException('Upload cancelled.');
+            throw ComposerUploadException(appL10n.uploadCancelled);
           }
         } finally {
           timer.cancel();
@@ -319,7 +321,7 @@ final class DiscourseComposerApi {
         url == null ||
         shortUrl == null) {
       throw ComposerUploadException(
-        "The site returned an incomplete upload for ${file.name}.",
+        appL10n.theSiteReturnedAnIncompleteUploadFor((file.name).toString()),
         statusCode: response.statusCode,
       );
     }
@@ -359,7 +361,7 @@ final class DiscourseComposerApi {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ComposerUploadException(
-        "Couldn't load image previews.",
+        appL10n.couldnTLoadImagePreviews,
         statusCode: response.statusCode,
       );
     }
@@ -438,7 +440,7 @@ final class DiscourseComposerApi {
         .where((value) => value.trim().isNotEmpty)
         .toList();
     return errors.isEmpty
-        ? "Couldn't upload $filename."
+        ? appL10n.couldnTUploadDiscoursecomposerapi((filename).toString())
         : errors.map((value) => value.trim()).join('\n');
   }
 

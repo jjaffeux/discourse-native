@@ -1,20 +1,119 @@
-library;
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:intl/intl.dart';
 
-/// [count] followed by the noun it counts: [singular] for exactly one and
-/// [plural] for every other count, zero included — "1 reply", "0 replies".
-///
-/// [plural] defaults to [singular] plus an "s", so a noun that does not form
-/// its plural that way ("reply", "person") must name it. [number] is how the
-/// count is written where a surface groups or abbreviates it ("1,204",
-/// "1.2K"); the noun still agrees with [count], never with that text.
-String countLabel(
-  int count,
-  String singular, {
-  String? plural,
-  String? number,
-}) => '${number ?? count} ${countNoun(count, singular, plural: plural)}';
+/// Typed nouns keep English words out of plural selection at call sites.
+enum CountNoun {
+  badge,
+  reply,
+  person,
+  click,
+  like,
+  member,
+  topic,
+  post,
+  view,
+  message,
+  reaction,
+  category,
+  entry,
+  day,
+  tag,
+  second,
+  repost,
+  unreadNotification,
+  membershipRequest,
+  thread,
+  link,
+  user,
+  image,
+  draft,
+  recipient,
+  vote,
+  voter,
+  group,
+  minute,
+  hour,
+  month,
+  year,
+}
 
-/// The noun alone that [countLabel] would write after [count], for a layout
-/// that sets the number apart from it.
-String countNoun(int count, String singular, {String? plural}) =>
-    count == 1 ? singular : plural ?? '${singular}s';
+/// A complete localized count, optionally using an already formatted number.
+String countLabel(int count, CountNoun noun, {String? number}) {
+  final written = number ?? NumberFormat('0', appL10n.localeName).format(count);
+  return switch (noun) {
+    CountNoun.badge => appL10n.countBadge(count, written),
+    CountNoun.reply => appL10n.countReply(count, written),
+    CountNoun.person => appL10n.countPerson(count, written),
+    CountNoun.click => appL10n.countClick(count, written),
+    CountNoun.like => appL10n.countLike(count, written),
+    CountNoun.member => appL10n.countMember(count, written),
+    CountNoun.topic => appL10n.countTopic(count, written),
+    CountNoun.post => appL10n.countPost(count, written),
+    CountNoun.view => appL10n.countView(count, written),
+    CountNoun.message => appL10n.countMessage(count, written),
+    CountNoun.reaction => appL10n.countReaction(count, written),
+    CountNoun.category => appL10n.countCategory(count, written),
+    CountNoun.entry => appL10n.countEntry(count, written),
+    CountNoun.day => appL10n.countDay(count, written),
+    CountNoun.tag => appL10n.countTag(count, written),
+    CountNoun.second => appL10n.countSecond(count, written),
+    CountNoun.repost => appL10n.countRepost(count, written),
+    CountNoun.unreadNotification => appL10n.countUnreadNotification(
+      count,
+      written,
+    ),
+    CountNoun.membershipRequest => appL10n.countMembershipRequest(
+      count,
+      written,
+    ),
+    CountNoun.thread => appL10n.countThread(count, written),
+    CountNoun.link => appL10n.countLink(count, written),
+    CountNoun.user => appL10n.countUser(count, written),
+    CountNoun.image => appL10n.countImage(count, written),
+    CountNoun.draft => appL10n.countDraft(count, written),
+    CountNoun.recipient => appL10n.countRecipient(count, written),
+    CountNoun.vote => appL10n.countVote(count, written),
+    CountNoun.voter => appL10n.countVoter(count, written),
+    CountNoun.group => appL10n.countGroup(count, written),
+    CountNoun.minute => appL10n.countMinute(count, written),
+    CountNoun.hour => appL10n.countHour(count, written),
+    CountNoun.month => appL10n.countMonth(count, written),
+    CountNoun.year => appL10n.countYear(count, written),
+  };
+}
+
+/// Localized noun for a number displayed in a separate visual element.
+String countNoun(int count, CountNoun noun) => switch (noun) {
+  CountNoun.badge => appL10n.nounBadge(count),
+  CountNoun.reply => appL10n.nounReply(count),
+  CountNoun.person => appL10n.nounPerson(count),
+  CountNoun.click => appL10n.nounClick(count),
+  CountNoun.like => appL10n.nounLike(count),
+  CountNoun.member => appL10n.nounMember(count),
+  CountNoun.topic => appL10n.nounTopic(count),
+  CountNoun.post => appL10n.nounPost(count),
+  CountNoun.view => appL10n.nounView(count),
+  CountNoun.message => appL10n.nounMessage(count),
+  CountNoun.reaction => appL10n.nounReaction(count),
+  CountNoun.category => appL10n.nounCategory(count),
+  CountNoun.entry => appL10n.nounEntry(count),
+  CountNoun.day => appL10n.nounDay(count),
+  CountNoun.tag => appL10n.nounTag(count),
+  CountNoun.second => appL10n.nounSecond(count),
+  CountNoun.repost => appL10n.nounRepost(count),
+  CountNoun.unreadNotification => appL10n.nounUnreadNotification(count),
+  CountNoun.membershipRequest => appL10n.nounMembershipRequest(count),
+  CountNoun.thread => appL10n.nounThread(count),
+  CountNoun.link => appL10n.nounLink(count),
+  CountNoun.user => appL10n.nounUser(count),
+  CountNoun.image => appL10n.nounImage(count),
+  CountNoun.draft => appL10n.nounDraft(count),
+  CountNoun.recipient => appL10n.nounRecipient(count),
+  CountNoun.vote => appL10n.nounVote(count),
+  CountNoun.voter => appL10n.nounVoter(count),
+  CountNoun.group => appL10n.nounGroup(count),
+  CountNoun.minute => appL10n.nounMinute(count),
+  CountNoun.hour => appL10n.nounHour(count),
+  CountNoun.month => appL10n.nounMonth(count),
+  CountNoun.year => appL10n.nounYear(count),
+};

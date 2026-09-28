@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,10 +9,10 @@ import '../plugin_api/composer_syntax.dart';
 import 'composer_quotes.dart';
 import 'markdown_highlight.dart';
 
-const composerLinkSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('core'),
+ComposerSyntaxKind get composerLinkSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('core'),
   name: 'link',
-  label: 'Link',
+  label: appL10n.link,
 );
 
 enum ComposerLinkKind { markdown, linkify }
@@ -666,7 +667,7 @@ class ComposerLinkPill extends StatelessWidget {
     return Semantics(
       link: true,
       label: anchor,
-      hint: 'Edit link to $url',
+      hint: context.l10n.editLinkTo((url).toString()),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: highlighted
@@ -868,10 +869,12 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
   @override
   Widget build(BuildContext context) => DDialogContent(
     key: const ValueKey('composer-link-dialog'),
-    semanticLabel: 'Insert link',
+    semanticLabel: context.l10n.insertLink,
     maxWidth: 460,
     children: [
-      const DDialogHeader(children: [DDialogTitle(child: Text('Insert link'))]),
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.insertLink))],
+      ),
       DInput(
         key: const ValueKey('composer-link-url'),
         controller: _url,
@@ -880,25 +883,25 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
         textInputAction: TextInputAction.next,
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => _insert(),
-        labelText: 'URL',
+        labelText: context.l10n.urlLabel,
       ),
       DInput(
         key: const ValueKey('composer-link-anchor'),
         controller: _anchor,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _insert(),
-        labelText: 'Text',
+        labelText: context.l10n.text,
       ),
       DDialogFooter(
         children: [
           DButton(
-            label: const Text('Cancel'),
+            label: Text(context.l10n.cancel),
             variant: DButtonVariant.outline,
             onPressed: widget.controller.close,
           ),
           DButton(
             key: const ValueKey('composer-link-insert'),
-            label: const Text('Insert link'),
+            label: Text(context.l10n.insertLink),
             onPressed: _canInsert ? _insert : null,
             variant: DButtonVariant.primary,
           ),

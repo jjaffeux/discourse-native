@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -191,7 +192,7 @@ class DBubbleContent extends StatefulWidget {
     this.onPressed,
     this.disabled = false,
     this.busy = false,
-    this.busyLabel = 'Working',
+    this._busyLabel,
     this.selected = false,
     this.invalid = false,
     this.errorLabel,
@@ -225,7 +226,8 @@ class DBubbleContent extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool disabled;
   final bool busy;
-  final String busyLabel;
+  final String? _busyLabel;
+  String get busyLabel => _busyLabel ?? appL10n.working;
   final bool selected;
   final bool invalid;
   final String? errorLabel;

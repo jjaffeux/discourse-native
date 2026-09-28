@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../shell/global_search_models.dart';
 
 export '../shell/global_search_filters.dart';
@@ -35,7 +36,7 @@ abstract class GlobalSearchContribution {
   Future<GlobalSearchPage> search(
     GlobalSearchReadContext context,
     GlobalSearchRequest request,
-  ) => Future.error(const FormatException('Search is unavailable.'));
+  ) => Future.error(FormatException(appL10n.searchIsUnavailable));
   Future<List<GlobalSearchFilterChoice>> lookup(
     GlobalSearchReadContext context,
     GlobalSearchFilter filter,

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -170,21 +171,28 @@ typedef DCalendarMonthStringBuilder =
 @immutable
 class DCalendarLabels {
   const DCalendarLabels({
-    this.calendar = 'Calendar',
-    this.previousMonth = 'Previous month',
-    this.nextMonth = 'Next month',
-    this.chooseMonth = 'Choose month',
-    this.chooseYear = 'Choose year',
-    this.week = 'Week',
-    this.booked = 'Booked',
+    this._calendar,
+    this._previousMonth,
+    this._nextMonth,
+    this._chooseMonth,
+    this._chooseYear,
+    this._week,
+    this._booked,
   });
-  final String calendar;
-  final String previousMonth;
-  final String nextMonth;
-  final String chooseMonth;
-  final String chooseYear;
-  final String week;
-  final String booked;
+  final String? _calendar;
+  String get calendar => _calendar ?? appL10n.calendar;
+  final String? _previousMonth;
+  String get previousMonth => _previousMonth ?? appL10n.previousMonth;
+  final String? _nextMonth;
+  String get nextMonth => _nextMonth ?? appL10n.nextMonth;
+  final String? _chooseMonth;
+  String get chooseMonth => _chooseMonth ?? appL10n.chooseMonth;
+  final String? _chooseYear;
+  String get chooseYear => _chooseYear ?? appL10n.chooseYear;
+  final String? _week;
+  String get week => _week ?? appL10n.week;
+  final String? _booked;
+  String get booked => _booked ?? appL10n.booked;
 }
 
 @immutable
@@ -1451,7 +1459,7 @@ class DCalendarDayButton extends StatefulWidget {
     required this.onPressed,
     required this.child,
     this.focusNode,
-    this.bookedLabel = 'Booked',
+    this._bookedLabel,
     this.onFocused,
     this.onKeyEvent,
   });
@@ -1460,7 +1468,8 @@ class DCalendarDayButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final Widget child;
   final FocusNode? focusNode;
-  final String bookedLabel;
+  final String? _bookedLabel;
+  String get bookedLabel => _bookedLabel ?? appL10n.booked;
   final VoidCallback? onFocused;
   final KeyEventResult Function(KeyEvent event)? onKeyEvent;
 

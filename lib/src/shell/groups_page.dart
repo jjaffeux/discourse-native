@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/group.dart';
@@ -252,7 +253,7 @@ class _GroupsPageState extends State<GroupsPage> {
                           child: Center(
                             child: DButton(
                               key: const ValueKey('groups-load-more'),
-                              label: const Text('Load more'),
+                              label: Text(context.l10n.loadMore),
                               onPressed: widget.onLoadMore,
                             ),
                           ),
@@ -307,7 +308,11 @@ class _DirectoryControls extends StatelessWidget {
             spacing: DSpacing.md,
             runSpacing: DSpacing.sm,
             children: [
-              const DText('Groups', variant: DTextVariant.h3, headingLevel: 1),
+              DText(
+                context.l10n.groups,
+                variant: DTextVariant.h3,
+                headingLevel: 1,
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 spacing: DSpacing.controlGap,
@@ -315,7 +320,7 @@ class _DirectoryControls extends StatelessWidget {
                   DButton.iconOnly(
                     key: const ValueKey('groups-show-search'),
                     icon: const DIcon(DIcons.magnifyingGlass),
-                    tooltip: 'Search groups',
+                    tooltip: context.l10n.searchGroups,
                     variant: DButtonVariant.transparentBackground,
                     onPressed: onShowSearch,
                   ),
@@ -323,7 +328,7 @@ class _DirectoryControls extends StatelessWidget {
                     DButton.iconOnly(
                       key: const ValueKey('create-group'),
                       icon: const DIcon(DIcons.plus),
-                      tooltip: 'New group',
+                      tooltip: context.l10n.newGroup,
                       variant: DButtonVariant.outline,
                       onPressed: onCreateGroup,
                     ),
@@ -344,8 +349,8 @@ class _DirectoryControls extends StatelessWidget {
                 onChanged: onSearchChanged,
                 onSubmitted: onSearchSubmitted,
                 textInputAction: TextInputAction.search,
-                semanticLabel: 'Search groups',
-                hintText: 'Search groups',
+                semanticLabel: context.l10n.searchGroups,
+                hintText: context.l10n.searchGroups,
                 prefix: const DIcon(DIcons.magnifyingGlass),
                 suffix: value.text.isEmpty
                     ? null
@@ -355,7 +360,7 @@ class _DirectoryControls extends StatelessWidget {
                           onSearchSubmitted('');
                         },
                         variant: DButtonVariant.transparentBackground,
-                        tooltip: 'Clear search',
+                        tooltip: context.l10n.clearSearch,
                         icon: const DIcon(DIcons.xmark),
                       ),
               ),
@@ -374,12 +379,12 @@ class _DirectoryControls extends StatelessWidget {
                   key: const ValueKey('groups-type-filter'),
                   size: DControlSize.filter,
                   value: data.type,
-                  semanticLabel: 'Filter by group type',
+                  semanticLabel: context.l10n.filterByGroupType,
                   entries: [
-                    const DSelectOption(
+                    DSelectOption(
                       value: null,
-                      label: 'All groups',
-                      child: Text('All groups'),
+                      label: context.l10n.allGroups,
+                      child: Text(context.l10n.allGroups),
                     ),
                     for (final type in types)
                       DSelectOption(
@@ -393,7 +398,7 @@ class _DirectoryControls extends StatelessWidget {
               ),
               if (data.loaded || data.groups.isNotEmpty)
                 Text(
-                  '${data.totalRows} ${data.totalRows == 1 ? 'group' : 'groups'}',
+                  context.l10n.messageGroupspage(data.totalRows),
                   key: const ValueKey('groups-count'),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: DTokens.of(context).mutedForeground,
@@ -410,12 +415,12 @@ class _DirectoryControls extends StatelessWidget {
 }
 
 String _groupTypeLabel(String type) => switch (type) {
-  'my' => 'My groups',
-  'owner' => 'Groups I own',
-  'public' => 'Public groups',
-  'close' || 'closed' => 'Closed groups',
-  'automatic' => 'Automatic groups',
-  _ => '${_humanize(type)} groups',
+  'my' => appL10n.myGroups,
+  'owner' => appL10n.groupsIOwn,
+  'public' => appL10n.publicGroups,
+  'close' || 'closed' => appL10n.closedGroups,
+  'automatic' => appL10n.automaticGroups,
+  _ => appL10n.groupsGroupspage((_humanize(type)).toString()),
 };
 
 class _GroupDirectoryRow extends StatelessWidget {
@@ -438,9 +443,9 @@ class _GroupDirectoryRow extends StatelessWidget {
     final tokens = DTokens.of(context);
     final bio = (group.plainBio ?? group.bioExcerpt)?.trim();
     final badge = group.isGroupOwner
-        ? const _MembershipBadge(label: 'Owner')
+        ? _MembershipBadge(label: context.l10n.owner)
         : group.isGroupUser
-        ? const _MembershipBadge(label: 'Member')
+        ? _MembershipBadge(label: context.l10n.member)
         : null;
     return DItem(
       shape: DItemShape.fullWidth,
@@ -539,8 +544,8 @@ class _GroupDirectoryRow extends StatelessWidget {
                     ),
                   Text(
                     group.userCount == null
-                        ? 'Members hidden'
-                        : '${group.userCount} ${group.userCount == 1 ? 'member' : 'members'}',
+                        ? context.l10n.membersHidden
+                        : context.l10n.messageGrouppage(group.userCount!),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: tokens.mutedForeground,
                     ),
@@ -626,7 +631,7 @@ class _DirectoryError extends StatelessWidget {
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(
-          label: const Text('Try again'),
+          label: Text(context.l10n.tryAgain),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),
@@ -639,17 +644,17 @@ class _EmptyDirectory extends StatelessWidget {
   const _EmptyDirectory();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
       child: DEmpty(
         children: [
           DEmptyHeader(
             children: [
-              DEmptyMedia(
+              const DEmptyMedia(
                 variant: DEmptyMediaVariant.icon,
                 child: DIcon(DIcons.users),
               ),
-              DEmptyTitle('No groups match these filters.'),
+              DEmptyTitle(context.l10n.noGroupsMatchTheseFilters),
             ],
           ),
         ],

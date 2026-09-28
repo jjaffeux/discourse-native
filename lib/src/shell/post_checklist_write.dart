@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../data/discourse_api_contracts.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
@@ -79,7 +80,7 @@ class PostChecklistWrite {
           PostChecklistDocument(fresh.cooked).fingerprint != _fingerprint) {
         _accepting = false;
         _show(fresh);
-        return 'The post changed. Review its to-dos and try again.';
+        return appL10n.thePostChangedReviewItsToDosAndTryAgain;
       }
       _confirmed = fresh;
       if (!_project()) return null;
@@ -112,7 +113,7 @@ class PostChecklistWrite {
             _fingerprint) {
           _accepting = false;
           _show(_confirmed);
-          return 'The post changed. Review its to-dos before continuing.';
+          return appL10n.thePostChangedReviewItsToDosBeforeContinuing;
         }
         if (!_project()) return null;
       }
@@ -131,13 +132,13 @@ class PostChecklistWrite {
         await _reconcile();
       }
       return error.failure == WriteFailure.unreachable
-          ? "Couldn't confirm the to-do update. Refresh the post to check its saved state."
+          ? appL10n.couldnTConfirmTheToDoUpdateRefreshThePostTo
           : error.message;
     } catch (_) {
       if (!isCurrent()) return null;
       _accepting = false;
       await _reconcile();
-      return "Couldn't confirm the to-do update. Refresh the post to check its saved state.";
+      return appL10n.couldnTConfirmTheToDoUpdateRefreshThePostTo;
     } finally {
       _accepting = false;
     }

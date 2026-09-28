@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -291,7 +292,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
             key: const ValueKey('topic-header-title-pointer'),
             cursor: SystemMouseCursors.text,
             child: DTooltip(
-              message: 'Edit topic title',
+              message: context.l10n.editTopicTitle,
               align: DTooltipAlign.start,
               // Hide the editing hint while the editor owns keyboard focus.
               disabled: focused || _saving,
@@ -322,7 +323,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                         onKeyEvent: _handleKey,
                         child: DInput(
                           borderless: true,
-                          semanticLabel: 'Topic title',
+                          semanticLabel: context.l10n.topicTitle,
                           key: const ValueKey('topic-header-title-field'),
                           controller: _controller,
                           focusNode: _focus,
@@ -354,7 +355,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         size: DButtonSize.small,
         alignment: AlignmentDirectional.centerStart,
         focusNode: _triggerFocus,
-        semanticLabel: 'Edit topic title',
+        semanticLabel: appL10n.editTopicTitle,
         tooltip: _savedTitle,
         onPressed: _beginFramedEditing,
         label: TopicTitle(
@@ -374,7 +375,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         key: const ValueKey('topic-header-title-field'),
         controller: _controller,
         focusNode: _focus,
-        semanticLabel: 'Topic title',
+        semanticLabel: appL10n.topicTitle,
         readOnly: _saving,
         textCapitalization: TextCapitalization.sentences,
         textInputAction: TextInputAction.done,

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 Future<void> showChatMessageBookmarkMenu({
@@ -15,6 +16,6 @@ Future<void> showChatMessageBookmarkMenu({
   targetId: messageId,
   bookmark: bookmark,
   cooked: cooked,
-  createTitle: 'Bookmark chat message',
-  existingTitle: 'Chat message bookmark',
+  createTitle: appL10n.bookmarkChatMessage,
+  existingTitle: appL10n.chatMessageBookmark,
 );

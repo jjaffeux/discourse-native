@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:html/dom.dart' as dom;
 
 import '../models/post_checklist.dart';
-
 import '../theme/d_icons.dart';
 
 /// Adapts ordinary cooked Markdown tables. Document tables with merged cells,
@@ -137,7 +136,7 @@ class _CookedTableState extends State<_CookedTable> {
         DDataTableColumn<int>(
           id: '$index',
           label: widget.headers[index].text.isEmpty
-              ? 'Column ${index + 1}'
+              ? context.l10n.columnCookedtable((index + 1).toString())
               : widget.headers[index].text,
           resizable: true,
           alignment: AlignmentDirectional.topStart,
@@ -173,7 +172,9 @@ class _CookedTableState extends State<_CookedTable> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             DButton.iconOnly(
-              tooltip: _copied ? 'Table copied' : 'Copy table',
+              tooltip: _copied
+                  ? context.l10n.tableCopied
+                  : context.l10n.copyTable,
               variant: DButtonVariant.outline,
               size: DButtonSize.post,
               icon: DIcon(_copied ? DIcons.check : DIcons.copy, size: 16),

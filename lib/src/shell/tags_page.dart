@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:discourse_native/src/foundation/count_label.dart';
 import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
@@ -49,7 +51,7 @@ class _TagsPageState extends State<TagsPage> {
         return _TagPageState(
           icon: DIcons.triangleExclamation,
           title: feed.error!,
-          actionLabel: 'Try again',
+          actionLabel: context.l10n.tryAgain,
           onAction: () => _request(force: true),
         );
       }
@@ -57,7 +59,7 @@ class _TagsPageState extends State<TagsPage> {
         return const SizedBox.shrink();
       }
       if (feed.isEmpty) {
-        return const _TagPageState(icon: DIcons.tag, title: 'No tags yet');
+        return _TagPageState(icon: DIcons.tag, title: context.l10n.noTagsYet);
       }
 
       return ContentReadingLane(
@@ -100,10 +102,8 @@ class TagDirectoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final description = tag.description;
-    final countNoun = tag.pmOnly ? 'message' : 'topic';
-    final countLabel =
-        '${tag.count} '
-        '${tag.count == 1 ? countNoun : '${countNoun}s'}';
+    final noun = tag.pmOnly ? CountNoun.message : CountNoun.topic;
+    final countText = countLabel(tag.count, noun);
 
     return DItem(
       key: ValueKey('tag-directory-tag-${tag.id}'),
@@ -129,7 +129,7 @@ class TagDirectoryRow extends StatelessWidget {
           children: [
             DItemDescription(
               child: Semantics(
-                label: countLabel,
+                label: countText,
                 excludeSemantics: true,
                 child: Text(
                   '${tag.count}',
@@ -157,7 +157,7 @@ class _TagErrorBanner extends StatelessWidget {
     description: DAlertDescription(child: Text(message)),
     action: DAlertAction(
       child: DButton(
-        label: const Text('Retry'),
+        label: Text(context.l10n.retry),
         onPressed: onRetry,
         variant: DButtonVariant.link,
       ),

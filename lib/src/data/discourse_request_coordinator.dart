@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
@@ -274,6 +275,8 @@ final class DiscourseRequestOverloadException implements Exception {
   final int maxQueued;
 
   @override
-  String toString() =>
-      'Request backlog for $origin already contains $maxQueued operations.';
+  String toString() => appL10n.requestBacklogForAlreadyContainsOperations(
+    (origin).toString(),
+    (maxQueued).toString(),
+  );
 }

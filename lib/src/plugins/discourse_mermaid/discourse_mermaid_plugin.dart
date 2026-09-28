@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -55,7 +56,7 @@ final class DiscourseMermaidPlugin
     return [
       ComposerToolbarContribution(
         icon: DIcons.code,
-        label: 'Mermaid chart',
+        label: appL10n.mermaidChart,
         onInvoke: () {
           if (!editor.isCurrent || !editor.isEditing || editor.loadingBody) {
             return;

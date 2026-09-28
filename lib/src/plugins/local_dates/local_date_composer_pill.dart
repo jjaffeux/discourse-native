@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'local_date.dart';
@@ -144,7 +145,7 @@ class LocalDateComposerPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '$label. Activate to edit.',
+    label: context.l10n.activateToEdit((label).toString()),
     button: true,
     selected: highlighted,
     child: Pill(

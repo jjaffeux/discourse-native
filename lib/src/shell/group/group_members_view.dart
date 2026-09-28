@@ -112,7 +112,7 @@ class _MembersSectionState extends State<_MembersSection> {
     if (widget.onAddMembers == null || widget.onSearchUsers == null) return;
     await showShellSheet<void>(
       context: context,
-      title: 'Add members',
+      title: appL10n.addMembers,
       dialogOnDesktop: true,
       desktopDialogConstraints: const BoxConstraints(
         maxWidth: 560,
@@ -127,7 +127,7 @@ class _MembersSectionState extends State<_MembersSection> {
 
   Future<void> _inviteMembers() => showShellSheet<void>(
     context: context,
-    title: 'Invite to group',
+    title: appL10n.inviteToGroup,
     dialogOnDesktop: true,
     builder: (_) => _InviteGroupSheet(
       siteUrl: widget.siteUrl,
@@ -138,9 +138,9 @@ class _MembersSectionState extends State<_MembersSection> {
   @override
   Widget build(BuildContext context) {
     if (!widget.group.canSeeMembers) {
-      return const _GroupState(
+      return _GroupState(
         icon: DIcons.lock,
-        title: 'This group’s members are private.',
+        title: context.l10n.thisGroupSMembersArePrivate,
       );
     }
     return Column(
@@ -177,8 +177,8 @@ class _MembersSectionState extends State<_MembersSection> {
       return _GroupState(
         icon: widget.filter.isEmpty ? DIcons.users : DIcons.magnifyingGlass,
         title: widget.filter.isEmpty
-            ? 'This group has no members.'
-            : 'No members match “${widget.filter}”.',
+            ? appL10n.thisGroupHasNoMembers
+            : appL10n.noMembersMatch((widget.filter).toString()),
       );
     }
     return LayoutBuilder(
@@ -255,7 +255,7 @@ class _MembersLoadingMoreRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     liveRegion: true,
-    label: 'Loading more members',
+    label: context.l10n.loadingMoreMembers,
     child: const SizedBox.shrink(key: ValueKey('group-members-loading-more')),
   );
 }
@@ -291,14 +291,14 @@ class _MembersToolbar extends StatelessWidget {
             controller: controller,
             onChanged: onSearch,
             style: Theme.of(context).textTheme.labelLarge,
-            decoration: _groupSearchDecoration('Search members'),
+            decoration: _groupSearchDecoration(context.l10n.searchMembers),
           );
           final actions = [
             if (canManage)
               DButton(
                 key: const ValueKey('add-group-members'),
                 icon: const DIcon(DIcons.userPlus),
-                label: const Text('Add members'),
+                label: Text(context.l10n.addMembers),
                 loading: mutating,
                 onPressed: onAddMembers,
               ),
@@ -306,7 +306,7 @@ class _MembersToolbar extends StatelessWidget {
               DButton(
                 key: const ValueKey('invite-group-members'),
                 icon: const DIcon(DIcons.paperPlane),
-                label: const Text('Invite'),
+                label: Text(context.l10n.invite),
                 onPressed: onInviteMembers,
               ),
           ];
@@ -360,11 +360,11 @@ class _MemberTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final columns = [
-      for (final (value, label) in const [
-        ('username_lower', 'Member'),
-        ('added_at', 'Added'),
-        ('last_posted_at', 'Last post'),
-        ('last_seen_at', 'Last seen'),
+      for (final (value, label) in [
+        ('username_lower', context.l10n.member),
+        ('added_at', context.l10n.added),
+        ('last_posted_at', context.l10n.lastPost),
+        ('last_seen_at', context.l10n.lastSeen),
       ])
         _MemberSortHeader(
           value: value,
@@ -418,10 +418,12 @@ class _MemberSortHeader extends StatelessWidget {
     button: true,
     enabled: onPressed != null,
     value: selected
-        ? (ascending ? 'Sorted ascending' : 'Sorted descending')
+        ? (ascending
+              ? context.l10n.sortedAscendingGroupmembersview
+              : context.l10n.sortedDescendingGroupmembersview)
         : null,
     child: DTooltip(
-      message: 'Sort by $label',
+      message: context.l10n.sortBy((label).toString()),
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(4),
@@ -566,9 +568,9 @@ class _MemberIdentity extends StatelessWidget {
                     ),
                   ),
                   if (member.owner)
-                    const _MemberBadge(label: 'Owner')
+                    _MemberBadge(label: context.l10n.owner)
                   else if (member.primary)
-                    const _MemberBadge(label: 'Primary'),
+                    _MemberBadge(label: context.l10n.primary),
                 ],
               ),
               Text(
@@ -585,14 +587,17 @@ class _MemberIdentity extends StatelessWidget {
                   spacing: 14,
                   runSpacing: 4,
                   children: [
-                    _MobileMemberFact(label: 'Added', value: member.addedAt),
                     _MobileMemberFact(
-                      label: 'Posted',
+                      label: context.l10n.added,
+                      value: member.addedAt,
+                    ),
+                    _MobileMemberFact(
+                      label: context.l10n.posted,
                       value: member.lastPostedAt,
                       relative: true,
                     ),
                     _MobileMemberFact(
-                      label: 'Seen',
+                      label: context.l10n.seen,
                       value: member.lastSeenAt,
                       relative: true,
                     ),
@@ -718,12 +723,14 @@ class _MemberActions extends StatelessWidget {
     if (action == GroupMemberAction.remove) {
       final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        title: Text('Remove @${member.username}?'),
-        description: Text(
-          'This member will lose access granted by ${group.label}.',
+        title: Text(
+          appL10n.removeGroupmembersview((member.username).toString()),
         ),
-        cancelLabel: const Text('Cancel'),
-        actionLabel: const Text('Remove member'),
+        description: Text(
+          appL10n.thisMemberWillLoseAccessGrantedBy((group.label).toString()),
+        ),
+        cancelLabel: Text(appL10n.cancel),
+        actionLabel: Text(appL10n.removeMember),
         cancelResult: false,
         actionResult: true,
         actionVariant: DButtonVariant.destructive,
@@ -734,7 +741,7 @@ class _MemberActions extends StatelessWidget {
     if (context.mounted && !saved) {
       DToast.show(
         context,
-        'The member could not be updated.',
+        appL10n.theMemberCouldNotBeUpdated,
         type: DToastType.error,
       );
     }
@@ -751,7 +758,9 @@ class _MemberActions extends StatelessWidget {
       explicitChildNodes: true,
       child: DDropdownMenu(
         content: DDropdownMenuContent(
-          semanticLabel: 'Manage @${member.username}',
+          semanticLabel: context.l10n.manageGroupmembersview(
+            (member.username).toString(),
+          ),
           align: DPopoverAlign.end,
           width: 224,
           children: [
@@ -773,11 +782,13 @@ class _MemberActions extends StatelessWidget {
                     ? null
                     : () => unawaited(_run(context, action)),
                 child: Text(switch (action) {
-                  GroupMemberAction.makeOwner => 'Make owner',
-                  GroupMemberAction.removeOwner => 'Remove as owner',
-                  GroupMemberAction.makePrimary => 'Make primary group',
-                  GroupMemberAction.removePrimary => 'Remove as primary group',
-                  GroupMemberAction.remove => 'Remove from group',
+                  GroupMemberAction.makeOwner => context.l10n.makeOwner,
+                  GroupMemberAction.removeOwner => context.l10n.removeAsOwner,
+                  GroupMemberAction.makePrimary =>
+                    context.l10n.makePrimaryGroup,
+                  GroupMemberAction.removePrimary =>
+                    context.l10n.removeAsPrimaryGroup,
+                  GroupMemberAction.remove => context.l10n.removeFromGroup,
                 }),
               ),
             ],
@@ -788,7 +799,9 @@ class _MemberActions extends StatelessWidget {
             key: ValueKey('manage-member-${member.username}'),
             size: DButtonSize.small,
             icon: const DIcon(DIcons.wrench),
-            tooltip: 'Manage @${member.username}',
+            tooltip: context.l10n.manageGroupmembersview(
+              (member.username).toString(),
+            ),
             focusNode: state.focusNode,
             hasPopup: true,
             expanded: state.open,
@@ -899,23 +912,23 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
             enabled: !controller.saving,
             onQueryChanged: (query, _) => controller.search(query),
             onValuesChanged: (values, _) => _selectionChanged(values),
-            anchor: const DComboboxChips<_GroupMemberChoice>(
+            anchor: DComboboxChips<_GroupMemberChoice>(
               input: DComboboxChipsInput<_GroupMemberChoice>(
-                key: ValueKey('add-members-search'),
-                placeholder: 'Username or email address',
+                key: const ValueKey('add-members-search'),
+                placeholder: context.l10n.usernameOrEmailAddress,
                 autofocus: true,
               ),
             ),
             content: DComboboxContent(
-              semanticLabel: 'Matching users and email address',
+              semanticLabel: context.l10n.matchingUsersAndEmailAddress,
               children: [
                 DComboboxEmpty<_GroupMemberChoice>(
                   child: Text(
                     controller.searching
-                        ? 'Searching…'
+                        ? context.l10n.searching
                         : controller.query.trim().length < 2
-                        ? 'Type at least two characters.'
-                        : 'No matching users.',
+                        ? context.l10n.typeAtLeastTwoCharacters
+                        : context.l10n.noMatchingUsers,
                   ),
                 ),
                 DComboboxList<_GroupMemberChoice>(
@@ -932,7 +945,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
                               children: [
                                 Text(email),
                                 Text(
-                                  'Add by email address',
+                                  context.l10n.addByEmailAddress,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -989,7 +1002,9 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
           DButton(
             key: const ValueKey('submit-add-members'),
             label: Text(
-              controller.selectionCount == 1 ? 'Add member' : 'Add members',
+              controller.selectionCount == 1
+                  ? context.l10n.addMember
+                  : context.l10n.addMembers,
             ),
             variant: DButtonVariant.primary,
             loading: controller.saving,
@@ -1050,7 +1065,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
     Navigator.pop(context);
     DToast.show(
       context,
-      'Invitation sent to $normalizedEmail.',
+      appL10n.invitationSentTo((normalizedEmail).toString()),
       type: DToastType.success,
     );
   }
@@ -1063,7 +1078,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Enter an email to send an invitation, or leave it blank to create a one-use link.',
+          context.l10n.enterAnEmailToSendAnInvitationOrLeaveItBlank,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 12),
@@ -1072,7 +1087,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           key: const ValueKey('group-invite-email'),
           controller: controller.email,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email (optional)'),
+          decoration: InputDecoration(labelText: context.l10n.emailOptional),
         ),
         if (controller.hasEmail) ...[
           const SizedBox(height: 10),
@@ -1081,7 +1096,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
             controller: controller.message,
             minLines: 2,
             maxLines: 5,
-            labelText: 'Message (optional)',
+            labelText: context.l10n.messageOptional,
           ),
         ],
         if (controller.link case final link?) ...[
@@ -1091,13 +1106,13 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           DButton(
             key: const ValueKey('copy-group-invite'),
             icon: const DIcon(DIcons.copy),
-            label: const Text('Copy invite link'),
+            label: Text(context.l10n.copyInviteLink),
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: link));
               if (context.mounted) {
                 DToast.show(
                   context,
-                  'Invite link copied.',
+                  context.l10n.inviteLinkCopied,
                   type: DToastType.success,
                 );
               }
@@ -1116,7 +1131,11 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           DButton(
             key: const ValueKey('create-group-invite'),
             icon: const DIcon(DIcons.paperPlane),
-            label: Text(controller.hasEmail ? 'Send invite' : 'Create link'),
+            label: Text(
+              controller.hasEmail
+                  ? context.l10n.sendInvite
+                  : context.l10n.createLink,
+            ),
             variant: DButtonVariant.primary,
             loading: controller.saving,
             onPressed: _create,

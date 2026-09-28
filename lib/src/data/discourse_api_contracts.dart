@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
@@ -69,15 +70,16 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
 
   String get message => switch (failure) {
     SiteLookupFailure.notDiscourse =>
-      '$term is not a Discourse forum, or is running a version too old to '
-          'support apps.',
-    SiteLookupFailure.unreachable => "Couldn't reach $term.",
+      appL10n.isNotADiscourseForumOrIsRunningAVersionToo((term).toString()),
+    SiteLookupFailure.unreachable => appL10n.couldnTReachAddinstancesheet(
+      (term).toString(),
+    ),
   };
 
   @override
   String toString() => [
     'SiteLookupException($failure',
-    if (statusCode != null) ', statusCode: $statusCode',
+    if (statusCode != null) appL10n.statusCode((statusCode).toString()),
     ')',
   ].join();
 }
@@ -99,7 +101,7 @@ final class ApiKeyRejectedException extends SiteLookupException {
       );
 
   @override
-  String toString() => 'ApiKeyRejectedException(statusCode: 403)';
+  String toString() => appL10n.apiKeyRejectedExceptionStatusCode403;
 }
 
 /// Writes preserve failure categories because each requires different recovery.
@@ -161,23 +163,25 @@ class WriteException implements Exception, DiagnosticErrorCause {
   String get message {
     if (errors.isNotEmpty) return errors.join('\n');
     return switch (failure) {
-      WriteFailure.validation => "That wasn't accepted.",
+      WriteFailure.validation => appL10n.thatWasnTAccepted,
       WriteFailure.rateLimited => switch (retryAfter) {
-        final wait? => 'Too fast — try again in ${wait.inSeconds}s.',
-        null => 'Too fast — try again in a moment.',
+        final wait? => appL10n.tooFastTryAgainInS((wait.inSeconds).toString()),
+        null => appL10n.tooFastTryAgainInAMoment,
       },
       WriteFailure.forbidden =>
-        "You can't post that here — or the connection to this site has "
-            'expired.',
-      WriteFailure.conflict => 'Someone else changed that first.',
-      WriteFailure.unreachable => "Couldn't reach the site.",
+        appL10n.youCanTPostThatHereOrTheConnectionToThis,
+      WriteFailure.conflict => appL10n.someoneElseChangedThatFirst,
+      WriteFailure.unreachable => appL10n.couldnTReachTheSite,
     };
   }
 
   @override
-  String toString() =>
-      'WriteException($failure, statusCode: $statusCode, '
-      'retryAfter: $retryAfter${notSent ? ', notSent' : ''})';
+  String toString() => appL10n.writeExceptionStatusCodeRetryAfter(
+    (notSent).toString(),
+    (failure).toString(),
+    (statusCode).toString(),
+    (retryAfter).toString(),
+  );
 }
 
 /// A category-list response plus whether its page-one site metadata also

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
@@ -190,8 +191,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                     key: const ValueKey('chat-browse-filter'),
                     controller: _filterController,
                     onChanged: _filterChanged,
-                    hintText: 'Find a channel',
-                    semanticLabel: 'Find a channel',
+                    hintText: context.l10n.findAChannel,
+                    semanticLabel: context.l10n.findAChannel,
                     prefix: const DIcon(DIcons.magnifyingGlass),
                   );
                   final filters = Wrap(
@@ -202,9 +203,9 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                         key: const ValueKey('chat-browse-status'),
                         value: _status,
                         label: _status == ChatChannelBrowseStatus.all
-                            ? 'Status'
+                            ? context.l10n.status
                             : _statusLabel(_status),
-                        semanticLabel: 'Status',
+                        semanticLabel: context.l10n.status,
                         emphasized: _status != ChatChannelBrowseStatus.all,
                         entries: [
                           for (final status in ChatChannelBrowseStatus.values)
@@ -226,9 +227,9 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                         key: const ValueKey('chat-browse-joined'),
                         value: _joined,
                         label: _joined == ChatChannelJoinedFilter.all
-                            ? 'Membership'
+                            ? context.l10n.membership
                             : _joinedLabel(_joined),
-                        semanticLabel: 'Membership',
+                        semanticLabel: context.l10n.membership,
                         emphasized: _joined != ChatChannelJoinedFilter.all,
                         entries: [
                           for (final joined in ChatChannelJoinedFilter.values)
@@ -288,7 +289,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       return _BrowseMessage(
         icon: DIcons.triangleExclamation,
         message: _error!,
-        action: 'Try again',
+        action: context.l10n.tryAgain,
         onAction: () => unawaited(_load(reset: true)),
       );
     }
@@ -300,8 +301,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         return _BrowseMessage(
           icon: DIcons.magnifyingGlass,
           message: _hasMore
-              ? 'No matching channels loaded yet.'
-              : 'No channels match these filters.',
+              ? context.l10n.noMatchingChannelsLoadedYet
+              : context.l10n.noChannelsMatchTheseFilters,
         );
       }
       if (index < channels.length) {
@@ -328,7 +329,9 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
               const SizedBox(height: 8),
             ],
             DButton(
-              label: Text(_error == null ? 'Load more' : 'Try again'),
+              label: Text(
+                _error == null ? context.l10n.loadMore : context.l10n.tryAgain,
+              ),
               onPressed: () => unawaited(_load(reset: false)),
             ),
           ],
@@ -372,17 +375,17 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   static String _statusLabel(ChatChannelBrowseStatus status) =>
       switch (status) {
-        ChatChannelBrowseStatus.all => 'All',
-        ChatChannelBrowseStatus.open => 'Open',
-        ChatChannelBrowseStatus.closed => 'Closed',
-        ChatChannelBrowseStatus.archived => 'Archived',
+        ChatChannelBrowseStatus.all => appL10n.all,
+        ChatChannelBrowseStatus.open => appL10n.open,
+        ChatChannelBrowseStatus.closed => appL10n.closed,
+        ChatChannelBrowseStatus.archived => appL10n.archived,
       };
 
   static String _joinedLabel(ChatChannelJoinedFilter filter) =>
       switch (filter) {
-        ChatChannelJoinedFilter.all => 'All',
-        ChatChannelJoinedFilter.joined => 'Joined',
-        ChatChannelJoinedFilter.notJoined => 'Not joined',
+        ChatChannelJoinedFilter.all => appL10n.all,
+        ChatChannelJoinedFilter.joined => appL10n.joined,
+        ChatChannelJoinedFilter.notJoined => appL10n.notJoined,
       };
 }
 
@@ -408,13 +411,19 @@ class _ChannelRow extends StatelessWidget {
     final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
     final status = switch (channel.status) {
       ChatChannelStatus.open => null,
-      ChatChannelStatus.readOnly => 'Read only',
-      ChatChannelStatus.closed => 'Closed',
-      ChatChannelStatus.archived => 'Archived',
+      ChatChannelStatus.readOnly => context.l10n.readOnly,
+      ChatChannelStatus.closed => context.l10n.closed,
+      ChatChannelStatus.archived => context.l10n.archived,
     };
     final unread = channel.tracking.unreadCount;
-    final summary =
-        '${unread == 0 ? 'No' : unread} unread ${unread == 1 ? 'message' : 'messages'}${status == null ? '' : ' · $status'}';
+    final summary = context.l10n.unreadChatbrowsechannelsview(
+      (unread == 0).toString(),
+      unread,
+      (status == null).toString(),
+      ((unread == 0) ? (context.l10n.no) : '').toString(),
+      ((!(status == null)) ? (status) : '').toString(),
+      ((!(unread == 0)) ? (unread) : '').toString(),
+    );
     final row = Column(
       children: [
         const DSeparator(),
@@ -458,9 +467,15 @@ class _ChannelRow extends StatelessWidget {
                           ? 'chat-unfollow-${channel.id}'
                           : 'chat-join-${channel.id}',
                     ),
-                    label: Text(following ? 'Joined' : 'Join'),
-                    semanticLabel:
-                        '${following ? 'Leave' : 'Join'} ${channel.title}',
+                    label: Text(
+                      following ? context.l10n.joined : context.l10n.join,
+                    ),
+                    semanticLabel: context.l10n.messageChatbrowsechannelsview(
+                      (following).toString(),
+                      ((following) ? (context.l10n.leave) : '').toString(),
+                      (channel.title).toString(),
+                      ((!(following)) ? (context.l10n.join) : '').toString(),
+                    ),
                     shape: DButtonShape.pill,
                     variant: following
                         ? DButtonVariant.outline
@@ -469,7 +484,9 @@ class _ChannelRow extends StatelessWidget {
                         ? null
                         : () => _changeFollowing(context, !following),
                     loading: busy,
-                    loadingLabel: Text(following ? 'Leaving…' : 'Joining…'),
+                    loadingLabel: Text(
+                      following ? context.l10n.leaving : context.l10n.joining,
+                    ),
                   ),
                   if (following)
                     ChatChannelMenu(
@@ -483,20 +500,22 @@ class _ChannelRow extends StatelessWidget {
                         children: [
                           DDropdownMenuItem(
                             onPressed: () => unawaited(_open(context)),
-                            child: const Text('Open channel'),
+                            child: Text(context.l10n.openChannel),
                           ),
                           if (canJoin)
                             DDropdownMenuItem(
                               onPressed: busy
                                   ? null
                                   : () => _changeFollowing(context, true),
-                              child: const Text('Join channel'),
+                              child: Text(context.l10n.joinChannel),
                             ),
                         ],
                       ),
                       child: DDropdownMenuTrigger(
                         builder: (context, menu) => DButton.iconOnly(
-                          tooltip: 'Open ${channel.title} menu',
+                          tooltip: context.l10n.openMenu(
+                            (channel.title).toString(),
+                          ),
                           icon: const DIcon(DIcons.ellipsisVertical),
                           variant: DButtonVariant.ghost,
                           size: DButtonSize.small,
@@ -517,16 +536,16 @@ class _ChannelRow extends StatelessWidget {
     if (following) return row;
     return DContextMenu(
       content: DContextMenuContent(
-        semanticLabel: '${channel.title} menu',
+        semanticLabel: context.l10n.menu((channel.title).toString()),
         children: [
           DDropdownMenuItem(
             onPressed: () => unawaited(_open(context)),
-            child: const Text('Open channel'),
+            child: Text(context.l10n.openChannel),
           ),
           if (canJoin)
             DDropdownMenuItem(
               onPressed: busy ? null : () => _changeFollowing(context, true),
-              child: const Text('Join channel'),
+              child: Text(context.l10n.joinChannel),
             ),
         ],
       ),
@@ -544,7 +563,7 @@ class _ChannelRow extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not open this channel.',
+          appL10n.couldNotOpenThisChannel,
           type: DToastType.error,
         );
       }

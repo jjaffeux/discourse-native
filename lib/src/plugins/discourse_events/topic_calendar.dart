@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -39,13 +40,18 @@ final class TopicCalendar extends StatefulWidget {
 }
 
 enum _CalendarView {
-  month('Month'),
-  week('Week'),
-  day('Day'),
-  agenda('Agenda');
+  month(),
+  week(),
+  day(),
+  agenda();
 
-  const _CalendarView(this.label);
-  final String label;
+  const _CalendarView();
+  String get label => switch (this) {
+    month => appL10n.month,
+    week => appL10n.week,
+    day => appL10n.day,
+    agenda => appL10n.agenda,
+  };
 }
 
 final class _TopicCalendarState extends State<TopicCalendar> {
@@ -153,7 +159,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         displayRange: displayRange,
       ),
       _CalendarView.agenda => kalender.ScheduleViewConfiguration.paginated(
-        name: 'Agenda',
+        name: appL10n.agenda,
         initialDateTime: _inCalendar(_focus),
         dateResolver: (_) => kalender.FloatingDateTime.fromDateTime(_focus),
         nowCallback: _now,
@@ -267,7 +273,10 @@ final class _TopicCalendarState extends State<TopicCalendar> {
       final end = event.lastDay == event.firstDay
           ? ''
           : ' – ${date.format(event.lastDay)}';
-      return '${date.format(event.start)}$end · All day';
+      return appL10n.allDayTopiccalendar(
+        (date.format(event.start)).toString(),
+        (end).toString(),
+      );
     }
     final endDay = topicCalendarDay(event.end) == event.firstDay
         ? ''
@@ -285,7 +294,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
           content: SizedBox(
             width: 480,
             child: events.isEmpty
-                ? const Text('No calendar entries for this day.')
+                ? Text(appL10n.noCalendarEntriesForThisDay)
                 : SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -312,7 +321,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                                       Navigator.pop(context);
                                       widget.onOpenReply(number);
                                     },
-                                    label: Text('View reply #$number'),
+                                    label: Text(
+                                      appL10n.viewReply((number).toString()),
+                                    ),
                                   ),
                               ],
                             ),
@@ -325,7 +336,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             DButton(
               variant: DButtonVariant.ghost,
               onPressed: () => Navigator.pop(context),
-              label: const Text('Close'),
+              label: Text(appL10n.close),
             ),
           ],
         ),
@@ -364,8 +375,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 hiddenDays.length == 7
-                    ? 'All weekdays are hidden in this calendar.'
-                    : 'Calendars with hidden weekdays are not supported.',
+                    ? context.l10n.allWeekdaysAreHiddenInThisCalendar
+                    : context.l10n.calendarsWithHiddenWeekdaysAreNotSupported,
               ),
             )
           else ...[
@@ -387,16 +398,26 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                         unawaited(_calendar.animateToPreviousPage()),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
-                    tooltip:
-                        'Previous ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
+                    tooltip: context.l10n.previousTopiccalendar(
+                      (_view == _CalendarView.agenda).toString(),
+                      ((!(_view == _CalendarView.agenda))
+                              ? (_view.label.toLowerCase())
+                              : '')
+                          .toString(),
+                    ),
                     icon: const Icon(Icons.chevron_left),
                   ),
                   DButton.iconOnly(
                     onPressed: () => unawaited(_calendar.animateToNextPage()),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
-                    tooltip:
-                        'Next ${_view == _CalendarView.agenda ? 'month' : _view.label.toLowerCase()}',
+                    tooltip: context.l10n.nextTopiccalendar(
+                      (_view == _CalendarView.agenda).toString(),
+                      ((!(_view == _CalendarView.agenda))
+                              ? (_view.label.toLowerCase())
+                              : '')
+                          .toString(),
+                    ),
                     icon: const Icon(Icons.chevron_right),
                   ),
                 ],
@@ -410,11 +431,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   DButton(
                     variant: DButtonVariant.outline,
                     onPressed: _goToday,
-                    label: const Text('Today'),
+                    label: Text(context.l10n.todayDcalendarevents),
                   ),
                   DSelect<_CalendarView>.controlled(
                     value: _view,
-                    semanticLabel: 'Calendar view',
+                    semanticLabel: context.l10n.calendarView,
                     width: 148,
                     entries: [
                       for (final view in _CalendarView.values)
@@ -452,8 +473,8 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   _view == _CalendarView.month || _view == _CalendarView.agenda
-                      ? 'No calendar entries this month.'
-                      : 'No calendar entries in this view.',
+                      ? context.l10n.noCalendarEntriesThisMonth
+                      : context.l10n.noCalendarEntriesInThisView,
                 ),
               ),
           ],
@@ -500,7 +521,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             size: DButtonSize.small,
             label: Text(
               '+$numberOfHiddenRows',
-              semanticsLabel: '$numberOfHiddenRows more entries',
+              semanticsLabel: context.l10n.moreEntries(
+                (numberOfHiddenRows).toString(),
+              ),
             ),
           ),
     );
@@ -595,9 +618,10 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         size: DButtonSize.small,
         label: Text(
           '${day.day}',
-          semanticsLabel:
-              '${DateFormat.yMMMMEEEEd(_locale).format(day)}, '
-              '${countLabel(_eventsOn(day).length, 'entry', plural: 'entries')}',
+          semanticsLabel: context.l10n.calendarDayEntryCount(
+            DateFormat.yMMMMEEEEd(_locale).format(day),
+            _eventsOn(day).length,
+          ),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),
@@ -685,7 +709,7 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
         )
         .toList();
     return AlertDialog(
-      title: const Text('Calendar timezone'),
+      title: Text(context.l10n.calendarTimezone),
       content: SizedBox(
         width: 400,
         height: 400,
@@ -693,7 +717,9 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
           children: [
             TextField(
               style: Theme.of(context).textTheme.bodyMedium,
-              decoration: const InputDecoration(labelText: 'Search timezones'),
+              decoration: InputDecoration(
+                labelText: context.l10n.searchTimezones,
+              ),
               onChanged: (value) => setState(() => _query = value),
             ),
             Expanded(
@@ -713,7 +739,7 @@ final class _TimezonePickerState extends State<_TimezonePicker> {
         DButton(
           variant: DButtonVariant.ghost,
           onPressed: () => Navigator.pop(context),
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
         ),
       ],
     );

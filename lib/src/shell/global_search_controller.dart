@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -294,7 +295,7 @@ class GlobalSearchController extends ChangeNotifier {
       });
     }
     if (next.length > 30) {
-      throw const FormatException('Use at most 30 conditions.');
+      throw FormatException(appL10n.useAtMost30Conditions);
     }
     _banks[filter.scope] = List.unmodifiable(next);
     _scope = filter.scope;
@@ -496,7 +497,7 @@ class GlobalSearchController extends ChangeNotifier {
       if (historyRevision != _historyRevision) return;
       _localRecent = previous;
       _historyCleared = wasCleared;
-      _error = 'Recent searches could not be cleared. Please try again.';
+      _error = appL10n.recentSearchesCouldNotBeClearedPleaseTryAgain;
       _notify();
     }
   }
@@ -666,7 +667,7 @@ class GlobalSearchController extends ChangeNotifier {
     } else if (query.length > 2048 ||
         globalSearchTerm(_request()).length > 2048) {
       _phase = GlobalSearchPhase.failed;
-      _error = 'Searches can be at most 2048 characters.';
+      _error = appL10n.searchesCanBeAtMost2048Characters;
     } else if (_tooShort) {
       _phase = GlobalSearchPhase.tooShort;
     } else {

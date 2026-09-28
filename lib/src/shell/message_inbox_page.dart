@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/content_route.dart';
@@ -69,14 +70,14 @@ class _MessageListNavigation extends StatelessWidget {
                             controller.canPopContent)
                           DButton.iconOnly(
                             icon: const DIcon(DIcons.arrowLeft),
-                            tooltip: 'Back',
+                            tooltip: context.l10n.back,
                             variant: DButtonVariant.ghost,
                             onPressed: () =>
                                 controller.handleBack(canReturnToSidebar: true),
                           ),
-                        const Expanded(
+                        Expanded(
                           child: DText(
-                            'Messages',
+                            context.l10n.messages,
                             variant: DTextVariant.h3,
                             headingLevel: 1,
                           ),
@@ -95,7 +96,7 @@ class _MessageListNavigation extends StatelessWidget {
                               size: DControlSize.filter,
                               key: const ValueKey('message-list-menu'),
                               value: state.mode,
-                              semanticLabel: 'Message lists',
+                              semanticLabel: context.l10n.messageLists,
                               width: 120,
                               entries: [
                                 for (final mode in MessageListMode.values)
@@ -161,7 +162,7 @@ class _MessageListNavigation extends StatelessWidget {
                         child: DDropdownMenu(
                           content: DDropdownMenuContent(
                             width: 240,
-                            semanticLabel: 'Message lists',
+                            semanticLabel: context.l10n.messageLists,
                             children: [
                               for (final mode in MessageListMode.values)
                                 if (state.group == null || mode.supportsGroup)

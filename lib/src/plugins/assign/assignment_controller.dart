@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'assign_api.dart';
@@ -113,10 +114,10 @@ class AssignmentController extends FrameSafeNotifier
   final Set<String> _legacyFallbackUnavailable = {};
   final Map<String, _PermissionChanges> _permissionChanges = {};
 
-  static const _targetUnavailable =
-      'This assignment target is no longer available.';
-  static const _writeAlreadyInProgress =
-      'An assignment update is already in progress.';
+  static String get _targetUnavailable =>
+      appL10n.thisAssignmentTargetIsNoLongerAvailable;
+  static String get _writeAlreadyInProgress =>
+      appL10n.anAssignmentUpdateIsAlreadyInProgress;
   static const _restorePermitDuration = Duration(seconds: 10);
 
   bool isWriting(String siteUrl, AssignmentTarget target) =>
@@ -397,7 +398,7 @@ class AssignmentController extends FrameSafeNotifier
       await _reconcileUnavailable(siteUrl, target.topicId);
       throw WriteException(
         WriteFailure.unreachable,
-        errors: const [_targetUnavailable],
+        errors: [_targetUnavailable],
         statusCode: 404,
         cause: error,
         causeStackTrace: stackTrace,

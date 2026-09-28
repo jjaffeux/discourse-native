@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, PointerDeviceKind;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
@@ -243,7 +244,7 @@ class DDrawer<T> extends StatefulWidget {
     this.disablePointerDismissal = false,
     this.dismissOnEscape = true,
     this.useRootNavigator = false,
-    this.barrierLabel = 'Dismiss drawer',
+    this._barrierLabel,
     this.routeSettings,
     this.initialFocusNode,
     this.finalFocusNode,
@@ -277,7 +278,8 @@ class DDrawer<T> extends StatefulWidget {
   final bool disablePointerDismissal;
   final bool dismissOnEscape;
   final bool useRootNavigator;
-  final String barrierLabel;
+  final String? _barrierLabel;
+  String get barrierLabel => _barrierLabel ?? appL10n.dismissDrawer;
   final RouteSettings? routeSettings;
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
@@ -1958,7 +1960,7 @@ Future<T?> showDDrawer<T>({
   bool dismissOnEscape = true,
   bool Function()? canDismiss,
   bool useRootNavigator = false,
-  String barrierLabel = 'Dismiss drawer',
+  String? barrierLabel,
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
@@ -1977,7 +1979,7 @@ Future<T?> showDDrawer<T>({
       content: Builder(
         builder: (drawerContext) => builder(drawerContext, controller),
       ),
-      barrierLabel: barrierLabel,
+      barrierLabel: barrierLabel ?? appL10n.dismissDrawer,
       disablePointerDismissal: disablePointerDismissal,
       dismissOnEscape: dismissOnEscape,
       initialFocusNode: initialFocusNode,
@@ -2006,7 +2008,7 @@ Future<T?> showDDrawer<T>({
     controller._setSnapPoint(point);
     configuration.value = _DDrawerConfiguration<T>(
       content: configuration.value!.content,
-      barrierLabel: barrierLabel,
+      barrierLabel: barrierLabel ?? appL10n.dismissDrawer,
       disablePointerDismissal: disablePointerDismissal,
       dismissOnEscape: dismissOnEscape,
       initialFocusNode: initialFocusNode,

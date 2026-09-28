@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -92,7 +93,7 @@ class DNavigationMenu<T> extends StatefulWidget {
     this.delay = const Duration(milliseconds: 50),
     this.closeDelay = const Duration(milliseconds: 50),
     this.viewport = true,
-    this.semanticLabel = 'Primary navigation',
+    this._semanticLabel,
   }) : value = null,
        _controlled = false;
 
@@ -109,7 +110,7 @@ class DNavigationMenu<T> extends StatefulWidget {
     this.delay = const Duration(milliseconds: 50),
     this.closeDelay = const Duration(milliseconds: 50),
     this.viewport = true,
-    this.semanticLabel = 'Primary navigation',
+    this._semanticLabel,
   }) : defaultValue = null,
        _controlled = true;
 
@@ -125,7 +126,8 @@ class DNavigationMenu<T> extends StatefulWidget {
   final Duration delay;
   final Duration closeDelay;
   final bool viewport;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.primaryNavigation;
   final bool _controlled;
 
   @override

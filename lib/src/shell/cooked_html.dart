@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
@@ -257,7 +258,9 @@ class CookedHtml extends StatelessWidget {
     // border has no explicit colour, so it inherits the foreground text colour
     // and becomes much more prominent, especially in dark themes.
     if (element.localName == 'hr') {
-      styles['border-top'] = '1px solid $horizontalRuleColor';
+      styles['border-top'] = appL10n.message1pxSolid(
+        (horizontalRuleColor).toString(),
+      );
     }
 
     // `.chat-cooked > p`: nested paragraphs retain their ordinary cooked
@@ -570,8 +573,8 @@ void _decorateLinkCount(dom.Element element, _LinkCountIndex linkCounts) {
 
   final linkLabel = element.text.trim();
   final clickLabel = count == 1
-      ? 'link clicked 1 time'
-      : 'link clicked $count times';
+      ? appL10n.linkClicked1Time
+      : appL10n.linkClickedTimes((count).toString());
   element.attributes['data-clicks'] = count.toString();
   element.attributes['aria-label'] = linkLabel.isEmpty
       ? clickLabel
@@ -658,7 +661,7 @@ bool _isCountedLink(dom.Element link) {
   );
   if (insideOneboxResult) {
     final onebox = _closestOnebox(link);
-    final headerLink = onebox?.querySelector('header a[href]');
+    final headerLink = onebox?.querySelector(appL10n.headerAHref);
     if (headerLink != null &&
         headerLink.attributes['href'] == link.attributes['href']) {
       return true;

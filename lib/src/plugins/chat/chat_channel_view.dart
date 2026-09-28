@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, precisionErrorTolerance;
 import 'package:flutter/material.dart';
@@ -300,10 +301,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     } else if (stream.error case final error?) {
       return _Message(icon: DIcons.triangleExclamation, text: error);
     } else if (stream.isEmpty) {
-      return const _Message(
-        icon: DIcons.comment,
-        text: 'No messages here yet.',
-      );
+      return _Message(icon: DIcons.comment, text: appL10n.noMessagesHereYet);
     }
     return const SizedBox.shrink();
   }
@@ -317,7 +315,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
     return ChatUploadDropRegion(
       controller: _uploadDropController,
-      title: 'Drop files to upload to #${channel?.title ?? 'Chat'}',
+      title: appL10n.dropFilesToUploadTo(
+        (channel?.title ?? appL10n.chat).toString(),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) => DPageSurface(
           framed: false,
@@ -507,7 +507,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (created == null) {
       DToast.show(
         context,
-        'Could not start this thread. Try again.',
+        appL10n.couldNotStartThisThreadTryAgain,
         type: DToastType.error,
       );
       return;
@@ -1938,9 +1938,9 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     if (result.markdown case final markdown?) {
       try {
         await Clipboard.setData(ClipboardData(text: markdown));
-        notice = 'Messages copied!';
+        notice = appL10n.messagesCopied;
       } catch (_) {
-        notice = "Couldn't copy messages.";
+        notice = appL10n.couldnTCopyMessages;
       }
     }
     if (!mounted) return;
@@ -1996,23 +1996,20 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
         int? selected;
         return StatefulBuilder(
           builder: (context, setDialogState) => DiscourseAlertDialog(
-            title: const Text('Move messages'),
+            title: Text(appL10n.moveMessages),
             content: SizedBox(
               width: 420,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Move $count selected '
-                    '${count == 1 ? 'message' : 'messages'} to:',
-                  ),
+                  Text(appL10n.moveSelectedTo(count)),
                   const SizedBox(height: 16),
                   DSelect<int>.controlled(
                     isExpanded: true,
                     key: const ValueKey('chat-move-destination'),
                     value: selected,
-                    label: const Text('Destination channel'),
+                    label: Text(appL10n.destinationChannel),
                     entries: [
                       for (final channel in destinations)
                         DSelectOption(
@@ -2031,7 +2028,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
             actions: [
               AdaptiveDialogAction(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(appL10n.cancel),
               ),
               AdaptiveDialogAction(
                 key: const ValueKey('confirm-move-chat-messages'),
@@ -2039,7 +2036,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                     ? null
                     : () => Navigator.pop(dialogContext, selected),
                 kind: AdaptiveDialogActionKind.primary,
-                child: const Text('Move'),
+                child: Text(appL10n.move),
               ),
             ],
           ),
@@ -2085,21 +2082,18 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     final confirmed = await showDiscourseDialog<bool>(
       context: context,
       builder: (dialogContext) => DiscourseAlertDialog(
-        title: const Text('Delete selected messages?'),
-        content: Text(
-          'Are you sure you want to delete $count '
-          '${count == 1 ? 'message' : 'messages'}?',
-        ),
+        title: Text(appL10n.deleteSelectedMessages),
+        content: Text(appL10n.areYouSureYouWantToDelete(count)),
         actions: [
           AdaptiveDialogAction(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(appL10n.cancel),
           ),
           AdaptiveDialogAction(
             key: const ValueKey('confirm-delete-chat-messages'),
             onPressed: () => Navigator.pop(dialogContext, true),
             kind: AdaptiveDialogActionKind.destructive,
-            child: const Text('Delete'),
+            child: Text(appL10n.delete),
           ),
         ],
       ),
@@ -2116,7 +2110,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     setState(() => _deleting = false);
     DToast.show(
       context,
-      error ?? 'Messages deleted.',
+      error ?? appL10n.messagesDeleted,
       type: error == null ? DToastType.success : DToastType.error,
     );
   }
@@ -2156,7 +2150,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
             children: [
               Expanded(
                 child: Text(
-                  '$count ${count == 1 ? 'message' : 'messages'} selected',
+                  context.l10n.selectedChatchannelview(count),
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
@@ -2164,7 +2158,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 key: const ValueKey('chat-quote-selection'),
                 onPressed: count == 0 || busy ? null : _quote,
                 variant: DButtonVariant.ghost,
-                tooltip: 'Quote selected messages',
+                tooltip: context.l10n.quoteSelectedMessages,
                 loading: _quoting,
                 icon: const DIcon(DIcons.quoteLeft),
               ),
@@ -2174,7 +2168,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 variant: DButtonVariant.primary,
                 loading: _copying,
                 icon: const DIcon(DIcons.copy),
-                label: const Text('Copy'),
+                label: Text(context.l10n.copy),
               ),
               const SizedBox(width: DSpacing.controlGap),
               if (offersMove)
@@ -2184,7 +2178,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                       ? () => _move(moveDestinations)
                       : null,
                   variant: DButtonVariant.ghost,
-                  tooltip: 'Move selected messages to another channel',
+                  tooltip: context.l10n.moveSelectedMessagesToAnotherChannel,
                   loading: _moving,
                   icon: const DIcon(DIcons.rightFromBracket),
                 ),
@@ -2193,9 +2187,10 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 onPressed: canDelete && !busy ? _delete : null,
                 variant: DButtonVariant.ghost,
                 tooltip: count > ChatController.maximumBulkDeleteMessages
-                    ? 'Select no more than '
-                          '${ChatController.maximumBulkDeleteMessages} messages'
-                    : 'Delete selected messages',
+                    ? context.l10n.selectNoMoreThanMessages(
+                        (ChatController.maximumBulkDeleteMessages).toString(),
+                      )
+                    : context.l10n.deleteSelectedMessagesChatchannelview,
                 loading: _deleting,
                 icon: const DIcon(DIcons.trashCan),
               ),
@@ -2203,7 +2198,7 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
                 key: const ValueKey('chat-cancel-selection'),
                 onPressed: busy ? null : widget.onCancel,
                 variant: DButtonVariant.ghost,
-                tooltip: 'Cancel selection',
+                tooltip: context.l10n.cancelSelection,
                 icon: const DIcon(DIcons.xmark),
               ),
             ],
@@ -2243,8 +2238,8 @@ class _JumpToPresent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = pendingCount > 0
-        ? 'Jump to latest messages, $pendingCount new'
-        : 'Jump to latest messages';
+        ? context.l10n.jumpToLatestMessagesNew((pendingCount).toString())
+        : context.l10n.jumpToLatestMessages;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -2288,7 +2283,7 @@ class _NewDivider extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              'New',
+              context.l10n.messageNew,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.error,
                 fontWeight: FontWeight.w700,
@@ -2355,8 +2350,10 @@ class _DeletedRun extends StatelessWidget {
         }
 
         final label = messageIds.length == 1
-            ? 'A message was deleted. [view]'
-            : '${messageIds.length} messages were deleted. [view all]';
+            ? context.l10n.aMessageWasDeletedView
+            : context.l10n.messagesWereDeletedViewAll(
+                (messageIds.length).toString(),
+              );
         return ColoredBox(
           color: theme.colorScheme.errorContainer,
           child: Padding(
@@ -2385,9 +2382,9 @@ class _LoadingNewerRow extends StatelessWidget {
   const _LoadingNewerRow();
 
   @override
-  Widget build(BuildContext context) => const _ChatPaginationSkeleton(
-    key: ValueKey('chat-loading-newer-skeleton'),
-    semanticsLabel: 'Loading newer messages',
+  Widget build(BuildContext context) => _ChatPaginationSkeleton(
+    key: const ValueKey('chat-loading-newer-skeleton'),
+    semanticsLabel: context.l10n.loadingNewerMessages,
     nameWidth: 0.28,
     lineWidth: 0.58,
     chainedLineWidth: 0.34,
@@ -2398,9 +2395,9 @@ class _LoadingOlderRow extends StatelessWidget {
   const _LoadingOlderRow();
 
   @override
-  Widget build(BuildContext context) => const _ChatPaginationSkeleton(
-    key: ValueKey('chat-loading-older-skeleton'),
-    semanticsLabel: 'Loading older messages',
+  Widget build(BuildContext context) => _ChatPaginationSkeleton(
+    key: const ValueKey('chat-loading-older-skeleton'),
+    semanticsLabel: context.l10n.loadingOlderMessages,
     nameWidth: 0.22,
     lineWidth: 0.66,
     chainedLineWidth: 0.40,
@@ -2452,7 +2449,7 @@ class _ChatLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DSkeletonRegion(
       expand: true,
-      semanticsLabel: 'Loading chat channel',
+      semanticsLabel: context.l10n.loadingChatChannel,
       color: skeletonFill(context),
       child: LayoutBuilder(
         builder: (context, constraints) {

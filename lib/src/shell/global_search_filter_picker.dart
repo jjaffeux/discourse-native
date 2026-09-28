@@ -59,8 +59,8 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
         align: DPopoverAlign.end,
         padding: EdgeInsets.zero,
         semanticLabel: editor == null
-            ? 'Add search filter'
-            : 'Edit ${editor.label} condition',
+            ? context.l10n.addSearchFilter
+            : context.l10n.editCondition((editor.label).toString()),
         child: editor == null
             ? _catalogue(context)
             : editor.id == 'category'
@@ -118,7 +118,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                   ? null
                   : const ValueKey('global-search-filter-trigger'),
               icon: DIcon(widget.addOnly ? DIcons.plus : DIcons.filter),
-              tooltip: 'Add filter',
+              tooltip: context.l10n.addFilter,
               variant: widget.addOnly
                   ? DButtonVariant.ghost
                   : DButtonVariant.outline,
@@ -192,7 +192,9 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                   DButtonGroupExpanded(child: part(value)),
                   DButton.iconOnly(
                     icon: const DIcon(DIcons.xmark),
-                    tooltip: 'Remove ${definition.label} condition',
+                    tooltip: context.l10n.removeCondition(
+                      (definition.label).toString(),
+                    ),
                     onPressed: () => widget.controller.removeCondition(
                       widget.conditionIndex!,
                     ),
@@ -218,16 +220,16 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
       groups.putIfAbsent(group, () => []).add(filter);
     }
     return DCommand<String>(
-      semanticLabel: 'Search filters',
+      semanticLabel: context.l10n.searchFilters,
       onSelected: (id) => setState(
         () => _editing = globalSearchFilter(id, widget.controller.capabilities),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const DCommandInput<String>(
-            placeholder: 'Add filter…',
-            semanticLabel: 'Find a search filter',
+          DCommandInput<String>(
+            placeholder: context.l10n.addFilterGlobalsearchfilterpicker,
+            semanticLabel: context.l10n.findASearchFilter,
           ),
           const DSeparator(),
           DCommandList<String>(
@@ -253,7 +255,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                       ),
                   ],
                 ),
-              const DCommandEmpty(child: Text('No filters match your search.')),
+              DCommandEmpty(child: Text(context.l10n.noFiltersMatchYourSearch)),
             ],
           ),
         ],
@@ -347,9 +349,9 @@ class _GlobalSearchConditionEditorState
         _loading = false;
         _lookupError = _tags
             ? widget.controller.cachedTagChoices('').isEmpty
-                  ? 'Couldn’t load tags'
-                  : 'Couldn’t refresh tags'
-            : 'Suggestions could not load.';
+                  ? appL10n.couldnTLoadTagsGlobalsearchfilterpicker
+                  : appL10n.couldnTRefreshTags
+            : appL10n.suggestionsCouldNotLoad;
       });
     }
   }
@@ -415,7 +417,7 @@ class _GlobalSearchConditionEditorState
                 if (widget.onBack != null) ...[
                   DButton.iconOnly(
                     icon: const DIcon(DIcons.chevronLeft),
-                    tooltip: 'Back to filters',
+                    tooltip: context.l10n.backToFilters,
                     onPressed: widget.onBack,
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
@@ -455,7 +457,9 @@ class _GlobalSearchConditionEditorState
               DInput(
                 key: const ValueKey('global-search-filter-value'),
                 controller: _text,
-                semanticLabel: '${filter.label} value',
+                semanticLabel: context.l10n.valueGlobalsearchfilterpicker(
+                  (filter.label).toString(),
+                ),
                 hintText: filter.placeholder,
                 autofocus: true,
                 keyboardType: filter.kind == GlobalSearchFilterKind.number
@@ -465,7 +469,7 @@ class _GlobalSearchConditionEditorState
               ),
             if (_tags) ...[
               const SizedBox(height: 16),
-              const DLabel(child: Text('Match topics that')),
+              DLabel(child: Text(context.l10n.matchTopicsThat)),
               const SizedBox(height: 6),
               _operatorPicker(),
             ],
@@ -501,10 +505,10 @@ class _GlobalSearchConditionEditorState
                 key: const ValueKey('global-search-filter-apply'),
                 label: Text(
                   widget.initial != null
-                      ? 'Apply changes'
+                      ? context.l10n.applyChanges
                       : _tags
-                      ? 'Add filter'
-                      : 'Add condition',
+                      ? context.l10n.addFilter
+                      : context.l10n.addCondition,
                 ),
                 onPressed: _tags && _values.isEmpty ? null : _apply,
                 size: _tags ? DButtonSize.regular : DButtonSize.small,
@@ -519,10 +523,10 @@ class _GlobalSearchConditionEditorState
   Widget _operatorPicker() {
     String label(GlobalSearchFilterOperator op) => _tags
         ? switch (op.value) {
-            'any' => 'Include any selected tag',
-            'all' => 'Include every selected tag',
-            'none' => 'Exclude any selected tag',
-            'notAll' => 'Exclude this combination',
+            'any' => appL10n.includeAnySelectedTag,
+            'all' => appL10n.includeEverySelectedTag,
+            'none' => appL10n.excludeAnySelectedTag,
+            'notAll' => appL10n.excludeThisCombination,
             _ => op.label,
           }
         : op.label;
@@ -533,8 +537,8 @@ class _GlobalSearchConditionEditorState
         if (value != null) setState(() => _operator = value);
       },
       semanticLabel: _tags
-          ? 'Match topics that'
-          : '${widget.filter.label} condition',
+          ? appL10n.matchTopicsThat
+          : appL10n.condition((widget.filter.label).toString()),
       width: double.infinity,
       entries: [
         for (final op in widget.filter.operators)
@@ -555,8 +559,14 @@ class _GlobalSearchConditionEditorState
         DBadge.action(
           trailing: const DIcon(DIcons.xmark, size: 10),
           variant: DBadgeVariant.secondary,
-          semanticLabel:
-              'Remove ${_searchChoiceLabel(context, widget.controller, widget.filter, value)}',
+          semanticLabel: context.l10n.removeGlobalsearchfilterpicker(
+            (_searchChoiceLabel(
+              context,
+              widget.controller,
+              widget.filter,
+              value,
+            )).toString(),
+          ),
           onPressed: () => _choose(value),
           child: Text(
             _searchChoiceLabel(
@@ -593,7 +603,7 @@ class _GlobalSearchConditionEditorState
       onSelected: _choose,
       shouldFilter: false,
       loading: _loading,
-      semanticLabel: 'Available tags',
+      semanticLabel: context.l10n.availableTags,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -606,15 +616,16 @@ class _GlobalSearchConditionEditorState
                   key: const ValueKey('global-search-filter-value'),
                   controller: _text,
                   focusNode: _tagSearchFocus,
-                  placeholder: 'Search available tags…',
-                  semanticLabel: 'Search available tags',
+                  placeholder: context.l10n.searchAvailableTags,
+                  semanticLabel:
+                      context.l10n.searchAvailableTagsGlobalsearchfilterpicker,
                 ),
               ),
               if (query.isNotEmpty) ...[
                 const SizedBox(width: 4),
                 DButton.iconOnly(
                   icon: const DIcon(DIcons.xmark),
-                  tooltip: 'Clear search',
+                  tooltip: context.l10n.clearSearch,
                   variant: DButtonVariant.ghost,
                   onPressed: _clearTagSearch,
                 ),
@@ -627,9 +638,14 @@ class _GlobalSearchConditionEditorState
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
               children: [
-                Text('Selected · ${_values.length}', style: mutedStyle),
+                Text(
+                  context.l10n.selectedGlobalsearchfilterpicker(
+                    (_values.length).toString(),
+                  ),
+                  style: mutedStyle,
+                ),
                 DButton(
-                  label: const Text('Clear selection', softWrap: true),
+                  label: Text(context.l10n.clearSelection, softWrap: true),
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
                   onPressed: () {
@@ -648,13 +664,13 @@ class _GlobalSearchConditionEditorState
               description: DAlertDescription(
                 child: Text(
                   hasSavedTags
-                      ? 'Showing saved tags. More may be available.'
-                      : 'Try again to see available tags.',
+                      ? context.l10n.showingSavedTagsMoreMayBeAvailable
+                      : context.l10n.tryAgainToSeeAvailableTags,
                 ),
               ),
               action: DAlertAction(
                 child: DButton(
-                  label: const Text('Retry'),
+                  label: Text(context.l10n.retry),
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
                   onPressed: () => _loadChoices(_text.text),
@@ -670,22 +686,31 @@ class _GlobalSearchConditionEditorState
                 children: [
                   Expanded(
                     child: Text(
-                      '${saved
-                          ? 'Saved tags'
-                          : query.isEmpty
-                          ? 'Available tags'
-                          : 'Matching tags'} · ${_choices.length}',
+                      context.l10n.messageGlobalsearchfilterpicker(
+                        (saved).toString(),
+                        ((saved) ? (context.l10n.savedTags) : '').toString(),
+                        (_choices.length).toString(),
+                        ((!(saved)) ? (query.isEmpty) : '').toString(),
+                        (((!(saved)) && (query.isEmpty))
+                                ? (context.l10n.availableTags)
+                                : '')
+                            .toString(),
+                        (((!(saved)) && (query.isNotEmpty))
+                                ? (context.l10n.matchingTags)
+                                : '')
+                            .toString(),
+                      ),
                       style: mutedStyle,
                     ),
                   ),
-                  if (showCounts) Text('Topics', style: mutedStyle),
+                  if (showCounts) Text(context.l10n.topics, style: mutedStyle),
                   const SizedBox(width: 24),
                 ],
               ),
             ),
           DCommandList<String>(
             maxHeight: 240,
-            semanticLabel: 'Tag suggestions',
+            semanticLabel: context.l10n.tagSuggestions,
             children: [
               for (final choice in _choices)
                 DCommandItem<String>(
@@ -693,7 +718,7 @@ class _GlobalSearchConditionEditorState
                   checked: _values.contains(choice.value),
                   semanticLabel: switch (choice.topicCount) {
                     final count? =>
-                      '${choice.label}, ${countLabel(count, 'topic')}',
+                      '${choice.label}, ${countLabel(count, CountNoun.topic)}',
                     null => choice.label,
                   },
                   trailing: Row(
@@ -717,11 +742,11 @@ class _GlobalSearchConditionEditorState
                   ),
                   child: _highlightTag(context, choice.label, query),
                 ),
-              const DCommandLoading(
+              DCommandLoading(
                 child: Padding(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   child: Row(
-                    children: [Expanded(child: Text('Finding tags…'))],
+                    children: [Expanded(child: Text(context.l10n.findingTags))],
                   ),
                 ),
               ),
@@ -731,12 +756,19 @@ class _GlobalSearchConditionEditorState
                     children: [
                       Text(
                         query.isEmpty
-                            ? 'No tags available.'
-                            : '${saved ? 'No saved tags match' : 'No tags match'} “$query”',
+                            ? context.l10n.noTagsAvailable
+                            : context.l10n.messageGlobalsearchfilterpickerValue(
+                                (saved).toString(),
+                                ((saved) ? (context.l10n.noSavedTagsMatch) : '')
+                                    .toString(),
+                                (query).toString(),
+                                ((!(saved)) ? (context.l10n.noTagsMatch) : '')
+                                    .toString(),
+                              ),
                       ),
                       if (query.isNotEmpty)
                         DButton(
-                          label: const Text('Clear search'),
+                          label: Text(context.l10n.clearSearch),
                           variant: DButtonVariant.ghost,
                           onPressed: _clearTagSearch,
                         ),
@@ -792,9 +824,11 @@ class _GlobalSearchConditionEditorState
             key: const ValueKey('global-search-filter-value'),
             controller: _text,
             placeholder: widget.filter.placeholder.isEmpty
-                ? 'Find an option…'
+                ? context.l10n.findAnOption
                 : widget.filter.placeholder,
-            semanticLabel: '${widget.filter.label} value',
+            semanticLabel: context.l10n.valueGlobalsearchfilterpicker(
+              (widget.filter.label).toString(),
+            ),
           ),
           DCommandList<String>(
             maxHeight: 190,
@@ -812,11 +846,11 @@ class _GlobalSearchConditionEditorState
                 DCommandItem<String>(
                   value: query.trim(),
                   forceMount: true,
-                  child: Text('Use “${query.trim()}”'),
+                  child: Text(context.l10n.use((query.trim()).toString())),
                 ),
               if (_loading) const DCommandLoading(child: SizedBox.shrink()),
               if (!_loading && _lookupError == null)
-                const DCommandEmpty(child: Text('No matching options.')),
+                DCommandEmpty(child: Text(context.l10n.noMatchingOptions)),
             ],
           ),
           if (_lookupError != null)
@@ -832,7 +866,7 @@ class _GlobalSearchConditionEditorState
                   ),
                 ),
                 DButton(
-                  label: const Text('Retry'),
+                  label: Text(context.l10n.retry),
                   onPressed: () => _loadChoices(_text.text),
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,

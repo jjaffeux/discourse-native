@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'forum_background.dart';
@@ -458,7 +459,7 @@ double? _nonNegativeDouble(Object? value) {
 
 Color _requiredColor(Map<String, dynamic> json, String name) =>
     _color(json[name]) ??
-    (throw FormatException('Missing palette color $name'));
+    (throw FormatException(appL10n.missingPaletteColor((name).toString())));
 
 // A persisted Color is 32 bits. Ten decimal digits hold every unsigned value,
 // and one extra code unit permits a sign. Hex colors are shorter even with '#'.

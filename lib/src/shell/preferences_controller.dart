@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -162,7 +163,9 @@ final class PreferencesController extends FrameSafeNotifier {
           final state = _states[siteUrl]!;
           _states[siteUrl] = state.copyWith(
             loading: false,
-            error: 'Reconnect to ${instance.host} to load preferences.',
+            error: appL10n.reconnectToToLoadPreferences(
+              (instance.host).toString(),
+            ),
           );
         });
         return;
@@ -195,7 +198,7 @@ final class PreferencesController extends FrameSafeNotifier {
           loading: false,
           error: preferences.canEdit
               ? null
-              : 'This account is not allowed to edit these preferences.',
+              : appL10n.thisAccountIsNotAllowedToEditThesePreferences,
         );
       });
     } catch (error, stackTrace) {
@@ -205,7 +208,7 @@ final class PreferencesController extends FrameSafeNotifier {
         final state = _states[siteUrl]!;
         _states[siteUrl] = state.copyWith(
           loading: false,
-          error: "Couldn't load preferences from ${instance.host}.",
+          error: appL10n.couldnTLoadPreferencesFrom((instance.host).toString()),
         );
       });
     } finally {
@@ -440,15 +443,19 @@ final class PreferencesController extends FrameSafeNotifier {
     if (error case final WriteException write) {
       if (write.errors.isNotEmpty) return write.message;
       return switch (write.failure) {
-        WriteFailure.forbidden => 'Reconnect to $host to update preferences.',
+        WriteFailure.forbidden => appL10n.reconnectToToUpdatePreferences(
+          (host).toString(),
+        ),
         WriteFailure.rateLimited => write.message,
         WriteFailure.validation => write.message,
         WriteFailure.conflict =>
-          'These preferences changed elsewhere. Reload and try again.',
-        WriteFailure.unreachable => "Couldn't update preferences on $host.",
+          appL10n.thesePreferencesChangedElsewhereReloadAndTryAgain,
+        WriteFailure.unreachable => appL10n.couldnTUpdatePreferencesOn(
+          (host).toString(),
+        ),
       };
     }
-    return "Couldn't update preferences on $host.";
+    return appL10n.couldnTUpdatePreferencesOn((host).toString());
   }
 
   void _report(Object error, StackTrace stackTrace, String operation) {

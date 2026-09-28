@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsValidationResult;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -898,7 +899,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         onOpenChange: (open, reason) =>
             _requestOpen(open, _popoverReason(reason)),
         content: DPopoverContent(
-          semanticLabel: combobox.content.semanticLabel ?? 'Suggestions',
+          semanticLabel: combobox.content.semanticLabel ?? appL10n.suggestions,
           side: combobox.content.side,
           align: combobox.content.align,
           sideOffset: combobox.content.sideOffset,
@@ -1091,7 +1092,7 @@ class DComboboxInput<T> extends StatelessWidget {
     final action = showClear && hasValue
         ? DInputGroupButton.icon(
             size: size,
-            tooltip: 'Clear selection',
+            tooltip: context.l10n.clearSelection,
             icon: const DIcon(DIcons.xmark, size: 16),
             onPressed: root.mutable
                 ? () => root._clear(DComboboxChangeReason.clear)
@@ -1102,7 +1103,9 @@ class DComboboxInput<T> extends StatelessWidget {
             expanded: root.isOpen,
             child: DInputGroupButton.icon(
               size: size,
-              tooltip: root.isOpen ? 'Close suggestions' : 'Open suggestions',
+              tooltip: root.isOpen
+                  ? context.l10n.closeSuggestions
+                  : context.l10n.openSuggestions,
               icon: DIcon(
                 DControlStyle.isApplicationSize(size)
                     ? DNativeIcons.filterChevron
@@ -1717,7 +1720,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
           container: true,
           button: canRemove,
           label: root.labelFor(widget.value),
-          hint: canRemove ? 'Press Delete or Backspace to remove' : null,
+          hint: canRemove ? context.l10n.pressDeleteOrBackspaceToRemove : null,
           child: AnimatedContainer(
             duration: DMotion.duration(
               context,
@@ -1755,7 +1758,9 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
                   ),
                   if (canRemove)
                     _ComboboxIconAction(
-                      semanticLabel: 'Remove ${root.labelFor(widget.value)}',
+                      semanticLabel: context.l10n.remove(
+                        (root.labelFor(widget.value)).toString(),
+                      ),
                       icon: const DIcon(DIcons.xmark, size: 16),
                       onPressed: () => root._remove(
                         widget.value,

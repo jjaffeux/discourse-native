@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -35,7 +36,7 @@ class TopicSourceFooter extends StatelessWidget {
             DDropdownMenu(
               content: DDropdownMenuContent(
                 width: 280,
-                semanticLabel: 'Choose forum for new topic',
+                semanticLabel: context.l10n.chooseForumForNewTopic,
                 children: [
                   for (var index = 0; index < shell.instances.length; index++)
                     if (shell.instances[index].isConnected)
@@ -50,7 +51,7 @@ class TopicSourceFooter extends StatelessWidget {
               ),
               child: DDropdownMenuTrigger(
                 builder: (context, trigger) => DButton(
-                  label: const Text('New topic'),
+                  label: Text(context.l10n.newTopic),
                   icon: const DIcon(DIcons.plus),
                   variant: DButtonVariant.primary,
                   focusNode: trigger.focusNode,
@@ -68,7 +69,7 @@ class TopicSourceFooter extends StatelessWidget {
           const Spacer(),
           if (shell.currentContent?.isTopic == true) ...[
             DButton.iconOnly(
-              tooltip: 'Previous topic',
+              tooltip: context.l10n.previousTopic,
               icon: const RotatedBox(
                 quarterTurns: 2,
                 child: DIcon(DIcons.chevronDown),
@@ -77,7 +78,7 @@ class TopicSourceFooter extends StatelessWidget {
               onPressed: onPrevious,
             ),
             DButton.iconOnly(
-              tooltip: 'Next topic',
+              tooltip: context.l10n.nextTopic,
               icon: const DIcon(DIcons.chevronDown),
               variant: DButtonVariant.outline,
               onPressed: onNext,

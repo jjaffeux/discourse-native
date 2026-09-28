@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'shell_scope.dart';
@@ -141,7 +142,7 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
           target.removeCategoryId == null ||
               target.removeCategoryId == target.categoryId
           ? null
-          : target.removeLabel ?? 'Remove category',
+          : target.removeLabel ?? context.l10n.removeCategory,
       search: (term) async {
         if (!isCurrent()) return const [];
         try {

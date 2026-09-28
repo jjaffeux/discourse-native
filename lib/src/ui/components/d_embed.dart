@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class DEmbed extends StatefulWidget {
     required this.title,
     required this.externalUri,
     required this.onOpenLink,
-    this.openLabel = 'Open in browser',
+    this._openLabel,
     this.height = 500,
     this.resizeMessageType,
     this.canNavigate,
@@ -52,7 +53,8 @@ class DEmbed extends StatefulWidget {
   final String title;
   final Uri externalUri;
   final ValueChanged<Uri> onOpenLink;
-  final String openLabel;
+  final String? _openLabel;
+  String get openLabel => _openLabel ?? appL10n.openInBrowser;
   final DEmbedPresentation presentation;
 
   /// Initial viewport height, bounded to 120–2000 logical pixels.
@@ -110,7 +112,10 @@ class _DEmbedState extends State<DEmbed> {
     final generation = _generation;
     _timeout = Timer(const Duration(seconds: 20), () {
       if (_current(generation)) {
-        _fail(TimeoutException('Embed loading timed out'), StackTrace.current);
+        _fail(
+          TimeoutException(appL10n.embedLoadingTimedOut),
+          StackTrace.current,
+        );
       }
     });
     unawaited(_configure(generation));
@@ -296,7 +301,9 @@ class _DEmbedState extends State<DEmbed> {
                         height: _height,
                         child: Center(
                           child: DSpinner(
-                            semanticLabel: 'Loading ${widget.title}',
+                            semanticLabel: context.l10n.loadingDembed(
+                              (widget.title).toString(),
+                            ),
                           ),
                         ),
                       ),
@@ -314,7 +321,11 @@ class _DEmbedState extends State<DEmbed> {
           title: DCardTitle(child: Text(widget.title)),
           action: _loading
               ? DCardAction(
-                  child: DSpinner(semanticLabel: 'Loading ${widget.title}'),
+                  child: DSpinner(
+                    semanticLabel: context.l10n.loadingDembed(
+                      (widget.title).toString(),
+                    ),
+                  ),
                 )
               : null,
         ),
@@ -323,7 +334,7 @@ class _DEmbedState extends State<DEmbed> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Could not load this embed.'),
+                Text(context.l10n.couldNotLoadThisEmbed),
                 const SizedBox(height: DSpacing.sm),
                 Wrap(
                   spacing: DSpacing.controlGap,
@@ -331,7 +342,7 @@ class _DEmbedState extends State<DEmbed> {
                   children: [
                     if (_isEmbedUri(widget.uri))
                       DButton(
-                        label: const Text('Retry'),
+                        label: Text(context.l10n.retry),
                         variant: DButtonVariant.outline,
                         onPressed: () => setState(_initialize),
                       ),

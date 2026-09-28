@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'scalar_preference_repository.dart';
 
 abstract interface class SidebarWidthPersistence {
@@ -37,7 +38,7 @@ final class SidebarWidthStore {
         key: storageKey,
         readOperation: 'sidebar.readWidth',
         writeOperation: 'sidebar.writeWidth',
-        writeFailureMessage: 'Could not persist the sidebar width.',
+        writeFailureMessage: appL10n.couldNotPersistTheSidebarWidth,
       );
 
   Future<double?> read() => _repository.read();

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef PlaceholderPostId = ({
@@ -120,7 +121,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
     } on FormatException {
       // Never include entered values in a diagnostic's exception message.
       reportStorageFailure(
-        const FormatException('Invalid placeholder store'),
+        FormatException(appL10n.invalidPlaceholderStore),
         StackTrace.current,
         'placeholder.decode',
       );

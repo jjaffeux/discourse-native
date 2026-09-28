@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -150,7 +151,7 @@ final class DiscourseEventsPlugin
     return [
       ComposerToolbarContribution(
         icon: EventIcons.calendar,
-        label: blocks.isEmpty ? 'Add event' : 'Edit event',
+        label: blocks.isEmpty ? appL10n.addEvent : appL10n.editEvent,
         onInvoke: () => unawaited(
           openEventComposer(context, editor, policy, block: blocks.firstOrNull),
         ),
@@ -171,11 +172,11 @@ final class DiscourseEventsPlugin
     if (site == null) return const [];
     final settings = controller.settings(site.url);
     if (!settings.enabled || !settings.showUpcomingEvents) return const [];
-    return const [
+    return [
       SidebarDestination(
         id: 'events-upcoming',
-        label: 'Upcoming events',
-        mobileNavigationLabel: 'Events',
+        label: appL10n.upcomingEvents,
+        mobileNavigationLabel: appL10n.events,
         icon: EventIcons.calendar,
       ),
     ];

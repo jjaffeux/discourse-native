@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/category_feed.dart';
@@ -113,14 +114,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
       return _CategoryPageState(
         icon: DIcons.triangleExclamation,
         title: feed.error!,
-        actionLabel: 'Try again',
+        actionLabel: context.l10n.tryAgain,
         onAction: _retry,
       );
     }
     if (feed.isEmpty) {
-      return const _CategoryPageState(
+      return _CategoryPageState(
         icon: DIcons.list,
-        title: 'No categories yet',
+        title: context.l10n.noCategoriesYet,
       );
     }
 
@@ -380,9 +381,9 @@ class _FeaturedTopicRow extends StatelessWidget {
   }
 
   String? get _status {
-    if (topic.pinned) return 'Pinned';
-    if (topic.closed) return 'Closed';
-    if (topic.archived) return 'Archived';
+    if (topic.pinned) return appL10n.pinned;
+    if (topic.closed) return appL10n.closed;
+    if (topic.archived) return appL10n.archived;
     return null;
   }
 
@@ -446,7 +447,7 @@ class _CategoryErrorBanner extends StatelessWidget {
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(
-          label: const Text('Retry'),
+          label: Text(context.l10n.retry),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),

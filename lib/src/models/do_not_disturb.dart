@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -27,14 +28,19 @@ final class DoNotDisturbDuration {
 }
 
 enum DoNotDisturbOption {
-  halfHour('30 minutes', DoNotDisturbDuration.minutes(30)),
-  oneHour('1 hour', DoNotDisturbDuration.minutes(60)),
-  twoHours('2 hours', DoNotDisturbDuration.minutes(120)),
-  tomorrow('Until tomorrow', DoNotDisturbDuration.untilTomorrow());
+  halfHour(DoNotDisturbDuration.minutes(30)),
+  oneHour(DoNotDisturbDuration.minutes(60)),
+  twoHours(DoNotDisturbDuration.minutes(120)),
+  tomorrow(DoNotDisturbDuration.untilTomorrow());
 
-  const DoNotDisturbOption(this.label, this.duration);
+  const DoNotDisturbOption(this.duration);
 
-  final String label;
+  String get label => switch (this) {
+    halfHour => appL10n.message30Minutes,
+    oneHour => appL10n.message1Hour,
+    twoHours => appL10n.message2Hours,
+    tomorrow => appL10n.untilTomorrow,
+  };
   final DoNotDisturbDuration duration;
 }
 
@@ -65,15 +71,15 @@ DoNotDisturbDuration doNotDisturbDurationUntil(
 
 String doNotDisturbRemainingLabel(DateTime until, {DateTime? now}) {
   final remaining = until.difference(now ?? DateTime.now());
-  if (remaining <= Duration.zero) return 'now';
+  if (remaining <= Duration.zero) return appL10n.relativeNow;
   final minutes = (remaining.inSeconds / Duration.secondsPerMinute).ceil();
   if (minutes >= Duration.minutesPerDay) {
-    return '${(minutes / Duration.minutesPerDay).ceil()}d';
+    return appL10n.relativeDays((minutes / Duration.minutesPerDay).ceil());
   }
   if (minutes >= Duration.minutesPerHour) {
-    return '${(minutes / Duration.minutesPerHour).ceil()}h';
+    return appL10n.relativeHours((minutes / Duration.minutesPerHour).ceil());
   }
-  return '${minutes}m';
+  return appL10n.relativeMinutes(minutes);
 }
 
 @immutable

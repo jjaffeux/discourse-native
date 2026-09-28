@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'event_data.dart';
 
 abstract final class EventIcons {
@@ -28,7 +30,7 @@ const eventNotificationTypes = [
 String _title(DiscourseNotification row) =>
     eventText(row.data['event_name']) ??
     eventText(row.data['topic_title']) ??
-    'an event';
+    appL10n.anEvent;
 
 ResolvedNotification? _reminder(String _, DiscourseNotification row) {
   if (row.typeId.value != 27) return null;
@@ -36,12 +38,12 @@ ResolvedNotification? _reminder(String _, DiscourseNotification row) {
   final title = eventText(row.data['topic_title']) ?? _title(row);
   final phrase = switch (row.data['message']) {
     'discourse_post_event.notifications.before_event_reminder' =>
-      '$title is starting soon',
+      appL10n.isStartingSoon((title).toString()),
     'discourse_post_event.notifications.ongoing_event_reminder' =>
-      '$title is happening now',
+      appL10n.isHappeningNow((title).toString()),
     'discourse_post_event.notifications.after_event_reminder' =>
-      '$title has ended',
-    _ => 'Reminder for $title',
+      appL10n.hasEnded((title).toString()),
+    _ => appL10n.reminderFor((title).toString()),
   };
   // display_username on a reminder may identify the recipient, not an actor.
   return ResolvedNotification(
@@ -65,11 +67,13 @@ ResolvedNotification? _invitation(String _, DiscourseNotification row) {
       actor: actor,
       phrase: predefined
           ? actor == null
-                ? 'Your attendance was set for ${_title(row)}'
-                : 'set your attendance and invited you to ${_title(row)}'
+                ? appL10n.yourAttendanceWasSetFor((_title(row)).toString())
+                : appL10n.setYourAttendanceAndInvitedYouTo(
+                    (_title(row)).toString(),
+                  )
           : actor == null
-          ? 'Invitation to ${_title(row)}'
-          : 'invited you to ${_title(row)}',
+          ? appL10n.invitationTo((_title(row)).toString())
+          : appL10n.invitedYouToEventnotifications((_title(row)).toString()),
     ),
     path: notificationTopicPath(row),
   );

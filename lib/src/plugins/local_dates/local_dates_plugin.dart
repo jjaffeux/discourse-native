@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,10 +21,10 @@ import 'local_dates_settings.dart';
 
 export 'local_dates_settings.dart';
 
-const localDateComposerSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('discourse-local-dates'),
+ComposerSyntaxKind get localDateComposerSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('discourse-local-dates'),
   name: 'local-date',
-  label: 'Local date',
+  label: appL10n.localDate,
 );
 
 class LocalDatesPlugin
@@ -176,7 +177,7 @@ class LocalDatesPlugin
     if (!request.siteConfig.localDatesSettings.enabled) {
       return ChatPreviewInspection(
         blockers: [
-          ChatPreviewBlocker('local dates disabled', range: syntax.first),
+          ChatPreviewBlocker(appL10n.localDatesDisabled, range: syntax.first),
         ],
       );
     }
@@ -196,7 +197,7 @@ class LocalDatesPlugin
       return ChatPreviewInspection(
         blockers: [
           ChatPreviewBlocker(
-            'local date syntax contains unsupported options',
+            appL10n.localDateSyntaxContainsUnsupportedOptions,
             range: SourceRange(block.start, block.end),
           ),
         ],
@@ -207,7 +208,7 @@ class LocalDatesPlugin
         return ChatPreviewInspection(
           blockers: [
             ChatPreviewBlocker(
-              'local date syntax is malformed or unsupported',
+              appL10n.localDateSyntaxIsMalformedOrUnsupported,
               range: occurrence,
             ),
           ],
@@ -216,8 +217,8 @@ class LocalDatesPlugin
     }
     if (blocks.length != syntax.length) {
       return ChatPreviewInspection(
-        blockers: const [
-          ChatPreviewBlocker('local date syntax could not be accounted for'),
+        blockers: [
+          ChatPreviewBlocker(appL10n.localDateSyntaxCouldNotBeAccountedFor),
         ],
       );
     }
@@ -274,7 +275,7 @@ class LocalDatesPlugin
     return [
       ComposerToolbarContribution(
         icon: DIcons.farClock,
-        label: 'Insert date/time',
+        label: appL10n.insertDateTime,
         shortcut: SingleActivator(
           LogicalKeyboardKey.period,
           shift: true,
@@ -520,7 +521,7 @@ Future<void> openLocalDateComposer(
   if (!stillCurrent()) {
     _message(
       context,
-      'The composer changed while this date was open. Nothing was changed.',
+      appL10n.theComposerChangedWhileThisDateWasOpenNothingWasChanged,
     );
     return;
   }
@@ -560,7 +561,7 @@ Future<void> openLocalDateComposer(
   if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
     _message(
       context,
-      'The composer changed while this date was open. Nothing was changed.',
+      appL10n.theComposerChangedWhileThisDateWasOpenNothingWasChanged,
     );
     return;
   }
@@ -587,7 +588,7 @@ void removeLocalDateComposer(
   if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
     _message(
       context,
-      'The composer changed before this date could be removed. Nothing was changed.',
+      appL10n.theComposerChangedBeforeThisDateCouldBeRemovedNothingWas,
     );
     return;
   }

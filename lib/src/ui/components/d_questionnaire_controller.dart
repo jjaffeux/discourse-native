@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -494,8 +495,8 @@ class DQuestionnaireController extends ChangeNotifier {
       _internalErrors[itemId] =
           item.errorMessage ??
           (item.required
-              ? 'Choose an answer to continue.'
-              : 'Choose an answer or skip this question.');
+              ? appL10n.chooseAnAnswerToContinue
+              : appL10n.chooseAnAnswerOrSkipThisQuestion);
       notifyListeners();
       return false;
     }

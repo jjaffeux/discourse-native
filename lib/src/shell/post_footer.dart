@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -64,15 +65,15 @@ class PostFooter extends StatelessWidget {
         break;
       }
     }
-    if (type == null) return 'You flagged this post';
+    if (type == null) return appL10n.youFlaggedThisPost;
     return switch (type.nameKey) {
-      'off_topic' => 'You flagged this as off-topic',
-      'spam' => 'You flagged this as spam',
-      'inappropriate' => 'You flagged this as inappropriate',
-      'illegal' => 'You flagged this as illegal',
-      'notify_moderators' => 'You flagged this for moderation',
-      'notify_user' => 'You sent a message to this user',
-      _ => 'You flagged this as ${type.name}.',
+      'off_topic' => appL10n.youFlaggedThisAsOffTopic,
+      'spam' => appL10n.youFlaggedThisAsSpam,
+      'inappropriate' => appL10n.youFlaggedThisAsInappropriate,
+      'illegal' => appL10n.youFlaggedThisAsIllegal,
+      'notify_moderators' => appL10n.youFlaggedThisForModeration,
+      'notify_user' => appL10n.youSentAMessageToThisUser,
+      _ => appL10n.youFlaggedThisAs((type.name).toString()),
     };
   }
 }

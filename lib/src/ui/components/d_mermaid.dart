@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
@@ -35,13 +36,13 @@ class DMermaid extends StatefulWidget {
     super.key,
     required this.source,
     this.height,
-    this.semanticLabel = 'Mermaid diagram',
+    this._semanticLabel,
     this.showControls = true,
   }) : assert(height == null || (height > 0 && height < double.infinity)),
        _expanded = false;
 
   const DMermaid._fullscreen({required this.source, required this.height})
-    : semanticLabel = 'Mermaid diagram',
+    : _semanticLabel = null,
       showControls = true,
       _expanded = true;
 
@@ -49,7 +50,8 @@ class DMermaid extends StatefulWidget {
   final bool showControls;
   final String source;
   final double? height;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.mermaidDiagram;
   final bool _expanded;
 
   @override
@@ -63,7 +65,7 @@ class _DMermaidState extends State<DMermaid> {
   String? _error;
   Timer? _timeout;
   int _generation = 0;
-  String _copyLabel = 'Copy source';
+  String _copyLabel = appL10n.copySource;
 
   @override
   void initState() {
@@ -102,17 +104,17 @@ class _DMermaidState extends State<DMermaid> {
     _image = _images.remove(key);
     if (_image != null) _images[key] = _image!;
     _error = null;
-    _copyLabel = 'Copy source';
+    _copyLabel = appL10n.copySource;
     if (_image != null) return;
     if (key.source.trim().isEmpty || key.source.length > 50000) {
       _error = key.source.trim().isEmpty
-          ? 'The diagram is empty.'
-          : 'The diagram exceeds the 50,000 character limit.';
+          ? appL10n.theDiagramIsEmpty
+          : appL10n.theDiagramExceedsThe50000CharacterLimit;
       return;
     }
     final generation = _generation;
     _timeout = Timer(const Duration(seconds: 20), () {
-      if (_current(generation)) _fail('Diagram rendering timed out.');
+      if (_current(generation)) _fail(appL10n.diagramRenderingTimedOut);
     });
     unawaited(_render(key, generation));
   }
@@ -133,7 +135,7 @@ class _DMermaidState extends State<DMermaid> {
           if (!_current(generation)) return;
           try {
             if (message.message.length > 24000000) {
-              throw const FormatException('Diagram image is too large.');
+              throw FormatException(appL10n.diagramImageIsTooLarge);
             }
             final data = jsonDecode(message.message);
             if (data is! Map<String, dynamic>) throw const FormatException();
@@ -142,7 +144,7 @@ class _DMermaidState extends State<DMermaid> {
               _fail(
                 error is String
                     ? error.substring(0, error.length.clamp(0, 500))
-                    : 'Invalid Mermaid syntax.',
+                    : appL10n.invalidMermaidSyntax,
               );
               return;
             }
@@ -157,7 +159,7 @@ class _DMermaidState extends State<DMermaid> {
             setState(() => _image = image);
           } on Object {
             if (_current(generation)) {
-              _fail('Could not read the rendered diagram.');
+              _fail(appL10n.couldNotReadTheRenderedDiagram);
             }
           }
         },
@@ -171,7 +173,7 @@ class _DMermaidState extends State<DMermaid> {
               : NavigationDecision.prevent,
           onWebResourceError: (error) {
             if (_current(generation) && error.isForMainFrame == true) {
-              _fail('Could not load the diagram renderer.');
+              _fail(appL10n.couldNotLoadTheDiagramRenderer);
             }
           },
         ),
@@ -191,7 +193,7 @@ class _DMermaidState extends State<DMermaid> {
         ),
       );
     } on Object {
-      if (_current(generation)) _fail('Could not start the diagram renderer.');
+      if (_current(generation)) _fail(appL10n.couldNotStartTheDiagramRenderer);
     }
   }
 
@@ -235,10 +237,10 @@ class _DMermaidState extends State<DMermaid> {
     try {
       await Clipboard.setData(ClipboardData(text: source));
       if (mounted && widget.source == source) {
-        setState(() => _copyLabel = 'Copied');
+        setState(() => _copyLabel = appL10n.copied);
       }
     } on Object {
-      if (mounted) setState(() => _copyLabel = 'Copy failed');
+      if (mounted) setState(() => _copyLabel = appL10n.copyFailed);
     }
   }
 
@@ -247,8 +249,8 @@ class _DMermaidState extends State<DMermaid> {
     builder: (context, _) => DDialogContent(
       maxWidth: 720,
       children: [
-        const DDialogHeader(
-          children: [DDialogTitle(child: Text('Mermaid source'))],
+        DDialogHeader(
+          children: [DDialogTitle(child: Text(appL10n.mermaidSource))],
         ),
         SizedBox(
           height: MediaQuery.sizeOf(context).height * .5,
@@ -270,8 +272,8 @@ class _DMermaidState extends State<DMermaid> {
     builder: (context, _) => DDialogContent(
       maxWidth: 1200,
       children: [
-        const DDialogHeader(
-          children: [DDialogTitle(child: Text('Mermaid diagram'))],
+        DDialogHeader(
+          children: [DDialogTitle(child: Text(appL10n.mermaidDiagram))],
         ),
         DMermaid._fullscreen(
           source: widget.source,
@@ -289,7 +291,7 @@ class _DMermaidState extends State<DMermaid> {
       if (_error case final String error)
         DAlert(
           variant: DAlertVariant.destructive,
-          title: const DAlertTitle(child: Text("Couldn't render diagram")),
+          title: DAlertTitle(child: Text(context.l10n.couldnTRenderDiagram)),
           description: DAlertDescription(child: Text(error)),
         )
       else
@@ -326,8 +328,10 @@ class _DMermaidState extends State<DMermaid> {
                           ),
                         ),
                       ),
-                    const Center(
-                      child: DSpinner(semanticLabel: 'Rendering diagram'),
+                    Center(
+                      child: DSpinner(
+                        semanticLabel: context.l10n.renderingDiagram,
+                      ),
                     ),
                   ],
                 ),
@@ -348,13 +352,13 @@ class _DMermaidState extends State<DMermaid> {
               onPressed: () => unawaited(_copy()),
             ),
             DButton(
-              label: const Text('View source'),
+              label: Text(context.l10n.viewSource),
               variant: DButtonVariant.ghost,
               onPressed: () => unawaited(_showSource()),
             ),
             if (!widget._expanded)
               DButton(
-                label: const Text('Expand diagram'),
+                label: Text(context.l10n.expandDiagram),
                 variant: DButtonVariant.ghost,
                 onPressed: _image == null ? null : () => unawaited(_expand()),
               ),
@@ -405,7 +409,7 @@ final class _MermaidImage {
     bytes,
     fit: BoxFit.contain,
     semanticLabel: label,
-    errorBuilder: (_, _, _) => const Text('Could not display the diagram.'),
+    errorBuilder: (_, _, _) => Text(appL10n.couldNotDisplayTheDiagram),
   );
 }
 
@@ -490,17 +494,17 @@ class _MermaidZoomState extends State<_MermaidZoom> {
         spacing: DSpacing.sm,
         children: [
           DButton(
-            label: const Text('Zoom out'),
+            label: Text(context.l10n.zoomOut),
             variant: DButtonVariant.outline,
             onPressed: () => _zoom(1 / 1.5),
           ),
           DButton(
-            label: const Text('Zoom in'),
+            label: Text(context.l10n.zoomIn),
             variant: DButtonVariant.outline,
             onPressed: () => _zoom(1.5),
           ),
           DButton(
-            label: const Text('Fit'),
+            label: Text(context.l10n.fit),
             variant: DButtonVariant.outline,
             onPressed: () => _transform.value = Matrix4.identity(),
           ),

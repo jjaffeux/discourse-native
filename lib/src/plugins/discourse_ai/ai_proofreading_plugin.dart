@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'ai_proofreading_controller.dart';
@@ -77,7 +78,7 @@ class _ProofreadToggle extends StatelessWidget {
         onChanged: interactive
             ? (value) => controller.setEnabled(composer, value)
             : null,
-        child: const Text('Proofread'),
+        child: Text(context.l10n.proofread),
       );
     },
   );

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -108,8 +109,8 @@ String eventAttributeSource(String value) {
   if (value.contains('\n') ||
       value.contains('\r') ||
       (value.contains('"') && value.contains("'"))) {
-    throw const FormatException(
-      'Attribute values cannot contain line breaks or both kinds of quotation mark.',
+    throw FormatException(
+      appL10n.attributeValuesCannotContainLineBreaksOrBothKindsOfQuotation,
     );
   }
   final quote = value.contains('"') ? "'" : '"';

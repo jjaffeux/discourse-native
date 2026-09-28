@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -169,7 +170,7 @@ final class ImageDownloadException implements Exception {
   const ImageDownloadException();
 
   @override
-  String toString() => 'The image could not be downloaded.';
+  String toString() => appL10n.theImageCouldNotBeDownloaded;
 }
 
 String imageDownloadFilename({required String? title, required String url}) =>

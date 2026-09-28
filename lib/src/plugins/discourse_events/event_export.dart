@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -66,7 +67,7 @@ Future<String> eventCalendar(
   if (!current()) throw StateError('Export cancelled.');
   if (!calendar.trimLeft().startsWith('BEGIN:VCALENDAR') ||
       !calendar.contains('END:VCALENDAR')) {
-    throw const FormatException('Invalid calendar response');
+    throw FormatException(appL10n.invalidCalendarResponse);
   }
   if (!_eventComponent.hasMatch(calendar)) {
     throw const EmptyEventCalendarException();
@@ -100,8 +101,8 @@ Future<void> saveEventCalendar(
       }.contains(defaultTargetPlatform)) {
     final location = await selector.getSaveLocation(
       suggestedName: filename,
-      acceptedTypeGroups: const [
-        selector.XTypeGroup(label: 'Calendar', extensions: ['ics']),
+      acceptedTypeGroups: [
+        selector.XTypeGroup(label: appL10n.calendar, extensions: const ['ics']),
       ],
     );
     if (location != null && isCurrent()) {

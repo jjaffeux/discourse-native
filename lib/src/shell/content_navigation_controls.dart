@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -44,8 +45,8 @@ class ContentNavigationControls extends StatelessWidget {
               DButton.iconOnly(
                 key: backKey,
                 icon: const DIcon(DIcons.arrowLeft),
-                tooltip: 'Back (mouse back button)',
-                semanticLabel: 'Back',
+                tooltip: context.l10n.backMouseBackButton,
+                semanticLabel: context.l10n.back,
                 shortcut: DShortcut(
                   contentBackShortcutForPlatform(defaultTargetPlatform),
                 ),
@@ -61,8 +62,8 @@ class ContentNavigationControls extends StatelessWidget {
                   quarterTurns: 2,
                   child: DIcon(DIcons.arrowLeft),
                 ),
-                tooltip: 'Forward (mouse forward button)',
-                semanticLabel: 'Forward',
+                tooltip: context.l10n.forwardMouseForwardButton,
+                semanticLabel: context.l10n.forward,
                 shortcut: DShortcut(
                   contentForwardShortcutForPlatform(defaultTargetPlatform),
                 ),
@@ -73,7 +74,7 @@ class ContentNavigationControls extends StatelessWidget {
               DButton.iconOnly(
                 key: refreshKey,
                 icon: const DIcon(DIcons.arrowsRotate),
-                tooltip: 'Refresh current tab',
+                tooltip: context.l10n.refreshCurrentTab,
                 shortcut: DShortcut(
                   refreshTabShortcutForPlatform(defaultTargetPlatform),
                 ),

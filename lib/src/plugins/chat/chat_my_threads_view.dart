@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
@@ -115,7 +116,9 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             children: [
               if (error != null) Text(error),
               DButton(
-                label: Text(error == null ? 'Load more' : 'Try again'),
+                label: Text(
+                  error == null ? context.l10n.loadMore : context.l10n.tryAgain,
+                ),
                 onPressed: () =>
                     unawaited(_directory.load(channelId: _channelId)),
               ),
@@ -138,13 +141,13 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
               ChatBrowseFilter<int>(
                 key: const ValueKey('chat-threads-channel-filter'),
                 label: _channelId == null
-                    ? 'Channel'
+                    ? context.l10n.channel
                     : channels
                               .where((c) => c.id == _channelId)
                               .firstOrNull
                               ?.title ??
-                          'Channel',
-                semanticLabel: 'Channel',
+                          context.l10n.channel,
+                semanticLabel: context.l10n.channel,
                 icon: Text(
                   '■',
                   style: TextStyle(
@@ -159,10 +162,10 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                 emphasized: _channelId != null,
                 value: _channelId ?? 0,
                 entries: [
-                  const DSelectOption(
+                  DSelectOption(
                     value: 0,
-                    label: 'All channels',
-                    child: Text('All channels'),
+                    label: context.l10n.allChannels,
+                    child: Text(context.l10n.allChannels),
                   ),
                   for (final channel in channels)
                     DSelectOption(
@@ -195,8 +198,8 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             return ChatThreadListMessage(
               icon: DIcons.comments,
               message: _channelId == null
-                  ? 'No chat threads yet.'
-                  : 'No threads in this channel.',
+                  ? context.l10n.noChatThreadsYet
+                  : context.l10n.noThreadsInThisChannel,
             );
           }
           final count = threads.length + (hasFooter ? 1 : 0);
@@ -249,13 +252,13 @@ class ChatBrowseThreadRow extends StatelessWidget {
         _text(thread.title) ??
         _text(original?.excerpt) ??
         _text(original?.message) ??
-        'Thread';
+        context.l10n.thread;
     final excerpt =
         _text(preview?.lastReplyExcerpt) ??
         (preview == null
             ? _text(original?.excerpt) ?? _text(original?.message)
             : null) ??
-        'No replies yet';
+        context.l10n.noRepliesYetChatmythreadsview;
     final unread =
         thread.tracking.unreadCount > 0 ||
         thread.tracking.mentionCount > 0 ||
@@ -266,8 +269,13 @@ class ChatBrowseThreadRow extends StatelessWidget {
       padding: constraints.maxWidth < 600
           ? const EdgeInsets.symmetric(vertical: DSpacing.md)
           : null,
-      semanticLabel:
-          'Open thread $title${channel == null ? '' : ' in ${channel.title}'}, ${_replyCountLabel(thread.replyCount)}${unread ? ', unread' : ''}',
+      semanticLabel: context.l10n.openThread(
+        (channel == null).toString(),
+        (unread).toString(),
+        (title).toString(),
+        (_replyCountLabel(thread.replyCount)).toString(),
+        ((!(channel == null)) ? (channel.title) : '').toString(),
+      ),
       onPressed: () => unawaited(_open(context, chat)),
       children: [
         DItemContent(
@@ -279,7 +287,7 @@ class ChatBrowseThreadRow extends StatelessWidget {
                 const Text('#'),
                 Expanded(
                   child: Text(
-                    channel?.title ?? 'Chat',
+                    channel?.title ?? context.l10n.chat,
                     style: TextStyle(
                       color: DTokens.of(context).mutedForeground,
                     ),
@@ -289,7 +297,7 @@ class ChatBrowseThreadRow extends StatelessWidget {
                   DNotificationDot(
                     key: ValueKey('chat-my-thread-unread-${thread.id}'),
                     color: _threadIndicatorColor(context, thread),
-                    semanticLabel: 'Unread',
+                    semanticLabel: context.l10n.unread,
                   ),
               ],
             ),
@@ -356,7 +364,7 @@ class ChatBrowseThreadRow extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not open this chat thread.',
+          appL10n.couldNotOpenThisChatThread,
           type: DToastType.error,
         );
       }
@@ -395,7 +403,7 @@ class ChatThreadListRow extends StatelessWidget {
         _text(thread.title) ??
         _text(original?.excerpt) ??
         _text(original?.message) ??
-        'Thread';
+        context.l10n.thread;
     final latestName =
         _text(preview?.lastReplyUser?.displayName) ??
         _text(preview?.lastReplyUsername);
@@ -413,16 +421,20 @@ class ChatThreadListRow extends StatelessWidget {
       );
     }
 
-    final semantics = StringBuffer('Open thread $title');
-    if (channel != null) semantics.write(' in ${channel.title}');
-    if (unread) semantics.write(', unread');
+    final semantics = StringBuffer(
+      context.l10n.openThreadChatmythreadsview((title).toString()),
+    );
+    if (channel != null) {
+      semantics.write(
+        context.l10n.messageInChatmythreadsview((channel.title).toString()),
+      );
+    }
+    if (unread) semantics.write(context.l10n.unreadChatmythreadsview);
     semantics.write(', ${_replyCountLabel(thread.replyCount)}.');
     if (preview case final value?) {
       final participants = _participantTotal(value);
       if (participants > 0) {
-        semantics.write(
-          ' $participants ${participants == 1 ? 'participant' : 'participants'}.',
-        );
+        semantics.write(context.l10n.messageChatmessagetile(participants));
       }
     }
 
@@ -436,7 +448,7 @@ class ChatThreadListRow extends StatelessWidget {
                 rowKey: ValueKey<String>('$keyPrefix-${thread.id}'),
                 siteUrl: siteUrl,
                 thread: thread,
-                channelTitle: channel?.title ?? 'Chat',
+                channelTitle: channel?.title ?? context.l10n.chat,
                 title: title,
                 unread: unread,
                 showChannel: showChannel,
@@ -459,7 +471,7 @@ class ChatThreadListRow extends StatelessWidget {
                   children: [
                     if (showChannel)
                       Text(
-                        channel?.title ?? 'Chat',
+                        channel?.title ?? context.l10n.chat,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -500,7 +512,7 @@ class ChatThreadListRow extends StatelessWidget {
                 trailing: unread
                     ? DNotificationDot(
                         color: _threadIndicatorColor(context, thread),
-                        semanticLabel: 'Unread',
+                        semanticLabel: context.l10n.unread,
                         key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
                       )
                     : null,
@@ -523,7 +535,7 @@ class ChatThreadListRow extends StatelessWidget {
       if (!context.mounted) return;
       DToast.show(
         context,
-        'Could not open this chat thread.',
+        appL10n.couldNotOpenThisChatThread,
         type: DToastType.error,
       );
     }
@@ -660,7 +672,7 @@ class _NestedThreadListRowState extends State<_NestedThreadListRow> {
                           padding: const EdgeInsets.only(top: 6),
                           child: DNotificationDot(
                             color: _threadIndicatorColor(context, thread),
-                            semanticLabel: 'Unread',
+                            semanticLabel: context.l10n.unread,
                             key: ValueKey<String>(
                               '$keyPrefix-unread-${thread.id}',
                             ),
@@ -764,7 +776,9 @@ class _LatestReplyCard extends StatelessWidget {
       at: latestAt,
       excerpt:
           latestExcerpt ??
-          (thread.replyCount == 0 ? 'No replies yet' : 'Latest reply'),
+          (thread.replyCount == 0
+              ? context.l10n.noRepliesYetChatmythreadsview
+              : context.l10n.latestReplyChatmythreadsview),
       compact: compact,
     );
     final activity = _ThreadActivity(
@@ -1067,8 +1081,7 @@ class ChatThreadListMessage extends StatelessWidget {
   );
 }
 
-String _replyCountLabel(int count) =>
-    countLabel(count, 'reply', plural: 'replies');
+String _replyCountLabel(int count) => countLabel(count, CountNoun.reply);
 
 int _participantTotal(ChatThreadPreview preview) {
   final serialized = preview.participantUsers.length;

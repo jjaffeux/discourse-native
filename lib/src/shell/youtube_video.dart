@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show Factory, TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart'
@@ -109,7 +110,9 @@ final class YoutubeVideoData {
         parseYoutubeTime(_firstQuery(query, 't')) ??
         _fragmentStart(uri.fragment);
     final end = parseYoutubeTime(_firstQuery(query, 'end'));
-    final title = videoId == null ? 'YouTube playlist' : 'YouTube video';
+    final title = videoId == null
+        ? appL10n.youTubePlaylist
+        : appL10n.youTubeVideo;
 
     return YoutubeVideoData(
       videoId: videoId,
@@ -511,8 +514,8 @@ class _YoutubePoster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final playLabel = 'Play video: ${data.title}';
-    final openLabel = 'Open on YouTube: ${data.title}';
+    final playLabel = context.l10n.playVideo((data.title).toString());
+    final openLabel = context.l10n.openOnYouTube((data.title).toString());
     void openOnYoutube() =>
         unawaited(openExternalLink(data.watchUri.toString()));
 
@@ -606,7 +609,7 @@ class _YoutubePoster extends StatelessWidget {
                 onPressed: openOnYoutube,
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
-                tooltip: 'Open on YouTube',
+                tooltip: context.l10n.openOnYouTubeYoutubevideo,
                 icon: const DIcon(DIcons.upRightFromSquare),
               ),
             ),
@@ -773,14 +776,14 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "Couldn't load the YouTube player.",
-                style: TextStyle(color: Colors.white),
+              Text(
+                context.l10n.couldnTLoadTheYouTubePlayer,
+                style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 8),
               DButton(
                 size: DButtonSize.post,
-                label: const Text('Open on YouTube'),
+                label: Text(context.l10n.openOnYouTubeYoutubevideo),
                 onPressed: () => unawaited(
                   openExternalLink(widget.data.watchUri.toString()),
                 ),
@@ -793,7 +796,7 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
     }
 
     return Semantics(
-      label: 'YouTube player: ${widget.data.title}',
+      label: context.l10n.youTubePlayer((widget.data.title).toString()),
       child: WebViewWidget(
         controller: controller,
         gestureRecognizers: youtubePlayerGestureRecognizers,

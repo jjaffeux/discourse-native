@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -108,9 +109,9 @@ final class DraftListController extends FrameSafeNotifier {
       if (!_isCurrentLoad(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
-          _feeds[siteUrl] = feedFor(
-            siteUrl,
-          ).withError('Reconnect to ${instance.host} to see your drafts.');
+          _feeds[siteUrl] = feedFor(siteUrl).withError(
+            appL10n.reconnectToToSeeYourDrafts((instance.host).toString()),
+          );
         });
         return;
       }
@@ -158,8 +159,8 @@ final class DraftListController extends FrameSafeNotifier {
         final current = feedFor(siteUrl);
         _feeds[siteUrl] = current.withError(
           refresh || current.drafts.isEmpty
-              ? "Couldn't load drafts from ${instance.host}."
-              : "Couldn't load more drafts from ${instance.host}.",
+              ? appL10n.couldnTLoadDraftsFrom((instance.host).toString())
+              : appL10n.couldnTLoadMoreDraftsFrom((instance.host).toString()),
         );
       });
     } finally {
@@ -210,7 +211,7 @@ final class DraftListController extends FrameSafeNotifier {
         _report(error, stackTrace, 'drafts.delete');
         _feeds[instance.url] = feedFor(
           instance.url,
-        ).withError("Couldn't remove that draft. Try again.");
+        ).withError(appL10n.couldnTRemoveThatDraftTryAgain);
       }
       return false;
     } finally {

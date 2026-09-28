@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show DateFormat;
@@ -217,9 +218,14 @@ class _CompactWeek extends StatelessWidget {
                                   rangeMiddle: false,
                                   rangeEnd: false,
                                 ),
-                                semanticLabel:
-                                    '${DateFormat.yMMMMEEEEd(locale).format(date)}'
-                                    '${isToday ? ', Today' : ''}, $count ${count == 1 ? 'event' : 'events'}',
+                                semanticLabel: context.l10n
+                                    .calendarDayEventCount(
+                                      DateFormat.yMMMMEEEEd(
+                                        locale,
+                                      ).format(date),
+                                      isToday.toString(),
+                                      count,
+                                    ),
                                 onPressed: open,
                                 onKeyEvent: (event) {
                                   if (event is KeyDownEvent &&
@@ -433,7 +439,7 @@ class DCalendarScheduleEntry extends StatelessWidget {
                                 alpha: .2,
                               ),
                               foregroundColor: tokens.primary,
-                              child: const Text('Today'),
+                              child: Text(context.l10n.todayDcalendarevents),
                             ),
                         ],
                       ),

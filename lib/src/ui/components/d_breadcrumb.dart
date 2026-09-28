@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,12 +22,13 @@ class DBreadcrumb extends StatelessWidget {
   const DBreadcrumb({
     super.key,
     required this.child,
-    this.semanticLabel = 'Breadcrumb',
+    this._semanticLabel,
     this.textDirection,
   });
 
   final Widget child;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.breadcrumb;
   final TextDirection? textDirection;
 
   @override

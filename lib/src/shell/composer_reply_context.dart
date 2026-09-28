@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -83,8 +84,8 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
             .firstOrNull
             ?.avatarUrl;
     final replyLabel = username == null
-        ? 'Replying to this topic'
-        : 'Replying to @$username';
+        ? context.l10n.replyingToThisTopic
+        : context.l10n.replyingToComposerreplycontext((username).toString());
     final postNumber = target.replyToPostNumber;
     final destination =
         '$replyLabel${postNumber == null ? '' : ' · #$postNumber'}';
@@ -187,9 +188,11 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
                                                   ),
                                                 )
                                               else ...[
-                                                const Flexible(
+                                                Flexible(
                                                   child: Text(
-                                                    'Replying to ',
+                                                    context
+                                                        .l10n
+                                                        .replyingToComposerreplycontextValue,
                                                     maxLines: 1,
                                                     overflow:
                                                         TextOverflow.ellipsis,

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -26,8 +27,10 @@ Widget? cookedSpoilerWidgetBuilder(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const DAccordionHeader(
-              child: DAccordionTrigger(child: Text('Spoiler')),
+            DAccordionHeader(
+              child: DAccordionTrigger(
+                child: Text(appL10n.spoilerCookedspoiler),
+              ),
             ),
             DAccordionContent(
               // Closing immediately removes selectable content as well as its

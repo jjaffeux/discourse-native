@@ -1,14 +1,20 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 /// Icon families available throughout the application.
 enum DIconSet {
-  defaultSet('Default', 1),
-  lucide('Lucide', 1.14),
-  phosphor('Phosphor', 1.14),
-  tabler('Tabler', 1.16);
+  defaultSet(1),
+  lucide(1.14),
+  phosphor(1.14),
+  tabler(1.16);
 
-  const DIconSet(this.label, this.scale);
-  final String label;
+  const DIconSet(this.scale);
+  String get label => switch (this) {
+    defaultSet => appL10n.messageDefault,
+    lucide => appL10n.lucide,
+    phosphor => appL10n.phosphor,
+    tabler => appL10n.tabler,
+  };
   final double scale;
 
   static DIconSet fromName(Object? name) => values.firstWhere(

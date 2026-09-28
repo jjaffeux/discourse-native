@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
@@ -37,15 +38,15 @@ class AppSettingsModal extends StatelessWidget {
       child: DDialogContent(
         key: const ValueKey('app-settings-modal'),
         maxWidth: 600,
-        semanticLabel: 'Settings',
+        semanticLabel: context.l10n.settings,
         spacing: DSpacing.xl,
         closeButton: DDialogClose<void>(
           builder: (_, close) => DButton.iconOnly(
             key: const ValueKey('app-settings-close'),
             onPressed: close,
             icon: const DIcon(DIcons.xmark),
-            tooltip: 'Close',
-            semanticLabel: 'Close settings',
+            tooltip: context.l10n.close,
+            semanticLabel: context.l10n.closeSettings,
             size: DButtonSize.small,
             variant: DButtonVariant.ghost,
           ),
@@ -57,11 +58,11 @@ class AppSettingsModal extends StatelessWidget {
               DDialogTitle(
                 child: Semantics(
                   headingLevel: 1,
-                  child: const Text('Settings'),
+                  child: Text(context.l10n.settings),
                 ),
               ),
-              const DDialogDescription(
-                child: Text('Preferences for all your forums.'),
+              DDialogDescription(
+                child: Text(context.l10n.preferencesForAllYourForums),
               ),
             ],
           ),
@@ -73,10 +74,12 @@ class AppSettingsModal extends StatelessWidget {
                 DSwitchTile(
                   key: const ValueKey('limit-content-size-switch'),
                   hoverHighlight: true,
-                  title: const DLabel(child: Text('Limit content size')),
-                  subtitle: const DFieldDescription(
+                  title: DLabel(child: Text(context.l10n.limitContentSize)),
+                  subtitle: DFieldDescription(
                     child: Text(
-                      'Center content in each panel with a maximum width of 825 px.',
+                      context
+                          .l10n
+                          .centerContentInEachPanelWithAMaximumWidthOf825,
                     ),
                   ),
                   value: appSettings.limitContentSize,
@@ -106,10 +109,10 @@ class AppSettingsModal extends StatelessWidget {
                 DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
                   hoverHighlight: true,
-                  title: const DLabel(child: Text('Disable GIF animations')),
-                  subtitle: const DFieldDescription(
+                  title: DLabel(child: Text(context.l10n.disableGIFAnimations)),
+                  subtitle: DFieldDescription(
                     child: Text(
-                      'Pause GIFs by default in posts and chat messages.',
+                      context.l10n.pauseGIFsByDefaultInPostsAndChatMessages,
                     ),
                   ),
                   value: appSettings.disableGifAnimations,
@@ -164,7 +167,7 @@ class _FontSetting extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not save the font.',
+          appL10n.couldNotSaveTheFont,
           type: DToastType.error,
         );
       }
@@ -188,10 +191,15 @@ class _FontSetting extends StatelessWidget {
             DFieldContent(
               children: [
                 DFieldTitle(
-                  child: Semantics(headingLevel: 2, child: const Text('Font')),
+                  child: Semantics(
+                    headingLevel: 2,
+                    child: Text(context.l10n.font),
+                  ),
                 ),
-                const DFieldDescription(
-                  child: Text('Used for reading and writing in every forum.'),
+                DFieldDescription(
+                  child: Text(
+                    context.l10n.usedForReadingAndWritingInEveryForum,
+                  ),
                 ),
               ],
             ),
@@ -222,7 +230,9 @@ class _FontSetting extends StatelessWidget {
                                   style: theme.textTheme.bodySmall,
                                 ),
                                 Text(
-                                  'The quick brown fox jumps over the lazy dog.',
+                                  context
+                                      .l10n
+                                      .theQuickBrownFoxJumpsOverTheLazyDog,
                                   style: theme.textTheme.bodyLarge!.copyWith(
                                     fontFamily: font.family ?? systemFamily,
                                     fontFamilyFallback:
@@ -269,7 +279,7 @@ class _EffectsSetting extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not save the effects.',
+          appL10n.couldNotSaveTheEffects,
           type: DToastType.error,
         );
       }
@@ -284,10 +294,13 @@ class _EffectsSetting extends StatelessWidget {
       DFieldContent(
         children: [
           DFieldTitle(
-            child: Semantics(headingLevel: 2, child: const Text('Effects')),
+            child: Semantics(
+              headingLevel: 2,
+              child: Text(context.l10n.effects),
+            ),
           ),
-          const DFieldDescription(
-            child: Text('Drawn over the colours of every forum.'),
+          DFieldDescription(
+            child: Text(context.l10n.drawnOverTheColoursOfEveryForum),
           ),
         ],
       ),
@@ -335,26 +348,26 @@ class _TextSizeSetting extends StatelessWidget {
       TargetPlatform.linux => true,
       _ => false,
     };
-    final modifier = platform == TargetPlatform.macOS ? '⌘' : 'Ctrl';
+    final modifier = platform == TargetPlatform.macOS ? '⌘' : context.l10n.ctrl;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SettingsField(
-          title: 'Text size',
+          title: context.l10n.textSize,
           control: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: DSpacing.sm,
             runSpacing: DSpacing.sm,
             children: [
               DButtonGroup(
-                semanticLabel: 'Text size controls',
+                semanticLabel: context.l10n.textSizeControls,
                 children: [
                   DButton.iconOnly(
                     key: const ValueKey('text-size-decrease'),
                     onPressed: onDecrease,
                     icon: const DIcon(DIcons.minus),
-                    tooltip: 'Decrease text size',
-                    semanticLabel: 'Decrease text size',
+                    tooltip: context.l10n.decreaseTextSize,
+                    semanticLabel: context.l10n.decreaseTextSize,
                     variant: DButtonVariant.outline,
                   ),
                   DButtonGroupText(
@@ -362,8 +375,10 @@ class _TextSizeSetting extends StatelessWidget {
                       key: const ValueKey('text-size-value'),
                       container: true,
                       excludeSemantics: true,
-                      label: 'Current text size',
-                      value: '$percentage percent',
+                      label: context.l10n.currentTextSize,
+                      value: context.l10n.percentAppsettingspage(
+                        (percentage).toString(),
+                      ),
                       liveRegion: true,
                       child: Text(
                         '$percentage%',
@@ -377,15 +392,15 @@ class _TextSizeSetting extends StatelessWidget {
                     key: const ValueKey('text-size-increase'),
                     onPressed: onIncrease,
                     icon: const DIcon(DIcons.plus),
-                    tooltip: 'Increase text size',
-                    semanticLabel: 'Increase text size',
+                    tooltip: context.l10n.increaseTextSize,
+                    semanticLabel: context.l10n.increaseTextSize,
                     variant: DButtonVariant.outline,
                   ),
                 ],
               ),
               DButton(
                 key: const ValueKey('text-size-reset'),
-                label: const Text('Reset'),
+                label: Text(context.l10n.reset),
                 onPressed: onReset,
                 variant: DButtonVariant.ghost,
               ),
@@ -400,13 +415,13 @@ class _TextSizeSetting extends StatelessWidget {
               runSpacing: DSpacing.xs,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text('Shortcuts:'),
+                Text(context.l10n.shortcuts),
                 DKbd('$modifier +'),
-                const Text('or'),
+                Text(context.l10n.orAppsettingspage),
                 DKbd('$modifier −'),
-                const Text('to resize ·'),
+                Text(context.l10n.toResize),
                 DKbd('$modifier 0'),
-                const Text('to reset'),
+                Text(context.l10n.toReset),
               ],
             ),
           ),

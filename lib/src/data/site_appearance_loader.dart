@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -38,8 +39,12 @@ final class SiteAppearanceLoadException implements Exception {
   final Object? detail;
 
   @override
-  String toString() =>
-      'SiteAppearanceLoadException($failure, $url, $statusCode, $detail)';
+  String toString() => appL10n.siteAppearanceLoadException(
+    (failure).toString(),
+    (url).toString(),
+    (statusCode).toString(),
+    (detail).toString(),
+  );
 }
 
 /// Resolves the active Discourse theme through JSON APIs, then reads its
@@ -119,7 +124,7 @@ final class SiteAppearanceLoader {
         throw SiteAppearanceLoadException(
           SiteAppearanceLoadFailure.malformed,
           url: apiBase,
-          detail: 'authenticated appearance has no username',
+          detail: appL10n.authenticatedAppearanceHasNoUsername,
         );
       }
       userJson = (await _loadJson(
@@ -177,7 +182,7 @@ final class SiteAppearanceLoader {
         throw SiteAppearanceLoadException(
           SiteAppearanceLoadFailure.malformed,
           url: response.url,
-          detail: 'stylesheet JSON has no new_href',
+          detail: appL10n.stylesheetJSONHasNoNewHref,
         );
       }
       final url = response.url.resolve(href);
@@ -339,7 +344,7 @@ final class SiteAppearanceLoader {
           SiteAppearanceLoadFailure.malformed,
           url: current,
           statusCode: response.statusCode,
-          detail: 'redirect without a location',
+          detail: appL10n.redirectWithoutALocation,
         );
       }
       if (redirects >= maxRedirects) {
@@ -366,7 +371,7 @@ final class SiteAppearanceLoader {
           SiteAppearanceLoadFailure.unsafeUrl,
           url: target,
           statusCode: response.statusCode,
-          detail: 'authenticated redirect crossed origins',
+          detail: appL10n.authenticatedRedirectCrossedOrigins,
         );
       }
       current = target;

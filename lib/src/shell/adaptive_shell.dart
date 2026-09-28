@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show AppExitType;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -617,7 +618,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               controller: _diagnosticsWidth,
               edge: ResizablePaneEdge.leading,
               resizeKey: 'diagnostics',
-              semanticsLabel: 'Resize diagnostics panel',
+              semanticsLabel: appL10n.resizeDiagnosticsPanel,
               maximumWidth: panelMaximumWidth,
               dividerWidth: 1,
               child: panel,
@@ -767,14 +768,15 @@ class _PrivateForumSignIn extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Sign in to continue',
+                    context.l10n.signInToContinue,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '$siteTitle is a private forum. Sign in to view its topics '
-                    'and conversations.',
+                    context.l10n.isAPrivateForumSignInToViewItsTopicsAnd(
+                      (siteTitle).toString(),
+                    ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -816,13 +818,13 @@ class _PrivateForumSignIn extends StatelessWidget {
                   const SizedBox(height: 24),
                   DButton(
                     key: const ValueKey('private-forum-sign-in'),
-                    label: const Text('Sign in'),
+                    label: Text(context.l10n.signIn),
                     onPressed: () =>
                         unawaited(controller.connectCurrentInstance()),
                     icon: const DIcon(DIcons.upRightFromSquare),
                     variant: DButtonVariant.primary,
                     loading: connecting,
-                    loadingLabel: const Text('Signing in…'),
+                    loadingLabel: Text(context.l10n.signingIn),
                   ),
                 ],
               ),
@@ -883,8 +885,9 @@ class _UnavailableForum extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "We couldn't reach this community. Check its address "
-                      'or your internet connection, then try again.',
+                      context
+                          .l10n
+                          .weCouldnTReachThisCommunityCheckItsAddressOrYour,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -898,17 +901,17 @@ class _UnavailableForum extends StatelessWidget {
                       children: [
                         DButton(
                           key: const ValueKey('unavailable-forum-retry'),
-                          label: const Text('Try again'),
+                          label: Text(context.l10n.tryAgain),
                           onPressed: () =>
                               unawaited(controller.retryCurrentForum()),
                           icon: const DIcon(DIcons.arrowsRotate),
                           variant: DButtonVariant.primary,
                           loading: retrying,
-                          loadingLabel: const Text('Trying again…'),
+                          loadingLabel: Text(context.l10n.tryingAgain),
                         ),
                         DButton(
                           key: const ValueKey('unavailable-forum-remove'),
-                          label: const Text('Remove forum'),
+                          label: Text(context.l10n.removeForum),
                           onPressed: () {
                             final instance = controller.currentInstance;
                             if (instance != null) {
@@ -992,7 +995,7 @@ class _MobileShell extends StatelessWidget {
                                 alignment: AlignmentDirectional.centerStart,
                                 child: DButton.iconOnly(
                                   icon: const DIcon(DIcons.arrowLeft),
-                                  tooltip: 'Back',
+                                  tooltip: context.l10n.back,
                                   variant: DButtonVariant.ghost,
                                   onPressed: () =>
                                       ShellScope.read(context).handleBack(),
@@ -1135,7 +1138,7 @@ class _WideShellState extends State<_WideShell> {
                               controller: widget.sidebarWidth,
                               edge: ResizablePaneEdge.trailing,
                               resizeKey: 'sidebar',
-                              semanticsLabel: 'Resize sidebar',
+                              semanticsLabel: context.l10n.resizeSidebar,
                               maximumWidth: windowMaximum,
                               dividerWidth: 1,
                               gap: context.isTouch ? 0 : workspacePanelGap,
@@ -1225,13 +1228,15 @@ class _ShellLoadFailure extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    "Couldn't load your sites",
+                    context.l10n.couldnTLoadYourSites,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your saved sites have not been changed. Try loading them again.',
+                    context
+                        .l10n
+                        .yourSavedSitesHaveNotBeenChangedTryLoadingThemAgain,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -1240,7 +1245,7 @@ class _ShellLoadFailure extends StatelessWidget {
                   const SizedBox(height: 24),
                   DButton(
                     key: const ValueKey('instance-load-retry-panel'),
-                    label: const Text('Retry'),
+                    label: Text(context.l10n.retry),
                     onPressed: ShellScope.read(context).load,
                     icon: const DIcon(DIcons.arrowsRotate),
                     variant: DButtonVariant.primary,

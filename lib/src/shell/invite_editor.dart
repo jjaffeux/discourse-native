@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -86,7 +87,7 @@ class _InviteEditorState extends State<InviteEditor> {
       }
     } catch (_) {
       if (mounted && widget.controller.isCurrent) {
-        setState(() => _error = "Couldn't copy the invite link.");
+        setState(() => _error = appL10n.couldnTCopyTheInviteLink);
       }
     }
   }
@@ -115,8 +116,8 @@ class _InviteEditorState extends State<InviteEditor> {
                 liveRegion: true,
                 child: Text(
                   _hasEmail && _sendEmail
-                      ? 'Invitation email sent.'
-                      : 'Invite link created.',
+                      ? context.l10n.invitationEmailSent
+                      : context.l10n.inviteLinkCreated,
                 ),
               ),
               if (created.link case final link?) ...[
@@ -124,18 +125,22 @@ class _InviteEditorState extends State<InviteEditor> {
                 SelectableText(link),
                 const SizedBox(height: 12),
                 DButton(
-                  label: Text(_copied ? 'Copied!' : 'Copy link'),
+                  label: Text(
+                    _copied
+                        ? context.l10n.copiedInviteeditor
+                        : context.l10n.copyLink,
+                  ),
                   variant: DButtonVariant.primary,
                   onPressed: () => unawaited(_copy()),
                 ),
               ],
               DButton(
-                label: const Text('Back to invites'),
+                label: Text(context.l10n.backToInvites),
                 onPressed: widget.onClose,
               ),
             ] else ...[
               Text(
-                'Create invite',
+                context.l10n.createInvite,
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 12),
@@ -145,15 +150,15 @@ class _InviteEditorState extends State<InviteEditor> {
                 keyboardType: TextInputType.emailAddress,
                 maxLength: 254,
 
-                labelText: 'Email (optional)',
-                helperText: 'Leave blank for a shareable link.',
+                labelText: context.l10n.emailOptional,
+                helperText: context.l10n.leaveBlankForAShareableLink,
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final email = value?.trim() ?? '';
                   return email.isEmpty ||
                           RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)
                       ? null
-                      : 'Enter a valid email address.';
+                      : context.l10n.enterAValidEmailAddress;
                 },
               ),
               const SizedBox(height: 12),
@@ -162,7 +167,7 @@ class _InviteEditorState extends State<InviteEditor> {
                 enabled: !_saving,
                 maxLength: 100,
 
-                labelText: 'Description (optional)',
+                labelText: context.l10n.descriptionOptional,
               ),
               if (!_hasEmail) ...[
                 const SizedBox(height: 12),
@@ -175,12 +180,12 @@ class _InviteEditorState extends State<InviteEditor> {
                     LengthLimitingTextInputFormatter(7),
                   ],
 
-                  labelText: 'Maximum uses',
-                  helperText: 'Up to $limit',
+                  labelText: context.l10n.maximumUses,
+                  helperText: context.l10n.upTo((limit).toString()),
                   validator: (value) {
                     final count = int.tryParse(value ?? '');
                     return count == null || count < 1 || count > limit
-                        ? 'Enter a number from 1 to $limit.'
+                        ? context.l10n.enterANumberFrom1To((limit).toString())
                         : null;
                   },
                 ),
@@ -195,11 +200,11 @@ class _InviteEditorState extends State<InviteEditor> {
                   LengthLimitingTextInputFormatter(5),
                 ],
 
-                labelText: 'Expires after (days)',
+                labelText: context.l10n.expiresAfterDays,
                 validator: (value) {
                   final days = int.tryParse(value ?? '');
                   return days == null || days < 1 || days > 36500
-                      ? 'Enter a number from 1 to 36500.'
+                      ? context.l10n.enterANumberFrom1To36500
                       : null;
                 },
               ),
@@ -207,7 +212,7 @@ class _InviteEditorState extends State<InviteEditor> {
                 DCheckbox(
                   contentPadding: EdgeInsets.zero,
 
-                  title: const DLabel(child: Text('Send invitation email')),
+                  title: DLabel(child: Text(context.l10n.sendInvitationEmail)),
                   value: _sendEmail,
                   onChanged: _saving
                       ? null
@@ -219,23 +224,23 @@ class _InviteEditorState extends State<InviteEditor> {
                     enabled: !_saving,
                     minLines: 2,
                     maxLines: 5,
-                    labelText: 'Custom message (optional)',
+                    labelText: context.l10n.customMessageOptional,
                   ),
               ],
               const SizedBox(height: 16),
               DButton(
                 label: Text(
                   _saving
-                      ? 'Creating…'
+                      ? context.l10n.creating
                       : _hasEmail && _sendEmail
-                      ? 'Create and send email'
-                      : 'Create invite link',
+                      ? context.l10n.createAndSendEmail
+                      : context.l10n.createInviteLink,
                 ),
                 variant: DButtonVariant.primary,
                 onPressed: _saving ? null : () => unawaited(_save()),
               ),
               DButton(
-                label: const Text('Cancel'),
+                label: Text(context.l10n.cancel),
                 onPressed: _saving ? null : widget.onClose,
               ),
             ],

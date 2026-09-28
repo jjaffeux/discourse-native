@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
@@ -25,7 +26,10 @@ final class HttpResponseTooLargeException implements Exception {
   final int maxBytes;
 
   @override
-  String toString() => 'HttpResponseTooLargeException($url, $maxBytes bytes)';
+  String toString() => appL10n.httpResponseTooLargeExceptionBytes(
+    (url).toString(),
+    (maxBytes).toString(),
+  );
 }
 
 /// Plaintext is accepted only for loopback development.
@@ -232,7 +236,10 @@ Future<Uint8List> _readBoundedBody(
     timeout,
     onTimeout: () {
       cancel();
-      throw TimeoutException('Timed out reading response from $url', timeout);
+      throw TimeoutException(
+        appL10n.timedOutReadingResponseFrom((url).toString()),
+        timeout,
+      );
     },
   );
 }
@@ -240,7 +247,7 @@ Future<Uint8List> _readBoundedBody(
 Duration _remaining(Duration timeout, Stopwatch elapsed) {
   final remaining = timeout - elapsed.elapsed;
   if (remaining <= Duration.zero) {
-    throw TimeoutException('Timed out before the response body', timeout);
+    throw TimeoutException(appL10n.timedOutBeforeTheResponseBody, timeout);
   }
   return remaining;
 }

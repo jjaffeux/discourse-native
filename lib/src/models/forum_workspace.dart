@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'content_route.dart';
@@ -30,7 +31,7 @@ final class ForumTabAnchor {
     final itemId = json['item_id'];
     final offset = json['offset'];
     if (kind is! String || kind.isEmpty || itemId is! int || itemId < 0) {
-      throw const FormatException('Invalid forum tab anchor');
+      throw FormatException(appL10n.invalidForumTabAnchor);
     }
     final restoredOffset = offset is num ? offset.toDouble() : 0.0;
     return ForumTabAnchor(

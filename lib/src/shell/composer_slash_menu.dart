@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
@@ -14,7 +15,7 @@ class ComposerSlashAction {
     this.leadingText,
     this.hint,
     required this.onInvoke,
-    this.group = 'Insert',
+    this._group,
     this.keywords = const [],
   });
 
@@ -23,7 +24,8 @@ class ComposerSlashAction {
   final String? leadingText;
   final String? hint;
   final VoidCallback onInvoke;
-  final String group;
+  final String? _group;
+  String get group => _group ?? appL10n.insert;
   final List<String> keywords;
 }
 
@@ -270,7 +272,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
         }
       },
       content: DDropdownMenuContent(
-        semanticLabel: 'Composer commands',
+        semanticLabel: context.l10n.composerCommands,
         autofocus: false,
         width: 320,
         children: [
@@ -287,7 +289,9 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
                 children: [
                   DCommandList<String>(
                     children: [
-                      const DCommandEmpty(child: Text('No matching commands.')),
+                      DCommandEmpty(
+                        child: Text(context.l10n.noMatchingCommands),
+                      ),
                       for (final group in actions.map((a) => a.group).toSet())
                         DCommandGroup<String>(
                           heading: Text(group),
@@ -316,7 +320,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
                   const DSeparator(),
                   DButton(
                     variant: DButtonVariant.ghost,
-                    label: const Text('Close menu'),
+                    label: Text(context.l10n.closeMenu),
                     onPressed: _cancel,
                   ),
                 ],
@@ -350,7 +354,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
               right: 0,
               child: IgnorePointer(
                 child: Text(
-                  'Type to search',
+                  context.l10n.typeToSearch,
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style:

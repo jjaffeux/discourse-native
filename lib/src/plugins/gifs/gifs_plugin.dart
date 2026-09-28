@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'gifs_icons.dart';
@@ -48,7 +49,7 @@ class GifsPlugin
     return [
       ComposerToolbarContribution(
         icon: GifsIcons.gif,
-        label: 'Search GIFs',
+        label: appL10n.searchGIFs,
         onInvoke: () => unawaited(openGifPickerForComposer(context, editor)),
       ),
     ];
@@ -94,6 +95,6 @@ Future<void> openGifPickerForComposer(
 void _changedComposerMessage(BuildContext context) {
   DToast.show(
     context,
-    'The composer changed while the GIF picker was open. Nothing was changed.',
+    appL10n.theComposerChangedWhileTheGIFPickerWasOpenNothingWas,
   );
 }

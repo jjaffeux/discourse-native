@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -90,7 +91,7 @@ class BadgesPage extends StatelessWidget {
               url: '$siteUrl/badges',
               siteUrl: siteUrl,
               child: DButton(
-                label: const Text('All badges'),
+                label: Text(context.l10n.allBadges),
                 icon: const DIcon(DIcons.arrowLeft),
                 variant: DButtonVariant.link,
                 onPressed: () => onOpenUrl('$siteUrl/badges'),
@@ -137,7 +138,7 @@ class BadgesPage extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'You earned this badge',
+                      context.l10n.youEarnedThisBadge,
                       style: TextStyle(color: theme.discourse.success),
                     ),
                   ),
@@ -151,8 +152,8 @@ class BadgesPage extends StatelessWidget {
               children: [
                 Text(_awarded(badge.grantCount)),
                 if (badge.multipleGrant)
-                  const Text('Can be earned multiple times'),
-                if (badge.allowTitle) const Text('Can be used as a title'),
+                  Text(context.l10n.canBeEarnedMultipleTimes),
+                if (badge.allowTitle) Text(context.l10n.canBeUsedAsATitle),
               ],
             ),
             const SizedBox(height: 24),
@@ -162,8 +163,8 @@ class BadgesPage extends StatelessWidget {
               header: true,
               child: Text(
                 route.username == null
-                    ? 'Recently awarded'
-                    : 'Awarded to ${route.username}',
+                    ? context.l10n.recentlyAwarded
+                    : context.l10n.awardedTo((route.username).toString()),
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -175,7 +176,7 @@ class BadgesPage extends StatelessWidget {
                 url: '$siteUrl${badge.route.path}',
                 siteUrl: siteUrl,
                 child: DButton(
-                  label: const Text('Show all recipients'),
+                  label: Text(context.l10n.showAllRecipients),
                   variant: DButtonVariant.link,
                   onPressed: () => onOpenUrl('$siteUrl${badge.route.path}'),
                 ),
@@ -185,7 +186,7 @@ class BadgesPage extends StatelessWidget {
                 url: ownAwardsUrl,
                 siteUrl: siteUrl,
                 child: DButton(
-                  label: const Text('Show your awards'),
+                  label: Text(context.l10n.showYourAwards),
                   variant: DButtonVariant.link,
                   onPressed: () => onOpenUrl(ownAwardsUrl),
                 ),
@@ -211,10 +212,10 @@ class BadgesPage extends StatelessWidget {
           ),
         )
       else if (!state.loading && !state.loadingMore && state.grants.isEmpty)
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Text('No awards to display.'),
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(context.l10n.noAwardsToDisplay),
           ),
         ),
       if (state.loadingMore)
@@ -226,7 +227,7 @@ class BadgesPage extends StatelessWidget {
             child: Center(
               child: DButton(
                 key: const ValueKey('badge-load-more'),
-                label: const Text('Load more'),
+                label: Text(context.l10n.loadMore),
                 onPressed: onLoadMore,
               ),
             ),
@@ -237,15 +238,22 @@ class BadgesPage extends StatelessWidget {
 }
 
 enum _BadgeFilter {
-  all('All badges'),
-  earned('Earned'),
-  unearned('Not earned'),
-  bronze('Bronze'),
-  silver('Silver'),
-  gold('Gold');
+  all(),
+  earned(),
+  unearned(),
+  bronze(),
+  silver(),
+  gold();
 
-  const _BadgeFilter(this.label);
-  final String label;
+  const _BadgeFilter();
+  String get label => switch (this) {
+    all => appL10n.allBadges,
+    earned => appL10n.earned,
+    unearned => appL10n.notEarned,
+    bronze => appL10n.bronze,
+    silver => appL10n.silver,
+    gold => appL10n.gold,
+  };
 
   bool get personal => this == earned || this == unearned;
 
@@ -307,7 +315,10 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
               children: [
                 Semantics(
                   header: true,
-                  child: Text('Badges', style: theme.textTheme.headlineSmall),
+                  child: Text(
+                    context.l10n.badges,
+                    style: theme.textTheme.headlineSmall,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 LayoutBuilder(
@@ -322,7 +333,7 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                       size: DControlSize.filter,
                       key: const ValueKey('badge-filter'),
                       value: _filter,
-                      semanticLabel: 'Filter badges',
+                      semanticLabel: context.l10n.filterBadges,
                       width: 128,
                       isExpanded: stacked,
                       entries: [
@@ -339,7 +350,15 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                       },
                     );
                     final summary = Text(
-                      '${_number(catalog.total)} ${catalog.total == 1 ? 'badge' : 'badges'}${catalog.hasPersonalState ? ' · ${_number(catalog.earned)} earned' : ''}',
+                      context.l10n.messageBadgespage(
+                        catalog.total,
+                        (catalog.hasPersonalState).toString(),
+                        (_number(catalog.total)).toString(),
+                        ((catalog.hasPersonalState)
+                                ? (_number(catalog.earned))
+                                : '')
+                            .toString(),
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.shell.marker,
                       ),
@@ -381,8 +400,8 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                       children: [
                         DEmptyTitle(
                           catalog.total == 0
-                              ? 'No badges to display.'
-                              : 'No badges match this filter.',
+                              ? context.l10n.noBadgesToDisplay
+                              : context.l10n.noBadgesMatchThisFilter,
                         ),
                       ],
                     ),
@@ -543,10 +562,10 @@ class _EarnedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DTooltip(
-    message: 'Earned',
+    message: context.l10n.earned,
     excludeFromSemantics: true,
     child: Semantics(
-      label: 'Earned',
+      label: context.l10n.earned,
       child: ExcludeSemantics(
         child: DIcon(
           DIcons.circleCheck,
@@ -585,7 +604,7 @@ class _BadgeError extends StatelessWidget {
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(
-          label: const Text('Retry'),
+          label: Text(context.l10n.retry),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),
@@ -659,7 +678,9 @@ class _BadgeRecipient extends StatelessWidget {
                     title: grant.topicTitle,
                     siteUrl: siteUrl,
                     child: DButton(
-                      label: Text(grant.topicTitle ?? 'View awarded post'),
+                      label: Text(
+                        grant.topicTitle ?? context.l10n.viewAwardedPost,
+                      ),
                       variant: DButtonVariant.link,
                       onPressed: () => onOpenUrl('$siteUrl${grant.postPath}'),
                     ),
@@ -684,4 +705,4 @@ Color _tierColor(BuildContext context, BadgeTier tier) =>
     };
 
 String _number(int value) => NumberFormat.decimalPattern().format(value);
-String _awarded(int count) => '${_number(count)} awarded';
+String _awarded(int count) => appL10n.awarded((_number(count)).toString());

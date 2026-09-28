@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show SemanticsRole;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -57,7 +58,7 @@ class DQuestionnaire extends StatefulWidget {
     this.showReset = false,
     this.animateItems = false,
     this.autofocus = true,
-    this.submitLabel = 'Submit',
+    this._submitLabel,
     this.emptyBuilder,
   }) : assert(
          controller == null || (initialState == null && initialItemId == null),
@@ -84,7 +85,8 @@ class DQuestionnaire extends StatefulWidget {
   final bool showReset;
   final bool animateItems;
   final bool autofocus;
-  final String submitLabel;
+  final String? _submitLabel;
+  String get submitLabel => _submitLabel ?? appL10n.submit;
   final WidgetBuilder? emptyBuilder;
 
   @override
@@ -513,7 +515,7 @@ class DQuestionnaireProgress extends StatelessWidget {
     super.key,
     this.state,
     this.builder,
-    this.semanticLabel = 'Questionnaire progress',
+    this._semanticLabel,
   });
 
   final DQuestionnaireProgressState? state;
@@ -522,7 +524,8 @@ class DQuestionnaireProgress extends StatelessWidget {
     DQuestionnaireProgressState state,
   )?
   builder;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.questionnaireProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -531,7 +534,11 @@ class DQuestionnaireProgress extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       role: SemanticsRole.progressBar,
-      label: '$semanticLabel, question ${value.current} of ${value.total}',
+      label: context.l10n.questionOfDquestionnaire(
+        (semanticLabel).toString(),
+        (value.current).toString(),
+        (value.total).toString(),
+      ),
       value: value.total == 0 ? null : '${value.current}',
       // Flutter requires min < max; zero is the native range floor while the
       // visible/current question remains one-based like the web reference.
@@ -545,7 +552,12 @@ class DQuestionnaireProgress extends StatelessWidget {
           fontFeatures: const [FontFeature.tabularFigures()],
           color: DTokens.of(context).mutedForeground,
         ),
-        child: Text('Question ${value.current} of ${value.total}'),
+        child: Text(
+          context.l10n.questionOf(
+            (value.current).toString(),
+            (value.total).toString(),
+          ),
+        ),
       ),
     );
   }
@@ -1109,7 +1121,7 @@ class DQuestionnaireActions extends StatelessWidget {
     this.submit,
     this.reset,
     this.validating = false,
-    this.submitLabel = 'Submit',
+    this._submitLabel,
   });
 
   final FutureOr<void> Function()? previous;
@@ -1118,7 +1130,8 @@ class DQuestionnaireActions extends StatelessWidget {
   final FutureOr<void> Function()? submit;
   final VoidCallback? reset;
   final bool validating;
-  final String submitLabel;
+  final String? _submitLabel;
+  String get submitLabel => _submitLabel ?? appL10n.submit;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -1130,13 +1143,13 @@ class DQuestionnaireActions extends StatelessWidget {
           DButton(
             onPressed: validating ? null : reset,
             variant: DButtonVariant.outline,
-            label: const Text('Reset'),
+            label: Text(context.l10n.reset),
           ),
         if (previous != null)
           DButton(
             onPressed: validating ? null : () => previous!(),
             variant: DButtonVariant.outline,
-            label: const Text('Previous'),
+            label: Text(context.l10n.previous),
           ),
       ];
       final trailing = <Widget>[
@@ -1144,12 +1157,12 @@ class DQuestionnaireActions extends StatelessWidget {
           DButton(
             onPressed: validating ? null : () => skip!(),
             variant: DButtonVariant.outline,
-            label: const Text('Skip'),
+            label: Text(context.l10n.skip),
           ),
         if (next != null)
           DButton(
             onPressed: validating ? null : () => next!(),
-            label: const Text('Next'),
+            label: Text(context.l10n.next),
             loading: validating,
           ),
         if (submit != null)
@@ -1181,8 +1194,9 @@ class DQuestionnaireActions extends StatelessWidget {
 }
 
 class DQuestionnairePrevious extends StatelessWidget {
-  const DQuestionnairePrevious({super.key, this.label = 'Previous'});
-  final String label;
+  const DQuestionnairePrevious({super.key, this._label});
+  final String? _label;
+  String get label => _label ?? appL10n.previous;
   @override
   Widget build(BuildContext context) {
     final scope = _DQuestionnaireScope.of(context);
@@ -1195,8 +1209,9 @@ class DQuestionnairePrevious extends StatelessWidget {
 }
 
 class DQuestionnaireSkip extends StatelessWidget {
-  const DQuestionnaireSkip({super.key, this.label = 'Skip'});
-  final String label;
+  const DQuestionnaireSkip({super.key, this._label});
+  final String? _label;
+  String get label => _label ?? appL10n.skip;
   @override
   Widget build(BuildContext context) {
     final scope = _DQuestionnaireScope.of(context);
@@ -1209,8 +1224,9 @@ class DQuestionnaireSkip extends StatelessWidget {
 }
 
 class DQuestionnaireNext extends StatelessWidget {
-  const DQuestionnaireNext({super.key, this.label = 'Next'});
-  final String label;
+  const DQuestionnaireNext({super.key, this._label});
+  final String? _label;
+  String get label => _label ?? appL10n.next;
   @override
   Widget build(BuildContext context) {
     final scope = _DQuestionnaireScope.of(context);
@@ -1223,8 +1239,9 @@ class DQuestionnaireNext extends StatelessWidget {
 }
 
 class DQuestionnaireSubmit extends StatelessWidget {
-  const DQuestionnaireSubmit({super.key, this.label = 'Submit'});
-  final String label;
+  const DQuestionnaireSubmit({super.key, this._label});
+  final String? _label;
+  String get label => _label ?? appL10n.submit;
   @override
   Widget build(BuildContext context) {
     final scope = _DQuestionnaireScope.of(context);
@@ -1237,8 +1254,9 @@ class DQuestionnaireSubmit extends StatelessWidget {
 }
 
 class DQuestionnaireReset extends StatelessWidget {
-  const DQuestionnaireReset({super.key, this.label = 'Reset'});
-  final String label;
+  const DQuestionnaireReset({super.key, this._label});
+  final String? _label;
+  String get label => _label ?? appL10n.reset;
   @override
   Widget build(BuildContext context) {
     final scope = _DQuestionnaireScope.of(context);

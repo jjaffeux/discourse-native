@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'poll_composer_editor.dart';
@@ -34,7 +35,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
   int? voterCount,
   bool Function()? isCurrent,
 }) {
-  final title = draft.isNew ? 'Add poll' : 'Edit poll';
+  final title = draft.isNew ? appL10n.addPoll : appL10n.editPoll;
   Widget editor(BuildContext context) => PollComposerSheet(
     draft: draft,
     maximumOptions: maximumOptions,
@@ -81,7 +82,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
                   DButton.iconOnly(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     variant: DButtonVariant.ghost,
-                    tooltip: 'Close',
+                    tooltip: appL10n.close,
                     icon: const Icon(Icons.close),
                   ),
                 ],
@@ -103,17 +104,16 @@ Future<bool> confirmPublishedPollRemoval(
   int? voterCount,
 }) async {
   final detail = voterCount == null
-      ? 'This poll may already have votes.'
-      : 'This poll has $voterCount '
-            '${voterCount == 1 ? 'voter' : 'voters'}.';
+      ? appL10n.thisPollMayAlreadyHaveVotes
+      : appL10n.thisPollHas(voterCount);
   return await showDiscourseAlertDialog<bool>(
         context: context,
-        title: const Text('Remove published poll?'),
+        title: Text(appL10n.removePublishedPoll),
         description: Text(
-          '$detail Removing it will remove the poll from the post.',
+          appL10n.removingItWillRemoveThePollFromThePost((detail).toString()),
         ),
-        cancelLabel: const Text('Cancel'),
-        actionLabel: const Text('Remove poll'),
+        cancelLabel: Text(appL10n.cancel),
+        actionLabel: Text(appL10n.removePoll),
         cancelResult: false,
         actionResult: true,
         actionVariant: DButtonVariant.destructive,
@@ -202,8 +202,8 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         children: [
           DInput(
             controller: _title,
-            labelText: 'Title (optional)',
-            hintText: 'Lunch choice',
+            labelText: context.l10n.titleOptional,
+            hintText: context.l10n.lunchChoice,
             textCapitalization: TextCapitalization.sentences,
           ),
           const SizedBox(height: 16),
@@ -211,8 +211,9 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           if (_isRanked) ...[
             const SizedBox(height: 6),
             Text(
-              'Ranked-choice polls keep their type. Voting remains available '
-              'on the web.',
+              context
+                  .l10n
+                  .rankedChoicePollsKeepTheirTypeVotingRemainsAvailableOnThe,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -225,27 +226,25 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           const SizedBox(height: 8),
           DSwitchTile(
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            title: const DLabel(child: Text('Public voter identities')),
-            subtitle: const Text(
-              'The voter list itself is shown on the web in this version.',
+            title: DLabel(child: Text(context.l10n.publicVoterIdentities)),
+            subtitle: Text(
+              context.l10n.theVoterListItselfIsShownOnTheWebInThis,
             ),
             value: _publicVoters,
             onChanged: (value) => setState(() => _publicVoters = value),
           ),
           DSwitchTile(
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            title: const DLabel(child: Text('Automatic close')),
+            title: DLabel(child: Text(context.l10n.automaticClose)),
             value: _automaticClose,
             onChanged: (value) => setState(() => _automaticClose = value),
           ),
           if (_automaticClose)
             DInput(
               controller: _close,
-              labelText: 'Close date and time',
+              labelText: context.l10n.closeDateAndTime,
               hintText: '2026-08-30T18:00:00Z',
-              helperText:
-                  "ISO 8601, in this device's time zone unless one is "
-                  'given',
+              helperText: context.l10n.iSO8601InThisDeviceSTimeZoneUnlessOneIs,
               keyboardType: TextInputType.datetime,
             ),
           if (_error case final error?) ...[
@@ -279,7 +278,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     return DSelect<ComposerPollType>.controlled(
       isExpanded: true,
       value: _type,
-      label: const Text('Poll type'),
+      label: Text(appL10n.pollType),
       entries: [
         for (final type in choices)
           DSelectOption(
@@ -303,17 +302,17 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   }
 
   static String _typeLabel(ComposerPollType type) => switch (type) {
-    ComposerPollType.regular => 'Single choice',
-    ComposerPollType.multiple => 'Multiple choice',
-    ComposerPollType.number => 'Number',
-    ComposerPollType.rankedChoice => 'Ranked choice',
-    ComposerPollType.unknown => 'Unknown',
+    ComposerPollType.regular => appL10n.singleChoice,
+    ComposerPollType.multiple => appL10n.multipleChoice,
+    ComposerPollType.number => appL10n.number,
+    ComposerPollType.rankedChoice => appL10n.rankedChoice,
+    ComposerPollType.unknown => appL10n.unknown,
   };
 
   Widget _optionFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('Options', style: Theme.of(context).textTheme.titleSmall),
+      Text(appL10n.options, style: Theme.of(context).textTheme.titleSmall),
       const SizedBox(height: 8),
       for (var index = 0; index < _options.length; index++)
         Padding(
@@ -324,13 +323,15 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
               Expanded(
                 child: DInput(
                   controller: _options[index],
-                  labelText: 'Option ${index + 1}',
+                  labelText: appL10n.optionPollcomposersheet(
+                    (index + 1).toString(),
+                  ),
                 ),
               ),
               DButton.iconOnly(
                 onPressed: index == 0 ? null : () => _moveOption(index, -1),
                 variant: DButtonVariant.ghost,
-                tooltip: 'Move option up',
+                tooltip: appL10n.moveOptionUp,
                 icon: const Icon(Icons.arrow_upward),
               ),
               DButton.iconOnly(
@@ -338,13 +339,13 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
                     ? null
                     : () => _moveOption(index, 1),
                 variant: DButtonVariant.ghost,
-                tooltip: 'Move option down',
+                tooltip: appL10n.moveOptionDown,
                 icon: const Icon(Icons.arrow_downward),
               ),
               DButton.iconOnly(
                 onPressed: () => _removeOption(index),
                 variant: DButtonVariant.ghost,
-                tooltip: 'Remove option',
+                tooltip: appL10n.removeOption,
                 icon: const Icon(Icons.remove_circle_outline),
               ),
             ],
@@ -353,7 +354,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       Align(
         alignment: AlignmentDirectional.centerStart,
         child: DButton(
-          label: const Text('Add option'),
+          label: Text(appL10n.addOption),
           onPressed: _options.length >= widget.maximumOptions
               ? null
               : _addOption,
@@ -364,9 +365,9 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _integerField(_minimum, 'Minimum choices')),
+            Expanded(child: _integerField(_minimum, appL10n.minimumChoices)),
             const SizedBox(width: 12),
-            Expanded(child: _integerField(_maximum, 'Maximum choices')),
+            Expanded(child: _integerField(_maximum, appL10n.maximumChoices)),
           ],
         ),
       ],
@@ -376,19 +377,19 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   Widget _numberFields() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('Number range', style: Theme.of(context).textTheme.titleSmall),
+      Text(appL10n.numberRange, style: Theme.of(context).textTheme.titleSmall),
       const SizedBox(height: 8),
       Row(
         children: [
-          Expanded(child: _integerField(_minimum, 'Minimum')),
+          Expanded(child: _integerField(_minimum, appL10n.minimum)),
           const SizedBox(width: 12),
-          Expanded(child: _integerField(_maximum, 'Maximum')),
+          Expanded(child: _integerField(_maximum, appL10n.maximum)),
           const SizedBox(width: 12),
-          Expanded(child: _integerField(_step, 'Step')),
+          Expanded(child: _integerField(_step, appL10n.step)),
         ],
       ),
       const SizedBox(height: 8),
-      const Text('Options are generated inclusively from this range.'),
+      Text(appL10n.optionsAreGeneratedInclusivelyFromThisRange),
     ],
   );
 
@@ -411,18 +412,18 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     return DSelect<PollResultMode>.controlled(
       isExpanded: true,
       value: _results,
-      label: const Text('Show results'),
+      label: Text(appL10n.showResults),
       entries: [
         for (final result in choices)
           DSelectOption(
             value: result,
             enabled: result != PollResultMode.unknown,
             label: result == PollResultMode.unknown
-                ? 'Preserve “${widget.draft.resultsSource}”'
+                ? appL10n.preserve((widget.draft.resultsSource).toString())
                 : result.label,
             child: Text(
               result == PollResultMode.unknown
-                  ? 'Preserve “${widget.draft.resultsSource}”'
+                  ? appL10n.preserve((widget.draft.resultsSource).toString())
                   : result.label,
             ),
           ),
@@ -446,17 +447,17 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     children: [
       if (!widget.draft.isNew) ...[
         DButton(
-          label: const Text('Remove'),
+          label: Text(appL10n.removeLocaldatecomposersheet),
           onPressed: () => unawaited(_remove()),
           variant: DButtonVariant.destructive,
         ),
       ],
       DButton(
-        label: const Text('Cancel'),
+        label: Text(appL10n.cancel),
         onPressed: () => Navigator.of(context).pop(),
       ),
       DButton(
-        label: const Text('Apply'),
+        label: Text(appL10n.apply),
         onPressed: _apply,
         variant: DButtonVariant.primary,
       ),
@@ -491,7 +492,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
         widget.draft.sourceBlock?.attribute('close') != null &&
         close == widget.draft.close;
     if (_automaticClose && close.trim().isEmpty && !preservingExistingClose) {
-      setState(() => _error = 'Automatic close needs a date and time.');
+      setState(() => _error = appL10n.automaticCloseNeedsADateAndTime);
       return;
     }
     final minimum = int.tryParse(_minimum.text.trim());
@@ -499,9 +500,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     final step = int.tryParse(_step.text.trim());
     if ((_isMultiple || _isNumber) && (minimum == null || maximum == null) ||
         _isNumber && step == null) {
-      setState(
-        () => _error = 'Minimum, maximum, and step must be whole numbers.',
-      );
+      setState(() => _error = appL10n.minimumMaximumAndStepMustBeWholeNumbers);
       return;
     }
 
@@ -531,7 +530,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
     if (widget.isCurrent?.call() ?? true) return true;
     setState(
       () => _error =
-          'The composer changed while this poll was open. Nothing was changed.',
+          appL10n.theComposerChangedWhileThisPollWasOpenNothingWasChanged,
     );
     return false;
   }

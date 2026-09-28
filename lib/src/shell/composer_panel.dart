@@ -4,6 +4,7 @@ import 'dart:ui' show BoxHeightStyle;
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show kTouchSlop;
@@ -157,12 +158,12 @@ class ComposerPanel extends StatelessWidget {
             composer.state == ComposerState.checking ||
             composer.loadingBody;
         final submitLabel = switch (composer) {
-          _ when composer.canRecheck => 'Check again',
-          _ when target.isEdit => 'Save',
-          _ when target.isPrivateMessage => 'Send message',
-          _ when target.isNewTopic => 'Create topic',
-          _ when composer.whisper => 'Whisper',
-          _ => 'Reply',
+          _ when composer.canRecheck => context.l10n.checkAgain,
+          _ when target.isEdit => context.l10n.save,
+          _ when target.isPrivateMessage => context.l10n.sendMessage,
+          _ when target.isNewTopic => context.l10n.createTopic,
+          _ when composer.whisper => context.l10n.whisper,
+          _ => context.l10n.reply,
         };
         final VoidCallback? onSubmit = switch (composer) {
           _ when composer.canRecheck => () => controller.recheckComposer(
@@ -186,8 +187,8 @@ class ComposerPanel extends StatelessWidget {
           minimized: minimized,
           onClose: close,
           closeTooltip: composer.canSaveDraft
-              ? 'Save and close'
-              : 'Close composer',
+              ? context.l10n.saveAndClose
+              : context.l10n.closeComposer,
           onMinimize: minimized ? null : onMinimize,
           onRestore: minimized ? onRestore : null,
           placement: placement,
@@ -327,9 +328,9 @@ class ComposerPanel extends StatelessWidget {
                                     borderless: true,
                                     size: DControlSize.large,
                                     readOnly: !composer.isEditing,
-                                    semanticLabel: 'Title',
+                                    semanticLabel: context.l10n.title,
                                     style: theme.textTheme.titleMedium,
-                                    hintText: 'Give your topic a title',
+                                    hintText: context.l10n.giveYourTopicATitle,
                                     textInputAction: TextInputAction.next,
                                   ),
                                 ),
@@ -359,8 +360,8 @@ class ComposerPanel extends StatelessWidget {
                                       DItemContent(
                                         spacing: 3,
                                         children: [
-                                          const DItemDescription(
-                                            child: Text('Topic'),
+                                          DItemDescription(
+                                            child: Text(context.l10n.topic),
                                           ),
                                           DItemTitle(
                                             maxLines: 2,
@@ -449,18 +450,23 @@ class ComposerPanel extends StatelessWidget {
                                                 },
                                             hintText: switch (target) {
                                               _ when composer.loadingBody =>
-                                                'Loading that post…',
+                                                context.l10n.loadingThatPost,
                                               _ when target.isPrivateMessage =>
-                                                'Write your message…',
+                                                context.l10n.writeYourMessage,
                                               _ when target.isNewTopic =>
-                                                'Write your topic…',
+                                                context.l10n.writeYourTopic,
                                               _ when target.isEdit =>
-                                                'Edit this post…',
+                                                context
+                                                    .l10n
+                                                    .editThisPostComposerpanel,
                                               _
                                                   when target.replyToUsername !=
                                                       null =>
-                                                'Reply to @${target.replyToUsername}…',
-                                              _ => 'Write a reply…',
+                                                context.l10n.replyTo(
+                                                  (target.replyToUsername)
+                                                      .toString(),
+                                                ),
+                                              _ => context.l10n.writeAReply,
                                             },
                                             textStyle:
                                                 theme.textTheme.bodyLarge,
@@ -527,11 +533,15 @@ class ComposerPanel extends StatelessWidget {
                               notice ??
                               composer.taxonomyValidationMessage ??
                               (composer.localDraftFailed
-                                  ? "Couldn't save this draft on this device."
+                                  ? context
+                                        .l10n
+                                        .couldnTSaveThisDraftOnThisDevice
                                   : composer.draftStatus ==
                                             DraftStatus.failing ||
                                         composer.draftsGaveUp
-                                  ? 'Not saved on the site — kept on this device only.'
+                                  ? context
+                                        .l10n
+                                        .notSavedOnTheSiteKeptOnThisDeviceOnly
                                   : null),
                           isError:
                               error != null ||
@@ -704,8 +714,8 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                         size: DControlSize.toolbar,
                         shape: DButtonShape.pill,
                         icon: const DIcon(DIcons.chevronDown),
-                        tooltip: 'Scroll to bottom',
-                        semanticLabel: 'Scroll to bottom',
+                        tooltip: context.l10n.scrollToBottom,
+                        semanticLabel: context.l10n.scrollToBottom,
                         variant: DButtonVariant.secondary,
                         onPressed: _scrollToBottom,
                       ),
@@ -926,7 +936,7 @@ class _TopicTaxonomy extends StatelessWidget {
                         siteUrl: composer.target.siteUrl,
                         categories: state.categories,
                         selected: rootCategory,
-                        placeholder: 'Category',
+                        placeholder: context.l10n.category,
                         labelFor: (category) => shell.topicCategoryPathLabel(
                           category,
                           siteUrl: composer.target.siteUrl,
@@ -960,9 +970,9 @@ class _TopicTaxonomy extends StatelessWidget {
                         categories: subcategories,
                         parent: rootCategory,
                         selected: parent == null ? null : category,
-                        placeholder: 'Subcategories',
+                        placeholder: context.l10n.subcategories,
                         clearSelectionLabel: rootCategory.canCreateTopic
-                            ? 'No subcategory'
+                            ? context.l10n.noSubcategory
                             : null,
                         onSelected: composer.isEditing
                             ? (selected) {
@@ -1634,37 +1644,37 @@ class _ComposerEditorState extends State<ComposerEditor> {
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     return [
       for (final (label, icon, mark) in [
-        ('Bold', DIcons.bold, ComposerMark.bold),
-        ('Italic', DIcons.italic, ComposerMark.italic),
-        ('Inline code', DIcons.code, ComposerMark.inlineCode),
+        (appL10n.bold, DIcons.bold, ComposerMark.bold),
+        (appL10n.italic, DIcons.italic, ComposerMark.italic),
+        (appL10n.inlineCode, DIcons.code, ComposerMark.inlineCode),
       ])
         ComposerSlashAction(
           label: label,
           icon: icon,
-          group: 'Formatting',
+          group: appL10n.formatting,
           onInvoke: () => composer.toggleMark(mark),
         ),
       ComposerSlashAction(
-        label: 'Link',
+        label: appL10n.link,
         icon: DIcons.link,
-        group: 'Formatting',
+        group: appL10n.formatting,
         onInvoke: () => unawaited(
           showComposerLinkDialog(context: context, composer: composer),
         ),
       ),
       for (var level = 1; level <= 4; level++)
         ComposerSlashAction(
-          label: 'Heading $level',
+          label: appL10n.headingComposerpanel((level).toString()),
           leadingText: 'H${const ['₁', '₂', '₃', '₄'][level - 1]}',
           hint: '#' * level,
-          group: 'Formatting',
+          group: appL10n.formatting,
           keywords: ['h$level', 'heading$level'],
           onInvoke: () => composer.setHeading(level),
         ),
       if (!composer.target.isPlugin) ...[
         for (final ordered in [false, true])
           ComposerSlashAction(
-            label: ordered ? 'Numbered list' : 'Bulleted list',
+            label: ordered ? appL10n.numberedList : appL10n.bulletedList,
             icon: ordered ? null : DIcons.list,
             leadingText: ordered ? '1.' : null,
             hint: ordered ? '1.' : '-',
@@ -1686,7 +1696,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
             },
           ),
         ComposerSlashAction(
-          label: 'To-do list',
+          label: appL10n.toDoList,
           icon: DIcons.list,
           keywords: const ['todo', 'to-do', 'task', 'checklist', 'checkbox'],
           onInvoke: () {
@@ -1698,19 +1708,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
           },
         ),
         ComposerSlashAction(
-          label: 'Table',
+          label: appL10n.table,
           icon: DIcons.list,
           onInvoke: () => insertComposerTable(composer),
         ),
         ComposerSlashAction(
-          label: 'Details',
+          label: appL10n.details,
           icon: DIcons.list,
           keywords: const ['summary', 'collapse'],
           onInvoke: () => insertComposerDetails(composer),
         ),
         if (composer.canUpload)
           ComposerSlashAction(
-            label: 'Upload',
+            label: appL10n.upload,
             icon: DIcons.paperclip,
             keywords: const ['image', 'file', 'attachment'],
             onInvoke: () => unawaited(_pickSlashFiles()),
@@ -1719,7 +1729,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
             (shell?.siteConfigFor(composer.target.siteUrl).emojiEnabled ??
                 false))
           ComposerSlashAction(
-            label: 'Emoji',
+            label: appL10n.emoji,
             icon: DIcons.discourseEmojis,
             keywords: const ['reaction', 'smile'],
             onInvoke: () => unawaited(
@@ -1764,7 +1774,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         degraded: true,
       );
       if (mounted && identical(widget.composer, composer)) {
-        composer.showNotice("Couldn't open the file picker.");
+        composer.showNotice(appL10n.couldnTOpenTheFilePicker);
       }
     } finally {
       _pickingSlashFiles = false;
@@ -1780,7 +1790,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final field = Semantics(
       container: true,
       explicitChildNodes: true,
-      label: 'Composer editor',
+      label: appL10n.composerEditor,
       traversalParentIdentifier: widget.composer,
       child: ComposerSlashMenu(
         key: _slashMenu,
@@ -2165,7 +2175,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     }
     _moveDropCaret(details.globalPosition);
     if (dropContainsDirectory(details.files)) {
-      widget.composer.showNotice('Folders cannot be uploaded here.');
+      widget.composer.showNotice(appL10n.foldersCannotBeUploadedHere);
     }
     final files = composerUploadFilesFromDrop(details.files);
     _media.dropFiles(
@@ -3088,7 +3098,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           }
         },
         content: DPopoverContent(
-          semanticLabel: 'Image controls',
+          semanticLabel: appL10n.imageControls,
           width: _imageMenuPreferredWidth,
           side: DPopoverSide.top,
           align: DPopoverAlign.start,
@@ -3730,7 +3740,7 @@ class _ImageComposerMenu extends StatelessWidget {
                       ? () => onScale(scales[scaleIndex - 1])
                       : null,
                   variant: DButtonVariant.ghost,
-                  tooltip: 'Decrease image size',
+                  tooltip: context.l10n.decreaseImageSize,
                   icon: const Icon(Icons.zoom_out),
                 ),
                 Text('$scale%', style: Theme.of(context).textTheme.labelMedium),
@@ -3739,7 +3749,7 @@ class _ImageComposerMenu extends StatelessWidget {
                       ? () => onScale(scales[scaleIndex + 1])
                       : null,
                   variant: DButtonVariant.ghost,
-                  tooltip: 'Increase image size',
+                  tooltip: context.l10n.increaseImageSize,
                   icon: const Icon(Icons.zoom_in),
                 ),
               ],
@@ -3747,7 +3757,7 @@ class _ImageComposerMenu extends StatelessWidget {
               DButton.iconOnly(
                 onPressed: onDelete,
                 variant: DButtonVariant.ghost,
-                tooltip: 'Delete image',
+                tooltip: context.l10n.deleteImage,
                 icon: const Icon(Icons.delete_outline),
               ),
             ],
@@ -3755,14 +3765,14 @@ class _ImageComposerMenu extends StatelessWidget {
           const SizedBox(height: DSpacing.xs),
           DInput(
             controller: alt,
-            semanticLabel: 'Image description',
-            hintText: 'Add image description',
+            semanticLabel: context.l10n.imageDescription,
+            hintText: context.l10n.addImageDescription,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => onSaveAlt(),
             suffix: DButton.iconOnly(
               onPressed: onSaveAlt,
               variant: DButtonVariant.ghost,
-              tooltip: 'Save alt text',
+              tooltip: context.l10n.saveAltText,
               icon: const Icon(Icons.check),
             ),
           ),
@@ -3837,24 +3847,30 @@ class _GalleryComposerMenu extends StatelessWidget {
                       allowEmptySelection: false,
                       spacing: 0,
                       variant: DToggleVariant.standard,
-                      semanticLabel: 'Gallery mode',
+                      semanticLabel: context.l10n.galleryMode,
                       scrollable: false,
-                      items: const [
+                      items: [
                         DToggleGroupItem.iconOnly(
                           value: ComposerGalleryMode.grid,
-                          semanticLabel: 'Grid gallery mode',
-                          tooltip: 'Grid gallery mode',
-                          icon: Icon(Icons.grid_view_outlined, size: 18),
-                          selectedIcon: Icon(Icons.grid_view, size: 18),
-                          visualStyle: DToggleVisualStyle(),
+                          semanticLabel: context.l10n.gridGalleryMode,
+                          tooltip: context.l10n.gridGalleryMode,
+                          icon: const Icon(Icons.grid_view_outlined, size: 18),
+                          selectedIcon: const Icon(Icons.grid_view, size: 18),
+                          visualStyle: const DToggleVisualStyle(),
                         ),
                         DToggleGroupItem.iconOnly(
                           value: ComposerGalleryMode.carousel,
-                          semanticLabel: 'Carousel gallery mode',
-                          tooltip: 'Carousel gallery mode',
-                          icon: Icon(Icons.view_carousel_outlined, size: 18),
-                          selectedIcon: Icon(Icons.view_carousel, size: 18),
-                          visualStyle: DToggleVisualStyle(),
+                          semanticLabel: context.l10n.carouselGalleryMode,
+                          tooltip: context.l10n.carouselGalleryMode,
+                          icon: const Icon(
+                            Icons.view_carousel_outlined,
+                            size: 18,
+                          ),
+                          selectedIcon: const Icon(
+                            Icons.view_carousel,
+                            size: 18,
+                          ),
+                          visualStyle: const DToggleVisualStyle(),
                         ),
                       ],
                     ),
@@ -3874,7 +3890,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                           explicitChildNodes: true,
                           child: DDropdownMenu(
                             content: DDropdownMenuContent(
-                              semanticLabel: 'Add images to gallery',
+                              semanticLabel: context.l10n.addImagesToGallery,
                               width: 280,
                               children: [
                                 DDropdownMenuItem(
@@ -3882,7 +3898,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                                       ? () => onSelect(_GalleryAddChoice.upload)
                                       : null,
                                   leading: const Icon(Icons.upload_outlined),
-                                  child: const Text('Upload new images'),
+                                  child: Text(context.l10n.uploadNewImages),
                                 ),
                                 DDropdownMenuItem(
                                   onPressed: hasStandaloneImages
@@ -3892,8 +3908,8 @@ class _GalleryComposerMenu extends StatelessWidget {
                                   leading: const Icon(
                                     Icons.photo_library_outlined,
                                   ),
-                                  child: const Text(
-                                    'Add existing draft images',
+                                  child: Text(
+                                    context.l10n.addExistingDraftImages,
                                   ),
                                 ),
                               ],
@@ -3901,7 +3917,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                             child: DDropdownMenuTrigger(
                               builder: (triggerContext, state) =>
                                   DButton.iconOnly(
-                                    tooltip: 'Add images to gallery',
+                                    tooltip: context.l10n.addImagesToGallery,
                                     variant: DButtonVariant.ghost,
                                     icon: pickingImages
                                         ? const SizedBox.square(
@@ -3927,7 +3943,7 @@ class _GalleryComposerMenu extends StatelessWidget {
                     DButton.iconOnly(
                       onPressed: onUnwrap,
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Remove gallery, keep images',
+                      tooltip: context.l10n.removeGalleryKeepImages,
                       icon: const Icon(Icons.grid_off_outlined),
                     ),
                   ],
@@ -3957,7 +3973,7 @@ class _ExistingGalleryImagesDialogState
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add existing images'),
+    title: Text(context.l10n.addExistingImages),
     content: SizedBox(
       width: 360,
       child: ConstrainedBox(
@@ -3973,7 +3989,9 @@ class _ExistingGalleryImagesDialogState
               value: selected,
               secondary: const Icon(Icons.image_outlined),
               title: Text(
-                image.alt.isEmpty ? 'Image ${index + 1}' : image.alt,
+                image.alt.isEmpty
+                    ? context.l10n.imageComposerpanel((index + 1).toString())
+                    : image.alt,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -3993,11 +4011,11 @@ class _ExistingGalleryImagesDialogState
     ),
     actions: [
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: () => Navigator.pop(context),
       ),
       DButton(
-        label: const Text('Add selected'),
+        label: Text(context.l10n.addSelected),
         variant: DButtonVariant.primary,
         onPressed: _selectedStarts.isEmpty
             ? null
@@ -4033,21 +4051,26 @@ class _FormattingToolbar extends StatelessWidget {
       child: Semantics(
         key: const ValueKey('composer-formatting'),
         container: true,
-        label: 'Formatting',
+        label: context.l10n.formatting,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           spacing: 2,
           children: [
             for (final (label, icon, mark, key) in [
-              ('Bold', DIcons.bold, ComposerMark.bold, LogicalKeyboardKey.keyB),
               (
-                'Italic',
+                context.l10n.bold,
+                DIcons.bold,
+                ComposerMark.bold,
+                LogicalKeyboardKey.keyB,
+              ),
+              (
+                context.l10n.italic,
                 DIcons.italic,
                 ComposerMark.italic,
                 LogicalKeyboardKey.keyI,
               ),
               (
-                'Inline code',
+                context.l10n.inlineCode,
                 DIcons.code,
                 ComposerMark.inlineCode,
                 LogicalKeyboardKey.keyE,
@@ -4070,7 +4093,7 @@ class _FormattingToolbar extends StatelessWidget {
               ),
             DButton.iconOnly(
               key: const ValueKey('composer-format-link'),
-              tooltip: 'Link',
+              tooltip: context.l10n.link,
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
               variant: DButtonVariant.transparentBackground,
               foregroundColor: _composerToolForeground(context),
@@ -4144,7 +4167,7 @@ class _Toolbar extends StatelessWidget {
             child: Builder(
               builder: (buttonContext) => DButton.iconOnly(
                 key: const ValueKey('composer-emoji-picker'),
-                tooltip: 'Add emoji',
+                tooltip: context.l10n.addEmoji,
                 variant: DButtonVariant.transparentBackground,
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
@@ -4163,7 +4186,7 @@ class _Toolbar extends StatelessWidget {
         if (!composer.target.isPlugin || actions.isNotEmpty)
           DDropdownMenu(
             content: DDropdownMenuContent(
-              semanticLabel: 'Insert',
+              semanticLabel: context.l10n.insert,
               side: DPopoverSide.top,
               width: 240,
               children: [
@@ -4172,14 +4195,14 @@ class _Toolbar extends StatelessWidget {
                     onPressed: composer.isEditing
                         ? () => insertComposerTable(composer)
                         : null,
-                    child: const Text('Table'),
+                    child: Text(context.l10n.table),
                   ),
                 if (!composer.target.isPlugin)
                   DDropdownMenuItem(
                     onPressed: composer.isEditing
                         ? () => insertComposerDetails(composer)
                         : null,
-                    child: const Text('Details'),
+                    child: Text(context.l10n.details),
                   ),
                 for (final action in actions)
                   DDropdownMenuItem(
@@ -4198,7 +4221,7 @@ class _Toolbar extends StatelessWidget {
             child: DDropdownMenuTrigger(
               builder: (context, trigger) => DButton.iconOnly(
                 key: const ValueKey('composer-insert'),
-                tooltip: 'Insert',
+                tooltip: context.l10n.insert,
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
@@ -4213,7 +4236,7 @@ class _Toolbar extends StatelessWidget {
         if (options.isNotEmpty)
           DDropdownMenu(
             content: DDropdownMenuContent(
-              semanticLabel: 'Composer options',
+              semanticLabel: context.l10n.composerOptions,
               side: DPopoverSide.top,
               align: DPopoverAlign.end,
               children: options,
@@ -4221,7 +4244,7 @@ class _Toolbar extends StatelessWidget {
             child: DDropdownMenuTrigger(
               builder: (context, trigger) => DButton.iconOnly(
                 key: const ValueKey('composer-options'),
-                tooltip: 'More',
+                tooltip: context.l10n.more,
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
@@ -4383,8 +4406,8 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
       alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
       child: DButton.iconOnly(
         tooltip: forward
-            ? 'Show more composer tools'
-            : 'Show previous composer tools',
+            ? context.l10n.showMoreComposerTools
+            : context.l10n.showPreviousComposerTools,
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
         variant: DButtonVariant.transparentBackground,
@@ -4447,8 +4470,8 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
           composer.canUpload) {
         composer.showNotice(
           photos
-              ? "Couldn't open the photo library."
-              : "Couldn't open the file picker.",
+              ? appL10n.couldnTOpenThePhotoLibrary
+              : appL10n.couldnTOpenTheFilePicker,
         );
       }
     } finally {
@@ -4464,7 +4487,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
   @override
   Widget build(BuildContext context) => DDropdownMenu(
     content: DDropdownMenuContent(
-      semanticLabel: 'Upload',
+      semanticLabel: context.l10n.upload,
       side: DPopoverSide.top,
       children: [
         DDropdownMenuItem(
@@ -4472,7 +4495,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
           onPressed: widget.composer.canUpload && !_picking
               ? () => unawaited(_pick(widget.pickFiles, photos: false))
               : null,
-          child: const Text('Files'),
+          child: Text(context.l10n.files),
         ),
         DDropdownMenuItem(
           key: const ValueKey('composer-upload-photos'),
@@ -4485,14 +4508,14 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
                   ),
                 )
               : null,
-          child: const Text('Photo Library'),
+          child: Text(context.l10n.photoLibrary),
         ),
       ],
     ),
     child: DDropdownMenuTrigger(
       builder: (context, trigger) => DButton.iconOnly(
         key: const ValueKey('composer-upload'),
-        tooltip: 'Upload',
+        tooltip: context.l10n.upload,
         onPressed: !widget.composer.canUpload || _picking
             ? null
             : trigger.toggle,
@@ -4701,7 +4724,7 @@ class _Footer extends StatelessWidget {
                         tokens.destructive,
                         .5,
                       ),
-                      tooltip: 'Discard',
+                      tooltip: context.l10n.discard,
                       icon: const DIcon(DIcons.trashCan),
                     ),
                     for (final control in pluginControls)

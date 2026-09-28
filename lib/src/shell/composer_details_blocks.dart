@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -54,14 +55,12 @@ const _quotes = ['""', "''", '«»', '“”', '””', '‘’', '„“', '�
 
 String _quoteSummary(String value) {
   if (value.contains(RegExp(r'[\r\n]'))) {
-    throw const FormatException('Use a single line for the summary.');
+    throw FormatException(appL10n.useASingleLineForTheSummary);
   }
   for (final pair in _quotes) {
     if (!value.contains(pair[1])) return '${pair[0]}$value${pair[1]}';
   }
-  throw const FormatException(
-    'The summary contains too many quotation styles.',
-  );
+  throw FormatException(appL10n.theSummaryContainsTooManyQuotationStyles);
 }
 
 /// Complete outer blocks only. Incomplete markup and code examples stay text.

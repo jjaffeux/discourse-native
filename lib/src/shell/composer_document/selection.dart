@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'component.dart';
 import 'projection.dart';
 
@@ -50,7 +51,8 @@ final class ComposerRangeSelection extends ComposerSelection {
   int get hashCode => Object.hash(anchor, focus);
 
   @override
-  String toString() => 'ComposerRangeSelection($anchor, $focus)';
+  String toString() =>
+      appL10n.composerRangeSelection((anchor).toString(), (focus).toString());
 }
 
 final class ComposerComponentSelection extends ComposerSelection {

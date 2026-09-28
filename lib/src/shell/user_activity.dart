@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/discourse_instance.dart';
@@ -70,9 +71,9 @@ class _UserActivityBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final instance = _instance;
     if (instance?.isConnected != true) {
-      return const _ActivityState(
+      return _ActivityState(
         icon: DIcons.list,
-        title: 'Connect this account to see its activity',
+        title: context.l10n.connectThisAccountToSeeItsActivity,
       );
     }
 
@@ -85,7 +86,7 @@ class _UserActivityBody extends StatelessWidget {
       return _ActivityState(
         icon: DIcons.triangleExclamation,
         title: error,
-        actionLabel: 'Try again',
+        actionLabel: appL10n.tryAgain,
         onAction: _refresh,
       );
     }
@@ -93,12 +94,10 @@ class _UserActivityBody extends StatelessWidget {
       return const _ActivityLoadingSkeleton();
     }
     if (feed.isEmpty) {
-      return const _ActivityState(
+      return _ActivityState(
         icon: DIcons.list,
-        title: 'No activity yet',
-        body:
-            'Topics you create and replies you post will appear here. '
-            'Likes, bookmarks, reads, and drafts have their own lists.',
+        title: appL10n.noActivityYet,
+        body: appL10n.topicsYouCreateAndRepliesYouPostWillAppearHereLikes,
       );
     }
 
@@ -187,7 +186,7 @@ class _ActivityList extends StatelessWidget {
             }
             return Semantics(
               liveRegion: true,
-              label: 'Loading more activity',
+              label: context.l10n.loadingMoreActivity,
               child: const SizedBox.shrink(),
             );
           },
@@ -225,13 +224,14 @@ class UserActivityRow extends StatelessWidget {
     final semanticLabel = [
       item.title,
       item.isTopic
-          ? 'Topic created by ${item.username}'
-          : 'Reply by ${item.username}',
-      if (item.postNumber > 1) 'Post ${item.postNumber}',
+          ? context.l10n.topicCreatedBy((item.username).toString())
+          : context.l10n.replyBy((item.username).toString()),
+      if (item.postNumber > 1)
+        context.l10n.postUseractivity((item.postNumber).toString()),
       if (category != null) category.name,
       ?when,
-      if (item.deleted) 'Deleted',
-      if (item.hidden) 'Hidden',
+      if (item.deleted) context.l10n.deleted,
+      if (item.hidden) context.l10n.hidden,
       if (item.plainExcerpt.isNotEmpty) item.plainExcerpt,
     ].join(', ');
 
@@ -321,7 +321,9 @@ class UserActivityRow extends StatelessWidget {
                                 ),
                               if (item.deleted || item.hidden)
                                 Text(
-                                  item.deleted ? 'Deleted' : 'Hidden',
+                                  item.deleted
+                                      ? context.l10n.deleted
+                                      : context.l10n.hidden,
                                   style: theme.textTheme.labelMedium?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
@@ -399,7 +401,7 @@ class _LoadMoreError extends StatelessWidget {
           description: DAlertDescription(child: Text(message)),
           action: DAlertAction(
             child: DButton(
-              label: const Text('Retry'),
+              label: Text(context.l10n.retry),
               onPressed: onRetry,
               variant: DButtonVariant.link,
             ),
@@ -416,7 +418,7 @@ class _ActivityLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
-    semanticsLabel: 'Loading activity',
+    semanticsLabel: context.l10n.loadingActivity,
     color: skeletonFill(context),
     child: ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(28, 28, 28, 24),

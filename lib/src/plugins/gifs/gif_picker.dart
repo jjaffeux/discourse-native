@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -38,7 +39,7 @@ Future<GifResult?> showGifPicker({
     if (touch) {
       return await showShellSheet<GifResult>(
         context: context,
-        title: 'Search GIFs',
+        title: appL10n.searchGIFs,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         builder: (sheetContext) => SizedBox(
           height: _pickerHeight(sheetContext),
@@ -95,9 +96,9 @@ class _DialogHeader extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
     child: Row(
       children: [
-        const Expanded(
+        Expanded(
           child: DText(
-            'Search GIFs',
+            context.l10n.searchGIFs,
             variant: DTextVariant.h4,
             headingLevel: 1,
           ),
@@ -106,7 +107,7 @@ class _DialogHeader extends StatelessWidget {
           key: const ValueKey('gif-picker-close'),
           onPressed: onClose,
           variant: DButtonVariant.ghost,
-          tooltip: 'Close',
+          tooltip: context.l10n.close,
           icon: const DIcon(DIcons.xmark),
         ),
       ],
@@ -178,7 +179,7 @@ class _GifPickerState extends State<GifPicker> {
           inputFormatters: [LengthLimitingTextInputFormatter(100)],
           textInputAction: TextInputAction.search,
           onChanged: widget.controller.updateQuery,
-          hintText: 'Search GIFs',
+          hintText: context.l10n.searchGIFs,
           prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
           suffix: _searchSuffix(),
         ),
@@ -209,7 +210,7 @@ class _GifPickerState extends State<GifPicker> {
         _searchFocus.requestFocus();
       },
       variant: DButtonVariant.ghost,
-      tooltip: 'Clear search',
+      tooltip: appL10n.clearSearch,
       icon: const DIcon(DIcons.xmark),
     );
   }
@@ -246,7 +247,7 @@ class _GifPickerState extends State<GifPicker> {
                   ? const SizedBox.shrink()
                   : DButton(
                       key: const ValueKey('gif-picker-load-more'),
-                      label: const Text('Load more'),
+                      label: Text(context.l10n.loadMore),
                       onPressed: controller.loadMore,
                       variant: DButtonVariant.link,
                     ),
@@ -262,7 +263,7 @@ class _GifPickerState extends State<GifPicker> {
         liveRegion: true,
         action: DButton(
           key: const ValueKey('gif-picker-retry'),
-          label: const Text('Try again'),
+          label: Text(context.l10n.tryAgain),
           onPressed: controller.retry,
         ),
       );
@@ -273,7 +274,7 @@ class _GifPickerState extends State<GifPicker> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Browse categories',
+            context.l10n.browseCategories,
             style: Theme.of(
               context,
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
@@ -317,15 +318,15 @@ class _GifPickerState extends State<GifPicker> {
     }
 
     if (!controller.hasActiveSearch) {
-      return const _PickerMessage(
+      return _PickerMessage(
         icon: GifsIcons.gif,
-        message: 'Type at least 3 characters to search for a GIF.',
+        message: context.l10n.typeAtLeast3CharactersToSearchForAGIF,
       );
     }
 
-    return const _PickerMessage(
+    return _PickerMessage(
       icon: DIcons.magnifyingGlass,
-      message: 'No GIFs found.',
+      message: context.l10n.noGIFsFound,
     );
   }
 }
@@ -343,8 +344,8 @@ class _GifResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = result.title.trim().isEmpty
-        ? 'Choose GIF'
-        : 'Choose ${result.title} GIF';
+        ? context.l10n.chooseGIF
+        : context.l10n.chooseGIFGifpicker((result.title).toString());
     return Semantics(
       button: true,
       label: label,
@@ -378,9 +379,9 @@ class _GifCategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Search ${category.title} GIFs',
+    label: context.l10n.searchGIFsGifpicker((category.title).toString()),
     child: DTooltip(
-      message: 'Search ${category.title} GIFs',
+      message: context.l10n.searchGIFsGifpicker((category.title).toString()),
       excludeFromSemantics: true,
       child: Material(
         clipBehavior: Clip.antiAlias,
@@ -483,7 +484,7 @@ class _InlineError extends StatelessWidget {
     description: DAlertDescription(child: Text(message)),
     action: DAlertAction(
       child: DButton(
-        label: const Text('Try again'),
+        label: Text(context.l10n.tryAgain),
         onPressed: onRetry,
         variant: DButtonVariant.link,
       ),
@@ -549,7 +550,7 @@ class _KlipyAttribution extends StatelessWidget {
       key: const ValueKey('gif-picker-attribution'),
       alignment: Alignment.centerRight,
       child: Semantics(
-        label: 'Powered by Klipy',
+        label: context.l10n.poweredByKlipy,
         image: true,
         child: SizedBox(
           height: 30,
@@ -559,7 +560,7 @@ class _KlipyAttribution extends StatelessWidget {
             fit: BoxFit.contain,
             cacheHeight: imagePhysicalPixels(context, 30),
             errorBuilder: (context, _, _) => Text(
-              'Powered by Klipy',
+              context.l10n.poweredByKlipy,
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ),

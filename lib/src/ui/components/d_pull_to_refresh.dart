@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
@@ -21,20 +22,25 @@ class DPullToRefresh extends StatefulWidget {
     super.key,
     required this.onRefresh,
     required this.child,
-    this.pullLabel = 'Pull to refresh',
-    this.releaseLabel = 'Release to refresh',
-    this.refreshingLabel = 'Refreshing',
-    this.refreshLabel = 'Refresh',
+    this._pullLabel,
+    this._releaseLabel,
+    this._refreshingLabel,
+    this._refreshLabel,
   });
 
   final Future<void> Function()? onRefresh;
   final Widget child;
-  final String pullLabel;
-  final String releaseLabel;
-  final String refreshingLabel;
+  final String? _pullLabel;
+  String get pullLabel => _pullLabel ?? appL10n.pullToRefresh;
+  final String? _releaseLabel;
+  String get releaseLabel => _releaseLabel ?? appL10n.releaseToRefresh;
+  final String? _refreshingLabel;
+  String get refreshingLabel => _refreshingLabel ?? appL10n.refreshing;
+
+  final String? _refreshLabel;
 
   /// Screen-reader action for refreshing without a drag gesture.
-  final String refreshLabel;
+  String get refreshLabel => _refreshLabel ?? appL10n.refresh;
 
   @override
   State<DPullToRefresh> createState() => _DPullToRefreshState();

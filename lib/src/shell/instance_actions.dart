@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
@@ -17,14 +18,12 @@ Future<void> confirmInstanceRemoval(
 
   final confirmed = await showDiscourseAlertDialog<bool>(
     context: context,
-    title: Text('Remove ${instance.title}?'),
+    title: Text(appL10n.removeInstanceactions((instance.title).toString())),
     description: Text(
-      'This signs out of ${instance.host} and takes it out of the rail. '
-      'The app will revoke this device’s access so notifications stop. '
-      'You can add the forum back at any time.',
+      appL10n.thisSignsOutOfAndTakesItOutOfTheRail((instance.host).toString()),
     ),
-    cancelLabel: const Text('Cancel'),
-    actionLabel: const Text('Remove'),
+    cancelLabel: Text(appL10n.cancel),
+    actionLabel: Text(appL10n.removeLocaldatecomposersheet),
     cancelResult: false,
     actionResult: true,
     actionVariant: DButtonVariant.destructive,
@@ -40,7 +39,7 @@ Future<void> confirmInstanceRemoval(
   }
   DToast.show(
     context,
-    "Couldn't remove ${instance.title}. Try again.",
+    appL10n.couldnTRemoveTryAgain((instance.title).toString()),
     type: DToastType.error,
   );
 }
@@ -70,9 +69,8 @@ class InstanceActions extends StatefulWidget {
 }
 
 class _InstanceActionsState extends State<InstanceActions> {
-  static const _showActions = CustomSemanticsAction(
-    label: 'Show forum actions',
-  );
+  static CustomSemanticsAction get _showActions =>
+      CustomSemanticsAction(label: appL10n.showForumActions);
 
   final DContextMenuController _menu = DContextMenuController();
   final DContextMenuTriggerController _trigger =
@@ -119,7 +117,7 @@ class _InstanceActionsState extends State<InstanceActions> {
                 children: [
                   Expanded(
                     child: DButton(
-                      label: const Text('Move up'),
+                      label: Text(appL10n.moveUp),
                       onPressed: widget.onMoveUp == null
                           ? null
                           : () => Navigator.of(
@@ -131,7 +129,7 @@ class _InstanceActionsState extends State<InstanceActions> {
                   const SizedBox(width: DSpacing.controlGap),
                   Expanded(
                     child: DButton(
-                      label: const Text('Move down'),
+                      label: Text(appL10n.moveDown),
                       onPressed: widget.onMoveDown == null
                           ? null
                           : () => Navigator.of(
@@ -148,7 +146,7 @@ class _InstanceActionsState extends State<InstanceActions> {
               const SizedBox(height: 12),
             ],
             DButton(
-              label: const Text('Remove forum'),
+              label: Text(appL10n.removeForum),
               onPressed: () =>
                   Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
               icon: const DIcon(DIcons.trashCan),
@@ -188,7 +186,7 @@ class _InstanceActionsState extends State<InstanceActions> {
         DContextMenuItem(
           leading: const DIcon(DIcons.ellipsis, size: 16),
           onPressed: _openSheet,
-          child: const Text('More Options'),
+          child: Text(appL10n.moreOptionsInstanceactions),
         ),
       ];
     }
@@ -198,7 +196,7 @@ class _InstanceActionsState extends State<InstanceActions> {
         DContextMenuItem(
           leading: const DIcon(DIcons.arrowUp, size: 16),
           onPressed: widget.onMoveUp,
-          child: const Text('Move up'),
+          child: Text(appL10n.moveUp),
         ),
       if (widget.onMoveDown != null)
         DContextMenuItem(
@@ -207,7 +205,7 @@ class _InstanceActionsState extends State<InstanceActions> {
             child: DIcon(DIcons.arrowUp, size: 16),
           ),
           onPressed: widget.onMoveDown,
-          child: const Text('Move down'),
+          child: Text(appL10n.moveDown),
         ),
       if (widget.onMoveUp != null || widget.onMoveDown != null)
         const DContextMenuSeparator(),
@@ -215,7 +213,7 @@ class _InstanceActionsState extends State<InstanceActions> {
         leading: const DIcon(DIcons.trashCan, size: 16),
         variant: DContextMenuItemVariant.destructive,
         onPressed: _confirmRemoval,
-        child: const Text('Remove forum'),
+        child: Text(appL10n.removeForum),
       ),
     ];
   }
@@ -232,7 +230,7 @@ class _InstanceActionsState extends State<InstanceActions> {
       controller: _menu,
       content: DContextMenuContent(
         width: 176,
-        semanticLabel: 'Forum actions',
+        semanticLabel: context.l10n.forumActions,
         children: _items(),
       ),
       child: MergeSemantics(

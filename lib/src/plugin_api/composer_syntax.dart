@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,12 +12,13 @@ final class ComposerSyntaxKind {
   const ComposerSyntaxKind({
     required this.owner,
     required this.name,
-    this.label = 'Block',
+    this._label,
   });
 
   final PluginId owner;
   final String name;
-  final String label;
+  final String? _label;
+  String get label => _label ?? appL10n.block;
 
   String get id => '${owner.value}/$name';
 

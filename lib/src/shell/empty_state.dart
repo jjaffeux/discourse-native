@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -20,22 +21,22 @@ class EmptyState extends StatelessWidget {
         child: SingleChildScrollView(
           child: DEmpty(
             children: [
-              const DEmptyHeader(
+              DEmptyHeader(
                 children: [
-                  DEmptyMedia(
+                  const DEmptyMedia(
                     variant: DEmptyMediaVariant.icon,
                     child: DIcon(DIcons.comments),
                   ),
-                  DEmptyTitle('No sites yet', headingLevel: 1),
+                  DEmptyTitle(context.l10n.noSitesYet, headingLevel: 1),
                   DEmptyDescription(
-                    'Connect a Discourse forum to get started.',
+                    context.l10n.connectADiscourseForumToGetStarted,
                   ),
                 ],
               ),
               DEmptyContent(
                 children: [
                   DButton(
-                    label: const Text('Add a site'),
+                    label: Text(context.l10n.addASite),
                     onPressed: () => showAddInstanceSheet(context),
                     icon: const DIcon(DIcons.plus),
                     variant: DButtonVariant.primary,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/found_user.dart';
@@ -133,7 +134,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
     final count = widget.selectedPosts.length;
     return AlertDialog(
       key: const ValueKey('topic-change-owner-dialog'),
-      title: const Text('Change post owner'),
+      title: Text(context.l10n.changePostOwner),
       content: SizedBox(
         width: 480,
         height: 380,
@@ -141,8 +142,10 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Assign $count ${count == 1 ? 'post' : 'posts'} by '
-              '@$_oldUsername to another account.',
+              context.l10n.assignByToAnotherAccount(
+                count,
+                (_oldUsername).toString(),
+              ),
             ),
             const SizedBox(height: 14),
             DInput(
@@ -152,7 +155,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
               enabled: !_saving,
               onChanged: _scheduleSearch,
 
-              labelText: 'Search users',
+              labelText: context.l10n.searchUsers,
               prefix: const Icon(Icons.search),
             ),
             const SizedBox(height: 8),
@@ -163,8 +166,8 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
                   ? Center(
                       child: Text(
                         _search.text.trim().isEmpty
-                            ? 'Search for the new owner.'
-                            : 'No users found.',
+                            ? context.l10n.searchForTheNewOwner
+                            : context.l10n.noUsersFound,
                       ),
                     )
                   : DRadioGroup<FoundUser>.controlled(
@@ -222,12 +225,12 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
       ),
       actions: [
         DButton(
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         DButton(
           key: const ValueKey('topic-change-owner-submit'),
-          label: const Text('Change owner'),
+          label: Text(context.l10n.changeOwner),
           onPressed: !_saving && _selected != null
               ? () => unawaited(_changeOwner())
               : null,

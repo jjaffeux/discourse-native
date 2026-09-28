@@ -1,11 +1,13 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'chat_wire.dart';
 
-const chatMessageBookmarkTarget = BookmarkTargetType(
-  owner: PluginId('chat'),
+BookmarkTargetType get chatMessageBookmarkTarget => BookmarkTargetType(
+  owner: const PluginId('chat'),
   name: 'message',
   wireName: chatMessageWireType,
-  refreshLabel: 'chat message',
+  refreshLabel: appL10n.chatMessageChatbookmark,
 );
 
 Bookmark? chatMessageBookmarkFromJson(Map<String, dynamic> json) {

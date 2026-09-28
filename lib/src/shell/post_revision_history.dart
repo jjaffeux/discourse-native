@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -31,8 +32,8 @@ Future<void> showPostRevisionHistory({
     await showShellSheet<void>(
       context: context,
       title: post.version > 100
-          ? 'Edit history (last 100 revisions)'
-          : 'Edit history',
+          ? appL10n.editHistoryLast100Revisions
+          : appL10n.editHistory,
       dialogOnDesktop: true,
       desktopDialogConstraints: const BoxConstraints(
         minWidth: 720,
@@ -64,11 +65,18 @@ class PostRevisionIndicator extends StatelessWidget {
     final updated = post.updatedAt;
     final age = updated == null ? null : relativeTime(updated);
     final tooltip = age == null
-        ? (count == 1 ? '1 edit' : '$count edits')
-        : 'Last edited ${age == 'now' ? 'now' : '$age ago'}';
+        ? (count == 1
+              ? context.l10n.message1Edit
+              : context.l10n.edits((count).toString()))
+        : context.l10n.lastEdited(
+            (age == 'now').toString(),
+            ((!(age == 'now')) ? (age) : '').toString(),
+          );
 
     return Semantics(
-      label: count == 1 ? '1 edit' : '$count edits',
+      label: count == 1
+          ? context.l10n.message1Edit
+          : context.l10n.edits((count).toString()),
       excludeSemantics: true,
       child: DTooltip(
         message: tooltip,
@@ -108,13 +116,13 @@ class _PostRevisionHistoryController extends ChangeNotifier {
       final fetched = await _loader(revisionNumber);
       if (_disposed || generation != _generation) return;
       if (fetched == null) {
-        error = 'Your connection changed. Reopen edit history and try again.';
+        error = appL10n.yourConnectionChangedReopenEditHistoryAndTryAgain;
       } else {
         revision = fetched;
       }
     } catch (_) {
       if (_disposed || generation != _generation) return;
-      error = "Couldn't load edit history.";
+      error = appL10n.couldnTLoadEditHistory;
     } finally {
       if (!_disposed && generation == _generation) {
         loading = false;
@@ -175,7 +183,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
           }
           if (revision == null) {
             return _RevisionError(
-              message: controller.error ?? "Couldn't load edit history.",
+              message: controller.error ?? context.l10n.couldnTLoadEditHistory,
               onRetry: controller.loading ? null : () => controller.load(null),
             );
           }
@@ -185,9 +193,9 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (controller.loading)
-                  const DProgress(
-                    semanticsLabel: 'Loading revision',
-                    track: DProgressTrack(height: 2),
+                  DProgress(
+                    semanticsLabel: context.l10n.loadingRevision,
+                    track: const DProgressTrack(height: 2),
                   ),
                 if (controller.error case final error?) ...[
                   _InlineError(message: error),
@@ -203,7 +211,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 ],
                 if (revision.titleChanges case final titleChanges?) ...[
                   const SizedBox(height: 20),
-                  const _SectionLabel('Topic title'),
+                  _SectionLabel(context.l10n.topicTitle),
                   const SizedBox(height: 6),
                   _RevisionDiffView(
                     key: const ValueKey('post-revision-title-diff'),
@@ -219,15 +227,17 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.userChanges case final change?) ...[
                   const SizedBox(height: 16),
                   _ValueChangeRow(
-                    label: 'Author',
-                    previous: change.previous?.displayName ?? 'Unknown',
-                    current: change.current?.displayName ?? 'Unknown',
+                    label: context.l10n.author,
+                    previous:
+                        change.previous?.displayName ?? context.l10n.unknown,
+                    current:
+                        change.current?.displayName ?? context.l10n.unknown,
                   ),
                 ],
                 if (revision.replyToPostNumberChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Reply to',
+                    label: context.l10n.replyToPostrevisionhistory,
                     previous: _replyLabel(change.previous),
                     current: _replyLabel(change.current),
                   ),
@@ -235,7 +245,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.categoryIdChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Category',
+                    label: context.l10n.category,
                     previous: _categoryName(change.previous),
                     current: _categoryName(change.current),
                   ),
@@ -243,7 +253,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.tagsChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Tags',
+                    label: context.l10n.tags,
                     previous: _listLabel(change.previous),
                     current: _listLabel(change.current),
                   ),
@@ -251,7 +261,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.wikiChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Wiki',
+                    label: context.l10n.wiki,
                     previous: _yesNo(change.previous),
                     current: _yesNo(change.current),
                   ),
@@ -259,7 +269,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.postTypeChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Post type',
+                    label: context.l10n.postType,
                     previous: _postType(change.previous),
                     current: _postType(change.current),
                   ),
@@ -267,33 +277,33 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                 if (revision.localeChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Language',
-                    previous: change.previous ?? 'None',
-                    current: change.current ?? 'None',
+                    label: context.l10n.language,
+                    previous: change.previous ?? context.l10n.none,
+                    current: change.current ?? context.l10n.none,
                   ),
                 ],
                 if (revision.archetypeChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Topic type',
-                    previous: change.previous ?? 'None',
-                    current: change.current ?? 'None',
+                    label: context.l10n.topicType,
+                    previous: change.previous ?? context.l10n.none,
+                    current: change.current ?? context.l10n.none,
                   ),
                 ],
                 if (revision.featuredLinkChanges case final change?) ...[
                   const SizedBox(height: 12),
                   _ValueChangeRow(
-                    label: 'Featured link',
-                    previous: change.previous ?? 'None',
-                    current: change.current ?? 'None',
+                    label: context.l10n.featuredLink,
+                    previous: change.previous ?? context.l10n.none,
+                    current: change.current ?? context.l10n.none,
                   ),
                 ],
                 const SizedBox(height: 20),
-                const _SectionLabel('Post'),
+                _SectionLabel(context.l10n.post),
                 const SizedBox(height: 8),
                 if (revision.diffError)
-                  const _InlineError(
-                    message: 'This revision is too complex to compare.',
+                  _InlineError(
+                    message: context.l10n.thisRevisionIsTooComplexToCompare,
                   )
                 else if (revision.diffHidden)
                   const _HiddenDiff()
@@ -308,7 +318,7 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
                   )
                 else
                   Text(
-                    'The post body did not change in this revision.',
+                    context.l10n.thePostBodyDidNotChangeInThisRevision,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -323,10 +333,12 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
 
   String _categoryName(int? id) =>
       categoryLabel?.call(id) ??
-      (id == null ? 'Uncategorized' : 'Category $id');
+      (id == null
+          ? appL10n.uncategorized
+          : appL10n.categoryPostactions((id).toString()));
 
   static String _replyLabel(PostRevisionReplyTarget? target) {
-    if (target == null) return 'None';
+    if (target == null) return appL10n.none;
     final username = target.username;
     return username == null
         ? '#${target.postNumber}'
@@ -334,20 +346,20 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
   }
 
   static String _listLabel(List<String>? values) =>
-      values == null || values.isEmpty ? 'None' : values.join(', ');
+      values == null || values.isEmpty ? appL10n.none : values.join(', ');
 
   static String _yesNo(bool? value) => switch (value) {
-    true => 'Yes',
-    false => 'No',
-    null => 'Unknown',
+    true => appL10n.yes,
+    false => appL10n.no,
+    null => appL10n.unknown,
   };
 
   static String _postType(int? value) => switch (value) {
-    Post.regularPostType => 'Regular',
-    Post.moderatorPostType => 'Moderator',
-    Post.whisperPostType => 'Whisper',
-    final value? => 'Type $value',
-    null => 'Unknown',
+    Post.regularPostType => appL10n.regular,
+    Post.moderatorPostType => appL10n.moderator,
+    Post.whisperPostType => appL10n.whisper,
+    final value? => appL10n.type((value).toString()),
+    null => appL10n.unknown,
   };
 }
 
@@ -362,18 +374,18 @@ class _RevisionModePicker extends StatelessWidget {
     alignment: Alignment.centerRight,
     child: DToggleGroup<_PostRevisionViewMode>(
       key: const ValueKey('post-revision-mode-picker'),
-      items: const [
+      items: [
         DToggleGroupItem(
           value: _PostRevisionViewMode.inline,
-          child: Text('Inline'),
+          child: Text(context.l10n.inline),
         ),
         DToggleGroupItem(
           value: _PostRevisionViewMode.sideBySide,
-          child: Text('Side by side'),
+          child: Text(context.l10n.sideBySide),
         ),
         DToggleGroupItem(
           value: _PostRevisionViewMode.markdown,
-          child: Text('Markdown'),
+          child: Text(context.l10n.markdown),
         ),
       ],
       values: [mode],
@@ -528,9 +540,9 @@ class _RevisionColumnHeadings extends StatelessWidget {
     );
     return Row(
       children: [
-        Expanded(child: Text('Previous', style: style)),
+        Expanded(child: Text(context.l10n.previous, style: style)),
         const SizedBox(width: 16),
-        Expanded(child: Text('Current', style: style)),
+        Expanded(child: Text(context.l10n.current, style: style)),
       ],
     );
   }
@@ -701,7 +713,7 @@ class _RevisionAttribution extends StatelessWidget {
             children: [
               Text(
                 revision.editorDisplayName.isEmpty
-                    ? 'Unknown editor'
+                    ? context.l10n.unknownEditor
                     : revision.editorDisplayName,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
@@ -711,7 +723,9 @@ class _RevisionAttribution extends StatelessWidget {
                 RelativeTimeBuilder(
                   when: date,
                   builder: (context, age) => Text(
-                    age == 'now' ? 'now' : '$age ago',
+                    age == context.l10n.relativeNow
+                        ? context.l10n.relativeNow
+                        : context.l10n.ago((age).toString()),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -806,9 +820,7 @@ class _HiddenDiff extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       const SizedBox(width: 8),
-      const Expanded(
-        child: Text('The differences in this revision are hidden.'),
-      ),
+      Expanded(child: Text(context.l10n.theDifferencesInThisRevisionAreHidden)),
     ],
   );
 }
@@ -837,7 +849,7 @@ class _RevisionError extends StatelessWidget {
       _InlineError(message: message),
       const SizedBox(height: 12),
       DButton(
-        label: const Text('Retry'),
+        label: Text(context.l10n.retry),
         onPressed: onRetry,
         size: DButtonSize.small,
       ),
@@ -895,25 +907,25 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                   children: [
                     DButton.iconOnly(
                       icon: const Icon(Icons.first_page),
-                      tooltip: 'First',
+                      tooltip: context.l10n.first,
                       onPressed: firstAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
                       icon: const Icon(Icons.navigate_before),
-                      tooltip: 'Previous',
+                      tooltip: context.l10n.previous,
                       onPressed: previousAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
                       icon: const Icon(Icons.navigate_next),
-                      tooltip: 'Next',
+                      tooltip: context.l10n.next,
                       onPressed: nextAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
                       icon: const Icon(Icons.last_page),
-                      tooltip: 'Latest',
+                      tooltip: context.l10n.latest,
                       onPressed: latestAction,
                       size: DButtonSize.small,
                     ),
@@ -924,25 +936,25 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   DButton(
-                    label: const Text('First'),
+                    label: Text(context.l10n.first),
                     onPressed: firstAction,
                     size: DButtonSize.small,
                   ),
                   const SizedBox(width: DSpacing.controlGap),
                   DButton(
-                    label: const Text('Previous'),
+                    label: Text(context.l10n.previous),
                     onPressed: previousAction,
                     size: DButtonSize.small,
                   ),
                   const Spacer(),
                   DButton(
-                    label: const Text('Next'),
+                    label: Text(context.l10n.next),
                     onPressed: nextAction,
                     size: DButtonSize.small,
                   ),
                   const SizedBox(width: DSpacing.controlGap),
                   DButton(
-                    label: const Text('Latest'),
+                    label: Text(context.l10n.latest),
                     onPressed: latestAction,
                     size: DButtonSize.small,
                   ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../data/site_lifecycle.dart';
@@ -99,13 +100,14 @@ class _DraftListViewState extends State<DraftListView> {
     final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      title: const Text('Remove draft?'),
+      title: Text(appL10n.removeDraft),
       description: Text(
-        '“${draft.displayTitle}” will be permanently removed from this '
-        'account.',
+        appL10n.willBePermanentlyRemovedFromThisAccount(
+          (draft.displayTitle).toString(),
+        ),
       ),
-      cancelLabel: const Text('Cancel'),
-      actionLabel: const Text('Remove'),
+      cancelLabel: Text(appL10n.cancel),
+      actionLabel: Text(appL10n.removeLocaldatecomposersheet),
       cancelResult: false,
       actionResult: true,
       actionVariant: DButtonVariant.destructive,
@@ -126,9 +128,9 @@ class _DraftListViewState extends State<DraftListView> {
       builder: (context, _) {
         final instance = _instance(controller);
         if (instance?.isConnected != true) {
-          return const _DraftState(
+          return _DraftState(
             icon: DIcons.pencil,
-            title: 'Connect this account to see its drafts',
+            title: context.l10n.connectThisAccountToSeeItsDrafts,
           );
         }
 
@@ -150,17 +152,17 @@ class _DraftListViewState extends State<DraftListView> {
       );
     }
     if (feed.isEmpty) {
-      return const _DraftState(
+      return _DraftState(
         icon: DIcons.pencil,
-        title: 'No drafts yet',
-        body: 'Replies and topics you start writing will appear here.',
+        title: appL10n.noDraftsYet,
+        body: appL10n.repliesAndTopicsYouStartWritingWillAppearHere,
       );
     }
     if (feed.error != null && feed.drafts.isEmpty) {
       return _DraftState(
         icon: DIcons.triangleExclamation,
         title: feed.error!,
-        actionLabel: 'Try again',
+        actionLabel: appL10n.tryAgain,
         onAction: _refresh,
       );
     }
@@ -188,7 +190,7 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DSkeletonRegion(
       expand: true,
-      semanticsLabel: 'Loading drafts',
+      semanticsLabel: context.l10n.loadingDrafts,
       color: skeletonFill(context),
       child: ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -379,7 +381,7 @@ class _Drafts extends StatelessWidget {
                         description: DAlertDescription(child: Text(error)),
                         action: DAlertAction(
                           child: DButton(
-                            label: const Text('Retry'),
+                            label: Text(context.l10n.retry),
                             onPressed: () => unawaited(onRefresh()),
                             variant: DButtonVariant.link,
                           ),
@@ -431,7 +433,7 @@ class _Drafts extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(top: 16),
                         child: DButton(
-                          label: const Text('Load more'),
+                          label: Text(context.l10n.loadMore),
                           onPressed: feed.loading
                               ? null
                               : () => unawaited(
@@ -519,7 +521,7 @@ class _DraftRowContent extends StatelessWidget {
     final theme = Theme.of(context);
     final createdAt = draft.createdAt;
     final action = onResume ?? onOpenForum;
-    final title = draft.displayTitle == 'Untitled draft'
+    final title = draft.displayTitle == context.l10n.untitledDraft
         ? null
         : draft.displayTitle;
 
@@ -593,7 +595,7 @@ class _DraftRowContent extends StatelessWidget {
             ),
             SizedBox(width: compact ? 8 : 16),
             DButton.iconOnly(
-              tooltip: 'Remove draft',
+              tooltip: context.l10n.removeDraftDraftlist,
               onPressed: deleting ? null : onRemove,
               icon: const DIcon(DIcons.trashCan),
               size: DButtonSize.small,

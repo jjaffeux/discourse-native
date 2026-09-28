@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -17,10 +18,10 @@ import 'composer_todos.dart';
 import 'composer_upload_placeholder.dart';
 import 'markdown_highlight.dart';
 
-const composerListSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('core'),
+ComposerSyntaxKind get composerListSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('core'),
   name: 'list-item',
-  label: 'List',
+  label: appL10n.list,
 );
 
 final class ComposerListPolicy implements ComposerSyntaxPolicy {
@@ -227,7 +228,7 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.composer,
     scrollController: widget.scrollController,
-    semanticLabel: '${widget.item.label} item',
+    semanticLabel: context.l10n.item((widget.item.label).toString()),
     child: Padding(
       padding: widget.item.isTask
           ? const EdgeInsets.only(bottom: DSpacing.sm)
@@ -249,7 +250,7 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
               value: widget.item.checked,
               readOnly: !body.isEditing,
               semanticLabel: widget.item.body.text.split('\n').first.isEmpty
-                  ? 'To-do'
+                  ? context.l10n.toDo
                   : widget.item.body.text.split('\n').first,
               onChanged: (_) => body.toggle(),
             )
@@ -266,8 +267,10 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
           Expanded(
             child: ComposerRichBodyEditor(
               composer: body,
-              label: 'List item content',
-              hintText: widget.item.isTask ? 'To-do' : 'List',
+              label: context.l10n.listItemContent,
+              hintText: widget.item.isTask
+                  ? context.l10n.toDo
+                  : context.l10n.list,
               enableBlockReordering: false,
               onKeyEvent: body.handleKey,
               onEmptyBackspace: body.deleteAtStart,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_status.dart';
@@ -78,7 +79,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     if (!mounted || opened) return;
     DToast.show(
       context,
-      'Could not open the sign-up page.',
+      appL10n.couldNotOpenTheSignUpPage,
       type: DToastType.error,
     );
   }
@@ -133,10 +134,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 controller: _notifications,
                 onOpen: _profile.close,
                 connecting: connecting,
-                tooltip: 'Notifications',
+                tooltip: context.l10n.notifications,
                 semanticLabel: unreadCount > 0
-                    ? 'Notifications, $unreadCount unread ${unreadCount == 1 ? 'item' : 'items'}'
-                    : 'Notifications',
+                    ? context.l10n.notificationsUnread(unreadCount)
+                    : context.l10n.notifications,
                 notificationCount: unreadCount,
                 notificationColor: notificationColor,
                 notificationSurface: widget.ringColor ?? theme.shell.content,
@@ -148,9 +149,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 controller: _profile,
                 onOpen: _notifications.close,
                 connecting: connecting,
-                tooltip: 'Profile',
-                semanticLabel:
-                    '${account.displayName ?? account.username}, Profile',
+                tooltip: context.l10n.profile,
+                semanticLabel: context.l10n.profileUsermenubutton(
+                  (account.displayName ?? account.username).toString(),
+                ),
                 icon: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -246,7 +248,7 @@ class _AccountMenuPopover extends StatelessWidget {
       return DButton.iconOnly(
         key: isProfile ? UserMenuButton.avatarKey : UserMenuButton.bellKey,
         icon: ExcludeSemantics(child: icon),
-        tooltip: connecting ? 'Connecting…' : tooltip,
+        tooltip: connecting ? context.l10n.connecting : tooltip,
         semanticLabel: semanticLabel,
         variant: DButtonVariant.transparentBackground,
         size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
@@ -265,7 +267,7 @@ class _AccountMenuPopover extends StatelessWidget {
       return DDropdownMenu(
         controller: controller,
         content: DDropdownMenuContent(
-          semanticLabel: 'Profile',
+          semanticLabel: context.l10n.profile,
           align: DPopoverAlign.end,
           width: 216,
           children: [UserProfileMenuItems(onDismiss: controller.close)],
@@ -313,7 +315,7 @@ class _SignedOutAccountActions extends StatelessWidget {
           DButton.iconOnly(
             key: UserMenuButton.signUpKey,
             onPressed: connecting ? null : onSignUp,
-            tooltip: 'Sign up',
+            tooltip: context.l10n.signUp,
             size: DButtonSize.large,
             icon: const DIcon(DIcons.userPlus),
           ),
@@ -321,11 +323,11 @@ class _SignedOutAccountActions extends StatelessWidget {
           DButton.iconOnly(
             key: UserMenuButton.signInKey,
             onPressed: connecting ? null : onSignIn,
-            tooltip: 'Sign in',
+            tooltip: context.l10n.signIn,
             size: DButtonSize.large,
             icon: const DIcon(DIcons.user),
             loading: connecting,
-            loadingSemanticLabel: 'Signing in…',
+            loadingSemanticLabel: context.l10n.signingIn,
           ),
         ],
       );
@@ -337,7 +339,7 @@ class _SignedOutAccountActions extends StatelessWidget {
           key: UserMenuButton.signUpKey,
           onPressed: connecting ? null : onSignUp,
           size: DButtonSize.large,
-          label: const Text('Sign up'),
+          label: Text(context.l10n.signUp),
         ),
         const SizedBox(width: DSpacing.controlGap),
         DButton(
@@ -345,10 +347,10 @@ class _SignedOutAccountActions extends StatelessWidget {
           onPressed: connecting ? null : onSignIn,
           size: DButtonSize.large,
           icon: const DIcon(DIcons.user),
-          label: const Text('Sign in'),
+          label: Text(context.l10n.signIn),
           loading: connecting,
-          loadingLabel: const Text('Signing in…'),
-          loadingSemanticLabel: 'Signing in…',
+          loadingLabel: Text(context.l10n.signingIn),
+          loadingSemanticLabel: context.l10n.signingIn,
         ),
       ],
     );

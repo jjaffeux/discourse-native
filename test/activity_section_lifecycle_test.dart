@@ -473,7 +473,7 @@ final class _ChatNotificationFeedPlugin
   List<PluginNotificationType> get notificationTypes => chatNotificationTypes;
 
   @override
-  List<PluginNotificationFeedSource> get notificationFeeds => const [
+  List<PluginNotificationFeedSource> get notificationFeeds => [
     chatNotificationFeed,
   ];
 }

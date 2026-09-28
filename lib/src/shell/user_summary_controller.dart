@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -70,9 +71,9 @@ final class UserSummaryController extends FrameSafeNotifier {
       if (!_isCurrent(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
-          _states[siteUrl] = stateFor(
-            siteUrl,
-          ).withError('Reconnect to ${instance.host} to see your summary.');
+          _states[siteUrl] = stateFor(siteUrl).withError(
+            appL10n.reconnectToToSeeYourSummary((instance.host).toString()),
+          );
         });
         return;
       }
@@ -96,9 +97,9 @@ final class UserSummaryController extends FrameSafeNotifier {
         degraded: true,
       );
       _commit(lease, siteUrl, request, () {
-        _states[siteUrl] = stateFor(
-          siteUrl,
-        ).withError("Couldn't load your summary from ${instance.host}.");
+        _states[siteUrl] = stateFor(siteUrl).withError(
+          appL10n.couldnTLoadYourSummaryFrom((instance.host).toString()),
+        );
       });
     } finally {
       if (!isDisposed && identical(_requests[siteUrl], request)) {

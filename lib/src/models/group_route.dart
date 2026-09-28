@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/uri_path.dart';
@@ -159,12 +160,12 @@ final class GroupRoute {
       if (json['section'] != null ||
           json['subsection'] != null ||
           json['plugin_owner'] != null) {
-        throw const FormatException('Invalid group directory route');
+        throw FormatException(appL10n.invalidGroupDirectoryRoute);
       }
       return const GroupRoute.directory();
     }
     if (groupName is! String) {
-      throw const FormatException('Invalid group route name');
+      throw FormatException(appL10n.invalidGroupRouteName);
     }
     final section = json['section'];
     final subsection = json['subsection'];
@@ -172,7 +173,7 @@ final class GroupRoute {
     if (section is! String ||
         (subsection != null && subsection is! String) ||
         (owner != null && owner is! String)) {
-      throw const FormatException('Invalid group route');
+      throw FormatException(appL10n.invalidGroupRoute);
     }
     try {
       if (owner is String) {
@@ -189,7 +190,7 @@ final class GroupRoute {
         subsection: subsection as String?,
       );
     } on ArgumentError {
-      throw const FormatException('Invalid group route');
+      throw FormatException(appL10n.invalidGroupRoute);
     }
   }
 

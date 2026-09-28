@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../data/stored_forum_base.dart';
@@ -131,8 +132,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                 .copyWith(
                   id: 'forum',
                   name: widget.siteUrl == ForumSettingsController.homeSite
-                      ? 'Home default'
-                      : 'Forum default',
+                      ? appL10n.homeDefault
+                      : appL10n.forumDefault,
                 ),
         },
     };
@@ -157,7 +158,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       if (mounted && revision == _revision) _retry = null;
     } catch (_) {
       if (mounted && revision == _revision) {
-        setState(() => _error = 'Could not save changes.');
+        setState(() => _error = appL10n.couldNotSaveChanges);
       }
     }
   }
@@ -168,7 +169,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   Widget _themeScope(List<String> others) {
     final site = requireStoredForumBase(widget.siteUrl);
     final forumName = site == ForumSettingsController.homeSite
-        ? 'Home'
+        ? appL10n.home
         : ShellScope.identityOf(context).instances
                   .where(
                     (instance) => requireStoredForumBase(instance.url) == site,
@@ -176,10 +177,10 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   .firstOrNull
                   ?.title ??
               Uri.parse(site).host;
-    final note = _HeadingNote('Applies to $forumName only.');
+    final note = _HeadingNote(appL10n.appliesToOnly((forumName).toString()));
     Widget action() => DButton(
       key: const ValueKey('theme-use-everywhere'),
-      label: const Text('Use on every forum'),
+      label: Text(appL10n.useOnEveryForum),
       variant: DButtonVariant.outline,
       size: DButtonSize.regular,
       onPressed: () => unawaited(_useEverywhere(others)),
@@ -206,7 +207,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   Future<void> _useEverywhere(List<String> forums) => _attempt(() async {
     await settings.useThemesIn(widget.siteUrl, forums);
-    if (mounted) DToast.show(context, 'Every forum now uses these colours.');
+    if (mounted) DToast.show(context, appL10n.everyForumNowUsesTheseColours);
   });
 
   void _newTheme({String? base}) {
@@ -221,7 +222,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
         _forumTheme();
     Map<String, dynamic> part(Brightness mode) => {
       ...selected.forBrightness(mode).toJson(),
-      'name': 'New theme',
+      'name': appL10n.newTheme,
     };
     _edit(
       ForumTheme.fromJson({
@@ -267,7 +268,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                           children: [
                             Expanded(child: Text(_error!)),
                             DButton(
-                              label: const Text('Retry'),
+                              label: Text(context.l10n.retry),
                               variant: DButtonVariant.outline,
                               onPressed: _retry == null
                                   ? null
@@ -285,28 +286,28 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                       allowEmptySelection: false,
                       expanded: true,
                       inset: true,
-                      semanticLabel: 'Appearance mode',
+                      semanticLabel: context.l10n.appearanceMode,
                       onChanged: (values) {
                         if (values.isEmpty) return;
                         final value = values.first;
                         unawaited(settings.setThemeMode(widget.siteUrl, value));
                         _show(null);
                       },
-                      items: const [
+                      items: [
                         DToggleGroupItem(
                           value: AppThemeMode.light,
-                          icon: ThemeIcon(ThemeIcons.sun, size: 12),
-                          child: Text('Light'),
+                          icon: const ThemeIcon(ThemeIcons.sun, size: 12),
+                          child: Text(context.l10n.light),
                         ),
                         DToggleGroupItem(
                           value: AppThemeMode.dark,
-                          icon: ThemeIcon(ThemeIcons.moon, size: 12),
-                          child: Text('Dark'),
+                          icon: const ThemeIcon(ThemeIcons.moon, size: 12),
+                          child: Text(context.l10n.dark),
                         ),
                         DToggleGroupItem(
                           value: AppThemeMode.system,
-                          icon: ThemeIcon(ThemeIcons.automatic, size: 12),
-                          child: Text('Auto'),
+                          icon: const ThemeIcon(ThemeIcons.automatic, size: 12),
+                          child: Text(context.l10n.auto),
                         ),
                       ],
                     ),

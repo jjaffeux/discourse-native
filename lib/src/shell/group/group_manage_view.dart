@@ -21,20 +21,21 @@ class _ManageSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!group.canManage) {
-      return const _GroupState(
+      return _GroupState(
         icon: DIcons.lock,
-        title: 'You cannot manage this group.',
+        title: context.l10n.youCannotManageThisGroup,
       );
     }
     final options = <_Subtab>[
-      const _Subtab(GroupRoute.profile, 'Profile'),
-      if (!group.automatic) const _Subtab(GroupRoute.membership, 'Membership'),
-      const _Subtab(GroupRoute.interaction, 'Interaction'),
+      _Subtab(GroupRoute.profile, context.l10n.profile),
+      if (!group.automatic)
+        _Subtab(GroupRoute.membership, context.l10n.membership),
+      _Subtab(GroupRoute.interaction, context.l10n.interaction),
       if (!group.automatic && data.smtpEnabled)
-        const _Subtab(GroupRoute.email, 'Email'),
-      const _Subtab(GroupRoute.categories, 'Categories'),
-      if (data.taggingEnabled) const _Subtab(GroupRoute.tags, 'Tags'),
-      const _Subtab(GroupRoute.logs, 'Logs'),
+        _Subtab(GroupRoute.email, context.l10n.email),
+      _Subtab(GroupRoute.categories, context.l10n.categories),
+      if (data.taggingEnabled) _Subtab(GroupRoute.tags, context.l10n.tags),
+      _Subtab(GroupRoute.logs, context.l10n.logs),
     ];
     final selected = options.any((option) => option.value == route.subsection)
         ? route.subsection!
@@ -83,7 +84,7 @@ class _ManageSection extends StatelessWidget {
                   width: 190,
                   child: _SubsectionSidebar(
                     key: const ValueKey('group-manage-sidebar'),
-                    title: 'Group settings',
+                    title: context.l10n.groupSettings,
                     selected: selected,
                     options: options,
                     iconFor: _manageIcon,
@@ -104,7 +105,7 @@ class _ManageSection extends StatelessWidget {
           children: [
             _MobileSubsectionPicker(
               key: const ValueKey('group-manage-picker'),
-              title: 'Group settings',
+              title: context.l10n.groupSettings,
               selected: selected,
               options: options,
               iconFor: _manageIcon,
@@ -194,7 +195,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
                             alignment: Alignment.centerLeft,
                             child: DButton(
                               key: ValueKey('save-group-${widget.subsection}'),
-                              label: const Text('Save changes'),
+                              label: Text(context.l10n.saveChanges),
                               loading: snapshot.submitting,
                               variant: DButtonVariant.primary,
                               onPressed: snapshot.canSubmit
@@ -224,30 +225,30 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     GroupRoute.membership => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _FormHeading(
-          title: 'Membership',
-          description: 'Choose who can discover and join this group.',
+        _FormHeading(
+          title: appL10n.membership,
+          description: appL10n.chooseWhoCanDiscoverAndJoinThisGroup,
         ),
         DSelect<String>.controlled(
           isExpanded: true,
           key: const ValueKey('membership-admission'),
           value: controller.admission,
-          label: const Text('Who can join?'),
-          entries: const [
+          label: Text(appL10n.whoCanJoin),
+          entries: [
             DSelectOption(
               value: 'closed',
-              label: 'Invitation only',
-              child: Text('Invitation only'),
+              label: appL10n.invitationOnly,
+              child: Text(appL10n.invitationOnly),
             ),
             DSelectOption(
               value: 'request',
-              label: 'Request approval',
-              child: Text('Request approval'),
+              label: appL10n.requestApproval,
+              child: Text(appL10n.requestApproval),
             ),
             DSelectOption(
               value: 'free',
-              label: 'Anyone can join',
-              child: Text('Anyone can join'),
+              label: appL10n.anyoneCanJoin,
+              child: Text(appL10n.anyoneCanJoin),
             ),
           ],
           onChanged: (value) => controller.setAdmission(value ?? 'closed'),
@@ -255,117 +256,125 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         DSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          title: const DLabel(child: Text('Members can leave')),
+          title: DLabel(child: Text(appL10n.membersCanLeave)),
           value: controller.publicExit,
           onChanged: controller.setPublicExit,
         ),
         _LevelField(
-          label: 'Group visibility',
+          label: appL10n.groupVisibility,
           value: controller.visibility,
           onChanged: controller.setVisibility,
         ),
         _LevelField(
-          label: 'Member-list visibility',
+          label: appL10n.memberListVisibility,
           value: controller.membersVisibility,
           onChanged: controller.setMembersVisibility,
         ),
-        _textField('membership_request_template', 'Request template', lines: 4),
+        _textField(
+          'membership_request_template',
+          appL10n.requestTemplate,
+          lines: 4,
+        ),
         _textField(
           'automatic_membership_email_domains',
-          'Automatic membership email domains',
+          appL10n.automaticMembershipEmailDomains,
           hint: 'example.com|another.example',
         ),
         _textField(
           'associated_group_ids',
-          'Associated group IDs',
+          appL10n.associatedGroupIDs,
           hint: '12, 35',
         ),
-        _textField('grant_trust_level', 'Grant trust level', numeric: true),
+        _textField('grant_trust_level', appL10n.grantTrustLevel, numeric: true),
       ],
     ),
     GroupRoute.interaction => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _FormHeading(
-          title: 'Interaction',
-          description: 'Control mentions, messages, and notification defaults.',
+        _FormHeading(
+          title: appL10n.interaction,
+          description: appL10n.controlMentionsMessagesAndNotificationDefaults,
         ),
         _InteractionLevelField(
-          label: 'Who can mention this group?',
+          label: appL10n.whoCanMentionThisGroup,
           value: controller.mentionable,
           onChanged: controller.setMentionable,
         ),
         _InteractionLevelField(
-          label: 'Who can message this group?',
+          label: appL10n.whoCanMessageThisGroup,
           value: controller.messageable,
           onChanged: controller.setMessageable,
         ),
         _LevelField(
-          label: 'Default notification level',
+          label: appL10n.defaultNotificationLevel,
           value: controller.defaultNotification,
           onChanged: controller.setDefaultNotification,
         ),
         DSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          title: const DLabel(child: Text('Publish read state')),
-          subtitle: const Text('Let members share message read state.'),
+          title: DLabel(child: Text(appL10n.publishReadState)),
+          subtitle: Text(appL10n.letMembersShareMessageReadState),
           value: controller.publishReadState,
           onChanged: controller.setPublishReadState,
         ),
-        _textField('incoming_email', 'Incoming email address'),
+        _textField('incoming_email', appL10n.incomingEmailAddress),
       ],
     ),
     GroupRoute.email => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _FormHeading(
-          title: 'Email',
-          description: 'Configure the mailbox used by this group.',
+        _FormHeading(
+          title: appL10n.email,
+          description: appL10n.configureTheMailboxUsedByThisGroup,
         ),
         DSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          title: const DLabel(child: Text('Enable SMTP')),
+          title: DLabel(child: Text(appL10n.enableSMTP)),
           value: controller.smtpEnabled,
           onChanged: controller.setSmtpEnabled,
         ),
-        _textField('smtp_server', 'SMTP server'),
+        _textField('smtp_server', appL10n.sMTPServer),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _textField('smtp_port', 'Port', numeric: true)),
+            Expanded(
+              child: _textField('smtp_port', appL10n.port, numeric: true),
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: _textField('smtp_ssl_mode', 'SSL mode', numeric: true),
+              child: _textField(
+                'smtp_ssl_mode',
+                appL10n.sSLMode,
+                numeric: true,
+              ),
             ),
           ],
         ),
-        _textField('email_username', 'Username'),
+        _textField('email_username', appL10n.username),
         _textField(
           'email_password',
-          'Password',
+          appL10n.password,
           obscure: true,
-          hint: 'Leave blank to keep the existing password',
+          hint: appL10n.leaveBlankToKeepTheExistingPassword,
         ),
-        _textField('email_from_alias', 'From alias'),
+        _textField('email_from_alias', appL10n.fromAlias),
         DSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          title: const DLabel(
-            child: Text('Allow replies from unknown senders'),
-          ),
+          title: DLabel(child: Text(appL10n.allowRepliesFromUnknownSenders)),
           value: controller.allowUnknownSenderReplies,
           onChanged: controller.setAllowUnknownSenderReplies,
         ),
       ],
     ),
     GroupRoute.categories => _ListNotificationFields(
-      title: 'Category notifications',
-      description: 'Enter comma-separated category IDs for each level.',
+      title: appL10n.categoryNotifications,
+      description: appL10n.enterCommaSeparatedCategoryIDsForEachLevel,
       keys: groupCategoryKeys,
       controllers: controller.textControllers,
     ),
     GroupRoute.tags => _ListNotificationFields(
-      title: 'Tag notifications',
-      description: 'Enter comma-separated tag names for each level.',
+      title: appL10n.tagNotifications,
+      description: appL10n.enterCommaSeparatedTagNamesForEachLevel,
       keys: groupTagKeys,
       controllers: controller.textControllers,
     ),
@@ -447,21 +456,23 @@ class _ProfileFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _FormHeading(
-          title: 'Profile',
-          description: 'The name and identity people see around the forum.',
+        _FormHeading(
+          title: context.l10n.profile,
+          description: context.l10n.theNameAndIdentityPeopleSeeAroundTheForum,
         ),
-        field('name', 'Group name'),
-        field('full_name', 'Full name'),
-        field('bio_raw', 'About this group', lines: 6),
-        field('title', 'Member title'),
-        field('flair_icon', 'Flair icon', hint: 'shield-halved'),
+        field('name', context.l10n.groupName),
+        field('full_name', context.l10n.fullName),
+        field('bio_raw', context.l10n.aboutThisGroup, lines: 6),
+        field('title', context.l10n.memberTitle),
+        field('flair_icon', context.l10n.flairIcon, hint: 'shield-halved'),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: field('flair_bg_color', 'Flair background')),
+            Expanded(
+              child: field('flair_bg_color', context.l10n.flairBackground),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: field('flair_color', 'Flair foreground')),
+            Expanded(child: field('flair_color', context.l10n.flairForeground)),
           ],
         ),
       ],
@@ -618,9 +629,9 @@ class _GroupLogs extends StatelessWidget {
           ? _GroupState(icon: DIcons.triangleExclamation, title: error!)
           : const SizedBox.shrink();
     } else if (page!.logs.isEmpty && !loading) {
-      body = const _GroupState(
+      body = _GroupState(
         icon: DIcons.farClock,
-        title: 'No group changes have been recorded.',
+        title: context.l10n.noGroupChangesHaveBeenRecorded,
       );
     } else {
       body = ContentReadingLane(
@@ -667,10 +678,14 @@ class _GroupLogs extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DText('Logs', variant: DTextVariant.large, headingLevel: 2),
+              DText(
+                context.l10n.logs,
+                variant: DTextVariant.large,
+                headingLevel: 2,
+              ),
               const SizedBox(height: 4),
               Text(
-                'Membership and settings changes for this group.',
+                context.l10n.membershipAndSettingsChangesForThisGroup,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

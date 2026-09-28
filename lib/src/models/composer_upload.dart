@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/count_label.dart';
@@ -106,8 +107,10 @@ final class ComposerUploadSizeLimit {
   int get hashCode => Object.hash(maxBytes, enforced);
 
   @override
-  String toString() =>
-      'ComposerUploadSizeLimit($maxBytes, enforced: $enforced)';
+  String toString() => appL10n.composerUploadSizeLimitEnforced(
+    (maxBytes).toString(),
+    (enforced).toString(),
+  );
 }
 
 final class ComposerUploadException implements Exception {
@@ -125,9 +128,11 @@ final class ComposerUploadException implements Exception {
     int? statusCode,
   }) : this(
          maxBytes == null
-             ? '$filename is too large to upload.'
-             : '$filename is too large (maximum size is '
-                   '${_humanFileSize(maxBytes)}).',
+             ? appL10n.isTooLargeToUpload((filename).toString())
+             : appL10n.isTooLargeMaximumSizeIs(
+                 (filename).toString(),
+                 (_humanFileSize(maxBytes)).toString(),
+               ),
          statusCode: statusCode,
          retryable: false,
        );
@@ -140,13 +145,18 @@ final class ComposerUploadException implements Exception {
   String get displayMessage {
     if (statusCode != 429) return message;
     final wait = retryAfter;
-    if (wait == null) return 'Too many uploads. Please wait and retry.';
+    if (wait == null) return appL10n.tooManyUploadsPleaseWaitAndRetry;
     final seconds = (wait.inMilliseconds / 1000).ceil();
-    return 'Too many uploads. Try again in ${countLabel(seconds, 'second')}.';
+    return appL10n.tooManyUploadsTryAgainIn(
+      (countLabel(seconds, CountNoun.second)).toString(),
+    );
   }
 
   @override
-  String toString() => 'ComposerUploadException($statusCode, $message)';
+  String toString() => appL10n.composerUploadException(
+    (statusCode).toString(),
+    (message).toString(),
+  );
 }
 
 /// The web client's `I18n.toHumanSize`, so a limit reads as it does there.

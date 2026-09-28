@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
@@ -27,7 +28,7 @@ class ForumDisplaySettings extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not save the font.',
+          appL10n.couldNotSaveTheFont,
           type: DToastType.error,
         );
       }
@@ -43,7 +44,7 @@ class ForumDisplaySettings extends StatelessWidget {
       if (context.mounted) {
         DToast.show(
           context,
-          'Could not save the icon set.',
+          appL10n.couldNotSaveTheIconSet,
           type: DToastType.error,
         );
       }
@@ -74,13 +75,13 @@ class ForumDisplaySettings extends StatelessWidget {
                 spacing: DSpacing.md,
                 runSpacing: DSpacing.sm,
                 children: [
-                  const Text('Font'),
+                  Text(context.l10n.font),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: DSpacing.controlGap,
                     children: [
                       DButtonGroup(
-                        semanticLabel: 'Text size controls',
+                        semanticLabel: context.l10n.textSizeControls,
                         children: [
                           DButton.iconOnly(
                             key: const ValueKey('text-size-decrease'),
@@ -90,8 +91,8 @@ class ForumDisplaySettings extends StatelessWidget {
                                     appSettings.decreaseTextScale(),
                                   ),
                             icon: const DIcon(DIcons.minus),
-                            tooltip: 'Decrease text size',
-                            semanticLabel: 'Decrease text size',
+                            tooltip: context.l10n.decreaseTextSize,
+                            semanticLabel: context.l10n.decreaseTextSize,
                             variant: DButtonVariant.outline,
                             size: DButtonSize.segment,
                           ),
@@ -100,8 +101,10 @@ class ForumDisplaySettings extends StatelessWidget {
                               key: const ValueKey('text-size-value'),
                               container: true,
                               excludeSemantics: true,
-                              label: 'Current text size',
-                              value: '$percentage percent',
+                              label: context.l10n.currentTextSize,
+                              value: context.l10n.percentAppsettingspage(
+                                (percentage).toString(),
+                              ),
                               liveRegion: true,
                               child: Text('$percentage%'),
                             ),
@@ -115,8 +118,8 @@ class ForumDisplaySettings extends StatelessWidget {
                                     appSettings.increaseTextScale(),
                                   ),
                             icon: const DIcon(DIcons.plus),
-                            tooltip: 'Increase text size',
-                            semanticLabel: 'Increase text size',
+                            tooltip: context.l10n.increaseTextSize,
+                            semanticLabel: context.l10n.increaseTextSize,
                             variant: DButtonVariant.outline,
                             size: DButtonSize.segment,
                           ),
@@ -124,7 +127,7 @@ class ForumDisplaySettings extends StatelessWidget {
                       ),
                       DButton(
                         key: const ValueKey('text-size-reset'),
-                        label: const Text('Reset'),
+                        label: Text(context.l10n.reset),
                         onPressed: scale == AppTextScale.percent100
                             ? null
                             : () => unawaited(appSettings.resetTextScale()),
@@ -158,7 +161,7 @@ class ForumDisplaySettings extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'The quick brown fox jumps over the lazy dog.',
+                              context.l10n.theQuickBrownFoxJumpsOverTheLazyDog,
                               style: theme.textTheme.bodyLarge!.copyWith(
                                 fontFamily: font.family ?? systemFamily,
                                 fontFamilyFallback:
@@ -175,7 +178,7 @@ class ForumDisplaySettings extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: DSpacing.lg),
-              const Text('Icons'),
+              Text(context.l10n.icons),
               const SizedBox(height: DSpacing.sm),
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -228,7 +231,7 @@ class ForumDisplaySettings extends StatelessWidget {
                 },
               ),
               const SizedBox(height: DSpacing.lg),
-              const Text('Content width'),
+              Text(context.l10n.contentWidth),
               const SizedBox(height: DSpacing.sm),
               DToggleGroup<bool>(
                 key: const ValueKey('settings-content-width'),
@@ -241,9 +244,15 @@ class ForumDisplaySettings extends StatelessWidget {
                     unawaited(appSettings.setLimitContentSize(values.first));
                   }
                 },
-                items: const [
-                  DToggleGroupItem(value: true, child: Text('Normal')),
-                  DToggleGroupItem(value: false, child: Text('Wide')),
+                items: [
+                  DToggleGroupItem(
+                    value: true,
+                    child: Text(context.l10n.normal),
+                  ),
+                  DToggleGroupItem(
+                    value: false,
+                    child: Text(context.l10n.wide),
+                  ),
                 ],
               ),
             ],

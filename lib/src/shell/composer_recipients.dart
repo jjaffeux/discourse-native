@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/found_group.dart';
@@ -65,7 +66,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
       groups: [
         if (mobile)
           DComboboxOptionGroup(
-            label: 'Selected',
+            label: context.l10n.selectedComposerrecipients,
             options: [
               for (final name in recipients)
                 if (name.toLowerCase().contains(query))
@@ -73,7 +74,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
             ],
           ),
         DComboboxOptionGroup(
-          label: 'Users',
+          label: context.l10n.users,
           options: [
             for (final user in _results.users)
               if (!mobile || !recipients.contains(user.username))
@@ -86,7 +87,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
           ],
         ),
         DComboboxOptionGroup(
-          label: 'Groups',
+          label: context.l10n.groups,
           options: [
             for (final group in _results.groups)
               if (!mobile || !recipients.contains(group.name))
@@ -123,44 +124,48 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
                 size: DButtonSize.toolbar,
                 showChevron: true,
                 label: recipients.length > 1
-                    ? '${recipients.length} recipients'
-                    : recipients.firstOrNull ?? 'Recipients',
+                    ? context.l10n.recipientsComposerrecipientsValue(
+                        (recipients.length).toString(),
+                      )
+                    : recipients.firstOrNull ?? context.l10n.recipients,
                 icon: recipients.isEmpty ? const DIcon(DIcons.users) : null,
                 semanticLabel: recipients.isEmpty
-                    ? 'Choose recipients'
-                    : 'Recipients: ${recipients.join(', ')}',
+                    ? context.l10n.chooseRecipients
+                    : context.l10n.recipientsComposerrecipients(
+                        (recipients.join(', ')).toString(),
+                      ),
                 onPressed: widget.composer.isEditing ? trigger.toggle : null,
                 focusNode: trigger.focusNode,
                 expanded: trigger.open,
                 maximumWidth: 210,
               ),
             )
-          : const DComboboxChips<String>(
+          : DComboboxChips<String>(
               input: DComboboxChipsInput<String>(
-                key: ValueKey('composer-recipients-input'),
-                placeholder: 'Add users or groups',
+                key: const ValueKey('composer-recipients-input'),
+                placeholder: context.l10n.addUsersOrGroups,
                 autofocus: true,
               ),
             ),
       content: DComboboxContent(
-        semanticLabel: 'Recipients',
+        semanticLabel: context.l10n.recipients,
         sheetOnMobile: true,
         fullScreenOnMobile: mobile,
         children: [
           if (mobile)
-            const Padding(
-              padding: EdgeInsets.all(4),
+            Padding(
+              padding: const EdgeInsets.all(4),
               child: DComboboxInput<String>(
-                key: ValueKey('composer-recipients-input'),
-                placeholder: 'Search users or groups',
-                semanticLabel: 'Search recipients',
+                key: const ValueKey('composer-recipients-input'),
+                placeholder: context.l10n.searchUsersOrGroups,
+                semanticLabel: context.l10n.searchRecipients,
                 registerAsAnchor: false,
                 autofocus: true,
                 showTrigger: false,
               ),
             ),
-          const DComboboxEmpty<String>(
-            child: Text('No users or groups found.'),
+          DComboboxEmpty<String>(
+            child: Text(context.l10n.noUsersOrGroupsFound),
           ),
           const DComboboxList<String>(),
         ],
@@ -179,7 +184,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
           ? Align(alignment: AlignmentDirectional.centerStart, child: picker)
           : DField(
               children: [
-                const DFieldLabel(child: Text('To')),
+                DFieldLabel(child: Text(context.l10n.to)),
                 picker,
               ],
             ),

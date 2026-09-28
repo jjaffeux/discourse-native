@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -22,10 +23,15 @@ Future<void> showComponentStyleguide(BuildContext context) =>
       ),
     );
 
-const _foundations = ComponentReference(
+ComponentReference get _foundations => ComponentReference(
   id: 'foundations',
-  name: 'Foundations',
-  sections: ['Theme tokens', 'Typography', 'Motion', 'Spacing'],
+  name: appL10n.foundations,
+  sections: [
+    appL10n.themeTokens,
+    appL10n.typography,
+    appL10n.motion,
+    appL10n.spacing,
+  ],
 );
 final _components = [...componentCatalogue, ...applicationComponentCatalogue]
   ..sort((left, right) => left.name.compareTo(right.name));
@@ -238,9 +244,9 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         children: [
           Row(
             children: [
-              const DSidebarTrigger(
-                key: ValueKey('styleguide-navigation'),
-                semanticLabel: 'Browse components',
+              DSidebarTrigger(
+                key: const ValueKey('styleguide-navigation'),
+                semanticLabel: context.l10n.browseComponents,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -252,14 +258,14 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                     ],
                     Flexible(
                       child: Text(
-                        'Discourse / ui',
+                        context.l10n.discourseUi,
                         style: styleguideText(context, weight: FontWeight.w600),
                       ),
                     ),
                     if (wide) ...[
                       const SizedBox(width: 32),
                       Text(
-                        'Components',
+                        context.l10n.components,
                         style: styleguideText(
                           context,
                           size: 13,
@@ -276,7 +282,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               ],
               StyleguideAction(
                 key: const ValueKey('styleguide-documentation-theme'),
-                label: 'Toggle documentation theme',
+                label: context.l10n.toggleDocumentationTheme,
                 icon: Theme.of(context).brightness == Brightness.dark
                     ? Icons.light_mode_outlined
                     : Icons.dark_mode_outlined,
@@ -291,7 +297,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               const SizedBox(width: 4),
               StyleguideAction(
                 key: const ValueKey('styleguide-close'),
-                label: 'Close styleguide',
+                label: context.l10n.closeStyleguide,
                 icon: Icons.close,
                 iconOnly: true,
                 onPressed: _close,
@@ -308,12 +314,12 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       key: const ValueKey('styleguide-search'),
       controller: _search,
       focusNode: _searchFocus,
-      hintText: 'Search components...',
+      hintText: context.l10n.searchComponents,
       prefix: const Icon(Icons.search, size: 16),
       suffix: _search.text.isEmpty
           ? null
           : StyleguideAction(
-              label: 'Clear search',
+              label: context.l10n.clearSearch,
               icon: Icons.close,
               iconOnly: true,
               onPressed: () => setState(_search.clear),
@@ -373,7 +379,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       key: const ValueKey('styleguide-sidebar'),
       width: 240,
       mobileWidth: 320,
-      semanticLabel: 'Component navigation',
+      semanticLabel: context.l10n.componentNavigation,
       side: Directionality.of(context) == TextDirection.rtl
           ? DSidebarSide.right
           : DSidebarSide.left,
@@ -400,7 +406,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'No components match your search.',
+                  context.l10n.noComponentsMatchYourSearch,
                   style: styleguideText(context, muted: true),
                 ),
               )
@@ -408,11 +414,13 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               DSidebarGroup(child: menu(entries))
             else ...[
               DSidebarGroup(
-                label: const DSidebarGroupLabel(child: Text('Getting started')),
+                label: DSidebarGroupLabel(
+                  child: Text(context.l10n.gettingStarted),
+                ),
                 child: menu([_foundations]),
               ),
               DSidebarGroup(
-                label: const DSidebarGroupLabel(child: Text('Components')),
+                label: DSidebarGroupLabel(child: Text(context.l10n.components)),
                 child: menu(_components),
               ),
             ],
@@ -461,7 +469,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       ),
                       const SizedBox(width: 12),
                       StyleguideAction(
-                        label: 'Previous component',
+                        label: context.l10n.previousComponent,
                         icon: Icons.arrow_back,
                         iconOnly: true,
                         onPressed: index > 0
@@ -470,7 +478,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       ),
                       const SizedBox(width: 4),
                       StyleguideAction(
-                        label: 'Next component',
+                        label: context.l10n.nextComponent,
                         icon: Icons.arrow_forward,
                         iconOnly: true,
                         onPressed: index < _entries.length - 1
@@ -645,7 +653,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       SizedBox(
         width: 136,
         child: StyleguideChoice<StyleguideTheme>(
-          label: 'Theme',
+          label: context.l10n.theme,
           value: _theme,
           options: {
             for (final mode in StyleguideTheme.values) mode: mode.label,
@@ -656,15 +664,20 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       SizedBox(
         width: 96,
         child: StyleguideChoice<double>(
-          label: 'Viewport width',
+          label: context.l10n.viewportWidth,
           value: _width,
-          options: {0: 'Fit', 360: '360 px', 768: '768 px', 1024: '1024 px'},
+          options: {
+            0: context.l10n.fit,
+            360: context.l10n.message360Px,
+            768: context.l10n.message768Px,
+            1024: context.l10n.message1024Px,
+          },
           onChanged: (width) => setState(() => _width = width),
         ),
       ),
       StyleguideAction(
         key: const ValueKey('styleguide-settings'),
-        label: 'Preview settings',
+        label: context.l10n.previewSettings,
         icon: Icons.tune,
         iconOnly: true,
         selected: _settingsOpen,
@@ -672,7 +685,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       ),
       StyleguideAction(
         key: const ValueKey('styleguide-reset'),
-        label: 'Reset examples',
+        label: context.l10n.resetExamples,
         icon: Icons.refresh,
         iconOnly: true,
         onPressed: () => setState(() => _reset++),
@@ -681,20 +694,20 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
         SizedBox(
           width: 96,
           child: StyleguideChoice<double>(
-            label: 'Text scale',
+            label: context.l10n.textScale,
             value: _scale,
             options: {1: '100%', 1.5: '150%', 2: '200%'},
             onChanged: (scale) => setState(() => _scale = scale),
           ),
         ),
         StyleguideAction(
-          label: 'Right to left',
+          label: context.l10n.rightToLeft,
           selected: _rtl,
           outlined: true,
           onPressed: () => setState(() => _rtl = !_rtl),
         ),
         StyleguideAction(
-          label: 'Reduce motion',
+          label: context.l10n.reduceMotion,
           selected: _reducedMotion,
           outlined: true,
           onPressed: () => setState(() => _reducedMotion = !_reducedMotion),
@@ -778,7 +791,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 0, 12),
             child: Text(
-              'On This Page',
+              context.l10n.onThisPage,
               style: styleguideText(
                 context,
                 size: 12,
@@ -946,7 +959,9 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                       Expanded(
                         child: StyleguideAction(
                           key: _key('styleguide-code-toggle'),
-                          label: _codeOpen ? 'Hide code' : 'View code',
+                          label: _codeOpen
+                              ? context.l10n.hideCode
+                              : context.l10n.viewCode,
                           icon: Icons.code,
                           alignment: AlignmentDirectional.centerStart,
                           onPressed: () =>
@@ -954,7 +969,9 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                         ),
                       ),
                       StyleguideAction(
-                        label: _copied ? 'Copied' : 'Copy code',
+                        label: _copied
+                            ? context.l10n.copied
+                            : context.l10n.copyCode,
                         icon: _copied ? Icons.check : Icons.copy_outlined,
                         iconOnly: true,
                         onPressed: () async {

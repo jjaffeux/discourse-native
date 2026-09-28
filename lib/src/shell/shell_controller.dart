@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' show Color, Rect;
 
 import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueListenable, listEquals;
 import 'package:flutter/scheduler.dart';
@@ -823,7 +824,7 @@ class ShellController extends FrameSafeNotifier
         final counter = plugins.registry.notificationCounter(id);
         if (counter == null) {
           throw PluginInstallationException(
-            'Notification counter ${id.id} is not registered.',
+            appL10n.notificationCounterIsNotRegistered((id.id).toString()),
           );
         }
         accountActivity.applyPluginCounter(siteUrl, counter, reduce);
@@ -837,7 +838,10 @@ class ShellController extends FrameSafeNotifier
         updateNotificationCounter: (siteUrl, id, reduce) {
           if (id.owner != consumer) {
             throw PluginInstallationException(
-              'Plugin $consumer cannot update notification counter ${id.id}.',
+              appL10n.pluginCannotUpdateNotificationCounter(
+                (consumer).toString(),
+                (id.id).toString(),
+              ),
             );
           }
           host.updateNotificationCounter(siteUrl, id, reduce);
@@ -883,8 +887,10 @@ class ShellController extends FrameSafeNotifier
         buildComposer: (request) {
           if (request.kind.owner != consumer) {
             throw PluginInstallationException(
-              'Plugin $consumer cannot build composer target '
-              '${request.kind.id}.',
+              appL10n.pluginCannotBuildComposerTarget(
+                (consumer).toString(),
+                (request.kind.id).toString(),
+              ),
             );
           }
           return host.buildComposer(request);
@@ -1061,13 +1067,18 @@ class ShellController extends FrameSafeNotifier
     final remaining = topicLoadTimeout - elapsed.elapsed;
     if (remaining <= Duration.zero) {
       return Future<T>.error(
-        TimeoutException('Timed out $description.', topicLoadTimeout),
+        TimeoutException(
+          appL10n.timedOut((description).toString()),
+          topicLoadTimeout,
+        ),
       );
     }
     return stage.timeout(
       remaining,
-      onTimeout: () =>
-          throw TimeoutException('Timed out $description.', topicLoadTimeout),
+      onTimeout: () => throw TimeoutException(
+        appL10n.timedOut((description).toString()),
+        topicLoadTimeout,
+      ),
     );
   }
 
@@ -3972,7 +3983,7 @@ class ShellController extends FrameSafeNotifier
       );
       final identity = await _readClientIdFor(lease, credential?.value);
       if (credential?.value == null || identity == null || !lease.isCurrent) {
-        return 'Reconnect to dismiss new topics.';
+        return appL10n.reconnectToDismissNewTopics;
       }
       // Core accepts one tag. Resolve the full intersection before a bulk
       // write when this app's list has multiple tags.
@@ -4028,7 +4039,7 @@ class ShellController extends FrameSafeNotifier
     } catch (error, stackTrace) {
       if (!lease.isCurrent || isDisposed) return null;
       _reportOperationalError(error, stackTrace, 'topics.dismissNew');
-      return 'Could not dismiss new topics. Please try again.';
+      return appL10n.couldNotDismissNewTopicsPleaseTryAgain;
     } finally {
       _dismissingNew.remove(key);
       if (!isDisposed) _notify();
@@ -5626,7 +5637,7 @@ class ShellController extends FrameSafeNotifier
         if (_instanceAt(siteUrl)?.user?.hidePresence == null &&
             !_hidePresenceWrites.containsKey(siteUrl)) {
           _hidePresenceErrors[siteUrl] =
-              "Couldn't load the presence setting. Try again.";
+              appL10n.couldnTLoadThePresenceSettingTryAgain;
           _notify();
         }
       });
@@ -5663,7 +5674,7 @@ class ShellController extends FrameSafeNotifier
         apiKey: apiKey,
         lease: lease,
       ),
-      '$host no longer accepts this sign-in. Sign in again to continue.',
+      appL10n.noLongerAcceptsThisSignInSignInAgainToContinue((host).toString()),
     );
   }
 
@@ -5677,8 +5688,7 @@ class ShellController extends FrameSafeNotifier
     _offerSignInAgain(
       siteUrl,
       await _accountSessions.expireMissingKey(siteUrl, lease: lease),
-      'The sign-in for $host is no longer saved on this device. '
-      'Sign in again to continue.',
+      appL10n.theSignInForIsNoLongerSavedOnThisDevice((host).toString()),
     );
   }
 
@@ -5950,7 +5960,7 @@ class ShellController extends FrameSafeNotifier
       if (apiKey == null) {
         lease.commit(() {
           _hidePresenceErrors[siteUrl] =
-              'Reconnect this account to load its presence setting.';
+              appL10n.reconnectThisAccountToLoadItsPresenceSetting;
           _notify();
         });
         return;
@@ -5966,7 +5976,7 @@ class ShellController extends FrameSafeNotifier
       );
       lease.commit(() {
         _hidePresenceErrors[siteUrl] =
-            "Couldn't load the presence setting. Try again.";
+            appL10n.couldnTLoadThePresenceSettingTryAgain;
         _notify();
       });
     }
@@ -6031,7 +6041,7 @@ class ShellController extends FrameSafeNotifier
         siteUrl,
         request,
         lease,
-        error: "Couldn't update presence. Check the connection and try again.",
+        error: appL10n.couldnTUpdatePresenceCheckTheConnectionAndTryAgain,
       );
     }
   }
@@ -6078,19 +6088,19 @@ class ShellController extends FrameSafeNotifier
   String _hidePresenceError(WriteException error) {
     if (error.errors.isNotEmpty) return error.errors.join('\n');
     return switch (error.failure) {
-      WriteFailure.validation =>
-        "The site didn't accept that presence setting.",
+      WriteFailure.validation => appL10n.theSiteDidnTAcceptThatPresenceSetting,
       WriteFailure.rateLimited => switch (error.retryAfter) {
-        final wait? =>
-          'Too fast — try changing presence again in ${wait.inSeconds}s.',
-        null => 'Too fast — try changing presence again in a moment.',
+        final wait? => appL10n.tooFastTryChangingPresenceAgainInS(
+          (wait.inSeconds).toString(),
+        ),
+        null => appL10n.tooFastTryChangingPresenceAgainInAMoment,
       },
       WriteFailure.forbidden =>
-        'Presence could not be changed. Reconnect this account and try again.',
+        appL10n.presenceCouldNotBeChangedReconnectThisAccountAndTryAgain,
       WriteFailure.conflict =>
-        'Presence changed somewhere else. Try again to use this setting.',
+        appL10n.presenceChangedSomewhereElseTryAgainToUseThisSetting,
       WriteFailure.unreachable =>
-        "Couldn't update presence. Check the connection and try again.",
+        appL10n.couldnTUpdatePresenceCheckTheConnectionAndTryAgain,
     };
   }
 
@@ -6109,10 +6119,10 @@ class ShellController extends FrameSafeNotifier
     if (instance == null ||
         user?.id == null ||
         !instance.config.userStatusEnabled) {
-      return 'Custom status is not available for this account.';
+      return appL10n.customStatusIsNotAvailableForThisAccount;
     }
     if (userStatusWriteInFlight(siteUrl)) {
-      return 'Another status change is still finishing.';
+      return appL10n.anotherStatusChangeIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     _userStatusWrites[siteUrl] = lease;
@@ -6129,7 +6139,7 @@ class ShellController extends FrameSafeNotifier
       final clientId = await authenticator.clientId();
       if (!ownsWrite()) return null;
       if (endsAt != null && !endsAt.isAfter(_clock())) {
-        return 'Choose a time in the future.';
+        return appL10n.chooseATimeInTheFuture;
       }
       await api.site.setUserStatus(
         siteUrl: siteUrl,
@@ -6194,10 +6204,10 @@ class ShellController extends FrameSafeNotifier
     if (instance == null ||
         user?.id == null ||
         !instance.config.userStatusEnabled) {
-      return 'Custom status is not available for this account.';
+      return appL10n.customStatusIsNotAvailableForThisAccount;
     }
     if (userStatusWriteInFlight(siteUrl)) {
-      return 'Another status change is still finishing.';
+      return appL10n.anotherStatusChangeIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     _userStatusWrites[siteUrl] = lease;
@@ -7023,9 +7033,9 @@ class ShellController extends FrameSafeNotifier
     } else if (instance.pathWithin(target) == '/u' &&
         !target.hasQuery &&
         !target.hasFragment) {
-      route = const ContentRoute(
+      route = ContentRoute(
         id: 'users',
-        title: 'Users',
+        title: appL10n.users,
         icon: DIcons.user,
       );
     } else if (_coreListRoute(instance, target) case final core?) {
@@ -7466,7 +7476,7 @@ class ShellController extends FrameSafeNotifier
     _openTopic(
       topicId,
       row?.slug ?? '',
-      detail?.title ?? row?.title ?? 'Topic',
+      detail?.title ?? row?.title ?? appL10n.topic,
       postNumber: postNumber,
     );
   }
@@ -8807,17 +8817,17 @@ class ShellController extends FrameSafeNotifier
     bool pinned,
   ) async {
     if (isDisposed || topicId <= 0) {
-      return 'This topic can no longer be changed.';
+      return appL10n.thisTopicCanNoLongerBeChanged;
     }
     final held = store.read<TopicDetail>(siteUrl, topicId);
     if (held == null || !held.hasPinPreference) {
-      return 'This topic does not offer a pin preference.';
+      return appL10n.thisTopicDoesNotOfferAPinPreference;
     }
     if (held.pinned == pinned) return null;
 
     final key = _topicKey(siteUrl, topicId);
     if (!_topicPinWrites.add(key)) {
-      return 'Another pin change is still finishing.';
+      return appL10n.anotherPinChangeIsStillFinishing;
     }
     final heldRow = store.read<Topic>(siteUrl, topicId);
     final lease = lifecycle.capture(siteUrl);
@@ -8915,20 +8925,20 @@ class ShellController extends FrameSafeNotifier
         instance?.isConnected != true ||
         instance?.user?.canSendPrivateMessages != true ||
         held?.privateMessage != true) {
-      return 'This message can no longer be moved.';
+      return appL10n.thisMessageCanNoLongerBeMoved;
     }
     if (held!.messageArchived == archived) return null;
     final key = _topicKey(siteUrl, topicId);
     if (!_messageArchiveWrites.add(key)) {
-      return 'Another inbox action is still finishing.';
+      return appL10n.anotherInboxActionIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     try {
       final credential = await _credentialForWrite(siteUrl);
-      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
       if (credential.failure case final failure?) return failure.message;
       final clientId = await authenticator.clientId();
-      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
       await api.topicMutations.updateMessageArchived(
         siteUrl: siteUrl,
         apiKey: credential.apiKey!,
@@ -8936,7 +8946,7 @@ class ShellController extends FrameSafeNotifier
         archived: archived,
         clientId: clientId,
       );
-      if (!lease.isCurrent || isDisposed) return 'The account has changed.';
+      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
       _messageArchiveVersions[key] =
           _messageArchiveVersion(siteUrl, topicId) + 1;
       store.update<TopicDetail>(
@@ -9042,17 +9052,17 @@ class ShellController extends FrameSafeNotifier
     bool enabled,
   ) async {
     if (isDisposed || topicId <= 0) {
-      return 'This topic can no longer be changed.';
+      return appL10n.thisTopicCanNoLongerBeChanged;
     }
     final held = store.read<TopicDetail>(siteUrl, topicId);
     if (held == null || !held.canChangeStatus(status)) {
-      return 'This topic can no longer be changed that way.';
+      return appL10n.thisTopicCanNoLongerBeChangedThatWay;
     }
     if (held.statusValue(status) == enabled) return null;
 
     final key = _topicKey(siteUrl, topicId);
     if (!_topicStatusWrites.add(key)) {
-      return 'Another topic action is still finishing.';
+      return appL10n.anotherTopicActionIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     _notify();
@@ -9111,7 +9121,7 @@ class ShellController extends FrameSafeNotifier
     bool deleted,
   ) async {
     if (isDisposed || topicId <= 0) {
-      return 'This topic can no longer be changed.';
+      return appL10n.thisTopicCanNoLongerBeChanged;
     }
     final held = store.read<TopicDetail>(siteUrl, topicId);
     final allowed = deleted
@@ -9119,12 +9129,12 @@ class ShellController extends FrameSafeNotifier
         : held?.canRecoverTopic == true;
     if (held == null || !allowed) {
       return deleted
-          ? 'This topic cannot be deleted.'
-          : 'This topic cannot be recovered.';
+          ? appL10n.thisTopicCannotBeDeleted
+          : appL10n.thisTopicCannotBeRecovered;
     }
     final key = _topicKey(siteUrl, topicId);
     if (!_topicDeletionWrites.add(key)) {
-      return 'Another topic action is still finishing.';
+      return appL10n.anotherTopicActionIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     _notify();
@@ -9612,7 +9622,7 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      return "Couldn't load this topic's summary.";
+      return appL10n.couldnTLoadThisTopicSSummary;
     } finally {
       lease.commit(() {
         _topicSummariesLoading.remove(key);
@@ -9930,7 +9940,7 @@ class ShellController extends FrameSafeNotifier
       tabId: tabId,
       topicId: 0,
       slug: '',
-      topicTitle: 'New message',
+      topicTitle: appL10n.newMessage,
       mode: ComposerMode.privateMessage,
       originFeedId: feedId,
       targetRecipients: recipients,
@@ -10063,7 +10073,7 @@ class ShellController extends FrameSafeNotifier
       tabId: tabId,
       topicId: 0,
       slug: '',
-      topicTitle: 'New topic',
+      topicTitle: appL10n.newTopic,
       mode: ComposerMode.newTopic,
       draftKey:
           listedDraft?.key ?? _newDraftKey(ComposerDraft.newTopicDraftKey),
@@ -10282,7 +10292,7 @@ class ShellController extends FrameSafeNotifier
         tabId: tabId,
         topicId: 0,
         slug: '',
-        topicTitle: 'New message',
+        topicTitle: appL10n.newMessage,
         mode: ComposerMode.privateMessage,
         originTopicId: sourceTopicId,
         draftKey: _newDraftKey(ComposerDraft.newPrivateMessageDraftKey),
@@ -10299,7 +10309,7 @@ class ShellController extends FrameSafeNotifier
         tabId: tabId,
         topicId: 0,
         slug: '',
-        topicTitle: 'New topic',
+        topicTitle: appL10n.newTopic,
         mode: ComposerMode.newTopic,
         originTopicId: sourceTopicId,
         draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
@@ -10396,7 +10406,7 @@ class ShellController extends FrameSafeNotifier
         tabId: tabId,
         topicId: 0,
         slug: '',
-        topicTitle: 'New topic',
+        topicTitle: appL10n.newTopic,
         mode: ComposerMode.newTopic,
         originFeedId: feedId,
         draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
@@ -10734,26 +10744,26 @@ class ShellController extends FrameSafeNotifier
     if (!_fastEditContextCurrent(siteUrl, topicId, post.id) ||
         held?.canEdit != true ||
         !siteConfigFor(siteUrl).fastEditEnabled) {
-      return 'This post can no longer be edited.';
+      return appL10n.thisPostCanNoLongerBeEdited;
     }
     if (held!.isLocalized) {
-      return 'Open the full editor to edit localized content.';
+      return appL10n.openTheFullEditorToEditLocalizedContent;
     }
     if (selectedMarkdown.isEmpty) {
-      return 'The selected text could not be matched safely.';
+      return appL10n.theSelectedTextCouldNotBeMatchedSafely;
     }
 
     final key = _postKey(siteUrl, post.id);
     final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
-      return 'Another action on this post is still being saved.';
+      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
-        return 'The topic changed before the edit could be saved.';
+        return appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
       }
       if (credential.failure case final failure?) return failure.message;
 
@@ -10766,7 +10776,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
-        return 'The topic changed before the edit could be saved.';
+        return appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
       }
 
       Post? current;
@@ -10778,11 +10788,11 @@ class ShellController extends FrameSafeNotifier
       }
       final raw = current?.raw;
       if (raw == null) {
-        return 'The selected text could not be matched safely.';
+        return appL10n.theSelectedTextCouldNotBeMatchedSafely;
       }
       final match = _uniqueTextMatch(raw, selectedMarkdown);
       if (match == null) {
-        return 'The selected text could not be matched safely.';
+        return appL10n.theSelectedTextCouldNotBeMatchedSafely;
       }
       final nextRaw = raw.replaceRange(match.start, match.end, replacement);
       if (nextRaw == raw) return null;
@@ -10796,7 +10806,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
-        return 'The topic changed before the edit could be saved.';
+        return appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
       }
       lease.commit(() {
         _storeEditedPost(siteUrl, updated, raw: nextRaw);
@@ -10837,15 +10847,15 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     if (detail?.canEdit != true) {
-      return 'This topic can no longer be edited.';
+      return appL10n.thisTopicCanNoLongerBeEdited;
     }
     final nextTitle = title.trim();
-    if (nextTitle.isEmpty) return 'A topic title is required.';
+    if (nextTitle.isEmpty) return appL10n.aTopicTitleIsRequired;
     if (nextTitle == detail!.title.trim()) return null;
 
     final lease = lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl);
-    if (!lease.isCurrent) return 'The forum changed before the title saved.';
+    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheTitleSaved;
     if (credential.failure case final failure?) return failure.message;
 
     final TopicUpdate update;
@@ -10865,7 +10875,7 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     }
-    if (!lease.isCurrent) return 'The forum changed before the title saved.';
+    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheTitleSaved;
 
     final stored = update.title ?? nextTitle;
     lease.commit(() {
@@ -10892,12 +10902,12 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     if (detail?.canEdit != true) {
-      return 'This topic can no longer be edited.';
+      return appL10n.thisTopicCanNoLongerBeEdited;
     }
     if (detail!.categoryId == categoryId) return null;
     final lease = lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl);
-    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
     if (credential.failure case final failure?) return failure.message;
 
     final tags = await _tagsAllowedInCategory(
@@ -10906,7 +10916,7 @@ class ShellController extends FrameSafeNotifier
       categoryId: categoryId,
       selected: detail.tags,
     );
-    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
 
     final TopicUpdate update;
     try {
@@ -10928,7 +10938,7 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     }
-    if (!lease.isCurrent) return 'The forum changed before the category saved.';
+    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
 
     // The answer's title only echoes the baseline this write was accepted
     // against; its tags are the ones the site kept.
@@ -11040,12 +11050,12 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url != siteUrl ||
         currentContent?.topicId != topicId ||
         currentTopic?.canEditTags != true) {
-      return 'Topic tags can no longer be edited.';
+      return appL10n.topicTagsCanNoLongerBeEdited;
     }
     final next = List<TopicTag>.unmodifiable(tags);
     final lease = lifecycle.capture(siteUrl);
     final credential = await _credentialForWrite(siteUrl);
-    if (!lease.isCurrent) return 'The site changed before tags were saved.';
+    if (!lease.isCurrent) return appL10n.theSiteChangedBeforeTagsWereSaved;
     if (credential.failure case final failure?) return failure.message;
     try {
       await api.topicMutations.updateTopicTags(
@@ -11066,7 +11076,7 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     }
-    if (!lease.isCurrent) return 'The site changed before tags were saved.';
+    if (!lease.isCurrent) return appL10n.theSiteChangedBeforeTagsWereSaved;
     lease.commit(() {
       _applyTopicTags(siteUrl, topicId, next);
       _notify();
@@ -11173,7 +11183,7 @@ class ShellController extends FrameSafeNotifier
           ComposerSuggestion(
             kind: ComposerTriggerKind.emoji,
             value: query,
-            label: 'More emoji',
+            label: appL10n.moreEmoji,
             art: const ArtIcon('discourse-emojis'),
             action: ComposerSuggestionAction.openEmojiPicker,
           ),
@@ -11389,8 +11399,8 @@ class ShellController extends FrameSafeNotifier
         lease: lifecycle.capture(siteUrl),
       );
 
-  static const _obsoleteTopicPostMove =
-      'Your connection changed. Reopen Move posts and try again.';
+  static String get _obsoleteTopicPostMove =>
+      appL10n.yourConnectionChangedReopenMovePostsAndTryAgain;
 
   bool isTopicPostMoveTargetCurrent(TopicPostMoveTarget target) =>
       !isDisposed && target._lease.isCurrent;
@@ -11677,8 +11687,8 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  static const _obsoleteTopicPostOwner =
-      'Your connection changed. Reopen Change owner and try again.';
+  static String get _obsoleteTopicPostOwner =>
+      appL10n.yourConnectionChangedReopenChangeOwnerAndTryAgain;
 
   bool _ownsTopicPostOwnerTarget(TopicPostOwnerTarget target) =>
       !isDisposed && target._lease.isCurrent;
@@ -11739,7 +11749,7 @@ class ShellController extends FrameSafeNotifier
         _topicPostOwnerRefusal(target, [postId], trimmedUsername);
     if (refusal() case final error?) return error;
     if (!_beginPostWrite(_postKey(siteUrl, postId))) {
-      return 'Another action on this post is still being saved.';
+      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
     try {
@@ -11828,8 +11838,8 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  static const _obsoletePermanentPostDeletion =
-      'Your connection changed. Reopen the action and try again.';
+  static String get _obsoletePermanentPostDeletion =>
+      appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
 
   String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) {
     if (isDisposed || !target._lease.isCurrent) {
@@ -11842,7 +11852,7 @@ class ShellController extends FrameSafeNotifier
         post == null ||
         post.postNumber != target.postNumber ||
         !_canPermanentlyDeletePost(topic, post)) {
-      return 'This post cannot be permanently deleted.';
+      return appL10n.thisPostCannotBePermanentlyDeleted;
     }
     return null;
   }
@@ -11867,7 +11877,7 @@ class ShellController extends FrameSafeNotifier
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
       return result.allowed
           ? null
-          : result.reason ?? 'This post cannot be permanently deleted yet.';
+          : result.reason ?? appL10n.thisPostCannotBePermanentlyDeletedYet;
     } catch (error, stackTrace) {
       if (!lease.isCurrent || isDisposed) {
         return _obsoletePermanentPostDeletion;
@@ -11893,11 +11903,11 @@ class ShellController extends FrameSafeNotifier
     final topicKey = _topicKey(siteUrl, topicId);
     if (target.deletesTopic) {
       if (!_topicDeletionWrites.add(topicKey)) {
-        return 'Another topic action is still finishing.';
+        return appL10n.anotherTopicActionIsStillFinishing;
       }
       _notify();
     } else if (!_beginPostWrite(_postKey(siteUrl, postId))) {
-      return 'Another action on this post is still being saved.';
+      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
     try {
@@ -12088,8 +12098,8 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  static const _obsoletePostNotice =
-      'Your connection changed. Reopen the post notice and try again.';
+  static String get _obsoletePostNotice =>
+      appL10n.yourConnectionChangedReopenThePostNoticeAndTryAgain;
 
   String? _postNoticeRefusal(PostNoticeTarget target) {
     if (isDisposed || !target._lease.isCurrent) return _obsoletePostNotice;
@@ -12098,7 +12108,7 @@ class ShellController extends FrameSafeNotifier
       topicId: target.topicId,
       postId: target.postId,
     )) {
-      return 'This post notice can no longer be edited.';
+      return appL10n.thisPostNoticeCanNoLongerBeEdited;
     }
     return null;
   }
@@ -12112,7 +12122,7 @@ class ShellController extends FrameSafeNotifier
     final next = trimmed == null || trimmed.isEmpty ? null : trimmed;
     if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
     if (!_beginPostWrite(_postKey(siteUrl, postId))) {
-      return 'Another action on this post is still being saved.';
+      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
     try {
@@ -12176,7 +12186,7 @@ class ShellController extends FrameSafeNotifier
         !currentType.enabled ||
         !currentType.appliesToPost ||
         !held.canFlagWith(currentType.id)) {
-      return 'This post can no longer be flagged.';
+      return appL10n.thisPostCanNoLongerBeFlagged;
     }
 
     final submittedMessage = currentType.requireMessage ? message ?? '' : null;
@@ -12184,19 +12194,21 @@ class ShellController extends FrameSafeNotifier
     final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
     if (currentType.requireMessage &&
         (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return 'Your message must be between $minimum and '
-          '${PostFlagType.maximumMessageLength} characters.';
+      return appL10n.yourMessageMustBeBetweenAndCharacters(
+        (minimum).toString(),
+        (PostFlagType.maximumMessageLength).toString(),
+      );
     }
 
     final key = _postKey(siteUrl, held.id);
     final lease = lifecycle.capture(siteUrl);
     if (!_beginPostWrite(key)) {
-      return 'Another action on this post is still being saved.';
+      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return 'Your connection changed. Reopen the flag form and try again.';
+        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
       }
       if (credential.failure case final failure?) return failure.message;
 
@@ -12209,7 +12221,7 @@ class ShellController extends FrameSafeNotifier
           message: submittedMessage,
         );
         if (!lease.isCurrent) {
-          return 'Your connection changed. Reopen the flag form and try again.';
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
         }
         lease.commit(() {
           final current = store.read<Post>(siteUrl, fresh.id);
@@ -12255,7 +12267,7 @@ class ShellController extends FrameSafeNotifier
         !currentType.enabled ||
         !currentType.appliesToTopic ||
         !held.canFlagWith(currentType.id)) {
-      return 'This topic can no longer be flagged.';
+      return appL10n.thisTopicCanNoLongerBeFlagged;
     }
 
     final submittedMessage = currentType.requireMessage ? message ?? '' : null;
@@ -12263,20 +12275,22 @@ class ShellController extends FrameSafeNotifier
     final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
     if (currentType.requireMessage &&
         (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return 'Your message must be between $minimum and '
-          '${PostFlagType.maximumMessageLength} characters.';
+      return appL10n.yourMessageMustBeBetweenAndCharacters(
+        (minimum).toString(),
+        (PostFlagType.maximumMessageLength).toString(),
+      );
     }
 
     final key = _topicKey(siteUrl, held.id);
     if (!_topicFlagWrites.add(key)) {
-      return 'Another flag on this topic is still being saved.';
+      return appL10n.anotherFlagOnThisTopicIsStillBeingSaved;
     }
     final lease = lifecycle.capture(siteUrl);
     _notify();
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return 'Your connection changed. Reopen the flag form and try again.';
+        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
       }
       if (credential.failure case final failure?) return failure.message;
 
@@ -12289,7 +12303,7 @@ class ShellController extends FrameSafeNotifier
           message: submittedMessage,
         );
         if (!lease.isCurrent) {
-          return 'Your connection changed. Reopen the flag form and try again.';
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
         }
         lease.commit(() {
           store.update<TopicDetail>(
@@ -12343,7 +12357,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (postWriteInFlight(post.id, siteUrl: siteUrl) &&
         !_postBookmarkWritesInFlight.contains(key)) {
-      return 'Another post action is still finishing.';
+      return appL10n.anotherPostActionIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
     String? apiKey;
@@ -12755,33 +12769,33 @@ class ShellController extends FrameSafeNotifier
     final instance = _instanceAt(siteUrl);
     final refreshTarget = targetType.refreshLabel;
     if (instance == null || !instance.isConnected) {
-      return const BookmarkWriteResult.refused(
-        'Reconnect to this forum to bookmark it.',
+      return BookmarkWriteResult.refused(
+        appL10n.reconnectToThisForumToBookmarkIt,
       );
     }
     if (!_bookmarkContextMatches(targetType, context)) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark target requires its owning context.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkTargetRequiresItsOwningContext,
       );
     }
     if (targetType != BookmarkTargetType.post &&
         targetType != BookmarkTargetType.topic &&
         _pluginBookmarkStrategy(targetType) == null) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark target is not available in this build.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkTargetIsNotAvailableInThisBuild,
       );
     }
     final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
-      return const BookmarkWriteResult.refused(
-        'Another action on this bookmark is still finishing.',
+      return BookmarkWriteResult.refused(
+        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
     }
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return const BookmarkWriteResult.reconciled(
-          'The forum changed before the bookmark finished.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theForumChangedBeforeTheBookmarkFinished,
         );
       }
       if (credential.failure case final failure?) {
@@ -12812,7 +12826,9 @@ class ShellController extends FrameSafeNotifier
             targetId: targetId,
           );
           return BookmarkWriteResult.reconciled(
-            "Couldn't confirm whether the bookmark was created. The $refreshTarget is being refreshed.",
+            appL10n.couldnTConfirmWhetherTheBookmarkWasCreatedTheIsBeing(
+              (refreshTarget).toString(),
+            ),
           );
         }
         return BookmarkWriteResult.refused(error.message);
@@ -12828,7 +12844,9 @@ class ShellController extends FrameSafeNotifier
           );
         }
         return BookmarkWriteResult.reconciled(
-          "Couldn't confirm whether the bookmark was created. The $refreshTarget is being refreshed.",
+          appL10n.couldnTConfirmWhetherTheBookmarkWasCreatedTheIsBeing(
+            (refreshTarget).toString(),
+          ),
         );
       }
       final postNumber = targetType == BookmarkTargetType.post
@@ -12847,8 +12865,8 @@ class ShellController extends FrameSafeNotifier
         _applyBookmark(siteUrl, context, bookmark);
       });
       if (!applied) {
-        return const BookmarkWriteResult.reconciled(
-          'The bookmark was saved on the forum.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theBookmarkWasSavedOnTheForum,
         );
       }
       _reconcileBookmarks(
@@ -12897,27 +12915,27 @@ class ShellController extends FrameSafeNotifier
         !instance.isConnected ||
         targetType == null ||
         targetId == null) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark cannot be edited here.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkCannotBeEditedHere,
       );
     }
     if (!_bookmarkContextMatches(targetType, context)) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark target requires its owning context.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkTargetRequiresItsOwningContext,
       );
     }
     final refreshTarget = targetType.refreshLabel;
     final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
-      return const BookmarkWriteResult.refused(
-        'Another action on this bookmark is still finishing.',
+      return BookmarkWriteResult.refused(
+        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
     }
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return const BookmarkWriteResult.reconciled(
-          'The forum changed before the bookmark finished.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theForumChangedBeforeTheBookmarkFinished,
         );
       }
       if (credential.failure case final failure?) {
@@ -12942,7 +12960,9 @@ class ShellController extends FrameSafeNotifier
             targetId: targetId,
           );
           return BookmarkWriteResult.reconciled(
-            "Couldn't confirm the bookmark changes. The $refreshTarget is being refreshed.",
+            appL10n.couldnTConfirmTheBookmarkChangesTheIsBeingRefreshed(
+              (refreshTarget).toString(),
+            ),
           );
         }
         return BookmarkWriteResult.refused(error.message);
@@ -12958,7 +12978,9 @@ class ShellController extends FrameSafeNotifier
           );
         }
         return BookmarkWriteResult.reconciled(
-          "Couldn't confirm the bookmark changes. The $refreshTarget is being refreshed.",
+          appL10n.couldnTConfirmTheBookmarkChangesTheIsBeingRefreshed(
+            (refreshTarget).toString(),
+          ),
         );
       }
       final updated = bookmark.copyWith(
@@ -12972,8 +12994,8 @@ class ShellController extends FrameSafeNotifier
         _applyBookmark(siteUrl, context, updated);
       });
       if (!applied) {
-        return const BookmarkWriteResult.reconciled(
-          'The bookmark was updated on the forum.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theBookmarkWasUpdatedOnTheForum,
         );
       }
       _reconcileBookmarks(
@@ -13025,27 +13047,27 @@ class ShellController extends FrameSafeNotifier
         !instance.isConnected ||
         targetType == null ||
         targetId == null) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark cannot be deleted here.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkCannotBeDeletedHere,
       );
     }
     if (!_bookmarkContextMatches(targetType, context)) {
-      return const BookmarkWriteResult.refused(
-        'This bookmark target requires its owning context.',
+      return BookmarkWriteResult.refused(
+        appL10n.thisBookmarkTargetRequiresItsOwningContext,
       );
     }
     final refreshTarget = targetType.refreshLabel;
     final lease = lifecycle.capture(siteUrl);
     if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
-      return const BookmarkWriteResult.refused(
-        'Another action on this bookmark is still finishing.',
+      return BookmarkWriteResult.refused(
+        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
     }
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return const BookmarkWriteResult.reconciled(
-          'The forum changed before the bookmark finished.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theForumChangedBeforeTheBookmarkFinished,
         );
       }
       if (credential.failure case final failure?) {
@@ -13072,7 +13094,9 @@ class ShellController extends FrameSafeNotifier
             targetId: targetId,
           );
           return BookmarkWriteResult.reconciled(
-            "Couldn't confirm the deletion. The $refreshTarget is being refreshed.",
+            appL10n.couldnTConfirmTheDeletionTheIsBeingRefreshed(
+              (refreshTarget).toString(),
+            ),
           );
         }
         return BookmarkWriteResult.refused(error.message);
@@ -13088,7 +13112,9 @@ class ShellController extends FrameSafeNotifier
           );
         }
         return BookmarkWriteResult.reconciled(
-          "Couldn't confirm the deletion. The $refreshTarget is being refreshed.",
+          appL10n.couldnTConfirmTheDeletionTheIsBeingRefreshed(
+            (refreshTarget).toString(),
+          ),
         );
       }
       final applied = lease.commit(() {
@@ -13100,8 +13126,8 @@ class ShellController extends FrameSafeNotifier
         );
       });
       if (!applied) {
-        return const BookmarkWriteResult.reconciled(
-          'The bookmark was deleted on the forum.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theBookmarkWasDeletedOnTheForum,
         );
       }
       _reconcileBookmarks(
@@ -13127,8 +13153,8 @@ class ShellController extends FrameSafeNotifier
     final context = _TopicBookmarkWriteContext(topicId);
     final instance = _instanceAt(siteUrl);
     if (instance == null || !instance.isConnected) {
-      return const BookmarkWriteResult.refused(
-        'Reconnect to this forum to delete its bookmarks.',
+      return BookmarkWriteResult.refused(
+        appL10n.reconnectToThisForumToDeleteItsBookmarks,
       );
     }
     final key = _topicKey(siteUrl, topicId);
@@ -13142,8 +13168,8 @@ class ShellController extends FrameSafeNotifier
     final postKeys = {for (final postId in postIds) _postKey(siteUrl, postId)};
     if (_topicBookmarkWritesInFlight.contains(key) ||
         postKeys.any(_postBookmarkWriteInFlight)) {
-      return const BookmarkWriteResult.refused(
-        'Another bookmark action is still finishing.',
+      return BookmarkWriteResult.refused(
+        appL10n.anotherBookmarkActionIsStillFinishing,
       );
     }
     final lease = lifecycle.capture(siteUrl);
@@ -13154,8 +13180,8 @@ class ShellController extends FrameSafeNotifier
     try {
       final credential = await _credentialForWrite(siteUrl);
       if (!lease.isCurrent) {
-        return const BookmarkWriteResult.reconciled(
-          'The forum changed before the bookmarks were deleted.',
+        return BookmarkWriteResult.reconciled(
+          appL10n.theForumChangedBeforeTheBookmarksWereDeleted,
         );
       }
       if (credential.failure case final failure?) {
@@ -13170,8 +13196,8 @@ class ShellController extends FrameSafeNotifier
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
           _reconcileBookmarks(instance, context, lease);
-          return const BookmarkWriteResult.reconciled(
-            "Couldn't confirm the deletion. The topic is being refreshed.",
+          return BookmarkWriteResult.reconciled(
+            appL10n.couldnTConfirmTheDeletionTheTopicIsBeingRefreshed,
           );
         }
         return BookmarkWriteResult.refused(error.message);
@@ -13180,8 +13206,8 @@ class ShellController extends FrameSafeNotifier
           _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
           _reconcileBookmarks(instance, context, lease);
         }
-        return const BookmarkWriteResult.reconciled(
-          "Couldn't confirm the deletion. The topic is being refreshed.",
+        return BookmarkWriteResult.reconciled(
+          appL10n.couldnTConfirmTheDeletionTheTopicIsBeingRefreshed,
         );
       }
       lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
@@ -13493,8 +13519,8 @@ class ShellController extends FrameSafeNotifier
         severity: DiagnosticSeverity.warning,
       );
       failure = e.failure == SiteLookupFailure.notDiscourse
-          ? "Couldn't see who liked this."
-          : "Couldn't reach ${instance.host}.";
+          ? appL10n.couldnTSeeWhoLikedThis
+          : appL10n.couldnTReach((instance.host).toString());
     } catch (error, stackTrace) {
       if (isDisposed ||
           !lease.isCurrent ||
@@ -13507,7 +13533,7 @@ class ShellController extends FrameSafeNotifier
         'post.loadLikers',
         severity: DiagnosticSeverity.warning,
       );
-      failure = "Couldn't load who liked this.";
+      failure = appL10n.couldnTLoadWhoLikedThis;
     } finally {
       lease.commit(
         () => likerRequests.finish(targetSite, postId, error: failure),
@@ -13828,7 +13854,7 @@ class ShellController extends FrameSafeNotifier
     required Future<void> abortTrigger,
   }) async {
     if (isDisposed) {
-      throw const ComposerUploadException('Upload cancelled.');
+      throw ComposerUploadException(appL10n.uploadCancelled);
     }
     final lease = lifecycle.capture(target.siteUrl);
     final held = await _readSessionValue(
@@ -13836,14 +13862,14 @@ class ShellController extends FrameSafeNotifier
       () => _credentialForWrite(target.siteUrl),
     );
     if (held == null) {
-      throw const ComposerUploadException('Upload cancelled.');
+      throw ComposerUploadException(appL10n.uploadCancelled);
     }
     if (held.value.failure case final failure?) {
       throw ComposerUploadException(failure.message);
     }
     final identity = await _readSessionValue(lease, authenticator.clientId);
     if (identity == null || !lease.isCurrent) {
-      throw const ComposerUploadException('Upload cancelled.');
+      throw ComposerUploadException(appL10n.uploadCancelled);
     }
     final forPrivateMessage = _uploadsForPrivateMessage(target);
     return api.composerPersistence.uploadComposerImage(
@@ -13947,9 +13973,9 @@ class ShellController extends FrameSafeNotifier
         if (!lease.isCurrent) return;
         if (preparationChanged) await composer.flushDraft();
         composer.failed(
-          const WriteException(
+          WriteException(
             WriteFailure.unreachable,
-            errors: ["Couldn't prepare this post. Nothing was posted."],
+            errors: [appL10n.couldnTPrepareThisPostNothingWasPosted],
           ),
         );
         return;
@@ -14014,9 +14040,9 @@ class ShellController extends FrameSafeNotifier
       if (e.notSent) {
         lease.commit(
           () => composer.failed(
-            const WriteException(
+            WriteException(
               WriteFailure.unreachable,
-              errors: ["Couldn't reach the site. Nothing was posted."],
+              errors: [appL10n.couldnTReachTheSiteNothingWasPosted],
               notSent: true,
             ),
           ),
@@ -14073,15 +14099,14 @@ class ShellController extends FrameSafeNotifier
     final categoryId = composer.categoryId;
     final template = categoryFor(categoryId, siteUrl: siteUrl)?.topicTemplate;
     if (template != null && composer.raw == template.trim()) {
-      return 'Please add details and specifics to your topic by editing the '
-          'topic template.';
+      return appL10n.pleaseAddDetailsAndSpecificsToYourTopicByEditingThe;
     }
     if (categoryId == null &&
         !siteConfigFor(siteUrl).allowUncategorizedTopics &&
         topicComposerCategories(
           siteUrl,
         ).any((category) => category.topicTemplate != null)) {
-      return 'You must choose a category.';
+      return appL10n.youMustChooseACategory;
     }
     return null;
   }
@@ -14101,9 +14126,9 @@ class ShellController extends FrameSafeNotifier
     final key = _postKey(target.siteUrl, target.editingPostId!);
     if (!_beginPostWrite(key)) {
       composer.failed(
-        const WriteException(
+        WriteException(
           WriteFailure.conflict,
-          errors: ['Another action on this post is still being saved.'],
+          errors: [appL10n.anotherActionOnThisPostIsStillBeingSaved],
         ),
       );
       return;
@@ -14914,8 +14939,8 @@ class ShellController extends FrameSafeNotifier
         severity: DiagnosticSeverity.warning,
       );
       failure = e.failure == SiteLookupFailure.notDiscourse
-          ? "Couldn't see that profile."
-          : "Couldn't reach ${instance.host}.";
+          ? appL10n.couldnTSeeThatProfile
+          : appL10n.couldnTReach((instance.host).toString());
     } catch (error, stackTrace) {
       if (isDisposed ||
           !lease.isCurrent ||
@@ -14928,7 +14953,7 @@ class ShellController extends FrameSafeNotifier
         'userCard.load',
         severity: DiagnosticSeverity.warning,
       );
-      failure = "Couldn't load @$username.";
+      failure = appL10n.couldnTLoadShellcontroller((username).toString());
     } finally {
       lease.commit(
         () => userCardRequests.finish(targetSite, key, error: failure),
@@ -15440,7 +15465,7 @@ class ShellController extends FrameSafeNotifier
       );
       lease.commit(() {
         _tagDirectoryFeeds[siteUrl] = held.withError(
-          "Couldn't load tags from ${instance.host}.",
+          appL10n.couldnTLoadTagsFrom((instance.host).toString()),
         );
         _notify();
       });
@@ -15587,7 +15612,7 @@ class ShellController extends FrameSafeNotifier
       lease.commit(() {
         final held = categoryFeedFor(instance.url);
         _categoryFeeds[instance.url] = held.withError(
-          "Couldn't load categories from ${instance.host}.",
+          appL10n.couldnTLoadCategoriesFrom((instance.host).toString()),
         );
         _notify();
       });
@@ -15683,7 +15708,7 @@ class ShellController extends FrameSafeNotifier
         _categorised.remove(instance.url);
         final held = categoryFeedFor(instance.url);
         _categoryFeeds[instance.url] = held.withError(
-          "Couldn't load categories from ${instance.host}.",
+          appL10n.couldnTLoadCategoriesFrom((instance.host).toString()),
         );
         _notify();
       });
@@ -15772,7 +15797,7 @@ class ShellController extends FrameSafeNotifier
         _categoryPageRequests.remove(siteUrl);
         final held = categoryFeedFor(siteUrl);
         _categoryFeeds[siteUrl] = held.withError(
-          "Couldn't load more categories from ${instance.host}.",
+          appL10n.couldnTLoadMoreCategoriesFrom((instance.host).toString()),
           page: true,
         );
         _notify();
@@ -17206,7 +17231,7 @@ class ShellController extends FrameSafeNotifier
     if (index != _instanceIndex) selectInstance(index);
     if (currentContent?.id == 'summary') return;
     pushContent(
-      const ContentRoute(id: 'summary', title: 'Summary', icon: DIcons.user),
+      ContentRoute(id: 'summary', title: appL10n.summary, icon: DIcons.user),
     );
   }
 
@@ -17936,7 +17961,10 @@ final class _ScopedEmojiPreferenceStore implements EmojiPreferenceStore {
   void _requireOwned(EmojiUsageContext context) {
     if (context.isValidFor(_consumer)) return;
     throw PluginInstallationException(
-      'Plugin $_consumer cannot use emoji context ${context.id}.',
+      appL10n.pluginCannotUseEmojiContext(
+        (_consumer).toString(),
+        (context.id).toString(),
+      ),
     );
   }
 
@@ -18055,7 +18083,10 @@ final class _ShellPluginTargetHost implements PluginTargetHost {
   ) {
     if (key.owner != _consumer.value) {
       throw PluginInstallationException(
-        'Plugin $_consumer cannot inspect plugin data owned by ${key.owner}.',
+        appL10n.pluginCannotInspectPluginDataOwnedBy(
+          (_consumer).toString(),
+          (key.owner).toString(),
+        ),
       );
     }
     final snapshot = _shell._pluginDataForTarget(siteUrl, target);
@@ -18083,8 +18114,10 @@ final class _ShellPluginFreshAccountHost implements PluginFreshAccountHost {
   T? recordFor<T extends Object>(String siteUrl, PluginDataKey<T> key) {
     if (key.owner != _consumer.value) {
       throw PluginInstallationException(
-        'Plugin $_consumer cannot inspect current-user data owned by '
-        '${key.owner}.',
+        appL10n.pluginCannotInspectCurrentUserDataOwnedBy(
+          (_consumer).toString(),
+          (key.owner).toString(),
+        ),
       );
     }
     return _user(siteUrl)?.plugins.get(key);
@@ -18114,7 +18147,10 @@ final class _ShellPluginPostHost implements PluginPostHost {
   ) {
     if (key.owner != _consumer.value) {
       throw PluginInstallationException(
-        'Plugin $_consumer cannot update plugin data owned by ${key.owner}.',
+        appL10n.pluginCannotUpdatePluginDataOwnedBy(
+          (_consumer).toString(),
+          (key.owner).toString(),
+        ),
       );
     }
     _shell.store.update<Post>(siteUrl, postId, (held) {
@@ -18327,7 +18363,10 @@ final class _ShellScopedPluginBookmarkHostFactory
   PluginBookmarkHost forTarget(BookmarkTargetType targetType) {
     if (targetType.owner != _consumer) {
       throw PluginInstallationException(
-        'Plugin $_consumer cannot request bookmark target ${targetType.id}.',
+        appL10n.pluginCannotRequestBookmarkTarget(
+          (_consumer).toString(),
+          (targetType.id).toString(),
+        ),
       );
     }
     return _shell._pluginBookmarkTargetHost(targetType);
@@ -18364,7 +18403,7 @@ final class _ShellCoreBookmarkTargetHost implements BookmarkTargetHost {
       _shell._bookmarkTargetFor(bookmark) == _targetType;
 
   BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
-    'This bookmark does not belong to ${_targetType.refreshLabel}.',
+    appL10n.thisBookmarkDoesNotBelongTo((_targetType.refreshLabel).toString()),
   );
 
   @override
@@ -18498,7 +18537,7 @@ final class _ShellPluginBookmarkTargetHost implements PluginBookmarkHost {
       _shell._bookmarkTargetFor(bookmark) == _targetType;
 
   BookmarkWriteResult _foreignBookmark() => BookmarkWriteResult.refused(
-    'This bookmark does not belong to ${_targetType.refreshLabel}.',
+    appL10n.thisBookmarkDoesNotBelongTo((_targetType.refreshLabel).toString()),
   );
 
   @override
@@ -18726,9 +18765,15 @@ final class _ShellScopedPluginNotificationFeedHost
     final source = _sources[id];
     if (source != null) return source;
     final reason = id.owner == _consumer
-        ? 'did not register notification feed'
-        : 'cannot access notification feed';
-    throw PluginInstallationException('Plugin $_consumer $reason ${id.id}.');
+        ? appL10n.didNotRegisterNotificationFeed
+        : appL10n.cannotAccessNotificationFeed;
+    throw PluginInstallationException(
+      appL10n.plugin(
+        (_consumer).toString(),
+        (reason).toString(),
+        (id.id).toString(),
+      ),
+    );
   }
 
   @override
@@ -18754,8 +18799,10 @@ final class _ShellScopedPluginNotificationFeedHost
     final registered = _requireDeclared(source.id);
     if (registered != source) {
       throw PluginInstallationException(
-        'Plugin $_consumer must use its registered notification feed '
-        '${source.id.id}.',
+        appL10n.pluginMustUseItsRegisteredNotificationFeed(
+          (_consumer).toString(),
+          (source.id.id).toString(),
+        ),
       );
     }
     return _host.loadPluginNotificationFeed(siteUrl, registered);
@@ -18769,14 +18816,18 @@ final class _ShellScopedPluginNotificationFeedHost
     final registered = _requireDeclared(source.id);
     if (registered != source) {
       throw PluginInstallationException(
-        'Plugin $_consumer must use its registered notification feed '
-        '${source.id.id}.',
+        appL10n.pluginMustUseItsRegisteredNotificationFeed(
+          (_consumer).toString(),
+          (source.id.id).toString(),
+        ),
       );
     }
     if (registered.dismissal == null) {
       throw PluginInstallationException(
-        'Plugin $_consumer did not register dismissal for notification feed '
-        '${source.id.id}.',
+        appL10n.pluginDidNotRegisterDismissalForNotificationFeed(
+          (_consumer).toString(),
+          (source.id.id).toString(),
+        ),
       );
     }
     return _host.dismissPluginNotifications(siteUrl, registered);

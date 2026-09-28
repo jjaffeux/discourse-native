@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'voice_diagnostics_models.dart';
@@ -359,7 +360,7 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
           component: 'capture',
           severity: DiagnosticSeverity.warning,
           correlationId: null,
-          message: 'The previous capture ended without a stop marker.',
+          message: appL10n.thePreviousCaptureEndedWithoutAStopMarker,
           data: {
             'startedAtUtc': outstanding.startedAtUtc.toUtc().toIso8601String(),
           },

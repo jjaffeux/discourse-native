@@ -90,7 +90,7 @@ class _GlobalSearchCategoryEditorState
         _choices = values.values.toList();
         _hasMore = result.hasMore;
         if (append && result.hasMore && values.length == previousCount) {
-          _loadError = 'More categories couldn’t load.';
+          _loadError = appL10n.moreCategoriesCouldnTLoad;
         }
         _total = result.total;
         if (_loadError == null) _page = page;
@@ -102,7 +102,7 @@ class _GlobalSearchCategoryEditorState
         _loading = false;
         _loadError = GlobalSearchApi.failureMessage(
           error,
-          fallback: 'Categories couldn’t load.',
+          fallback: appL10n.categoriesCouldnTLoad,
         );
       });
     }
@@ -154,16 +154,23 @@ class _GlobalSearchCategoryEditorState
       color: tokens.mutedForeground,
     );
     final count = _loading && _choices.isEmpty
-        ? 'Loading categories…'
+        ? context.l10n.loadingCategories
         : _loadError != null && _choices.isEmpty
-        ? 'Categories unavailable'
+        ? context.l10n.categoriesUnavailable
         : _hasMore
         ? _total == null
-              ? '${countLabel(_choices.length, 'category', plural: 'categories')} loaded'
-              : '${_choices.length} of $_total categories'
+              ? context.l10n.loaded(
+                  (countLabel(_choices.length, CountNoun.category)).toString(),
+                )
+              : context.l10n.ofCategories(
+                  (_choices.length).toString(),
+                  (_total).toString(),
+                )
         : _query.text.trim().isEmpty
-        ? 'All categories · ${_choices.length}'
-        : '${countLabel(_choices.length, 'category', plural: 'categories')} found';
+        ? context.l10n.allCategories((_choices.length).toString())
+        : context.l10n.found(
+            (countLabel(_choices.length, CountNoun.category)).toString(),
+          );
     return Material(
       type: MaterialType.transparency,
       child: Padding(
@@ -177,14 +184,14 @@ class _GlobalSearchCategoryEditorState
                 if (widget.onBack != null) ...[
                   DButton.iconOnly(
                     icon: const DIcon(DIcons.chevronLeft),
-                    tooltip: 'Back to filters',
+                    tooltip: context.l10n.backToFilters,
                     variant: DButtonVariant.ghost,
                     onPressed: widget.onBack,
                   ),
                   const SizedBox(width: 8),
                 ],
-                const Expanded(
-                  child: DLabel(child: Text('Filter by category')),
+                Expanded(
+                  child: DLabel(child: Text(context.l10n.filterByCategory)),
                 ),
               ],
             ),
@@ -194,14 +201,15 @@ class _GlobalSearchCategoryEditorState
               controller: _query,
               focusNode: _focus,
               autofocus: true,
-              semanticLabel: 'Search all categories',
-              hintText: 'Search all categories…',
+              semanticLabel: context.l10n.searchAllCategories,
+              hintText:
+                  context.l10n.searchAllCategoriesGlobalsearchcategoryeditor,
               prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
               suffix: _query.text.isEmpty
                   ? null
                   : DButton.iconOnly(
                       icon: const DIcon(DIcons.xmark, size: 12),
-                      tooltip: 'Clear category search',
+                      tooltip: context.l10n.clearCategorySearch,
                       size: DButtonSize.small,
                       variant: DButtonVariant.ghost,
                       onPressed: () {
@@ -262,7 +270,7 @@ class _GlobalSearchCategoryEditorState
                             ),
                             const SizedBox(height: 8),
                             DButton(
-                              label: const Text('Try again'),
+                              label: Text(context.l10n.tryAgain),
                               variant: DButtonVariant.outline,
                               onPressed: () =>
                                   unawaited(_load(append: _page > 0)),
@@ -277,13 +285,13 @@ class _GlobalSearchCategoryEditorState
                           children: [
                             Text(
                               _query.text.trim().isEmpty
-                                  ? 'No categories available.'
-                                  : 'No matching categories.',
+                                  ? context.l10n.noCategoriesAvailable
+                                  : context.l10n.noMatchingCategories,
                               style: muted,
                             ),
                             if (_query.text.trim().isNotEmpty)
                               DButton(
-                                label: const Text('Show all categories'),
+                                label: Text(context.l10n.showAllCategories),
                                 variant: DButtonVariant.ghost,
                                 onPressed: () {
                                   _query.clear();
@@ -296,7 +304,7 @@ class _GlobalSearchCategoryEditorState
                       ),
                     if (_hasMore && !_loading && _loadError == null)
                       DButton(
-                        label: const Text('Load more categories'),
+                        label: Text(context.l10n.loadMoreCategories),
                         variant: DButtonVariant.ghost,
                         onPressed: () => unawaited(_load(append: true)),
                       ),
@@ -312,13 +320,18 @@ class _GlobalSearchCategoryEditorState
                 Expanded(
                   child: Semantics(
                     liveRegion: true,
-                    child: Text('${_selected.length} selected', style: muted),
+                    child: Text(
+                      context.l10n.selectedGlobalsearchcategoryeditor(
+                        (_selected.length).toString(),
+                      ),
+                      style: muted,
+                    ),
                   ),
                 ),
                 if (_selected.isNotEmpty)
                   DButton(
                     key: const ValueKey('global-search-category-clear'),
-                    label: const Text('Clear'),
+                    label: Text(context.l10n.clear),
                     variant: DButtonVariant.ghost,
                     onPressed: () => setState(() {
                       _selected.clear();
@@ -329,7 +342,7 @@ class _GlobalSearchCategoryEditorState
             ),
             const SizedBox(height: 4),
             if (_selected.isEmpty)
-              Text('Choose one or more categories.', style: muted),
+              Text(context.l10n.chooseOneOrMoreCategories, style: muted),
             if (_selected.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 100),
@@ -341,7 +354,10 @@ class _GlobalSearchCategoryEditorState
                       for (final value in _selected)
                         DBadge.action(
                           variant: DBadgeVariant.secondary,
-                          semanticLabel: 'Remove ${_label(value)}',
+                          semanticLabel: context.l10n
+                              .removeGlobalsearchcategoryeditor(
+                                (_label(value)).toString(),
+                              ),
                           leading: switch (_known[value]?.category) {
                             final category? => CategoryIcon(
                               category: category,
@@ -367,7 +383,9 @@ class _GlobalSearchCategoryEditorState
             DSwitchTile(
               value: _includeChildren,
               onChanged: (value) => setState(() => _includeChildren = value),
-              title: const Text('Include subcategories'),
+              title: Text(
+                context.l10n.includeSubcategoriesGlobalsearchcategoryeditor,
+              ),
             ),
             const SizedBox(height: 12),
             const DSeparator(),
@@ -389,14 +407,16 @@ class _GlobalSearchCategoryEditorState
               runSpacing: 4,
               children: [
                 DButton(
-                  label: const Text('Cancel'),
+                  label: Text(context.l10n.cancel),
                   variant: DButtonVariant.ghost,
                   onPressed: widget.onCancel,
                 ),
                 DButton(
                   key: const ValueKey('global-search-filter-apply'),
                   label: Text(
-                    widget.initial == null ? 'Add filter' : 'Apply changes',
+                    widget.initial == null
+                        ? context.l10n.addFilter
+                        : context.l10n.applyChanges,
                   ),
                   onPressed: _selected.isEmpty ? null : _apply,
                 ),

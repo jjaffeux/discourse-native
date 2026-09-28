@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/composer_placement.dart';
@@ -67,14 +68,17 @@ class ComposerHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final target = composer.target;
     final modeLabel = switch (target.mode) {
-      ComposerMode.newTopic => 'New topic',
-      ComposerMode.privateMessage => 'New message',
-      ComposerMode.categoryEdit => 'Edit category',
-      ComposerMode.tagsEdit => 'Edit tags',
-      ComposerMode.topicEdit => 'Edit topic',
-      ComposerMode.postEdit => 'Edit post #${target.editingPostNumber}',
+      ComposerMode.newTopic => context.l10n.newTopic,
+      ComposerMode.privateMessage => context.l10n.newMessage,
+      ComposerMode.categoryEdit => context.l10n.editCategory,
+      ComposerMode.tagsEdit => context.l10n.editTags,
+      ComposerMode.topicEdit => context.l10n.editTopic,
+      ComposerMode.postEdit => context.l10n.editPost(
+        (target.editingPostNumber).toString(),
+      ),
       ComposerMode.plugin => target.topicTitle,
-      ComposerMode.reply => composer.whisper ? 'Whisper' : 'Reply',
+      ComposerMode.reply =>
+        composer.whisper ? context.l10n.whisper : context.l10n.reply,
     };
     final destination = target.createsTopic
         ? composer.title.text
@@ -97,8 +101,8 @@ class ComposerHeader extends StatelessWidget {
         ? DButton(
             key: const ValueKey('composer-restore'),
             onPressed: onRestore,
-            semanticLabel: 'Resume editing: $label',
-            tooltip: 'Restore composer',
+            semanticLabel: context.l10n.resumeEditing((label).toString()),
+            tooltip: context.l10n.restoreComposer,
             variant: DButtonVariant.primary,
             size: DButtonSize.toolbar,
             icon: DIcon(composer.whisper ? DIcons.farEyeSlash : DIcons.pen),
@@ -112,7 +116,7 @@ class ComposerHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('Resume editing'),
+                Text(context.l10n.resumeEditingComposerheader),
                 const SizedBox(width: 8),
                 const DIcon(DIcons.expand),
               ],
@@ -121,7 +125,7 @@ class ComposerHeader extends StatelessWidget {
         : canToggleWhisper
         ? DDropdownMenu(
             content: DDropdownMenuContent(
-              semanticLabel: 'Reply visibility',
+              semanticLabel: context.l10n.replyVisibility,
               width: 240,
               children: [
                 DDropdownMenuRadioGroup<bool>(
@@ -139,8 +143,8 @@ class ComposerHeader extends StatelessWidget {
                         ),
                         value: whisper,
                         semanticLabel: whisper
-                            ? 'Whisper, Allowed groups only'
-                            : 'Reply',
+                            ? context.l10n.whisperAllowedGroupsOnly
+                            : context.l10n.reply,
                         closeOnSelect: true,
                         leading: DIcon(
                           whisper ? DIcons.farEyeSlash : DIcons.reply,
@@ -150,10 +154,14 @@ class ComposerHeader extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(whisper ? 'Whisper' : 'Reply'),
+                            Text(
+                              whisper
+                                  ? context.l10n.whisper
+                                  : context.l10n.reply,
+                            ),
                             if (whisper)
                               Text(
-                                'Allowed groups only',
+                                context.l10n.allowedGroupsOnly,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: DTokens.of(context).mutedForeground,
                                 ),
@@ -175,8 +183,8 @@ class ComposerHeader extends StatelessWidget {
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
                 semanticLabel: composer.whisper
-                    ? 'Whisper options'
-                    : 'Reply options',
+                    ? context.l10n.whisperOptions
+                    : context.l10n.replyOptions,
                 variant: DButtonVariant.outline,
                 size: DButtonSize.toolbar,
                 icon: DIcon(
@@ -219,23 +227,23 @@ class ComposerHeader extends StatelessWidget {
           children: [
             DDropdownMenu(
               content: DDropdownMenuContent(
-                semanticLabel: 'Composer actions',
+                semanticLabel: context.l10n.composerActions,
                 children: [
                   DDropdownMenuItem(
                     key: const ValueKey('composer-cancel'),
                     variant: DDropdownMenuItemVariant.destructive,
                     onPressed: onDiscard,
-                    child: const Text('Discard'),
+                    child: Text(context.l10n.discard),
                   ),
                   DDropdownMenuItem(
                     key: const ValueKey('composer-minimize'),
                     onPressed: onMinimize,
-                    child: const Text('Minimize'),
+                    child: Text(context.l10n.minimize),
                   ),
                   DDropdownMenuItem(
                     key: const ValueKey('composer-save-draft'),
                     onPressed: composer.canSaveDraft ? onClose : null,
-                    child: const Text('Save draft'),
+                    child: Text(context.l10n.saveDraft),
                   ),
                 ],
               ),
@@ -244,8 +252,8 @@ class ComposerHeader extends StatelessWidget {
                   key: const ValueKey('composer-close'),
                   onPressed: trigger.toggle,
                   icon: const DIcon(DIcons.xmark),
-                  tooltip: 'Composer actions',
-                  semanticLabel: 'Composer actions',
+                  tooltip: context.l10n.composerActions,
+                  semanticLabel: context.l10n.composerActions,
                   variant: DButtonVariant.outline,
                   shape: DButtonShape.pill,
                   focusNode: trigger.focusNode,
@@ -279,7 +287,7 @@ class ComposerHeader extends StatelessWidget {
       if (!atDestination && !target.createsTopic && target.topicId > 0)
         DButton.iconOnly(
           key: const ValueKey('composer-return-to-topic'),
-          tooltip: 'Return to ${target.topicTitle}',
+          tooltip: context.l10n.returnTo((target.topicTitle).toString()),
           icon: const DIcon(DIcons.arrowLeft),
           variant: DButtonVariant.transparentBackground,
           onPressed: () => ShellScope.read(context).openTopicPost(
@@ -294,17 +302,17 @@ class ComposerHeader extends StatelessWidget {
         DPopover(
           reverseTransitionDuration: Duration.zero,
           content: DPopoverContent(
-            semanticLabel: 'Dock side',
+            semanticLabel: context.l10n.dockSide,
             align: DPopoverAlign.end,
             width: 250,
             child: DPopoverClose(
               builder: (context, close) => Row(
                 children: [
-                  const Expanded(child: Text('Dock side')),
+                  Expanded(child: Text(context.l10n.dockSide)),
                   DToggleGroup<ComposerPlacement>(
                     size: DControlSize.segment,
                     inset: true,
-                    semanticLabel: 'Dock side',
+                    semanticLabel: context.l10n.dockSide,
                     values: [placement],
                     allowEmptySelection: false,
                     onChanged: (values) {
@@ -341,7 +349,7 @@ class ComposerHeader extends StatelessWidget {
               size: DControlSize.segment,
               key: const ValueKey('composer-options'),
               inset: true,
-              semanticLabel: 'Composer view',
+              semanticLabel: context.l10n.composerView,
               values: [placement == ComposerPlacement.fullScreen],
               allowEmptySelection: false,
               onItemActivated: (fullScreen) {
@@ -362,16 +370,16 @@ class ComposerHeader extends StatelessWidget {
               items: [
                 DToggleGroupItem.iconOnly(
                   value: false,
-                  semanticLabel: 'Dock side',
-                  tooltip: 'Dock side',
+                  semanticLabel: context.l10n.dockSide,
+                  tooltip: context.l10n.dockSide,
                   focusNode: trigger.focusNode,
                   icon: const Icon(Icons.view_sidebar_outlined),
                 ),
-                const DToggleGroupItem.iconOnly(
+                DToggleGroupItem.iconOnly(
                   value: true,
-                  semanticLabel: 'Full screen',
-                  tooltip: 'Full screen',
-                  icon: Icon(Icons.fullscreen),
+                  semanticLabel: context.l10n.fullScreen,
+                  tooltip: context.l10n.fullScreen,
+                  icon: const Icon(Icons.fullscreen),
                 ),
               ],
             ),
@@ -382,7 +390,7 @@ class ComposerHeader extends StatelessWidget {
           key: const ValueKey('composer-restore'),
           onPressed: onRestore,
           icon: const DIcon(DIcons.expand),
-          tooltip: 'Restore composer',
+          tooltip: context.l10n.restoreComposer,
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.toolbar,
         )
@@ -391,7 +399,7 @@ class ComposerHeader extends StatelessWidget {
           key: const ValueKey('composer-minimize'),
           onPressed: minimize,
           icon: const Icon(Icons.remove),
-          tooltip: 'Minimize composer',
+          tooltip: context.l10n.minimizeComposer,
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.toolbar,
         ),
@@ -477,8 +485,11 @@ class _DraftSaveFailure extends StatelessWidget {
         composer.draftStatus == DraftStatus.failing;
     if (!failing) return const SizedBox.shrink();
     final (label, description) = composer.localDraftFailed
-        ? ('Not saved', "Couldn't save this draft on this device.")
-        : ('Device only', 'Not saved on the site — kept on this device only.');
+        ? (context.l10n.notSaved, context.l10n.couldnTSaveThisDraftOnThisDevice)
+        : (
+            context.l10n.deviceOnly,
+            context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly,
+          );
 
     final tokens = DTokens.of(context);
     final color = tokens.destructive;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -407,7 +408,9 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
     try {
       decoded = jsonDecode(contents);
     } on FormatException catch (error) {
-      throw FormatException('Invalid private storage: ${error.message}');
+      throw FormatException(
+        appL10n.invalidPrivateStorage((error.message).toString()),
+      );
     }
 
     if (decoded case {
@@ -417,15 +420,15 @@ final class LinuxFileStorage implements EnumerablePrivateStorage {
       final values = <String, String>{};
       for (final MapEntry(:key, :value) in rawValues.entries) {
         if (key is! String || value is! String) {
-          throw const FormatException(
-            'Invalid private storage: values must be strings',
+          throw FormatException(
+            appL10n.invalidPrivateStorageValuesMustBeStrings,
           );
         }
         values[key] = value;
       }
       return values;
     }
-    throw const FormatException('Invalid private storage format');
+    throw FormatException(appL10n.invalidPrivateStorageFormat);
   }
 
   String _encodeValues(Map<String, String> values) =>

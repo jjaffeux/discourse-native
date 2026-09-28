@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -161,7 +162,7 @@ class _GroupPageState extends State<GroupPage> {
         return _GroupState(
           icon: DIcons.triangleExclamation,
           title: error,
-          actionLabel: 'Try again',
+          actionLabel: context.l10n.tryAgain,
           onAction: widget.onRefresh,
         );
       }
@@ -224,9 +225,9 @@ class _GroupPageState extends State<GroupPage> {
     if (widget.route.isPlugin) {
       Widget buildPlugin() =>
           widget.registry.groupContent(context, pluginContext) ??
-          const _GroupState(
+          _GroupState(
             icon: DIcons.layerGroup,
-            title: 'This group feature is unavailable.',
+            title: context.l10n.thisGroupFeatureIsUnavailable,
           );
       final listenable = widget.registry.groupListenable(
         context,
@@ -308,9 +309,9 @@ class _GroupPageState extends State<GroupPage> {
         onSave: widget.onSaveManage,
         onLoadMore: widget.onLoadMore,
       ),
-      _ => const _GroupState(
+      _ => _GroupState(
         icon: DIcons.circleInfo,
-        title: 'Unknown group section.',
+        title: context.l10n.unknownGroupSection,
       ),
     };
 
@@ -371,7 +372,7 @@ class _GroupHeader extends StatelessWidget {
     if (context.mounted && !deleted) {
       DToast.show(
         context,
-        'The group could not be deleted.',
+        appL10n.theGroupCouldNotBeDeleted,
         type: DToastType.error,
       );
     }
@@ -390,9 +391,9 @@ class _GroupHeader extends StatelessWidget {
         ? GroupMembershipAction.request
         : null;
     final actionLabel = switch (membershipAction) {
-      GroupMembershipAction.join => 'Join group',
-      GroupMembershipAction.leave => 'Leave group',
-      GroupMembershipAction.request => 'Request to join',
+      GroupMembershipAction.join => context.l10n.joinGroup,
+      GroupMembershipAction.leave => context.l10n.leaveGroup,
+      GroupMembershipAction.request => context.l10n.requestToJoinGrouppage,
       null => null,
     };
 
@@ -436,7 +437,7 @@ class _GroupHeader extends StatelessWidget {
                   DButton(
                     key: const ValueKey('group-message'),
                     icon: const DIcon(DIcons.envelope),
-                    label: const Text('Message'),
+                    label: Text(context.l10n.messageTopicmoveposts),
                     onPressed: onMessageGroup,
                   ),
                 if (canDelete)
@@ -446,7 +447,7 @@ class _GroupHeader extends StatelessWidget {
                     child: DDropdownMenu(
                       key: ValueKey((siteUrl, group.id, group.name)),
                       content: DDropdownMenuContent(
-                        semanticLabel: 'Group actions',
+                        semanticLabel: context.l10n.groupActions,
                         align: DPopoverAlign.end,
                         children: [
                           DDropdownMenuItem(
@@ -456,7 +457,7 @@ class _GroupHeader extends StatelessWidget {
                             onPressed: mutating
                                 ? null
                                 : () => unawaited(_deleteGroup(context)),
-                            child: const Text('Delete group'),
+                            child: Text(context.l10n.deleteGroup),
                           ),
                         ],
                       ),
@@ -464,7 +465,7 @@ class _GroupHeader extends StatelessWidget {
                         builder: (context, state) => DButton.iconOnly(
                           key: const ValueKey('group-actions'),
                           icon: const DIcon(DIcons.ellipsis),
-                          tooltip: 'More group actions',
+                          tooltip: context.l10n.moreGroupActions,
                           size: overflowButtonSize,
                           focusNode: state.focusNode,
                           hasPopup: true,
@@ -535,14 +536,20 @@ class _GroupHeader extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     if (group.isGroupOwner)
-                      const _HeaderFact(
+                      _HeaderFact(
                         icon: DIcons.certificate,
-                        label: 'Owner',
+                        label: context.l10n.owner,
                       )
                     else if (group.isGroupUser)
-                      const _HeaderFact(icon: DIcons.check, label: 'Member'),
+                      _HeaderFact(
+                        icon: DIcons.check,
+                        label: context.l10n.member,
+                      ),
                     if (group.isPrivate)
-                      const _HeaderFact(icon: DIcons.lock, label: 'Private'),
+                      _HeaderFact(
+                        icon: DIcons.lock,
+                        label: context.l10n.private,
+                      ),
                   ],
                 ),
                 if (compact) ...[
@@ -551,8 +558,9 @@ class _GroupHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${group.userCount} '
-                        '${group.userCount == 1 ? 'member' : 'members'}',
+                        group.userCount == null
+                            ? context.l10n.membersHidden
+                            : context.l10n.messageGrouppage(group.userCount!),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -603,12 +611,16 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Delete group?'),
+    title: Text(context.l10n.deleteGroupGrouppage),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('This cannot be undone. Type “${widget.group.name}” to confirm.'),
+        Text(
+          context.l10n.thisCannotBeUndoneTypeToConfirm(
+            (widget.group.name).toString(),
+          ),
+        ),
         const SizedBox(height: 12),
         TextField(
           style: Theme.of(context).textTheme.bodyMedium,
@@ -616,18 +628,18 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
           controller: controller,
           autofocus: true,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'Group name'),
+          decoration: InputDecoration(labelText: context.l10n.groupName),
         ),
       ],
     ),
     actions: [
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: () => Navigator.pop(context, false),
       ),
       DButton(
         key: const ValueKey('confirm-delete-group'),
-        label: const Text('Delete permanently'),
+        label: Text(context.l10n.deletePermanently),
         variant: DButtonVariant.destructive,
         onPressed: controller.text == widget.group.name
             ? () => Navigator.pop(context, true)
@@ -674,19 +686,19 @@ class _PrimaryTabs extends StatelessWidget {
     final tabs = <_GroupTab>[
       _GroupTab(
         section: GroupRoute.members,
-        label: 'Members',
+        label: context.l10n.membersChatchannelinfoview,
         icon: DIcons.users,
         count: group.userCount,
       ),
-      const _GroupTab(
+      _GroupTab(
         section: GroupRoute.activity,
-        label: 'Activity',
+        label: context.l10n.activity,
         icon: DIcons.fire,
       ),
       if (group.canManage && group.allowMembershipRequests)
         _GroupTab(
           section: GroupRoute.requests,
-          label: 'Requests',
+          label: context.l10n.requests,
           icon: DIcons.userPlus,
           count: data.requesters?.total,
         ),
@@ -696,19 +708,19 @@ class _PrimaryTabs extends StatelessWidget {
       ))
         _GroupTab(
           section: GroupRoute.messages,
-          label: 'Messages',
+          label: context.l10n.messages,
           icon: DIcons.envelope,
           count: group.messageCount,
         ),
       if (group.canManage)
-        const _GroupTab(
+        _GroupTab(
           section: GroupRoute.manage,
-          label: 'Manage',
+          label: context.l10n.manage,
           icon: DIcons.gear,
         ),
-      const _GroupTab(
+      _GroupTab(
         section: GroupRoute.permissions,
-        label: 'Permissions',
+        label: context.l10n.permissions,
         icon: DIcons.certificate,
       ),
     ];

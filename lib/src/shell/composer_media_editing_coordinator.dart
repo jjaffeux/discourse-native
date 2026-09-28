@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -424,7 +425,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       if (_isCurrent(composer, lifecycle) &&
           operation == _pickerGeneration &&
           composer.canUpload) {
-        composer.showNotice("Couldn't open the image picker.");
+        composer.showNotice(appL10n.couldnTOpenTheImagePicker);
       }
     } finally {
       if (_isCurrent(composer, lifecycle) && operation == _pickerGeneration) {

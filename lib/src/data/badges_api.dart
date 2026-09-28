@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/json.dart';
@@ -27,7 +28,7 @@ final class BadgesApi {
     if (id <= 0) throw ArgumentError.value(id, 'id');
     final body = await _get(siteUrl, '/badges/$id.json', apiKey, clientId);
     final badge = DiscourseBadge.fromJson(jsonObject(body['badge']), siteUrl);
-    if (badge.id != id) throw const FormatException('Missing badge');
+    if (badge.id != id) throw FormatException(appL10n.missingBadge);
     return badge;
   }
 

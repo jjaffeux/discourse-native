@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -116,7 +117,7 @@ class DSlider extends StatelessWidget {
     ramp: ramp,
     focusNodes: focusNode == null ? null : [focusNode!],
     autofocus: autofocus,
-    semanticLabels: [semanticLabel ?? 'Value'],
+    semanticLabels: [semanticLabel ?? context.l10n.value],
     semanticFormatter: semanticFormatterCallback == null
         ? null
         : (value, _) => semanticFormatterCallback!(value),
@@ -659,7 +660,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                 enabled: _enabled,
                                 label:
                                     widget.semanticLabels?[i] ??
-                                    'Value ${i + 1}',
+                                    context.l10n.valueDslider(
+                                      (i + 1).toString(),
+                                    ),
                                 value: format(_values[i], i),
                                 increasedValue: format(
                                   _constrain(_values[i] + _increment, i),

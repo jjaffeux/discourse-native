@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'ai_summary.dart';
@@ -62,10 +63,11 @@ final class AiSummaryPlugin
 const discourseAiRelatedTopicRecommendationSourceId =
     TopicRecommendationSourceId('discourse-ai/related');
 
-const discourseAiRelatedTopicRecommendationSource =
+TopicRecommendationSourceDefinition
+get discourseAiRelatedTopicRecommendationSource =>
     TopicRecommendationSourceDefinition(
       id: discourseAiRelatedTopicRecommendationSourceId,
-      label: 'Related',
+      label: appL10n.related,
       icon: DiscourseAiIcons.sparkles,
     );
 
@@ -104,7 +106,7 @@ class _AiSummaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton(
     key: const ValueKey('ai-topic-summary-button'),
-    label: const Text('Summarize'),
+    label: Text(context.l10n.summarize),
     onPressed: () {
       final controller = PluginUiScope.require(
         context,
@@ -127,8 +129,10 @@ class _AiSummaryButton extends StatelessWidget {
                   side: DSheetSide.bottom,
                   topBottomMaxHeightFactor: .9,
                   children: [
-                    const DSheetHeader(
-                      children: [DSheetTitle(child: Text('Topic summary'))],
+                    DSheetHeader(
+                      children: [
+                        DSheetTitle(child: Text(context.l10n.topicSummary)),
+                      ],
                     ),
                     DSheetBody(child: content()),
                   ],
@@ -144,7 +148,7 @@ class _AiSummaryButton extends StatelessWidget {
   );
 }
 
-const _genericFailureText = "Couldn't generate this summary.";
+String get _genericFailureText => appL10n.couldnTGenerateThisSummary;
 
 /// Upstream's `credit_limit_dialog.message_user` copy. The job's own `message`
 /// is a Ruby exception message, which upstream never shows either.
@@ -152,13 +156,10 @@ String _streamFailureText(AiSummaryStreamFailure failure) {
   if (!failure.creditLimitExceeded) return _genericFailureText;
   return switch (failure.resetTime) {
     final reset? =>
-      'This community has reached its AI credit limit for today. Please try '
-          'again after $reset or contact your site administrator for more '
-          'information.',
-    null =>
-      'This community has reached its AI credit limit for today. Responses '
-          'will be unavailable until your limit resets. Please contact your '
-          'site administrator for more information.',
+      appL10n.thisCommunityHasReachedItsAICreditLimitForTodayPlease(
+        (reset).toString(),
+      ),
+    null => appL10n.thisCommunityHasReachedItsAICreditLimitForTodayResponses,
   };
 }
 
@@ -263,7 +264,9 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
               const DSpinner(size: DSpacing.xl),
               const SizedBox(height: 12),
               Text(
-                _regenerating ? 'Regenerating summary…' : 'Generating summary…',
+                _regenerating
+                    ? context.l10n.regeneratingSummary
+                    : context.l10n.generatingSummary,
               ),
             ],
           ),
@@ -289,10 +292,10 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
             const SizedBox(height: 16),
             Text(
               summary.newPostsSinceSummary > 0
-                  ? 'This summary is outdated by '
-                        '${summary.newPostsSinceSummary} new '
-                        '${summary.newPostsSinceSummary == 1 ? 'post' : 'posts'}.'
-                  : 'This summary is outdated.',
+                  ? context.l10n.thisSummaryIsOutdatedByNew(
+                      summary.newPostsSinceSummary,
+                    )
+                  : context.l10n.thisSummaryIsOutdated,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -301,7 +304,7 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
           if (summary.algorithm case final algorithm?) ...[
             const SizedBox(height: 12),
             Text(
-              'Generated with $algorithm',
+              context.l10n.generatedWith((algorithm).toString()),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -313,15 +316,15 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
     };
     final actions = <Widget>[
       if (_error != null)
-        DButton(label: const Text('Try again'), onPressed: _load),
+        DButton(label: Text(context.l10n.tryAgain), onPressed: _load),
       if (summary?.outdated == true && summary?.canRegenerate == true)
         DButton(
-          label: const Text('Regenerate'),
+          label: Text(context.l10n.regenerate),
           onPressed: _loading ? null : () => _load(regenerate: true),
           icon: const DIcon(DIcons.arrowsRotate),
         ),
       DButton(
-        label: const Text('Close'),
+        label: Text(context.l10n.close),
         onPressed: () => Navigator.of(context).pop(),
       ),
     ];
@@ -338,8 +341,10 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
             maxWidth: 608,
             showCloseButton: false,
             children: [
-              const DDialogHeader(
-                children: [DDialogTitle(child: Text('Topic summary'))],
+              DDialogHeader(
+                children: [
+                  DDialogTitle(child: Text(context.l10n.topicSummary)),
+                ],
               ),
               DDialogScrollArea(child: content),
               DDialogFooter(children: actions),

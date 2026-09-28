@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -37,14 +38,14 @@ class AggregateBranding extends StatelessWidget {
         const SizedBox(width: 4),
         Flexible(
           child: Text(
-            'Discourse',
+            context.l10n.discourse,
             style: Theme.of(context).textTheme.titleSmall,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 8),
-        const DBadge(variant: DBadgeVariant.outline, child: Text('alpha')),
+        DBadge(variant: DBadgeVariant.outline, child: Text(context.l10n.alpha)),
       ],
     ),
   );

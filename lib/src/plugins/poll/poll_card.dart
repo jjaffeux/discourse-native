@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -169,21 +170,21 @@ class _PollCardState extends State<PollCard> {
 
   String? get _voteRestriction {
     if (_poll.status == PollStatus.closed || _automaticallyClosed) {
-      return 'This poll is closed.';
+      return appL10n.thisPollIsClosed;
     }
     if (_poll.status != PollStatus.open) {
-      return 'This poll has an unsupported status and is read only.';
+      return appL10n.thisPollHasAnUnsupportedStatusAndIsReadOnly;
     }
     if (widget.archived) {
-      return 'Voting is unavailable because this topic is archived.';
+      return appL10n.votingIsUnavailableBecauseThisTopicIsArchived;
     }
     if (!widget.signedIn) {
-      return 'Connect an account to vote.';
+      return appL10n.connectAnAccountToVote;
     }
     if (_poll.groups.isNotEmpty) {
       final currentGroups = widget.currentUserGroups;
       if (currentGroups == null) {
-        return 'Your group membership could not be confirmed, so this poll is read only.';
+        return appL10n.yourGroupMembershipCouldNotBeConfirmedSoThisPollIs;
       }
 
       final accountGroups = currentGroups
@@ -194,7 +195,9 @@ class _PollCardState extends State<PollCard> {
         (name) => accountGroups.contains(name.trim().toLowerCase()),
       );
       if (!eligible) {
-        return 'Only members of ${_humanList(_poll.groups)} can vote in this poll.';
+        return appL10n.onlyMembersOfCanVoteInThisPoll(
+          (_humanList(_poll.groups)).toString(),
+        );
       }
     }
     return null;
@@ -317,7 +320,7 @@ class _PollCardState extends State<PollCard> {
 
     return Semantics(
       container: true,
-      label: 'Poll',
+      label: context.l10n.poll,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: DCard(
@@ -355,7 +358,11 @@ class _PollCardState extends State<PollCard> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Text(
-                            'Weighted average: ${_formatAverage(calculateNumberPollAverage(_poll))}',
+                            context.l10n.weightedAverage(
+                              (_formatAverage(
+                                calculateNumberPollAverage(_poll),
+                              )).toString(),
+                            ),
                             style: Theme.of(context).textTheme.labelLarge,
                           ),
                         ),
@@ -403,8 +410,13 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       Text(
                         _multipleMin == _multipleMax
-                            ? 'Choose exactly $_multipleMin.'
-                            : 'Choose between $_multipleMin and $_multipleMax options.',
+                            ? context.l10n.chooseExactly(
+                                (_multipleMin).toString(),
+                              )
+                            : context.l10n.chooseBetweenAndOptions(
+                                (_multipleMin).toString(),
+                                (_multipleMax).toString(),
+                              ),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 8),
@@ -418,8 +430,8 @@ class _PollCardState extends State<PollCard> {
                               : null,
                           label: Text(
                             _selection.isEmpty && _savedSelection.isNotEmpty
-                                ? 'Remove votes'
-                                : 'Cast votes',
+                                ? context.l10n.removeVotes
+                                : context.l10n.castVotes,
                           ),
                         ),
                       ),
@@ -435,19 +447,20 @@ class _PollCardState extends State<PollCard> {
                       const SizedBox(height: 10),
                       _Guidance(
                         text: _isRankedChoice
-                            ? 'Ranked-choice voting is available on the web.'
-                            : 'This poll type is read only in the app. You can vote on the web.',
+                            ? context.l10n.rankedChoiceVotingIsAvailableOnTheWeb
+                            : context.l10n.thisPollTypeIsReadOnlyInTheAppYouCan,
                       ),
                     ],
                     if (!_isRankedChoice && _poll.options.isEmpty) ...[
                       const SizedBox(height: 10),
-                      const _Guidance(
-                        text: 'This poll has no options that can be displayed.',
+                      _Guidance(
+                        text:
+                            context.l10n.thisPollHasNoOptionsThatCanBeDisplayed,
                       ),
                     ],
                     if (widget.pending || _submitting) ...[
                       const SizedBox(height: 10),
-                      const _Guidance(text: 'Saving vote…'),
+                      _Guidance(text: context.l10n.savingVote),
                     ],
                     if (!_effectivelyOpen && _poll.closeAt != null) ...[
                       const SizedBox(height: 10),
@@ -468,7 +481,7 @@ class _PollCardState extends State<PollCard> {
                           isLink: true,
                           key: ValueKey<String>('poll-${_poll.name}-web'),
                           onPressed: widget.onVoteOnWeb,
-                          label: const Text('Vote on web'),
+                          label: Text(context.l10n.voteOnWeb),
                         ),
                       ),
                     ] else if (!widget.signedIn &&
@@ -483,7 +496,7 @@ class _PollCardState extends State<PollCard> {
                           variant: DButtonVariant.link,
                           key: ValueKey<String>('poll-${_poll.name}-connect'),
                           onPressed: widget.onConnectAccount,
-                          label: const Text('Connect account'),
+                          label: Text(context.l10n.connectAccount),
                         ),
                       ),
                     ],
@@ -500,16 +513,16 @@ class _PollCardState extends State<PollCard> {
   String get _hiddenResultsMessage {
     if (_poll.results == PollResults.onClose) {
       return _effectivelyOpen
-          ? 'Results will be shown when this poll closes.'
-          : 'Results are not available.';
+          ? appL10n.resultsWillBeShownWhenThisPollCloses
+          : appL10n.resultsAreNotAvailable;
     }
     if (_poll.results == PollResults.onVote && !_poll.selection.hasVote) {
-      return 'Vote to see results.';
+      return appL10n.voteToSeeResults;
     }
     if (_poll.results == PollResults.staffOnly) {
-      return 'Results are visible to staff.';
+      return appL10n.resultsAreVisibleToStaff;
     }
-    return 'Results are not available.';
+    return appL10n.resultsAreNotAvailable;
   }
 }
 
@@ -527,12 +540,17 @@ class _PollMetadata extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labels = <String>[
-      poll.voters == 1 ? '1 voter' : '${poll.voters} voters',
-      effectivelyOpen ? 'Open' : 'Closed',
-      poll.isPublic ? 'Public voter identities' : 'Private voter identities',
-      if (poll.isDynamic) 'Dynamic options',
-      if (poll.groups.isNotEmpty) 'Restricted to ${_humanList(poll.groups)}',
-      if (automaticallyClosed) 'Automatically closed',
+      poll.voters == 1
+          ? context.l10n.message1Voter
+          : context.l10n.voters((poll.voters).toString()),
+      effectivelyOpen ? context.l10n.open : context.l10n.closed,
+      poll.isPublic
+          ? context.l10n.publicVoterIdentities
+          : context.l10n.privateVoterIdentities,
+      if (poll.isDynamic) context.l10n.dynamicOptions,
+      if (poll.groups.isNotEmpty)
+        context.l10n.restrictedTo((_humanList(poll.groups)).toString()),
+      if (automaticallyClosed) context.l10n.automaticallyClosed,
     ];
 
     return Wrap(
@@ -593,7 +611,12 @@ class _PollOptionRow extends StatelessWidget {
     final votes = option.votes;
     final resultLabel = votes == null || percentage == null
         ? ''
-        : ', ${votes == 1 ? '1 vote' : '$votes votes'}, $percentage percent';
+        : context.l10n.percent(
+            votes,
+            ((votes == 1) ? (context.l10n.message1Vote) : '').toString(),
+            (percentage).toString(),
+            ((!(votes == 1)) ? (votes) : '').toString(),
+          );
 
     if (accessible.hasDisclosure) {
       // Native choice labels own one hit/semantics target. Disclosures need
@@ -632,7 +655,13 @@ class _PollOptionRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                            context.l10n.messagePollcard(
+                              votes,
+                              ((votes == 1) ? (context.l10n.message1Vote) : '')
+                                  .toString(),
+                              (percentage).toString(),
+                              ((!(votes == 1)) ? (votes) : '').toString(),
+                            ),
                           ),
                           const SizedBox(height: 4),
                           DChartBar(
@@ -678,7 +707,11 @@ class _PollOptionRow extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         children: [
-                          Text(votes == 1 ? '1 vote' : '$votes votes'),
+                          Text(
+                            votes == 1
+                                ? context.l10n.message1Vote
+                                : context.l10n.votes((votes).toString()),
+                          ),
                           Text('$percentage%'),
                         ],
                       ),
@@ -717,7 +750,13 @@ class _PollOptionRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '${votes == 1 ? '1 vote' : '$votes votes'}, $percentage%',
+                    context.l10n.messagePollcard(
+                      votes,
+                      ((votes == 1) ? (context.l10n.message1Vote) : '')
+                          .toString(),
+                      (percentage).toString(),
+                      ((!(votes == 1)) ? (votes) : '').toString(),
+                    ),
                     style: theme.textTheme.bodyLarge?.copyWith(color: whisper),
                   ),
                   const SizedBox(height: 4),
@@ -753,24 +792,27 @@ class _RankedChoiceBody extends StatelessWidget {
             outcome.tied &&
             outcome.tiedCandidates.isNotEmpty)
           _RankedCandidatesSummary(
-            label: 'Tie between',
+            label: context.l10n.tieBetween,
             candidates: outcome.tiedCandidates,
             siteUrl: siteUrl,
           )
         else if (outcome?.winningCandidate != null)
           _RankedCandidatesSummary(
-            label: 'Winner',
+            label: context.l10n.winner,
             candidates: [outcome!.winningCandidate!],
             siteUrl: siteUrl,
           )
         else
-          const _Guidance(text: 'Ranked-choice results are not available yet.'),
+          _Guidance(text: context.l10n.rankedChoiceResultsAreNotAvailableYet),
         const SizedBox(height: 8),
         for (final option in poll.options)
           Semantics(
             label: ranks[option.id] == null
                 ? _accessiblePollHtml(option, option.html).label
-                : '${_accessiblePollHtml(option, option.html).label}, ranked ${ranks[option.id]}',
+                : context.l10n.ranked(
+                    (_accessiblePollHtml(option, option.html).label).toString(),
+                    (ranks[option.id]).toString(),
+                  ),
             child: ExcludeSemantics(
               excluding: !_accessiblePollHtml(
                 option,
@@ -850,7 +892,7 @@ class _Guidance extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      liveRegion: text == 'Saving vote…',
+      liveRegion: text == context.l10n.savingVote,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
@@ -877,8 +919,11 @@ class _CloseTime extends StatelessWidget {
     final time = clockTimeLabel(context, local);
     return Text(
       closed
-          ? 'Automatically closed $date at $time.'
-          : 'Closes $date at $time.',
+          ? context.l10n.automaticallyClosedAt(
+              (date).toString(),
+              (time).toString(),
+            )
+          : context.l10n.closesAt((date).toString(), (time).toString()),
       style: Theme.of(context).textTheme.bodyMedium,
     );
   }
@@ -920,7 +965,7 @@ class PollFallbackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     container: true,
-    label: 'Poll, read only',
+    label: context.l10n.pollReadOnly,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: DCard(
@@ -956,8 +1001,8 @@ class PollFallbackCard extends StatelessWidget {
                   ),
                 ),
               if (options.isEmpty)
-                const _Guidance(
-                  text: 'This poll cannot be displayed interactively.',
+                _Guidance(
+                  text: context.l10n.thisPollCannotBeDisplayedInteractively,
                 ),
             ],
           ),
@@ -1033,7 +1078,7 @@ List<int> _evenRound(List<double> values) {
 }
 
 String _formatAverage(double? value) {
-  if (value == null) return 'Unavailable';
+  if (value == null) return appL10n.unavailable;
   final fixed = value.toStringAsFixed(2);
   return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }
@@ -1059,14 +1104,14 @@ class _PollHtmlAccessibility {
     final hasDisclosure = disclosures.isNotEmpty;
     for (final disclosure in disclosures.reversed) {
       if (disclosure.localName != 'details') {
-        disclosure.replaceWith(dom.Text(' Spoiler '));
+        disclosure.replaceWith(dom.Text(appL10n.spoiler));
       } else {
         final summary = disclosure.children
             .where((child) => child.localName == 'summary')
             .firstOrNull;
         disclosure.nodes
           ..clear()
-          ..add(summary?.clone(true) ?? dom.Text('Details'));
+          ..add(summary?.clone(true) ?? dom.Text(appL10n.details));
       }
     }
     return _PollHtmlAccessibility(
@@ -1085,8 +1130,13 @@ String _humanList(Iterable<String> values) {
       .where((value) => value.isNotEmpty)
       .toList(growable: false);
   if (names.length < 2) return names.join();
-  if (names.length == 2) return '${names.first} or ${names.last}';
-  return '${names.take(names.length - 1).join(', ')}, or ${names.last}';
+  if (names.length == 2) {
+    return appL10n.or((names.first).toString(), (names.last).toString());
+  }
+  return appL10n.orPollcard(
+    (names.take(names.length - 1).join(', ')).toString(),
+    (names.last).toString(),
+  );
 }
 
 bool _sameSet(Set<String> a, Set<String> b) =>

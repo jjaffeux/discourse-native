@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_controller.dart';
@@ -124,7 +125,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
         return ChatThreadListMessage(
           icon: DIcons.triangleExclamation,
           message: error,
-          action: 'Try again',
+          action: context.l10n.tryAgain,
           onAction: () => unawaited(
             _chat.loadChannelThreads(
               widget.siteUrl,
@@ -136,9 +137,9 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       }
       if (threads.isEmpty &&
           _chat.channelThreadsLoaded(widget.siteUrl, widget.channelId)) {
-        return const ChatThreadListMessage(
+        return ChatThreadListMessage(
           icon: DIcons.comments,
-          message: 'There are no active threads in this channel.',
+          message: context.l10n.thereAreNoActiveThreadsInThisChannel,
         );
       }
 
@@ -182,7 +183,11 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                     const SizedBox(height: 8),
                   ],
                   DButton(
-                    label: Text(error == null ? 'Load more' : 'Try again'),
+                    label: Text(
+                      error == null
+                          ? context.l10n.loadMore
+                          : context.l10n.tryAgain,
+                    ),
                     onPressed: () => unawaited(
                       error == null
                           ? _chat.loadChannelThreads(

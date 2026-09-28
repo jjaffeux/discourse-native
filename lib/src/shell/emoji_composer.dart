@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/core_plugin_host.dart';
@@ -54,7 +55,7 @@ Future<void> openEmojiPickerForComposer({
       if (context.mounted) {
         DToast.show(
           context,
-          'The composer changed while the emoji picker was open. Nothing was changed.',
+          appL10n.theComposerChangedWhileTheEmojiPickerWasOpenNothingWas,
         );
       }
       return;

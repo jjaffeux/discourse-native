@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -80,7 +81,7 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
         if (open != _open) setState(() => _open = open);
       },
       content: DPopoverContent(
-        semanticLabel: 'Community navigation',
+        semanticLabel: context.l10n.communityNavigation,
         align: DPopoverAlign.start,
         width: 288,
         padding: EdgeInsets.zero,
@@ -106,7 +107,7 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
                         child: DPopoverTrigger(
                           builder: (context, trigger) => DButton(
                             key: const ValueKey('desktop-navigation-trigger'),
-                            label: const Text('Navigation'),
+                            label: Text(context.l10n.navigation),
                             icon: const DIcon(DIcons.list),
                             variant: DButtonVariant.ghost,
                             expanded: trigger.open,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
@@ -20,7 +21,7 @@ Future<void> showAddInstanceSheet(
   BuildContext context, {
   DiscoverSites? discoverSites,
 }) async {
-  const title = 'Add a site';
+  final title = appL10n.addASite;
   final shell = ShellScope.maybeRead(context);
   final source = discoverSites ?? shell?.discoverSites ?? DiscoverSites();
   final ownsSource = discoverSites == null && shell == null;
@@ -44,11 +45,11 @@ Future<void> showAddInstanceSheet(
                 children: [
                   Row(
                     children: [
-                      const Expanded(child: DDrawerTitle(child: Text(title))),
+                      Expanded(child: DDrawerTitle(child: Text(title))),
                       DButton.iconOnly(
                         variant: DButtonVariant.ghost,
                         icon: const DIcon(DIcons.xmark),
-                        tooltip: 'Close',
+                        tooltip: appL10n.close,
                         onPressed: () => controller.close(),
                       ),
                     ],
@@ -78,7 +79,7 @@ Future<void> showAddInstanceSheet(
           maxWidth: 600,
           semanticLabel: title,
           children: [
-            const DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+            DDialogHeader(children: [DDialogTitle(child: Text(title))]),
             _AddInstanceForm(focusNode: addressFocus, discoverSites: source),
           ],
         ),
@@ -283,9 +284,9 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           }
           return;
         }
-        failure = "Couldn't save this site. Try again.";
+        failure = appL10n.couldnTSaveThisSiteTryAgain;
       } else {
-        failure = '${instance.title} is already in your list.';
+        failure = appL10n.isAlreadyInYourList((instance.title).toString());
       }
     } else {
       final error = result.error!;
@@ -300,7 +301,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       );
       failure = error is SiteLookupException
           ? error.message
-          : "Couldn't reach $term.";
+          : appL10n.couldnTReachAddinstancesheet((term).toString());
     }
 
     if (!mounted) return;
@@ -321,7 +322,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       ),
     ),
     _SiteCheckState.valid => DTooltip(
-      message: 'Valid Discourse site',
+      message: appL10n.validDiscourseSite,
       child: DIcon(
         DIcons.check,
         key: const ValueKey('add-site-valid'),
@@ -330,7 +331,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       ),
     ),
     _SiteCheckState.invalid => DTooltip(
-      message: 'Site is unavailable or is not a Discourse forum',
+      message: appL10n.siteIsUnavailableOrIsNotADiscourseForum,
       child: DIcon(
         DIcons.xmark,
         key: const ValueKey('add-site-invalid'),
@@ -349,7 +350,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Enter the address of a Discourse forum.',
+          context.l10n.enterTheAddressOfADiscourseForum,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -365,15 +366,15 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           textInputAction: TextInputAction.go,
           onChanged: _addressChanged,
           onSubmitted: (_) => _connect(),
-          semanticLabel: 'Forum address',
-          hintText: 'meta.discourse.org',
+          semanticLabel: context.l10n.forumAddress,
+          hintText: context.l10n.siteAddressExample,
           prefix: const DIcon(DIcons.globe, size: 16),
           suffix: _connecting ? null : _siteCheckIcon(theme),
           errorText: _error,
         ),
         const SizedBox(height: 16),
         DButton(
-          label: const Text('Connect'),
+          label: Text(context.l10n.connect),
           onPressed: _connect,
           variant: DButtonVariant.primary,
           loading: _connecting,

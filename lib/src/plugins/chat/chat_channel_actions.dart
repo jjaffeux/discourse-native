@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -95,7 +96,7 @@ class _ChannelMenu extends StatelessWidget {
         key: ValueKey('chat-channel-notifications-${channel.id}'),
         leading: const DIcon(DIcons.bell, size: 16),
         width: 220,
-        trigger: const Text('Notifications'),
+        trigger: Text(context.l10n.notifications),
         children: [
           for (final action in const [
             _NotificationAction.never,
@@ -143,7 +144,11 @@ class _ChannelMenu extends StatelessWidget {
             trailing: membership.muted
                 ? const DIcon(DIcons.check, size: 14)
                 : null,
-            child: Text(membership.muted ? 'Unmute channel' : 'Mute channel'),
+            child: Text(
+              membership.muted
+                  ? context.l10n.unmuteChannel
+                  : context.l10n.muteChannel,
+            ),
           ),
         ],
       ),
@@ -157,7 +162,7 @@ class _ChannelMenu extends StatelessWidget {
           _ChannelAction.settings,
         ),
         leading: const DIcon(DIcons.gear, size: 16),
-        child: const Text('Channel settings'),
+        child: Text(context.l10n.channelSettings),
       ),
       DDropdownMenuItem(
         key: ValueKey('chat-channel-menu-star-${channel.id}'),
@@ -176,8 +181,8 @@ class _ChannelMenu extends StatelessWidget {
         ),
         child: Text(
           membership.starred
-              ? 'Remove from starred channels'
-              : 'Add to starred channels',
+              ? context.l10n.removeFromStarredChannels
+              : context.l10n.addToStarredChannels,
         ),
       ),
       DDropdownMenuItem(
@@ -194,7 +199,9 @@ class _ChannelMenu extends StatelessWidget {
         leading: const DIcon(DIcons.xmark, size: 16),
         variant: DDropdownMenuItemVariant.destructive,
         child: Text(
-          channel.isDirectMessage ? 'Close channel' : 'Leave channel',
+          channel.isDirectMessage
+              ? context.l10n.closeChannel
+              : context.l10n.leaveChannel,
         ),
       ),
     ];
@@ -206,7 +213,7 @@ class _ChannelMenu extends StatelessWidget {
     if (child case final row?) {
       return DContextMenu(
         content: DContextMenuContent(
-          semanticLabel: '${channel.title} menu',
+          semanticLabel: context.l10n.menu((channel.title).toString()),
           width: 280,
           constraints: constraints,
           children: items,
@@ -223,7 +230,7 @@ class _ChannelMenu extends StatelessWidget {
       child: DDropdownMenuTrigger(
         builder: (context, menu) => DButton.iconOnly(
           key: ValueKey('chat-channel-menu-button-${channel.id}'),
-          tooltip: 'Open ${channel.title} menu',
+          tooltip: context.l10n.openMenu((channel.title).toString()),
           variant: DButtonVariant.ghost,
           size: DButtonSize.small,
           focusNode: menu.focusNode,
@@ -252,10 +259,10 @@ bool _notificationSelected(
 }
 
 String _notificationLabel(_NotificationAction action) => switch (action) {
-  _NotificationAction.never => 'Never',
-  _NotificationAction.mention => 'Mentions only',
-  _NotificationAction.always => 'All activity',
-  _NotificationAction.mute => 'Mute channel',
+  _NotificationAction.never => appL10n.never,
+  _NotificationAction.mention => appL10n.mentionsOnly,
+  _NotificationAction.always => appL10n.allActivity,
+  _NotificationAction.mute => appL10n.muteChannel,
 };
 
 void _applyChannelAction(

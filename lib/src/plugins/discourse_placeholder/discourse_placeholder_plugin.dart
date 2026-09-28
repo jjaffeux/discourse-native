@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -317,7 +318,7 @@ class _PlaceholderField extends StatelessWidget {
                           value: options.contains(value) || value == 'none'
                               ? value
                               : null,
-                          placeholder: description ?? 'Select a value',
+                          placeholder: description ?? context.l10n.selectAValue,
                           entries: [
                             if (description != null &&
                                 description!.isNotEmpty &&

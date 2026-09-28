@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 int? timeGapDaysBetween(DateTime? earlier, DateTime? later) {
@@ -8,14 +9,14 @@ int? timeGapDaysBetween(DateTime? earlier, DateTime? later) {
 String timeGapLabel(int daysSince) {
   assert(daysSince >= 0);
   if (daysSince < 30) {
-    return '$daysSince ${daysSince == 1 ? 'day' : 'days'} later';
+    return appL10n.later(daysSince);
   }
   if (daysSince < 365) {
     final months = (daysSince / 30).round();
-    return '$months ${months == 1 ? 'month' : 'months'} later';
+    return appL10n.laterTimegap(months);
   }
   final years = (daysSince / 365).round();
-  return '$years ${years == 1 ? 'year' : 'years'} later';
+  return appL10n.laterTimegapValue(years);
 }
 
 class TimeGapNotice extends StatelessWidget {

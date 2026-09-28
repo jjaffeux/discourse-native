@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:pointycastle/export.dart';
 
 import '../diagnostics/diagnostic_error_cause.dart';
@@ -57,11 +58,11 @@ class UserApiAuthException implements Exception, DiagnosticErrorCause {
   StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
-    UserApiAuthFailure.cancelled => 'Connection cancelled.',
+    UserApiAuthFailure.cancelled => appL10n.connectionCancelled,
     UserApiAuthFailure.launchFailed =>
-      'Could not open the sign-in window. Check that a web view is installed.',
+      appL10n.couldNotOpenTheSignInWindowCheckThatAWeb,
     UserApiAuthFailure.badReply =>
-      "The site's reply could not be verified. Please try again.",
+      appL10n.theSiteSReplyCouldNotBeVerifiedPleaseTryAgain,
   };
 
   @override
@@ -131,9 +132,9 @@ class UserApiKeyProtocol {
 
   String payloadFromCallback(String callbackUrl) {
     if (callbackUrl.length > maximumCallbackUrlCodeUnits) {
-      throw const UserApiAuthException(
+      throw UserApiAuthException(
         UserApiAuthFailure.badReply,
-        'callback URL exceeds protocol limit',
+        appL10n.callbackURLExceedsProtocolLimit,
       );
     }
 
@@ -142,9 +143,9 @@ class UserApiKeyProtocol {
     try {
       callback = Uri.parse(callbackUrl);
       if (callback.scheme != redirectScheme || callback.host != redirectHost) {
-        throw const UserApiAuthException(
+        throw UserApiAuthException(
           UserApiAuthFailure.badReply,
-          'unexpected callback URL',
+          appL10n.unexpectedCallbackURL,
         );
       }
       // Percent-escapes are decoded when the query is read, not when the URL
@@ -158,9 +159,9 @@ class UserApiKeyProtocol {
     }
 
     if (payload == null || payload.isEmpty) {
-      throw const UserApiAuthException(
+      throw UserApiAuthException(
         UserApiAuthFailure.badReply,
-        'no payload in callback',
+        appL10n.noPayloadInCallback,
       );
     }
     return payload;
@@ -175,8 +176,8 @@ class UserApiKeyProtocol {
     try {
       final cipherText = base64Decode(_compactPayload(payload));
       if (cipherText.length != encryptedPayloadBytes) {
-        throw const FormatException(
-          'encrypted payload must contain exactly one RSA block',
+        throw FormatException(
+          appL10n.encryptedPayloadMustContainExactlyOneRSABlock,
         );
       }
       final privateKey = CryptoUtils.rsaPrivateKeyFromPem(privateKeyPem);
@@ -193,17 +194,17 @@ class UserApiKeyProtocol {
     }
 
     if (decoded['nonce'] != expectedNonce) {
-      throw const UserApiAuthException(
+      throw UserApiAuthException(
         UserApiAuthFailure.badReply,
-        'nonce mismatch',
+        appL10n.nonceMismatch,
       );
     }
 
     final key = decoded['key'];
     if (key is! String || key.isEmpty) {
-      throw const UserApiAuthException(
+      throw UserApiAuthException(
         UserApiAuthFailure.badReply,
-        'no key in payload',
+        appL10n.noKeyInPayload,
       );
     }
 
@@ -230,7 +231,7 @@ class UserApiKeyProtocol {
     // decodePayload is public, so bound a direct caller as well as values that
     // already passed through payloadFromCallback.
     if (payload.length > maximumCallbackUrlCodeUnits) {
-      throw const FormatException('encrypted payload exceeds protocol limit');
+      throw FormatException(appL10n.encryptedPayloadExceedsProtocolLimit);
     }
 
     final compact = StringBuffer();
@@ -240,7 +241,7 @@ class UserApiKeyProtocol {
 
       significantCharacters += 1;
       if (significantCharacters > maximumPayloadBase64Characters) {
-        throw const FormatException('encrypted payload exceeds one RSA block');
+        throw FormatException(appL10n.encryptedPayloadExceedsOneRSABlock);
       }
       compact.writeCharCode(codeUnit);
     }
@@ -265,8 +266,11 @@ bool _isWhitespaceCodeUnit(int codeUnit) =>
     codeUnit == 0xfeff;
 
 String _safeAuthFailureDetail(Object error) => switch (error) {
-  FormatException(:final message, :final offset) =>
-    'FormatException: $message${offset == null ? '' : ' at $offset'}',
+  FormatException(:final message, :final offset) => appL10n.formatException(
+    (offset == null).toString(),
+    (message).toString(),
+    ((!(offset == null)) ? (offset) : '').toString(),
+  ),
   _ => error.runtimeType.toString(),
 };
 

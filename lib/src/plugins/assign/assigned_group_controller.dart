@@ -1,6 +1,8 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'assigned_group.dart';
 import 'assigned_group_api.dart';
 
@@ -135,7 +137,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commitMember(lease, key, request, () {
           _memberStates[key] = held.withError(
-            'Reconnect to view group assignments.',
+            appL10n.reconnectToViewGroupAssignments,
           );
         });
         return;
@@ -156,7 +158,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       _report(error, stackTrace, 'assign.groupMembers');
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withError(
-          "Couldn't load this group's assigned members.",
+          appL10n.couldnTLoadThisGroupSAssignedMembers,
         );
       });
     } finally {
@@ -196,7 +198,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commitMember(lease, key, request, () {
           _memberStates[key] = held.withError(
-            'Reconnect to load more assigned members.',
+            appL10n.reconnectToLoadMoreAssignedMembers,
             page: true,
           );
         });
@@ -224,7 +226,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       );
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withError(
-          "Couldn't load more assigned members.",
+          appL10n.couldnTLoadMoreAssignedMembers,
           page: true,
         );
       });
@@ -266,7 +268,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commitTopicLoad(lease, key, revision, request, () {
           _topicFeeds[key] = held.withError(
-            'Reconnect to view group assignments.',
+            appL10n.reconnectToViewGroupAssignments,
           );
         });
         return;
@@ -289,7 +291,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       _report(error, stackTrace, 'assign.groupTopics');
       _commitTopicLoad(lease, key, revision, request, () {
         _topicFeeds[key] = held.withError(
-          "Couldn't load this group's assignments.",
+          appL10n.couldnTLoadThisGroupSAssignments,
         );
       });
     } finally {
@@ -335,7 +337,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commitTopicPage(lease, key, revision, request, () {
           _topicFeeds[key] = held.withError(
-            'Reconnect to load more assignments.',
+            appL10n.reconnectToLoadMoreAssignments,
             page: true,
           );
         });
@@ -376,7 +378,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
       );
       _commitTopicPage(lease, key, revision, request, () {
         _topicFeeds[key] = held.withError(
-          "Couldn't load more assignments.",
+          appL10n.couldnTLoadMoreAssignments,
           page: true,
         );
       });

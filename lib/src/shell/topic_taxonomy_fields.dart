@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -77,9 +78,9 @@ class TopicCategoryValue extends StatelessWidget {
     this.onNavigate,
     this.onParentNavigate,
     this.onEdit,
-    this.tooltip = 'Edit topic category',
+    this._tooltip,
     this.navigationTooltip,
-    this.editTooltip = 'Edit topic category',
+    this._editTooltip,
   }) : assert(onTap == null || onNavigate == null),
        assert(parentCategory != null || onParentNavigate == null);
 
@@ -99,9 +100,11 @@ class TopicCategoryValue extends StatelessWidget {
   final VoidCallback? onNavigate;
   final VoidCallback? onParentNavigate;
   final VoidCallback? onEdit;
-  final String tooltip;
+  final String? _tooltip;
+  String get tooltip => _tooltip ?? appL10n.editTopicCategory;
   final String? navigationTooltip;
-  final String editTooltip;
+  final String? _editTooltip;
+  String get editTooltip => _editTooltip ?? appL10n.editTopicCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -178,8 +181,13 @@ class TopicCategoryValue extends StatelessWidget {
                     actionKey: parentActionKey,
                     label: parentCategory.name,
                     readRestricted: parentCategory.readRestricted,
-                    semanticLabel: 'Parent category: ${parentCategory.name}',
-                    tooltip: 'Open category ${parentCategory.name}',
+                    semanticLabel: context.l10n
+                        .parentCategoryTopictaxonomyfields(
+                          (parentCategory.name).toString(),
+                        ),
+                    tooltip: context.l10n.openCategory(
+                      (parentCategory.name).toString(),
+                    ),
                     onTap: onParentNavigate,
                     showChevron: true,
                   ),
@@ -187,9 +195,14 @@ class TopicCategoryValue extends StatelessWidget {
                     actionKey: actionKey,
                     label: category.name,
                     readRestricted: category.readRestricted,
-                    semanticLabel: 'Category: ${category.name}',
+                    semanticLabel: context.l10n.categoryTopiclistview(
+                      (category.name).toString(),
+                    ),
                     tooltip:
-                        navigationTooltip ?? 'Open category ${category.name}',
+                        navigationTooltip ??
+                        context.l10n.openCategoryTopictaxonomyfields(
+                          (category.name).toString(),
+                        ),
                     onTap: onNavigate,
                   ),
                 ],
@@ -198,13 +211,19 @@ class TopicCategoryValue extends StatelessWidget {
           ],
         );
       } else {
-        final message = navigationTooltip ?? 'Open category $label';
+        final message =
+            navigationTooltip ??
+            context.l10n.openCategoryTopictaxonomyfieldsValue(
+              (label).toString(),
+            );
         value = DTooltip(
           message: message,
           child: InlineAction.link(
             key: actionKey,
             onTap: onNavigate,
-            semanticLabel: 'Category: $label',
+            semanticLabel: context.l10n.categoryTopictaxonomyfields(
+              (label).toString(),
+            ),
             excludeChildSemantics: true,
             borderRadius: BorderRadius.circular(5),
             child: ConstrainedBox(
@@ -340,8 +359,8 @@ class TopicTagsValue extends StatelessWidget {
     this.tagKey,
     this.addKey,
     this.addIconKey,
-    this.emptyLabel = 'No tags',
-    this.editTooltip = 'Edit topic tags',
+    this._emptyLabel,
+    this._editTooltip,
   });
 
   final List<TopicTag> tags;
@@ -352,8 +371,10 @@ class TopicTagsValue extends StatelessWidget {
   final Key? Function(TopicTag tag)? tagKey;
   final Key? addKey;
   final Key? addIconKey;
-  final String emptyLabel;
-  final String editTooltip;
+  final String? _emptyLabel;
+  String get emptyLabel => _emptyLabel ?? appL10n.noTags;
+  final String? _editTooltip;
+  String get editTooltip => _editTooltip ?? appL10n.editTopicTagsPostactions;
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +395,9 @@ class TopicTagsValue extends StatelessWidget {
         tag: tag,
         onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
         isLink: onTagNavigate != null,
-        semanticLabel: onTagNavigate == null ? null : 'Tag: ${tag.name}',
+        semanticLabel: onTagNavigate == null
+            ? null
+            : context.l10n.tag((tag.name).toString()),
       );
       return onTagNavigate == null
           ? built
@@ -565,7 +588,7 @@ class _EditableEmptyTopicTags extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(top: 3),
         child: DTooltip(
-          message: saving ? 'Saving topic tags' : 'Add tag',
+          message: saving ? context.l10n.savingTopicTags : context.l10n.addTag,
           child: Material(
             color: theme.colorScheme.surfaceContainerHigh,
             shape: shape,
@@ -592,7 +615,7 @@ class _EditableEmptyTopicTags extends StatelessWidget {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        saving ? 'Saving…' : 'Add tag',
+                        saving ? context.l10n.saving : context.l10n.addTag,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: color,
                         ),
@@ -624,7 +647,7 @@ class _TopicTagsAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DTooltip(
-    message: 'Add tag',
+    message: context.l10n.addTag,
     child: Material(
       type: MaterialType.transparency,
       shape: const CircleBorder(),

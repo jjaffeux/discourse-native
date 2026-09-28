@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../foundation/uri_path.dart';
 import 'discourse_instance.dart';
 
@@ -85,7 +86,11 @@ class ListLink {
 
   String get placeholderTitle {
     final words = slug.replaceAll('-', ' ').trim();
-    if (words.isEmpty) return kind == ListKind.category ? 'Category' : 'Tag';
+    if (words.isEmpty) {
+      return kind == ListKind.category
+          ? appL10n.category
+          : appL10n.tagTopictagselector;
+    }
     return words.replaceFirstMapped(RegExp(r'^\w'), (m) => m[0]!.toUpperCase());
   }
 }

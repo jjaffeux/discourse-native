@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'local_date.dart';
@@ -30,7 +31,9 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
   required List<String> siteFormats,
   bool Function()? isCurrent,
 }) {
-  final title = draft.isNew ? 'Insert date and time' : 'Edit date and time';
+  final title = draft.isNew
+      ? appL10n.insertDateAndTime
+      : appL10n.editDateAndTime;
   Widget editor(BuildContext context) => LocalDateComposerSheet(
     draft: draft,
     siteFormats: siteFormats,
@@ -65,7 +68,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                         DText(title, variant: DTextVariant.h4, headingLevel: 1),
                         const SizedBox(height: 4),
                         Text(
-                          'Choose the date, then check how it will appear.',
+                          appL10n.chooseTheDateThenCheckHowItWillAppear,
                           style: Theme.of(dialogContext).textTheme.bodySmall,
                         ),
                       ],
@@ -74,7 +77,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
                   DButton.iconOnly(
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     variant: DButtonVariant.ghost,
-                    tooltip: 'Close',
+                    tooltip: appL10n.close,
                     icon: const Icon(Icons.close),
                   ),
                 ],
@@ -203,12 +206,12 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const DCardTitle(child: Text('When')),
+                  DCardTitle(child: Text(context.l10n.when)),
                   const SizedBox(height: 12),
                   _dateTimeRow(
                     date: _startDate,
                     time: _startTime,
-                    label: 'Start',
+                    label: context.l10n.start,
                     hasTime: _hasStartTime,
                     onTimeEnabled: (value) =>
                         setState(() => _hasStartTime = value),
@@ -217,7 +220,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                   DSeparator(color: theme.shell.divider, space: 1),
                   DSwitchTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const DLabel(child: Text('Add end date and time')),
+                    title: DLabel(child: Text(context.l10n.addEndDateAndTime)),
                     value: _hasEnd,
                     onChanged: (value) => setState(() {
                       _hasEnd = value;
@@ -229,7 +232,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                     _dateTimeRow(
                       date: _endDate,
                       time: _endTime,
-                      label: 'End',
+                      label: context.l10n.end,
                       hasTime: _hasEndTime,
                       onTimeEnabled: (value) =>
                           setState(() => _hasEndTime = value),
@@ -247,11 +250,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const DCardTitle(child: Text('Timezone')),
+                  DCardTitle(child: Text(context.l10n.timezone)),
                   const SizedBox(height: 12),
                   _TimezoneMenu(
                     key: const ValueKey('local-date-source-timezone'),
-                    label: 'Source timezone',
+                    label: context.l10n.sourceTimezone,
                     zones: _zones,
                     initial: _timezone,
                     onSelected: (zone) {
@@ -260,7 +263,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This is the timezone in which the date and time were entered.',
+                    context.l10n.thisIsTheTimezoneInWhichTheDateAndTimeWere,
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -279,7 +282,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Row(
                       children: [
-                        const Expanded(child: Text('Display options')),
+                        Expanded(child: Text(context.l10n.displayOptions)),
                         Icon(
                           state.open ? Icons.expand_less : Icons.expand_more,
                           size: 16,
@@ -296,13 +299,13 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       if (!_hasEnd) ...[
                         DInput(
                           controller: _recurring,
-                          labelText: 'Recurrence (optional)',
-                          hintText: '1.weeks',
+                          labelText: context.l10n.recurrenceOptional,
+                          hintText: context.l10n.recurrenceExample,
                         ),
                         const SizedBox(height: 8),
                         DSwitchTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const DLabel(child: Text('Countdown')),
+                          title: DLabel(child: Text(context.l10n.countdown)),
                           value: _countdown,
                           onChanged: (value) =>
                               setState(() => _countdown = value),
@@ -310,7 +313,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       ],
                       _TimezoneMenu(
                         key: const ValueKey('local-date-displayed-timezone'),
-                        label: 'Displayed timezone (optional)',
+                        label: context.l10n.displayedTimezoneOptional,
                         zones: _zones,
                         initial: _displayedTimezone,
                         optional: true,
@@ -321,22 +324,22 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       DSelect<_CalendarMode>.controlled(
                         isExpanded: true,
                         value: _calendar,
-                        label: const Text('Relative day'),
-                        entries: const [
+                        label: Text(context.l10n.relativeDay),
+                        entries: [
                           DSelectOption(
                             value: _CalendarMode.automatic,
-                            label: 'Automatic',
-                            child: Text('Automatic'),
+                            label: context.l10n.automatic,
+                            child: Text(context.l10n.automatic),
                           ),
                           DSelectOption(
                             value: _CalendarMode.on,
-                            label: 'Always on',
-                            child: Text('Always on'),
+                            label: context.l10n.alwaysOn,
+                            child: Text(context.l10n.alwaysOn),
                           ),
                           DSelectOption(
                             value: _CalendarMode.off,
-                            label: 'Off',
-                            child: Text('Off'),
+                            label: context.l10n.off,
+                            child: Text(context.l10n.off),
                           ),
                         ],
                         onChanged: (value) => setState(
@@ -347,11 +350,15 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       const SizedBox(height: 12),
                       DInput(
                         controller: _format,
-                        labelText: 'Moment format (optional)',
-                        hintText: widget.siteFormats.firstOrNull ?? 'LLL',
+                        labelText: context.l10n.momentFormatOptional,
+                        hintText:
+                            widget.siteFormats.firstOrNull ??
+                            context.l10n.dateFormatExample,
                         helperText: widget.siteFormats.isEmpty
-                            ? 'For example: LLL or YYYY-MM-DD [at] HH:mm'
-                            : 'Site formats: ${widget.siteFormats.join(', ')}',
+                            ? context.l10n.forExampleLLLOrYYYYMMDDAtHHMm
+                            : context.l10n.siteFormats(
+                                (widget.siteFormats.join(', ')).toString(),
+                              ),
                       ),
                       if (widget.siteFormats.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -369,7 +376,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                       ],
                       const SizedBox(height: 16),
                       Text(
-                        'Preview timezones',
+                        context.l10n.previewTimezones,
                         style: theme.textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
@@ -395,7 +402,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                                 key: ValueKey(
                                   'local-date-preview-${_previewTimezones.length}',
                                 ),
-                                label: 'Add preview timezone',
+                                label: context.l10n.addPreviewTimezone,
                                 zones: _zones
                                     .where(
                                       (zone) =>
@@ -417,7 +424,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                                       _previewCandidate = null;
                                     }),
                               variant: DButtonVariant.secondary,
-                              tooltip: 'Add timezone',
+                              tooltip: context.l10n.addTimezone,
                               icon: const Icon(Icons.add),
                             ),
                           ],
@@ -466,7 +473,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           Widget dateField(double width) => DDatePickerInput(
             controller: date,
             initialValue: _civilDate(date.text),
-            label: '$label date',
+            label: appL10n.dateLocaldatecomposersheet((label).toString()),
             width: width,
             startMonth: DCalendarDate(1900, 1, 1),
             endMonth: DCalendarDate(2200, 12, 31),
@@ -481,14 +488,16 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                 child: DInput(
                   controller: time,
                   keyboardType: TextInputType.datetime,
-                  labelText: '$label time',
+                  labelText: appL10n.timeLocaldatecomposersheet(
+                    (label).toString(),
+                  ),
                   hintText: '09:00:00',
                 ),
               ),
               DButton.iconOnly(
                 onPressed: () => unawaited(_pickTime(time)),
                 variant: DButtonVariant.ghost,
-                tooltip: 'Choose $label time',
+                tooltip: appL10n.chooseTime((label).toString()),
                 icon: const Icon(Icons.schedule),
               ),
             ],
@@ -522,7 +531,9 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       const SizedBox(height: 8),
       DCheckbox(
         contentPadding: EdgeInsets.zero,
-        title: DLabel(child: Text('Include ${label.toLowerCase()} time')),
+        title: DLabel(
+          child: Text(appL10n.includeTime((label.toLowerCase()).toString())),
+        ),
         value: hasTime,
         onChanged: (value) => onTimeEnabled(value ?? false),
       ),
@@ -534,7 +545,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     final validation = draft.validate(locale: Localizations.localeOf(context));
     final text = validation.isValid
         ? _previewText(draft)
-        : validation.firstError ?? 'Complete the date to see a preview.';
+        : validation.firstError ?? appL10n.completeTheDateToSeeAPreview;
     return DCard(
       size: DCardSize.small,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -546,7 +557,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
             Text(text),
             const SizedBox(height: 2),
             Text(
-              'Preview of the rendered date',
+              appL10n.previewOfTheRenderedDate,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -572,7 +583,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       ),
       locale: locale,
     );
-    if (start == null) return 'That wall time does not exist.';
+    if (start == null) return appL10n.thatWallTimeDoesNotExist;
     if (!draft.isRange) return start.formatted;
     final end = formatter.resolve(
       LocalDateSpec(
@@ -599,7 +610,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     children: [
       if (!widget.draft.isNew) ...[
         DButton(
-          label: const Text('Remove'),
+          label: Text(appL10n.removeLocaldatecomposersheet),
           onPressed: () => Navigator.of(
             context,
           ).pop(const LocalDateComposerSheetAction.remove()),
@@ -607,11 +618,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
         ),
       ],
       DButton(
-        label: const Text('Cancel'),
+        label: Text(appL10n.cancel),
         onPressed: () => Navigator.of(context).pop(),
       ),
       DButton(
-        label: const Text('Apply'),
+        label: Text(appL10n.apply),
         onPressed: _apply,
         variant: DButtonVariant.primary,
       ),
@@ -642,7 +653,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     if (widget.isCurrent?.call() == false) {
       setState(
         () => _error =
-            'The composer changed while this date was open. Nothing was changed.',
+            appL10n.theComposerChangedWhileThisDateWasOpenNothingWasChanged,
       );
       return;
     }
@@ -703,14 +714,14 @@ class _TimezoneMenu extends StatelessWidget {
         value: initial ?? (optional ? '' : null),
         options: [
           if (optional)
-            const DComboboxOption(value: '', label: 'None / device timezone'),
+            DComboboxOption(value: '', label: context.l10n.noneDeviceTimezone),
           for (final zone in zones) DComboboxOption(value: zone, label: zone),
         ],
         anchor: DComboboxInput<String>(semanticLabel: label),
-        content: const DComboboxContent(
+        content: DComboboxContent(
           children: [
-            DComboboxEmpty<String>(child: Text('No timezones found.')),
-            DComboboxList<String>(),
+            DComboboxEmpty<String>(child: Text(context.l10n.noTimezonesFound)),
+            const DComboboxList<String>(),
           ],
         ),
         onChanged: (value, reason) =>

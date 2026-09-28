@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const localDatesSettingsDataKey = PluginDataKey<LocalDatesSettings>(
@@ -30,7 +31,8 @@ final class LocalDatesSettings {
       LocalDatesSettings(
         enabled: json['discourse_local_dates_enabled'] == true,
         emailFormat:
-            jsonText(json['discourse_local_dates_email_format']) ?? 'llll z',
+            jsonText(json['discourse_local_dates_email_format']) ??
+            appL10n.llllZ,
         emailTimezone:
             jsonText(json['discourse_local_dates_email_timezone']) ?? 'Etc/UTC',
         formats: _listSetting(
@@ -49,7 +51,7 @@ final class LocalDatesSettings {
     if (json == null) return null;
     return LocalDatesSettings(
       enabled: json['enabled'] == true,
-      emailFormat: jsonText(json['emailFormat']) ?? 'llll z',
+      emailFormat: jsonText(json['emailFormat']) ?? appL10n.llllZ,
       emailTimezone: jsonText(json['emailTimezone']) ?? 'Etc/UTC',
       formats: _listSetting(json['formats'], absent: defaultFormats),
       timezones: _listSetting(

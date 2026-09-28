@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/timezone_environment.dart';
@@ -25,7 +26,7 @@ class PreferencesPage extends StatefulWidget {
 }
 
 class _PreferencesPageState extends State<PreferencesPage> {
-  static const String _forumDefaultTimezoneLabel = 'Forum default';
+  static String get _forumDefaultTimezoneLabel => appL10n.forumDefault;
   static const DIconData _preferencesIcon = DIconData(
     'sliders',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg>',
@@ -47,7 +48,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
       ..sort();
     // Keep the IANA options stable across edits and page rebuilds.
     _timezoneEntries = List.unmodifiable([
-      const DComboboxOption(value: '', label: _forumDefaultTimezoneLabel),
+      DComboboxOption(value: '', label: _forumDefaultTimezoneLabel),
       for (final name in _timezoneNames)
         DComboboxOption(value: name, label: name),
     ]);
@@ -122,8 +123,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
         );
       }
       if (instance == null || !instance.isConnected) {
-        return const _UnavailablePreferences(
-          message: 'Reconnect to this forum to load preferences.',
+        return _UnavailablePreferences(
+          message: context.l10n.reconnectToThisForumToLoadPreferences,
         );
       }
       if (state == null) _scheduleHydration();
@@ -168,7 +169,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 ),
                 const SizedBox(width: 9),
                 Text(
-                  'Preferences',
+                  context.l10n.preferences,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontSize: DiscourseTypography.xxl,
                     fontWeight: FontWeight.w700,
@@ -197,15 +198,15 @@ class _PreferencesPageState extends State<PreferencesPage> {
               alignment: AlignmentDirectional.centerStart,
               child: DButton(
                 key: const ValueKey('preferences-save'),
-                label: const Text('Save changes'),
+                label: Text(context.l10n.saveChanges),
                 semanticLabel: state.saving
-                    ? 'Saving preferences'
-                    : 'Save preferences',
+                    ? context.l10n.savingPreferences
+                    : context.l10n.savePreferences,
                 onPressed: canSave
                     ? () => _saveAll(shell, instance!, sections)
                     : null,
                 loading: state.saving,
-                loadingLabel: const Text('Saving changes…'),
+                loadingLabel: Text(context.l10n.savingChanges),
                 variant: DButtonVariant.primary,
                 size: DButtonSize.regular,
               ),
@@ -428,23 +429,31 @@ class _NotificationsForm extends StatelessWidget {
             preferences.likeNotificationFrequency,
           )),
           value: preferences.likeNotificationFrequency,
-          label: const Text('Like notifications'),
-          description: const Text(
-            'Choose when likes should create a notification.',
+          label: Text(context.l10n.likeNotifications),
+          description: Text(
+            context.l10n.chooseWhenLikesShouldCreateANotification,
           ),
-          entries: const [
-            DSelectOption(value: 0, label: 'Always', child: Text('Always')),
+          entries: [
+            DSelectOption(
+              value: 0,
+              label: context.l10n.always,
+              child: Text(context.l10n.always),
+            ),
             DSelectOption(
               value: 1,
-              label: 'First time and daily',
-              child: Text('First time and daily'),
+              label: context.l10n.firstTimeAndDaily,
+              child: Text(context.l10n.firstTimeAndDaily),
             ),
             DSelectOption(
               value: 2,
-              label: 'First time',
-              child: Text('First time'),
+              label: context.l10n.firstTime,
+              child: Text(context.l10n.firstTime),
             ),
-            DSelectOption(value: 3, label: 'Never', child: Text('Never')),
+            DSelectOption(
+              value: 3,
+              label: context.l10n.never,
+              child: Text(context.l10n.never),
+            ),
           ],
           onChanged: enabled
               ? (value) {
@@ -465,10 +474,10 @@ class _NotificationsForm extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: DLabel(
             enabled: enabled,
-            child: const Text('Notify me about replies to linked posts'),
+            child: Text(context.l10n.notifyMeAboutRepliesToLinkedPosts),
           ),
-          subtitle: const Text(
-            'Get a notification when someone replies to a post you linked.',
+          subtitle: Text(
+            context.l10n.getANotificationWhenSomeoneRepliesToAPostYouLinked,
           ),
           value: preferences.notifyOnLinkedPosts,
           onChanged: enabled
@@ -505,40 +514,40 @@ class _TrackingForm extends StatelessWidget {
             preferences.newTopicDurationMinutes,
           )),
           value: preferences.newTopicDurationMinutes,
-          label: const Text('Consider topics new'),
-          description: const Text(
-            'Controls which topics appear as new to this account.',
+          label: Text(context.l10n.considerTopicsNew),
+          description: Text(
+            context.l10n.controlsWhichTopicsAppearAsNewToThisAccount,
           ),
-          entries: const [
+          entries: [
             DSelectOption(
               value: -1,
-              label: 'Until I view them',
-              child: Text('Until I view them'),
+              label: context.l10n.untilIViewThem,
+              child: Text(context.l10n.untilIViewThem),
             ),
             DSelectOption(
               value: 1440,
-              label: 'For one day',
-              child: Text('For one day'),
+              label: context.l10n.forOneDay,
+              child: Text(context.l10n.forOneDay),
             ),
             DSelectOption(
               value: 2880,
-              label: 'For two days',
-              child: Text('For two days'),
+              label: context.l10n.forTwoDays,
+              child: Text(context.l10n.forTwoDays),
             ),
             DSelectOption(
               value: 10080,
-              label: 'For one week',
-              child: Text('For one week'),
+              label: context.l10n.forOneWeek,
+              child: Text(context.l10n.forOneWeek),
             ),
             DSelectOption(
               value: 20160,
-              label: 'For two weeks',
-              child: Text('For two weeks'),
+              label: context.l10n.forTwoWeeks,
+              child: Text(context.l10n.forTwoWeeks),
             ),
             DSelectOption(
               value: -2,
-              label: 'Since my last visit',
-              child: Text('Since my last visit'),
+              label: context.l10n.sinceMyLastVisit,
+              child: Text(context.l10n.sinceMyLastVisit),
             ),
           ],
           onChanged: enabled
@@ -562,51 +571,55 @@ class _TrackingForm extends StatelessWidget {
             preferences.autoTrackTopicsAfterMsecs,
           )),
           value: preferences.autoTrackTopicsAfterMsecs,
-          label: const Text('Automatically track topics'),
-          description: const Text(
-            'Track a topic after you have read it for this long.',
+          label: Text(context.l10n.automaticallyTrackTopics),
+          description: Text(
+            context.l10n.trackATopicAfterYouHaveReadItForThisLong,
           ),
-          entries: const [
-            DSelectOption(value: -1, label: 'Never', child: Text('Never')),
+          entries: [
+            DSelectOption(
+              value: -1,
+              label: context.l10n.never,
+              child: Text(context.l10n.never),
+            ),
             DSelectOption(
               value: 0,
-              label: 'Immediately',
-              child: Text('Immediately'),
+              label: context.l10n.immediately,
+              child: Text(context.l10n.immediately),
             ),
             DSelectOption(
               value: 30000,
-              label: 'After 30 seconds',
-              child: Text('After 30 seconds'),
+              label: context.l10n.after30Seconds,
+              child: Text(context.l10n.after30Seconds),
             ),
             DSelectOption(
               value: 60000,
-              label: 'After 1 minute',
-              child: Text('After 1 minute'),
+              label: context.l10n.after1Minute,
+              child: Text(context.l10n.after1Minute),
             ),
             DSelectOption(
               value: 120000,
-              label: 'After 2 minutes',
-              child: Text('After 2 minutes'),
+              label: context.l10n.after2Minutes,
+              child: Text(context.l10n.after2Minutes),
             ),
             DSelectOption(
               value: 180000,
-              label: 'After 3 minutes',
-              child: Text('After 3 minutes'),
+              label: context.l10n.after3Minutes,
+              child: Text(context.l10n.after3Minutes),
             ),
             DSelectOption(
               value: 240000,
-              label: 'After 4 minutes',
-              child: Text('After 4 minutes'),
+              label: context.l10n.after4Minutes,
+              child: Text(context.l10n.after4Minutes),
             ),
             DSelectOption(
               value: 300000,
-              label: 'After 5 minutes',
-              child: Text('After 5 minutes'),
+              label: context.l10n.after5Minutes,
+              child: Text(context.l10n.after5Minutes),
             ),
             DSelectOption(
               value: 600000,
-              label: 'After 10 minutes',
-              child: Text('After 10 minutes'),
+              label: context.l10n.after10Minutes,
+              child: Text(context.l10n.after10Minutes),
             ),
           ],
           onChanged: enabled
@@ -630,25 +643,25 @@ class _TrackingForm extends StatelessWidget {
             preferences.notificationLevelWhenReplying,
           )),
           value: preferences.notificationLevelWhenReplying,
-          label: const Text('When I reply to a topic'),
-          description: const Text(
-            'Choose the notification level applied after a reply.',
+          label: Text(context.l10n.whenIReplyToATopic),
+          description: Text(
+            context.l10n.chooseTheNotificationLevelAppliedAfterAReply,
           ),
-          entries: const [
+          entries: [
             DSelectOption(
               value: 3,
-              label: 'Watch the topic',
-              child: Text('Watch the topic'),
+              label: context.l10n.watchTheTopic,
+              child: Text(context.l10n.watchTheTopic),
             ),
             DSelectOption(
               value: 2,
-              label: 'Track the topic',
-              child: Text('Track the topic'),
+              label: context.l10n.trackTheTopic,
+              child: Text(context.l10n.trackTheTopic),
             ),
             DSelectOption(
               value: 1,
-              label: 'Keep the current level',
-              child: Text('Keep the current level'),
+              label: context.l10n.keepTheCurrentLevel,
+              child: Text(context.l10n.keepTheCurrentLevel),
             ),
           ],
           onChanged: enabled
@@ -697,7 +710,7 @@ class _ProfileForm extends StatelessWidget {
       children: [
         DField(
           children: [
-            const DFieldLabel(child: Text('Timezone')),
+            DFieldLabel(child: Text(context.l10n.timezone)),
             DCombobox<String>.controlled(
               key: const ValueKey('preferences-timezone'),
               textController: timezone,
@@ -705,11 +718,15 @@ class _ProfileForm extends StatelessWidget {
               enabled: enabled,
               value: selectedTimezone,
               options: timezoneEntries,
-              anchor: const DComboboxInput<String>(semanticLabel: 'Timezone'),
-              content: const DComboboxContent(
+              anchor: DComboboxInput<String>(
+                semanticLabel: context.l10n.timezone,
+              ),
+              content: DComboboxContent(
                 children: [
-                  DComboboxEmpty<String>(child: Text('No timezones found.')),
-                  DComboboxList<String>(),
+                  DComboboxEmpty<String>(
+                    child: Text(context.l10n.noTimezonesFound),
+                  ),
+                  const DComboboxList<String>(),
                 ],
               ),
               onChanged: enabled
@@ -722,9 +739,9 @@ class _ProfileForm extends StatelessWidget {
                     }
                   : null,
             ),
-            const DFieldDescription(
+            DFieldDescription(
               child: Text(
-                'Type to filter IANA timezones used for dates and reminders.',
+                context.l10n.typeToFilterIANATimezonesUsedForDatesAndReminders,
               ),
             ),
           ],
@@ -733,8 +750,8 @@ class _ProfileForm extends StatelessWidget {
         DFieldDescription(
           child: Text(
             deviceTimezone == null
-                ? 'Device timezone is unavailable.'
-                : 'Device timezone: $deviceTimezone',
+                ? context.l10n.deviceTimezoneIsUnavailable
+                : context.l10n.deviceTimezone((deviceTimezone).toString()),
           ),
         ),
         const SizedBox(height: 8),
@@ -742,7 +759,7 @@ class _ProfileForm extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: DButton(
             key: const ValueKey('preferences-use-device-timezone'),
-            label: const Text('Use device timezone'),
+            label: Text(context.l10n.useDeviceTimezone),
             onPressed: enabled && deviceTimezone != null
                 ? onUseDeviceTimezone
                 : null,
@@ -789,30 +806,30 @@ class _InterfaceForm extends StatelessWidget {
             preferences.bookmarkAutoDeletePreference,
           )),
           value: preferences.bookmarkAutoDeletePreference,
-          label: const Text('Automatically delete bookmarks'),
-          description: const Text(
-            'Choose what happens after a bookmark reminder.',
+          label: Text(context.l10n.automaticallyDeleteBookmarks),
+          description: Text(
+            context.l10n.chooseWhatHappensAfterABookmarkReminder,
           ),
-          entries: const [
+          entries: [
             DSelectOption(
               value: BookmarkAutoDeletePreference.never,
-              label: 'Never',
-              child: Text('Never'),
+              label: context.l10n.never,
+              child: Text(context.l10n.never),
             ),
             DSelectOption(
               value: BookmarkAutoDeletePreference.whenReminderSent,
-              label: 'After the reminder is sent',
-              child: Text('After the reminder is sent'),
+              label: context.l10n.afterTheReminderIsSent,
+              child: Text(context.l10n.afterTheReminderIsSent),
             ),
             DSelectOption(
               value: BookmarkAutoDeletePreference.onOwnerReply,
-              label: 'When the topic owner replies',
-              child: Text('When the topic owner replies'),
+              label: context.l10n.whenTheTopicOwnerReplies,
+              child: Text(context.l10n.whenTheTopicOwnerReplies),
             ),
             DSelectOption(
               value: BookmarkAutoDeletePreference.clearReminder,
-              label: 'When the reminder is cleared',
-              child: Text('When the reminder is cleared'),
+              label: context.l10n.whenTheReminderIsCleared,
+              child: Text(context.l10n.whenTheReminderIsCleared),
             ),
           ],
           onChanged: enabled
@@ -861,11 +878,13 @@ class _StatusAnnouncement extends StatelessWidget {
     final (message, kind) = switch (state) {
       PreferencesState(error: final error?) => (error, _StatusKind.error),
       PreferencesState(savedSection: final section?) => (
-        '${_sectionTitle(section, pluginSections)} preferences saved.',
+        context.l10n.preferencesSaved(
+          (_sectionTitle(section, pluginSections)).toString(),
+        ),
         _StatusKind.success,
       ),
       PreferencesState(loading: true) => (
-        'Refreshing preferences…',
+        context.l10n.refreshingPreferences,
         _StatusKind.progress,
       ),
       _ => (null, null),
@@ -918,15 +937,15 @@ class _LoadingPreferences extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     container: true,
     liveRegion: true,
-    label: 'Loading preferences from $host.',
-    child: const ExcludeSemantics(
+    label: context.l10n.loadingPreferencesFrom((host).toString()),
+    child: ExcludeSemantics(
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DSpinner(),
-            SizedBox(height: 16),
-            Text('Loading preferences…'),
+            const DSpinner(),
+            const SizedBox(height: 16),
+            Text(context.l10n.loadingPreferences),
           ],
         ),
       ),
@@ -969,7 +988,7 @@ class _UnavailablePreferences extends StatelessWidget {
                 const SizedBox(height: 20),
                 DButton(
                   key: const ValueKey('preferences-retry'),
-                  label: const Text('Try again'),
+                  label: Text(context.l10n.tryAgain),
                   onPressed: onRetry,
                   variant: DButtonVariant.primary,
                 ),
@@ -998,10 +1017,10 @@ String _sectionTitle(
 ) =>
     _pluginSection(section, pluginSections)?.title ??
     switch (section) {
-      PreferenceSection.profile => 'Profile',
-      PreferenceSection.notifications => 'Notifications',
-      PreferenceSection.tracking => 'Tracking',
-      PreferenceSection.interface => 'Interface',
+      PreferenceSection.profile => appL10n.profile,
+      PreferenceSection.notifications => appL10n.notifications,
+      PreferenceSection.tracking => appL10n.tracking,
+      PreferenceSection.interface => appL10n.interface,
       _ => section.name,
     };
 

@@ -36,9 +36,9 @@ class _ActivitySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = <_Subtab>[
-      if (group.canSeeMembers) const _Subtab(GroupRoute.posts, 'Posts'),
-      if (group.canSeeMembers) const _Subtab(GroupRoute.topics, 'Topics'),
-      if (mentionsEnabled) const _Subtab(GroupRoute.mentions, 'Mentions'),
+      if (group.canSeeMembers) _Subtab(GroupRoute.posts, context.l10n.posts),
+      if (group.canSeeMembers) _Subtab(GroupRoute.topics, context.l10n.topics),
+      if (mentionsEnabled) _Subtab(GroupRoute.mentions, context.l10n.mentions),
     ];
     if (options.isEmpty) {
       return _activityContent(selected);
@@ -73,7 +73,7 @@ class _ActivitySection extends StatelessWidget {
                   width: 190,
                   child: _SubsectionSidebar(
                     key: const ValueKey('group-activity-sidebar'),
-                    title: 'Group activity',
+                    title: context.l10n.groupActivity,
                     selected: selectedSubsection,
                     options: options,
                     iconFor: _activityIcon,
@@ -94,7 +94,7 @@ class _ActivitySection extends StatelessWidget {
           children: [
             _MobileSubsectionPicker(
               key: const ValueKey('group-activity-picker'),
-              title: 'Group activity',
+              title: context.l10n.groupActivity,
               selected: selectedSubsection,
               options: options,
               iconFor: _activityIcon,
@@ -112,9 +112,9 @@ class _ActivitySection extends StatelessWidget {
   Widget _activityContent(String subsection) {
     if (subsection == GroupRoute.topics) {
       return topicFeed ??
-          const _GroupState(
+          _GroupState(
             icon: DIcons.list,
-            title: 'Topics are not available yet.',
+            title: appL10n.topicsAreNotAvailableYet,
           );
     }
     return _ActivityRows(
@@ -167,7 +167,10 @@ class _ActivityRows extends StatelessWidget {
       return const SizedBox.shrink();
     }
     if (page!.posts.isEmpty && !loading) {
-      return _GroupState(icon: DIcons.comment, title: 'No $kind yet.');
+      return _GroupState(
+        icon: DIcons.comment,
+        title: context.l10n.noYet((kind).toString()),
+      );
     }
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
@@ -267,9 +270,9 @@ class _RequestsSection extends StatelessWidget {
       return const SizedBox.shrink();
     }
     if (page!.requesters.isEmpty && !loading) {
-      return const _GroupState(
+      return _GroupState(
         icon: DIcons.userPlus,
-        title: 'There are no pending membership requests.',
+        title: context.l10n.thereAreNoPendingMembershipRequests,
       );
     }
     return ContentReadingLane(
@@ -314,7 +317,7 @@ class _RequestsSection extends StatelessWidget {
                         children: [
                           DButton(
                             key: ValueKey('accept-${requester.username}'),
-                            label: const Text('Accept'),
+                            label: Text(context.l10n.accept),
                             variant: DButtonVariant.primary,
                             size: DButtonSize.small,
                             onPressed: mutating || onAction == null
@@ -328,7 +331,7 @@ class _RequestsSection extends StatelessWidget {
                           ),
                           DButton(
                             key: ValueKey('deny-${requester.username}'),
-                            label: const Text('Deny'),
+                            label: Text(context.l10n.deny),
                             variant: DButtonVariant.destructive,
                             size: DButtonSize.small,
                             onPressed: mutating || onAction == null
@@ -369,9 +372,9 @@ class _MessagesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const options = [
-      _Subtab(GroupRoute.inbox, 'Inbox'),
-      _Subtab(GroupRoute.archive, 'Archive'),
+    final options = [
+      _Subtab(GroupRoute.inbox, context.l10n.inbox),
+      _Subtab(GroupRoute.archive, context.l10n.archive),
     ];
     final selected = options.any((option) => option.value == route.subsection)
         ? route.subsection!
@@ -387,9 +390,9 @@ class _MessagesSection extends StatelessWidget {
 
     final messageContent =
         content ??
-        const _GroupState(
+        _GroupState(
           icon: DIcons.envelope,
-          title: 'Messages are not available yet.',
+          title: context.l10n.messagesAreNotAvailableYet,
         );
 
     return LayoutBuilder(
@@ -409,7 +412,7 @@ class _MessagesSection extends StatelessWidget {
                   width: 190,
                   child: _SubsectionSidebar(
                     key: const ValueKey('group-messages-sidebar'),
-                    title: 'Group messages',
+                    title: context.l10n.groupMessages,
                     selected: selected,
                     options: options,
                     iconFor: _messageIcon,
@@ -430,7 +433,7 @@ class _MessagesSection extends StatelessWidget {
           children: [
             _MobileSubsectionPicker(
               key: const ValueKey('group-messages-picker'),
-              title: 'Group messages',
+              title: context.l10n.groupMessages,
               selected: selected,
               options: options,
               iconFor: _messageIcon,
@@ -474,9 +477,9 @@ class _PermissionsSection extends StatelessWidget {
       return _GroupState(icon: DIcons.triangleExclamation, title: error!);
     }
     if (permissions.isEmpty) {
-      return const _GroupState(
+      return _GroupState(
         icon: DIcons.certificate,
-        title: 'There are no categories associated with this group.',
+        title: context.l10n.thereAreNoCategoriesAssociatedWithThisGroup,
       );
     }
     return ContentReadingLane(
@@ -489,10 +492,10 @@ class _PermissionsSection extends StatelessWidget {
         itemBuilder: (context, index) {
           final permission = permissions[index];
           final label = switch (permission.type) {
-            GroupPermissionType.full => 'Create, reply, and see',
-            GroupPermissionType.createPost => 'Reply and see',
-            GroupPermissionType.readOnly => 'See',
-            GroupPermissionType.unknown => 'Custom access',
+            GroupPermissionType.full => context.l10n.createReplyAndSee,
+            GroupPermissionType.createPost => context.l10n.replyAndSee,
+            GroupPermissionType.readOnly => context.l10n.seeGroupactivityview,
+            GroupPermissionType.unknown => context.l10n.customAccess,
           };
           return Center(
             child: SizedBox(

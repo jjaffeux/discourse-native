@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -233,8 +235,8 @@ final class TopicFeedController extends FrameSafeNotifier {
         final held = _feeds[key] ?? existing ?? const TopicFeed();
         _feeds[key] = held.withError(
           error.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
+              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
+              : appL10n.couldnTReach((instance.host).toString()),
         );
         notifySafely();
       });
@@ -245,7 +247,9 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (!identical(_revisions[key], revision)) return;
         incoming?.restore(destinationId, announced);
         final held = _feeds[key] ?? existing ?? const TopicFeed();
-        _feeds[key] = held.withError("Couldn't load ${instance.host}.");
+        _feeds[key] = held.withError(
+          appL10n.couldnTLoadTopicfeedcontroller((instance.host).toString()),
+        );
         notifySafely();
       });
     }
@@ -471,7 +475,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         final held = _feeds[key];
         if (held != null) {
           _feeds[key] = held.withError(
-            "Couldn't load more topics from ${instance.host}.",
+            appL10n.couldnTLoadMoreTopicsFrom((instance.host).toString()),
             page: true,
           );
         }

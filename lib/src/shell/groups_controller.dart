@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -44,7 +45,7 @@ final class GroupDirectoryQuery {
 
 const Object _absent = Object();
 
-const _saveFailureMessage = "Couldn't save that group change.";
+String get _saveFailureMessage => appL10n.couldnTSaveThatGroupChange;
 
 List<T> _immutableSnapshot<T>(List<T> values) =>
     values.isEmpty ? const [] : List<T>.unmodifiable(values);
@@ -549,8 +550,8 @@ final class GroupsController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more groups."
-              : "Couldn't load the group directory.",
+              ? appL10n.couldnTLoadMoreGroups
+              : appL10n.couldnTLoadTheGroupDirectory,
           pageError: more,
         );
       });
@@ -633,7 +634,7 @@ final class GroupsController extends FrameSafeNotifier {
         _details[key] = GroupDetailState(
           detail: held.detail,
           loaded: true,
-          error: "Couldn't load this group.",
+          error: appL10n.couldnTLoadThisGroup,
         );
       });
     } finally {
@@ -747,8 +748,8 @@ final class GroupsController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more members."
-              : "Couldn't load group members.",
+              ? appL10n.couldnTLoadMoreMembers
+              : appL10n.couldnTLoadGroupMembers,
           pageError: more,
         );
       });
@@ -846,8 +847,8 @@ final class GroupsController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more requests."
-              : "Couldn't load membership requests.",
+              ? appL10n.couldnTLoadMoreRequests
+              : appL10n.couldnTLoadMembershipRequests,
           pageError: more,
         );
       });
@@ -931,8 +932,8 @@ final class GroupsController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more activity."
-              : "Couldn't load group activity.",
+              ? appL10n.couldnTLoadMoreActivity
+              : appL10n.couldnTLoadGroupActivity,
           pageError: more,
         );
       });
@@ -985,7 +986,7 @@ final class GroupsController extends FrameSafeNotifier {
         _permissions[key] = GroupPermissionsState._(
           permissions: held.permissions,
           loaded: true,
-          error: "Couldn't load group permissions.",
+          error: appL10n.couldnTLoadGroupPermissions,
         );
       });
     } finally {
@@ -1055,8 +1056,8 @@ final class GroupsController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more group logs."
-              : "Couldn't load group logs.",
+              ? appL10n.couldnTLoadMoreGroupLogs
+              : appL10n.couldnTLoadGroupLogs,
           pageError: more,
         );
       });
@@ -1122,7 +1123,7 @@ final class GroupsController extends FrameSafeNotifier {
       null => null,
       final WriteException error when error.errors.isNotEmpty =>
         GroupMembershipRequestFailed(error.message),
-      _ => const GroupMembershipRequestFailed(_saveFailureMessage),
+      _ => GroupMembershipRequestFailed(_saveFailureMessage),
     };
   }
 

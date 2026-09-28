@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 enum VoiceRoomType {
@@ -219,7 +220,7 @@ class VoiceIncomingCall {
     return VoiceIncomingCall(
       roomId: roomId,
       roomSlug: roomSlug,
-      roomName: jsonText(json['room_name']) ?? 'Voice call',
+      roomName: jsonText(json['room_name']) ?? appL10n.voiceCall,
       caller: VoiceParticipant(
         id: jsonInt(json['caller_id']),
         username: callerUsername,
@@ -380,7 +381,7 @@ class VoiceRoom {
 
   factory VoiceRoom.fromJson(Map<String, dynamic> json) => VoiceRoom(
     id: jsonInt(json['id']),
-    name: jsonText(json['name']) ?? 'Voice room',
+    name: jsonText(json['name']) ?? appL10n.voiceRoom,
     slug: jsonText(json['slug']) ?? '',
     description: jsonText(json['description']),
     cookedDescription: jsonText(json['cooked_description']),
@@ -712,10 +713,10 @@ class VoiceJoinResponse {
   factory VoiceJoinResponse.fromJson(Map<String, dynamic> json) {
     final transport = VoiceTransport.parse(json['transport']);
     if (transport == null) {
-      throw const FormatException('Unsupported Voice transport');
+      throw FormatException(appL10n.unsupportedVoiceTransport);
     }
     final roomJson = jsonObject(json['room']);
-    if (roomJson.isEmpty) throw const FormatException('Missing Voice room');
+    if (roomJson.isEmpty) throw FormatException(appL10n.missingVoiceRoom);
     final livekitJson = jsonObject(json['livekit']);
     return VoiceJoinResponse(
       transport: transport,

@@ -1,28 +1,29 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 final class SolvedGlobalSearch extends GlobalSearchContribution {
   const SolvedGlobalSearch() : super('discourse-solved');
   @override
-  List<GlobalSearchFilter> get filters => const [
+  List<GlobalSearchFilter> get filters => [
     GlobalSearchFilter(
       id: "solved",
-      label: "Solution",
+      label: appL10n.solution,
       scope: GlobalSearchScope.forum,
       kind: GlobalSearchFilterKind.choice,
       icon: "status",
-      group: "Extensions",
-      operators: [GlobalSearchFilterOperator("is", "is")],
-      help:
-          "Find solved topics or unsolved topics in categories that support solutions.",
+      group: appL10n.extensions,
+      operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+      help: appL10n
+          .findSolvedTopicsOrUnsolvedTopicsInCategoriesThatSupportSolutions,
       choices: [
         GlobalSearchFilterChoice(
           value: "solved",
-          label: "Solved",
+          label: appL10n.solved,
           token: "status:solved",
         ),
         GlobalSearchFilterChoice(
           value: "unsolved",
-          label: "Unsolved",
+          label: appL10n.unsolved,
           token: "status:unsolved",
         ),
       ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,7 +22,7 @@ Future<void> showPostFastEditor({
   final lease = controller.lifecycle.capture(siteUrl);
   return showShellSheet<void>(
     context: context,
-    title: 'Edit',
+    title: appL10n.edit,
     dialogOnDesktop: true,
     enableDrag: false,
     desktopDialogConstraints: const BoxConstraints(
@@ -61,8 +62,8 @@ class _PostFastEditor extends StatefulWidget {
 }
 
 class _PostFastEditorState extends State<_PostFastEditor> {
-  static const _accountChangedError =
-      'The topic changed before the edit could be saved.';
+  static String get _accountChangedError =>
+      appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
 
   late final TextEditingController _text = TextEditingController(
     text: widget.selectedMarkdown,
@@ -138,7 +139,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
             keyboardType: TextInputType.multiline,
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => setState(() => _error = null),
-            labelText: 'Selected text',
+            labelText: context.l10n.selectedText,
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 8),
@@ -154,14 +155,14 @@ class _PostFastEditorState extends State<_PostFastEditor> {
             children: [
               DButton(
                 key: const ValueKey('fast-edit-cancel'),
-                label: const Text('Cancel'),
+                label: Text(context.l10n.cancel),
                 onPressed: _saving ? null : _cancel,
               ),
               const SizedBox(width: 8),
               DButton(
                 key: const ValueKey('fast-edit-save'),
-                label: const Text('Save Edit'),
-                loadingLabel: const Text('Saving…'),
+                label: Text(context.l10n.saveEditPostfastedit),
+                loadingLabel: Text(context.l10n.saving),
                 onPressed: _canSave ? () => unawaited(_save()) : null,
                 variant: DButtonVariant.primary,
                 loading: _saving,

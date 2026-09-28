@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'discourse_ui.dart';
@@ -29,6 +30,9 @@ class _MessageReviewAppState extends State<_MessageReviewApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    localeListResolutionCallback: resolveAppLocale,
     debugShowCheckedModeBanner: false,
     theme: plum
         ? StyleguideTheme.plum.resolve(AppTheme.light)

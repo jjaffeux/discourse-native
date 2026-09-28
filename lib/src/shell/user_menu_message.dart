@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'skeleton_fill.dart';
@@ -53,7 +54,7 @@ class UserMenuMessage extends StatelessWidget {
                       ),
                     if (onRetry case final retry?)
                       DButton(
-                        label: const Text('Retry'),
+                        label: Text(context.l10n.retry),
                         onPressed: retry,
                         variant: DButtonVariant.link,
                       ),
@@ -68,11 +69,12 @@ class UserMenuMessage extends StatelessWidget {
 class UserMenuLoading extends StatelessWidget {
   const UserMenuLoading({
     super.key,
-    this.semanticsLabel = 'Loading notifications',
+    this._semanticsLabel,
     this.surface = SkeletonSurface.floating,
   });
 
-  final String semanticsLabel;
+  final String? _semanticsLabel;
+  String get semanticsLabel => _semanticsLabel ?? appL10n.loadingNotifications;
 
   /// The user menu is a popover; a section can also be a whole page.
   final SkeletonSurface surface;

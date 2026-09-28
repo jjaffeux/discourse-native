@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/topic.dart';
@@ -597,11 +598,11 @@ class _ValueSuggester {
   }
 
   List<TopicFilterSuggestion> _dates() {
-    const values = [
-      ('1', 'Yesterday'),
-      ('7', 'Last week'),
-      ('30', 'Last month'),
-      ('365', 'Last year'),
+    final values = [
+      ('1', appL10n.yesterday),
+      ('7', appL10n.lastWeek),
+      ('30', appL10n.lastMonth),
+      ('365', appL10n.lastYear),
     ];
     final query = searchTerm.toLowerCase();
     return [

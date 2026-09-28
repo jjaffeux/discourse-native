@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/site_emoji.dart';
@@ -33,8 +34,8 @@ final class EmojiPickerController extends ChangeNotifier {
   }) : _query = initialQuery;
 
   static const int maxSearchResults = 50;
-  static const String loadError =
-      "Couldn't load emoji. Check the connection and try again.";
+  static String get loadError =>
+      appL10n.couldnTLoadEmojiCheckTheConnectionAndTryAgain;
 
   final String siteUrl;
   final EmojiUsageContext context;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -144,7 +145,7 @@ class DSelect<T> extends FormField<T> {
     super.initialValue,
     this.onChanged,
     this.onChangedWithReason,
-    this.placeholder = 'Select an option',
+    this._placeholder,
     this.label,
     this.description,
     this.errorText,
@@ -201,7 +202,7 @@ class DSelect<T> extends FormField<T> {
     required this.onChanged,
     this.onChangedWithReason,
     super.initialValue,
-    this.placeholder = 'Select an option',
+    this._placeholder,
     this.label,
     this.description,
     this.errorText,
@@ -253,7 +254,8 @@ class DSelect<T> extends FormField<T> {
   final T? value;
   final ValueChanged<T?>? onChanged;
   final DSelectValueChanged<T>? onChangedWithReason;
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.selectAnOption;
   final Widget? label;
   final Widget? description;
   final String? errorText;
@@ -429,7 +431,7 @@ class DSelectField<T> extends StatelessWidget {
     entries: _entriesFromDropdownItems(items),
     initialValue: initialValue,
     onChanged: onChanged,
-    placeholder: decoration.hintText ?? 'Select an option',
+    placeholder: decoration.hintText ?? context.l10n.selectAnOption,
     label: decoration.labelText == null ? null : Text(decoration.labelText!),
     description: decoration.helperText == null
         ? null
@@ -459,7 +461,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     List<T> initialValue = const [],
     this.onChanged,
     this.onChangedWithReason,
-    this.placeholder = 'Select options',
+    this._placeholder,
     this.label,
     this.description,
     this.errorText,
@@ -517,7 +519,7 @@ class DMultiSelect<T> extends FormField<List<T>> {
     required this.onChanged,
     this.onChangedWithReason,
     List<T> initialValue = const [],
-    this.placeholder = 'Select options',
+    this._placeholder,
     this.label,
     this.description,
     this.errorText,
@@ -572,7 +574,8 @@ class DMultiSelect<T> extends FormField<List<T>> {
   final List<T>? value;
   final ValueChanged<List<T>>? onChanged;
   final DMultiSelectValueChanged<T>? onChangedWithReason;
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.selectOptions;
   final Widget? label;
   final Widget? description;
   final String? errorText;
@@ -1139,7 +1142,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       if (items.isEmpty) return Text(widget.placeholder);
       final first = items.first.textValue;
       return Text(
-        items.length == 1 ? first : '$first (+${items.length - 1} more)',
+        items.length == 1
+            ? first
+            : appL10n.moreDselect(
+                (first).toString(),
+                (items.length - 1).toString(),
+              ),
       );
     }
     final item = items.firstOrNull;
@@ -1356,7 +1364,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           )
         : list;
     return DPopoverContent(
-      semanticLabel: widget.semanticLabel ?? 'Select options',
+      semanticLabel: widget.semanticLabel ?? appL10n.selectOptions,
       width: popupWidth,
       constraints: BoxConstraints(maxHeight: widget.maxPopupHeight),
       padding: DInsets.menu,
@@ -1853,7 +1861,9 @@ class _DSelectScrollArrowState extends State<_DSelectScrollArrow> {
     child: Semantics(
       button: true,
       enabled: widget.enabled,
-      label: widget.up ? 'Scroll options up' : 'Scroll options down',
+      label: widget.up
+          ? context.l10n.scrollOptionsUp
+          : context.l10n.scrollOptionsDown,
       onTap: widget.enabled ? _scroll : null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -96,7 +97,9 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
     final button = DButton.iconOnly(
       tooltip: widget.label,
       density: widget.density,
-      semanticLabel: '${widget.label}. Drag to move or activate for actions.',
+      semanticLabel: context.l10n.dragToMoveOrActivateForActions(
+        (widget.label).toString(),
+      ),
       variant: DButtonVariant.transparentBackground,
       // The source highlight owns the shared backdrop, including on hover.
       backgroundColor: Colors.transparent,

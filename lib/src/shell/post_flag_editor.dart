@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,7 +29,7 @@ Future<void> showPostFlagEditor({
 
   await showShellSheet<void>(
     context: context,
-    title: 'Thanks for keeping our community civil!',
+    title: appL10n.thanksForKeepingOurCommunityCivil,
     dialogOnDesktop: true,
     builder: (sheetContext) => PostFlagEditor(
       siteUrl: siteUrl,
@@ -37,7 +38,7 @@ Future<void> showPostFlagEditor({
       minimumMessageLength: minimum,
       save: (type, {message}) async {
         if (!lease.isCurrent) {
-          return 'Your connection changed. Reopen the flag form and try again.';
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
         }
         return controller.createPostFlag(siteUrl, post, type, message: message);
       },
@@ -63,7 +64,7 @@ Future<void> showTopicFlagEditor({
 
   await showShellSheet<void>(
     context: context,
-    title: 'Thanks for keeping our community civil!',
+    title: appL10n.thanksForKeepingOurCommunityCivil,
     dialogOnDesktop: true,
     builder: (sheetContext) => PostFlagEditor(
       siteUrl: siteUrl,
@@ -73,7 +74,7 @@ Future<void> showTopicFlagEditor({
       minimumMessageLength: minimum,
       save: (type, {message}) async {
         if (!lease.isCurrent) {
-          return 'Your connection changed. Reopen the flag form and try again.';
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
         }
         return controller.createTopicFlag(
           siteUrl,
@@ -83,7 +84,7 @@ Future<void> showTopicFlagEditor({
         );
       },
       onComplete: () => Navigator.of(sheetContext).pop(),
-      submitLabel: 'Flag Topic',
+      submitLabel: appL10n.flagTopic,
     ),
   );
 }
@@ -98,7 +99,7 @@ class PostFlagEditor extends StatefulWidget {
     required this.minimumMessageLength,
     required this.save,
     required this.onComplete,
-    this.submitLabel = 'Flag Post',
+    this._submitLabel,
     this.targetNoun = 'post',
   }) : assert(post != null || targetUsername != null);
 
@@ -109,7 +110,8 @@ class PostFlagEditor extends StatefulWidget {
   final int minimumMessageLength;
   final PostFlagSaver save;
   final VoidCallback onComplete;
-  final String submitLabel;
+  final String? _submitLabel;
+  String get submitLabel => _submitLabel ?? appL10n.flagPost;
   final String targetNoun;
 
   @override
@@ -209,26 +211,34 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
   }
 
   String get _messageLabel => switch (_selected?.nameKey) {
-    'notify_user' => 'Message to @$_username',
-    'illegal' => 'Describe the illegal content',
-    _ => 'Message to the moderators',
+    'notify_user' => appL10n.messageTo((_username).toString()),
+    'illegal' => appL10n.describeTheIllegalContent,
+    _ => appL10n.messageToTheModerators,
   };
 
   String get _messageHint => switch (_selected?.nameKey) {
-    'notify_user' =>
-      'Explain constructively how this ${widget.targetNoun} can be improved.',
-    'illegal' =>
-      'Explain precisely what is illegal about this ${widget.targetNoun}.',
-    _ => 'Explain why this ${widget.targetNoun} needs moderator attention.',
+    'notify_user' => appL10n.explainConstructivelyHowThisCanBeImproved(
+      (widget.targetNoun).toString(),
+    ),
+    'illegal' => appL10n.explainPreciselyWhatIsIllegalAboutThis(
+      (widget.targetNoun).toString(),
+    ),
+    _ => appL10n.explainWhyThisNeedsModeratorAttention(
+      (widget.targetNoun).toString(),
+    ),
   };
 
   String get _messageCounter {
     final length = _message.text.length;
     if (length < widget.minimumMessageLength) {
-      return '${widget.minimumMessageLength - length} more required · '
-          '${PostFlagType.maximumMessageLength - length} remaining';
+      return appL10n.moreRequiredRemaining(
+        (widget.minimumMessageLength - length).toString(),
+        (PostFlagType.maximumMessageLength - length).toString(),
+      );
     }
-    return '${PostFlagType.maximumMessageLength - length} remaining';
+    return appL10n.remaining(
+      (PostFlagType.maximumMessageLength - length).toString(),
+    );
   }
 
   @override
@@ -251,8 +261,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'All flags are received by moderators and will be reviewed '
-                'as soon as possible.',
+                context.l10n.allFlagsAreReceivedByModeratorsAndWillBeReviewedAs,
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
@@ -316,9 +325,9 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                         ),
 
                   contentPadding: EdgeInsets.zero,
-                  title: const DLabel(
+                  title: DLabel(
                     child: Text(
-                      'What I’ve written above is accurate and complete',
+                      context.l10n.whatIVeWrittenAboveIsAccurateAndComplete,
                     ),
                   ),
                 ),
@@ -344,7 +353,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
                   key: const ValueKey('post-flag-submit'),
                   label: Text(
                     selected?.requireMessage == true
-                        ? 'Message'
+                        ? context.l10n.messageTopicmoveposts
                         : widget.submitLabel,
                   ),
                   onPressed: _valid ? _submit : null,
