@@ -351,7 +351,43 @@ void main() {
     expect(gap(), 12);
     final width = tester.getSize(list).width;
     final handle = find.byKey(const ValueKey('inbox-list-resize-handle'));
-    expect(tester.getSize(handle).width, 12);
+    // The grip centred in the gutter is the whole target; the rest of the
+    // gutter is not a resize strip.
+    final grip = tester.getRect(
+      find.descendant(
+        of: handle,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              widget.constraints ==
+                  const BoxConstraints.tightFor(width: 4, height: 24),
+        ),
+      ),
+    );
+    expect(tester.getRect(handle), grip);
+    expect(
+      grip.center.dx,
+      (tester.getRect(list).right + tester.getRect(reader).left) / 2,
+    );
+    for (final outside in [
+      grip.centerLeft - const Offset(1, 0),
+      grip.centerRight + const Offset(1, 0),
+      grip.topCenter - const Offset(0, 1),
+      grip.bottomCenter + const Offset(0, 1),
+    ]) {
+      await tester.dragFrom(
+        outside,
+        const Offset(50, 0),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(list).width,
+        width,
+        reason: 'Drag outside $grip from $outside',
+      );
+    }
     await tester.drag(handle, const Offset(50, 0));
     await tester.pumpAndSettle();
     expect(tester.getSize(list).width, greaterThan(width));
