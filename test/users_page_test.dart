@@ -1115,7 +1115,7 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    testWidgets('directory controls retain full targets on $platform', (
+    testWidgets('directory controls use their visible bounds on $platform', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
@@ -1132,19 +1132,71 @@ void main() {
         ),
         theme: AppTheme.light.copyWith(platform: platform),
       );
-      final touch = platform == TargetPlatform.iOS;
-      expect(
-        tester.getSize(find.byKey(const ValueKey('users-search'))).height,
-        touch ? 48 : 35.5,
-      );
-      expect(
-        tester
-            .getSize(find.byKey(const ValueKey('users-period-filter')))
-            .height,
-        touch ? 48 : 30.75,
-      );
+      final search = find.byKey(const ValueKey('users-search'));
+      final period = find.byKey(const ValueKey('users-period-filter'));
+      final columns = find.byKey(const ValueKey('users-columns'));
+      final searchFocus = tester
+          .widget<EditableText>(
+            find.descendant(of: search, matching: find.byType(EditableText)),
+          )
+          .focusNode;
+      final periodMenu = find.text('Today');
+      final columnsMenu = find.byType(DDropdownMenuCheckboxItem);
+      // Application presets paint the same artwork on touch and pointer
+      // platforms, and each control answers exactly where it is painted.
+      for (final (control, surface, height, opened) in [
+        (
+          search,
+          find
+              .descendant(of: search, matching: find.byType(AnimatedContainer))
+              .first,
+          35.5,
+          () => searchFocus.hasFocus,
+        ),
+        (
+          period,
+          find.descendant(
+            of: period,
+            matching: find.byKey(const Key('d-select-trigger-visual')),
+          ),
+          30.75,
+          () => periodMenu.evaluate().isNotEmpty,
+        ),
+        (
+          columns,
+          find.descendant(
+            of: columns,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is AnimatedContainer &&
+                  widget.decoration is DButtonDecoration,
+            ),
+          ),
+          30.75,
+          () => columnsMenu.evaluate().isNotEmpty,
+        ),
+      ]) {
+        final bounds = tester.getRect(surface);
+        expect(bounds.height, height);
+        expect(tester.getRect(control), bounds);
+        for (final outside in [
+          bounds.centerLeft - const Offset(1, 0),
+          bounds.centerRight + const Offset(1, 0),
+          bounds.topCenter - const Offset(0, 1),
+          bounds.bottomCenter + const Offset(0, 1),
+        ]) {
+          await tester.tapAt(outside);
+          await tester.pumpAndSettle();
+          expect(opened(), isFalse, reason: 'Tap outside $bounds at $outside');
+        }
+        await tester.tapAt(bounds.topLeft + const Offset(1, 1));
+        await tester.pumpAndSettle();
+        expect(opened(), isTrue, reason: 'Tap inside $bounds');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
       expect(find.text('Manage columns'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('users-columns')));
+      await tester.tap(columns);
       await tester.pumpAndSettle();
       expect(find.text('Toggle columns'), findsNothing);
       expect(find.text('Columns'), findsWidgets);
