@@ -1330,6 +1330,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ScrollPosition? _ancestorScroll;
   late final ComposerMediaEditingCoordinator _media;
   late final _ComposerSelectionOverlay _selectionOverlay;
+  bool _touchSelection = false;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
   final ValueNotifier<Offset?> _mediaDropPosition = ValueNotifier(null);
   double? _mediaDropIndicatorTop;
@@ -1362,7 +1363,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _selectionOverlay = _ComposerSelectionOverlay(
       composer: widget.composer,
       scroll: _scroll,
-      showToolbar: () => widget.showSelectionToolbar,
+      showToolbar: () => widget.showSelectionToolbar && !_touchSelection,
       isMounted: () => mounted,
       renderEditable: () => _renderEditable,
       overlayBox: () {
@@ -1406,6 +1407,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _touchSelection = context.isTouch;
+    _selectionOverlay.sync();
     final ancestorScroll = widget.expands
         ? null
         : Scrollable.maybeOf(context)?.position;
@@ -4008,6 +4011,20 @@ class _FormattingToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final composer = this.composer.activeEditor;
+    if (context.isTouch) {
+      return Semantics(
+        key: const ValueKey('composer-formatting'),
+        container: true,
+        label: 'Formatting',
+        child: ComposerFormattingControls(
+          composer: composer,
+          inline: true,
+          onLink: () => unawaited(
+            showComposerLinkDialog(context: context, composer: composer),
+          ),
+        ),
+      );
+    }
     return TextFieldTapRegion(
       child: Semantics(
         key: const ValueKey('composer-formatting'),

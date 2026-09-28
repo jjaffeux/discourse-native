@@ -271,30 +271,29 @@ void main() {
     },
   );
 
-  testWidgets('fits a narrow touch viewport with large RTL text', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(320, 720));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await pumpEditor(
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('selection does not open a formatting popover on $platform', (
       tester,
-      platform: TargetPlatform.iOS,
-      scale: 2,
-      direction: TextDirection.rtl,
-      supportsColors: true,
-    );
-    final rect = tester.getRect(toolbar);
-    expect(rect.left, greaterThanOrEqualTo(0));
-    expect(rect.right, lessThanOrEqualTo(320));
-    expect(rect.top, greaterThanOrEqualTo(0));
-    expect(tester.takeException(), isNull);
-    await action(tester, 'Bold');
-    await action(tester, 'Color');
-    final palette = tester.getRect(
-      find.byKey(const ValueKey('composer-color-palette')),
-    );
-    expect(palette.left, greaterThanOrEqualTo(0));
-    expect(palette.right, lessThanOrEqualTo(320));
-    expect(tester.takeException(), isNull);
-  });
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final composer = await pumpEditor(
+        tester,
+        platform: platform,
+        scale: 2,
+        direction: TextDirection.rtl,
+        supportsColors: true,
+      );
+      expect(toolbar, findsNothing);
+      expect(composer.text.selection.textInside(composer.raw), 'format');
+      expect(composer.focus.hasFocus, isTrue);
+      composer.text.selection = const TextSelection(
+        baseOffset: 7,
+        extentOffset: 9,
+      );
+      await tester.pumpAndSettle();
+      expect(toolbar, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

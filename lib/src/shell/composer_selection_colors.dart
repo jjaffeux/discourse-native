@@ -7,9 +7,16 @@ import 'composer_inline_formatting.dart';
 /// The BBCode adapter for Native's preset palette. Recent choices live for the
 /// lifetime of the draft, including after its selection menu is dismissed.
 class ComposerSelectionColors extends StatelessWidget {
-  const ComposerSelectionColors({super.key, required this.composer});
+  const ComposerSelectionColors({
+    super.key,
+    required this.composer,
+    this.size = DControlSize.regular,
+    this.enabled = true,
+  });
 
   final ComposerController composer;
+  final DControlSize size;
+  final bool enabled;
   static final _recent = Expando<List<DColorPreset>>();
 
   static const _colors = [
@@ -81,7 +88,9 @@ class ComposerSelectionColors extends StatelessWidget {
     content: DDropdownMenuContent(
       key: const ValueKey('composer-color-palette'),
       semanticLabel: 'Text and background colors',
+      autofocus: !DControlStyle.isTouch(context),
       width: DControlStyle.isTouch(context) ? 292 : 220,
+      side: DPopoverSide.top,
       align: DPopoverAlign.start,
       children: [
         for (final background in [false, true]) ...[
@@ -116,10 +125,11 @@ class ComposerSelectionColors extends StatelessWidget {
         semanticLabel: 'Color',
         icon: const Icon(Icons.format_color_text),
         variant: DButtonVariant.ghost,
+        size: size,
         focusNode: state.focusNode,
         expanded: state.open,
         hasPopup: true,
-        onPressed: composer.isEditing ? state.toggle : null,
+        onPressed: enabled && composer.isEditing ? state.toggle : null,
       ),
     ),
   );
