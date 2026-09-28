@@ -163,18 +163,59 @@ void main() {
           );
           expect(primaryTabs.left, left);
           expect(primaryTabs.width, contentWidth);
-          final join = tester.getRect(find.byKey(const ValueKey('group-join')));
           final groupActions = tester.getRect(
             find.byKey(const ValueKey('group-actions')),
           );
           expect(groupActions.right, right);
-          final touch =
-              Theme.of(
-                tester.element(find.byKey(const ValueKey('group-join'))),
-              ).platform ==
-              TargetPlatform.iOS;
-          expect(groupActions.height, touch ? 48 : DControlStyle.smallHeight);
-          expect(join.height, touch ? 48 : DControlStyle.regularHeight);
+          // Header actions answer exactly where they are painted, at the
+          // kit's platform size, with no touch band around them.
+          for (final (key, size) in [
+            ('group-join', DControlSize.regular),
+            ('group-actions', DControlSize.small),
+          ]) {
+            final control = find.byKey(ValueKey(key));
+            final bounds = tester.getRect(control);
+            expect(
+              bounds,
+              tester.getRect(
+                find.descendant(
+                  of: control,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is AnimatedContainer &&
+                        widget.decoration is DButtonDecoration,
+                  ),
+                ),
+              ),
+              reason: key,
+            );
+            expect(
+              bounds.height,
+              DControlStyle.height(size, context: tester.element(control)),
+              reason: key,
+            );
+          }
+          final deleteGroup = find.text('Delete group');
+          for (final outside in [
+            groupActions.centerLeft - const Offset(1, 0),
+            groupActions.centerRight + const Offset(1, 0),
+            groupActions.topCenter - const Offset(0, 1),
+            groupActions.bottomCenter + const Offset(0, 1),
+          ]) {
+            await tester.tapAt(outside);
+            await tester.pumpAndSettle();
+            expect(
+              deleteGroup,
+              findsNothing,
+              reason: 'Tap outside $groupActions at $outside',
+            );
+          }
+          await tester.tapAt(groupActions.topLeft + const Offset(1, 1));
+          await tester.pumpAndSettle();
+          expect(deleteGroup, findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(deleteGroup, findsNothing);
           final search = tester.getRect(
             find.byKey(const ValueKey('group-member-search')),
           );
