@@ -554,6 +554,32 @@ void main() {
       },
     );
 
+    test('update says no to existing users in a form core reads', () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      for (final answer in [false, null]) {
+        await api.updateGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          values: const {'default_notification_level': 2},
+          updateExistingUsers: answer,
+        );
+      }
+
+      // Core takes a JSON false for a missing answer and asks again.
+      expect(transport.writes.map((write) => write.body), [
+        {
+          'group': {'default_notification_level': 2},
+          'update_existing_users': 'false',
+        },
+        {
+          'group': {'default_notification_level': 2},
+        },
+      ]);
+    });
+
     test('SMTP check sends every connection field', () async {
       final transport = _RecordingTransport();
       final api = GroupsApi(transport, const DiscourseModelCodec.core());

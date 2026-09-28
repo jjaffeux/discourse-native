@@ -92,9 +92,12 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
     GroupRequestAction action,
   );
 
+  /// [applyToExistingUsers] decides, as in [GroupsController.updateGroup],
+  /// whether a change to notification defaults reaches existing members.
   Future<bool> saveManage(
     GroupPagesOwner owner,
     Group group,
-    GroupManageUpdate update,
-  );
+    GroupManageUpdate update, {
+    Future<bool?> Function(int userCount)? applyToExistingUsers,
+  });
 }

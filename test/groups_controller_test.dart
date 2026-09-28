@@ -1798,6 +1798,125 @@ void main() {
 
     expect(await request, isNull);
   });
+
+  group('a save core holds for existing members', () {
+    const values = {'default_notification_level': 2};
+    const held = WriteException(
+      WriteFailure.validation,
+      errors: ['This change affects 3 existing group members.'],
+      statusCode: 422,
+      affectedUserCount: 3,
+    );
+
+    ({_ControlledGroupTransport transport, GroupsController controller})
+    heldSave({SiteLifecycle? lifecycle, WriteException first = held}) {
+      final transport = _ControlledGroupTransport();
+      var writes = 0;
+      transport.onWrite = (_) {
+        if (writes++ == 0) throw first;
+        return const {'success': 'OK'};
+      };
+      transport.objects.add(
+        _completed({
+          'group': {'id': 7, 'name': 'support'},
+        }),
+      );
+      final credentials = FakeApiCredentialReader(
+        clientIdValue: 'native-client',
+      )..keys[_site] = 'secret';
+      final controller = _controller(
+        transport,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      return (transport: transport, controller: controller);
+    }
+
+    // Core answers 422 with `user_count` until the save says whether the
+    // change applies to them, and reads a JSON false as not having said.
+    for (final (answer, sent) in [(true, 'true'), (false, 'false')]) {
+      test('is sent again with the answer $answer', () async {
+        final (:transport, :controller) = heldSave();
+        final asked = <int>[];
+
+        final saved = await controller.updateGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          values,
+          applyToExistingUsers: (count) async {
+            asked.add(count);
+            return answer;
+          },
+        );
+
+        expect(saved, isTrue);
+        expect(asked, [3]);
+        expect(transport.writes.map((write) => write.body), [
+          {'group': values},
+          {'group': values, 'update_existing_users': sent},
+        ]);
+        expect(controller.detailState(_site, 'support').mutating, isFalse);
+      });
+    }
+
+    test('is abandoned when the question is dismissed', () async {
+      final (:transport, :controller) = heldSave();
+
+      final saved = await controller.updateGroup(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+        values,
+        applyToExistingUsers: (_) async => null,
+      );
+
+      expect(saved, isFalse);
+      expect(transport.writes, hasLength(1));
+    });
+
+    test('is not sent again for another account', () async {
+      final lifecycle = SiteLifecycle();
+      final (:transport, :controller) = heldSave(lifecycle: lifecycle);
+
+      final saved = await controller.updateGroup(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+        values,
+        applyToExistingUsers: (_) async {
+          lifecycle.invalidate(_site);
+          return true;
+        },
+      );
+
+      expect(saved, isFalse);
+      expect(transport.writes, hasLength(1));
+    });
+
+    test('asks nothing about a refusal without a member count', () async {
+      final (:transport, :controller) = heldSave(
+        first: const WriteException(
+          WriteFailure.validation,
+          errors: ['Name has already been taken'],
+          statusCode: 422,
+        ),
+      );
+      var asked = false;
+
+      final saved = await controller.updateGroup(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+        values,
+        applyToExistingUsers: (_) async {
+          asked = true;
+          return true;
+        },
+      );
+
+      expect(saved, isFalse);
+      expect(asked, isFalse);
+      expect(transport.writes, hasLength(1));
+    });
+  });
 }
 
 GroupsController _controller(

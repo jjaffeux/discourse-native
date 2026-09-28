@@ -392,6 +392,7 @@ void main() {
           name: 'support',
           allowMembershipRequests: true,
           associatedGroupIds: [3],
+          mutedCategoryIds: [5],
           watchingTags: [GroupTag(name: 'existing')],
         ),
         subsection: GroupRoute.membership,
@@ -413,7 +414,62 @@ void main() {
       controller.textController('watching_tags').text = ' flutter, native,  ';
       final tags = controller.buildUpdate(GroupRoute.tags);
       expect(tags.values['watching_tags'], ['flutter', 'native']);
-      expect(tags.values.keys, unorderedEquals(groupTagKeys));
+      // Every tag level goes, so an emptied one is cleared; the category
+      // default the group holds goes back unchanged beside them.
+      expect(
+        tags.values.keys,
+        unorderedEquals([...groupTagKeys, 'muted_category_ids']),
+      );
+      expect(tags.values['muted_category_ids'], [5]);
+    });
+
+    test('every subsection sends back the notification defaults it holds', () {
+      final controller = GroupManageController(
+        group: const Group(
+          id: 9,
+          name: 'support',
+          watchingCategoryIds: [3],
+          mutedCategoryIds: [5, 6],
+          trackingTags: [GroupTag(name: 'billing')],
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      Map<String, Object?> defaultsIn(String subsection) {
+        final values = controller.buildUpdate(subsection).values;
+        return {
+          for (final key in [...groupCategoryKeys, ...groupTagKeys])
+            if (values.containsKey(key)) key: values[key],
+        };
+      }
+
+      // Core reads a list a save leaves out as empty and counts each default
+      // held there as one to delete, refusing the save while members hold
+      // it. An empty list would delete defaults the payload may not have
+      // shown, so only the held ones are sent.
+      const held = {
+        'watching_category_ids': [3],
+        'muted_category_ids': [5, 6],
+        'tracking_tags': ['billing'],
+      };
+      for (final subsection in [
+        GroupRoute.profile,
+        GroupRoute.membership,
+        GroupRoute.interaction,
+        GroupRoute.email,
+      ]) {
+        expect(defaultsIn(subsection), held, reason: subsection);
+      }
+      expect(defaultsIn(GroupRoute.categories), {
+        for (final key in groupCategoryKeys) key: held[key] ?? const <int>[],
+        'tracking_tags': ['billing'],
+      });
+      expect(defaultsIn(GroupRoute.tags), {
+        for (final key in groupTagKeys) key: held[key] ?? const <String>[],
+        'watching_category_ids': [3],
+        'muted_category_ids': [5, 6],
+      });
+      expect(controller.snapshot.dirty, isFalse);
     });
 
     test('serializes the SMTP switch as the string the server compares', () {
