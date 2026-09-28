@@ -199,6 +199,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final source = shell.topicListContent;
         final showReply =
             !widget.boundary &&
+            !panelRoot &&
             shell.currentContent?.isTopic == true &&
             shell.canReplyHere;
         final showNewTopic =
@@ -444,16 +445,23 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       actionMin,
       220.0,
     );
-    final showLabel = _creationLabelFits(
-      context,
-      actionWidth,
-      0,
-      showReply
-          ? 'Reply'
-          : showNewMessage
-          ? 'New message'
-          : panelAction?.label ?? 'New topic',
-    );
+    final actionLabel =
+        pageAction?.label ??
+        (showReply
+            ? 'Reply'
+            : showNewMessage
+            ? 'New message'
+            : panelAction?.label ?? 'New topic');
+    final actionIcon =
+        pageAction?.icon ??
+        (showReply
+            ? DIcons.reply
+            : showNewMessage
+            ? DIcons.plus
+            : panelAction?.icon ?? DIcons.plus);
+    final showLabel =
+        pageAction != null ||
+        _creationLabelFits(context, actionWidth, 0, actionLabel);
     Widget? primaryAction;
     if (pageAction case final action?) {
       primaryAction = DButton(
@@ -584,11 +592,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             child: primaryAction == null
                 ? null
                 : KeyedSubtree(
-                    key: ValueKey((
-                      selected,
-                      primaryAction.key,
-                      pageAction?.label,
-                    )),
+                    // Only a visible change should animate. Route-specific
+                    // tooltips and callbacks still update for identical icons.
+                    key: ValueKey((actionIcon, showLabel ? actionLabel : null)),
                     child: primaryAction,
                   ),
           ),

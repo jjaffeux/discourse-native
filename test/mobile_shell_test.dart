@@ -1049,6 +1049,112 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('leaving a topic replaces Reply with the Chat creation action', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(id: 7, canCreatePost: true),
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('mobile-topic-reply')), findsOneWidget);
+
+    await _tapDockTab(tester, 'panel/chat');
+    // Panel roots keep the shared content route parked behind the panel.
+    expect(shell.currentContent?.isTopic, isTrue);
+    expect(shell.mobileNavigation.atRoot, isTrue);
+    expect(find.byKey(const ValueKey('mobile-topic-reply')), findsNothing);
+    final action = find.byKey(const ValueKey('mobile-panel-action'));
+    expect(action, findsOneWidget);
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(of: action, matching: find.byType(DIcon)),
+          )
+          .icon,
+      DIcons.plus,
+    );
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+      findsOneWidget,
+    );
+    expect(shell.visibleComposer, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('identical plus buttons stay still while their actions update', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final fades = find.descendant(
+      of: find.byType(DActionTransition),
+      matching: find.byType(FadeTransition),
+    );
+    final originalAnimation = tester.widget<FadeTransition>(fades).opacity;
+    for (final (tab, key) in [
+      ('panel/chat', 'mobile-panel-action'),
+      ('messages', 'new-message-button'),
+      ('topics', 'mobile-new-topic'),
+      ('panel/chat', 'mobile-panel-action'),
+    ]) {
+      await _tapDockTab(tester, tab, settle: false);
+      await tester.pump();
+      expect(fades, findsOneWidget, reason: tab);
+      final animation = tester.widget<FadeTransition>(fades).opacity;
+      expect(animation, same(originalAnimation), reason: tab);
+      expect(animation.value, 1, reason: tab);
+      expect(find.byKey(ValueKey(key)), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(animation.value, 1, reason: tab);
+    }
+    // The visually identical button must use Chat's latest callback.
+    await tester.tap(find.byKey(const ValueKey('mobile-panel-action')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+      findsOneWidget,
+    );
+    expect(shell.visibleComposer, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('different visible creation labels still animate between tabs', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, size: const Size(800, 1000));
+    final topic = find.byKey(const ValueKey('mobile-new-topic'));
+    expect(
+      find.descendant(of: topic, matching: find.text('New topic')),
+      findsOneWidget,
+    );
+    await _tapDockTab(tester, 'messages', settle: false);
+    await tester.pump();
+    final message = find.byKey(const ValueKey('new-message-button'));
+    expect(
+      find.descendant(of: message, matching: find.text('New message')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(topic, findsOneWidget);
+    expect(
+      tester
+          .widget<FadeTransition>(
+            find
+                .ancestor(of: message, matching: find.byType(FadeTransition))
+                .first,
+          )
+          .opacity
+          .value,
+      inExclusiveRange(0, 1),
+    );
+    await tester.pumpAndSettle();
+    expect(topic, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'trailing actions animate across routes while dock slots stay put',
     (tester) async {
