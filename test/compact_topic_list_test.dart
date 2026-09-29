@@ -234,7 +234,7 @@ void main() {
       final title = within(
         find.text('Topic 1: a conversation about improving our community'),
       );
-      final date = within(find.byKey(const ValueKey('event-schedule-trigger')));
+      final date = within(find.byKey(const ValueKey('event-schedule-summary')));
       final author = within(find.textContaining('Last post by sam'));
       final replies = within(find.textContaining('24 replies'));
       final age = within(find.byKey(const ValueKey('inbox-row-time-1')));
@@ -264,12 +264,7 @@ void main() {
       expect(within(find.textContaining('24 replies')), findsOneWidget);
       await tester.tap(date);
       await tester.pumpAndSettle();
-      expect(find.text('Event schedule').hitTestable(), findsOneWidget);
-      expect(shell.currentContent?.topicId, isNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(title);
-      await tester.pumpAndSettle();
+      expect(find.text('Event schedule'), findsNothing);
       expect(shell.currentContent?.topicId, 1);
       expect(tester.takeException(), isNull);
     });
@@ -546,17 +541,9 @@ void main() {
       );
       expect(find.text('joffrey'), findsOneWidget);
       expect(find.textContaining(RegExp(r'^.* · 8:00 PM$')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
+      await tester.tap(find.byKey(const ValueKey('event-schedule-summary')));
       await tester.pumpAndSettle();
-      expect(find.text('Event schedule').hitTestable(), findsOneWidget);
-      expect(find.text('Europe/Paris'), findsOneWidget);
-      expect(shell.currentContent?.topicId, isNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.text('Topic 1: a conversation about improving our community'),
-      );
-      await tester.pumpAndSettle();
+      expect(find.text('Event schedule'), findsNothing);
       expect(shell.currentContent?.topicId, 1);
       expect(tester.takeException(), isNull);
     });

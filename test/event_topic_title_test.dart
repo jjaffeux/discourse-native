@@ -7,7 +7,6 @@ import 'package:discourse_native/src/plugins/discourse_events/event_date_stamp.d
 import 'package:discourse_native/src/plugins/discourse_events/event_topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/event_fixtures.dart';
@@ -20,72 +19,77 @@ const _timed = EventTopicData(
 const _title = 'Sales Stage Cross Functional';
 
 void main() {
-  testWidgets(
-    'stamp identifies the event and opens an accessible full schedule',
-    (tester) async {
+  for (final width in [320.0, 800.0]) {
+    testWidgets('event dates open the topic at $width', (tester) async {
       final ports = EventTestPorts();
       addTearDown(ports.close);
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       var opened = 0;
       await _pump(tester, ports, onOpen: () => opened++);
-      expect(find.text('OCT'), findsOneWidget);
-      expect(find.text('14'), findsOneWidget);
-      expect(find.text('Wed · 8:00 PM'), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.text('OCT')).dx,
-        lessThan(tester.getTopLeft(find.text(_title)).dx),
+      final summary = find.text(
+        width < 600 ? 'Wed, Oct 14 · 8:00 PM' : 'Wed · 8:00 PM',
       );
+      expect(summary, findsOneWidget);
       expect(
         find.bySemanticsLabel(
-          RegExp('View event schedule:.*2026.*Europe/Paris'),
+          RegExp('Wednesday, October 14, 2026.*Europe/Paris'),
         ),
         findsOneWidget,
       );
-
-      await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
-      await tester.pumpAndSettle();
-      expect(opened, 0);
-      expect(find.text('Event schedule'), findsOneWidget);
-      expect(find.text('Starts'), findsOneWidget);
-      expect(find.text('Ends'), findsOneWidget);
-      expect(
-        find.text('Wednesday, October 14, 2026 · 9:00 PM'),
-        findsOneWidget,
-      );
-      expect(find.text('Europe/Paris'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.text('Event schedule'), findsNothing);
-      await tester.tap(find.text(_title));
-      expect(opened, 1);
+      if (width >= 600) {
+        expect(find.text('OCT'), findsOneWidget);
+        expect(find.text('14'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('OCT')).dx,
+          lessThan(tester.getTopLeft(find.text(_title)).dx),
+        );
+      }
+      for (final target in [
+        summary,
+        width < 600 ? find.byType(DIcon) : find.text('14'),
+        find.text(_title),
+      ]) {
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+        expect(find.text('Event schedule'), findsNothing);
+      }
+      expect(opened, 3);
+      expect(find.byType(DDialogContent), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+  }
 
   testWidgets('times follow the reader clock', (tester) async {
     final ports = EventTestPorts();
     addTearDown(ports.close);
     await _pump(tester, ports, use24HourClock: true);
     expect(find.text('Wed · 20:00'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
-    await tester.pumpAndSettle();
-    expect(find.text('Wednesday, October 14, 2026 · 21:00'), findsOneWidget);
+    expect(
+      find.byTooltip(
+        'Wednesday, October 14, 2026 · 20:00 → '
+        'Wednesday, October 14, 2026 · 21:00 · Europe/Paris',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
-    'reader timezone updates both calendar day and an open schedule',
+    'reader timezone updates the calendar day and full schedule description',
     (tester) async {
       final ports = EventTestPorts();
       addTearDown(ports.close);
       await _pump(tester, ports);
-      await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
-      await tester.pumpAndSettle();
       ports.user = const DiscourseUser(username: 'lee', timezone: 'Asia/Tokyo');
       ports.controller.pluginCurrentUserRefreshed(eventSite);
       await tester.pumpAndSettle();
-      expect(find.text('Asia/Tokyo'), findsOneWidget);
-      expect(find.text('Thursday, October 15, 2026 · 3:00 AM'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+      expect(
+        find.byTooltip(
+          'Thursday, October 15, 2026 · 3:00 AM → '
+          'Thursday, October 15, 2026 · 4:00 AM · Asia/Tokyo',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('15'), findsOneWidget);
       expect(find.text('Thu · 3:00 AM'), findsOneWidget);
     },
@@ -107,9 +111,10 @@ void main() {
       );
       expect(find.text('16'), findsOneWidget);
       expect(find.text('Fri · All day'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
-      await tester.pumpAndSettle();
-      expect(find.text('Friday, October 16, 2026 · All day'), findsOneWidget);
+      expect(
+        find.byTooltip('Friday, October 16, 2026 · All day'),
+        findsOneWidget,
+      );
       expect(find.text('Timezone'), findsNothing);
       expect(find.text('Ends'), findsNothing);
     },
@@ -211,9 +216,11 @@ void main() {
         addTearDown(ports.close);
         await tester.binding.setSurfaceSize(const Size(320, 900));
         addTearDown(() => tester.binding.setSurfaceSize(null));
+        var opened = 0;
         await _pump(
           tester,
           ports,
+          onOpen: () => opened++,
           dark: dark,
           rtl: rtl,
           scale: 2,
@@ -228,9 +235,10 @@ void main() {
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
-        await tester.tap(find.byKey(const ValueKey('event-schedule-trigger')));
+        await tester.tap(find.byKey(const ValueKey('event-schedule-summary')));
         await tester.pumpAndSettle();
-        expect(find.text('Starts'), findsOneWidget);
+        expect(opened, 1);
+        expect(find.text('Event schedule'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
@@ -262,7 +270,7 @@ void main() {
                   for (final title in titles)
                     EventTopicTitle(
                       site: eventSite,
-                      topicTitle: title,
+                      key: ValueKey(title),
                       event: _timed,
                       controller: ports.controller,
                       child: Text(title),
@@ -285,9 +293,9 @@ void main() {
         previous?.call(element, builtOnce);
         if (element.widget is EventDateStamp) {
           rebuilds.update(
-            element
-                .findAncestorWidgetOfExactType<EventTopicTitle>()!
-                .topicTitle,
+            (element.findAncestorWidgetOfExactType<EventTopicTitle>()!.key
+                    as ValueKey<String>)
+                .value,
             (count) => count + 1,
             ifAbsent: () => 1,
           );
@@ -385,7 +393,6 @@ Future<void> _pump(
                 children: [
                   EventTopicTitle(
                     site: eventSite,
-                    topicTitle: _title,
                     event: event,
                     controller: ports.controller,
                     child: const Text(_title),
