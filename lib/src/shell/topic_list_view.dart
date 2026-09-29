@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
@@ -33,9 +36,12 @@ import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
+import 'topic_pointer_predictor.dart';
+import 'topic_prefetch_controller.dart';
 import 'topic_title.dart';
 
 part 'conversation_topic_card.dart';
+part 'topic_list_prefetch.dart';
 part 'topic_row_content.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
@@ -58,6 +64,7 @@ class TopicListView extends StatefulWidget {
 }
 
 class _TopicListViewState extends State<TopicListView> {
+  late final _prefetch = _TopicListPrefetch(this);
   ScrollController? _scroll;
   ListController? _list;
   _TopicListIdentity? _feedIdentity;
@@ -178,6 +185,10 @@ class _TopicListViewState extends State<TopicListView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+    _prefetch.geometryChanged();
+    _prefetch.setEnabled(
+      !context.isTouch && TickerMode.valuesOf(context).enabled,
+    );
   }
 
   void _recordScrollEvent(String name, Map<String, Object?> data) {
@@ -244,6 +255,7 @@ class _TopicListViewState extends State<TopicListView> {
   void _syncControllers(_TopicListIdentity feedIdentity) {
     if (_feedIdentity == feedIdentity) return;
 
+    _prefetch.reset();
     _disposeControllers();
     _feedIdentity = feedIdentity;
     _loadMoreToken = null;
@@ -363,6 +375,12 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   @override
+  void deactivate() {
+    _prefetch.setEnabled(false);
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     unawaited(_topicListRevealSubscription?.cancel());
     // Rows are handed to the shell as they change, but the latest may still
@@ -370,6 +388,7 @@ class _TopicListViewState extends State<TopicListView> {
     // any more, so it is written now.
     _controller?.flushAnchorPersist();
     _disposeControllers();
+    _prefetch.dispose();
     _keyboardFocus.dispose();
     super.dispose();
   }
@@ -507,6 +526,11 @@ class _TopicListViewState extends State<TopicListView> {
       target = target.clamp(0, currentIds.length - 1);
       _rememberTopic(currentIds[target], keyboard: true);
       _keyboardFocus.requestFocus();
+      final siteUrl = controller.currentInstance?.url;
+      final topic = siteUrl == null
+          ? null
+          : controller.store.read<Topic>(siteUrl, currentIds[target]);
+      if (topic != null) _prefetch.keyboard(topic);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isCurrent()) return;
         _jumpTo(target * 2);
@@ -525,7 +549,6 @@ class _TopicListViewState extends State<TopicListView> {
   void _openRow(Topic topic, {bool keyboard = false}) {
     _keyboardMoveToken = null;
     _rememberTopic(topic.id, keyboard: keyboard);
-    if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
     final controller = _controller!;
     if (keyboard && controller.readingTopicId == topic.id) return;
     handleTabOpenResult(
@@ -534,6 +557,8 @@ class _TopicListViewState extends State<TopicListView> {
           ? controller.openTopicFromList(topic, revealInList: keyboard)
           : controller.openTopic(topic),
     );
+    // Navigation adopts the request before loss of keyboard focus releases it.
+    if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
   }
 
   bool _openSelection() {
@@ -560,6 +585,7 @@ class _TopicListViewState extends State<TopicListView> {
   Widget _build(BuildContext context, _TopicListSnapshot state) {
     final controller = ShellScope.read(context);
     if (!identical(_controller, controller)) {
+      _prefetch.reset();
       // A replaced shell keeps its own pending anchor window; this list no
       // longer feeds it, so the window is written rather than left behind.
       _controller?.flushAnchorPersist();
@@ -682,6 +708,7 @@ class _TopicListViewState extends State<TopicListView> {
               // applying new content dimensions during layout.
               onNotification: (notification) {
                 if (notification.depth != 0) return false;
+                _prefetch.scroll(notification);
                 final stopwatch = _recording ? (Stopwatch()..start()) : null;
                 // Opening a topic tears this list down, so the position has
                 // to be handed to the controller as it changes rather than

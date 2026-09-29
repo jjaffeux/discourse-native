@@ -733,7 +733,10 @@ void main() {
           expect(_selectedTopics(tester), [1]);
           await _moveTopic(tester, next: true);
           expect(_selectedTopics(tester), [2]);
-          expect(setup.api.topicsOpened, isEmpty);
+          expect(setup.api.topicsOpened, [1, 2, 1, 2]);
+          expect(shell.currentContent?.isTopic, isFalse);
+          expect(shell.currentTopic, isNull);
+          expect(setup.api.topicReadsRecorded, isEmpty);
           expect(await tester.sendKeyEvent(openKey), isTrue);
           await tester.pumpAndSettle();
           expect(shell.currentContent?.topicId, 2);
@@ -879,7 +882,10 @@ void main() {
         setup.api.feedPaths.where((path) => path == '/latest.json?page=1'),
         hasLength(1),
       );
-      expect(setup.api.topicsOpened, isEmpty);
+      expect(setup.api.topicsOpened, [for (var id = 1; id <= 31; id++) id]);
+      expect(setup.shell.currentContent?.isTopic, isFalse);
+      expect(setup.shell.currentTopic, isNull);
+      expect(setup.api.topicReadsRecorded, isEmpty);
       expect(
         find.byKey(const ValueKey('topic-list-keyboard-31')).hitTestable(),
         findsOneWidget,
@@ -979,7 +985,10 @@ void main() {
     await tester.pumpAndSettle();
     await _moveTopic(tester, next: false, shift: false);
     expect(_selectedTopics(tester), [1]);
-    expect(setup.api.topicsOpened, isEmpty);
+    expect(setup.api.topicsOpened, [1, 2, 1]);
+    expect(setup.shell.currentContent?.isTopic, isFalse);
+    expect(setup.shell.currentTopic, isNull);
+    expect(setup.api.topicReadsRecorded, isEmpty);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

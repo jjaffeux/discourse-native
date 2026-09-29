@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -34,8 +35,10 @@ void main() {
     bool panels = false,
     bool signedIn = false,
     FakeAuthenticator? authenticator,
+    double inset = 0,
+    List<Topic> rows = _rows,
   }) async {
-    final api = _Api();
+    final api = _Api(rows);
     final forum = instance('one.example');
     final controller = ShellController(
       instanceStore: FakeInstanceStore([
@@ -60,7 +63,10 @@ void main() {
               listenable: controller.topicFeeds,
               builder: (context, _) => controller.currentFeed == null
                   ? const SizedBox.shrink()
-                  : TopicListView(feed: controller.currentFeed!),
+                  : Padding(
+                      padding: EdgeInsets.only(left: inset),
+                      child: TopicListView(feed: controller.currentFeed!),
+                    ),
             ),
           ),
         ),
@@ -79,6 +85,206 @@ void main() {
     );
     return mouse;
   }
+
+  Future<TestGesture> approach(WidgetTester tester) async {
+    final rect = tester.getRect(find.byKey(const ValueKey('topic-card-1')));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset(rect.left - 120, rect.center.dy));
+    addTearDown(mouse.removePointer);
+    for (final distance in [100.0, 80.0, 60.0]) {
+      await mouse.moveTo(Offset(rect.left - distance, rect.center.dy));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pump();
+    return mouse;
+  }
+
+  testWidgets('trajectory starts before entry and survives hover then click', (
+    tester,
+  ) async {
+    final (controller, api) = await setup(tester, inset: 200);
+    final mouse = await approach(tester);
+    expect(api.requests, hasLength(1));
+    expect(api.requests.single.postNumber, 5);
+    await mouse.moveTo(
+      tester.getCenter(find.byKey(const ValueKey('topic-card-1'))),
+    );
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(api.requests, hasLength(1));
+    expect(api.requests.single.aborted, isFalse);
+    await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+    await tester.pump();
+    expect(api.requests, hasLength(1));
+    expect(api.requests.single.aborted, isFalse);
+    api.requests.single.complete();
+    await tester.pumpAndSettle();
+    expect(controller.store.read<TopicDetail>(_site, 1), isNotNull);
+  });
+
+  testWidgets('pointer bursts require confirmation on separate frames', (
+    tester,
+  ) async {
+    final (_, api) = await setup(tester, inset: 200);
+    final rect = tester.getRect(find.byKey(const ValueKey('topic-card-1')));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset(rect.left - 140, rect.center.dy));
+    addTearDown(mouse.removePointer);
+    for (final distance in [130.0, 120.0, 110.0, 100.0]) {
+      await mouse.moveTo(Offset(rect.left - distance, rect.center.dy));
+    }
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(api.requests, isEmpty);
+    await mouse.moveTo(Offset(rect.left - 80, rect.center.dy));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(api.requests, isEmpty);
+    await mouse.moveTo(Offset(rect.left - 60, rect.center.dy));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(api.requests, hasLength(1));
+  });
+
+  testWidgets('an overlay covering the predicted row prevents prefetch', (
+    tester,
+  ) async {
+    final (_, api) = await setup(tester, inset: 200);
+    final overlay = Overlay.of(tester.element(find.byType(TopicListView)));
+    final cover = OverlayEntry(
+      builder: (_) => const Positioned.fill(
+        child: AbsorbPointer(child: ColoredBox(color: Colors.black)),
+      ),
+    );
+    overlay.insert(cover);
+    addTearDown(() {
+      cover.remove();
+      cover.dispose();
+    });
+    await tester.pump();
+    await approach(tester);
+    expect(api.requests, isEmpty);
+  });
+
+  testWidgets(
+    'completed prediction is reused on return after its interest expires',
+    (tester) async {
+      final (_, api) = await setup(tester, inset: 200);
+      final mouse = await approach(tester);
+      api.requests.single.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 121));
+      await mouse.moveTo(
+        tester.getCenter(find.byKey(const ValueKey('topic-card-1'))),
+      );
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
+      await tester.pumpAndSettle();
+      expect(api.requests, hasLength(1));
+    },
+  );
+
+  testWidgets('stopping short expires the predicted request', (tester) async {
+    final (_, api) = await setup(tester, inset: 200);
+    await approach(tester);
+    expect(api.requests, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 121));
+    expect(api.requests.single.aborted, isTrue);
+  });
+
+  testWidgets('turning away cancels a predicted request', (tester) async {
+    final (_, api) = await setup(tester, inset: 200);
+    final mouse = await approach(tester);
+    await mouse.moveTo(const Offset(40, 500));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(api.requests.single.aborted, isTrue);
+  });
+
+  testWidgets(
+    'keyboard dwell fetches only the selected topic and Enter adopts it',
+    (tester) async {
+      final (controller, api) = await setup(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 39));
+      expect(api.requests, isEmpty);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(api.requests, hasLength(1));
+      expect(api.requests.single.id, 2);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(api.requests, hasLength(1));
+      expect(api.requests.single.aborted, isFalse);
+      api.requests.single.complete();
+      await tester.pumpAndSettle();
+      expect(controller.store.read<TopicDetail>(_site, 2), isNotNull);
+    },
+  );
+
+  testWidgets('leaving keyboard focus cancels speculation', (tester) async {
+    final (_, api) = await setup(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(api.requests, hasLength(1));
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    expect(api.requests.single.aborted, isTrue);
+  });
+
+  testWidgets('scroll cancels prediction and suppresses hover until it stops', (
+    tester,
+  ) async {
+    final (_, api) = await setup(
+      tester,
+      inset: 200,
+      rows: [
+        ..._rows,
+        for (var i = 3; i < 30; i++)
+          Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
+      ],
+    );
+    final mouse = await approach(tester);
+    expect(api.requests, hasLength(1));
+    final scroll = tester.startGesture(const Offset(600, 400));
+    final drag = await scroll;
+    await drag.moveBy(const Offset(0, -100));
+    await tester.pump();
+    expect(api.requests.single.aborted, isTrue);
+    await mouse.moveTo(const Offset(400, 180));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(api.requests, hasLength(1));
+    await drag.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'removing the list releases a prediction and its pointer listener',
+    (tester) async {
+      final (_, api) = await setup(tester, inset: 200);
+      final mouse = await approach(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(api.requests.single.aborted, isTrue);
+      await mouse.moveTo(const Offset(300, 100));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(api.requests, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('touch platforms ignore keyboard and trajectory speculation', (
+    tester,
+  ) async {
+    final (_, api) = await setup(
+      tester,
+      platform: TargetPlatform.iOS,
+      inset: 200,
+    );
+    await approach(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(api.requests, isEmpty);
+  });
 
   for (final completed in [false, true]) {
     testWidgets(
@@ -313,7 +519,7 @@ void main() {
 }
 
 class _Api extends FakeDiscourseApi {
-  _Api() : super(feeds: {'/latest.json': _rows});
+  _Api(List<Topic> rows) : super(feeds: {'/latest.json': rows});
   final requests = <_Request>[];
 
   @override

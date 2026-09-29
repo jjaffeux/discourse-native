@@ -7838,7 +7838,15 @@ class ShellController extends FrameSafeNotifier
 
   /// Starts a speculative load after a short pointer dwell. The row releases
   /// its interest on exit/removal; a real topic load adopts the response first.
-  void Function() hoverTopic(String siteUrl, Topic topic) {
+  void Function() hoverTopic(String siteUrl, Topic topic) =>
+      prefetchTopic(siteUrl, topic);
+
+  void Function() prefetchTopic(
+    String siteUrl,
+    Topic topic, {
+    TopicPrefetchIntent intent = TopicPrefetchIntent.hover,
+    bool Function()? isInterested,
+  }) {
     final instance = currentInstance;
     if (isDisposed ||
         !_foreground ||
@@ -7865,8 +7873,10 @@ class ShellController extends FrameSafeNotifier
         topicId: topic.id,
         postNumber: postNumber,
       ),
+      intent: intent,
       isCurrent: () =>
           !isDisposed &&
+          (isInterested?.call() ?? true) &&
           _foreground &&
           lease.isCurrent &&
           currentInstance?.url == siteUrl &&
@@ -8048,6 +8058,7 @@ class ShellController extends FrameSafeNotifier
             );
       if (isDisposed || !lease.isCurrent) return;
       if (warmed != null) {
+        SurfaceOpeningTrace.mark('topic.prefetchUsed');
         bookmarkVersion = warmed.bookmarkVersion;
         messageArchiveVersion = warmed.archiveVersion;
         postRemovalVersion = warmed.postRemovalVersion;
