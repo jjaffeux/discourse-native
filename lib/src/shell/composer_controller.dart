@@ -22,6 +22,7 @@ import '../plugin_api/hashtag_kind.dart';
 import '../plugin_api/plugin_data.dart';
 import 'composer_autocomplete.dart';
 import 'composer_block_controller.dart';
+import 'composer_code_block.dart';
 import 'composer_details.dart';
 import 'composer_edit_history.dart';
 import 'composer_galleries.dart';
@@ -399,6 +400,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_target.isPlugin) {
       text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
       text.syntaxPolicies.add(ComposerTablePolicy(this));
+      text.syntaxPolicies.add(ComposerCodePolicy(this));
       text.syntaxPolicies.add(ComposerDetailsPolicy(this));
       text.syntaxPolicies.add(ComposerListPolicy(this));
     }

@@ -29,6 +29,7 @@ import 'composer_block_surface.dart';
 import 'composer_blockquote.dart';
 import 'composer_blocks.dart';
 import 'composer_clipboard.dart';
+import 'composer_code_block.dart';
 import 'composer_controller.dart';
 import 'composer_details.dart';
 import 'composer_discard.dart';
@@ -1647,13 +1648,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
       for (final (label, icon, mark) in [
         (appL10n.bold, DIcons.bold, ComposerMark.bold),
         (appL10n.italic, DIcons.italic, ComposerMark.italic),
-        (appL10n.inlineCode, DIcons.code, ComposerMark.inlineCode),
       ])
         ComposerSlashAction(
           label: label,
           icon: icon,
           group: appL10n.formatting,
           onInvoke: () => composer.toggleMark(mark),
+        ),
+      if (!composer.target.isPlugin)
+        ComposerSlashAction(
+          label: appL10n.codeBlock,
+          icon: DIcons.code,
+          group: appL10n.insert,
+          onInvoke: () => insertComposerCodeBlock(composer),
         ),
       ComposerSlashAction(
         label: appL10n.link,
@@ -4070,12 +4077,6 @@ class _FormattingToolbar extends StatelessWidget {
                 ComposerMark.italic,
                 LogicalKeyboardKey.keyI,
               ),
-              (
-                context.l10n.inlineCode,
-                DIcons.code,
-                ComposerMark.inlineCode,
-                LogicalKeyboardKey.keyE,
-              ),
             ])
               DButton.iconOnly(
                 key: ValueKey('composer-format-${mark.name}'),
@@ -4170,6 +4171,20 @@ class _Toolbar extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 6),
             child: DSeparator(orientation: Axis.vertical, length: 20),
+          ),
+        if (!composer.target.isPlugin)
+          TextFieldTapRegion(
+            child: DButton.iconOnly(
+              key: const ValueKey('composer-code-block'),
+              tooltip: context.l10n.codeBlock,
+              variant: DButtonVariant.transparentBackground,
+              foregroundColor: _composerToolForeground(context),
+              size: _composerToolbarSize(context),
+              icon: const DIcon(DIcons.code),
+              onPressed: composer.isEditing && !composer.loadingBody
+                  ? () => insertComposerCodeBlock(composer)
+                  : null,
+            ),
           ),
         if (uploadsEnabled)
           _ComposerUploadButton(
