@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_scope.dart';
@@ -29,6 +30,8 @@ class ComposerSuggestionField extends StatefulWidget {
     required this.composer,
     required this.field,
     this.onAction,
+    this.renderEditable,
+    this.scroll,
   });
 
   final ComposerController composer;
@@ -36,6 +39,8 @@ class ComposerSuggestionField extends StatefulWidget {
   final Widget field;
 
   final ComposerSuggestionActionHandler? onAction;
+  final RenderEditable? Function()? renderEditable;
+  final Listenable? scroll;
 
   @override
   State<ComposerSuggestionField> createState() =>
@@ -48,6 +53,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   final OverlayPortalController _portal = OverlayPortalController();
   final GlobalKey _anchorKey = GlobalKey();
   final ValueNotifier<Rect?> _anchor = ValueNotifier<Rect?>(null);
+  final FocusNode _searchFocus = FocusNode(debugLabel: 'Mention search');
 
   late ComposerAutocomplete _popup;
   Object? _popupSyncToken;
@@ -57,12 +63,17 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     super.initState();
     _popup = widget.composer.autocomplete;
     _popup.addListener(_onPopupChanged);
+    widget.scroll?.addListener(_onPopupChanged);
     _syncPopupAfterLayout(_popup);
   }
 
   @override
   void didUpdateWidget(ComposerSuggestionField oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.scroll != widget.scroll) {
+      oldWidget.scroll?.removeListener(_onPopupChanged);
+      widget.scroll?.addListener(_onPopupChanged);
+    }
     final next = widget.composer.autocomplete;
     if (identical(_popup, next)) {
       if (next.isOpen) _syncPopupAfterLayout(next);
@@ -78,11 +89,12 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   void _syncPopupAfterLayout(ComposerAutocomplete expected) {
     final token = Object();
     _popupSyncToken = token;
+    WidgetsBinding.instance.ensureVisualUpdate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!identical(_popupSyncToken, token)) return;
       _popupSyncToken = null;
       if (!mounted || !identical(_popup, expected)) return;
-      _onPopupChanged();
+      _syncPopup();
     });
   }
 
@@ -90,25 +102,86 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   void dispose() {
     _popupSyncToken = null;
     _popup.removeListener(_onPopupChanged);
+    widget.scroll?.removeListener(_onPopupChanged);
     _anchor.dispose();
+    _searchFocus.dispose();
     _command.dispose();
     super.dispose();
   }
 
   void _onPopupChanged() {
+    _syncPopupAfterLayout(_popup);
+  }
+
+  void _syncPopup() {
     if (!mounted) return;
     if (_popup.isOpen && widget.composer.isEditing) {
+      final opening = !_portal.isShowing;
       _anchor.value = _anchorRect();
       _portal.show();
+      if (opening && _popup.trigger?.kind == ComposerTriggerKind.mention) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              _portal.isShowing &&
+              _popup.trigger?.kind == ComposerTriggerKind.mention) {
+            _searchFocus.requestFocus();
+          }
+        });
+      }
     } else {
       _portal.hide();
+      if (_searchFocus.hasFocus && widget.composer.isEditing) {
+        widget.composer.focus.requestFocus();
+      }
     }
   }
 
-  Rect? _anchorRect() => anchorRect(
-    anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
-    overlay: Overlay.of(context).context.findRenderObject() as RenderBox?,
-  );
+  Rect? _anchorRect() {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final trigger = _popup.trigger;
+    final editable = widget.renderEditable?.call();
+    if (trigger?.kind == ComposerTriggerKind.mention &&
+        editable != null &&
+        editable.attached &&
+        editable.hasSize &&
+        overlay != null &&
+        overlay.attached) {
+      // The trigger stays on the same line while the menu's input is edited.
+      // Read its geometry after layout, never from the previous text frame.
+      final caret = editable.getLocalRectForCaret(
+        TextPosition(offset: trigger!.start),
+      );
+      return Rect.fromPoints(
+        editable.localToGlobal(caret.topLeft, ancestor: overlay),
+        editable.localToGlobal(caret.bottomRight, ancestor: overlay),
+      );
+    }
+    return anchorRect(
+      anchor: _anchorKey.currentContext?.findRenderObject() as RenderBox?,
+      overlay: overlay,
+    );
+  }
+
+  void _filterMentions(String query) {
+    final composer = widget.composer;
+    final trigger = _popup.trigger;
+    if (!composer.isEditing || trigger?.kind != ComposerTriggerKind.mention) {
+      return;
+    }
+    final value = composer.text.value;
+    composer.text.value = TextEditingValue(
+      text: value.text.replaceRange(trigger!.start + 1, trigger.end, query),
+      selection: TextSelection.collapsed(
+        offset: trigger.start + 1 + query.length,
+      ),
+    );
+  }
+
+  void _dismiss() {
+    _popup.dismiss();
+    if (widget.composer.isEditing) widget.composer.focus.requestFocus();
+  }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -127,7 +200,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
           isComposing: widget.composer.text.value.composing.isValid,
         );
       case LogicalKeyboardKey.escape:
-        _popup.dismiss();
+        _dismiss();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
@@ -158,6 +231,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     if (!widget.composer.isEditing) return;
     if (choice.action == null) {
       widget.composer.acceptSuggestion(choice);
+      widget.composer.focus.requestFocus();
       return;
     }
 
@@ -186,19 +260,53 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: CustomSingleChildLayout(
-              delegate: AnchoredLayout(
-                anchor: anchor,
-                maxWidth: composerSuggestionsWidth,
-                preferAbove: true,
-              ),
-              child: child!,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mention =
+                    _popup.trigger?.kind == ComposerTriggerKind.mention;
+                final availableHeight = (constraints.maxHeight - 24).clamp(
+                  0.0,
+                  double.infinity,
+                );
+                final above = ((anchor?.top ?? 0) - 20).clamp(
+                  0.0,
+                  availableHeight,
+                );
+                final below =
+                    (constraints.maxHeight - (anchor?.bottom ?? 0) - 20).clamp(
+                      0.0,
+                      availableHeight,
+                    );
+                final preferAbove = !mention || above >= below;
+                return CustomSingleChildLayout(
+                  delegate: AnchoredLayout(
+                    anchor: anchor,
+                    maxWidth: composerSuggestionsWidth,
+                    preferAbove: preferAbove,
+                    keepPreferredPlacement: mention && preferAbove,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: mention
+                          ? (preferAbove ? above : below)
+                          : double.infinity,
+                    ),
+                    child: child!,
+                  ),
+                );
+              },
             ),
           ),
-          child: _Suggestions(
-            composer: widget.composer,
-            controller: _command,
-            onTap: _activate,
+          child: TapRegion(
+            onTapOutside: (_) => _popup.dismiss(),
+            child: _Suggestions(
+              composer: widget.composer,
+              controller: _command,
+              searchFocus: _searchFocus,
+              onQueryChanged: _filterMentions,
+              onDismiss: _dismiss,
+              onTap: _activate,
+            ),
           ),
         ),
         child: EmojiPickerAnchor(
@@ -214,11 +322,17 @@ class _Suggestions extends StatelessWidget {
     required this.composer,
     required this.controller,
     required this.onTap,
+    required this.searchFocus,
+    required this.onQueryChanged,
+    required this.onDismiss,
   });
 
   final ComposerController composer;
   final DCommandController<ComposerSuggestion> controller;
   final ValueChanged<ComposerSuggestion> onTap;
+  final FocusNode searchFocus;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +346,9 @@ class _Suggestions extends StatelessWidget {
           width: composerSuggestionsWidth,
           child: DCommand<ComposerSuggestion>(
             controller: controller,
+            query: mention ? popup.trigger!.query : '',
+            onQueryChanged: mention ? onQueryChanged : null,
+            onEscape: onDismiss,
             value: popup.selected,
             onValueChanged: popup.highlight,
             onSelected: onTap,
@@ -245,17 +362,14 @@ class _Suggestions extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (mention)
-                  Padding(
-                    padding: const EdgeInsets.all(DSpacing.md),
-                    child: Text(
-                      context.l10n.mentionSearchHint,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: DTokens.of(context).mutedForeground,
-                      ),
-                    ),
+                  DCommandInput<ComposerSuggestion>(
+                    focusNode: searchFocus,
+                    placeholder: context.l10n.mentionSearchHint,
+                    semanticLabel: context.l10n.searchUsersOrGroups,
                   ),
                 Flexible(
                   child: DCommandList<ComposerSuggestion>(
+                    height: mention ? 288 : null,
                     children: [
                       if (mention) ...[
                         const DCommandLoading(child: DSpinner()),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -85,16 +87,23 @@ void main() {
         await tester.tap(button);
         await tester.pumpAndSettle();
         expect(composer.raw, '@');
-        expect(composer.focus.hasFocus, isTrue);
+        final search = find.byType(DCommandInput<ComposerSuggestion>);
+        expect(
+          tester
+              .widget<DCommandInput<ComposerSuggestion>>(search)
+              .focusNode!
+              .hasFocus,
+          isTrue,
+        );
         expect(find.text('Type to search users and groups'), findsOneWidget);
         expect(queries, ['']);
         expect(
           tester.getRect(find.byType(DCommand<ComposerSuggestion>)).bottom,
           lessThanOrEqualTo(470),
         );
-        composer.text.value = const TextEditingValue(
-          text: '@st',
-          selection: TextSelection.collapsed(offset: 3),
+        await tester.enterText(
+          find.descendant(of: search, matching: find.byType(EditableText)),
+          'st',
         );
         await tester.pumpAndSettle();
         expect(find.text('Staff group'), findsOneWidget);
@@ -104,6 +113,158 @@ void main() {
         expect(composer.text.text, '@staff ');
         expect(composer.focus.hasFocus, isTrue);
         expect(find.text('Type to search users and groups'), findsNothing);
+
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        final filter = find.descendant(
+          of: search,
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(filter, 'st');
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(composer.text.text, '@staff @stan ');
+        expect(composer.focus.hasFocus, isTrue);
+
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        await tester.enterText(filter, 'literal ');
+        await tester.pumpAndSettle();
+        expect(search, findsNothing);
+        expect(composer.text.text, '@staff @stan @literal ');
+        expect(composer.focus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
+    testWidgets(
+      'mention search stays at its line through loading, filtering and backspace',
+      (tester) async {
+        final requests = <(String, Completer<List<ComposerSuggestion>>)>[];
+        final composer = ComposerController(
+          _newTopicTarget,
+          search: (
+            users: (query) {
+              final response = Completer<List<ComposerSuggestion>>();
+              requests.add((query, response));
+              return response.future;
+            },
+            hashtags: (_) async => const [],
+            emojis: (_) async => const [],
+          ),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 330 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        const prefix = '- [ ] test\n  - [ ] bar\n  - [ ] ba\n\n';
+        composer.text.value = const TextEditingValue(
+          text: prefix,
+          selection: TextSelection.collapsed(offset: prefix.length),
+        );
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(390, 800),
+          height: 800,
+        );
+        await tester.tap(find.byKey(const ValueKey('composer-mention')));
+        await tester.pump();
+        await tester.pump(ComposerAutocomplete.debounce);
+        await tester.pump();
+        await tester.pump();
+
+        final menu = find.byType(DCommand<ComposerSuggestion>);
+        final input = find.descendant(
+          of: find.byType(DCommandInput<ComposerSuggestion>),
+          matching: find.byType(EditableText),
+        );
+        final loadingBounds = tester.getRect(menu);
+        expect(find.byType(DSpinner), findsOneWidget);
+        expect(loadingBounds.bottom, lessThanOrEqualTo(470));
+        final body = find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText && widget.controller == composer.text,
+        );
+        final render = tester.state<EditableTextState>(body).renderEditable;
+        final caret = render.getLocalRectForCaret(
+          const TextPosition(offset: prefix.length),
+        );
+        final caretBounds = caret.shift(render.localToGlobal(Offset.zero));
+        expect(loadingBounds.overlaps(caretBounds), isFalse);
+        expect(
+          (loadingBounds.bottom - caretBounds.top).abs() < 10 ||
+              (loadingBounds.top - caretBounds.bottom).abs() < 10,
+          isTrue,
+        );
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(requests.single.$1, '');
+
+        final people = [
+          for (final name in [
+            'sam',
+            'sally',
+            'alex',
+            'joe',
+            'nat',
+            'gabe',
+            'mark',
+          ])
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.mention,
+              value: name,
+              label: name,
+            ),
+        ];
+        requests.last.$2.complete(people);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(menu), loadingBounds);
+
+        await tester.enterText(input, 'sam');
+        await tester.pump(ComposerAutocomplete.debounce);
+        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.widget<EditableText>(input).controller.text, 'sam');
+        expect(
+          tester.getRect(input).intersect(loadingBounds),
+          tester.getRect(input),
+        );
+        expect(composer.raw, '$prefix@sam');
+        expect(requests.last.$1, 'sam');
+        requests.last.$2.complete([people.first]);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(menu), loadingBounds);
+
+        // Delete the filter back to the bare @ while the same menu owns focus.
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
+        );
+        await tester.pump(ComposerAutocomplete.debounce);
+        expect(composer.raw, '$prefix@');
+        expect(requests.last.$1, '');
+        expect(tester.getRect(menu), loadingBounds);
+        requests.last.$2.complete(people);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(menu), loadingBounds);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+
+        await tester.enterText(input, 'missing');
+        await tester.pump(ComposerAutocomplete.debounce);
+        requests.last.$2.complete(const []);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(menu), loadingBounds);
+        expect(find.text('No users or groups found.'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(menu, findsNothing);
+        expect(composer.raw, '$prefix@missing');
+        expect(composer.focus.hasFocus, isTrue);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),

@@ -1837,6 +1837,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
       child: ComposerSuggestionField(
         composer: widget.composer,
         onAction: widget.onSuggestionAction,
+        renderEditable: () => _renderEditable,
+        scroll: Listenable.merge([_scroll, _ancestorScroll]),
         field: Focus(
           onKeyEvent: _onEditorKeyEvent,
           child: Actions(
@@ -2084,7 +2086,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final pending = <Element>[root as Element];
     while (pending.isNotEmpty) {
       final element = pending.removeLast();
-      if (element is StatefulElement && element.state is EditableTextState) {
+      if (element is StatefulElement &&
+          element.state is EditableTextState &&
+          (element.widget as EditableText).controller == widget.composer.text) {
         return element.state as EditableTextState;
       }
       final children = <Element>[];
