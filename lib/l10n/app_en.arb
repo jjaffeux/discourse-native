@@ -19385,5 +19385,34 @@
   "searchThreadingCannotBeChanged": "Threading cannot be changed for this channel.",
   "@searchThreadingCannotBeChanged": {
     "description": "Application label or input example."
+  },
+  "about": "About",
+  "@about": {
+    "description": "Title of the in-app About dialog and its profile menu action."
+  },
+  "aboutReplayMark": "Replay Discourse logo animation",
+  "@aboutReplayMark": {
+    "description": "Accessible name and tooltip of the replayable Discourse mark in About."
+  },
+  "aboutDiscourseMeta": "Discourse Meta",
+  "@aboutDiscourseMeta": {
+    "description": "Link to the Discourse community in the About dialog."
+  },
+  "aboutDocumentation": "Documentation",
+  "@aboutDocumentation": {
+    "description": "Link to the Discourse documentation in the About dialog."
+  },
+  "aboutLinkOpenFailed": "Could not open the link. Please try again.",
+  "@aboutLinkOpenFailed": {
+    "description": "Error shown in About when the external browser cannot open a link."
+  },
+  "aboutExternalLinkLabel": "{label}, opens in browser",
+  "@aboutExternalLinkLabel": {
+    "description": "Accessible label for an external link in About.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -253,6 +253,11 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
+        contains('About'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
         contains('Preferences'),
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
