@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -123,7 +124,10 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                     variant: DToggleVariant.outline,
                                     size: DToggleSize.small,
                                     selectedIcon: const DIcon(DIcons.check),
-                                    semanticLabel: 'Search ${scope.label}',
+                                    semanticLabel: context.l10n
+                                        .searchGlobalsearchpanel(
+                                          (scope.label).toString(),
+                                        ),
                                     child: Text(scope.label),
                                   ),
                               ],
@@ -199,11 +203,11 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
                 DButton(
                   key: const ValueKey('global-search-clear-conditions'),
-                  label: const Text('Clear'),
+                  label: Text(context.l10n.clear),
                   onPressed: controller.clearConditions,
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
-                  semanticLabel: 'Clear all search conditions',
+                  semanticLabel: context.l10n.clearAllSearchConditions,
                 ),
               ],
             ),
@@ -219,8 +223,10 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     if (phase == GlobalSearchPhase.idle) return _history(context);
     if (phase == GlobalSearchPhase.tooShort) {
       return _status(
-        'Keep typing',
-        'Enter at least ${controller.capabilities.minimumLength} characters to search.',
+        context.l10n.keepTyping,
+        context.l10n.enterAtLeastCharactersToSearch(
+          (controller.capabilities.minimumLength).toString(),
+        ),
       );
     }
     final results = controller.results;
@@ -229,15 +235,15 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     }
     if (phase == GlobalSearchPhase.failed && results.isEmpty) {
       return _status(
-        'Search could not load',
-        controller.error ?? 'Please try again.',
+        context.l10n.searchCouldNotLoad,
+        controller.error ?? context.l10n.pleaseTryAgain,
         error: true,
       );
     }
     if (phase == GlobalSearchPhase.empty) {
       return _status(
-        'No results found',
-        'Try different words or remove a condition.',
+        context.l10n.noResultsFound,
+        context.l10n.tryDifferentWordsOrRemoveACondition,
         clear: controller.conditions.isNotEmpty,
       );
     }
@@ -256,11 +262,13 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 Expanded(child: DLabel(child: Text(section.scope.label))),
                 if (section.results.isNotEmpty)
                   DButton(
-                    label: const Text('View all'),
+                    label: Text(context.l10n.viewAll),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                     onPressed: () => controller.setScope(section.scope),
-                    semanticLabel: 'View all ${section.scope.label} results',
+                    semanticLabel: context.l10n.viewAllResults(
+                      (section.scope.label).toString(),
+                    ),
                   ),
               ],
             ),
@@ -276,7 +284,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   style: TextStyle(color: DTokens.of(context).destructive),
                 ),
                 DButton(
-                  label: const Text('Retry'),
+                  label: Text(context.l10n.retry),
                   onPressed: controller.retry,
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
@@ -304,7 +312,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
           child: Center(
             child: DButton(
               key: const ValueKey('global-search-load-more'),
-              label: const Text('Load more'),
+              label: Text(context.l10n.loadMore),
               loading: controller.loadingMore,
               onPressed: controller.loadMore,
               variant: DButtonVariant.outline,
@@ -336,7 +344,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Text(
-                'Recent searches',
+                context.l10n.recentSearches,
                 style: TextStyle(color: DTokens.of(context).mutedForeground),
               ),
             ),
@@ -376,7 +384,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   children: [
                     DItemTitle(
                       child: Text(
-                        'Clear history',
+                        context.l10n.clearHistory,
                         style: TextStyle(
                           color: DTokens.of(context).mutedForeground,
                         ),
@@ -414,13 +422,13 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ),
         if (error)
           DButton(
-            label: const Text('Try again'),
+            label: Text(appL10n.tryAgain),
             onPressed: widget.controller.retry,
             variant: DButtonVariant.outline,
           ),
         if (clear)
           DButton(
-            label: const Text('Clear conditions'),
+            label: Text(appL10n.clearConditions),
             onPressed: widget.controller.clearConditions,
             variant: DButtonVariant.outline,
           ),
@@ -490,16 +498,16 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         for (final tag in result.tags) Text('#$tag'),
       if (result.likes case final likes?
           when properties.contains(GlobalSearchDisplayProperty.likes))
-        Text(countLabel(likes, 'like')),
+        Text(countLabel(likes, CountNoun.like)),
       if (result.replies case final replies?
           when properties.contains(GlobalSearchDisplayProperty.replies))
-        Text(countLabel(replies, 'reply', plural: 'replies')),
+        Text(countLabel(replies, CountNoun.reply)),
       if (result.memberCount case final members?)
-        Text(countLabel(members, 'member')),
+        Text(countLabel(members, CountNoun.member)),
       if (result.createdAt != null) Text(_searchDate(result.createdAt!)),
-      if (result.privateMessage) const Text('Personal message'),
-      if (result.closed) const Text('Closed'),
-      if (result.archived) const Text('Archived'),
+      if (result.privateMessage) Text(context.l10n.personalMessage),
+      if (result.closed) Text(context.l10n.closed),
+      if (result.archived) Text(context.l10n.archived),
     ];
     return DItem(
       key: ValueKey('global-search-result-${result.id}'),
@@ -630,14 +638,14 @@ class _GlobalSearchDisplay extends StatelessWidget {
     content: DPopoverContent(
       width: 320,
       align: DPopoverAlign.end,
-      semanticLabel: 'Ordering and display',
+      semanticLabel: context.l10n.orderingAndDisplay,
       child: ListenableBuilder(
         listenable: controller,
         builder: (context, _) => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const DLabel(child: Text('Ordering')),
+            DLabel(child: Text(context.l10n.ordering)),
             const SizedBox(height: 8),
             DSelect<String>.controlled(
               key: const ValueKey('global-search-order'),
@@ -646,7 +654,7 @@ class _GlobalSearchDisplay extends StatelessWidget {
                 if (value != null) controller.setOrder(value);
               },
               width: double.infinity,
-              semanticLabel: 'Order search results',
+              semanticLabel: context.l10n.orderSearchResults,
               entries: [
                 for (final order in controller.orders)
                   DSelectItem(
@@ -660,18 +668,18 @@ class _GlobalSearchDisplay extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Expanded(child: Text('Ascending')),
+                  Expanded(child: Text(context.l10n.ascending)),
                   DSwitch(
                     value: controller.ascending,
                     onChanged: (value) =>
                         controller.setOrder(controller.order, ascending: value),
-                    semanticLabel: 'Ascending order',
+                    semanticLabel: context.l10n.ascendingOrder,
                   ),
                 ],
               ),
             ],
             const DSeparator(space: 25),
-            const DLabel(child: Text('Display properties')),
+            DLabel(child: Text(context.l10n.displayProperties)),
             const SizedBox(height: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -688,12 +696,15 @@ class _GlobalSearchDisplay extends StatelessWidget {
                     onChanged: (value) =>
                         controller.setDisplayProperty(property, value == true),
                     title: Text(switch (property) {
-                      GlobalSearchDisplayProperty.excerpt => 'Excerpt',
-                      GlobalSearchDisplayProperty.category => 'Category',
-                      GlobalSearchDisplayProperty.tags => 'Tags',
-                      GlobalSearchDisplayProperty.author => 'Author',
-                      GlobalSearchDisplayProperty.likes => 'Likes',
-                      GlobalSearchDisplayProperty.replies => 'Replies',
+                      GlobalSearchDisplayProperty.excerpt =>
+                        context.l10n.excerpt,
+                      GlobalSearchDisplayProperty.category =>
+                        context.l10n.category,
+                      GlobalSearchDisplayProperty.tags => context.l10n.tags,
+                      GlobalSearchDisplayProperty.author => context.l10n.author,
+                      GlobalSearchDisplayProperty.likes => context.l10n.likes,
+                      GlobalSearchDisplayProperty.replies =>
+                        context.l10n.replies,
                     }),
                   ),
               ],
@@ -706,7 +717,7 @@ class _GlobalSearchDisplay extends StatelessWidget {
       builder: (context, state) => DButton.iconOnly(
         key: const ValueKey('global-search-display-trigger'),
         icon: const DIcon(DIcons.gear),
-        tooltip: 'Ordering and display',
+        tooltip: context.l10n.orderingAndDisplay,
         variant: DButtonVariant.outline,
         size: DButtonSize.small,
         expanded: state.open,

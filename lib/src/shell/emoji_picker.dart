@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -51,10 +52,10 @@ Future<String?> showEmojiPicker({
         inset: true,
         fillAvailableHeight: true,
         initialFocusNode: searchFocus,
-        barrierLabel: 'Dismiss emoji picker',
+        barrierLabel: appL10n.dismissEmojiPicker,
         builder: (context, sheet) => DSheetContent(
           side: DSheetSide.bottom,
-          semanticLabel: 'Emoji',
+          semanticLabel: appL10n.emoji,
           topBottomMaxHeightFactor: 1,
           scrollWholeSheet: false,
           showCloseButton: false,
@@ -63,11 +64,11 @@ Future<String?> showEmojiPicker({
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  const Expanded(child: DSheetTitle(child: Text('Emoji'))),
+                  Expanded(child: DSheetTitle(child: Text(appL10n.emoji))),
                   DButton.iconOnly(
                     key: const ValueKey('emoji-picker-close'),
                     icon: const DIcon(DIcons.xmark),
-                    tooltip: 'Close',
+                    tooltip: appL10n.close,
                     variant: DButtonVariant.transparentBackground,
                     onPressed: sheet.close,
                   ),
@@ -95,7 +96,7 @@ Future<String?> showEmojiPicker({
     return await showGeneralDialog<String>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Dismiss emoji picker',
+      barrierLabel: appL10n.dismissEmojiPicker,
       barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 140),
       pageBuilder: (dialogContext, _, _) => _LiveAnchoredPickerDialog(
@@ -260,7 +261,7 @@ class _DesktopPickerCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Emoji',
+                          context.l10n.emoji,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -270,7 +271,7 @@ class _DesktopPickerCard extends StatelessWidget {
                         key: const ValueKey('emoji-picker-close'),
                         onPressed: onDismiss,
                         variant: DButtonVariant.ghost,
-                        tooltip: 'Close',
+                        tooltip: context.l10n.close,
                         icon: const DIcon(DIcons.xmark),
                       ),
                     ],
@@ -466,7 +467,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
         liveRegion: true,
         action: DButton(
           key: const ValueKey('emoji-picker-retry'),
-          label: const Text('Try again'),
+          label: Text(appL10n.tryAgain),
           onPressed: controller.retry,
         ),
       );
@@ -476,17 +477,17 @@ class _EmojiPickerState extends State<EmojiPicker> {
     }
     final catalog = controller.catalog;
     if (catalog == null || catalog.isEmpty) {
-      return const _PickerMessage(
+      return _PickerMessage(
         icon: DIcons.farFaceSmile,
-        message: 'No emoji are available.',
+        message: appL10n.noEmojiAreAvailable,
       );
     }
 
     if (controller.hasQuery) return _searchContent();
     if (groups.isEmpty) {
-      return const _PickerMessage(
+      return _PickerMessage(
         icon: DIcons.farFaceSmile,
-        message: 'No emoji are available.',
+        message: appL10n.noEmojiAreAvailable,
       );
     }
     return _groupedContent(groups);
@@ -499,9 +500,9 @@ class _EmojiPickerState extends State<EmojiPicker> {
       return const SizedBox.shrink();
     }
     if (controller.searchResults.isEmpty) {
-      return const _PickerMessage(
+      return _PickerMessage(
         icon: DIcons.magnifyingGlass,
-        message: 'No emoji found.',
+        message: appL10n.noEmojiFound,
         liveRegion: true,
       );
     }
@@ -666,7 +667,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
       if (controller.favorites.isNotEmpty)
         _PickerGroup(
           id: _frequentGroup,
-          label: 'Frequently used',
+          label: appL10n.frequentlyUsed,
           choices: [
             for (final favorite in controller.favorites)
               _EmojiChoice(emoji: favorite.emoji, tone: favorite.tone),
@@ -853,8 +854,8 @@ class _SearchAndTone extends StatelessWidget {
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
               textInputAction: TextInputAction.search,
               onChanged: controller.updateQuery,
-              semanticLabel: 'Search emoji',
-              hintText: 'Search emoji',
+              semanticLabel: context.l10n.searchEmoji,
+              hintText: context.l10n.searchEmoji,
               prefix: const DIcon(DIcons.magnifyingGlass),
               suffix: search.text.isEmpty
                   ? null
@@ -866,7 +867,7 @@ class _SearchAndTone extends StatelessWidget {
                         searchFocus.requestFocus();
                       },
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Clear search',
+                      tooltip: context.l10n.clearSearch,
                       icon: const DIcon(DIcons.xmark),
                     ),
             ),
@@ -892,11 +893,11 @@ class _ToneMenu extends StatelessWidget {
         controller.catalog?.all.where((emoji) => emoji.tonable).firstOrNull;
     return Semantics(
       button: true,
-      label: 'Skin tone: ${_toneLabel(controller.tone)}',
+      label: context.l10n.skinTone((_toneLabel(controller.tone)).toString()),
       child: DSelect<EmojiSkinTone>.controlled(
         key: const ValueKey('emoji-picker-tone'),
         value: controller.tone,
-        semanticLabel: 'Choose skin tone',
+        semanticLabel: context.l10n.chooseSkinTone,
         onChanged: (tone) {
           if (tone != null) controller.setTone(tone);
         },
@@ -916,8 +917,10 @@ class _ToneMenu extends StatelessWidget {
             ),
         ],
         triggerBuilder: (context, state, defaultTrigger) => DButton.iconOnly(
-          tooltip: 'Choose skin tone',
-          semanticLabel: 'Skin tone: ${_toneLabel(controller.tone)}',
+          tooltip: context.l10n.chooseSkinTone,
+          semanticLabel: context.l10n.skinTone(
+            (_toneLabel(controller.tone)).toString(),
+          ),
           variant: DButtonVariant.ghost,
           icon: _TonePreview(sample: sample, tone: controller.tone),
           focusNode: state.focusNode,
@@ -1104,7 +1107,7 @@ class _SectionHeader extends StatelessWidget {
           key: const ValueKey('emoji-picker-clear-history'),
           onPressed: clearing ? null : onClear,
           variant: DButtonVariant.ghost,
-          tooltip: 'Clear frequently used emoji',
+          tooltip: context.l10n.clearFrequentlyUsedEmoji,
           loading: clearing,
           icon: const DIcon(DIcons.trashCan),
         ),
@@ -1137,7 +1140,7 @@ class _EmojiCell extends StatelessWidget {
           final focused = Focus.of(context).hasFocus;
           return Semantics(
             button: true,
-            label: 'Insert :${choice.code}:',
+            label: context.l10n.insertEmojipicker((choice.code).toString()),
             child: DTooltip(
               message: ':${choice.code}:',
               child: InkWell(
@@ -1252,24 +1255,24 @@ String _cellKey(String section, int index, String code) =>
     '$section-$index-$code';
 
 String _groupLabel(String id) => switch (id) {
-  'smileys_&_emotion' => 'Smileys & emotion',
-  'people_&_body' => 'People & body',
-  'animals_&_nature' => 'Animals & nature',
-  'food_&_drink' => 'Food & drink',
-  'travel_&_places' => 'Travel & places',
-  'activities' => 'Activities',
-  'objects' => 'Objects',
-  'symbols' => 'Symbols',
-  'flags' => 'Flags',
-  'default' || 'custom' => 'Custom emojis',
+  'smileys_&_emotion' => appL10n.smileysEmotion,
+  'people_&_body' => appL10n.peopleBody,
+  'animals_&_nature' => appL10n.animalsNature,
+  'food_&_drink' => appL10n.foodDrink,
+  'travel_&_places' => appL10n.travelPlaces,
+  'activities' => appL10n.activities,
+  'objects' => appL10n.objects,
+  'symbols' => appL10n.symbols,
+  'flags' => appL10n.flags,
+  'default' || 'custom' => appL10n.customEmojis,
   _ => id,
 };
 
 String _toneLabel(EmojiSkinTone tone) => switch (tone) {
-  EmojiSkinTone.neutral => 'Neutral',
-  EmojiSkinTone.t2 => 'Light',
-  EmojiSkinTone.t3 => 'Medium-light',
-  EmojiSkinTone.t4 => 'Medium',
-  EmojiSkinTone.t5 => 'Medium-dark',
-  EmojiSkinTone.t6 => 'Dark',
+  EmojiSkinTone.neutral => appL10n.neutral,
+  EmojiSkinTone.t2 => appL10n.light,
+  EmojiSkinTone.t3 => appL10n.mediumLight,
+  EmojiSkinTone.t4 => appL10n.medium,
+  EmojiSkinTone.t5 => appL10n.mediumDark,
+  EmojiSkinTone.t6 => appL10n.dark,
 };

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_controller.dart';
@@ -88,7 +89,7 @@ final class _ControllerChatConversation extends ChangeNotifier
       final channel = await _chat.ensureChannel(siteUrl, channelId);
       if (_closed || !identical(_refreshGeneration, generation)) return;
       if (channel == null) {
-        _operationError = 'Could not load this conversation.';
+        _operationError = appL10n.couldNotLoadThisConversation;
         return;
       }
       await _chat.openThread(siteUrl, _target, force: force);
@@ -96,7 +97,7 @@ final class _ControllerChatConversation extends ChangeNotifier
       _markNewestRead();
     } catch (_) {
       if (!_closed && identical(_refreshGeneration, generation)) {
-        _operationError = 'Could not load this conversation.';
+        _operationError = appL10n.couldNotLoadThisConversation;
       }
     } finally {
       if (!_closed && identical(_refreshGeneration, generation)) {
@@ -129,13 +130,13 @@ final class _ControllerChatConversation extends ChangeNotifier
         OutgoingChatMessage.text(text),
       );
       if (handle == null) {
-        _operationError = 'Message not sent.';
+        _operationError = appL10n.messageNotSent;
         return;
       }
       final result = await handle.settled;
       if (_closed) return;
       if (result == ChatSendResult.failed) {
-        _operationError = 'Message not sent.';
+        _operationError = appL10n.messageNotSent;
       }
     } finally {
       if (!_closed) {

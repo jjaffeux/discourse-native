@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'origin_cooldown.dart';
 
 enum OriginRequestCooldownPolicy {
@@ -295,7 +297,7 @@ final class OriginRequestGateClosedException
   const OriginRequestGateClosedException();
 
   @override
-  String toString() => 'Origin request gate is closed.';
+  String toString() => appL10n.originRequestGateIsClosed;
 }
 
 final class OriginRequestGateOverloadException
@@ -306,8 +308,10 @@ final class OriginRequestGateOverloadException
   final int maxQueued;
 
   @override
-  String toString() =>
-      'Request backlog for $origin already contains $maxQueued operations.';
+  String toString() => appL10n.requestBacklogForAlreadyContainsOperations(
+    (origin).toString(),
+    (maxQueued).toString(),
+  );
 }
 
 final class OriginRequestGateCooldownException
@@ -318,8 +322,10 @@ final class OriginRequestGateCooldownException
   final Duration retryAfter;
 
   @override
-  String toString() =>
-      'Requests to $origin are paused for ${retryAfter.inSeconds}s.';
+  String toString() => appL10n.requestsToArePausedForS(
+    (origin).toString(),
+    (retryAfter.inSeconds).toString(),
+  );
 }
 
 final class _OriginState {

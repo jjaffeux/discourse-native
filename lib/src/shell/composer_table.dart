@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +12,10 @@ import 'composer_embedded_editor.dart';
 import 'composer_marks.dart';
 import 'composer_tables.dart';
 
-const composerTableSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('core'),
+ComposerSyntaxKind get composerTableSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('core'),
   name: 'table',
-  label: 'Table',
+  label: appL10n.table,
 );
 
 void insertComposerTable(ComposerController composer) {
@@ -23,7 +24,7 @@ void insertComposerTable(ComposerController composer) {
   }
   composer.insertBlock(
     expectedValue: composer.value,
-    markdown: '| Column 1 | Column 2 |\n| --- | --- |\n|  |  |\n|  |  |',
+    markdown: appL10n.column1Column2,
   );
   composer.requestFocus();
 }
@@ -419,9 +420,9 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
         focusNode: cell.focus,
         borderless: true,
         semanticLabel: row == 0
-            ? 'Column ${column + 1} heading'
-            : 'Row $row, column ${column + 1}',
-        hintText: row == 0 ? 'Heading' : 'Cell',
+            ? appL10n.columnHeading((column + 1).toString())
+            : appL10n.rowColumn((row).toString(), (column + 1).toString()),
+        hintText: row == 0 ? appL10n.heading : appL10n.cell,
         enabled: widget.composer.isEditing,
         style: row == 0 ? const TextStyle(fontWeight: FontWeight.w600) : null,
         onSubmitted: (_) => _focusCell(row + 1, column),
@@ -479,30 +480,32 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
     };
   }
 
-  Widget _columnMenu(int column) =>
-      _menu('Column ${column + 1} actions', _columnItems(column));
+  Widget _columnMenu(int column) => _menu(
+    appL10n.columnActions((column + 1).toString()),
+    _columnItems(column),
+  );
 
   List<Widget> _columnItems(int column) => [
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertColumn(column)),
-      child: const Text('Insert column before'),
+      child: Text(appL10n.insertColumnBefore),
     ),
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertColumn(column + 1)),
-      child: const Text('Insert column after'),
+      child: Text(appL10n.insertColumnAfter),
     ),
     const DDropdownMenuSeparator(),
     DDropdownMenuItem(
       onPressed: column == 0
           ? null
           : _menuAction(() => _moveColumn(column, column - 1)),
-      child: const Text('Move column earlier'),
+      child: Text(appL10n.moveColumnEarlier),
     ),
     DDropdownMenuItem(
       onPressed: column == _columns.length - 1
           ? null
           : _menuAction(() => _moveColumn(column, column + 1)),
-      child: const Text('Move column later'),
+      child: Text(appL10n.moveColumnLater),
     ),
     const DDropdownMenuSeparator(),
     DDropdownMenuItem(
@@ -514,18 +517,18 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                 structureChanged: () => _columns.removeAt(column),
               ),
             ),
-      child: const Text('Delete column'),
+      child: Text(appL10n.deleteColumn),
     ),
   ];
 
   Widget _rowMenu(int row) => _menu(
-    'Row ${row + 1} actions',
+    appL10n.rowActions((row + 1).toString()),
     _rowItems(row),
     child: Text('${row + 1}'),
   );
 
   DContextMenuContent _rowContextMenu(int row) => DContextMenuContent(
-    semanticLabel: 'Row ${row + 1} actions',
+    semanticLabel: appL10n.rowActions((row + 1).toString()),
     width: 220,
     children: _rowItems(row),
   );
@@ -533,22 +536,22 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   List<Widget> _rowItems(int row) => [
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertRow(row)),
-      child: const Text('Insert row above'),
+      child: Text(appL10n.insertRowAbove),
     ),
     DDropdownMenuItem(
       onPressed: _menuAction(() => _insertRow(row + 1)),
-      child: const Text('Insert row below'),
+      child: Text(appL10n.insertRowBelow),
     ),
     const DDropdownMenuSeparator(),
     DDropdownMenuItem(
       onPressed: row == 0 ? null : _menuAction(() => _moveRow(row, row - 1)),
-      child: const Text('Move row up'),
+      child: Text(appL10n.moveRowUp),
     ),
     DDropdownMenuItem(
       onPressed: row == _table.rowCount - 1
           ? null
           : _menuAction(() => _moveRow(row, row + 1)),
-      child: const Text('Move row down'),
+      child: Text(appL10n.moveRowDown),
     ),
     const DDropdownMenuSeparator(),
     DDropdownMenuItem(
@@ -558,7 +561,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
           structureChanged: () => _rows.removeAt(row + 1),
         ),
       ),
-      child: const Text('Delete row'),
+      child: Text(appL10n.deleteRow),
     ),
   ];
 
@@ -566,7 +569,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.composer,
     scrollController: widget.composer.text.imageScrollController,
-    semanticLabel: 'Table editor',
+    semanticLabel: context.l10n.tableEditor,
     child: _tableContent(),
   );
 
@@ -590,19 +593,19 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
         ComposerBlockSelection(
           selected: widget.selected,
           child: DDataTable<int>(
-            semanticLabel: 'Editable table',
+            semanticLabel: appL10n.editableTable,
             variant: DDataTableVariant.softHeader,
             data: _rows.skip(1).toList(),
             rowId: (row) => row,
             operationMode: DDataTableOperationMode.manual,
-            empty: const Text('Add a row to start writing.'),
+            empty: Text(appL10n.addARowToStartWriting),
             columns: [
               DDataTableColumn<int>(
                 id: 'row-actions',
                 cellContextMenuBuilder: widget.composer.isEditing
                     ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
                     : null,
-                label: 'Rows',
+                label: appL10n.rows,
                 hideable: false,
                 width: const FixedColumnWidth(64),
                 cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
@@ -612,13 +615,15 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                   id: '$id',
                   // The input owns the live heading. Keep the resize/menu
                   // identity stable while the heading's text is being edited.
-                  label: 'Column ${column + 1}',
+                  label: appL10n.column((column + 1).toString()),
                   hideable: false,
                   width: const FixedColumnWidth(200),
                   resizable: true,
                   headerContextMenu: widget.composer.isEditing
                       ? DContextMenuContent(
-                          semanticLabel: 'Column ${column + 1} actions',
+                          semanticLabel: appL10n.columnActions(
+                            (column + 1).toString(),
+                          ),
                           width: 220,
                           children: _columnItems(column),
                         )
@@ -651,7 +656,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
           runSpacing: DSpacing.sm,
           children: [
             DButton(
-              label: const Text('Add row'),
+              label: Text(appL10n.addRow),
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               onPressed: widget.composer.isEditing
@@ -659,7 +664,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                   : null,
             ),
             DButton(
-              label: const Text('Add column'),
+              label: Text(appL10n.addColumn),
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               onPressed: widget.composer.isEditing
@@ -667,7 +672,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
                   : null,
             ),
             DButton.iconOnly(
-              tooltip: 'Remove table',
+              tooltip: appL10n.removeTable,
               icon: const DIcon(DIcons.trashCan, size: 14),
               variant: DButtonVariant.ghost,
               size: DButtonSize.small,

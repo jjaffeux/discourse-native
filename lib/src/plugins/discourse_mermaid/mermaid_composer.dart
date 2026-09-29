@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -295,7 +296,7 @@ class _MermaidComposerEditorState extends State<MermaidComposerEditor> {
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.editor,
     scrollController: widget.scrollController,
-    semanticLabel: 'Mermaid chart editor',
+    semanticLabel: context.l10n.mermaidChartEditor,
     child: DMermaidEditor(
       key: _key,
       source: _block.code,

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'local_date.dart';
@@ -40,7 +41,14 @@ ComposerComponent<LocalDateComposerBlock> buildLocalDateComposerComponent({
     );
   },
   semanticLabel: (context, component) =>
-      '${_summary(context, component.value, formatter: formatter, accountTimezone: accountTimezone())}. Activate to edit.',
+      appL10n.activateToEditLocaldatecomposercomponent(
+        (_summary(
+          context,
+          component.value,
+          formatter: formatter,
+          accountTimezone: accountTimezone(),
+        )).toString(),
+      ),
   onEdit: onEdit,
   onRemove: onRemove,
 );
@@ -57,5 +65,5 @@ String _summary(
     accountTimezone: accountTimezone,
     formatter: formatter,
   );
-  return summary == block.source ? 'Local date' : summary;
+  return summary == block.source ? appL10n.localDate : summary;
 }

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
@@ -1173,5 +1174,5 @@ class TopicTagSearch {
   List<TopicTag> get results => tags;
   bool get isForbidden => forbidden;
   String? get explanation =>
-      forbiddenMessage ?? (forbidden ? 'Tags are not allowed here.' : null);
+      forbiddenMessage ?? (forbidden ? appL10n.tagsAreNotAllowedHere : null);
 }

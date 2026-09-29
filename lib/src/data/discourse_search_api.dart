@@ -452,7 +452,7 @@ final class DiscourseSearchApi {
     if ((!allowEmpty && value.isEmpty) ||
         value.length > maximumSearchTermLength) {
       throw ArgumentError(
-        'Composer lookup values must be ${allowEmpty ? 'at most' : 'between 1 and'} '
+        'Composer lookup values must be ${allowEmpty ? appL10n.atMost : appL10n.between1And} '
         '$maximumSearchTermLength characters.',
       );
     }

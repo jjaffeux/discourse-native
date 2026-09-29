@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'reaction.dart';
@@ -98,8 +99,8 @@ class ReactionsPlugin
         PostAction(
           icon: DIcons.farFaceSmile,
           placement: PostActionPlacement.toolbar,
-          label: 'React',
-          tooltip: 'React to this post',
+          label: appL10n.react,
+          tooltip: appL10n.reactToThisPost,
           enabled: !writeInFlight,
           onInvoke: () => unawaited(
             showPostReactionPicker(context, controller, emoji, siteUrl, post),

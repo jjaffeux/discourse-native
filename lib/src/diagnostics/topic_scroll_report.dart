@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'diagnostics_redactor.dart';
 
 /// Runs in the export isolate, after recording. No sorting, string scrubbing,
@@ -224,24 +226,38 @@ String _formatReport(Map<String, Object?> report) {
   final hasTopicFrames = _int(topicFrames['count']) > 0;
   final measured = hasTopicFrames ? topicFrames : allFrames;
   final output = StringBuffer()
-    ..writeln('Topic scrolling performance report (v${report['version']})')
     ..writeln(
-      'App: ${app['version'] == '' ? 'local build' : app['version']} | '
-      '${app['buildChannel']} | ${app['buildMode']} | ${app['platform']}',
+      appL10n.topicScrollingPerformanceReportV((report['version']).toString()),
     )
     ..writeln(
-      'Recorded: ${capture['startedAtUtc'] ?? 'no capture'} | '
-      '${(_int(capture['durationUs']) / 1000000).toStringAsFixed(1)}s | '
-      '${capture['status']} (${capture['stopReason'] ?? 'in progress'})',
+      appL10n.app(
+        (app['version'] == '').toString(),
+        (app['buildChannel']).toString(),
+        (app['buildMode']).toString(),
+        (app['platform']).toString(),
+        ((!(app['version'] == '')) ? (app['version']) : '').toString(),
+      ),
     )
     ..writeln(
-      'Display at start: ${summary['displayRefreshRate']} Hz | '
-      'frame budget ${_ms(analysis['frameBudgetUs'])} ms',
+      appL10n.recordedS(
+        (capture['startedAtUtc'] ?? appL10n.noCapture).toString(),
+        ((_int(capture['durationUs']) / 1000000).toStringAsFixed(1)).toString(),
+        (capture['status']).toString(),
+        (capture['stopReason'] ?? appL10n.inProgress).toString(),
+      ),
     )
     ..writeln(
-      'Events: ${summary['eventCount']} | '
-      'sampled frames: ${allFrames['count']} | '
-      'frames with topic activity: ${topicFrames['count']}',
+      appL10n.displayAtStartHzFrameBudgetMs(
+        (summary['displayRefreshRate']).toString(),
+        (_ms(analysis['frameBudgetUs'])).toString(),
+      ),
+    )
+    ..writeln(
+      appL10n.eventsSampledFramesFramesWithTopicActivity(
+        (summary['eventCount']).toString(),
+        (allFrames['count']).toString(),
+        (topicFrames['count']).toString(),
+      ),
     )
     ..writeln();
 
@@ -252,23 +268,21 @@ String _formatReport(Map<String, Object?> report) {
       _ => 'unknown',
     };
     output.writeln(
-      'Accessibility: ${enabled(accessibility['frameworkEnabledAtStart'])} '
-      'at start, ${enabled(accessibility['frameworkEnabledAtEnd'])} at end | '
-      'platform request ${enabled(accessibility['platformEnabledAtStart'])} | '
-      '${accessibility['stateChanges']} state changes',
+      appL10n.accessibilityAtStartAtEndPlatformRequestStateChanges(
+        (enabled(accessibility['frameworkEnabledAtStart'])).toString(),
+        (enabled(accessibility['frameworkEnabledAtEnd'])).toString(),
+        (enabled(accessibility['platformEnabledAtStart'])).toString(),
+        (accessibility['stateChanges']).toString(),
+      ),
     );
   }
 
   if (app['buildMode'] == 'debug') {
-    output.writeln(
-      'Debug build: repeat in a profile or release build to assess '
-      'the scrolling performance users experience.',
-    );
+    output.writeln(appL10n.debugBuildRepeatInAProfileOrReleaseBuildToAssess);
   }
   if (capture['stopReason'] == 'eventLimit') {
     output.writeln(
-      'The event limit ended this capture early. Reproduce with a '
-      'shorter capture if the slow moment was missed.',
+      appL10n.theEventLimitEndedThisCaptureEarlyReproduceWithAShorter,
     );
   }
   if (_int(analysis['topicContextCount']) == 0 &&
@@ -276,64 +290,88 @@ String _formatReport(Map<String, Object?> report) {
       _int(analysis['extensionContextCount']) == 0 &&
       _int(analysis['usersContextCount']) == 0) {
     output.writeln(
-      'No context was recorded. Start in the affected screen '
-      'and scroll before stopping.',
+      appL10n.noContextWasRecordedStartInTheAffectedScreenAndScroll,
     );
   }
   if (_int(allFrames['count']) == 0) {
     output.writeln(
-      'No frame timings were delivered. Scroll for several seconds '
-      'and wait a second before stopping.',
+      appL10n.noFrameTimingsWereDeliveredScrollForSeveralSecondsAndWait,
     );
   } else {
     output
       ..writeln(
         hasTopicFrames
-            ? 'Frames with scroll activity:'
-            : 'All sampled app frames (no topic frame matches):',
+            ? appL10n.framesWithScrollActivity
+            : appL10n.allSampledAppFramesNoTopicFrameMatches,
       )
       ..writeln(
-        'Over budget: ${measured['overBudget']}/${measured['count']} '
-        '(${(_int(measured['overBudget']) * 100 / _int(measured['count'])).toStringAsFixed(1)}%) | '
-        'UI: ${measured['slowBuilds']} | raster: ${measured['slowRasters']}',
+        appL10n.overBudgetUIRaster(
+          (measured['overBudget']).toString(),
+          (measured['count']).toString(),
+          ((_int(measured['overBudget']) * 100 / _int(measured['count']))
+                  .toStringAsFixed(1))
+              .toString(),
+          (measured['slowBuilds']).toString(),
+          (measured['slowRasters']).toString(),
+        ),
       )
       ..writeln(
-        'UI build/layout/paint: ${_timingLine(_map(measured['buildUs']))}',
-      )
-      ..writeln('Raster: ${_timingLine(_map(measured['rasterUs']))}')
-      ..writeln(
-        'Vsync delay: ${_timingLine(_map(measured['vsyncOverheadUs']))}',
+        appL10n.uIBuildLayoutPaint(
+          (_timingLine(_map(measured['buildUs']))).toString(),
+        ),
       )
       ..writeln(
-        'Total frame latency: ${_timingLine(_map(measured['totalSpanUs']))}',
+        appL10n.raster((_timingLine(_map(measured['rasterUs']))).toString()),
+      )
+      ..writeln(
+        appL10n.vsyncDelay(
+          (_timingLine(_map(measured['vsyncOverheadUs']))).toString(),
+        ),
+      )
+      ..writeln(
+        appL10n.totalFrameLatency(
+          (_timingLine(_map(measured['totalSpanUs']))).toString(),
+        ),
       );
   }
 
   output
     ..writeln()
     ..writeln(
-      'Viewport bookkeeping: ${_timingLine(_map(analysis['viewportWorkUs']))}',
+      appL10n.viewportBookkeeping(
+        (_timingLine(_map(analysis['viewportWorkUs']))).toString(),
+      ),
     )
     ..writeln(
-      'Post row layout: ${_timingLine(_map(analysis['postLayoutUs']))}',
+      appL10n.postRowLayout(
+        (_timingLine(_map(analysis['postLayoutUs']))).toString(),
+      ),
     );
 
   if (_int(analysis['topicListContextCount']) > 0) {
     output.writeln(
-      'Topic-list scroll bookkeeping: '
-      '${_timingLine(_map(analysis['topicListScrollWorkUs']))}',
+      appL10n.topicListScrollBookkeeping(
+        (_timingLine(_map(analysis['topicListScrollWorkUs']))).toString(),
+      ),
     );
     output
       ..writeln(
-        'Topic-list row build: ${_timingLine(_map(analysis['topicListRowBuildUs']))}',
+        appL10n.topicListRowBuild(
+          (_timingLine(_map(analysis['topicListRowBuildUs']))).toString(),
+        ),
       )
       ..writeln(
-        'Topic-list row layout: ${_timingLine(_map(analysis['topicListRowLayoutUs']))}',
+        appL10n.topicListRowLayout(
+          (_timingLine(_map(analysis['topicListRowLayoutUs']))).toString(),
+        ),
       );
     for (final list in _maps(analysis['topicLists'])) {
       output.writeln(
-        'Topic list: ${list['topicCount']} loaded topics | '
-        'inbox ${list['inbox']} | viewport extent ${list['viewportExtent']}',
+        appL10n.topicListLoadedTopicsInboxViewportExtent(
+          (list['topicCount']).toString(),
+          (list['inbox']).toString(),
+          (list['viewportExtent']).toString(),
+        ),
       );
     }
   }
@@ -341,12 +379,17 @@ String _formatReport(Map<String, Object?> report) {
   if (_int(analysis['usersContextCount']) > 0) {
     for (final users in _maps(analysis['users'])) {
       output.writeln(
-        'Users directory: ${users['rowCount']} loaded users | '
-        '${users['columnCount']} columns | viewport extent ${users['viewportExtent']}',
+        appL10n.usersDirectoryLoadedUsersColumnsViewportExtent(
+          (users['rowCount']).toString(),
+          (users['columnCount']).toString(),
+          (users['viewportExtent']).toString(),
+        ),
       );
     }
     output.writeln(
-      'Users metric maxima: ${_timingLine(_map(analysis['usersMaximaWorkUs']))}',
+      appL10n.usersMetricMaxima(
+        (_timingLine(_map(analysis['usersMaximaWorkUs']))).toString(),
+      ),
     );
   }
 
@@ -359,23 +402,29 @@ String _formatReport(Map<String, Object?> report) {
 
   for (final topic in _maps(analysis['topics'])) {
     output.writeln(
-      'Topic ${topic['topicId']}: '
-      '${topic['loadedPostCount']} loaded / ${topic['streamPostCount']} posts | '
-      'viewport ${_map(topic['viewportLogicalSize'])['width']} × '
-      '${_map(topic['viewportLogicalSize'])['height']} | '
-      'pixel ratio ${topic['devicePixelRatio']}',
+      appL10n.topicLoadedPostsViewportPixelRatio(
+        (topic['topicId']).toString(),
+        (topic['loadedPostCount']).toString(),
+        (topic['streamPostCount']).toString(),
+        (_map(topic['viewportLogicalSize'])['width']).toString(),
+        (_map(topic['viewportLogicalSize'])['height']).toString(),
+        (topic['devicePixelRatio']).toString(),
+      ),
     );
   }
   final expensivePosts = _maps(analysis['expensivePosts']);
   if (expensivePosts.isNotEmpty) {
     output
       ..writeln()
-      ..writeln('Most expensive post layouts (up to 8, by worst layout):');
+      ..writeln(appL10n.mostExpensivePostLayoutsUpTo8ByWorstLayout);
     for (final post in expensivePosts) {
       output.writeln(
-        '  Topic ${post['topicId']}, post id ${post['postId']}, '
-        '${post['htmlCharacters']} HTML characters: '
-        '${_timingLine(_map(post['layoutUs']))}',
+        appL10n.topicPostIdHTMLCharacters(
+          (post['topicId']).toString(),
+          (post['postId']).toString(),
+          (post['htmlCharacters']).toString(),
+          (_timingLine(_map(post['layoutUs']))).toString(),
+        ),
       );
     }
   }
@@ -388,34 +437,53 @@ String _formatReport(Map<String, Object?> report) {
   if (worstFrames.isNotEmpty) {
     output
       ..writeln()
-      ..writeln('Worst sampled frames (up to 5, by UI/raster duration):');
+      ..writeln(appL10n.worstSampledFramesUpTo5ByUIRasterDuration);
     for (final frame in worstFrames) {
       output.writeln(
-        '  Frame ${frame['frameNumber'] ?? '?'}: '
-        'UI ${_ms(frame['buildUs'])} ms, raster ${_ms(frame['rasterUs'])} ms; '
-        '${_countsLine(_map(frame['topicActivity']), limit: 8)}',
+        appL10n.frameUIMsRasterMs(
+          (frame['frameNumber'] ?? '?').toString(),
+          (_ms(frame['buildUs'])).toString(),
+          (_ms(frame['rasterUs'])).toString(),
+          (_countsLine(_map(frame['topicActivity']), limit: 8)).toString(),
+        ),
       );
       final work = _map(frame['measuredWorkUs']);
       output.writeln(
-        '    Measured row layout ${_ms(work['post.layout'])} ms; '
-        'viewport ${_ms(work['viewport.work'])} ms; '
-        'topic-list build ${_ms(work['topicList.row.build'])} ms, '
-        'layout ${_ms(work['topicList.row.layout'])} ms',
+        appL10n.measuredRowLayoutMsViewportMsTopicListBuildMsLayout(
+          (_ms(work['post.layout'])).toString(),
+          (_ms(work['viewport.work'])).toString(),
+          (_ms(work['topicList.row.build'])).toString(),
+          (_ms(work['topicList.row.layout'])).toString(),
+        ),
       );
       final cpu = _map(frame['cpu']);
       if (_int(cpu['sampleCount']) > 0) {
         output.writeln(
-          '    CPU (${cpu['sampleCount']} samples): '
-          '${_cpuFunctionsLine(cpu, limit: 3)}',
+          appL10n.cPUSamples(
+            (cpu['sampleCount']).toString(),
+            (_cpuFunctionsLine(cpu, limit: 3)).toString(),
+          ),
         );
       }
       final rendering = _map(frame['rendering']);
       if (rendering.isNotEmpty) {
         final phases = _maps(rendering['phases']);
         output.writeln(
-          '    Rendering: '
-          '${phases.isEmpty ? 'no named phases' : phases.map((phase) => '${phase['name']} ${_ms(phase['durationUs'])} ms').join(', ')}; '
-          '${_ms(rendering['outsidePhaseMarkersUs'])} ms outside phase markers',
+          appL10n.renderingMsOutsidePhaseMarkers(
+            (phases.isEmpty).toString(),
+            (_ms(rendering['outsidePhaseMarkersUs'])).toString(),
+            ((phases.isNotEmpty)
+                    ? (phases
+                          .map(
+                            (phase) => appL10n.msTopicscrollreport(
+                              (phase['name']).toString(),
+                              (_ms(phase['durationUs'])).toString(),
+                            ),
+                          )
+                          .join(', '))
+                    : '')
+                .toString(),
+          ),
         );
       }
     }
@@ -423,23 +491,17 @@ String _formatReport(Map<String, Object?> report) {
   output
     ..writeln()
     ..writeln(
-      'Activity counts: ${_countsLine(_map(analysis['activityCounts']), limit: 24)}',
+      appL10n.activityCounts(
+        (_countsLine(_map(analysis['activityCounts']), limit: 24)).toString(),
+      ),
     )
     ..writeln()
     ..writeln(
-      'Interpretation: UI overruns point to build/layout/paint work; '
-      'raster overruns point to drawing/compositing. Viewport and row timings '
-      'measure those operations only; they do not cover all UI work. '
-      'Activity in a slow frame is correlation, not proof of its cause.',
+      appL10n.interpretationUIOverrunsPointToBuildLayoutPaintWorkRasterOverruns,
     )
+    ..writeln(appL10n.timingsCoverFramesDeliveredBeforeStopNotIdleTimeOrNative)
     ..writeln(
-      'Timings cover frames delivered before Stop, not idle time or '
-      'native compositor stalls. UI and raster overlap; their sum is not a '
-      'dropped-frame count. Topic frame matches use engine frame numbers.',
-    )
-    ..writeln(
-      'Post contents, titles, site URLs, and credentials are excluded. '
-      'The full JSON capture is available separately.',
+      appL10n.postContentsTitlesSiteURLsAndCredentialsAreExcludedTheFull,
     );
   return output.toString();
 }
@@ -448,16 +510,16 @@ void _writeCpuProfile(StringBuffer output, Map<String, Object?> profile) {
   output.writeln();
   if (profile['status'] != 'available') {
     final reason = switch (profile['reason']) {
-      'release-build' => 'CPU sampling requires a debug or profile build.',
+      'release-build' => appL10n.cPUSamplingRequiresADebugOrProfileBuild,
       'profiler-disabled' =>
-        'Run Flutter with --enable-dart-profiling and capture again.',
+        appL10n.runFlutterWithEnableDartProfilingAndCaptureAgain,
       'vm-service-unavailable' =>
-        'Start the app with flutter run in debug or profile mode.',
-      'capture-in-progress' => 'Stop the capture before exporting CPU samples.',
-      'no-capture' => 'No capture has been recorded.',
-      _ => 'The Dart VM service could not supply CPU samples.',
+        appL10n.startTheAppWithFlutterRunInDebugOrProfileMode,
+      'capture-in-progress' => appL10n.stopTheCaptureBeforeExportingCPUSamples,
+      'no-capture' => appL10n.noCaptureHasBeenRecorded,
+      _ => appL10n.theDartVMServiceCouldNotSupplyCPUSamples,
     };
-    output.writeln('CPU profile unavailable: $reason');
+    output.writeln(appL10n.cPUProfileUnavailable((reason).toString()));
     return;
   }
   final capture = _map(profile['capture']);
@@ -465,21 +527,22 @@ void _writeCpuProfile(StringBuffer output, Map<String, Object?> profile) {
   final hasSlowSamples = _int(slow['sampleCount']) > 0;
   final selected = hasSlowSamples ? slow : capture;
   output.writeln(
-    'CPU sampling: ${capture['sampleCount']} capture samples | '
-    '${slow['sampleCount']} in slow topic UI frames | '
-    'period ${_ms(profile['samplePeriodUs'])} ms',
+    appL10n.cPUSamplingCaptureSamplesInSlowTopicUIFramesPeriodMs(
+      (capture['sampleCount']).toString(),
+      (slow['sampleCount']).toString(),
+      (_ms(profile['samplePeriodUs'])).toString(),
+    ),
   );
   if (_int(selected['sampleCount']) == 0) {
     output.writeln(
-      'No CPU samples remain for this capture. Copy soon after stopping; '
-      'the VM overwrites old samples.',
+      appL10n.noCPUSamplesRemainForThisCaptureCopySoonAfterStopping,
     );
     return;
   }
   output.writeln(
     hasSlowSamples
-        ? 'CPU functions in slow topic frames (exclusive samples):'
-        : 'CPU functions across the capture (no slow-frame samples):',
+        ? appL10n.cPUFunctionsInSlowTopicFramesExclusiveSamples
+        : appL10n.cPUFunctionsAcrossTheCaptureNoSlowFrameSamples,
   );
   for (final function in _maps(selected['topFunctions'])) {
     output.writeln('  ${_cpuEntry(function, _int(selected['sampleCount']))}');
@@ -487,18 +550,19 @@ void _writeCpuProfile(StringBuffer output, Map<String, Object?> profile) {
   final tags = _maps(selected['vmTags']);
   if (tags.isNotEmpty) {
     output.writeln(
-      'CPU runtime tags: '
-      '${tags.map((tag) => _cpuEntry(tag, _int(selected['sampleCount']))).join(', ')}',
+      appL10n.cPURuntimeTags(
+        (tags
+                .map((tag) => _cpuEntry(tag, _int(selected['sampleCount'])))
+                .join(', '))
+            .toString(),
+      ),
     );
   }
-  output.writeln('Frequent sampled call paths (leaf ← callers):');
+  output.writeln(appL10n.frequentSampledCallPathsLeafCallers);
   for (final stack in _maps(selected['topStacks']).take(3)) {
     output.writeln('  ${_cpuEntry(stack, _int(selected['sampleCount']))}');
   }
-  output.writeln(
-    'CPU samples are statistical and may be incomplete. They are not exact '
-    'durations; debug compilation, assertions, and GC can appear here.',
-  );
+  output.writeln(appL10n.cPUSamplesAreStatisticalAndMayBeIncompleteTheyAreNot);
 }
 
 String _cpuFunctionsLine(Map<String, Object?> summary, {required int limit}) =>
@@ -511,58 +575,68 @@ void _writeRasterProfile(StringBuffer output, Map<String, Object?> profile) {
   output.writeln();
   if (profile['status'] != 'available') {
     output.writeln(
-      'Rendering timeline unavailable. Run in profile mode to record engine phases.',
+      appL10n.renderingTimelineUnavailableRunInProfileModeToRecordEnginePhases,
     );
     return;
   }
   final requested = _int(profile['requestedFrameCount']);
   if (requested == 0) {
-    output.writeln('Rendering timeline: no over-budget topic raster frames.');
+    output.writeln(appL10n.renderingTimelineNoOverBudgetTopicRasterFrames);
     return;
   }
   output.writeln(
-    'Rendering timeline: ${profile['matchedFrameCount']}/${profile['profiledFrameCount']} '
-    'profiled slow raster frames matched (up to 20 of $requested).',
+    appL10n.renderingTimelineProfiledSlowRasterFramesMatchedUpTo20Of(
+      (profile['matchedFrameCount']).toString(),
+      (profile['profiledFrameCount']).toString(),
+      (requested).toString(),
+    ),
   );
   if (profile['source'] == 'live-stream') {
     output.writeln(
-      'Engine markers retained during capture: ${_int(profile['streamedEventCount'])}; '
-      '${_int(profile['retainedEventCount'])} including the final snapshot; '
-      '${_int(profile['discardedEventCount'])} discarded at the capture limit.',
+      appL10n
+          .engineMarkersRetainedDuringCaptureIncludingTheFinalSnapshotDiscardedAt(
+            (_int(profile['streamedEventCount'])).toString(),
+            (_int(profile['retainedEventCount'])).toString(),
+            (_int(profile['discardedEventCount'])).toString(),
+          ),
     );
     output.writeln(
-      'Live timeline collection adds diagnostic overhead during recording.',
+      appL10n.liveTimelineCollectionAddsDiagnosticOverheadDuringRecording,
     );
     if (profile['tailAvailable'] == false) {
       output.writeln(
-        'Final engine snapshot unavailable; the last event block may be missing.',
+        appL10n.finalEngineSnapshotUnavailableTheLastEventBlockMayBeMissing,
       );
     }
   } else if (profile['source'] == 'export-buffer') {
     output.writeln(
-      'Rendering uses the rolling VM buffer; live recording was unavailable.',
+      appL10n.renderingUsesTheRollingVMBufferLiveRecordingWasUnavailable,
     );
   }
   final unmatched = _maps(profile['unmatchedFrames']);
   for (final frame in unmatched) {
     final reason = switch (frame['reason']) {
-      'before-trace-window' => 'older than the retained engine trace',
-      'after-trace-window' => 'newer than the retained engine trace',
-      'ambiguous-raster-thread' => 'multiple raster threads match',
-      'no-frame-markers' => 'no engine frame markers were recorded',
-      _ => 'no overlapping engine frame marker',
+      'before-trace-window' => appL10n.olderThanTheRetainedEngineTrace,
+      'after-trace-window' => appL10n.newerThanTheRetainedEngineTrace,
+      'ambiguous-raster-thread' => appL10n.multipleRasterThreadsMatch,
+      'no-frame-markers' => appL10n.noEngineFrameMarkersWereRecorded,
+      _ => appL10n.noOverlappingEngineFrameMarker,
     };
     output.writeln(
-      '  Rendering frame ${frame['frameNumber']} unmatched: $reason.',
+      appL10n.renderingFrameUnmatched(
+        (frame['frameNumber']).toString(),
+        (reason).toString(),
+      ),
     );
   }
   if (_int(profile['matchedFrameCount']) == 0) {
     output.writeln(
-      'Rendering data is incomplete; the stall cannot be attributed to an engine phase.',
+      appL10n.renderingDataIsIncompleteTheStallCannotBeAttributedToAn,
     );
   } else {
     output.writeln(
-      'Rendering phases are recorded engine durations, not GPU execution times. Nested phases overlap; do not add them.',
+      appL10n
+          .renderingPhasesAreRecordedEngineDurationsNotGPUExecutionTimesNested,
     );
   }
 }
@@ -572,10 +646,14 @@ String _cpuEntry(Map<String, Object?> entry, int total) =>
     '(${(100 * _int(entry['samples']) / total).toStringAsFixed(1)}%)';
 
 String _timingLine(Map<String, Object?> stats) => _int(stats['count']) == 0
-    ? 'no samples'
-    : '${stats['count']} samples | p50 ${_ms(stats['p50'])} ms | '
-          'p95 ${_ms(stats['p95'])} ms | p99 ${_ms(stats['p99'])} ms | '
-          'max ${_ms(stats['max'])} ms';
+    ? appL10n.noSamples
+    : appL10n.samplesP50MsP95MsP99MsMaxMs(
+        (stats['count']).toString(),
+        (_ms(stats['p50'])).toString(),
+        (_ms(stats['p95'])).toString(),
+        (_ms(stats['p99'])).toString(),
+        (_ms(stats['max'])).toString(),
+      );
 
 String _countsLine(Map<String, Object?> counts, {required int limit}) {
   if (counts.isEmpty) return 'none';
@@ -587,7 +665,7 @@ String _countsLine(Map<String, Object?> counts, {required int limit}) {
   return [
     for (final entry in ranked.take(limit)) '${entry.key}=${entry.value}',
     if (ranked.length > limit)
-      '${ranked.length - limit} more event types in JSON',
+      appL10n.moreEventTypesInJSON((ranked.length - limit).toString()),
   ].join(', ');
 }
 

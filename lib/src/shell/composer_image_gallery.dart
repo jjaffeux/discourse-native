@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'composer_galleries.dart';
@@ -136,8 +137,9 @@ class ComposerImageGalleryPreview extends StatelessWidget {
             child: Semantics(
               container: true,
               explicitChildNodes: true,
-              label:
-                  'Image gallery, ${items.length} ${items.length == 1 ? 'image' : 'images'}',
+              label: context.l10n.imageGalleryComposerimagegallery(
+                items.length,
+              ),
               selected: highlighted,
               child: CustomPaint(
                 foregroundPainter: _GalleryBorder(
@@ -237,15 +239,15 @@ class ComposerImageGalleryControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final count = '$imageCount ${imageCount == 1 ? 'image' : 'images'}';
+    final count = context.l10n.messageComposerimagegallery(imageCount);
 
     return MergeSemantics(
       child: Semantics(
-        hint: '$count. Add or remove images.',
+        hint: context.l10n.addOrRemoveImages((count).toString()),
         child: DButton.iconOnly(
           onPressed: onEdit,
-          tooltip: 'Gallery options',
-          semanticLabel: 'Gallery options',
+          tooltip: context.l10n.galleryOptions,
+          semanticLabel: context.l10n.galleryOptions,
           variant: DButtonVariant.ghost,
           icon: const Icon(Icons.tune),
         ),
@@ -339,7 +341,7 @@ class ComposerImageGalleryTile extends StatelessWidget {
       key: item.imageKey,
       child: Semantics(
         image: true,
-        label: image.alt.isEmpty ? 'Image' : image.alt,
+        label: image.alt.isEmpty ? context.l10n.image : image.alt,
         selected: item.highlighted,
         child: Container(
           width: ComposerImageGalleryPreview.tileExtent,

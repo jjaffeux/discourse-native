@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show htmlEscape, jsonDecode;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -237,7 +238,7 @@ final class _NativeInlineVideoPlaybackSession
     final value = controller.value;
     if (value.hasError) {
       final error = StateError(
-        value.errorDescription ?? 'The platform video player failed.',
+        value.errorDescription ?? appL10n.thePlatformVideoPlayerFailed,
       );
       _releaseController();
       reportFailure(error, StackTrace.current, 'video.native.playback');

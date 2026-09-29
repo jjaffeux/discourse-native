@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -70,8 +71,10 @@ class _Info extends StatelessWidget {
         if (data.committedAt case final committedAt?)
           RelativeTimeBuilder(
             when: committedAt,
-            builder: (context, age) =>
-                Text('${data.committedVerb ?? 'Committed'} $age', style: muted),
+            builder: (context, age) => Text(
+              '${data.committedVerb ?? context.l10n.committed} $age',
+              style: muted,
+            ),
           ),
         if (data.authorLogin != null)
           GithubUser(

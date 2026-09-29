@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -102,10 +103,10 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
     key: const ValueKey('chat-channel-details-dialog'),
     showCloseButton: false,
     maxWidth: 512,
-    semanticLabel: 'Edit channel details',
+    semanticLabel: context.l10n.editChannelDetails,
     children: [
-      const DDialogHeader(
-        children: [DDialogTitle(child: Text('Edit channel details'))],
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.editChannelDetails))],
       ),
       DDialogScrollArea(
         maxHeightFactor: .65,
@@ -119,7 +120,7 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               enabled: !_saving,
               onChanged: (_) => setState(() => _error = null),
 
-              labelText: 'Name',
+              labelText: context.l10n.name,
             ),
             const SizedBox(height: 12),
             DInput(
@@ -129,8 +130,8 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               maxLength: 100,
               onChanged: (_) => setState(() => _error = null),
 
-              labelText: 'Slug',
-              helperText: 'Used in the channel URL',
+              labelText: context.l10n.slug,
+              helperText: context.l10n.usedInTheChannelURL,
             ),
             const SizedBox(height: 12),
             DTextarea(
@@ -142,7 +143,7 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               maxLength: 280,
               showCounter: true,
               onChanged: (_) => setState(() => _error = null),
-              labelText: 'Description',
+              labelText: context.l10n.description,
             ),
             if (_error case final error?)
               Align(
@@ -160,14 +161,14 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
         children: [
           DDialogClose<void>(
             builder: (context, close) => DButton(
-              label: const Text('Cancel'),
+              label: Text(context.l10n.cancel),
               onPressed: _saving ? null : close,
               variant: DButtonVariant.outline,
             ),
           ),
           DButton(
             key: const ValueKey('chat-channel-details-save'),
-            label: const Text('Save'),
+            label: Text(context.l10n.save),
             onPressed: _canSave ? () => unawaited(_save()) : null,
             variant: DButtonVariant.primary,
             loading: _saving,

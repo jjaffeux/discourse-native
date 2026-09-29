@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -19,10 +20,10 @@ import 'poll_services.dart';
 
 export 'poll_data.dart';
 
-const pollComposerSyntaxKind = ComposerSyntaxKind(
-  owner: PluginId('poll'),
+ComposerSyntaxKind get pollComposerSyntaxKind => ComposerSyntaxKind(
+  owner: const PluginId('poll'),
   name: 'poll',
-  label: 'Poll',
+  label: appL10n.poll,
 );
 
 class PollPlugin
@@ -142,7 +143,7 @@ class PollPlugin
     return [
       ComposerToolbarContribution(
         icon: DIcons.list,
-        label: 'Add poll',
+        label: appL10n.addPoll,
         onInvoke: () => unawaited(openPollComposer(context, editor, policy)),
       ),
     ];
@@ -350,7 +351,7 @@ Future<void> openPollComposer(
   if (!stillCurrent()) {
     _pollComposerMessage(
       context,
-      'The composer changed while this poll was open. Nothing was changed.',
+      appL10n.theComposerChangedWhileThisPollWasOpenNothingWasChanged,
     );
     return;
   }
@@ -392,7 +393,7 @@ Future<void> openPollComposer(
   if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
     _pollComposerMessage(
       context,
-      'The composer changed while this poll was open. Nothing was changed.',
+      appL10n.theComposerChangedWhileThisPollWasOpenNothingWasChanged,
     );
     return;
   }
@@ -438,7 +439,7 @@ Future<void> removePollComposer(
     if (context.mounted) {
       _pollComposerMessage(
         context,
-        'The composer changed before this poll could be removed. Nothing was changed.',
+        appL10n.theComposerChangedBeforeThisPollCouldBeRemovedNothingWas,
       );
     }
     return;
@@ -457,7 +458,7 @@ Future<void> removePollComposer(
   if (!editor.commit(expectedValue: expectedValue, value: mutation.value)) {
     _pollComposerMessage(
       context,
-      'The composer changed before this poll could be removed. Nothing was changed.',
+      appL10n.theComposerChangedBeforeThisPollCouldBeRemovedNothingWas,
     );
     return;
   }
@@ -545,7 +546,7 @@ class _PostPollCard extends StatelessWidget {
         final text = switch (error) {
           _PollVoteReconciled() => null,
           final _PollWriteRefused refusal => refusal.message,
-          _ => "Couldn't save that vote.",
+          _ => context.l10n.couldnTSaveThatVote,
         };
         if (text == null) return;
         DToast.show(context, text, type: DToastType.error);

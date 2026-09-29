@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_controller.dart';
@@ -56,7 +57,7 @@ class ChatHeaderButton extends StatelessWidget {
         if (exitsChat) {
           return DButton.iconOnly(
             key: buttonKey,
-            tooltip: 'Exit chat',
+            tooltip: context.l10n.exitChat,
             onPressed: shell.closeSidebarPanel,
             variant: DButtonVariant.transparentBackground,
             icon: const DIcon(DIcons.shuffle),
@@ -70,10 +71,10 @@ class ChatHeaderButton extends StatelessWidget {
             : chat.headerIndicator(siteUrl, preference);
         final urgentCount = indicator.urgentCount;
         final tooltip = urgentCount != null
-            ? 'Chat, $urgentCount urgent ${urgentCount == 1 ? 'message' : 'messages'}'
+            ? context.l10n.chatUrgent(urgentCount)
             : indicator.unread
-            ? 'Chat, unread messages'
-            : 'Chat';
+            ? context.l10n.chatUnreadMessages
+            : context.l10n.chat;
 
         void openChat() => unawaited(shell.openShortcut());
         final theme = Theme.of(context);

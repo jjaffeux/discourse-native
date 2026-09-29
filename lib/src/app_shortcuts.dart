@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -75,38 +76,41 @@ SingleActivator refreshTabShortcutForPlatform(TargetPlatform platform) =>
     : const SingleActivator(LogicalKeyboardKey.f5, includeRepeats: false);
 
 enum ReadingCommand {
-  openNextTopic('Open next topic', [
+  openNextTopic([
     SingleActivator(LogicalKeyboardKey.keyJ, includeRepeats: false),
   ], prefix: SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false)),
-  openPreviousTopic('Open previous topic', [
+  openPreviousTopic([
     SingleActivator(LogicalKeyboardKey.keyK, includeRepeats: false),
   ], prefix: SingleActivator(LogicalKeyboardKey.keyG, includeRepeats: false)),
-  nextTopic('Next topic in the list', [
-    SingleActivator(LogicalKeyboardKey.keyJ, shift: true),
-  ]),
-  previousTopic('Previous topic in the list', [
-    SingleActivator(LogicalKeyboardKey.keyK, shift: true),
-  ]),
-  openTopic('Open highlighted topic', [
+  nextTopic([SingleActivator(LogicalKeyboardKey.keyJ, shift: true)]),
+  previousTopic([SingleActivator(LogicalKeyboardKey.keyK, shift: true)]),
+  openTopic([
     SingleActivator(LogicalKeyboardKey.keyO, includeRepeats: false),
     SingleActivator(LogicalKeyboardKey.enter, includeRepeats: false),
     SingleActivator(LogicalKeyboardKey.numpadEnter, includeRepeats: false),
   ]),
-  nextPost('Next post or topic', [SingleActivator(LogicalKeyboardKey.keyJ)]),
-  previousPost('Previous post or topic', [
-    SingleActivator(LogicalKeyboardKey.keyK),
-  ]),
-  replyToPost('Reply to selected post', [
+  nextPost([SingleActivator(LogicalKeyboardKey.keyJ)]),
+  previousPost([SingleActivator(LogicalKeyboardKey.keyK)]),
+  replyToPost([
     SingleActivator(LogicalKeyboardKey.keyR, includeRepeats: false),
   ]),
-  back('Back', [
-    SingleActivator(LogicalKeyboardKey.keyU, includeRepeats: false),
-  ]),
-  help('Keyboard shortcuts', [CharacterActivator('?', includeRepeats: false)]);
+  back([SingleActivator(LogicalKeyboardKey.keyU, includeRepeats: false)]),
+  help([CharacterActivator('?', includeRepeats: false)]);
 
-  const ReadingCommand(this.label, this.shortcuts, {this.prefix});
+  const ReadingCommand(this.shortcuts, {this.prefix});
 
-  final String label;
+  String get label => switch (this) {
+    openNextTopic => appL10n.openNextTopic,
+    openPreviousTopic => appL10n.openPreviousTopic,
+    nextTopic => appL10n.nextTopicInTheList,
+    previousTopic => appL10n.previousTopicInTheList,
+    openTopic => appL10n.openHighlightedTopic,
+    nextPost => appL10n.nextPostOrTopic,
+    previousPost => appL10n.previousPostOrTopic,
+    replyToPost => appL10n.replyToSelectedPost,
+    back => appL10n.back,
+    help => appL10n.keyboardShortcuts,
+  };
   final List<ShortcutActivator> shortcuts;
   final SingleActivator? prefix;
 

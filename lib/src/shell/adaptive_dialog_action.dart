@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -19,16 +20,16 @@ Future<T?> showDiscourseAlertDialog<T>({
   Key? cancelKey,
   Key? actionKey,
   bool dismissOnEscape = true,
-  String barrierLabel = 'Confirmation',
+  String? barrierLabel,
 }) => showDAlertDialog<T>(
   context: context,
   dismissOnEscape: dismissOnEscape,
-  barrierLabel: barrierLabel,
+  barrierLabel: barrierLabel ?? appL10n.confirmation,
   builder: (context, controller) => DAlertDialogContent(
     size: size,
     semanticLabel: switch (title) {
       Text(data: final data?) => data,
-      _ => barrierLabel,
+      _ => barrierLabel ?? appL10n.confirmation,
     },
     children: [
       DAlertDialogHeader(media: media, title: title, description: description),

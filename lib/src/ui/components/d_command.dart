@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -225,7 +226,7 @@ class DCommand<T> extends StatefulWidget {
     this.disablePointerSelection = false,
     this.loading = false,
     this.onEscape,
-    this.semanticLabel = 'Commands',
+    this._semanticLabel,
     this.outlined = false,
     this.backgroundColor,
   }) : assert(query == null || initialQuery == ''),
@@ -247,7 +248,8 @@ class DCommand<T> extends StatefulWidget {
   final bool disablePointerSelection;
   final bool loading;
   final VoidCallback? onEscape;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.commands;
   final bool outlined;
 
   /// The background of the command surface and its results scrollbar.
@@ -494,20 +496,22 @@ class _DCommandScope<T> extends InheritedWidget {
 class DCommandInput<T> extends StatefulWidget {
   const DCommandInput({
     super.key,
-    this.placeholder = 'Type a command or search...',
+    this._placeholder,
     this.controller,
     this.focusNode,
     this.autofocus = true,
     this.enabled = true,
-    this.semanticLabel = 'Search commands',
+    this._semanticLabel,
   });
 
-  final String placeholder;
+  final String? _placeholder;
+  String get placeholder => _placeholder ?? appL10n.typeACommandOrSearch;
   final TextEditingController? controller;
   final FocusNode? focusNode;
   final bool autofocus;
   final bool enabled;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.searchCommands;
 
   @override
   State<DCommandInput<T>> createState() => _DCommandInputState<T>();
@@ -640,7 +644,7 @@ class DCommandList<T> extends StatefulWidget {
     this.controller,
     this.maxHeight = 288,
     this.height,
-    this.semanticLabel = 'Command results',
+    this._semanticLabel,
   }) : assert(maxHeight > 0),
        assert(height == null || height > 0);
 
@@ -653,7 +657,8 @@ class DCommandList<T> extends StatefulWidget {
   /// change on every keystroke keeps its geometry. Otherwise the list
   /// shrink-wraps its rows up to [maxHeight].
   final double? height;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.commandResults;
 
   @override
   State<DCommandList<T>> createState() => _DCommandListState<T>();
@@ -1231,11 +1236,12 @@ class DCommandLoading extends StatelessWidget {
     super.key,
     required this.child,
     this.progress,
-    this.semanticLabel = 'Loading…',
+    this._semanticLabel,
   }) : assert(progress == null || (progress >= 0 && progress <= 100));
   final Widget child;
   final double? progress;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.loading;
   @override
   Widget build(BuildContext context) => Semantics(
     container: true,
@@ -1266,8 +1272,8 @@ class DCommandDialog<T> extends StatelessWidget {
     this.open,
     this.initiallyOpen = false,
     this.onOpenChanged,
-    this.title = 'Command Palette',
-    this.description = 'Search for a command to run...',
+    this._title,
+    this._description,
     this.showCloseButton = false,
     this.maxWidth = 384,
     this.initialFocusNode,
@@ -1280,8 +1286,10 @@ class DCommandDialog<T> extends StatelessWidget {
   final bool? open;
   final bool initiallyOpen;
   final ValueChanged<DDialogChangeDetails<T>>? onOpenChanged;
-  final String title;
-  final String description;
+  final String? _title;
+  String get title => _title ?? appL10n.commandPalette;
+  final String? _description;
+  String get description => _description ?? appL10n.searchForACommandToRun;
   final bool showCloseButton;
   final double maxWidth;
   final FocusNode? initialFocusNode;

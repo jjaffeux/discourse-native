@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -429,11 +430,11 @@ class DMessageStatus extends StatelessWidget {
   final bool liveRegion;
 
   String get _defaultLabel => switch (state) {
-    DMessageDeliveryState.pending => 'Sending',
-    DMessageDeliveryState.delivered => 'Delivered',
-    DMessageDeliveryState.read => 'Read',
-    DMessageDeliveryState.failed => 'Failed to send',
-    DMessageDeliveryState.deleted => 'Message deleted',
+    DMessageDeliveryState.pending => appL10n.sending,
+    DMessageDeliveryState.delivered => appL10n.delivered,
+    DMessageDeliveryState.read => appL10n.read,
+    DMessageDeliveryState.failed => appL10n.failedToSend,
+    DMessageDeliveryState.deleted => appL10n.messageDeleted,
   };
 
   @override

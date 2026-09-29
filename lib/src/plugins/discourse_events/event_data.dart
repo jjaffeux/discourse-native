@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const eventsPluginId = PluginId('discourse-events');
@@ -68,7 +69,7 @@ final class PostEvent {
   String get title =>
       text('name') ??
       eventText(eventObject(eventObject(fields['post'])?['topic'])?['title']) ??
-      'Event';
+      appL10n.event;
   String? get startsAt => text('starts_at');
   String? get endsAt => text('ends_at');
   String? get timezone => text('timezone');
@@ -279,7 +280,8 @@ final class EventSettings {
     showUpcomingEvents: json['sidebar_show_upcoming_events'] != false,
     buttons: List.unmodifiable(
       _settingList(
-            json['event_participation_buttons'] ?? 'going|interested|not going',
+            json['event_participation_buttons'] ??
+                appL10n.goingInterestedNotGoing,
           )
           .map((s) => s.replaceAll(' ', '_'))
           .where(eventResponseStatuses.contains),
@@ -395,14 +397,20 @@ final class EventSettingsCodec
 }
 
 enum EventCalendarView {
-  day('Day'),
-  week('Week'),
-  month('Month'),
-  schedule('Schedule'),
-  year('Year');
+  day(),
+  week(),
+  month(),
+  schedule(),
+  year();
 
-  const EventCalendarView(this.label);
-  final String label;
+  const EventCalendarView();
+  String get label => switch (this) {
+    day => appL10n.day,
+    week => appL10n.week,
+    month => appL10n.month,
+    schedule => appL10n.schedule,
+    year => appL10n.year,
+  };
 
   static EventCalendarView? parse(Object? value) => switch (value) {
     'day' || 'agendaDay' || 'timeGridDay' => day,

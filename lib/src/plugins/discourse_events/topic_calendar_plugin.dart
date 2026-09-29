@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -164,7 +165,7 @@ final class TopicCalendarFallback extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Topic calendar'),
+        Text(context.l10n.topicCalendar),
         if (html case final content? when content.isNotEmpty)
           CookedHtml(
             html: content,
@@ -177,10 +178,10 @@ final class TopicCalendarFallback extends StatelessWidget {
           DButton(
             variant: DButtonVariant.link,
             onPressed: onOpenWeb,
-            label: const Text('Open web calendar'),
+            label: Text(context.l10n.openWebCalendar),
           )
         else
-          const Text('Open the original topic to view this calendar.'),
+          Text(context.l10n.openTheOriginalTopicToViewThisCalendar),
       ],
     ),
   );

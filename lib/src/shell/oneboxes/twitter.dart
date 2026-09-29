@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -57,7 +58,7 @@ class TwitterOneboxData {
     final quoteLink = quoted == null ? null : _withClass(quoted, 'quoted-link');
     final url = _postUrl(envelope.url);
     return TwitterOneboxData(
-      name: envelope.title ?? 'Post on X',
+      name: envelope.title ?? appL10n.postOnX,
       bodyHtml: description.innerHtml,
       url: url,
       handle: _handle(_withClass(aside, 'twitter-screen-name')?.text),
@@ -76,7 +77,7 @@ class TwitterOneboxData {
                       .join()
                       .trim()
                       .nullIfEmpty ??
-                  'Quoted post',
+                  appL10n.quotedPost,
               handle: _handle(quoteHandle?.text),
               url: _postUrl(quoteLink?.attributes['href']),
               bodyHtml: quoteBody.innerHtml,
@@ -153,7 +154,7 @@ class TwitterOnebox extends StatelessWidget {
                       const SizedBox(height: DSpacing.md),
                       if (data.isReply) ...[
                         Text(
-                          'Replying to a post',
+                          context.l10n.replyingToAPost,
                           style: TextStyle(
                             color: DTokens.of(context).mutedForeground,
                             fontSize: DiscourseTypography.control,
@@ -296,11 +297,13 @@ class _Author extends StatelessWidget {
                       size: DButtonSize.post,
                       variant: DButtonVariant.inline,
                       foregroundColor: tokens.primary,
-                      label: const Text(
-                        'Follow',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      label: Text(
+                        context.l10n.follow,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      semanticLabel: 'Follow @$handle on X',
+                      semanticLabel: context.l10n.followOnX(
+                        (handle).toString(),
+                      ),
                       isLink: true,
                       onPressed: () => openLink(
                         context,
@@ -319,7 +322,7 @@ class _Author extends StatelessWidget {
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.post,
           icon: DIcon(_xLogo, color: tokens.foreground),
-          tooltip: 'View post on X',
+          tooltip: context.l10n.viewPostOnX,
           isLink: true,
           onPressed: data.url == null
               ? null
@@ -433,7 +436,7 @@ class _PostActionsState extends State<_PostActions> {
       await Clipboard.setData(ClipboardData(text: url));
       if (mounted && widget.data.url == url) setState(() => _copied = true);
     } on PlatformException {
-      if (mounted) DToast.show(context, 'Could not copy link. Try again.');
+      if (mounted) DToast.show(context, appL10n.couldNotCopyLinkTryAgain);
     }
   }
 
@@ -458,7 +461,9 @@ class _PostActionsState extends State<_PostActions> {
                   likes,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                semanticLabel: '${_metricLabel(likes, 'like')}. Like on X',
+                semanticLabel: context.l10n.likeOnX(
+                  (_metricLabel(likes, CountNoun.like)).toString(),
+                ),
                 isLink: true,
                 onPressed: data.statusId == null
                     ? null
@@ -473,8 +478,9 @@ class _PostActionsState extends State<_PostActions> {
                 size: DButtonSize.post,
                 icon: const Icon(Icons.repeat),
                 label: Text(reposts),
-                semanticLabel:
-                    '${_metricLabel(reposts, 'repost')}. View post on X',
+                semanticLabel: context.l10n.viewPostOnXTwitter(
+                  (_metricLabel(reposts, CountNoun.repost)).toString(),
+                ),
                 isLink: true,
                 onPressed: url == null ? null : () => openLink(context, url),
               ),
@@ -483,9 +489,9 @@ class _PostActionsState extends State<_PostActions> {
                 variant: DButtonVariant.transparentBackground,
                 size: DButtonSize.post,
                 icon: DIcon(DIcons.comment, color: tokens.primary),
-                label: const Text(
-                  'Reply',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                label: Text(
+                  context.l10n.reply,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 isLink: true,
                 onPressed: () => openLink(
@@ -498,7 +504,9 @@ class _PostActionsState extends State<_PostActions> {
                 size: DButtonSize.post,
                 icon: DIcon(_copied ? DIcons.check : DIcons.link),
                 label: Text(
-                  _copied ? 'Copied!' : 'Copy link',
+                  _copied
+                      ? context.l10n.copiedInviteeditor
+                      : context.l10n.copyLink,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 onPressed: _copy,
@@ -515,11 +523,11 @@ class _PostActionsState extends State<_PostActions> {
             foregroundColor: tokens.primary,
             backgroundColor: tokens.background,
             borderColor: tokens.border,
-            label: const Text(
-              'Read replies',
+            label: Text(
+              context.l10n.readReplies,
               softWrap: true,
               maxLines: 2,
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             isLink: true,
             onPressed: () => openLink(context, url),
@@ -533,7 +541,7 @@ class _PostActionsState extends State<_PostActions> {
 /// The onebox writes each metric through Discourse's prettify_number: a plain
 /// whole number below a thousand, an abbreviation ("1.2K") from there. Only a
 /// written "1" is singular; an abbreviation does not parse and never is.
-String _metricLabel(String written, String noun) =>
+String _metricLabel(String written, CountNoun noun) =>
     countLabel(int.tryParse(written) ?? 0, noun, number: written);
 
 const _xLogo = DIconData(

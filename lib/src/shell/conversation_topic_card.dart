@@ -154,7 +154,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
         ),
       if (topic.privateMessage)
         Text(
-          'Private conversation',
+          context.l10n.privateConversation,
           style: mobile
               ? textStyle?.copyWith(fontSize: DiscourseTypography.micro)
               : textStyle,
@@ -200,8 +200,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Text(
-                'Last post by $username · ',
-                semanticsLabel: 'Last post by $username',
+                context.l10n.lastPostBy((username).toString()),
+                semanticsLabel: context.l10n.lastPostByConversationtopiccard(
+                  (username).toString(),
+                ),
                 style: textStyle,
               ),
             ),
@@ -209,7 +211,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: field(
-              countLabel(topic.replyCount, 'reply', plural: 'replies'),
+              countLabel(topic.replyCount, CountNoun.reply),
               'posts',
             ),
           ),
@@ -220,7 +222,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             ),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: field(countLabel(topic.views, 'view'), 'views'),
+              child: field(countLabel(topic.views, CountNoun.view), 'views'),
             ),
           ],
         ],
@@ -360,11 +362,11 @@ class _MobileTopicDetails extends StatelessWidget {
       color: Color.lerp(tokens.background, tokens.foreground, .4),
     );
     final username = topic.lastPosterUsername;
-    final replies = countLabel(topic.replyCount, 'reply', plural: 'replies');
+    final replies = countLabel(topic.replyCount, CountNoun.reply);
     final activity = TextSpan(
       children: [
         if (username != null) ...[
-          const TextSpan(text: 'Last post by '),
+          TextSpan(text: context.l10n.lastPostByConversationtopiccardValue),
           TextSpan(
             text: username,
             style: TextStyle(
@@ -375,7 +377,7 @@ class _MobileTopicDetails extends StatelessWidget {
         ],
         TextSpan(text: replies),
         if (row.showViews)
-          TextSpan(text: ' · ${countLabel(topic.views, 'view')}'),
+          TextSpan(text: ' · ${countLabel(topic.views, CountNoun.view)}'),
       ],
     );
     return _TopicMetadataWrap(
@@ -492,13 +494,20 @@ class _TopicCardField extends StatelessWidget {
           label: Text(label),
           // The visible value is excluded once a semantic label is set, so
           // the label carries it ahead of the sort action and its state.
-          semanticLabel:
-              '$label, sort by ${switch (column) {
-                'posts' => 'Replies',
-                'activity' => 'Activity',
-                'views' => 'Views',
-                _ => label,
-              }}, ${order == column ? (ascending ? 'ascending' : 'descending') : 'unsorted'}',
+          semanticLabel: context.l10n.sortByConversationtopiccard(
+            (order == column).toString(),
+            (label).toString(),
+            (switch (column) {
+              'posts' => context.l10n.replies,
+              'activity' => context.l10n.activity,
+              'views' => context.l10n.views,
+              _ => label,
+            }).toString(),
+            ((order == column)
+                    ? ((ascending ? 'ascending' : 'descending'))
+                    : '')
+                .toString(),
+          ),
           icon: order == column
               ? RotatedBox(
                   quarterTurns: ascending ? 2 : 0,

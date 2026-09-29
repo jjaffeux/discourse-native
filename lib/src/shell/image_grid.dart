@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -458,7 +459,7 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
             controller: _controller,
             loop: true,
             navigationInsets: false,
-            semanticLabel: 'Image gallery',
+            semanticLabel: context.l10n.imageGallery,
             onSelected: (index) => setState(() => _index = index),
             children: [
               DCarouselContent(
@@ -518,7 +519,7 @@ class _Controls extends StatelessWidget {
         _Nav(
           key: const ValueKey('image-carousel-previous'),
           icon: DIcons.chevronLeft,
-          label: 'Previous image',
+          label: context.l10n.previousImage,
           onTap: onPrevious,
         ),
         const SizedBox(width: 8),
@@ -538,7 +539,7 @@ class _Controls extends StatelessWidget {
         _Nav(
           key: const ValueKey('image-carousel-next'),
           icon: DIcons.chevronRight,
-          label: 'Next image',
+          label: context.l10n.nextImage,
           onTap: onNext,
         ),
       ],
@@ -680,7 +681,10 @@ class _DotButtonState extends State<_DotButton> {
   @override
   Widget build(BuildContext context) {
     final number = widget.index + 1;
-    final label = 'Go to image $number of ${widget.total}';
+    final label = context.l10n.goToImageOf(
+      (number).toString(),
+      (widget.total).toString(),
+    );
 
     return DCarouselDot(
       key: ValueKey('image-carousel-dot-$number'),

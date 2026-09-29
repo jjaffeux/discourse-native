@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -64,15 +65,21 @@ class _ChannelStatusDialogState extends State<_ChannelStatusDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     key: const ValueKey('chat-channel-status-dialog'),
-    title: Text(_closing ? 'Close channel' : 'Open channel'),
+    title: Text(
+      _closing ? context.l10n.closeChannel : context.l10n.openChannel,
+    ),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           _closing
-              ? 'Closing the channel prevents non-staff users from sending new messages or editing existing messages.'
-              : 'Reopening the channel lets all members send messages and edit their existing messages.',
+              ? context
+                    .l10n
+                    .closingTheChannelPreventsNonStaffUsersFromSendingNewMessages
+              : context
+                    .l10n
+                    .reopeningTheChannelLetsAllMembersSendMessagesAndEditTheir,
         ),
         if (_error case final error?) ...[
           const SizedBox(height: 12),
@@ -86,12 +93,14 @@ class _ChannelStatusDialogState extends State<_ChannelStatusDialog> {
     ),
     actions: [
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
       ),
       DButton(
         key: const ValueKey('chat-channel-status-confirm'),
-        label: Text(_closing ? 'Close channel' : 'Open channel'),
+        label: Text(
+          _closing ? context.l10n.closeChannel : context.l10n.openChannel,
+        ),
         onPressed: () => unawaited(_save()),
         variant: _closing ? DButtonVariant.destructive : DButtonVariant.primary,
         loading: _saving,

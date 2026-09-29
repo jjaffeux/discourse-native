@@ -1,11 +1,18 @@
+import 'package:discourse_native/l10n/strings.dart';
+
 /// Physical dock position of the composer inside the main content area.
 enum ComposerPlacement {
-  left('Dock left'),
-  bottom('Dock bottom'),
-  right('Dock right'),
-  fullScreen('Full screen');
+  left(),
+  bottom(),
+  right(),
+  fullScreen();
 
-  const ComposerPlacement(this.label);
-  final String label;
+  const ComposerPlacement();
+  String get label => switch (this) {
+    left => appL10n.dockLeft,
+    bottom => appL10n.dockBottom,
+    right => appL10n.dockRight,
+    fullScreen => appL10n.fullScreen,
+  };
   bool get isSide => this == left || this == right;
 }

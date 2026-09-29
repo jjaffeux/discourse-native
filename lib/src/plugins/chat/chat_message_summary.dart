@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
@@ -11,7 +12,7 @@ String? chatMessageSummary({
   bool deleted = false,
   bool hasUploads = false,
 }) {
-  if (deleted) return 'Message deleted';
+  if (deleted) return appL10n.messageDeleted;
   final source = jsonText(excerpt) ?? jsonText(cooked);
   String? text;
   if (source != null) {
@@ -51,7 +52,7 @@ String? chatMessageSummary({
     text = jsonText(buffer.toString());
   }
   text ??= jsonText(raw);
-  if (text == null) return hasUploads ? 'Attachment' : null;
+  if (text == null) return hasUploads ? appL10n.attachment : null;
   final singleLine = text.replaceAll(RegExp(r'\s+'), ' ').trim();
   final runes = singleLine.runes.take(241).toList(growable: false);
   return runes.length > 240

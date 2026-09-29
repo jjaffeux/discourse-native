@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/calendar_day.dart';
@@ -75,7 +76,9 @@ class UserCardTarget extends StatelessWidget {
         builder: (context, state) => InlineAction(
           focusNode: state.focusNode,
           onTap: open,
-          semanticLabel: semanticLabel ?? 'View profile for @$username',
+          semanticLabel:
+              semanticLabel ??
+              context.l10n.viewProfileForUsercard((username).toString()),
           excludeChildSemantics: true,
           borderRadius: BorderRadius.circular(4),
           child: child,
@@ -98,7 +101,7 @@ class _UserCardHoverPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (ShellScope.maybeIdentityOf(context) == null) {
-      return const Text('Profile preview unavailable.');
+      return Text(context.l10n.profilePreviewUnavailable);
     }
     return ShellSelector<_PreviewTarget>(
       select: (controller) {
@@ -116,7 +119,7 @@ class _UserCardHoverPreview extends StatelessWidget {
       builder: (context, target, _) {
         final (:controller, siteUrl: targetSite, :session) = target;
         if (targetSite == null || session == null) {
-          return const Text('Profile preview unavailable.');
+          return Text(context.l10n.profilePreviewUnavailable);
         }
         // A card's fetch and result are announced here, not on the shell.
         return ListenableBuilder(
@@ -310,7 +313,7 @@ class _UserCardPopup extends StatelessWidget {
       },
       content: DPopoverContent(
         key: const ValueKey<String>('user-card-surface'),
-        semanticLabel: 'Profile for @$username',
+        semanticLabel: context.l10n.profileFor((username).toString()),
         width: 400,
         constraints: const BoxConstraints(maxHeight: 480),
         align: DPopoverAlign.start,
@@ -471,7 +474,7 @@ class _CardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
-    semanticsLabel: 'Loading profile',
+    semanticsLabel: context.l10n.loadingProfile,
     color: skeletonFill(context, on: SkeletonSurface.floating),
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -532,7 +535,7 @@ class _CardContent extends StatelessWidget {
     final profileAction = SizedBox(
       width: double.infinity,
       child: DButton(
-        label: const Text('View profile'),
+        label: Text(context.l10n.viewProfile),
         onPressed: () {
           close();
           unawaited(openExternalLink('$siteUrl${card.path}'));
@@ -588,12 +591,12 @@ class _CardContent extends StatelessWidget {
             runSpacing: 4,
             children: [
               if (card.lastPostedAt case final last?)
-                _Metadata(label: 'Last post', value: _month(last)),
+                _Metadata(label: context.l10n.lastPost, value: _month(last)),
               if (card.createdAt case final joined?)
-                _Metadata(label: 'Joined', value: _month(joined)),
+                _Metadata(label: context.l10n.joined, value: _month(joined)),
               if (card.timeRead > 0)
                 _Metadata(
-                  label: 'Time read',
+                  label: context.l10n.timeRead,
                   value: durationLabel(card.timeRead).short,
                 ),
             ],
@@ -700,10 +703,13 @@ class _CardIdentity extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     if (card.isStaff)
-                      _Badge(label: 'staff', color: theme.colorScheme.primary),
+                      _Badge(
+                        label: context.l10n.staffChatmessagetile,
+                        color: theme.colorScheme.primary,
+                      ),
                     if (suspended)
                       _Badge(
-                        label: 'suspended',
+                        label: context.l10n.suspended,
                         color: theme.colorScheme.error,
                       ),
                   ],
@@ -821,7 +827,7 @@ class _BadgeCount extends StatelessWidget {
   Widget build(BuildContext context) => DBadge(
     variant: DBadgeVariant.outline,
     leading: const DIcon(DIcons.certificate, size: 12),
-    child: Text(countLabel(count, 'badge')),
+    child: Text(countLabel(count, CountNoun.badge)),
   );
 }
 

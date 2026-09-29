@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -22,39 +23,40 @@ class CategoryNotificationLevelButton extends StatelessWidget {
   final bool showLabel;
   final bool showChevron;
 
-  static const _options = [
+  static List<DNotificationLevelOption<CategoryNotificationLevel>>
+  get _options => [
     DNotificationLevelOption(
       value: CategoryNotificationLevel.watching,
       emphasized: true,
-      label: 'Watching',
-      description: 'Every new post and unread count',
-      icon: DIcon(DNativeIcons.bellRing),
+      label: appL10n.watching,
+      description: appL10n.everyNewPostAndUnreadCount,
+      icon: const DIcon(DNativeIcons.bellRing),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.tracking,
       emphasized: true,
-      label: 'Tracking',
-      description: 'Mentions, replies, and unread count',
-      icon: DIcon(DIcons.bell),
+      label: appL10n.tracking,
+      description: appL10n.mentionsRepliesAndUnreadCount,
+      icon: const DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.watchingFirstPost,
       emphasized: true,
-      label: 'Watching First Post',
-      description: 'New topics only',
-      icon: DIcon(DNativeIcons.bellRing),
+      label: appL10n.watchingFirstPost,
+      description: appL10n.newTopicsOnly,
+      icon: const DIcon(DNativeIcons.bellRing),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.normal,
-      label: 'Normal',
-      description: 'Mentions and replies only',
-      icon: DIcon(DIcons.bell),
+      label: appL10n.normal,
+      description: appL10n.mentionsAndRepliesOnly,
+      icon: const DIcon(DIcons.bell),
     ),
     DNotificationLevelOption(
       value: CategoryNotificationLevel.muted,
-      label: 'Muted',
-      description: 'No notifications; hidden from Latest',
-      icon: DIcon(DNativeIcons.bellOff),
+      label: appL10n.muted,
+      description: appL10n.noNotificationsHiddenFromLatest,
+      icon: const DIcon(DNativeIcons.bellOff),
     ),
   ];
 
@@ -72,7 +74,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
             final lease = controller.lifecycle.capture(siteUrl);
             return DNotificationLevelMenu<CategoryNotificationLevel>(
               key: ValueKey((controller, siteUrl, categoryId, lease.session)),
-              semanticLabel: 'Category notifications',
+              semanticLabel: context.l10n.categoryNotifications,
               buttonKey: const ValueKey('category-notification-level-button'),
               size: DButtonSize.chip,
               variant: DButtonVariant.outline,

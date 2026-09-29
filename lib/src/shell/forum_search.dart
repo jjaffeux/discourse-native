@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -367,8 +368,8 @@ class _ForumSearchState extends State<ForumSearch> {
             key: ForumSearch.inputKey,
             controller: _text,
             focusNode: _focus,
-            semanticLabel: 'Search this forum',
-            hintText: 'Search this forum',
+            semanticLabel: appL10n.searchThisForum,
+            hintText: appL10n.searchThisForum,
             autocorrect: false,
             enableSuggestions: false,
             textInputAction: TextInputAction.search,
@@ -393,7 +394,7 @@ class _ForumSearchState extends State<ForumSearch> {
                   DInputGroupButton.icon(
                     key: const ValueKey('forum-search-clear'),
                     icon: const DIcon(DIcons.xmark, size: 16),
-                    tooltip: 'Clear search',
+                    tooltip: appL10n.clearSearch,
                     onPressed: _clear,
                   )
                 else if (!widget.fullScreen &&
@@ -478,7 +479,7 @@ class _ForumSearchState extends State<ForumSearch> {
           onOpenChange: _openChanged,
           content: DPopoverContent(
             key: ForumSearch.panelKey,
-            semanticLabel: 'Global search',
+            semanticLabel: context.l10n.globalSearch,
             width: width,
             constraints: BoxConstraints(maxHeight: height),
             padding: EdgeInsets.zero,
@@ -513,7 +514,7 @@ class _ForumSearchState extends State<ForumSearch> {
                             DButton.iconOnly(
                               key: const ValueKey('global-search-back'),
                               icon: const DIcon(DIcons.arrowLeft),
-                              tooltip: 'Back',
+                              tooltip: context.l10n.back,
                               variant: DButtonVariant.ghost,
                               onPressed: _popover.close,
                             ),
@@ -570,8 +571,8 @@ class _ForumSearchState extends State<ForumSearch> {
                                 ),
                                 Text(
                                   contextual
-                                      ? 'Contextual search'
-                                      : 'Global search',
+                                      ? context.l10n.contextualSearch
+                                      : context.l10n.globalSearch,
                                 ),
                               ],
                             ),
@@ -637,7 +638,7 @@ class _ForumSearchState extends State<ForumSearch> {
   Widget _buildPageTrigger() => DButton.iconOnly(
     key: const ValueKey('mobile-search-button'),
     icon: const DIcon(DIcons.magnifyingGlass, size: 20),
-    tooltip: 'Search',
+    tooltip: appL10n.search,
     variant: DButtonVariant.ghost,
     onPressed: _requestFocus,
   );
@@ -669,7 +670,7 @@ class _ForumSearchState extends State<ForumSearch> {
                             DButton.iconOnly(
                               key: const ValueKey('mobile-search-back'),
                               icon: const DIcon(DIcons.arrowLeft),
-                              tooltip: 'Back',
+                              tooltip: appL10n.back,
                               variant: DButtonVariant.ghost,
                               onPressed: _closeSearch,
                             ),

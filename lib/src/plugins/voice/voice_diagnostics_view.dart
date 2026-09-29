@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -148,7 +149,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
             controller: _search,
             decoration: InputDecoration(
               isDense: true,
-              hintText: 'Search Voice capture',
+              hintText: appL10n.searchVoiceCapture,
               prefixIcon: const Padding(
                 padding: EdgeInsets.all(12),
                 child: DIcon(DIcons.magnifyingGlass, size: 18),
@@ -162,7 +163,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
                         setState(() {});
                       },
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Clear search',
+                      tooltip: appL10n.clearSearch,
                       icon: const DIcon(DIcons.xmark),
                     ),
               border: const OutlineInputBorder(),
@@ -230,15 +231,12 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
     if (enabled) {
       final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        title: const Text('Turn on deep Voice capture?'),
-        description: const Text(
-          'This records usernames and user IDs, network addresses, raw '
-          'SDP and ICE negotiation, media statistics, and device details. '
-          'Credentials and other secrets are redacted. Capture stays on '
-          'until you turn it off or restart the app.',
+        title: Text(appL10n.turnOnDeepVoiceCapture),
+        description: Text(
+          appL10n.thisRecordsUsernamesAndUserIDsNetworkAddressesRawSDPAnd,
         ),
-        cancelLabel: const Text('Cancel'),
-        actionLabel: const Text('Turn on capture'),
+        cancelLabel: Text(appL10n.cancel),
+        actionLabel: Text(appL10n.turnOnCapture),
         cancelResult: false,
         actionResult: true,
         actionKey: const ValueKey('voice-confirm-start-capture'),
@@ -248,7 +246,9 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
 
     await _runBusy(
       enabled ? widget.startCapture : widget.stopCapture,
-      successMessage: enabled ? 'Deep capture is on' : 'Deep capture stopped',
+      successMessage: enabled
+          ? appL10n.deepCaptureIsOn
+          : appL10n.deepCaptureStopped,
     );
   }
 
@@ -256,20 +256,20 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
     if (widget.readState().enabled) return;
     final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      title: const Text('Clear Voice capture?'),
-      description: const Text(
-        'This permanently removes the retained deep-capture records from '
-        'this device.',
+      title: Text(appL10n.clearVoiceCapture),
+      description: Text(
+        appL10n
+            .thisPermanentlyRemovesTheRetainedDeepCaptureRecordsFromThisDevice,
       ),
-      cancelLabel: const Text('Cancel'),
-      actionLabel: const Text('Clear capture'),
+      cancelLabel: Text(appL10n.cancel),
+      actionLabel: Text(appL10n.clearCapture),
       cancelResult: false,
       actionResult: true,
       actionKey: const ValueKey('voice-confirm-clear-capture'),
       actionVariant: DButtonVariant.destructive,
     );
     if (confirmed != true) return;
-    await _runBusy(widget.clear, successMessage: 'Voice capture cleared');
+    await _runBusy(widget.clear, successMessage: appL10n.voiceCaptureCleared);
     if (mounted) setState(() => _selectedId = null);
   }
 
@@ -285,8 +285,8 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
       if (mounted) {
         _showMessage(
           clipboardReport.truncated
-              ? 'Recent report copied (full report is too large)'
-              : 'Voice report copied',
+              ? appL10n.recentReportCopiedFullReportIsTooLarge
+              : appL10n.voiceReportCopied,
         );
       }
     });
@@ -298,7 +298,7 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
         text: const JsonEncoder.withIndent('  ').convert(event.json),
       ),
     );
-    if (mounted) _showMessage('Capture event copied');
+    if (mounted) _showMessage(appL10n.captureEventCopied);
   }
 
   Future<void> _exportReport() async {
@@ -323,8 +323,8 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
       if (!mounted || outcome == VoiceReportExportOutcome.cancelled) return;
       _showMessage(
         outcome == VoiceReportExportOutcome.saved
-            ? 'Voice report saved'
-            : 'Voice report shared',
+            ? appL10n.voiceReportSaved
+            : appL10n.voiceReportShared,
       );
     });
   }
@@ -339,7 +339,9 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
       await action();
       if (mounted && successMessage != null) _showMessage(successMessage);
     } catch (error) {
-      if (mounted) _showMessage('Voice diagnostics failed: $error');
+      if (mounted) {
+        _showMessage(appL10n.voiceDiagnosticsFailed((error).toString()));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -402,7 +404,9 @@ class _CaptureControls extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          state.enabled ? 'Recording On' : 'Recording Off',
+                          state.enabled
+                              ? context.l10n.recordingOn
+                              : context.l10n.recordingOff,
                           key: const ValueKey('voice-recording-state'),
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -415,9 +419,9 @@ class _CaptureControls extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Deep capture stores identities, network and media '
-                'negotiation, device details, and SDK logs. Secrets are '
-                'redacted. Restarting the app turns recording off.',
+                context
+                    .l10n
+                    .deepCaptureStoresIdentitiesNetworkAndMediaNegotiationDeviceDetailsAnd,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -431,21 +435,27 @@ class _CaptureControls extends StatelessWidget {
                     key: const ValueKey('voice-retained-size'),
                     label: _formatBytes(state.retainedBytes),
                   ),
-                  _MetadataChip(label: '${state.droppedRecords} dropped'),
+                  _MetadataChip(
+                    label: context.l10n.dropped(
+                      (state.droppedRecords).toString(),
+                    ),
+                  ),
                   if (state.truncated)
-                    const _MetadataChip(
-                      key: ValueKey('voice-truncated-indicator'),
-                      label: 'Truncated',
+                    _MetadataChip(
+                      key: const ValueKey('voice-truncated-indicator'),
+                      label: context.l10n.truncated,
                       warning: true,
                     ),
                   if (state.startedAtUtc != null)
                     _MetadataChip(
-                      label: 'Since ${diagnosticTimeText(state.startedAtUtc!)}',
+                      label: context.l10n.since(
+                        (diagnosticTimeText(state.startedAtUtc!)).toString(),
+                      ),
                     ),
                   if (state.captureId != null)
                     _MetadataChip(
                       key: const ValueKey('voice-capture-id'),
-                      label: 'Capture ${state.captureId}',
+                      label: context.l10n.capture((state.captureId).toString()),
                     ),
                 ],
               ),
@@ -458,7 +468,7 @@ class _CaptureControls extends StatelessWidget {
                     key: const ValueKey('voice-copy-report'),
                     onPressed: onCopy,
                     icon: const DIcon(DIcons.copy),
-                    label: const Text('Copy report'),
+                    label: Text(context.l10n.copyReport),
                   ),
                   DButton(
                     key: const ValueKey('voice-export-report'),
@@ -471,8 +481,8 @@ class _CaptureControls extends StatelessWidget {
                     onPressed: onClear,
                     variant: DButtonVariant.outline,
                     tooltip: state.enabled
-                        ? 'Turn recording off before clearing'
-                        : 'Clear capture',
+                        ? context.l10n.turnRecordingOffBeforeClearing
+                        : context.l10n.clearCapture,
                     icon: const DIcon(DIcons.trashCan),
                   ),
                 ],
@@ -638,7 +648,7 @@ class _CaptureEventDetail extends StatelessWidget {
               key: const ValueKey('voice-diagnostics-detail-back'),
               onPressed: onBack,
               variant: DButtonVariant.ghost,
-              tooltip: 'Back to capture',
+              tooltip: context.l10n.backToCapture,
               icon: const DIcon(DIcons.arrowLeft),
             ),
             Expanded(
@@ -664,7 +674,7 @@ class _CaptureEventDetail extends StatelessWidget {
               key: const ValueKey('voice-copy-event'),
               onPressed: onCopy,
               icon: const DIcon(DIcons.copy),
-              label: const Text('Copy'),
+              label: Text(context.l10n.copy),
             ),
           ],
         ),
@@ -710,10 +720,10 @@ class _CaptureEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final title = hasEvents
-        ? 'No matching capture events'
+        ? context.l10n.noMatchingCaptureEvents
         : recording
-        ? 'Waiting for Voice activity'
-        : 'No deep-capture records';
+        ? context.l10n.waitingForVoiceActivity
+        : context.l10n.noDeepCaptureRecords;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -730,10 +740,10 @@ class _CaptureEmptyState extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               hasEvents
-                  ? 'Change the search to see more.'
+                  ? context.l10n.changeTheSearchToSeeMore
                   : recording
-                  ? 'Call and signaling events will appear here.'
-                  : 'Turn recording on before reproducing the call problem.',
+                  ? context.l10n.callAndSignalingEventsWillAppearHere
+                  : context.l10n.turnRecordingOnBeforeReproducingTheCallProblem,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -764,7 +774,7 @@ DateTime _eventTimestamp(Map<String, Object?> json) {
 }
 
 String _eventName(Map<String, Object?> json) =>
-    '${json['event'] ?? json['name'] ?? json['kind'] ?? 'capture event'}';
+    '${json['event'] ?? json['name'] ?? json['kind'] ?? appL10n.captureEvent}';
 
 String _eventComponent(Map<String, Object?> json) =>
     '${json['component'] ?? json['source'] ?? 'voice'}';
@@ -784,6 +794,8 @@ DiagnosticSeverity _eventSeverity(Map<String, Object?> json) {
 
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
+  if (bytes < 1024 * 1024) {
+    return appL10n.kiB(((bytes / 1024).toStringAsFixed(1)).toString());
+  }
+  return appL10n.miB(((bytes / (1024 * 1024)).toStringAsFixed(1)).toString());
 }

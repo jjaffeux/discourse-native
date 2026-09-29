@@ -1,5 +1,6 @@
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -212,7 +213,7 @@ class DShortcut {
   String semanticLabel(TargetPlatform platform) => [
     for (var i = 0; i < length; i++)
       _shortcutKeys(this[i], platform).map((key) => key.spoken).join(' + '),
-  ].join(', then ');
+  ].join(appL10n.then);
 
   @override
   bool operator ==(Object other) =>
@@ -393,7 +394,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
       spacing: DSpacing.sm,
       children: [
         for (var step = 0; step < shortcut.length; step++) ...[
-          if (step > 0) const Text('then'),
+          if (step > 0) Text(context.l10n.thenDkbd),
           DKbdGroup(
             children: [
               for (final (index, key) in _shortcutKeys(
@@ -429,26 +430,26 @@ List<_ShortcutKey> _shortcutKeys(
   return [
     if (shortcut.control)
       (
-        visual: apple ? '⌃' : 'Ctrl',
-        spoken: 'Control',
+        visual: apple ? '⌃' : appL10n.ctrl,
+        spoken: appL10n.control,
         key: LogicalKeyboardKey.control,
       ),
     if (shortcut.alt)
       (
-        visual: apple ? '⌥' : 'Alt',
-        spoken: apple ? 'Option' : 'Alt',
+        visual: apple ? '⌥' : appL10n.alt,
+        spoken: apple ? appL10n.option : appL10n.alt,
         key: LogicalKeyboardKey.alt,
       ),
     if (shortcut.shift)
       (
-        visual: apple ? '⇧' : 'Shift',
-        spoken: 'Shift',
+        visual: apple ? '⇧' : appL10n.shift,
+        spoken: appL10n.shift,
         key: LogicalKeyboardKey.shift,
       ),
     if (shortcut.meta)
       (
-        visual: apple ? '⌘' : 'Meta',
-        spoken: apple ? 'Command' : 'Meta',
+        visual: apple ? '⌘' : appL10n.meta,
+        spoken: apple ? appL10n.command : appL10n.meta,
         key: LogicalKeyboardKey.meta,
       ),
     (
@@ -479,19 +480,19 @@ bool _isModifierKey(LogicalKeyboardKey key) =>
     );
 
 String _logicalKeyLabel(LogicalKeyboardKey key) => switch (key) {
-  LogicalKeyboardKey.enter => 'Enter',
-  LogicalKeyboardKey.numpadEnter => 'Numpad Enter',
-  LogicalKeyboardKey.escape => 'Esc',
-  LogicalKeyboardKey.space => 'Space',
-  LogicalKeyboardKey.tab => 'Tab',
-  LogicalKeyboardKey.backspace => 'Backspace',
-  LogicalKeyboardKey.delete => 'Delete',
+  LogicalKeyboardKey.enter => appL10n.enter,
+  LogicalKeyboardKey.numpadEnter => appL10n.numpadEnter,
+  LogicalKeyboardKey.escape => appL10n.esc,
+  LogicalKeyboardKey.space => appL10n.space,
+  LogicalKeyboardKey.tab => appL10n.tab,
+  LogicalKeyboardKey.backspace => appL10n.backspace,
+  LogicalKeyboardKey.delete => appL10n.delete,
   LogicalKeyboardKey.arrowUp => '↑',
   LogicalKeyboardKey.arrowDown => '↓',
   LogicalKeyboardKey.arrowLeft => '←',
   LogicalKeyboardKey.arrowRight => '→',
   _ => switch (key.keyLabel) {
-    '' => key.debugName ?? 'Key',
+    '' => key.debugName ?? appL10n.key,
     // Single characters read as printed keycaps; named keys keep their case.
     final label when label.length == 1 => label.toUpperCase(),
     final label => label,
@@ -499,20 +500,20 @@ String _logicalKeyLabel(LogicalKeyboardKey key) => switch (key) {
 };
 
 String _spokenLabel(String label) => switch (label) {
-  '⌘' => 'Command',
-  '⌃' || 'Ctrl' => 'Control',
-  '⌥' => 'Option',
-  '⇧' => 'Shift',
-  '⏎' || '↵' => 'Enter',
-  'Esc' || '⎋' => 'Escape',
-  '⌫' => 'Backspace',
-  '⌦' => 'Delete',
-  '⇥' => 'Tab',
-  '↑' => 'Arrow Up',
-  '↓' => 'Arrow Down',
-  '←' => 'Arrow Left',
-  '→' => 'Arrow Right',
-  '?' => 'Question mark',
+  '⌘' => appL10n.command,
+  '⌃' || 'Ctrl' => appL10n.control,
+  '⌥' => appL10n.option,
+  '⇧' => appL10n.shift,
+  '⏎' || '↵' => appL10n.enter,
+  'Esc' || '⎋' => appL10n.escape,
+  '⌫' => appL10n.backspace,
+  '⌦' => appL10n.delete,
+  '⇥' => appL10n.tab,
+  '↑' => appL10n.arrowUp,
+  '↓' => appL10n.arrowDown,
+  '←' => appL10n.arrowLeft,
+  '→' => appL10n.arrowRight,
+  '?' => appL10n.questionMark,
   _ => label,
 };
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -42,7 +43,7 @@ class DMermaidEditorState extends State<DMermaidEditor> {
   Timer? _debounce;
   bool _expanded = false;
   bool _synchronizing = false;
-  String _copyLabel = 'Copy code';
+  String _copyLabel = appL10n.copyCode;
 
   /// Moves keyboard focus into the source without changing its selection.
   void requestFocus() => _focus.requestFocus();
@@ -73,7 +74,9 @@ class DMermaidEditorState extends State<DMermaidEditor> {
 
   void _changed(String source) {
     if (widget.readOnly || _synchronizing) return;
-    if (_copyLabel != 'Copy code') setState(() => _copyLabel = 'Copy code');
+    if (_copyLabel != appL10n.copyCode) {
+      setState(() => _copyLabel = appL10n.copyCode);
+    }
     _schedule(source);
     widget.onChanged(source);
   }
@@ -81,9 +84,9 @@ class DMermaidEditorState extends State<DMermaidEditor> {
   Future<void> _copy() async {
     try {
       await Clipboard.setData(ClipboardData(text: _code.text));
-      if (mounted) setState(() => _copyLabel = 'Copied');
+      if (mounted) setState(() => _copyLabel = appL10n.copied);
     } on Object {
-      if (mounted) setState(() => _copyLabel = 'Copy failed');
+      if (mounted) setState(() => _copyLabel = appL10n.copyFailed);
     }
   }
 
@@ -108,7 +111,7 @@ class DMermaidEditorState extends State<DMermaidEditor> {
             children: [
               const Icon(Icons.account_tree_outlined, size: 16),
               const SizedBox(width: DSpacing.sm),
-              const Expanded(child: Text('Mermaid chart')),
+              Expanded(child: Text(context.l10n.mermaidChart)),
               DButton.iconOnly(
                 icon: const Icon(Icons.copy_outlined),
                 tooltip: _copyLabel,
@@ -123,8 +126,8 @@ class DMermaidEditorState extends State<DMermaidEditor> {
                   _expanded ? Icons.fullscreen_exit : Icons.fullscreen,
                 ),
                 tooltip: _expanded
-                    ? 'Collapse chart editor'
-                    : 'Expand chart editor',
+                    ? context.l10n.collapseChartEditor
+                    : context.l10n.expandChartEditor,
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.small,
                 onPressed: () => setState(() => _expanded = !_expanded),
@@ -139,7 +142,7 @@ class DMermaidEditorState extends State<DMermaidEditor> {
             final source = DCodeEditor(
               controller: _code,
               focusNode: _focus,
-              semanticLabel: 'Mermaid source code',
+              semanticLabel: context.l10n.mermaidSourceCode,
               readOnly: widget.readOnly,
               onChanged: _changed,
             );

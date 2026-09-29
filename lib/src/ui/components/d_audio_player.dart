@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../foundation/tokens.dart';
@@ -43,7 +44,7 @@ class DAudioPlayer extends StatelessWidget {
   Widget build(BuildContext context) => DCard(
     children: [
       DCardHeader(title: Text(title)),
-      if (failed) const DCardContent(child: Text('Could not play this audio.')),
+      if (failed) DCardContent(child: Text(context.l10n.couldNotPlayThisAudio)),
       if (!failed) ...[
         DCardContent(
           child: DSlider(
@@ -53,7 +54,7 @@ class DAudioPlayer extends StatelessWidget {
             ),
             max: duration.inMilliseconds.toDouble().clamp(1, double.infinity),
             step: 1000,
-            semanticLabel: 'Audio position',
+            semanticLabel: context.l10n.audioPosition,
             semanticFormatterCallback: (value) =>
                 timeLabel(Duration(milliseconds: value.round())),
             onChanged: duration > Duration.zero && !loading && onSeek != null
@@ -73,15 +74,17 @@ class DAudioPlayer extends StatelessWidget {
             if (loading) const DSpinner(),
             if (!failed)
               DButton(
-                label: Text(playing ? 'Pause audio' : 'Play audio'),
+                label: Text(
+                  playing ? context.l10n.pauseAudio : context.l10n.playAudio,
+                ),
                 onPressed: loading ? null : onPlayPause,
               ),
             if (failed && onRetry != null)
-              DButton(label: const Text('Retry audio'), onPressed: onRetry),
+              DButton(label: Text(context.l10n.retryAudio), onPressed: onRetry),
             if (onOpen != null)
               DButton(
                 variant: DButtonVariant.outline,
-                label: const Text('Open audio'),
+                label: Text(context.l10n.openAudio),
                 onPressed: onOpen,
               ),
           ],

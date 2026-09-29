@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
@@ -97,7 +98,7 @@ class TopicListFilterBar extends StatelessWidget {
             includeAll: true,
             sheetOnMobile: true,
             size: DButtonSize.filter,
-            placeholder: 'Subcategories',
+            placeholder: context.l10n.subcategories,
             siteUrl: siteUrl,
             parent: rootCategory,
             categories: subcategories,
@@ -122,10 +123,14 @@ class TopicListFilterBar extends StatelessWidget {
           ],
           selectedTags: selectedTags,
           semanticLabel: selectedTags.isEmpty
-              ? 'Filter by tag'
+              ? context.l10n.filterByTag
               : selectedTags.length > 1
-              ? 'Filter by tags: ${selectedTags.map((tag) => tag.name).join(', ')}'
-              : 'Tag: ${selectedTags.first.name}',
+              ? context.l10n.filterByTags(
+                  (selectedTags.map((tag) => tag.name).join(', ')).toString(),
+                )
+              : context.l10n.tagTopiclistfilterbar(
+                  (selectedTags.first.name).toString(),
+                ),
           search: (query) async => TopicTagSearch(
             tags: [
               for (final tag in await searchTags(query))

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
@@ -360,7 +361,7 @@ final class DiscourseTransport {
     try {
       final decoded = await decodeJsonHttpResponse(response);
       if (decoded is Map<String, dynamic>) return decoded;
-      throw const FormatException('Expected a JSON object');
+      throw FormatException(appL10n.expectedAJSONObject);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
@@ -428,7 +429,7 @@ final class DiscourseTransport {
     try {
       final decoded = await decodeJsonHttpResponse(response);
       if (decoded is Map<String, dynamic>) return decoded;
-      throw const FormatException('Expected a JSON object');
+      throw FormatException(appL10n.expectedAJSONObject);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_message.dart';
@@ -139,7 +140,9 @@ class _Image extends StatelessWidget {
         maxHeight: ChatUploads.maxHeight,
       ),
       child: DImagePreview(
-        semanticLabel: 'Open image: ${upload.originalFilename}',
+        semanticLabel: context.l10n.openImage(
+          (upload.originalFilename).toString(),
+        ),
         filename: upload.originalFilename,
         details: [
           if (upload.width case final width? when width > 0)
@@ -209,8 +212,11 @@ class _Attachment extends StatelessWidget {
   Widget build(BuildContext context) {
     final filesize = upload.humanFilesize?.trim();
     final label = filesize == null || filesize.isEmpty
-        ? 'Open attachment: ${upload.originalFilename}'
-        : 'Open attachment: ${upload.originalFilename}, $filesize';
+        ? context.l10n.openAttachment((upload.originalFilename).toString())
+        : context.l10n.openAttachmentChatuploads(
+            (upload.originalFilename).toString(),
+            (filesize).toString(),
+          );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: ChatUploads.maxWidth),

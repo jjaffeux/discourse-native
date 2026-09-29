@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -266,7 +267,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     if (context.isTouch) {
       await showShellSheet<void>(
         context: context,
-        title: 'Date and time',
+        title: appL10n.dateAndTime,
         builder: body,
       );
       return;
@@ -274,7 +275,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Dismiss date and time',
+      barrierLabel: appL10n.dismissDateAndTime,
       barrierColor: Colors.transparent,
       pageBuilder: (context, _, _) => CustomSingleChildLayout(
         delegate: AnchoredLayout(anchor: anchor, maxWidth: 420),
@@ -450,8 +451,8 @@ class _PreviewRow extends StatelessWidget {
       end = resolved?.formatted;
     }
     final labels = [
-      if (preview.current) 'Device',
-      if (preview.source) 'Source',
+      if (preview.current) context.l10n.device,
+      if (preview.source) context.l10n.source,
     ];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'ai_generation_write.dart';
 import 'ai_summary.dart';
 
@@ -62,5 +64,5 @@ final class AiSummaryApi {
 
   static AiTopicSummary _requireSummary(Map<String, dynamic> body) =>
       AiTopicSummary.fromJson(body) ??
-      (throw const FormatException('Summary response had no summary.'));
+      (throw FormatException(appL10n.summaryResponseHadNoSummary));
 }

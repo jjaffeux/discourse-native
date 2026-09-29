@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'event_calendar_data.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -55,7 +57,7 @@ final class EventNavigation implements PluginLinkHandler {
       id:
           page?.directoryPage.routeId(mine) ??
           (mine ? 'events-mine' : 'events-upcoming'),
-      title: mine ? 'My events' : 'Upcoming events',
+      title: mine ? appL10n.myEvents : appL10n.upcomingEvents,
       icon: EventIcons.calendar,
     );
     if (host.currentContent?.id == route.id) return;

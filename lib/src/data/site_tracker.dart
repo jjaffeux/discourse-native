@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
@@ -156,7 +157,7 @@ class SiteTracker {
       MessageBusHttpException(:final statusCode, :final retryAfter) => (
         StateError(
           'Message bus HTTP $statusCode'
-          '${retryAfter == null ? '' : ' (retry after $retryAfter)'}',
+          '${retryAfter == null ? '' : appL10n.retryAfter((retryAfter).toString())}',
         ),
         StackTrace.current,
         'messageBus.poll',
@@ -167,7 +168,7 @@ class SiteTracker {
         'messageBus.poll',
       ),
       MessageBusTimeoutException(:final timeout) => (
-        TimeoutException('Message bus poll timed out', timeout),
+        TimeoutException(appL10n.messageBusPollTimedOut, timeout),
         StackTrace.current,
         'messageBus.poll',
       ),

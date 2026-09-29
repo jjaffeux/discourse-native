@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -356,9 +357,12 @@ final class AccountActivityController extends FrameSafeNotifier {
           requests: _notificationRequests,
           fetch: (apiKey, _) =>
               api.notifications(siteUrl: instance.url, apiKey: apiKey),
-          reconnectMessage:
-              'Reconnect to ${instance.host} to see notifications.',
-          failureMessage: "Couldn't load notifications from ${instance.host}.",
+          reconnectMessage: appL10n.reconnectToToSeeNotifications(
+            (instance.host).toString(),
+          ),
+          failureMessage: appL10n.couldnTLoadNotificationsFrom(
+            (instance.host).toString(),
+          ),
           operation: 'account.loadNotifications',
           notify: _notifyNotifications,
         ),
@@ -377,8 +381,12 @@ final class AccountActivityController extends FrameSafeNotifier {
             apiKey: apiKey,
             filterByTypes: userMenuReplyNotificationTypes,
           ),
-          reconnectMessage: 'Reconnect to ${instance.host} to see replies.',
-          failureMessage: "Couldn't load replies from ${instance.host}.",
+          reconnectMessage: appL10n.reconnectToToSeeReplies(
+            (instance.host).toString(),
+          ),
+          failureMessage: appL10n.couldnTLoadRepliesFrom(
+            (instance.host).toString(),
+          ),
           operation: 'account.loadReplyNotifications',
           notify: _notifyReplyNotifications,
         ),
@@ -397,8 +405,12 @@ final class AccountActivityController extends FrameSafeNotifier {
             apiKey: apiKey,
             filterByTypes: likeNotificationTypes,
           ),
-          reconnectMessage: 'Reconnect to ${instance.host} to see likes.',
-          failureMessage: "Couldn't load likes from ${instance.host}.",
+          reconnectMessage: appL10n.reconnectToToSeeLikes(
+            (instance.host).toString(),
+          ),
+          failureMessage: appL10n.couldnTLoadLikesFrom(
+            (instance.host).toString(),
+          ),
           operation: 'account.loadLikeNotifications',
           notify: _notifyLikeNotifications,
         ),
@@ -424,10 +436,12 @@ final class AccountActivityController extends FrameSafeNotifier {
           filterByTypes: types,
         );
       },
-      reconnectMessage:
-          'Reconnect to ${instance.host} to see other notifications.',
-      failureMessage:
-          "Couldn't load other notifications from ${instance.host}.",
+      reconnectMessage: appL10n.reconnectToToSeeOtherNotifications(
+        (instance.host).toString(),
+      ),
+      failureMessage: appL10n.couldnTLoadOtherNotificationsFrom(
+        (instance.host).toString(),
+      ),
       operation: 'account.loadOtherNotifications',
       notify: _notifyOtherNotifications,
     ),
@@ -727,8 +741,8 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(requests[instance.url], request)) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
+              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
+              : appL10n.couldnTReach((instance.host).toString()),
         );
         notify();
       });
@@ -849,7 +863,9 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commit(lease, () {
           if (!identical(_bookmarkRequests[instance.url], request)) return;
-          fail('Reconnect to ${instance.host} to see your bookmarks.');
+          fail(
+            appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
+          );
           _notifyBookmarks();
         });
         return;
@@ -878,8 +894,8 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
+              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
+              : appL10n.couldnTReach((instance.host).toString()),
         );
         _notifyBookmarks();
       });
@@ -892,7 +908,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       _report(error, stackTrace, 'account.loadBookmarks');
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
-        fail("Couldn't load bookmarks from ${instance.host}.");
+        fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
         _notifyBookmarks();
       });
     } finally {
@@ -1009,7 +1025,9 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commit(lease, () {
           if (!identical(_bookmarkListRequests[siteUrl], request)) return;
-          fail('Reconnect to ${instance.host} to see your bookmarks.');
+          fail(
+            appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
+          );
           _notifyBookmarkList();
         });
         return;
@@ -1036,8 +1054,8 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(_bookmarkListRequests[siteUrl], request)) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
+              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
+              : appL10n.couldnTReach((instance.host).toString()),
         );
         _notifyBookmarkList();
       });
@@ -1048,7 +1066,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       _report(error, stackTrace, 'account.loadBookmarkList');
       _commit(lease, () {
         if (!identical(_bookmarkListRequests[siteUrl], request)) return;
-        fail("Couldn't load bookmarks from ${instance.host}.");
+        fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
         _notifyBookmarkList();
       });
     } finally {
@@ -1152,7 +1170,9 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (apiKey == null) {
         _commit(lease, () {
           if (!identical(_userActivityRequests[siteUrl], request)) return;
-          fail('Reconnect to ${instance.host} to see your activity.');
+          fail(
+            appL10n.reconnectToToSeeYourActivity((instance.host).toString()),
+          );
           _notifyUserActivity();
         });
         return;
@@ -1180,8 +1200,8 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(_userActivityRequests[siteUrl], request)) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
-              ? 'Not allowed — try reconnecting to ${instance.host}.'
-              : "Couldn't reach ${instance.host}.",
+              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
+              : appL10n.couldnTReach((instance.host).toString()),
         );
         _notifyUserActivity();
       });
@@ -1192,7 +1212,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       _report(error, stackTrace, 'account.loadUserActivity');
       _commit(lease, () {
         if (!identical(_userActivityRequests[siteUrl], request)) return;
-        fail("Couldn't load activity from ${instance.host}.");
+        fail(appL10n.couldnTLoadActivityFrom((instance.host).toString()));
         _notifyUserActivity();
       });
     } finally {

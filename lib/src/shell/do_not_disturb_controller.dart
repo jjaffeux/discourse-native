@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -76,7 +78,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   ) async {
     if (isDisposed) return null;
     if (_requests.containsKey(siteUrl)) {
-      return 'Another notification change is still finishing.';
+      return appL10n.anotherNotificationChangeIsStillFinishing;
     }
 
     final request = Object();

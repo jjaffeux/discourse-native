@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../plugin_api/composer_syntax.dart';
@@ -45,11 +46,11 @@ class ComposerBlockController extends ChangeNotifier {
         if (block.projection is ComposerBlockSyntaxProjection)
           ComposerBlockAtom(block.start, block.end, label: block.kind.label),
       for (final block in text.quoteBlocks)
-        ComposerBlockAtom(block.start, block.end, label: 'Quote'),
+        ComposerBlockAtom(block.start, block.end, label: appL10n.quote),
       for (final block in text.galleryBlocks)
-        ComposerBlockAtom(block.start, block.end, label: 'Gallery'),
+        ComposerBlockAtom(block.start, block.end, label: appL10n.gallery),
       for (final block in text.imageBlocks)
-        ComposerBlockAtom(block.start, block.end, label: 'Image'),
+        ComposerBlockAtom(block.start, block.end, label: appL10n.image),
     ],
   );
 
@@ -99,7 +100,7 @@ class ComposerBlockController extends ChangeNotifier {
   }) {
     if (!enabled) return false;
     if (_revision != expectedRevision) {
-      notice('The draft changed. Move the block again.');
+      notice(appL10n.theDraftChangedMoveTheBlockAgain);
       return false;
     }
     final id = blockId ?? selected?.id;

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,10 +11,10 @@ import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_time.dart';
 
-const eventSyntaxKind = ComposerSyntaxKind(
+ComposerSyntaxKind get eventSyntaxKind => ComposerSyntaxKind(
   owner: eventsPluginId,
   name: 'event',
-  label: 'Event',
+  label: appL10n.event,
 );
 
 final class EventSyntaxPolicy implements ComposerSyntaxPolicy {
@@ -91,7 +92,7 @@ final class EventProjection implements ComposerBlockSyntaxProjection {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          '▦ ${block.attribute('name') ?? 'Event'} · ${block.attribute('start') ?? ''}',
+          '▦ ${block.attribute('name') ?? appL10n.event} · ${block.attribute('start') ?? ''}',
           style: context.baseStyle,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -209,26 +210,26 @@ class EventComposerSheet extends StatefulWidget {
 }
 
 class _EventComposerSheetState extends State<EventComposerSheet> {
-  static const _textFields = {
-    'name': 'Name',
-    'start': 'Starts',
-    'end': 'Ends (optional)',
-    'timezone': 'Timezone',
-    'recurrence-until': 'Repeat until (optional)',
-    'allowed-groups': 'Allowed groups (comma separated)',
-    'url': 'Meeting or event URL',
-    'location': 'Location',
-    'max-attendees': 'Maximum attendees (optional)',
-    'reminders': 'Reminders (for example: notification.15.minutes)',
-    'image': 'Event image URL',
+  static Map<String, String> get _textFields => {
+    'name': appL10n.name,
+    'start': appL10n.starts,
+    'end': appL10n.endsOptional,
+    'timezone': appL10n.timezone,
+    'recurrence-until': appL10n.repeatUntilOptional,
+    'allowed-groups': appL10n.allowedGroupsCommaSeparated,
+    'url': appL10n.meetingOrEventURL,
+    'location': appL10n.location,
+    'max-attendees': appL10n.maximumAttendeesOptional,
+    'reminders': appL10n.remindersForExampleNotification15Minutes,
+    'image': appL10n.eventImageURL,
   };
-  static const _booleanFields = {
-    'all-day': 'All day',
-    'show-local-time': 'Display in the event timezone',
-    'minimal': 'Minimal card',
-    'closed': 'Closed',
-    'chat-enabled': 'Enable event chat',
-    'livestream': 'Enable livestream from the event URL',
+  static Map<String, String> get _booleanFields => {
+    'all-day': appL10n.allDay,
+    'show-local-time': appL10n.displayInTheEventTimezone,
+    'minimal': appL10n.minimalCard,
+    'closed': appL10n.closed,
+    'chat-enabled': appL10n.enableEventChat,
+    'livestream': appL10n.enableLivestreamFromTheEventURL,
   };
   final _fields = <String, TextEditingController>{};
   final _initial = <String, String>{};
@@ -276,8 +277,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   void _apply() {
     if (!widget.isCurrent()) {
       setState(
-        () => _error =
-            'The post changed while this editor was open. Close it and reopen the event.',
+        () => _error = appL10n.thePostChangedWhileThisEditorWasOpenCloseItAnd,
       );
       return;
     }
@@ -287,19 +287,15 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
       final allDay = _booleans['all-day']!;
       if (eventCalendarDay(start) == null ||
           (!allDay && !RegExp(r'[T ]\d{2}:\d{2}').hasMatch(start))) {
-        throw const FormatException(
-          'Enter a start date and time, or select All day.',
-        );
+        throw FormatException(appL10n.enterAStartDateAndTimeOrSelectAllDay);
       }
       if (end.isNotEmpty && eventCalendarDay(end) == null) {
-        throw const FormatException('Enter a valid end date.');
+        throw FormatException(appL10n.enterAValidEndDate);
       }
       final zones = widget.controller?.zones;
       final zone = _fields['timezone']!.text.trim();
       if (!allDay && zones != null && zones.location(zone) == null) {
-        throw const FormatException(
-          'Choose a valid timezone, such as Europe/Paris.',
-        );
+        throw FormatException(appL10n.chooseAValidTimezoneSuchAsEuropeParis);
       }
       final startDate = zones == null
           ? DateTime.tryParse(start)
@@ -322,22 +318,22 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
               showLocalTime: true,
             );
       if (startDate == null || (end.isNotEmpty && endDate == null)) {
-        throw const FormatException('Enter valid dates and times.');
+        throw FormatException(appL10n.enterValidDatesAndTimes);
       }
       if (endDate != null &&
           (endDate.isBefore(startDate) || (!allDay && endDate == startDate))) {
-        throw const FormatException('The event must end after it starts.');
+        throw FormatException(appL10n.theEventMustEndAfterItStarts);
       }
       final capacity = _fields['max-attendees']!.text.trim();
       if (capacity.isNotEmpty && (int.tryParse(capacity) ?? 0) < 1) {
-        throw const FormatException(
-          'Maximum attendees must be a positive whole number.',
+        throw FormatException(
+          appL10n.maximumAttendeesMustBeAPositiveWholeNumber,
         );
       }
       if (_status == 'private' &&
           _fields['allowed-groups']!.text.trim().isEmpty) {
-        throw const FormatException(
-          'Choose at least one allowed group for a private event.',
+        throw FormatException(
+          appL10n.chooseAtLeastOneAllowedGroupForAPrivateEvent,
         );
       }
       final values = <String, String?>{};
@@ -383,13 +379,15 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
       controller: _fields[name],
       labelText: _textFields[name] ?? _customFields[name] ?? name,
       hintText: {'start', 'end', 'recurrence-until'}.contains(name)
-          ? (_booleans['all-day']! ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm')
+          ? (_booleans['all-day']!
+                ? appL10n.inputIsoDate
+                : appL10n.yYYYMMDDHHMm)
           : null,
       suffix: {'start', 'end', 'recurrence-until'}.contains(name)
           ? DButton.iconOnly(
               onPressed: () => _chooseDate(name),
               variant: DButtonVariant.ghost,
-              tooltip: 'Choose date and time',
+              tooltip: appL10n.chooseDateAndTime,
               icon: const Icon(Icons.calendar_today),
             )
           : null,
@@ -430,7 +428,9 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
 
   @override
   Widget build(BuildContext context) => DiscourseAlertDialog(
-    title: Text(widget.block == null ? 'Add event' : 'Edit event'),
+    title: Text(
+      widget.block == null ? context.l10n.addEvent : context.l10n.editEvent,
+    ),
     content: SizedBox(
       width: 520,
       child: SingleChildScrollView(
@@ -442,7 +442,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             _field('end'),
             DCheckbox(
               contentPadding: EdgeInsets.zero,
-              title: const DLabel(child: Text('All day')),
+              title: DLabel(child: Text(context.l10n.allDay)),
               value: _booleans['all-day'],
               onChanged: (value) =>
                   setState(() => _booleans['all-day'] = value!),
@@ -451,7 +451,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             DSelect<String>.controlled(
               isExpanded: true,
               value: _recurrence,
-              label: const Text('Repeats'),
+              label: Text(context.l10n.repeats),
               entries: [
                 for (final value in {
                   '',
@@ -465,9 +465,11 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                 })
                   DSelectOption(
                     value: value,
-                    label: eventRecurrenceLabel(value) ?? 'Does not repeat',
+                    label:
+                        eventRecurrenceLabel(value) ??
+                        context.l10n.doesNotRepeat,
                     child: Text(
-                      eventRecurrenceLabel(value) ?? 'Does not repeat',
+                      eventRecurrenceLabel(value) ?? context.l10n.doesNotRepeat,
                     ),
                   ),
               ],
@@ -478,7 +480,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             DSelect<String>.controlled(
               isExpanded: true,
               value: _status,
-              label: const Text('Participation'),
+              label: Text(context.l10n.participation),
               entries: [
                 for (final value in {
                   'public',
@@ -489,15 +491,15 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   DSelectOption(
                     value: value,
                     label: switch (value) {
-                      'public' => 'Public',
-                      'private' => 'Private groups',
-                      'standalone' => 'No attendance tracking',
+                      'public' => context.l10n.public,
+                      'private' => context.l10n.privateGroups,
+                      'standalone' => context.l10n.noAttendanceTracking,
                       _ => value,
                     },
                     child: Text(switch (value) {
-                      'public' => 'Public',
-                      'private' => 'Private groups',
-                      'standalone' => 'No attendance tracking',
+                      'public' => context.l10n.public,
+                      'private' => context.l10n.privateGroups,
+                      'standalone' => context.l10n.noAttendanceTracking,
                       _ => value,
                     }),
                   ),
@@ -512,7 +514,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
               controller: _description,
               minLines: 3,
               maxLines: 8,
-              labelText: 'Description (Markdown)',
+              labelText: context.l10n.descriptionMarkdown,
             ),
             DCollapsible(
               child: Column(
@@ -523,7 +525,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         children: [
-                          const Expanded(child: Text('More options')),
+                          Expanded(child: Text(context.l10n.moreOptions)),
                           Icon(
                             state.open ? Icons.expand_less : Icons.expand_more,
                             size: 16,
@@ -571,17 +573,17 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
     ),
     actions: [
       DButton(
-        label: const Text('Apply'),
+        label: Text(context.l10n.apply),
         onPressed: _apply,
         variant: DButtonVariant.primary,
       ),
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: () => Navigator.pop(context),
       ),
       if (widget.block != null)
         DButton(
-          label: const Text('Remove event'),
+          label: Text(context.l10n.removeEvent),
           variant: DButtonVariant.destructive,
           onPressed: () {
             if (widget.isCurrent()) Navigator.pop(context, '');
@@ -600,12 +602,10 @@ final class EventSubmitPreparer implements PluginComposerSubmitPreparer {
     final policy = composer.syntaxPolicy<EventSyntaxPolicy>(eventSyntaxKind);
     final blocks = parseEventBlocks(composer.value.text);
     if (blocks.isNotEmpty && (blocks.length > 1 || policy?.firstPost != true)) {
-      return const PluginComposerSubmitPreparation.failed(
+      return PluginComposerSubmitPreparation.failed(
         WriteException(
           WriteFailure.validation,
-          errors: [
-            'An event must be the only event in the first post of a topic.',
-          ],
+          errors: [appL10n.anEventMustBeTheOnlyEventInTheFirstPost],
         ),
       );
     }

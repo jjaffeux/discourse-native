@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../models/discourse_instance.dart';
 import 'authenticator.dart';
 import 'discourse_api_contracts.dart';
@@ -304,7 +305,7 @@ final class AccountSessionCoordinator {
           warning: false,
         );
         return AccountConnectionResult.failed(
-          'Could not connect to ${initial.host}.',
+          appL10n.couldNotConnectTo((initial.host).toString()),
         );
       }
       final recovered = await _recoverConnection(
@@ -389,7 +390,7 @@ final class AccountSessionCoordinator {
     final message = switch (error) {
       UserApiAuthException(:final message) => message,
       SiteLookupException(:final message) => message,
-      _ => 'Could not connect to ${initial.host}.',
+      _ => appL10n.couldNotConnectTo((initial.host).toString()),
     };
     return AccountConnectionResult.failed(
       message,

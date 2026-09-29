@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../diagnostics/diagnostic_error_cause.dart';
@@ -14,8 +15,8 @@ enum UpdateChannel {
   }
 
   String get label => switch (this) {
-    UpdateChannel.stable => 'Stable',
-    UpdateChannel.canary => 'Canary',
+    UpdateChannel.stable => appL10n.stable,
+    UpdateChannel.canary => appL10n.canary,
   };
 }
 
@@ -68,14 +69,12 @@ class UpdateException implements Exception, DiagnosticErrorCause {
   StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
-    UpdateFailure.unreachable => "Couldn't reach the update server.",
+    UpdateFailure.unreachable => appL10n.couldnTReachTheUpdateServer,
     UpdateFailure.malformed =>
-      'The update server answered with something this version does not '
-          'understand.',
+      appL10n.theUpdateServerAnsweredWithSomethingThisVersionDoesNotUnderstand,
     UpdateFailure.untrusted =>
-      'The download did not match its signature and was thrown away.',
-    UpdateFailure.install =>
-      'The update downloaded but could not be installed.',
+      appL10n.theDownloadDidNotMatchItsSignatureAndWasThrownAway,
+    UpdateFailure.install => appL10n.theUpdateDownloadedButCouldNotBeInstalled,
   };
 
   @override
@@ -100,9 +99,9 @@ abstract interface class Updater {
 class UnsupportedUpdater implements Updater {
   const UnsupportedUpdater();
 
-  static const UpdateException _failure = UpdateException(
+  static UpdateException get _failure => UpdateException(
     UpdateFailure.install,
-    'This build cannot update itself.',
+    appL10n.thisBuildCannotUpdateItself,
   );
 
   @override

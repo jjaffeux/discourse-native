@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -359,8 +360,8 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     key: ValueKey('minimize-panel-${target.name}'),
                     icon: const DIcon(DIcons.downLeftAndUpRightToCenter),
                     tooltip: minimizable
-                        ? 'Minimize panel'
-                        : 'Open a tab in the other panel first',
+                        ? context.l10n.minimizePanel
+                        : context.l10n.openATabInTheOtherPanelFirst,
                     variant: DButtonVariant.transparentBackground,
                     onPressed: minimizable ? () => _minimize(target) : null,
                   ),
@@ -433,8 +434,8 @@ class _DesktopPanelsState extends State<DesktopPanels>
                   key: ValueKey('panel-rail-${minimized.name}'),
                   panel: minimized,
                   semanticLabel: minimized == ForumPanel.main
-                      ? 'Main panel, minimized'
-                      : 'Secondary panel, minimized',
+                      ? context.l10n.mainPanelMinimized
+                      : context.l10n.secondaryPanelMinimized,
                   opensTowardStart: minimized == ForumPanel.secondary,
                   onRestore: () => _restore(minimized),
                   onSelect: (id) => _restore(minimized, tabId: id),
@@ -449,7 +450,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
               controller: _mainWidth,
               edge: ResizablePaneEdge.trailing,
               resizeKey: 'main-panel',
-              semanticsLabel: 'Resize main panel',
+              semanticsLabel: context.l10n.resizeMainPanel,
               maximumWidth: maximumMainWidth,
               widthOverride: mainWidth,
               gap: workspacePanelGap,
@@ -664,13 +665,15 @@ class _DesktopPanel extends StatelessWidget {
                                     children: [
                                       DEmptyTitle(
                                         panel == ForumPanel.main
-                                            ? 'Main panel'
-                                            : 'Secondary panel',
+                                            ? context.l10n.mainPanel
+                                            : context.l10n.secondaryPanel,
                                       ),
                                       DEmptyDescription(
                                         candidates.isNotEmpty
-                                            ? 'Drop this tab here'
-                                            : 'Drag a tab here or open a new tab.',
+                                            ? context.l10n.dropThisTabHere
+                                            : context
+                                                  .l10n
+                                                  .dragATabHereOrOpenANewTab,
                                       ),
                                     ],
                                   ),

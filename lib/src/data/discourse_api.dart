@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
@@ -1681,7 +1682,7 @@ class DiscourseApi
     );
     try {
       final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! List) throw const FormatException('Expected a JSON list');
+      if (decoded is! List) throw FormatException(appL10n.expectedAJSONList);
       return List.unmodifiable([
         for (final value in decoded)
           if (value is Map<String, dynamic>) value,

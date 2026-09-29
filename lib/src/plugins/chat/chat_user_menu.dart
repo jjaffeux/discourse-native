@@ -1,21 +1,26 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'chat_services.dart';
 
-const chatNotificationFeed = PluginNotificationFeedSource(
-  id: PluginNotificationFeedId(owner: PluginId('chat'), name: 'notifications'),
-  filterByTypes: [
-    NotificationTypeName('chat_invitation'),
-    NotificationTypeName('chat_mention'),
-    NotificationTypeName('chat_message'),
-    NotificationTypeName('chat_quoted'),
-    NotificationTypeName('chat_watched_thread'),
-  ],
-  reconnectMessage: 'Reconnect to this forum to see chat notifications.',
-  failureMessage: "Couldn't load chat notifications from this forum.",
-  emptyMessage: 'You don’t have any chat notifications yet.',
-);
+PluginNotificationFeedSource get chatNotificationFeed =>
+    PluginNotificationFeedSource(
+      id: const PluginNotificationFeedId(
+        owner: PluginId('chat'),
+        name: 'notifications',
+      ),
+      filterByTypes: const [
+        NotificationTypeName('chat_invitation'),
+        NotificationTypeName('chat_mention'),
+        NotificationTypeName('chat_message'),
+        NotificationTypeName('chat_quoted'),
+        NotificationTypeName('chat_watched_thread'),
+      ],
+      reconnectMessage: appL10n.reconnectToThisForumToSeeChatNotifications,
+      failureMessage: appL10n.couldnTLoadChatNotificationsFromThisForum,
+      emptyMessage: appL10n.youDonTHaveAnyChatNotificationsYet,
+    );
 
 class ChatUserMenuNotifications extends StatelessWidget {
   const ChatUserMenuNotifications({

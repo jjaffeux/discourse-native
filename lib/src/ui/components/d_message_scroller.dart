@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -385,7 +386,7 @@ typedef DMessageScrollerScrollableBuilder =
 class DMessageScrollerViewport extends StatefulWidget {
   const DMessageScrollerViewport({
     super.key,
-    required DMessageScrollerContent content,
+    required DMessageScrollerContent this._content,
     this.scrollController,
     this.listController,
     this.focusNode,
@@ -396,7 +397,7 @@ class DMessageScrollerViewport extends StatefulWidget {
     this.physics,
     this.restorationId,
     this.cacheExtent,
-    this.semanticLabel = 'Messages',
+    String? semanticLabel,
     this.showScrollbar = true,
     this.showFocusRing = false,
     this.styled = true,
@@ -405,7 +406,7 @@ class DMessageScrollerViewport extends StatefulWidget {
     this.scrollableBuilder,
   }) : // Named private formals would make this public constructor unusable.
        // ignore: prefer_initializing_formals
-       _content = content,
+       _semanticLabel = semanticLabel,
        _itemCount = null,
        _itemBuilder = null,
        _itemIdBuilder = null,
@@ -435,7 +436,7 @@ class DMessageScrollerViewport extends StatefulWidget {
     this.physics,
     this.restorationId,
     this.cacheExtent,
-    this.semanticLabel = 'Messages',
+    this._semanticLabel,
     this.showScrollbar = true,
     this.showFocusRing = false,
     this.styled = true,
@@ -486,7 +487,8 @@ class DMessageScrollerViewport extends StatefulWidget {
   final ScrollPhysics? physics;
   final String? restorationId;
   final double? cacheExtent;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.messages;
   final bool showScrollbar;
 
   /// Whether to paint an outline when keyboard focus is visible.
@@ -1672,8 +1674,8 @@ class DMessageScrollerButton extends StatelessWidget {
             final label =
                 semanticLabel ??
                 (direction == DMessageScrollerDirection.end
-                    ? 'Scroll to end'
-                    : 'Scroll to start');
+                    ? context.l10n.scrollToEnd
+                    : context.l10n.scrollToStart);
             return ExcludeSemantics(
               excluding: !active,
               child: ExcludeFocus(

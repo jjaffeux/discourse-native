@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -2086,7 +2087,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                         inbox: widget.inbox,
                         keepTopicListOpen: widget.keepTopicListOpen,
                         registry: widget.registry,
-                        title: title ?? 'Topic',
+                        title: title ?? context.l10n.topic,
                         siteUrl: siteUrl,
                         topic: topic,
                         route: widget.route,
@@ -2215,7 +2216,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             inbox: widget.inbox,
             keepTopicListOpen: widget.keepTopicListOpen,
             registry: widget.registry,
-            title: widget.route?.title ?? 'Topic',
+            title: widget.route?.title ?? context.l10n.topic,
             siteUrl: snapshot.siteUrl,
             route: widget.route,
             canReturnToSidebar: widget.canReturnToSidebar,
@@ -2225,13 +2226,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               child: SingleChildScrollView(
                 child: DEmpty(
                   children: [
-                    const DEmptyHeader(
+                    DEmptyHeader(
                       children: [
-                        DEmptyMedia(
+                        const DEmptyMedia(
                           variant: DEmptyMediaVariant.icon,
                           child: DIcon(DIcons.triangleExclamation),
                         ),
-                        DEmptyTitle("Couldn't load this topic."),
+                        DEmptyTitle(context.l10n.couldnTLoadThisTopic),
                       ],
                     ),
                     if (widget.route?.topicId case final topicId?)
@@ -2239,7 +2240,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                         children: [
                           DButton(
                             key: const ValueKey('topic-load-retry'),
-                            label: const Text('Retry'),
+                            label: Text(context.l10n.retry),
                             variant: DButtonVariant.link,
                             onPressed: () => _retryTopicLoad(
                               controller,
@@ -2852,8 +2853,8 @@ class _TopicBottomBar extends StatelessWidget {
                                 ),
                                 onPressed: canReply ? onReplyPressed : null,
                                 icon: const DIcon(DIcons.reply),
-                                label: const Text('Reply'),
-                                tooltip: 'Reply to this topic',
+                                label: Text(context.l10n.reply),
+                                tooltip: context.l10n.replyToThisTopic,
                                 shortcut: const DShortcut(topicReplyShortcut),
                                 variant: DButtonVariant.primary,
                                 size: DButtonSize.action,
@@ -2924,7 +2925,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
         context: context,
         title: Text(title),
         description: Text(message),
-        cancelLabel: const Text('Cancel'),
+        cancelLabel: Text(appL10n.cancel),
         actionLabel: Text(action),
         cancelResult: false,
         actionResult: true,
@@ -2943,9 +2944,9 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await _confirm(
       context,
-      title: 'Delete selected posts?',
-      message: 'Delete $count selected ${count == 1 ? 'post' : 'posts'}?',
-      action: 'Delete',
+      title: appL10n.deleteSelectedPosts,
+      message: appL10n.deleteSelected(count),
+      action: appL10n.delete,
       destructive: true,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
@@ -2963,9 +2964,9 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
     final lease = controller.lifecycle.capture(siteUrl);
     final confirmed = await _confirm(
       context,
-      title: 'Merge selected posts?',
-      message: 'Merge $count posts by the same author into one post?',
-      action: 'Merge',
+      title: appL10n.mergeSelectedPosts,
+      message: appL10n.mergePostsByTheSameAuthorIntoOnePost((count).toString()),
+      action: appL10n.merge,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
     final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
@@ -3037,7 +3038,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                       const SizedBox(width: 10),
                     ],
                     Text(
-                      '$count ${count == 1 ? 'post' : 'posts'} selected',
+                      context.l10n.selectedTopicview(count),
                       key: const ValueKey('topic-selected-posts-count'),
                       style: theme.textTheme.labelLarge,
                     ),
@@ -3051,7 +3052,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               topic.id,
                             ),
                       variant: DButtonVariant.ghost,
-                      label: const Text('Select all loaded'),
+                      label: Text(context.l10n.selectAllLoaded),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-clear'),
@@ -3062,7 +3063,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               topic.id,
                             ),
                       variant: DButtonVariant.ghost,
-                      label: const Text('Clear'),
+                      label: Text(context.l10n.clear),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-move'),
@@ -3080,7 +3081,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                             ),
                       variant: DButtonVariant.ghost,
                       icon: const DIcon(DIcons.rightFromBracket),
-                      label: const Text('Move'),
+                      label: Text(context.l10n.move),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-change-owner'),
@@ -3097,7 +3098,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                             ),
                       variant: DButtonVariant.ghost,
                       icon: const DIcon(DIcons.user),
-                      label: const Text('Change owner'),
+                      label: Text(context.l10n.changeOwner),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-merge'),
@@ -3108,7 +3109,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                             ),
                       variant: DButtonVariant.ghost,
                       icon: const DIcon(DIcons.layerGroup),
-                      label: const Text('Merge'),
+                      label: Text(context.l10n.merge),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-delete'),
@@ -3119,7 +3120,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                             ),
                       variant: DButtonVariant.ghost,
                       icon: const DIcon(DIcons.trashCan),
-                      label: const Text('Delete'),
+                      label: Text(context.l10n.delete),
                     ),
                     DButton(
                       key: const ValueKey('topic-selected-posts-cancel'),
@@ -3131,7 +3132,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
                               false,
                             ),
                       variant: DButtonVariant.ghost,
-                      label: const Text('Cancel'),
+                      label: Text(context.l10n.cancel),
                     ),
                   ],
                 ),
@@ -3156,7 +3157,7 @@ class _TopicLoadingSkeleton extends StatelessWidget {
     return TopicSkeletonReveal(
       child: DSkeletonRegion(
         expand: true,
-        semanticsLabel: 'Loading topic',
+        semanticsLabel: context.l10n.loadingTopic,
         color: skeletonFill(context),
         child: ForumTabLayoutBuilder(
           builder: (context, constraints) {
@@ -3348,7 +3349,7 @@ class _TopicViewHeader extends StatelessWidget {
               onPressed: () =>
                   controller.handleBack(canReturnToSidebar: canReturnToSidebar),
               icon: const DIcon(DIcons.arrowLeft),
-              tooltip: 'Back',
+              tooltip: context.l10n.back,
               variant: DButtonVariant.ghost,
               size: DButtonSize.small,
             ),
@@ -3509,7 +3510,7 @@ class _TopicSidebarPanel extends StatelessWidget {
                                   8,
                                 ),
                                 child: Text(
-                                  'More topics',
+                                  context.l10n.moreTopics,
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -3618,7 +3619,9 @@ class _TopicSidebarToggle extends StatelessWidget {
     key: const ValueKey('topic-sidebar-toggle'),
     onPressed: onPressed,
     icon: _TopicSidebarIcon(sidebarVisible: sidebarVisible),
-    tooltip: sidebarVisible ? 'Hide topic sidebar' : 'Show topic sidebar',
+    tooltip: sidebarVisible
+        ? context.l10n.hideTopicSidebar
+        : context.l10n.showTopicSidebar,
     variant: DButtonVariant.ghost,
     size: DButtonSize.small,
   );
@@ -3745,12 +3748,12 @@ class _TopicPropertiesCard extends StatelessWidget {
                     enabled: topic.canEdit,
                     builder: (context, open, saving, _) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-category-property'),
-                      label: 'Category',
+                      label: context.l10n.category,
                       alignLabelToControl: true,
                       child: TopicCategoryValue(
                         valueKey: const ValueKey('topic-sidebar-category'),
                         label: category == null
-                            ? route?.subtitle ?? 'Uncategorized'
+                            ? route?.subtitle ?? context.l10n.uncategorized
                             : controller.topicCategoryPathLabel(
                                 category,
                                 siteUrl: siteUrl,
@@ -3809,7 +3812,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                         ),
                     builder: (context, openMenu, saving) => TopicPropertyRow(
                       key: const ValueKey('topic-sidebar-tags-property'),
-                      label: 'Tags',
+                      label: context.l10n.tags,
                       child: TopicTagsValue(
                         tags: topic.tags,
                         saving: saving,
@@ -3835,7 +3838,7 @@ class _TopicPropertiesCard extends StatelessWidget {
                     TopicPropertyRow(
                       label: section.label,
                       child: section.values.isEmpty
-                          ? const _EmptyTopicProperty('None')
+                          ? _EmptyTopicProperty(context.l10n.none)
                           : Wrap(
                               spacing: 8,
                               runSpacing: 6,
@@ -3886,7 +3889,7 @@ class _TopicStandalonePropertyCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(14, section.showHeader ? 0 : 8, 14, 8),
             child: section.values.isEmpty
-                ? const _EmptyTopicProperty('None')
+                ? _EmptyTopicProperty(context.l10n.none)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -3965,7 +3968,7 @@ class _MoreTopicsLoadingSkeleton extends StatelessWidget {
     return DSkeletonRegion(
       expand: true,
       key: const ValueKey('topic-recommendations-loading-skeleton'),
-      semanticsLabel: 'Loading more topics',
+      semanticsLabel: context.l10n.loadingMoreTopics,
       color: skeletonFill(context, on: SkeletonSurface.panel),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -4374,8 +4377,8 @@ class _PostGapState extends State<_PostGap> {
   bool _loading = false;
 
   String get _label => widget.count == 1
-      ? 'View 1 hidden reply'
-      : 'View ${widget.count} hidden replies';
+      ? appL10n.view1HiddenReply
+      : appL10n.viewHiddenReplies((widget.count).toString());
 
   Future<void> _expand() async {
     if (_loading) return;
@@ -4390,7 +4393,7 @@ class _PostGapState extends State<_PostGap> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = _loading ? 'Loading…' : _label;
+    final label = _loading ? context.l10n.loading : _label;
 
     return ForumTabLayoutBuilder(
       builder: (context, constraints) {
@@ -4437,9 +4440,9 @@ class _EarlierPostsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => loading
-      ? const _TopicPaginationSkeleton(
-          key: ValueKey('topic-loading-earlier-skeleton'),
-          semanticsLabel: 'Loading earlier posts',
+      ? _TopicPaginationSkeleton(
+          key: const ValueKey('topic-loading-earlier-skeleton'),
+          semanticsLabel: context.l10n.loadingEarlierPosts,
           nameWidthFactor: 0.22,
           lineWidthFactor: 0.72,
         )
@@ -4672,7 +4675,9 @@ class _PostTileState extends State<_PostTile> {
             if (selection.enabled) ...[
               DCheckbox(
                 key: ValueKey('topic-post-select-${post.id}'),
-                semanticLabel: 'Select post by ${post.username}',
+                semanticLabel: context.l10n.selectPostBy(
+                  (post.username).toString(),
+                ),
                 value: selection.selected,
                 onChanged: selection.busy
                     ? null
@@ -4711,7 +4716,10 @@ class _PostTileState extends State<_PostTile> {
                   ),
                   if (post.isStaff) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'staff', color: theme.colorScheme.primary),
+                    _Tag(
+                      label: context.l10n.staffChatmessagetile,
+                      color: theme.colorScheme.primary,
+                    ),
                   ] else if (post.userTitle case final title?) ...[
                     const SizedBox(width: 6),
                     Flexible(
@@ -4727,23 +4735,38 @@ class _PostTileState extends State<_PostTile> {
                   ],
                   if (post.isDeleted) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'deleted', color: theme.colorScheme.error),
+                    _Tag(
+                      label: context.l10n.deletedTopicview,
+                      color: theme.colorScheme.error,
+                    ),
                   ],
                   if (post.wiki) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'wiki', color: theme.colorScheme.primary),
+                    _Tag(
+                      label: context.l10n.wikiTopicview,
+                      color: theme.colorScheme.primary,
+                    ),
                   ],
                   if (post.locked) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'locked', color: theme.colorScheme.secondary),
+                    _Tag(
+                      label: context.l10n.locked,
+                      color: theme.colorScheme.secondary,
+                    ),
                   ],
                   if (post.hidden) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'hidden', color: theme.colorScheme.error),
+                    _Tag(
+                      label: context.l10n.hiddenTopicview,
+                      color: theme.colorScheme.error,
+                    ),
                   ],
                   if (post.isModeratorAction) ...[
                     const SizedBox(width: 6),
-                    _Tag(label: 'moderator', color: theme.colorScheme.primary),
+                    _Tag(
+                      label: context.l10n.moderatorTopicview,
+                      color: theme.colorScheme.primary,
+                    ),
                   ],
                 ],
               ),
@@ -4751,7 +4774,7 @@ class _PostTileState extends State<_PostTile> {
             if (post.isWhisper) ...[
               const SizedBox(width: 8),
               DTooltip(
-                message: 'This post is a private whisper',
+                message: context.l10n.thisPostIsAPrivateWhisper,
                 child: DIcon(
                   DIcons.farEyeSlash,
                   size: 14,
@@ -4915,11 +4938,13 @@ class _PostNoticeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final cooked = notice.cooked;
     final label = switch (notice.type) {
-      'new_user' =>
-        'This is the first time ${post.username} has posted — let’s welcome them to our community!',
-      'returning_user' =>
-        'It’s been a while since we’ve seen ${post.username} — welcome back!',
-      _ => notice.raw ?? 'Staff notice',
+      'new_user' => context.l10n.thisIsTheFirstTimeHasPostedLetSWelcomeThem(
+        (post.username).toString(),
+      ),
+      'returning_user' => context.l10n.itSBeenAWhileSinceWeVeSeenWelcomeBack(
+        (post.username).toString(),
+      ),
+      _ => notice.raw ?? context.l10n.staffNotice,
     };
     return DAlert(
       key: ValueKey('post-notice-${post.id}'),
@@ -5034,9 +5059,7 @@ class _PostInboundLinks extends StatelessWidget {
                 onPressed: onExpand,
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
-                label: Text(
-                  '$remaining more ${remaining == 1 ? 'link' : 'links'}',
-                ),
+                label: Text(context.l10n.moreTopicview(remaining)),
               ),
             ),
         ],
@@ -5080,29 +5103,35 @@ class _TopicMap extends StatelessWidget {
     _TopicMapStat(
       key: const ValueKey('topic-map-views'),
       value: topic.views < 1 ? 1 : topic.views,
-      label: topic.views <= 1 ? 'view' : 'views',
-      tooltip: 'Topic views',
+      label: topic.views <= 1 ? context.l10n.view : context.l10n.viewsTopicview,
+      tooltip: context.l10n.topicViews,
     ),
     if (topic.replyCount > 0)
       _TopicMapStat(
         key: const ValueKey('topic-map-replies'),
         value: topic.replyCount,
-        label: topic.replyCount == 1 ? 'reply' : 'replies',
-        tooltip: 'Replies',
+        label: topic.replyCount == 1
+            ? context.l10n.replyTopicview
+            : context.l10n.repliesTopicview,
+        tooltip: context.l10n.replies,
       ),
     if (topic.likeCount > 0)
       _TopicMapStat(
         key: const ValueKey('topic-map-likes'),
         value: topic.likeCount,
-        label: topic.likeCount == 1 ? 'like' : 'likes',
-        tooltip: 'Likes in this topic',
+        label: topic.likeCount == 1
+            ? context.l10n.likeTopicview
+            : context.l10n.likesTopicview,
+        tooltip: context.l10n.likesInThisTopic,
       ),
     if (topic.links.isNotEmpty)
       _TopicMapStat(
         key: const ValueKey('topic-map-links'),
         value: topic.links.length,
-        label: topic.links.length == 1 ? 'link' : 'links',
-        tooltip: 'Links in this topic',
+        label: topic.links.length == 1
+            ? context.l10n.linkTopicview
+            : context.l10n.links,
+        tooltip: context.l10n.linksInThisTopic,
         menuChildren: [
           for (final link in topic.links)
             LinkTarget(
@@ -5135,8 +5164,10 @@ class _TopicMap extends StatelessWidget {
       _TopicMapStat(
         key: const ValueKey('topic-map-users'),
         value: topic.participantCount,
-        label: topic.participantCount == 1 ? 'user' : 'users',
-        tooltip: 'Participants',
+        label: topic.participantCount == 1
+            ? context.l10n.userTopicview
+            : context.l10n.usersTopicview,
+        tooltip: context.l10n.participants,
         menuChildren: [
           for (final participant in topic.participants)
             DDropdownMenuItem(
@@ -5202,7 +5233,11 @@ class _TopicMap extends StatelessWidget {
               if (topic.hasSummary && !pluginActions.replacesSummary)
                 DButton(
                   key: const ValueKey('topic-summary-button'),
-                  label: Text(summary ? 'Show all' : 'Summarize'),
+                  label: Text(
+                    summary
+                        ? context.l10n.showAllTopicview
+                        : context.l10n.summarize,
+                  ),
                   onPressed: () => unawaited(_toggleSummary(context)),
                   icon: DIcon(summary ? DIcons.list : DIcons.layerGroup),
                   loading: summaryLoading,
@@ -5364,9 +5399,12 @@ class _TopicReadTime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text('$minutes min', style: theme.textTheme.bodyMedium),
         Text(
-          'read',
+          context.l10n.min((minutes).toString()),
+          style: theme.textTheme.bodyMedium,
+        ),
+        Text(
+          context.l10n.readTopicview,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -5514,9 +5552,9 @@ class _LoadingPostsRow extends StatelessWidget {
   const _LoadingPostsRow();
 
   @override
-  Widget build(BuildContext context) => const _TopicPaginationSkeleton(
-    key: ValueKey('topic-loading-more-skeleton'),
-    semanticsLabel: 'Loading more posts',
+  Widget build(BuildContext context) => _TopicPaginationSkeleton(
+    key: const ValueKey('topic-loading-more-skeleton'),
+    semanticsLabel: context.l10n.loadingMorePosts,
     nameWidthFactor: 0.3,
     lineWidthFactor: 0.92,
   );

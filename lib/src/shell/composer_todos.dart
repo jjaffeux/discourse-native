@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:flutter/services.dart';
@@ -217,7 +218,7 @@ class ComposerTodoMarker extends StatelessWidget {
                 ? DCheckboxSize.large
                 : DCheckboxSize.standard,
             value: checked,
-            semanticLabel: label.isEmpty ? 'To-do' : label,
+            semanticLabel: label.isEmpty ? context.l10n.toDo : label,
             readOnly: onChanged == null,
             onChanged: (_) => onChanged?.call(),
           ),
@@ -231,7 +232,7 @@ class ComposerTodoMarker extends StatelessWidget {
                 maxWidth: double.infinity,
                 child: IgnorePointer(
                   child: Text(
-                    'To-do',
+                    context.l10n.toDo,
                     maxLines: 1,
                     style: style.copyWith(
                       color: DTokens.of(context).mutedForeground,

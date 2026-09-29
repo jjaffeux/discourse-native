@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -340,10 +341,10 @@ class DDataTable<T> extends StatefulWidget {
     this.selectedFilteredRowCount,
     this.selectable = false,
     this.selectionEnabled,
-    this.selectionColumnLabel = 'Select',
-    this.selectAllLabel = 'Select all rows on this page',
+    this._selectionColumnLabel,
+    this._selectAllLabel,
     this.selectRowLabel,
-    this.empty = const Text('No results.'),
+    this._empty,
     this.semanticLabel,
     this.minimumWidth = 0,
     this.scrollController,
@@ -376,10 +377,14 @@ class DDataTable<T> extends StatefulWidget {
   final int? selectedFilteredRowCount;
   final bool selectable;
   final bool Function(T row)? selectionEnabled;
-  final String selectionColumnLabel;
-  final String selectAllLabel;
+  final String? _selectionColumnLabel;
+  String get selectionColumnLabel => _selectionColumnLabel ?? appL10n.select;
+  final String? _selectAllLabel;
+  String get selectAllLabel =>
+      _selectAllLabel ?? appL10n.selectAllRowsOnThisPage;
   final String Function(T row)? selectRowLabel;
-  final Widget empty;
+  final Widget? _empty;
+  Widget get empty => _empty ?? Text(appL10n.noResults);
   final String? semanticLabel;
   final double minimumWidth;
   final ScrollController? scrollController;
@@ -870,7 +875,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             end: 0,
             width: DResizableHandle.visualExtent(),
             child: DResizableHandle.standalone(
-              semanticLabel: 'Resize ${column.label} column',
+              semanticLabel: appL10n.resizeColumn((column.label).toString()),
               value: _columnWidth(column),
               min: column.minWidth,
               max: column.maxWidth,
@@ -928,7 +933,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
               value: selected,
               enabled: enabled,
               semanticLabel:
-                  widget.selectRowLabel?.call(row) ?? 'Select row ${index + 1}',
+                  widget.selectRowLabel?.call(row) ??
+                  appL10n.selectRow((index + 1).toString()),
               onChanged: enabled ? (value) => select(value == true) : null,
             ),
           ),
@@ -963,9 +969,9 @@ class DDataTableColumnHeader extends StatelessWidget {
     this.sortDirection,
     this.onSortChanged,
     this.onHide,
-    this.ascendingLabel = 'Sort ascending',
-    this.descendingLabel = 'Sort descending',
-    this.hideLabel = 'Hide column',
+    this._ascendingLabel,
+    this._descendingLabel,
+    this._hideLabel,
     this.size = DControlSize.small,
   });
 
@@ -973,9 +979,12 @@ class DDataTableColumnHeader extends StatelessWidget {
   final DDataTableSortDirection? sortDirection;
   final ValueChanged<DDataTableSortDirection?>? onSortChanged;
   final VoidCallback? onHide;
-  final String ascendingLabel;
-  final String descendingLabel;
-  final String hideLabel;
+  final String? _ascendingLabel;
+  String get ascendingLabel => _ascendingLabel ?? appL10n.sortAscending;
+  final String? _descendingLabel;
+  String get descendingLabel => _descendingLabel ?? appL10n.sortDescending;
+  final String? _hideLabel;
+  String get hideLabel => _hideLabel ?? appL10n.hideColumn;
   final DControlSize size;
 
   @override
@@ -996,7 +1005,7 @@ class DDataTableColumnHeader extends StatelessWidget {
     final iconSize = softHeader ? 12.0 : 16.0;
     return DDropdownMenu(
       content: DDropdownMenuContent(
-        semanticLabel: '$title column options',
+        semanticLabel: context.l10n.columnOptions((title).toString()),
         align: DPopoverAlign.start,
         children: [
           if (onSortChanged != null) ...[
@@ -1052,9 +1061,12 @@ class DDataTableColumnHeader extends StatelessWidget {
             expanded: trigger.open,
             focusNode: trigger.focusNode,
             semanticLabel: switch (sortDirection) {
-              DDataTableSortDirection.ascending => '$title, sorted ascending',
-              DDataTableSortDirection.descending => '$title, sorted descending',
-              null => '$title, not sorted',
+              DDataTableSortDirection.ascending => context.l10n.sortedAscending(
+                (title).toString(),
+              ),
+              DDataTableSortDirection.descending =>
+                context.l10n.sortedDescending((title).toString()),
+              null => context.l10n.notSorted((title).toString()),
             },
             onPressed: trigger.toggle,
           ),
@@ -1071,16 +1083,18 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
     required this.columns,
     required this.hiddenColumnIds,
     required this.onChanged,
-    this.label = 'Columns',
-    this.menuLabel = 'Toggle columns',
+    this._label,
+    this._menuLabel,
     this.size = DControlSize.regular,
   });
 
   final List<DDataTableColumn<T>> columns;
   final Set<String> hiddenColumnIds;
   final ValueChanged<Set<String>>? onChanged;
-  final String label;
-  final String menuLabel;
+  final String? _label;
+  String get label => _label ?? appL10n.columns;
+  final String? _menuLabel;
+  String get menuLabel => _menuLabel ?? appL10n.toggleColumns;
   final DControlSize size;
 
   @override
@@ -1133,14 +1147,15 @@ class DDataTableFilterField extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.hintText = 'Filter…',
+    this._hintText,
     this.maxWidth = 384,
     this.size = DControlSize.regular,
   });
 
   final String value;
   final ValueChanged<String>? onChanged;
-  final String hintText;
+  final String? _hintText;
+  String get hintText => _hintText ?? appL10n.filter;
   final double maxWidth;
   final DControlSize size;
 
@@ -1173,7 +1188,10 @@ class DDataTableSelectionSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     builder?.call(selectedCount, totalCount) ??
-        '$selectedCount of $totalCount row(s) selected.',
+        context.l10n.ofRowSSelected(
+          (selectedCount).toString(),
+          (totalCount).toString(),
+        ),
     style: Theme.of(context).textTheme.bodySmall?.copyWith(
       color: DTokens.of(context).mutedForeground,
       fontSize: DiscourseTypography.sm,
@@ -1195,12 +1213,12 @@ class DDataTablePagination extends StatelessWidget {
     required this.onPageChanged,
     required this.onPageSizeChanged,
     List<int> pageSizeOptions = const [10, 20, 25, 30, 40, 50],
-    this.rowsPerPageLabel = 'Rows per page',
+    this._rowsPerPageLabel,
     this.pageLabel,
     this.selectionLabel,
-    this.paginationLabel = 'Table pagination',
-    this.previousLabel = 'Previous',
-    this.nextLabel = 'Next',
+    this._paginationLabel,
+    this._previousLabel,
+    this._nextLabel,
     this.enabled = true,
   }) : assert(pageSizeOptions.isNotEmpty),
        assert(pageSizeOptions.isEmpty || pageSizeOptions.first > 0),
@@ -1210,12 +1228,16 @@ class DDataTablePagination extends StatelessWidget {
   final ValueChanged<int>? onPageChanged;
   final ValueChanged<int>? onPageSizeChanged;
   final List<int> pageSizeOptions;
-  final String rowsPerPageLabel;
+  final String? _rowsPerPageLabel;
+  String get rowsPerPageLabel => _rowsPerPageLabel ?? appL10n.rowsPerPage;
   final String Function(int page, int pageCount)? pageLabel;
   final String Function(int selected, int total)? selectionLabel;
-  final String paginationLabel;
-  final String previousLabel;
-  final String nextLabel;
+  final String? _paginationLabel;
+  String get paginationLabel => _paginationLabel ?? appL10n.tablePagination;
+  final String? _previousLabel;
+  String get previousLabel => _previousLabel ?? appL10n.previous;
+  final String? _nextLabel;
+  String get nextLabel => _nextLabel ?? appL10n.next;
   final bool enabled;
 
   @override
@@ -1301,7 +1323,10 @@ class DDataTablePagination extends StatelessWidget {
       width: 100,
       child: Text(
         pageLabel?.call(state.page, metrics.pageCount) ??
-            'Page ${state.page} of ${metrics.pageCount}',
+            context.l10n.pageOf(
+              (state.page).toString(),
+              (metrics.pageCount).toString(),
+            ),
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontSize: DiscourseTypography.sm,

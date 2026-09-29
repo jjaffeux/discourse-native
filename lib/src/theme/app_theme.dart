@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -642,7 +643,7 @@ abstract final class AppTheme {
       );
       final sidebarPalette = ForumTheme(
         id: 'sidebar',
-        name: 'Sidebar',
+        name: appL10n.sidebar,
         brightness: Brightness.dark,
         primary: foreground,
         secondary: background,

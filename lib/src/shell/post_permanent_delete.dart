@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
 import 'shell_controller.dart';
 
-const _confirmationPhrase = 'permanently delete';
+String get _confirmationPhrase => appL10n.permanentlyDeletePostpermanentdelete;
 
 Future<void> showPostPermanentDelete({
   required BuildContext context,
@@ -27,11 +28,11 @@ Future<void> showPostPermanentDelete({
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('post-permanent-delete-refusal'),
-        title: const Text('Cannot permanently delete'),
+        title: Text(appL10n.cannotPermanentlyDelete),
         content: Text(refusal),
         actions: [
           DButton(
-            label: const Text('OK'),
+            label: Text(appL10n.oK),
             onPressed: () => Navigator.of(context).pop(),
             variant: DButtonVariant.primary,
           ),
@@ -99,7 +100,11 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
     final target = widget.target.deletesTopic ? 'topic' : 'post';
     return AlertDialog(
       key: const ValueKey('post-permanent-delete-dialog'),
-      title: Text('Permanently delete $target?'),
+      title: Text(
+        context.l10n.permanentlyDeletePostpermanentdeleteValue(
+          (target).toString(),
+        ),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -107,11 +112,12 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'This cannot be undone. The $target will be removed from the '
-              'database.',
+              context.l10n.thisCannotBeUndoneTheWillBeRemovedFromTheDatabase(
+                (target).toString(),
+              ),
             ),
             const SizedBox(height: 14),
-            const Text('Type “$_confirmationPhrase” to confirm.'),
+            Text(context.l10n.typeToConfirm((_confirmationPhrase).toString())),
             const SizedBox(height: 8),
             DInput(
               key: const ValueKey('post-permanent-delete-confirmation'),
@@ -134,12 +140,12 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
       ),
       actions: [
         DButton(
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         DButton(
           key: const ValueKey('post-permanent-delete-submit'),
-          label: const Text('Permanently delete'),
+          label: Text(context.l10n.permanentlyDelete),
           onPressed: !_saving && _matches ? () => unawaited(_delete()) : null,
           variant: DButtonVariant.destructive,
           loading: _saving,

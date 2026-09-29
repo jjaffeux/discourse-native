@@ -1,31 +1,44 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'composer_list_source.dart';
 import 'composer_todo_source.dart';
 
 /// Structural units in source Markdown. Inline components stay inside text.
 enum ComposerBlockKind {
-  paragraph('Paragraph'),
-  heading('Heading'),
-  list('List'),
-  todo('To-do'),
-  quote('Quote'),
-  code('Code'),
-  divider('Divider'),
-  component('Block'),
-  opaque('Source block');
+  paragraph(),
+  heading(),
+  list(),
+  todo(),
+  quote(),
+  code(),
+  divider(),
+  component(),
+  opaque();
 
-  const ComposerBlockKind(this.label);
-  final String label;
+  const ComposerBlockKind();
+  String get label => switch (this) {
+    paragraph => appL10n.paragraph,
+    heading => appL10n.heading,
+    list => appL10n.list,
+    todo => appL10n.toDo,
+    quote => appL10n.quote,
+    code => appL10n.code,
+    divider => appL10n.divider,
+    component => appL10n.block,
+    opaque => appL10n.sourceBlock,
+  };
 }
 
 /// A complete block extent supplied by an existing component parser.
 class ComposerBlockAtom {
-  const ComposerBlockAtom(this.start, this.end, {this.label = 'Block'});
+  const ComposerBlockAtom(this.start, this.end, {this._label});
 
   final int start;
   final int end;
-  final String label;
+  final String? _label;
+  String get label => _label ?? appL10n.block;
 }
 
 class ComposerBodyBlock {

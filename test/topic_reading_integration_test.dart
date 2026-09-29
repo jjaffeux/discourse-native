@@ -4650,11 +4650,11 @@ void _registerTopicReadingTests() {
     ) async {
       SharedPreferences.setMockInitialValues({});
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
-      const recommendations = TopicRecommendations(
+      final recommendations = TopicRecommendations(
         sources: [
           TopicRecommendationSource(
             definition: coreSuggestedTopicRecommendationSource,
-            topics: [
+            topics: const [
               Topic(
                 id: 8,
                 title: 'Locations :earth_africa:',
@@ -4664,7 +4664,7 @@ void _registerTopicReadingTests() {
           ),
           TopicRecommendationSource(
             definition: discourseAiRelatedTopicRecommendationSource,
-            topics: [
+            topics: const [
               Topic(
                 id: 9,
                 title: 'An AI topic :sparkles:',
@@ -4672,13 +4672,15 @@ void _registerTopicReadingTests() {
               ),
             ],
           ),
-          TopicRecommendationSource(
+          const TopicRecommendationSource(
             definition: TopicRecommendationSourceDefinition(
               id: TopicRecommendationSourceId('test/nearby'),
               label: 'Nearby',
               icon: DIcons.globe,
             ),
-            topics: [Topic(id: 10, title: 'A nearby topic', slug: 'nearby')],
+            topics: [
+              Topic(id: 10, title: 'A nearby topic', slug: 'nearby'),
+            ],
           ),
         ],
       );
@@ -4839,11 +4841,11 @@ void _registerTopicReadingTests() {
     testWidgets(
       'shows a single recommendation source without tabs and uses the topic list card',
       (tester) async {
-        const recommendations = TopicRecommendations(
+        final recommendations = TopicRecommendations(
           sources: [
             TopicRecommendationSource(
               definition: coreSuggestedTopicRecommendationSource,
-              topics: [
+              topics: const [
                 Topic(
                   id: 8,
                   title: 'A compact suggested topic',
@@ -4892,11 +4894,11 @@ void _registerTopicReadingTests() {
     testWidgets('remembers the more topics tab for the forum', (tester) async {
       SharedPreferences.setMockInitialValues({});
       addTearDown(() => SharedPreferences.setMockInitialValues({}));
-      const recommendations = TopicRecommendations(
+      final recommendations = TopicRecommendations(
         sources: [
           TopicRecommendationSource(
             definition: coreSuggestedTopicRecommendationSource,
-            topics: [
+            topics: const [
               Topic(
                 id: 8,
                 title: 'A suggested topic',
@@ -4906,7 +4908,7 @@ void _registerTopicReadingTests() {
           ),
           TopicRecommendationSource(
             definition: discourseAiRelatedTopicRecommendationSource,
-            topics: [
+            topics: const [
               Topic(id: 9, title: 'An AI related topic', slug: 'an-ai-topic'),
             ],
           ),

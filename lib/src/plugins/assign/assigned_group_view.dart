@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'assign_services.dart';
@@ -172,7 +173,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                'Topics',
+                context.l10n.topics,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -183,8 +184,8 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 child: DInput(
                   key: const ValueKey('assigned-topic-search'),
                   initialValue: state.query.search,
-                  labelText: 'Filter assignments',
-                  hintText: 'Words in the topic title',
+                  labelText: context.l10n.filterAssignments,
+                  hintText: context.l10n.wordsInTheTopicTitle,
                   onSubmitted: (search) => onQueryChanged(
                     AssignedGroupTopicQuery(
                       order: state.query.order,
@@ -198,7 +199,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 builder: (context, trigger) => DButton.iconOnly(
                   icon: const DIcon(DIcons.filter),
                   key: const ValueKey('assigned-query-menu'),
-                  tooltip: 'Filter assignments',
+                  tooltip: context.l10n.filterAssignments,
                   variant: DButtonVariant.secondary,
                   focusNode: trigger.focusNode,
                   hasPopup: true,
@@ -215,9 +216,9 @@ class AssignedGroupPresentationView extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            const DBadge(
+            DBadge(
               variant: DBadgeVariant.secondary,
-              child: Text('Assigned'),
+              child: Text(context.l10n.assigned),
             ),
             const Spacer(),
             DPopover(
@@ -241,7 +242,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 builder: (context, trigger) => DButton(
                   key: const ValueKey('assigned-person-menu'),
                   label: Text(switch (state.filter) {
-                    AssignedGroupEveryoneFilter() => 'Everyone',
+                    AssignedGroupEveryoneFilter() => context.l10n.everyone,
                     AssignedGroupDirectFilter() => '@${state.groupName}',
                     AssignedGroupMemberFilter(:final usernameLower) =>
                       '@$usernameLower',
@@ -343,7 +344,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                     child: Center(
                       child: DButton(
                         key: const ValueKey('assigned-load-more-topics'),
-                        label: const Text('Load more assignments'),
+                        label: Text(appL10n.loadMoreAssignments),
                         onPressed: feed.loadingMore ? null : onLoadMoreTopics,
                       ),
                     ),
@@ -413,7 +414,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
     final theme = Theme.of(context);
     final options = <_AssignedPersonOption>[
       _AssignedPersonOption(
-        label: 'Everyone',
+        label: context.l10n.everyone,
         count: widget.members.assignmentCount,
         filter: const AssignedGroupFilter.everyone(),
         icon: DIcons.users,
@@ -439,7 +440,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
         children: [
           Expanded(
             child: Text(
-              'Assigned to',
+              context.l10n.assignedToAssignmenttopiclist,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -449,8 +450,8 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             key: const ValueKey('assigned-member-search-toggle'),
             icon: DIcon(_showSearch ? DIcons.xmark : DIcons.magnifyingGlass),
             tooltip: _showSearch
-                ? 'Hide person search'
-                : 'Find assigned person',
+                ? context.l10n.hidePersonSearch
+                : context.l10n.findAssignedPerson,
             variant: DButtonVariant.ghost,
             size: DButtonSize.small,
             onPressed: () => setState(() => _showSearch = !_showSearch),
@@ -464,7 +465,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             child: DInput(
               key: const ValueKey('assigned-member-search'),
               autofocus: true,
-              labelText: 'Find assigned person',
+              labelText: context.l10n.findAssignedPerson,
               prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
               textInputAction: TextInputAction.search,
               onSubmitted: widget.onMemberSearch,
@@ -637,7 +638,7 @@ class _AssignedError extends StatelessWidget {
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(
-          label: const Text('Try again'),
+          label: Text(context.l10n.tryAgain),
           onPressed: onRetry,
           variant: DButtonVariant.link,
         ),
@@ -650,17 +651,17 @@ class _AssignedEmpty extends StatelessWidget {
   const _AssignedEmpty();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
       child: DEmpty(
         children: [
           DEmptyHeader(
             children: [
-              DEmptyMedia(
+              const DEmptyMedia(
                 variant: DEmptyMediaVariant.icon,
                 child: DIcon(DIcons.userPlus),
               ),
-              DEmptyTitle('No active assignments match this filter.'),
+              DEmptyTitle(context.l10n.noActiveAssignmentsMatchThisFilter),
             ],
           ),
         ],

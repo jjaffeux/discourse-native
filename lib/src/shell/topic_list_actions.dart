@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
@@ -116,13 +117,13 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     content: DPopoverContent(
       width: 400,
       align: DPopoverAlign.end,
-      semanticLabel: 'Filter topics',
+      semanticLabel: context.l10n.filterTopics,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 12,
         children: [
-          const Text('Filter topics'),
+          Text(context.l10n.filterTopics),
           TopicFilterInput(
             key: ValueKey(_presetRevision),
             siteUrl: widget.siteUrl,
@@ -131,7 +132,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             categories: ShellScope.read(
               context,
             ).filterCategoriesFor(widget.siteUrl),
-            hintText: 'Add a filter…',
+            hintText: context.l10n.addAFilter,
             tokenized: true,
             multiline: true,
             padding: EdgeInsets.zero,
@@ -142,16 +143,16 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             spacing: DSpacing.controlGap,
             runSpacing: 8,
             children: [
-              for (final (label, query) in const [
-                ('Open topics', 'status:open'),
-                ('Unanswered', 'status:noreplies'),
-                ('Closed topics', 'status:closed'),
-                ('Bookmarked', 'in:bookmarked'),
-                ('Unread replies', 'in:new-replies'),
-                ('New topics', 'in:new-topics'),
-                ('Unseen', 'in:unseen'),
-                ('Watching', 'in:watching'),
-                ('Tracking', 'in:tracking'),
+              for (final (label, query) in [
+                (context.l10n.openTopics, 'status:open'),
+                (context.l10n.unanswered, 'status:noreplies'),
+                (context.l10n.closedTopics, 'status:closed'),
+                (context.l10n.bookmarked, 'in:bookmarked'),
+                (context.l10n.unreadReplies, 'in:new-replies'),
+                (context.l10n.newTopicsTopiclistactions, 'in:new-topics'),
+                (context.l10n.unseen, 'in:unseen'),
+                (context.l10n.watching, 'in:watching'),
+                (context.l10n.tracking, 'in:tracking'),
               ])
                 DToggle(
                   pressed: splitTopicFilterQuery(_query).contains(query),
@@ -173,14 +174,14 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             children: [
               if (widget.query.isNotEmpty) ...[
                 DButton(
-                  label: const Text('Clear filter'),
+                  label: Text(context.l10n.clearFilter),
                   variant: DButtonVariant.ghost,
                   onPressed: () => _apply(''),
                 ),
                 const Spacer(),
               ],
               DButton(
-                label: const Text('Apply filter'),
+                label: Text(context.l10n.applyFilter),
                 onPressed: () => _apply(_query),
               ),
             ],
@@ -191,7 +192,9 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     child: DPopoverTrigger(
       builder: (context, trigger) => DButton.iconOnly(
         key: const ValueKey('topic-list-filter'),
-        tooltip: widget.query.isEmpty ? 'Filter topics' : 'Edit active filter',
+        tooltip: widget.query.isEmpty
+            ? context.l10n.filterTopics
+            : context.l10n.editActiveFilter,
         icon: const DIcon(DNativeIcons.filterLines),
         size: DButtonSize.large,
         variant: widget.query.isEmpty

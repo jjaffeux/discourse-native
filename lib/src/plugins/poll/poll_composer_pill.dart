@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'poll_composer_parser.dart';
@@ -26,8 +27,12 @@ String pollComposerSummary(PollComposerBlock block, {int maximumOptions = 20}) {
     _ => block.optionSources.length,
   };
   final noun = optionCount == 1 ? 'option' : 'options';
-  return 'Poll · ${title == null || title.isEmpty ? 'Untitled' : title} · '
-      '$optionCount $noun';
+  return appL10n.pollPollcomposerpill(
+    (title == null || title.isEmpty).toString(),
+    (optionCount).toString(),
+    (noun).toString(),
+    ((!(title == null || title.isEmpty)) ? (title) : '').toString(),
+  );
 }
 
 int _generatedOptionCount({
@@ -144,7 +149,7 @@ class PollComposerPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '$label. Activate to edit.',
+    label: context.l10n.activateToEdit((label).toString()),
     button: true,
     selected: highlighted,
     child: Pill(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/post.dart';
@@ -46,10 +47,13 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
         .where((name) => user?.groups.contains(name) == true)
         .toList();
     final inboxes = [
-      if (topic.allowedMessageUsers.contains(user?.username)) 'your inbox',
-      for (final group in groups) 'the $group inbox',
+      if (topic.allowedMessageUsers.contains(user?.username))
+        context.l10n.yourInbox,
+      for (final group in groups) context.l10n.theInbox((group).toString()),
     ];
-    final scope = inboxes.isEmpty ? 'your inboxes' : inboxes.join(' and ');
+    final scope = inboxes.isEmpty
+        ? context.l10n.yourInboxes
+        : inboxes.join(context.l10n.and);
     final archived = topic.messageArchived;
     final VoidCallback? onPressed = _busy
         ? null
@@ -73,7 +77,9 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
             }
           };
     final icon = DIcon(archived ? DIcons.envelope : DIcons.folder);
-    final tooltip = archived ? 'Move to $scope' : 'Archive from $scope';
+    final tooltip = archived
+        ? context.l10n.moveTo((scope).toString())
+        : context.l10n.archiveFrom((scope).toString());
     if (widget.compact) {
       return DButton.iconOnly(
         key: const ValueKey('message-archive-button'),
@@ -89,7 +95,7 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
       key: const ValueKey('message-archive-button'),
       onPressed: onPressed,
       icon: icon,
-      label: Text(archived ? 'Move to inbox' : 'Archive'),
+      label: Text(archived ? context.l10n.moveToInbox : context.l10n.archive),
       tooltip: tooltip,
       loading: _busy,
       variant: DButtonVariant.outline,
@@ -103,10 +109,10 @@ class MessageArchiveButtonPlaceholder extends StatelessWidget {
   const MessageArchiveButtonPlaceholder({super.key});
 
   @override
-  Widget build(BuildContext context) => const DButton(
+  Widget build(BuildContext context) => DButton(
     onPressed: null,
-    icon: DIcon(DIcons.folder),
-    label: Text('Archive'),
+    icon: const DIcon(DIcons.folder),
+    label: Text(context.l10n.archive),
     variant: DButtonVariant.outline,
     size: DButtonSize.regular,
   );
@@ -132,11 +138,15 @@ Future<void> _moveMessage({
   }
   toasts.add(
     DToastOptions(
-      title: error ?? (archived ? 'Archived from $scope' : 'Moved to $scope'),
+      title:
+          error ??
+          (archived
+              ? appL10n.archivedFrom((scope).toString())
+              : appL10n.movedTo((scope).toString())),
       type: error == null ? DToastType.success : DToastType.error,
       action: error == null && offerUndo
           ? DToastAction(
-              label: 'Undo',
+              label: appL10n.undo,
               dismissOnPressed: true,
               onPressed: () {
                 if (!lease.isCurrent) return;

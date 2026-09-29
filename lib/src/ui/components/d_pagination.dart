@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'd_button.dart';
@@ -109,13 +110,14 @@ class DPagination extends StatelessWidget {
     super.key,
     required this.child,
     this.alignment = Alignment.center,
-    this.semanticLabel = 'Pagination',
+    this._semanticLabel,
     this.semanticValue,
   });
 
   final Widget child;
   final AlignmentGeometry alignment;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.pagination;
   final String? semanticValue;
 
   @override
@@ -207,7 +209,9 @@ class DPaginationLink extends StatelessWidget {
       isLink: true,
       semanticLabel:
           semanticLabel ??
-          (isCurrent ? 'Page $page, current page' : 'Go to page $page'),
+          (isCurrent
+              ? context.l10n.pageCurrentPage((page).toString())
+              : context.l10n.goToPage((page).toString())),
       focusNode: focusNode,
       autofocus: autofocus,
     ),
@@ -219,8 +223,8 @@ class DPaginationPrevious extends StatelessWidget {
     super.key,
     this.size = DButtonSize.regular,
     required this.onPressed,
-    this.text = 'Previous',
-    this.semanticLabel = 'Go to previous page',
+    this._text,
+    this._semanticLabel,
     this.showText,
     this.variant = DButtonVariant.ghost,
     this.focusNode,
@@ -228,8 +232,10 @@ class DPaginationPrevious extends StatelessWidget {
 
   final DButtonSize size;
   final VoidCallback? onPressed;
-  final String text;
-  final String semanticLabel;
+  final String? _text;
+  String get text => _text ?? appL10n.previous;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.goToPreviousPage;
   final bool? showText;
   final DButtonVariant variant;
   final FocusNode? focusNode;
@@ -252,8 +258,8 @@ class DPaginationNext extends StatelessWidget {
     super.key,
     this.size = DButtonSize.regular,
     required this.onPressed,
-    this.text = 'Next',
-    this.semanticLabel = 'Go to next page',
+    this._text,
+    this._semanticLabel,
     this.showText,
     this.variant = DButtonVariant.ghost,
     this.focusNode,
@@ -261,8 +267,10 @@ class DPaginationNext extends StatelessWidget {
 
   final DButtonSize size;
   final VoidCallback? onPressed;
-  final String text;
-  final String semanticLabel;
+  final String? _text;
+  String get text => _text ?? appL10n.next;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.goToNextPage;
   final bool? showText;
   final DButtonVariant variant;
   final FocusNode? focusNode;
@@ -285,14 +293,15 @@ class DPaginationFirst extends StatelessWidget {
     super.key,
     this.size = DButtonSize.regular,
     required this.onPressed,
-    this.semanticLabel = 'Go to first page',
+    this._semanticLabel,
     this.variant = DButtonVariant.ghost,
     this.focusNode,
   });
 
   final DButtonSize size;
   final VoidCallback? onPressed;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.goToFirstPage;
   final DButtonVariant variant;
   final FocusNode? focusNode;
 
@@ -313,14 +322,15 @@ class DPaginationLast extends StatelessWidget {
     super.key,
     this.size = DButtonSize.regular,
     required this.onPressed,
-    this.semanticLabel = 'Go to last page',
+    this._semanticLabel,
     this.variant = DButtonVariant.ghost,
     this.focusNode,
   });
 
   final DButtonSize size;
   final VoidCallback? onPressed;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.goToLastPage;
   final DButtonVariant variant;
   final FocusNode? focusNode;
 
@@ -340,11 +350,12 @@ class DPaginationLast extends StatelessWidget {
 class DPaginationEllipsis extends StatelessWidget {
   const DPaginationEllipsis({
     super.key,
-    this.semanticLabel = 'More pages',
+    this._semanticLabel,
     this.excludeFromSemantics = true,
   });
 
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.morePages;
   final bool excludeFromSemantics;
 
   @override
@@ -381,9 +392,9 @@ class DPaginationNavigation extends StatefulWidget {
     this.siblingCount = 1,
     this.boundaryCount = 1,
     this.alignment = Alignment.center,
-    this.semanticLabel = 'Pagination',
-    this.previousText = 'Previous',
-    this.nextText = 'Next',
+    this._semanticLabel,
+    this._previousText,
+    this._nextText,
     this.showDirectionText,
     this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
@@ -409,9 +420,9 @@ class DPaginationNavigation extends StatefulWidget {
     this.siblingCount = 1,
     this.boundaryCount = 1,
     this.alignment = Alignment.center,
-    this.semanticLabel = 'Pagination',
-    this.previousText = 'Previous',
-    this.nextText = 'Next',
+    this._semanticLabel,
+    this._previousText,
+    this._nextText,
     this.showDirectionText,
     this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
@@ -437,9 +448,9 @@ class DPaginationNavigation extends StatefulWidget {
     this.siblingCount = 1,
     this.boundaryCount = 1,
     this.alignment = Alignment.center,
-    this.semanticLabel = 'Pagination',
-    this.previousText = 'Previous',
-    this.nextText = 'Next',
+    this._semanticLabel,
+    this._previousText,
+    this._nextText,
     this.showDirectionText,
     this.size = DButtonSize.regular,
     this.directionVariant = DButtonVariant.ghost,
@@ -465,9 +476,12 @@ class DPaginationNavigation extends StatefulWidget {
   final int siblingCount;
   final int boundaryCount;
   final AlignmentGeometry alignment;
-  final String semanticLabel;
-  final String previousText;
-  final String nextText;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.pagination;
+  final String? _previousText;
+  String get previousText => _previousText ?? appL10n.previous;
+  final String? _nextText;
+  String get nextText => _nextText ?? appL10n.next;
   final bool? showDirectionText;
   final DButtonSize size;
   final DButtonVariant directionVariant;
@@ -635,8 +649,12 @@ class _DPaginationNavigationState extends State<DPaginationNavigation> {
       alignment: widget.alignment,
       semanticLabel: widget.semanticLabel,
       semanticValue: pageCount == 0
-          ? 'No pages, $pageSize items per page'
-          : 'Page $page of $pageCount, $pageSize items per page',
+          ? context.l10n.noPagesItemsPerPage((pageSize).toString())
+          : context.l10n.pageOfItemsPerPage(
+              (page).toString(),
+              (pageCount).toString(),
+              (pageSize).toString(),
+            ),
       child: DPaginationContent(children: children),
     );
   }

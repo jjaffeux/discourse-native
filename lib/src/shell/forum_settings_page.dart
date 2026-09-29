@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -39,7 +40,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                   const DIcon(DIcons.gear),
                   const SizedBox(width: 10),
                   Text(
-                    'Settings',
+                    context.l10n.settings,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
@@ -50,15 +51,21 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                 onChanged: (value) {
                   if (value != null) setState(() => _section = value);
                 },
-                children: const [
+                children: [
                   DTabList<String>(
                     variant: DTabListVariant.line,
                     children: [
-                      DTabTrigger(value: 'display', child: Text('Display')),
-                      DTabTrigger(value: 'themes', child: Text('Themes')),
+                      DTabTrigger(
+                        value: 'display',
+                        child: Text(context.l10n.display),
+                      ),
+                      DTabTrigger(
+                        value: 'themes',
+                        child: Text(context.l10n.themes),
+                      ),
                       DTabTrigger(
                         value: 'accessibility',
-                        child: Text('Accessibility'),
+                        child: Text(context.l10n.accessibility),
                       ),
                     ],
                   ),
@@ -85,12 +92,12 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                     builder: (context, _) => DSwitchTile(
                       key: const ValueKey('disable-gif-animations-switch'),
                       hoverHighlight: true,
-                      title: const DLabel(
-                        child: Text('Disable GIF animations'),
+                      title: DLabel(
+                        child: Text(context.l10n.disableGIFAnimations),
                       ),
-                      subtitle: const DFieldDescription(
+                      subtitle: DFieldDescription(
                         child: Text(
-                          'Pause GIFs by default in posts and chat messages.',
+                          context.l10n.pauseGIFsByDefaultInPostsAndChatMessages,
                         ),
                       ),
                       value: appSettings.disableGifAnimations,

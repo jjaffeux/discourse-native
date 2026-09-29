@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'voice_call_port.dart';
@@ -114,9 +115,9 @@ final class VoiceCallControllerPort extends ChangeNotifier
     try {
       return _readRuntimeState();
     } catch (_) {
-      return const VoiceCallPortState(
+      return VoiceCallPortState(
         supported: true,
-        failureMessage: 'Voice calling is unavailable.',
+        failureMessage: appL10n.voiceCallingIsUnavailable,
       );
     }
   }
@@ -155,9 +156,9 @@ final class VoiceCallControllerPort extends ChangeNotifier
   static String _failureMessage(VoiceCallAction action, Object error) {
     if (error is WriteException) return error.message;
     return switch (action) {
-      VoiceCallAction.openRoom => "Couldn't open the voice room.",
-      VoiceCallAction.toggleMuted => "Couldn't update the microphone.",
-      VoiceCallAction.leave => "Couldn't leave the voice room.",
+      VoiceCallAction.openRoom => appL10n.couldnTOpenTheVoiceRoom,
+      VoiceCallAction.toggleMuted => appL10n.couldnTUpdateTheMicrophone,
+      VoiceCallAction.leave => appL10n.couldnTLeaveTheVoiceRoom,
     };
   }
 

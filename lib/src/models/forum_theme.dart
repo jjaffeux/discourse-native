@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'forum_background.dart';
@@ -38,24 +39,26 @@ final class ForumTheme {
         name.trim().length > 48 ||
         (mode != 'light' && mode != 'dark') ||
         colors is! Map) {
-      throw const FormatException('Invalid theme.');
+      throw FormatException(appL10n.invalidTheme);
     }
     Color color(String key) {
       final value = colors[key];
       final parsed = value is String ? parseHex(value) : null;
-      if (parsed == null) throw FormatException('Invalid $key color.');
+      if (parsed == null) {
+        throw FormatException(appL10n.invalidColor((key).toString()));
+      }
       return parsed;
     }
 
     for (final key in ['windowGradient', 'darkerSidebars']) {
       if (json.containsKey(key) && json[key] is! bool) {
-        throw FormatException('Invalid $key option.');
+        throw FormatException(appL10n.invalidOption((key).toString()));
       }
     }
 
     final tint = json['tint'] ?? 0;
     if (tint is! num || !tint.isFinite || tint < 0 || tint > 1) {
-      throw const FormatException('Invalid tint.');
+      throw FormatException(appL10n.invalidTint);
     }
 
     final rawAlternate = json['alternate'];
@@ -63,11 +66,11 @@ final class ForumTheme {
     if (rawAlternate != null) {
       if (rawAlternate is! Map<String, dynamic> ||
           rawAlternate.containsKey('alternate')) {
-        throw const FormatException('Invalid alternate palette.');
+        throw FormatException(appL10n.invalidAlternatePalette);
       }
       alternate = ForumTheme.fromJson(rawAlternate, id: id);
       if (alternate.brightness.name == mode) {
-        throw const FormatException('Duplicate palette mode.');
+        throw FormatException(appL10n.duplicatePaletteMode);
       }
     }
     return ForumTheme(
@@ -112,7 +115,7 @@ final class ForumTheme {
 
   factory ForumTheme.fromPalette(ResolvedSitePalette palette) => ForumTheme(
     id: 'forum',
-    name: 'Forum default',
+    name: appL10n.forumDefault,
     brightness: palette.brightness,
     primary: palette.primary,
     secondary: palette.secondary,

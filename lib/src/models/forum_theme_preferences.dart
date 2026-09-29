@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'forum_background.dart';
@@ -37,7 +38,7 @@ final class ForumThemePreferences {
     return switch (json['version']) {
       2 => _read(json, customs),
       1 => _migrate(json, customs),
-      _ => throw const FormatException('Invalid themes.'),
+      _ => throw FormatException(appL10n.invalidThemes),
     };
   }
 
@@ -350,7 +351,9 @@ final class ForumThemePreferences {
     if (light == null) return keep();
     final dark = shown(Brightness.dark) ?? light.forBrightness(Brightness.dark);
     var copy = 1;
-    String name() => copy == 1 ? 'My theme' : 'My theme $copy';
+    String name() => copy == 1
+        ? appL10n.myTheme
+        : appL10n.myThemeForumthemepreferences((copy).toString());
     String id() => copy == 1 ? 'custom-migrated' : 'custom-migrated-$copy';
     while (customs.any((theme) => theme.name == name() || theme.id == id())) {
       copy++;

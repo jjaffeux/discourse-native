@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 abstract final class ChatNotificationTypes {
   static const mention = NotificationWireType(29, 'chat_mention');
@@ -63,8 +64,8 @@ ResolvedNotification? _decodeChatNotification(
                   data['username'] ??
                   data['original_username'],
             ) ??
-            'Someone';
-  final channel = jsonText(data['chat_channel_title']) ?? 'chat';
+            appL10n.someone;
+  final channel = jsonText(data['chat_channel_title']) ?? appL10n.chatLowercase;
 
   return ResolvedNotification(
     presentation: NotificationPresentation(
@@ -77,12 +78,12 @@ ResolvedNotification? _decodeChatNotification(
       },
       actor: actor,
       phrase: switch (type) {
-        29 => 'mentioned you in $channel',
-        30 => 'sent a message in $channel',
-        31 => 'invited you to $channel',
-        33 => 'quoted your chat message',
-        40 => 'There is a new reply in a thread you follow',
-        _ => 'New chat notification',
+        29 => appL10n.mentionedYouIn((channel).toString()),
+        30 => appL10n.sentAMessageIn((channel).toString()),
+        31 => appL10n.invitedYouTo((channel).toString()),
+        33 => appL10n.quotedYourChatMessage,
+        40 => appL10n.thereIsANewReplyInAThreadYouFollow,
+        _ => appL10n.newChatNotification,
       },
     ),
     path: type == ChatNotificationTypes.quoted.wireId

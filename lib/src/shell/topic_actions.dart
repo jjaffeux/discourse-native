@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
@@ -52,8 +53,8 @@ class TopicBookmarkButton extends StatelessWidget {
                 : DIcons.bookmark,
           );
     final tooltip = topic.hasBookmarks
-        ? 'Manage ${topic.bookmarks.length} topic bookmark${topic.bookmarks.length == 1 ? '' : 's'}'
-        : 'Bookmark this topic';
+        ? context.l10n.manageTopicBookmark(topic.bookmarks.length)
+        : context.l10n.bookmarkThisTopic;
     final buttonVariant = topic.topicBookmark != null && variant == null
         ? DButtonVariant.primary
         : variant ?? DButtonVariant.ghost;
@@ -76,7 +77,9 @@ class TopicBookmarkButton extends StatelessWidget {
         key: buttonKey,
         onPressed: busy ? null : open,
         icon: icon,
-        label: Text(topic.hasBookmarks ? 'Bookmarked' : 'Bookmark'),
+        label: Text(
+          topic.hasBookmarks ? context.l10n.bookmarked : context.l10n.bookmark,
+        ),
         tooltip: tooltip,
         shortcut: const DShortcut(topicBookmarkShortcut),
         loading: busy,
@@ -124,7 +127,7 @@ class TopicBookmarkButtonPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) => DButton.iconOnly(
     onPressed: null,
     icon: const DIcon(DIcons.bookmark),
-    tooltip: 'Bookmark this topic',
+    tooltip: context.l10n.bookmarkThisTopic,
     shortcut: const DShortcut(topicBookmarkShortcut),
     variant: variant,
     hasPopup: true,
@@ -199,7 +202,7 @@ class TopicShareButton extends StatelessWidget {
       key: const ValueKey('topic-share-button'),
       onPressed: () => _share(context),
       icon: const DIcon(DIcons.link),
-      tooltip: 'Share topic',
+      tooltip: context.l10n.shareTopic,
       variant: DButtonVariant.transparentBackground,
       size: DButtonSize.regular,
     );
@@ -284,13 +287,12 @@ class TopicStatusButton extends StatefulWidget {
     if (deleted) {
       final confirmed = await showDiscourseAlertDialog<bool>(
         context: context,
-        title: const Text('Delete topic?'),
-        description: const Text(
-          'This removes the topic and all of its replies. Staff may be able '
-          'to recover it later.',
+        title: Text(appL10n.deleteTopic),
+        description: Text(
+          appL10n.thisRemovesTheTopicAndAllOfItsRepliesStaffMay,
         ),
-        cancelLabel: const Text('Cancel'),
-        actionLabel: const Text('Delete'),
+        cancelLabel: Text(appL10n.cancel),
+        actionLabel: Text(appL10n.delete),
         cancelResult: false,
         actionResult: true,
         actionKey: const ValueKey('topic-delete-confirm'),
@@ -393,35 +395,43 @@ class TopicStatusButton extends StatefulWidget {
           onPressed: () => select(_TopicCommand.flag),
           key: const ValueKey('topic-flag-button'),
           leading: const DIcon(DIcons.flag),
-          child: const Text('Flag topic'),
+          child: Text(context.l10n.flagTopicTopicactions),
         ),
       if (topic.hasPinPreference)
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.pinned),
           key: const ValueKey('topic-pin-button'),
           leading: const DIcon(DIcons.thumbtack),
-          child: Text(topic.pinned ? 'Unpin topic' : 'Pin topic'),
+          child: Text(
+            topic.pinned ? context.l10n.unpinTopic : context.l10n.pinTopic,
+          ),
         ),
       if (topic.canSelectPosts)
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.selectPosts),
           key: const ValueKey('topic-select-posts'),
           leading: const DIcon(DIcons.list),
-          child: const Text('Select posts'),
+          child: Text(context.l10n.selectPosts),
         ),
       if (topic.canCloseTopic)
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.closed),
           key: const ValueKey('topic-status-closed'),
           leading: const DIcon(DIcons.lock),
-          child: Text(topic.closed ? 'Open topic' : 'Close topic'),
+          child: Text(
+            topic.closed ? context.l10n.openTopic : context.l10n.closeTopic,
+          ),
         ),
       if (topic.canChangeStatus(TopicStatusProperty.archived))
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.archived),
           key: const ValueKey('topic-status-archived'),
           leading: DIcon(topic.archived ? DIcons.folderOpen : DIcons.folder),
-          child: Text(topic.archived ? 'Unarchive topic' : 'Archive topic'),
+          child: Text(
+            topic.archived
+                ? context.l10n.unarchiveTopic
+                : context.l10n.archiveTopic,
+          ),
         ),
       if (topic.canToggleTopicVisibility)
         DDropdownMenuItem(
@@ -429,7 +439,9 @@ class TopicStatusButton extends StatefulWidget {
           key: const ValueKey('topic-status-visible'),
           leading: DIcon(topic.visible ? DIcons.farEyeSlash : DIcons.farEye),
           child: Text(
-            topic.visible ? 'Make topic unlisted' : 'Make topic visible',
+            topic.visible
+                ? context.l10n.makeTopicUnlisted
+                : context.l10n.makeTopicVisible,
           ),
         ),
       if (topic.canDeleteTopic)
@@ -438,14 +450,14 @@ class TopicStatusButton extends StatefulWidget {
           key: const ValueKey('topic-status-delete'),
           leading: const DIcon(DIcons.trashCan),
           variant: DDropdownMenuItemVariant.destructive,
-          child: const Text('Delete topic'),
+          child: Text(context.l10n.deleteTopicTopicactions),
         ),
       if (topic.canRecoverTopic)
         DDropdownMenuItem(
           onPressed: () => select(_TopicCommand.recover),
           key: const ValueKey('topic-status-recover'),
           leading: const DIcon(DIcons.arrowRotateLeft),
-          child: const Text('Recover topic'),
+          child: Text(context.l10n.recoverTopic),
         ),
     ];
   }
@@ -469,7 +481,7 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
           }
         },
         content: DDropdownMenuContent(
-          semanticLabel: 'More topic actions',
+          semanticLabel: context.l10n.moreTopicActions,
           align: DPopoverAlign.end,
           width: 224,
           children: _openItems,
@@ -530,7 +542,7 @@ Widget _topicStatusTrigger({
   required DButtonSize size,
 }) => DButton.iconOnly(
   key: key,
-  tooltip: 'More topic actions',
+  tooltip: appL10n.moreTopicActions,
   focusNode: focusNode,
   hasPopup: true,
   expanded: expanded,
@@ -570,34 +582,35 @@ class TopicNotificationLevelButton extends StatelessWidget {
   final Color? interactiveBackgroundColor;
   final Key buttonKey;
 
-  static const _options = [
-    DNotificationLevelOption(
-      value: TopicNotificationLevel.watching,
-      emphasized: true,
-      label: 'Watching',
-      description: 'Every reply and unread count',
-      icon: DIcon(DNativeIcons.bellRing),
-    ),
-    DNotificationLevelOption(
-      value: TopicNotificationLevel.tracking,
-      emphasized: true,
-      label: 'Tracking',
-      description: 'Mentions, replies, and unread count',
-      icon: DIcon(DIcons.bell),
-    ),
-    DNotificationLevelOption(
-      value: TopicNotificationLevel.normal,
-      label: 'Normal',
-      description: 'Mentions and replies only',
-      icon: DIcon(DIcons.bell),
-    ),
-    DNotificationLevelOption(
-      value: TopicNotificationLevel.muted,
-      label: 'Muted',
-      description: 'No notifications; hidden from Latest',
-      icon: DIcon(DNativeIcons.bellOff),
-    ),
-  ];
+  static List<DNotificationLevelOption<TopicNotificationLevel>> get _options =>
+      [
+        DNotificationLevelOption(
+          value: TopicNotificationLevel.watching,
+          emphasized: true,
+          label: appL10n.watching,
+          description: appL10n.everyReplyAndUnreadCount,
+          icon: const DIcon(DNativeIcons.bellRing),
+        ),
+        DNotificationLevelOption(
+          value: TopicNotificationLevel.tracking,
+          emphasized: true,
+          label: appL10n.tracking,
+          description: appL10n.mentionsRepliesAndUnreadCount,
+          icon: const DIcon(DIcons.bell),
+        ),
+        DNotificationLevelOption(
+          value: TopicNotificationLevel.normal,
+          label: appL10n.normal,
+          description: appL10n.mentionsAndRepliesOnly,
+          icon: const DIcon(DIcons.bell),
+        ),
+        DNotificationLevelOption(
+          value: TopicNotificationLevel.muted,
+          label: appL10n.muted,
+          description: appL10n.noNotificationsHiddenFromLatest,
+          icon: const DIcon(DNativeIcons.bellOff),
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -608,7 +621,7 @@ class TopicNotificationLevelButton extends StatelessWidget {
         final lease = controller.lifecycle.capture(siteUrl);
         return DNotificationLevelMenu<TopicNotificationLevel>(
           key: ValueKey((controller, siteUrl, topic.id, lease.session)),
-          semanticLabel: 'Topic notifications',
+          semanticLabel: context.l10n.topicNotifications,
           buttonKey: buttonKey,
           showLabel: showLabel,
           showChevron: showChevron,
@@ -654,7 +667,7 @@ class TopicNotificationLevelPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       DNotificationLevelMenu<TopicNotificationLevel>(
-        semanticLabel: 'Topic notifications',
+        semanticLabel: context.l10n.topicNotifications,
         showLabel: showLabel,
         showChevron: showChevron,
         variant: variant,

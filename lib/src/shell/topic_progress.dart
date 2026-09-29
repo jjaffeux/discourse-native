@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -34,8 +35,11 @@ class TopicProgressButton extends StatelessWidget {
       focusNode: focusNode,
       expanded: expanded ?? false,
       hasPopup: true,
-      tooltip: 'Topic progress',
-      semanticLabel: 'Topic progress, post $boundedPosition of $boundedTotal',
+      tooltip: context.l10n.topicProgress,
+      semanticLabel: context.l10n.topicProgressPostOf(
+        (boundedPosition).toString(),
+        (boundedTotal).toString(),
+      ),
       variant: floating
           ? DButtonVariant.outline
           : DButtonVariant.transparentBackground,
@@ -98,7 +102,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
       align: DPopoverAlign.end,
       width: 360,
       padding: const EdgeInsets.all(16),
-      semanticLabel: 'Post navigation',
+      semanticLabel: context.l10n.postNavigation,
       child: _TopicProgressEditor(
         key: ValueKey(_session),
         controller: widget.controller,
@@ -198,7 +202,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     if (_ownsSource()) return true;
     setState(() {
       _jumping = false;
-      _error = 'Close and reopen topic progress to jump in the current topic.';
+      _error = appL10n.closeAndReopenTopicProgressToJumpInTheCurrentTopic;
     });
     return false;
   }
@@ -221,7 +225,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     }
     setState(() {
       _jumping = false;
-      _error = 'Could not open that post. Try again.';
+      _error = appL10n.couldNotOpenThatPostTryAgain;
     });
   }
 
@@ -234,10 +238,10 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       children: [
         Text.rich(
           TextSpan(
-            text: 'Post $_selected ',
+            text: context.l10n.postTopicprogress((_selected).toString()),
             children: [
               TextSpan(
-                text: 'of ${widget.total}',
+                text: context.l10n.messageOf((widget.total).toString()),
                 style: TextStyle(
                   color: DTokens.of(context).mutedForeground,
                   fontWeight: FontWeight.w400,
@@ -276,18 +280,18 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
           runSpacing: 8,
           children: [
             DButton(
-              label: const Text('First post'),
+              label: Text(context.l10n.firstPost),
               variant: DButtonVariant.ghost,
               onPressed: _jumping ? null : () => unawaited(_jump(1)),
             ),
             DButton(
-              label: const Text('Latest post'),
+              label: Text(context.l10n.latestPost),
               variant: DButtonVariant.ghost,
               onPressed: _jumping ? null : () => unawaited(_jump(widget.total)),
             ),
             DButton(
               key: const ValueKey('topic-progress-jump'),
-              label: const Text('Jump'),
+              label: Text(context.l10n.jump),
               onPressed: () => unawaited(_jump()),
               variant: DButtonVariant.primary,
               loading: _jumping,
@@ -316,8 +320,9 @@ class TopicPositionSlider extends StatelessWidget {
     value: position.toDouble(),
     min: 1,
     max: total.toDouble(),
-    semanticLabel: 'Post',
-    semanticFormatterCallback: (value) => 'Post ${value.round()} of $total',
+    semanticLabel: context.l10n.post,
+    semanticFormatterCallback: (value) =>
+        context.l10n.postOf((value.round()).toString(), (total).toString()),
     onChanged: onChanged == null ? null : (value) => onChanged!(value.round()),
   );
 }

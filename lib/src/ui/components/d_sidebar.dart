@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -194,7 +195,7 @@ class DSidebar extends StatefulWidget {
     this.variant = DSidebarVariant.sidebar,
     this.collapsible = DSidebarCollapsible.offcanvas,
     this.backgroundColor,
-    this.semanticLabel = 'Sidebar',
+    this._semanticLabel,
   }) : assert(width > 0),
        assert(mobileWidth > 0),
        assert(iconWidth > 0);
@@ -205,7 +206,8 @@ class DSidebar extends StatefulWidget {
   final DSidebarVariant variant;
   final DSidebarCollapsible collapsible;
   final Color? backgroundColor;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.sidebar;
   @override
   State<DSidebar> createState() => _DSidebarState();
 }
@@ -1702,12 +1704,9 @@ class DSidebarSeparator extends StatelessWidget {
 }
 
 class DSidebarTrigger extends StatelessWidget {
-  const DSidebarTrigger({
-    super.key,
-    this.semanticLabel = 'Toggle Sidebar',
-    this.focusNode,
-  });
-  final String semanticLabel;
+  const DSidebarTrigger({super.key, this._semanticLabel, this.focusNode});
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.toggleSidebar;
   final FocusNode? focusNode;
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1731,8 +1730,9 @@ class DSidebarTrigger extends StatelessWidget {
 }
 
 class DSidebarRail extends StatefulWidget {
-  const DSidebarRail({super.key, this.semanticLabel = 'Toggle Sidebar'});
-  final String semanticLabel;
+  const DSidebarRail({super.key, this._semanticLabel});
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.toggleSidebar;
   @override
   State<DSidebarRail> createState() => _DSidebarRailState();
 }

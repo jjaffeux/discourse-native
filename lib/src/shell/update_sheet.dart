@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../data/app_release.dart';
@@ -14,7 +15,7 @@ import 'update_controller.dart';
 Future<void> showUpdateSheet(BuildContext context) {
   return showShellSheet<void>(
     context: context,
-    title: 'App updates',
+    title: appL10n.appUpdates,
     builder: (context) => const _UpdatePanel(),
   );
 }
@@ -39,13 +40,17 @@ class _UpdatePanel extends StatelessWidget {
           children: [
             Text(
               updates.runningVersion.isEmpty
-                  ? 'Discourse Native'
-                  : 'Discourse Native ${updates.runningVersion}',
+                  ? context.l10n.discourseNative
+                  : context.l10n.discourseNativeUpdatesheet(
+                      (updates.runningVersion).toString(),
+                    ),
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 4),
             Text(
-              'Following the ${updates.channel.label.toLowerCase()} channel.',
+              context.l10n.followingTheChannel(
+                (updates.channel.label.toLowerCase()).toString(),
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -95,7 +100,7 @@ class _Status extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _UpdateStatusAnnouncement(
-            label: "You're up to date.",
+            label: context.l10n.youReUpToDate,
             child: Row(
               children: [
                 DIcon(
@@ -104,7 +109,10 @@ class _Status extends StatelessWidget {
                   color: theme.discourse.success,
                 ),
                 const SizedBox(width: 8),
-                Text("You're up to date.", style: theme.textTheme.bodyMedium),
+                Text(
+                  context.l10n.youReUpToDate,
+                  style: theme.textTheme.bodyMedium,
+                ),
               ],
             ),
           ),
@@ -147,8 +155,10 @@ class _Status extends StatelessWidget {
             // what is running, which is what moving canary -> stable means.
             label: Text(
               release.isDowngrade
-                  ? 'Switch to ${release.version}'
-                  : 'Download ${release.version}',
+                  ? context.l10n.switchTo((release.version).toString())
+                  : context.l10n.downloadUpdatesheet(
+                      (release.version).toString(),
+                    ),
             ),
             onPressed: updates.download,
             variant: DButtonVariant.primary,
@@ -164,13 +174,16 @@ class _Status extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _UpdateStatusAnnouncement(
-            label: 'Ready to install.',
+            label: context.l10n.readyToInstall,
             announce: updates.error == null,
-            child: Text('Ready to install.', style: theme.textTheme.bodyMedium),
+            child: Text(
+              context.l10n.readyToInstall,
+              style: theme.textTheme.bodyMedium,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
-            'The app will close and reopen.',
+            context.l10n.theAppWillCloseAndReopen,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -181,20 +194,20 @@ class _Status extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           DButton(
-            label: const Text('Restart and install'),
+            label: Text(context.l10n.restartAndInstall),
             onPressed: updates.installAndRestart,
             variant: DButtonVariant.primary,
           ),
         ],
       ),
 
-      UpdateStatus.installing => const _UpdateStatusAnnouncement(
-        label: 'Installing update',
+      UpdateStatus.installing => _UpdateStatusAnnouncement(
+        label: context.l10n.installingUpdate,
         child: Row(
           children: [
-            SizedBox(width: 18, height: 18, child: DSpinner()),
-            SizedBox(width: 12),
-            Text('Installing…'),
+            const SizedBox(width: 18, height: 18, child: DSpinner()),
+            const SizedBox(width: 12),
+            Text(context.l10n.installing),
           ],
         ),
       ),
@@ -203,18 +216,18 @@ class _Status extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _UpdateError(
-            message: updates.error ?? 'The update could not be checked.',
+            message: updates.error ?? context.l10n.theUpdateCouldNotBeChecked,
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              const _CheckButton(label: 'Try again'),
+              _CheckButton(label: context.l10n.tryAgain),
               const SizedBox(width: 8),
               // Not decoration. The Linux update path is preview-grade, and
               // someone whose in-app update is broken must not be left with no
               // way to get the build at all.
               DButton(
-                label: const Text('Open the releases page'),
+                label: Text(context.l10n.openTheReleasesPage),
                 onPressed: () => openExternalLink(AppRelease.releasesUrl),
                 variant: DButtonVariant.link,
               ),
@@ -227,14 +240,16 @@ class _Status extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           switch (updates.lastChecked) {
-            null => Text('Never checked for updates.', style: muted),
+            null => Text(context.l10n.neverCheckedForUpdates, style: muted),
             final at => RelativeTimeBuilder(
               when: at,
               // relativeTime is the compact form the topic list uses -- "2h",
               // "3d", "now" -- so "now" needs its own phrasing rather than
               // reading as "now ago".
               builder: (context, ago) => Text(
-                ago == 'now' ? 'Checked just now.' : 'Last checked $ago ago.',
+                ago == context.l10n.relativeNow
+                    ? context.l10n.checkedJustNow
+                    : context.l10n.lastCheckedAgo((ago).toString()),
                 style: muted,
               ),
             ),
@@ -248,10 +263,11 @@ class _Status extends StatelessWidget {
 }
 
 class _CheckButton extends StatelessWidget {
-  const _CheckButton({this.checking = false, this.label = 'Check for updates'});
+  const _CheckButton({this.checking = false, this._label});
 
   final bool checking;
-  final String label;
+  final String? _label;
+  String get label => _label ?? appL10n.checkForUpdates;
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +278,7 @@ class _CheckButton extends StatelessWidget {
       onPressed: updates.check,
       variant: DButtonVariant.primary,
       loading: checking,
-      semanticLabel: checking ? 'Checking for updates' : null,
+      semanticLabel: checking ? context.l10n.checkingForUpdates : null,
     );
   }
 }
@@ -314,13 +330,15 @@ class _UpdateError extends StatelessWidget {
 }
 
 String _releaseMessage(UpdateRelease release) => release.isDowngrade
-    ? 'Version ${release.version} is on this channel.'
-    : 'Version ${release.version} is available.';
+    ? appL10n.versionIsOnThisChannel((release.version).toString())
+    : appL10n.versionIsAvailable((release.version).toString());
 
 String _humanSize(int bytes) {
   const mb = 1024 * 1024;
-  if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
-  return '${(bytes / 1024).round()} KB';
+  if (bytes >= mb) {
+    return appL10n.mB(((bytes / mb).toStringAsFixed(1)).toString());
+  }
+  return appL10n.kB(((bytes / 1024).round()).toString());
 }
 
 /// Read-only download surface. The update controller owns all work and actions;
@@ -336,13 +354,15 @@ class UpdateDownloadProgress extends StatelessWidget {
         key: const ValueKey('update-download-progress'),
         value: progress,
         max: 1,
-        semanticsLabel: 'Downloading update',
+        semanticsLabel: context.l10n.downloadingUpdate,
       ),
       const SizedBox(height: 8),
       _UpdateStatusAnnouncement(
-        label: 'Download in progress.',
+        label: context.l10n.downloadInProgress,
         child: Text(
-          'Downloading — ${(progress * 100).round()}%',
+          context.l10n.downloadingUpdatesheet(
+            ((progress * 100).round()).toString(),
+          ),
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ),

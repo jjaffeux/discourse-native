@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -23,7 +24,7 @@ class TopicFilterInput extends StatefulWidget {
     this.onChanged,
     this.inputKey = const ValueKey('topic-filter-input'),
     this.clearKey = const ValueKey('clear-topic-filter'),
-    this.hintText = 'Filter topics by category, tag, or other criteria',
+    this._hintText,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.enabled = true,
     this.preferSuggestionsAbove = false,
@@ -39,7 +40,9 @@ class TopicFilterInput extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final Key inputKey;
   final Key clearKey;
-  final String hintText;
+  final String? _hintText;
+  String get hintText =>
+      _hintText ?? appL10n.filterTopicsByCategoryTagOrOtherCriteria;
   final EdgeInsetsGeometry padding;
   final bool enabled;
   final bool preferSuggestionsAbove;
@@ -452,7 +455,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                       key: widget.inputKey,
                       controller: filter.text,
                       focusNode: _focus,
-                      semanticLabel: 'Topic filter query',
+                      semanticLabel: context.l10n.topicFilterQuery,
                       hintText: widget.hintText,
                       minLines: widget.tokenized ? 1 : 3,
                       maxLines: widget.tokenized ? null : 6,
@@ -482,7 +485,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       child: DButton.iconOnly(
                         key: widget.clearKey,
-                        tooltip: 'Clear all filters',
+                        tooltip: context.l10n.clearAllFilters,
                         icon: const DIcon(DIcons.xmark),
                         variant: DButtonVariant.transparentBackground,
                         size: DButtonSize.small,
@@ -501,7 +504,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         ),
         content: DComboboxContent(
           key: const ValueKey('topic-filter-suggestions'),
-          semanticLabel: 'Filter suggestions',
+          semanticLabel: context.l10n.filterSuggestions,
           side: widget.preferSuggestionsAbove
               ? DPopoverSide.top
               : DPopoverSide.bottom,
@@ -589,7 +592,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
             DButton.iconOnly(
               key: ValueKey('topic-filter-token-remove-$index'),
               icon: const DIcon(DIcons.xmark),
-              tooltip: 'Remove $label',
+              tooltip: context.l10n.removeTopicfilterinput((label).toString()),
               size: DButtonSize.small,
               variant: DButtonVariant.transparentBackground,
               onPressed: enabled ? onDeleted : null,

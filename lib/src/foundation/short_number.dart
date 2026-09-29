@@ -1,3 +1,6 @@
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:intl/intl.dart';
+
 /// A count abbreviated as Discourse's `number` formatter abbreviates it, for
 /// the figures the web draws through that helper: a users directory cell and
 /// a link's click badge.
@@ -14,15 +17,20 @@ String shortNumber(num count) {
   // Kept a double: an integer conversion would saturate a finite value beyond
   // the 64-bit range instead of carrying its magnitude through.
   final value = count is int ? count : count.roundToDouble();
-  if (value > 999999) return '${_tenths(value / 1000000)}M';
-  if (value > 99999) return '${(value / 1000).floor()}k';
-  if (value > 999) return '${_tenths(value / 1000)}k';
-  if (value is int) return '$value';
+  if (value > 999999) return appL10n.compactMillions(_tenths(value / 1000000));
+  if (value > 99999) {
+    return appL10n.compactThousands(_whole((value / 1000).floor()));
+  }
+  if (value > 999) return appL10n.compactThousands(_tenths(value / 1000));
+  if (value is int) return _whole(value);
   // A negative fraction rounds to a negative zero whose sign the web drops.
-  return value == 0 ? '0' : value.toStringAsFixed(0);
+  return _whole(value == 0 ? 0 : value);
 }
 
+String _whole(num value) => NumberFormat('0', appL10n.localeName).format(value);
+
 String _tenths(double value) {
-  final fixed = value.toStringAsFixed(1);
-  return fixed.endsWith('.0') ? fixed.substring(0, fixed.length - 2) : fixed;
+  // Preserve Discourse's scientific notation for counts outside fixed precision.
+  if (value.abs() >= 1e21) return value.toStringAsFixed(1);
+  return NumberFormat('0.#', appL10n.localeName).format(value);
 }

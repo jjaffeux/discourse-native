@@ -65,9 +65,9 @@ void main() {
             );
         addTearDown(search.dispose);
         search.setContext(
-          const GlobalSearchContext(
+          GlobalSearchContext(
             scope: chatSearchScope,
-            condition: GlobalSearchCondition(
+            condition: const GlobalSearchCondition(
               filterId: 'chatChannel',
               value: ['12'],
             ),
@@ -152,9 +152,12 @@ void main() {
         const GlobalSearchCondition(filterId: 'chatAuthor', value: ['mira']),
       );
       search.setQuery('design');
-      const first = GlobalSearchContext(
+      final first = GlobalSearchContext(
         scope: chatSearchScope,
-        condition: GlobalSearchCondition(filterId: 'chatChannel', value: ['9']),
+        condition: const GlobalSearchCondition(
+          filterId: 'chatChannel',
+          value: ['9'],
+        ),
         label: 'Design',
       );
       search.setContext(first);
@@ -168,9 +171,9 @@ void main() {
       expect(search.scope, chatSearchScope);
       expect(search.conditions.map((c) => c.text), ['mira', '9']);
       search.setContext(
-        const GlobalSearchContext(
+        GlobalSearchContext(
           scope: chatSearchScope,
-          condition: GlobalSearchCondition(
+          condition: const GlobalSearchCondition(
             filterId: 'chatChannel',
             value: ['12'],
           ),
@@ -207,11 +210,11 @@ void main() {
     await api.search(
       siteUrl: _site,
       apiKey: 'key',
-      request: const GlobalSearchRequest(
+      request: GlobalSearchRequest(
         scope: chatSearchScope,
         query: 'needle',
         capabilities: _caps,
-        conditions: [
+        conditions: const [
           GlobalSearchCondition(filterId: 'chatChannel', value: ['12']),
         ],
       ),
@@ -1098,7 +1101,7 @@ void main() {
       final page = await GlobalSearchApi(transport: transport).search(
         siteUrl: _site,
         apiKey: 'key',
-        request: const GlobalSearchRequest(
+        request: GlobalSearchRequest(
           scope: chatSearchScope,
           query: 'design',
           capabilities: _caps,
@@ -1225,27 +1228,33 @@ void main() {
       await api.search(
         siteUrl: _site,
         apiKey: 'key',
-        request: const GlobalSearchRequest(
+        request: GlobalSearchRequest(
           scope: chatSearchScope,
           query: '',
           capabilities: _caps,
-          conditions: [threads],
+          conditions: const [threads],
         ),
       );
       expect(transport.paths, isEmpty);
       await api.search(
         siteUrl: _site,
         apiKey: 'key',
-        request: const GlobalSearchRequest(
+        request: GlobalSearchRequest(
           scope: chatSearchScope,
           query: 'design',
           capabilities: _caps,
           order: 'latest',
           offset: 20,
-          conditions: [
+          conditions: const [
             threads,
-            GlobalSearchCondition(filterId: 'chatAuthor', value: ['mira']),
-            GlobalSearchCondition(filterId: 'chatChannel', value: ['design']),
+            GlobalSearchCondition(
+              filterId: 'chatAuthor',
+              value: ['mira'],
+            ),
+            GlobalSearchCondition(
+              filterId: 'chatChannel',
+              value: ['design'],
+            ),
           ],
         ),
       );

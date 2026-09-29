@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
@@ -359,7 +360,7 @@ class DButton extends StatelessWidget {
     this.size = DButtonSize.regular,
     this.density = DButtonDensity.standard,
     this.loading = false,
-    this.loadingSemanticLabel = 'Loading',
+    this._loadingSemanticLabel,
     this.loadingLabel,
     this.tooltip,
     this.tooltipSide = DTooltipSide.top,
@@ -388,7 +389,7 @@ class DButton extends StatelessWidget {
     this.size = DButtonSize.regular,
     this.density = DButtonDensity.standard,
     this.loading = false,
-    this.loadingSemanticLabel = 'Loading',
+    this._loadingSemanticLabel,
     this.shortcut,
     this.semanticLabel,
     this.focusNode,
@@ -449,8 +450,11 @@ class DButton extends StatelessWidget {
 
   final bool loading;
 
+  final String? _loadingSemanticLabel;
+
   /// Localizable busy status, separate from the persistent action name.
-  final String loadingSemanticLabel;
+  String get loadingSemanticLabel =>
+      _loadingSemanticLabel ?? appL10n.loadingDbutton;
   final Widget? loadingLabel;
   final String? tooltip;
 

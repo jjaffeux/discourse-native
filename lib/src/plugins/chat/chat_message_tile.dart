@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -161,8 +162,9 @@ class ChatMessageTile extends StatelessWidget {
                 width: 52,
                 child: DCheckbox(
                   key: ValueKey('chat-message-selector-${message.id}'),
-                  semanticLabel:
-                      'Select message from ${message.author.displayName}',
+                  semanticLabel: context.l10n.selectMessageFrom(
+                    (message.author.displayName).toString(),
+                  ),
                   value: selected,
                   onChanged: onSelectedChanged == null
                       ? null
@@ -467,9 +469,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     String message;
     try {
       await Clipboard.setData(ClipboardData(text: _messageUrl));
-      message = 'Link copied!';
+      message = appL10n.linkCopied;
     } catch (_) {
-      message = "Couldn't copy link.";
+      message = appL10n.couldnTCopyLink;
     }
     if (!mounted) return;
     DToast.show(context, message);
@@ -479,9 +481,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     String notice;
     try {
       await Clipboard.setData(ClipboardData(text: widget.message.raw));
-      notice = 'Message copied!';
+      notice = appL10n.messageCopied;
     } catch (_) {
-      notice = "Couldn't copy message.";
+      notice = appL10n.couldnTCopyMessage;
     }
     if (!mounted) return;
     DToast.show(context, notice);
@@ -555,7 +557,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     setState(() => _rebaking = false);
     DToast.show(
       context,
-      error ?? 'HTML rebuild queued.',
+      error ?? appL10n.hTMLRebuildQueued,
       type: error == null ? DToastType.success : DToastType.error,
     );
   }
@@ -564,7 +566,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final chat = PluginUiScope.require(context, chatControllerService);
     await showShellSheet<void>(
       context: context,
-      title: 'Thanks for keeping our community civil!',
+      title: appL10n.thanksForKeepingOurCommunityCivil,
       dialogOnDesktop: true,
       builder: (sheetContext) => PostFlagEditor(
         siteUrl: widget.siteUrl,
@@ -578,7 +580,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           message: message,
         ),
         onComplete: () => Navigator.of(sheetContext).pop(),
-        submitLabel: 'Flag message',
+        submitLabel: appL10n.flagMessage,
         targetNoun: 'message',
       ),
     );
@@ -599,7 +601,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       child: Builder(
         builder: (anchorContext) => DButton.iconOnly(
           key: ValueKey('chat-message-react-${widget.message.id}'),
-          tooltip: 'Add reaction',
+          tooltip: appL10n.addReaction,
           icon: const DIcon(DIcons.farFaceSmile),
           size: DButtonSize.regular,
           density: DButtonDensity.chatMessageAction,
@@ -631,7 +633,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     listenable: _interaction,
     child: DButton.iconOnly(
       key: ValueKey('chat-message-reply-action-${widget.message.id}'),
-      tooltip: 'Reply',
+      tooltip: appL10n.reply,
       icon: const DIcon(DIcons.reply),
       size: DButtonSize.regular,
       density: DButtonDensity.chatMessageAction,
@@ -726,11 +728,11 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         else
           const DDropdownMenuSeparator(),
       ],
-      if (canReply) item('reply', 'Reply', DIcons.reply, _reply),
+      if (canReply) item('reply', appL10n.reply, DIcons.reply, _reply),
       if (chat.canAddReactionToMessage(widget.siteUrl, widget.message))
         item(
           'react-menu',
-          'React',
+          appL10n.react,
           DIcons.farFaceSmile,
           () => unawaited(_pickReaction(_menuReactionAnchor.currentContext)),
           busy: _reactionPickerOpening,
@@ -738,7 +740,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (canBookmark)
         item(
           'bookmark',
-          widget.message.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+          widget.message.bookmark == null
+              ? appL10n.bookmark
+              : appL10n.editBookmark,
           _bookmarkIcon(widget.message.bookmark),
           () => unawaited(_bookmark()),
           busy: bookmarkBusy,
@@ -746,7 +750,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (canPin)
         item(
           'pin',
-          widget.message.pinned ? 'Unpin' : 'Pin',
+          widget.message.pinned ? appL10n.unpin : appL10n.pin,
           DIcons.thumbtack,
           () => unawaited(_togglePin()),
           busy: _pinning,
@@ -754,25 +758,30 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (widget.canCopyLink)
         item(
           'copy-link',
-          'Copy link',
+          appL10n.copyLink,
           DIcons.link,
           () => unawaited(_copyLink()),
         ),
       if (widget.canCopyText)
         item(
           'copy-text',
-          'Copy text',
+          appL10n.copyText,
           DIcons.copy,
           () => unawaited(_copyText()),
         ),
       if (canEdit && widget.onEdit != null)
-        item('edit', 'Edit', DIcons.pencil, _edit),
+        item('edit', appL10n.edit, DIcons.pencil, _edit),
       if (flagTypes.isNotEmpty)
-        item('flag', 'Flag', DIcons.flag, () => unawaited(_flag(flagTypes))),
+        item(
+          'flag',
+          appL10n.flag,
+          DIcons.flag,
+          () => unawaited(_flag(flagTypes)),
+        ),
       if (canRestore)
         item(
           'restore',
-          'Restore deleted message',
+          appL10n.restoreDeletedMessage,
           DIcons.arrowRotateLeft,
           () => unawaited(_restore()),
           busy: _restoring,
@@ -780,7 +789,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (canRebake)
         item(
           'rebake',
-          'Rebuild HTML',
+          appL10n.rebuildHTML,
           DIcons.arrowsRotate,
           () => unawaited(_rebake()),
           busy: _rebaking,
@@ -788,13 +797,13 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       if (canDelete)
         item(
           'delete',
-          'Delete',
+          appL10n.delete,
           DIcons.trashCan,
           () => unawaited(_delete()),
           destructive: true,
         ),
       if (widget.onSelect case final select?)
-        item('select', 'Select', DIcons.list, select),
+        item('select', appL10n.select, DIcons.list, select),
     ];
     if (context.isTouch) {
       return DSheet<void>(
@@ -814,8 +823,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           side: DSheetSide.bottom,
           topBottomMaxHeightFactor: .85,
           children: [
-            const DSheetHeader(
-              children: [DSheetTitle(child: Text('Message actions'))],
+            DSheetHeader(
+              children: [DSheetTitle(child: Text(appL10n.messageActions))],
             ),
             DSheetBody(
               child: Column(
@@ -836,7 +845,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         _refreshInteraction();
       },
       content: DDropdownMenuContent(
-        semanticLabel: 'Message actions',
+        semanticLabel: appL10n.messageActions,
         align: DPopoverAlign.end,
         width: 220,
         children: items,
@@ -849,7 +858,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
               listenable: _interaction,
               child: DButton.iconOnly(
                 key: ValueKey('chat-message-more-actions-${widget.message.id}'),
-                tooltip: 'More message actions',
+                tooltip: appL10n.moreMessageActions,
                 icon: const DIcon(DIcons.chevronDown),
                 size: DButtonSize.small,
                 variant: DButtonVariant.transparentBackground,
@@ -927,8 +936,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     required List<PostFlagType> flagTypes,
   }) {
     final bookmarkLabel = widget.message.bookmark == null
-        ? 'Bookmark'
-        : 'Edit bookmark';
+        ? context.l10n.bookmark
+        : context.l10n.editBookmark;
     final chat = PluginUiScope.require(context, chatControllerService);
     final canAddReaction = chat.canAddReactionToMessage(
       widget.siteUrl,
@@ -936,33 +945,33 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     );
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
       if (canAddReaction && !_reactionPickerOpening)
-        const CustomSemanticsAction(label: 'Add reaction'): () =>
+        CustomSemanticsAction(label: context.l10n.addReaction): () =>
             unawaited(_pickReaction()),
       if (widget.onReply != null &&
           chat.canReplyToMessage(widget.siteUrl, widget.message))
-        const CustomSemanticsAction(label: 'Reply'): _reply,
+        CustomSemanticsAction(label: context.l10n.reply): _reply,
       if (widget.canCopyLink)
-        const CustomSemanticsAction(label: 'Copy link'): () =>
+        CustomSemanticsAction(label: context.l10n.copyLink): () =>
             unawaited(_copyLink()),
-      if (canEdit) const CustomSemanticsAction(label: 'Edit'): _edit,
+      if (canEdit) CustomSemanticsAction(label: context.l10n.edit): _edit,
       if (widget.onSelect != null)
-        const CustomSemanticsAction(label: 'Select'): widget.onSelect!,
+        CustomSemanticsAction(label: context.l10n.select): widget.onSelect!,
       if (canDelete)
-        const CustomSemanticsAction(label: 'Delete'): () =>
+        CustomSemanticsAction(label: context.l10n.delete): () =>
             unawaited(_delete()),
       if (canRestore && !_restoring)
-        const CustomSemanticsAction(label: 'Restore deleted message'): () =>
+        CustomSemanticsAction(label: context.l10n.restoreDeletedMessage): () =>
             unawaited(_restore()),
       if (canRebake && !_rebaking)
-        const CustomSemanticsAction(label: 'Rebuild HTML'): () =>
+        CustomSemanticsAction(label: context.l10n.rebuildHTML): () =>
             unawaited(_rebake()),
       if (canPin && !_pinning)
         CustomSemanticsAction(
-          label: widget.message.pinned ? 'Unpin' : 'Pin',
+          label: widget.message.pinned ? context.l10n.unpin : context.l10n.pin,
         ): () =>
             unawaited(_togglePin()),
       if (flagTypes.isNotEmpty)
-        const CustomSemanticsAction(label: 'Flag'): () =>
+        CustomSemanticsAction(label: context.l10n.flag): () =>
             unawaited(_flag(flagTypes)),
       if (chat.canBookmarkMessage(widget.siteUrl, widget.message) &&
           !bookmarkBusy)
@@ -1166,14 +1175,14 @@ class _Tile extends StatelessWidget {
         pendingAction(
           DIcons.chevronDown,
           DButtonSize.small,
-          'More message actions',
+          context.l10n.moreMessageActions,
         );
     final react =
         messageReaction ??
         pendingAction(
           DIcons.farFaceSmile,
           DButtonSize.regular,
-          'Add reaction',
+          context.l10n.addReaction,
           density: DButtonDensity.chatMessageAction,
         );
     final reply =
@@ -1181,7 +1190,7 @@ class _Tile extends StatelessWidget {
         pendingAction(
           DIcons.reply,
           DButtonSize.regular,
-          'Reply',
+          context.l10n.reply,
           density: DButtonDensity.chatMessageAction,
         );
     final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
@@ -1226,19 +1235,19 @@ class _Tile extends StatelessWidget {
           children: [
             if (message.edited)
               Text(
-                '(edited)',
+                context.l10n.edited,
                 key: ChatMessageTile.editedIndicatorKey(message.id),
               ),
             if (message.pinned)
               Semantics(
-                label: 'Pinned chat message',
+                label: context.l10n.pinnedChatMessage,
                 child: const DIcon(DIcons.thumbtack, size: 14),
               ),
             if (message.bookmark case final bookmark?)
               Semantics(
                 label: bookmark.reminderAt == null
-                    ? 'Bookmarked chat message'
-                    : 'Chat message bookmarked with a reminder',
+                    ? context.l10n.bookmarkedChatMessage
+                    : context.l10n.chatMessageBookmarkedWithAReminder,
                 child: DIcon(_bookmarkIcon(bookmark), size: 14),
               ),
             if (message.delivery == ChatMessageDelivery.failed)
@@ -1246,7 +1255,9 @@ class _Tile extends StatelessWidget {
                 state: DMessageDeliveryState.failed,
                 label: message.sendError == null || message.sendError!.isEmpty
                     ? null
-                    : 'Failed to send: ${message.sendError}',
+                    : context.l10n.failedToSendChatmessagetile(
+                        (message.sendError).toString(),
+                      ),
               ),
             if (message.delivery == ChatMessageDelivery.failed &&
                 message.stagedId != null &&
@@ -1259,7 +1270,9 @@ class _Tile extends StatelessWidget {
                   size: DButtonSize.small,
                   variant: DButtonVariant.transparentBackground,
                   label: Text(
-                    message.retryWaiting ? 'Retry after cooldown' : 'Retry',
+                    message.retryWaiting
+                        ? context.l10n.retryAfterCooldown
+                        : context.l10n.retry,
                   ),
                   onPressed: message.retryWaiting || !canSend
                       ? null
@@ -1315,7 +1328,10 @@ class _Tile extends StatelessWidget {
                       siteUrl: siteUrl,
                       semanticLabel: message.author.flair == null
                           ? null
-                          : 'View profile for @${message.author.username}, ${message.author.flair!.label}',
+                          : context.l10n.viewProfileFor(
+                              (message.author.username).toString(),
+                              (message.author.flair!.label).toString(),
+                            ),
                       child: ChatUserAvatar(
                         siteUrl: siteUrl,
                         userId: message.author.id,
@@ -1350,10 +1366,13 @@ class _Tile extends StatelessWidget {
                         size: 15,
                       ),
                       if (message.author.isStaff)
-                        _Tag(label: 'staff', color: theme.colorScheme.primary),
+                        _Tag(
+                          label: context.l10n.staffChatmessagetile,
+                          color: theme.colorScheme.primary,
+                        ),
                       if (message.isWebhook)
                         _Tag(
-                          label: 'bot',
+                          label: context.l10n.bot,
                           color: theme.discourse.primaryVeryHigh,
                           isBot: true,
                         ),
@@ -1529,13 +1548,16 @@ class _ReplyIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DBubbleQuote(
     key: ChatMessageTile.replyIndicatorKey(reply.id),
-    semanticLabel:
-        'Jump to message from @${reply.username}'
-        '${reply.flair == null ? '' : ', ${reply.flair!.label}'}: ${reply.excerpt}',
+    semanticLabel: context.l10n.jumpToMessageFrom(
+      (reply.flair == null).toString(),
+      (reply.username).toString(),
+      (reply.excerpt).toString(),
+      ((!(reply.flair == null)) ? (reply.flair!.label) : '').toString(),
+    ),
     onPressed: onJump,
     author: Text(reply.username, maxLines: 1, overflow: TextOverflow.ellipsis),
     child: SiteEmojiText.plain(
-      reply.excerpt.isEmpty ? 'Original message' : reply.excerpt,
+      reply.excerpt.isEmpty ? context.l10n.originalMessage : reply.excerpt,
       siteUrl: siteUrl,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -1630,8 +1652,8 @@ class _Reactions extends StatelessWidget {
           selected: reaction.reacted,
           onTapHint: canToggle(reaction)
               ? reaction.reacted
-                    ? 'remove your reaction'
-                    : 'add this reaction'
+                    ? context.l10n.removeYourReaction
+                    : context.l10n.addThisReaction
               : null,
           interactionOwner: chat,
           onToggle: canToggle(reaction)
@@ -1782,19 +1804,17 @@ class _ThreadSummaryCard extends StatelessWidget {
     };
     final participants = _participantTotal(thread);
 
-    final label = StringBuffer('Open thread with $replies.');
+    final label = StringBuffer(appL10n.openThreadWith((replies).toString()));
     if (name != null || excerpt != null || time != null) {
-      label.write(' Latest reply');
-      if (name != null) label.write(' from $name');
+      label.write(appL10n.latestReply);
+      if (name != null) label.write(appL10n.from((name).toString()));
       if (user?.flair case final flair?) label.write(', ${flair.label}');
       if (time != null) label.write(', $time');
       if (excerpt != null) label.write(': $excerpt');
       label.write('.');
     }
     if (participants > 0) {
-      label.write(
-        ' $participants ${participants == 1 ? 'participant' : 'participants'}.',
-      );
+      label.write(appL10n.messageChatmessagetile(participants));
     }
     return label.toString();
   }
@@ -1906,8 +1926,7 @@ class _AvatarFallback extends StatelessWidget {
   );
 }
 
-String _replyCountLabel(int count) =>
-    countLabel(count, 'reply', plural: 'replies');
+String _replyCountLabel(int count) => countLabel(count, CountNoun.reply);
 
 String? _nonEmpty(String? value) {
   final text = value?.trim();

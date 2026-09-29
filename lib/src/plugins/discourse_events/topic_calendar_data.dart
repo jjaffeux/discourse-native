@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -240,7 +241,7 @@ List<CalendarOccurrence> calendarOccurrences(
         return;
       }
       final occurrence = CalendarOccurrence(
-        title: title.isEmpty ? 'Calendar entry' : title,
+        title: title.isEmpty ? appL10n.calendarEntry : title,
         description: description,
         username: username,
         start: first,

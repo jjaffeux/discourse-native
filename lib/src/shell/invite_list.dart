@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -40,8 +41,8 @@ class InviteSection extends StatelessWidget {
         builder: (context, owner, _) {
           final instance = owner.instance;
           if (instance == null || instance.user?.canInviteToForum != true) {
-            return const UserMenuMessage(
-              text: 'Invites are unavailable for this account.',
+            return UserMenuMessage(
+              text: context.l10n.invitesAreUnavailableForThisAccount,
             );
           }
           return _InviteSession(
@@ -167,7 +168,7 @@ class _InviteListState extends State<InviteList> {
       }
     } catch (_) {
       if (mounted && widget.controller.isCurrent) {
-        setState(() => _copyError = "Couldn't copy the invite link.");
+        setState(() => _copyError = appL10n.couldnTCopyTheInviteLink);
       }
     }
   }
@@ -194,7 +195,7 @@ class _InviteListState extends State<InviteList> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 DButton(
-                  label: const Text('Create invite'),
+                  label: Text(context.l10n.createInvite),
                   variant: DButtonVariant.primary,
                   onPressed: controller.canInvite && !controller.writing
                       ? () {
@@ -204,7 +205,7 @@ class _InviteListState extends State<InviteList> {
                       : null,
                 ),
                 DButton(
-                  label: const Text('Refresh'),
+                  label: Text(context.l10n.refresh),
                   variant: DButtonVariant.ghost,
                   onPressed: controller.loading || controller.writing
                       ? null
@@ -218,7 +219,7 @@ class _InviteListState extends State<InviteList> {
               isExpanded: true,
               key: ValueKey(('invite-filter', controller.filter)),
               value: controller.filter,
-              label: const Text('Status'),
+              label: Text(context.l10n.status),
               entries: [
                 for (final filter in InviteFilter.values)
                   if (!controller.loaded ||
@@ -254,9 +255,9 @@ class _InviteListState extends State<InviteList> {
               style: Theme.of(context).textTheme.bodyMedium,
               controller: _search,
               maxLength: 255,
-              decoration: const InputDecoration(
-                labelText: 'Search invites',
-                hintText: 'Email or username',
+              decoration: InputDecoration(
+                labelText: context.l10n.searchInvites,
+                hintText: context.l10n.emailOrUsername,
                 isDense: true,
                 counterText: '',
               ),
@@ -266,7 +267,7 @@ class _InviteListState extends State<InviteList> {
               _Notice(error, error: true),
             if (controller.message case final message?) _Notice(message),
             if (controller.loading && !controller.loaded)
-              const UserMenuLoading(semanticsLabel: 'Loading invites')
+              UserMenuLoading(semanticsLabel: context.l10n.loadingInvites)
             else if (controller.error case final error?
                 when !controller.loaded || controller.invites.isEmpty)
               UserMenuMessage(
@@ -277,7 +278,7 @@ class _InviteListState extends State<InviteList> {
               UserMenuMessage(
                 text: controller.search.isEmpty
                     ? controller.filter.emptyMessage
-                    : 'No matching invites.',
+                    : context.l10n.noMatchingInvites,
               )
             else ...[
               for (final invite in controller.invites)
@@ -302,7 +303,11 @@ class _InviteListState extends State<InviteList> {
                 ),
               if (controller.hasMore && controller.error == null)
                 DButton(
-                  label: Text(controller.loading ? 'Loading…' : 'Load more'),
+                  label: Text(
+                    controller.loading
+                        ? context.l10n.loading
+                        : context.l10n.loadMore,
+                  ),
                   variant: DButtonVariant.ghost,
                   onPressed: controller.loading || controller.writing
                       ? null
@@ -311,7 +316,7 @@ class _InviteListState extends State<InviteList> {
             ],
             const DSeparator(),
             DButton(
-              label: const Text('Manage invites in browser'),
+              label: Text(context.l10n.manageInvitesInBrowser),
               variant: DButtonVariant.link,
               onPressed: widget.onManage,
             ),
@@ -389,41 +394,50 @@ class _InviteRow extends StatelessWidget {
             Text(invite.description!, style: theme.textTheme.bodySmall),
           if (!redeemed && invite.email == null)
             Text(
-              '${invite.redemptionCount} of ${invite.maxRedemptions} uses',
+              context.l10n.ofUses(
+                (invite.redemptionCount).toString(),
+                (invite.maxRedemptions).toString(),
+              ),
               style: theme.textTheme.bodySmall,
             ),
           if (invite.domain != null)
             Text(
-              'Restricted to ${invite.domain}',
+              context.l10n.restrictedToInvitelist((invite.domain).toString()),
               style: theme.textTheme.bodySmall,
             ),
           if (date != null)
             Text(
-              '${redeemed
-                  ? 'Joined'
-                  : expired
-                  ? 'Expired'
-                  : 'Expires'} '
-              '${MaterialLocalizations.of(context).formatMediumDate(date.toLocal())}',
+              context.l10n.messageInvitelist(
+                (redeemed).toString(),
+                ((redeemed) ? (context.l10n.joined) : '').toString(),
+                (MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(date.toLocal())).toString(),
+                ((!(redeemed)) ? (expired) : '').toString(),
+                (((!(redeemed)) && (expired)) ? (context.l10n.expired) : '')
+                    .toString(),
+                (((!(redeemed)) && (!(expired))) ? (context.l10n.expires) : '')
+                    .toString(),
+              ),
               style: theme.textTheme.bodySmall,
             ),
           if (redeemed && invite.inviteSource != null)
             Text(
-              'Invited via ${invite.inviteSource}',
+              context.l10n.invitedVia((invite.inviteSource).toString()),
               style: theme.textTheme.bodySmall,
             ),
           if (confirmingRemoval) ...[
-            const Text('Remove this invite? It will no longer be usable.'),
+            Text(context.l10n.removeThisInviteItWillNoLongerBeUsable),
             Wrap(
               spacing: DSpacing.controlGap,
               children: [
                 DButton(
-                  label: const Text('Confirm removal'),
+                  label: Text(context.l10n.confirmRemoval),
                   variant: DButtonVariant.destructive,
                   onPressed: busy ? null : onConfirmRemoval,
                 ),
                 DButton(
-                  label: const Text('Cancel'),
+                  label: Text(context.l10n.cancel),
                   onPressed: busy ? null : onCancelRemoval,
                 ),
               ],
@@ -434,19 +448,23 @@ class _InviteRow extends StatelessWidget {
               children: [
                 if (invite.link != null)
                   DButton(
-                    label: Text(copied ? 'Copied!' : 'Copy link'),
+                    label: Text(
+                      copied
+                          ? context.l10n.copiedInviteeditor
+                          : context.l10n.copyLink,
+                    ),
                     variant: DButtonVariant.ghost,
                     onPressed: busy ? null : onCopy,
                   ),
                 if (invite.canDelete && invite.email != null && allowEmail)
                   DButton(
-                    label: const Text('Resend'),
+                    label: Text(context.l10n.resend),
                     variant: DButtonVariant.ghost,
                     onPressed: busy ? null : onResend,
                   ),
                 if (invite.canDelete)
                   DButton(
-                    label: const Text('Remove'),
+                    label: Text(context.l10n.removeLocaldatecomposersheet),
                     variant: DButtonVariant.destructive,
                     onPressed: busy ? null : onRemove,
                   ),

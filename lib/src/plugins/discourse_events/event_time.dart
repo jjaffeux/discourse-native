@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -104,8 +105,8 @@ String eventDateLabel(
   );
   if (start == null) {
     return event.flag('is_expired')
-        ? 'This event has ended'
-        : 'Date unavailable';
+        ? appL10n.thisEventHasEndedEventtime
+        : appL10n.dateUnavailable;
   }
   final date = DateFormat.yMMMd(locale);
   final sameDay =
@@ -115,26 +116,36 @@ String eventDateLabel(
       start.day == end.day;
   if (event.allDay) {
     return end == null || sameDay
-        ? '${date.format(start)} · All day'
-        : '${date.format(start)} – ${date.format(end)} · All day';
+        ? appL10n.allDayEventtime((date.format(start)).toString())
+        : appL10n.allDayEventtimeValue(
+            (date.format(start)).toString(),
+            (date.format(end)).toString(),
+          );
   }
   String time(DateTime value) =>
       clockTime(value, use24HourClock: use24HourClock, locale: locale);
   final zone = event.showLocalTime
       ? event.timezone
       : zones.readerTimezone(accountTimezone);
-  return '${date.format(start)}, ${time(start)}'
-      '${end == null ? '' : ' → ${sameDay ? '' : '${date.format(end)}, '}${time(end)}'}'
-      '${zone == null ? '' : ' ($zone)'}';
+  return appL10n.messageEventtime(
+    (end == null).toString(),
+    (zone == null).toString(),
+    (date.format(start)).toString(),
+    (time(start)).toString(),
+    ((!(zone == null)) ? (zone) : '').toString(),
+    ((!(end == null)) ? (sameDay) : '').toString(),
+    ((!(end == null)) ? (time(end)) : '').toString(),
+    (((!(end == null)) && (!(sameDay))) ? (date.format(end)) : '').toString(),
+  );
 }
 
 String? eventRecurrenceLabel(String? recurrence) => switch (recurrence) {
   null || '' || 'none' => null,
-  'every_day' => 'Every day',
-  'every_weekday' => 'Every weekday',
-  'every_week' => 'Every week',
-  'every_two_weeks' => 'Every two weeks',
-  'every_four_weeks' => 'Every four weeks',
-  'every_month' => 'Every month on the same weekday',
-  _ => 'Repeating event',
+  'every_day' => appL10n.everyDay,
+  'every_weekday' => appL10n.everyWeekday,
+  'every_week' => appL10n.everyWeek,
+  'every_two_weeks' => appL10n.everyTwoWeeks,
+  'every_four_weeks' => appL10n.everyFourWeeks,
+  'every_month' => appL10n.everyMonthOnTheSameWeekday,
+  _ => appL10n.repeatingEvent,
 };

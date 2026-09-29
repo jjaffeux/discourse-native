@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -78,7 +79,7 @@ Future<bool> openLink(
 
 bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
   if (result == TabOpenResult.limitReached) {
-    DToast.show(context, 'Close a tab before opening another.');
+    DToast.show(context, appL10n.closeATabBeforeOpeningAnotherOpenlink);
   }
   return result == TabOpenResult.opened;
 }
@@ -242,26 +243,26 @@ class _LinkTargetState extends State<LinkTarget> {
           controller: _menu.controller,
           onOpenChange: _menu.onOpenChange,
           content: DContextMenuContent(
-            semanticLabel: 'Open link',
+            semanticLabel: context.l10n.openLinkOpenlink,
             children: [
               DContextMenuItem(
                 onPressed: () =>
                     activate(newTab: false, panel: ForumPanel.main),
-                child: const Text('Open in main panel'),
+                child: Text(context.l10n.openInMainPanel),
               ),
               DContextMenuItem(
                 onPressed: () =>
                     activate(newTab: false, panel: ForumPanel.secondary),
-                child: const Text('Open in secondary panel'),
+                child: Text(context.l10n.openInSecondaryPanel),
               ),
               DContextMenuItem(
                 onPressed: () => activate(newTab: true, panel: ForumPanel.main),
-                child: const Text('Open in new main tab'),
+                child: Text(context.l10n.openInNewMainTab),
               ),
               DContextMenuItem(
                 onPressed: () =>
                     activate(newTab: true, panel: ForumPanel.secondary),
-                child: const Text('Open in new secondary tab'),
+                child: Text(context.l10n.openInNewSecondaryTab),
               ),
             ],
           ),

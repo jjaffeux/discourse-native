@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -24,7 +25,7 @@ Future<void> showChatThreadSettings({
   }
   await showShellSheet<void>(
     context: context,
-    title: 'Thread settings',
+    title: appL10n.threadSettings,
     dialogOnDesktop: true,
     builder: (context) => _ChatThreadSettingsEditor(
       chat: chat,
@@ -84,7 +85,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
     }
     setState(() {
       _saving = false;
-      _error = 'Could not save the thread title. Try again.';
+      _error = appL10n.couldNotSaveTheThreadTitleTryAgain;
     });
   }
 
@@ -112,12 +113,12 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => unawaited(_save()),
-          labelText: 'Title',
-          hintText: 'Give this thread a title',
+          labelText: context.l10n.title,
+          hintText: context.l10n.giveThisThreadATitle,
         ),
         if (!_canEdit) ...[
           const SizedBox(height: 8),
-          const Text('You can no longer edit this thread title.'),
+          Text(context.l10n.youCanNoLongerEditThisThreadTitle),
         ],
         if (_error case final error?) ...[
           const SizedBox(height: 8),
@@ -134,7 +135,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
           alignment: Alignment.centerLeft,
           child: DButton(
             key: const ValueKey('chat-thread-title-save'),
-            label: const Text('Save'),
+            label: Text(context.l10n.save),
             onPressed: _canEdit && !_saving ? () => unawaited(_save()) : null,
             variant: DButtonVariant.primary,
             loading: _saving,

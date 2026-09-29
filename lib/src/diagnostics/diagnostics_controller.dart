@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/app_release.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_error_cause.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
@@ -981,17 +982,17 @@ final class DiagnosticsController
       },
       'scope': {
         'captured': [
-          'in-process Dart HTTP',
-          'Flutter framework errors',
-          'root-isolate platform errors',
-          'reported operational errors',
-          'reported structured application logs',
+          appL10n.inProcessDartHTTP,
+          appL10n.flutterFrameworkErrors,
+          appL10n.rootIsolatePlatformErrors,
+          appL10n.reportedOperationalErrors,
+          appL10n.reportedStructuredApplicationLogs,
         ],
         'excluded': [
-          'external browser and web-auth traffic',
-          'native-plugin-internal networking',
-          'spawned isolates without the HTTP override',
-          'native process crashes',
+          appL10n.externalBrowserAndWebAuthTraffic,
+          appL10n.nativePluginInternalNetworking,
+          appL10n.spawnedIsolatesWithoutTheHTTPOverride,
+          appL10n.nativeProcessCrashes,
         ],
       },
       'filter': panelState.toJson(),
@@ -1286,7 +1287,9 @@ final class DiagnosticsController
     if (error is FormatException) {
       final offset = error.offset;
       return DiagnosticsRedactor.scrub(
-        offset == null ? error.message : '${error.message} (offset $offset)',
+        offset == null
+            ? error.message
+            : appL10n.offset((error.message).toString(), (offset).toString()),
       );
     }
     return DiagnosticsRedactor.safeString(error);
@@ -1401,9 +1404,9 @@ final class DiagnosticsController
       handled: true,
       degraded: true,
       errorType: error.runtimeType.toString(),
-      message:
-          'Diagnostics persistence is unavailable; history is memory-only. '
-          '${_safeErrorMessage(error)}',
+      message: appL10n.diagnosticsPersistenceIsUnavailableHistoryIsMemoryOnly(
+        (_safeErrorMessage(error)).toString(),
+      ),
       stackTrace: stackTrace.toString(),
     );
     _putEvent(warning);

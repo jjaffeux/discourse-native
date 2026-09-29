@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel_star_button.dart';
@@ -250,7 +251,7 @@ class ChatThreadPaneDivider extends StatelessWidget {
   Widget build(BuildContext context) => DResizableHandle.standalone(
     focusKey: const ValueKey('chat-thread-divider-focus'),
     dividerKey: const ValueKey('chat-thread-divider-border'),
-    semanticLabel: 'Thread pane width',
+    semanticLabel: context.l10n.threadPaneWidth,
     value: width,
     min: minimumWidth,
     max: maximumWidth,
@@ -442,9 +443,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         text: error,
       );
     } else if (stream.isEmpty) {
-      content = const _ThreadStateMessage(
+      content = _ThreadStateMessage(
         icon: DIcons.comments,
-        text: 'No replies yet.',
+        text: appL10n.noRepliesYet,
       );
     } else {
       content = const SizedBox.shrink();
@@ -452,7 +453,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
     return ChatUploadDropRegion(
       controller: _uploadDropController,
-      title: 'Drop files to upload to this thread',
+      title: appL10n.dropFilesToUploadToThisThread,
       child: Column(
         children: [
           if (stream.notice case final notice?)
@@ -562,7 +563,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       if (!context.mounted) return;
       DToast.show(
         context,
-        'This thread is no longer available.',
+        appL10n.thisThreadIsNoLongerAvailable,
         type: DToastType.warning,
       );
     });
@@ -644,7 +645,7 @@ class _ChannelPaneHeader extends StatelessWidget {
                         Flexible(
                           fit: FlexFit.loose,
                           child: Text(
-                            channel?.title ?? 'Chat',
+                            channel?.title ?? context.l10n.chat,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleSmall?.copyWith(
@@ -706,7 +707,7 @@ class _ThreadHeader extends StatelessWidget {
           children: [
             if (leading == _HeaderAction.back)
               DButton.iconOnly(
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
                 onPressed: () => shell.returnToChannel(target.channelId),
                 icon: const DIcon(DIcons.arrowLeft),
                 variant: DButtonVariant.ghost,
@@ -717,7 +718,7 @@ class _ThreadHeader extends StatelessWidget {
               child: Text(
                 thread?.title?.trim().isNotEmpty == true
                     ? thread!.title!
-                    : 'Thread',
+                    : context.l10n.thread,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
@@ -733,7 +734,7 @@ class _ThreadHeader extends StatelessWidget {
             ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
             if (showClose)
               DButton.iconOnly(
-                tooltip: 'Close thread',
+                tooltip: context.l10n.closeThread,
                 onPressed: () => shell.returnToChannel(target.channelId),
                 icon: const DIcon(DIcons.xmark),
                 variant: DButtonVariant.ghost,
@@ -757,24 +758,25 @@ class _NotificationLevelButton extends StatelessWidget {
   final ChatThreadTarget target;
   final ChatThread? thread;
 
-  static const _options = [
+  static List<DNotificationLevelOption<ChatThreadNotificationLevel>>
+  get _options => [
     DNotificationLevelOption(
       value: ChatThreadNotificationLevel.normal,
-      label: 'Normal',
-      description: 'Mentions only',
-      icon: DIcon(DNativeIcons.bell),
+      label: appL10n.normal,
+      description: appL10n.mentionsOnly,
+      icon: const DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: ChatThreadNotificationLevel.tracking,
-      label: 'Tracking',
-      description: 'Mentions and unread reply count',
-      icon: DIcon(DNativeIcons.bell),
+      label: appL10n.tracking,
+      description: appL10n.mentionsAndUnreadReplyCount,
+      icon: const DIcon(DNativeIcons.bell),
     ),
     DNotificationLevelOption(
       value: ChatThreadNotificationLevel.watching,
-      label: 'Watching',
-      description: 'Every reply and unread count',
-      icon: DIcon(DNativeIcons.bellRing),
+      label: appL10n.watching,
+      description: appL10n.everyReplyAndUnreadCount,
+      icon: const DIcon(DNativeIcons.bellRing),
     ),
   ];
 
@@ -792,7 +794,7 @@ class _NotificationLevelButton extends StatelessWidget {
     return DNotificationLevelMenu<ChatThreadNotificationLevel>(
       key: ValueKey((chat, siteUrl, target)),
       size: DButtonSize.regular,
-      semanticLabel: 'Thread notifications',
+      semanticLabel: context.l10n.threadNotifications,
       value: current,
       options: _options,
       onChanged: thread == null
@@ -855,7 +857,7 @@ class ChatThreadSettingsButton extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return DButton.iconOnly(
-          tooltip: 'Thread settings',
+          tooltip: context.l10n.threadSettings,
           onPressed: () => unawaited(
             showChatThreadSettings(
               context: context,

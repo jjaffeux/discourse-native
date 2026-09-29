@@ -1,20 +1,28 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'discourse_instance.dart';
 import 'json.dart';
 
 enum UserDirectoryPeriod {
-  all('all', 'All time'),
-  yearly('yearly', 'Year'),
-  quarterly('quarterly', 'Quarter'),
-  monthly('monthly', 'Month'),
-  weekly('weekly', 'Week'),
-  daily('daily', 'Today');
+  all('all'),
+  yearly('yearly'),
+  quarterly('quarterly'),
+  monthly('monthly'),
+  weekly('weekly'),
+  daily('daily');
 
-  const UserDirectoryPeriod(this.queryValue, this.label);
+  const UserDirectoryPeriod(this.queryValue);
 
   final String queryValue;
-  final String label;
+  String get label => switch (this) {
+    all => appL10n.allTime,
+    yearly => appL10n.year,
+    quarterly => appL10n.quarter,
+    monthly => appL10n.month,
+    weekly => appL10n.week,
+    daily => appL10n.todayDcalendarevents,
+  };
 }
 
 enum UserDirectoryColumnType {
@@ -44,7 +52,7 @@ final class UserDirectoryColumn {
   factory UserDirectoryColumn.fromWire(Map<String, dynamic> json) {
     final name = jsonText(json['name']);
     if (name == null) {
-      throw const FormatException('Directory column is missing its name.');
+      throw FormatException(appL10n.directoryColumnIsMissingItsName);
     }
     return UserDirectoryColumn(
       id: jsonInt(json['id']),
@@ -83,14 +91,14 @@ final class UserDirectoryColumn {
   };
 
   String get label => switch (name) {
-    'likes_received' => 'Likes received',
-    'likes_given' => 'Likes given',
-    'topics_entered' => 'Topics viewed',
-    'topic_count' => 'Topics created',
-    'post_count' => 'Replies posted',
-    'posts_read' || 'posts_read_count' => 'Posts read',
-    'days_visited' => 'Days visited',
-    'time_read' => 'Time read',
+    'likes_received' => appL10n.likesReceived,
+    'likes_given' => appL10n.likesGiven,
+    'topics_entered' => appL10n.topicsViewed,
+    'topic_count' => appL10n.topicsCreated,
+    'post_count' => appL10n.repliesPosted,
+    'posts_read' || 'posts_read_count' => appL10n.postsRead,
+    'days_visited' => appL10n.daysVisited,
+    'time_read' => appL10n.timeRead,
     _ => _humanize(name),
   };
 
@@ -119,7 +127,7 @@ final class UserDirectoryUser {
   ) {
     final username = jsonText(json['username']);
     if (username == null) {
-      throw const FormatException('Directory user is missing a username.');
+      throw FormatException(appL10n.directoryUserIsMissingAUsername);
     }
     final fields = <int, List<String>>{};
     final rawFields = jsonObject(json['user_fields']);

@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:ui' show FramePhase;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
@@ -299,21 +300,21 @@ final class TopicScrollCaptureController extends FrameSafeNotifier {
       },
       'scope': {
         'captured': [
-          'topic scroll and metrics notifications',
-          'SuperListView sliver layout and visible ranges',
-          'visible post geometry and row attachment lifecycle',
-          'topic window, paging, and extent invalidation decisions',
-          'viewport anchor capture and correction decisions',
-          'Flutter UI-thread build and raster frame timings',
-          'post layout and viewport bookkeeping durations',
-          'topic-list row subtree build and layout durations',
-          'sampled CPU functions in slow topic frames when available',
-          'recorded rendering phases in slow topic raster frames when available',
+          appL10n.topicScrollAndMetricsNotifications,
+          appL10n.superListViewSliverLayoutAndVisibleRanges,
+          appL10n.visiblePostGeometryAndRowAttachmentLifecycle,
+          appL10n.topicWindowPagingAndExtentInvalidationDecisions,
+          appL10n.viewportAnchorCaptureAndCorrectionDecisions,
+          appL10n.flutterUIThreadBuildAndRasterFrameTimings,
+          appL10n.postLayoutAndViewportBookkeepingDurations,
+          appL10n.topicListRowSubtreeBuildAndLayoutDurations,
+          appL10n.sampledCPUFunctionsInSlowTopicFramesWhenAvailable,
+          appL10n.recordedRenderingPhasesInSlowTopicRasterFramesWhenAvailable,
         ],
         'excluded': [
-          'post bodies and titles',
-          'site URLs and credentials',
-          'native compositor and operating-system traces',
+          appL10n.postBodiesAndTitles,
+          appL10n.siteURLsAndCredentials,
+          appL10n.nativeCompositorAndOperatingSystemTraces,
         ],
       },
       'summary': {

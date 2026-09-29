@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -21,7 +22,7 @@ class DSpinner extends StatelessWidget {
     this.size = DSpacing.lg,
     this.color,
     this.strokeWidth = 2,
-    this.semanticLabel = 'Loading',
+    this._semanticLabel = defaultLocalizedLabel,
     this.animating = true,
     this.child,
   }) : assert(size > 0 && size < double.infinity),
@@ -39,9 +40,13 @@ class DSpinner extends StatelessWidget {
   /// Scales with [size], as in SVG. Custom artwork owns its strokes.
   final double strokeWidth;
 
+  final String? _semanticLabel;
+
   /// Localizable loading status. Null makes the spinner decorative when its
   /// containing button, input or status text already describes the operation.
-  final String? semanticLabel;
+  String? get semanticLabel => _semanticLabel == defaultLocalizedLabel
+      ? appL10n.loadingDbutton
+      : _semanticLabel;
 
   /// Whether motion is requested. False preserves the busy status and geometry.
   /// Remove the spinner when the operation has completed.

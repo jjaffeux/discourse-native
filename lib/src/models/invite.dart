@@ -1,16 +1,25 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'json.dart';
 
 enum InviteFilter {
-  pending('Pending', 'No pending invites.'),
-  expired('Expired', 'No expired invites.'),
-  redeemed('Redeemed', 'No redeemed invites yet.');
+  pending(),
+  expired(),
+  redeemed();
 
-  const InviteFilter(this.label, this.emptyMessage);
+  const InviteFilter();
 
-  final String label;
-  final String emptyMessage;
+  String get label => switch (this) {
+    pending => appL10n.pending,
+    expired => appL10n.expired,
+    redeemed => appL10n.redeemed,
+  };
+  String get emptyMessage => switch (this) {
+    pending => appL10n.noPendingInvites,
+    expired => appL10n.noExpiredInvites,
+    redeemed => appL10n.noRedeemedInvitesYet,
+  };
 }
 
 @immutable
@@ -132,7 +141,7 @@ final class DiscourseInvite {
   final int? userId;
   final String? inviteSource;
 
-  String get label => username ?? email ?? description ?? 'Invite link';
+  String get label => username ?? email ?? description ?? appL10n.inviteLink;
 }
 
 @immutable

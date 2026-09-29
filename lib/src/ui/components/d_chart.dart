@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -744,7 +745,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
     final chartHeight = math.max(widget.height, 120 + axisHeight);
     final selected = _selected;
     String summary(int index) =>
-        '${labels[index]}: ${rows[index].map((item) => '${scope.config[item.key]?.label ?? item.key} ${item.value == null ? 'No data' : widget.valueFormatter?.call(item.value!) ?? _formatValue(context, item.value!)}').join(', ')}';
+        '${labels[index]}: ${rows[index].map((item) => '${scope.config[item.key]?.label ?? item.key} ${item.value == null ? context.l10n.noData : widget.valueFormatter?.call(item.value!) ?? _formatValue(context, item.value!)}').join(', ')}';
     final next = rows.isEmpty
         ? null
         : ((_selected ?? -1) + 1).clamp(0, rows.length - 1);
@@ -766,11 +767,11 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
             child: Semantics(
               label: widget.semanticLabel,
               value: selected == null
-                  ? 'No category selected'
+                  ? context.l10n.noCategorySelected
                   : summary(selected),
               increasedValue: next == null ? null : summary(next),
               decreasedValue: previous == null ? null : summary(previous),
-              hint: 'Use left and right arrow keys to inspect values',
+              hint: context.l10n.useLeftAndRightArrowKeysToInspectValues,
               onIncrease: widget.data.isEmpty
                   ? null
                   : () => _select(
@@ -891,7 +892,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                               ),
                             ),
                             if (rows.isEmpty || widget.series.isEmpty)
-                              const Center(child: Text('No data')),
+                              Center(child: Text(context.l10n.noData)),
                             if (selected != null &&
                                 widget.tooltip &&
                                 plot.width > 0)

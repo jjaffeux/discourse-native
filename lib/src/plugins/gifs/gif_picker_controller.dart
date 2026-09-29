@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'gif.dart';
@@ -287,21 +288,20 @@ final class GifPickerController extends ChangeNotifier {
   }
 }
 
-const String _missingCredentials =
-    'Connect to this site before searching for GIFs.';
+String get _missingCredentials =>
+    appL10n.connectToThisSiteBeforeSearchingForGIFs;
 
 String _errorMessage(Object error) {
   if (error is SiteLookupException) {
     return switch (error.statusCode) {
-      400 || 414 => 'That GIF search is too long.',
-      401 || 403 =>
-        'GIF search is not configured for this site, or its API key is invalid.',
-      404 => 'GIF search is not enabled for this site.',
-      429 => 'Too many GIF searches. Try again in a moment.',
-      _ => "Couldn't load GIFs. Check the connection and try again.",
+      400 || 414 => appL10n.thatGIFSearchIsTooLong,
+      401 || 403 => appL10n.gIFSearchIsNotConfiguredForThisSiteOrItsAPI,
+      404 => appL10n.gIFSearchIsNotEnabledForThisSite,
+      429 => appL10n.tooManyGIFSearchesTryAgainInAMoment,
+      _ => appL10n.couldnTLoadGIFsCheckTheConnectionAndTryAgain,
     };
   }
-  return "Couldn't load GIFs. Check the connection and try again.";
+  return appL10n.couldnTLoadGIFsCheckTheConnectionAndTryAgain;
 }
 
 @immutable

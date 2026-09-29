@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -46,12 +47,12 @@ List<ChatChannel> chatInboxConversations(
 }
 
 String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
-    ? 'No unread conversations.'
+    ? appL10n.noUnreadConversations
     : switch (filter.kind) {
-        ChatInboxKind.all => 'No conversations yet.',
-        ChatInboxKind.channels => 'You have not joined any channels yet.',
-        ChatInboxKind.directMessages => 'You have no direct messages yet.',
-        ChatInboxKind.voiceRooms => 'No voice rooms yet.',
+        ChatInboxKind.all => appL10n.noConversationsYet,
+        ChatInboxKind.channels => appL10n.youHaveNotJoinedAnyChannelsYet,
+        ChatInboxKind.directMessages => appL10n.youHaveNoDirectMessagesYet,
+        ChatInboxKind.voiceRooms => appL10n.noVoiceRoomsYet,
       };
 
 DateTime? chatInboxActivityAt(ChatChannel channel) {
@@ -92,13 +93,21 @@ class ChatInboxFilterBar extends StatelessWidget {
       final dropdowns = <Widget>[
         ChatBrowseFilter<bool>(
           key: const ValueKey('chat-inbox-activity-filter'),
-          label: filter.unreadOnly ? 'Unread' : 'Recent',
+          label: filter.unreadOnly ? context.l10n.unread : context.l10n.recent,
           emphasized: true,
-          semanticLabel: 'Chat activity',
+          semanticLabel: context.l10n.chatActivity,
           value: filter.unreadOnly,
-          entries: const [
-            DSelectOption(value: false, label: 'Recent', child: Text('Recent')),
-            DSelectOption(value: true, label: 'Unread', child: Text('Unread')),
+          entries: [
+            DSelectOption(
+              value: false,
+              label: context.l10n.recent,
+              child: Text(context.l10n.recent),
+            ),
+            DSelectOption(
+              value: true,
+              label: context.l10n.unread,
+              child: Text(context.l10n.unread),
+            ),
           ],
           onChanged: (value) =>
               filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
@@ -106,10 +115,10 @@ class ChatInboxFilterBar extends StatelessWidget {
         ChatBrowseFilter<ChatInboxKind>(
           key: const ValueKey('chat-inbox-kind-filter'),
           label: switch (filter.kind) {
-            ChatInboxKind.all => 'All',
-            ChatInboxKind.channels => 'Channels',
-            ChatInboxKind.directMessages => 'Direct messages',
-            ChatInboxKind.voiceRooms => 'Voice rooms',
+            ChatInboxKind.all => context.l10n.all,
+            ChatInboxKind.channels => context.l10n.channels,
+            ChatInboxKind.directMessages => context.l10n.directMessages,
+            ChatInboxKind.voiceRooms => context.l10n.voiceRooms,
           },
           icon: switch (filter.kind) {
             ChatInboxKind.all => const DIcon(DIcons.asterisk),
@@ -117,33 +126,33 @@ class ChatInboxFilterBar extends StatelessWidget {
             ChatInboxKind.directMessages => const DIcon(DIcons.user),
             ChatInboxKind.voiceRooms => const DIcon(DIcons.microphoneLines),
           },
-          semanticLabel: 'Conversation type',
+          semanticLabel: context.l10n.conversationType,
           value: filter.kind,
           entries: [
-            const DSelectOption(
+            DSelectOption(
               value: ChatInboxKind.all,
-              label: 'All',
-              child: Text('All'),
+              label: context.l10n.all,
+              child: Text(context.l10n.all),
             ),
-            const DSelectOption(
+            DSelectOption(
               value: ChatInboxKind.channels,
-              label: 'Channels',
-              child: Text('Channels'),
+              label: context.l10n.channels,
+              child: Text(context.l10n.channels),
             ),
-            const DSelectOption(
+            DSelectOption(
               value: ChatInboxKind.directMessages,
-              label: 'Direct messages',
-              child: Text('Direct messages'),
+              label: context.l10n.directMessages,
+              child: Text(context.l10n.directMessages),
             ),
             if (PluginUiScope.optional(
                   context,
                   chatInboxRoomsService,
                 )?.available(siteUrl) ==
                 true)
-              const DSelectOption(
+              DSelectOption(
                 value: ChatInboxKind.voiceRooms,
-                label: 'Voice rooms',
-                child: Text('Voice rooms'),
+                label: context.l10n.voiceRooms,
+                child: Text(context.l10n.voiceRooms),
               ),
           ],
           onChanged: (value) =>
@@ -198,8 +207,10 @@ class ChatInboxShortcuts extends StatelessWidget {
           key: const ValueKey('chat-inbox-browse'),
           size: size,
           icon: const Text('#'),
-          label: Text(shortLabels ? 'Browse' : 'Browse channels'),
-          tooltip: shortLabels ? 'Browse channels' : null,
+          label: Text(
+            shortLabels ? context.l10n.browse : context.l10n.browseChannels,
+          ),
+          tooltip: shortLabels ? context.l10n.browseChannels : null,
           variant: DButtonVariant.outline,
           onPressed: shell.openBrowseChannels,
         ),
@@ -208,8 +219,10 @@ class ChatInboxShortcuts extends StatelessWidget {
           key: const ValueKey('chat-inbox-my-threads'),
           size: size,
           icon: const DIcon(DIcons.comments),
-          label: Text(shortLabels ? 'Threads' : 'Browse threads'),
-          tooltip: shortLabels ? 'Browse threads' : null,
+          label: Text(
+            shortLabels ? context.l10n.threads : context.l10n.browseThreads,
+          ),
+          tooltip: shortLabels ? context.l10n.browseThreads : null,
           variant: DButtonVariant.outline,
           onPressed: shell.openMyThreads,
         ),
@@ -277,10 +290,10 @@ class ChatInboxError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DEmpty(
     children: [
-      const DEmptyHeader(
-        children: [DEmptyTitle('Could not load conversations')],
+      DEmptyHeader(
+        children: [DEmptyTitle(context.l10n.couldNotLoadConversations)],
       ),
-      DButton(label: const Text('Retry'), onPressed: onRetry),
+      DButton(label: Text(context.l10n.retry), onPressed: onRetry),
     ],
   );
 }
@@ -328,13 +341,13 @@ class ChatInboxRow extends StatelessWidget {
         ? '${channel.lastMessageUsername}: '
         : '';
     final preview = unread && count > (compact ? 0 : 1)
-        ? '$count ${count == 1 ? 'message' : 'messages'}'
+        ? context.l10n.messageChatinbox(count)
         : unread && threadCount > 0
-        ? '$threadCount unread ${threadCount == 1 ? 'thread' : 'threads'}'
+        ? context.l10n.unreadChatinbox(threadCount)
         : unread && channel.tracking.mentionCount > 0
-        ? '${channel.tracking.mentionCount} new ${channel.tracking.mentionCount == 1 ? 'mention' : 'mentions'}'
+        ? context.l10n.messageNewChatinbox(channel.tracking.mentionCount)
         : (messagePreview == null ? null : '$sender$messagePreview') ??
-              (channel.lastMessageId == null ? 'No messages yet' : '');
+              (channel.lastMessageId == null ? context.l10n.noMessagesYet : '');
     final at = chatInboxActivityAt(channel)?.toLocal();
     final directUser = channel.isDirectMessage && channel.users.length == 1
         ? channel.users.first
@@ -358,7 +371,7 @@ class ChatInboxRow extends StatelessWidget {
             : DItemSelectionStyle.leadingAccent,
         showSelectionIndicator: false,
         onPressed: onPressed,
-        semanticLabel: unread ? 'Unread conversation' : null,
+        semanticLabel: unread ? context.l10n.unreadConversation : null,
         children: [
           DItemMedia(
             variant: DItemMediaVariant.avatar,
@@ -760,7 +773,7 @@ class _ChatSidebarInboxSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     key: const ValueKey('chat-inbox-loading-skeleton'),
-    semanticsLabel: 'Loading conversations',
+    semanticsLabel: context.l10n.loadingConversations,
     color: skeletonFill(context, on: SkeletonSurface.panel),
     child: Column(
       children: [

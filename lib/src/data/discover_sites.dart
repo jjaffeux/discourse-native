@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/discover_site.dart';
@@ -35,7 +36,7 @@ class DiscoverSites {
         siteUrl: siteUrl,
       );
       if (json['topics'] is! List) {
-        throw const FormatException('Missing Discover communities.');
+        throw FormatException(appL10n.missingDiscoverCommunities);
       }
       return _sites = List.unmodifiable([
         for (final entry in jsonArray(json['topics']).take(50))

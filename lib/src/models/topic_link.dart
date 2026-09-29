@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/uri_path.dart';
@@ -63,7 +64,7 @@ class TopicLink {
 
   String get placeholderTitle {
     final words = slug.replaceAll('-', ' ').trim();
-    if (words.isEmpty) return 'Topic';
+    if (words.isEmpty) return appL10n.topic;
     return words.replaceFirstMapped(RegExp(r'^\w'), (m) => m[0]!.toUpperCase());
   }
 }

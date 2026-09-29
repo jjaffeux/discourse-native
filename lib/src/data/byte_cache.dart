@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -336,7 +337,7 @@ abstract class ByteCache<T extends Object> {
       final decoded = decode(response);
       if (decoded == null) {
         _report(
-          const FormatException('Downloaded image could not be decoded.'),
+          FormatException(appL10n.downloadedImageCouldNotBeDecoded),
           StackTrace.current,
           url,
           'image.decode',
@@ -434,7 +435,7 @@ abstract class ByteCache<T extends Object> {
         if (_isRedirect(streamed.statusCode) && location != null) {
           _cancel(streamed.stream);
           if (redirects >= maxRedirects) {
-            throw http.ClientException('Too many image redirects', current);
+            throw http.ClientException(appL10n.tooManyImageRedirects, current);
           }
           current = resolveSafeHttpRedirect(current, location);
           redirects++;
@@ -592,7 +593,7 @@ abstract class ByteCache<T extends Object> {
       remaining,
       onTimeout: () {
         cancel();
-        throw TimeoutException('Timed out fetching cached bytes', timeout);
+        throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
       },
     );
   }
@@ -603,7 +604,7 @@ abstract class ByteCache<T extends Object> {
   Duration _remaining(Stopwatch elapsed) {
     final remaining = timeout - elapsed.elapsed;
     if (remaining <= Duration.zero) {
-      throw TimeoutException('Timed out fetching cached bytes', timeout);
+      throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
     }
     return remaining;
   }

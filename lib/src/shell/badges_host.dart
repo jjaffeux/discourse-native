@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/badge_route.dart';
@@ -58,7 +59,7 @@ class _BadgesHostState extends State<BadgesHost> {
       final instance = owner.instance;
       if (instance == null) return const SizedBox.shrink();
       if (!instance.config.badgesEnabled) {
-        return const Center(child: Text('Badges are disabled on this forum.'));
+        return Center(child: Text(context.l10n.badgesAreDisabledOnThisForum));
       }
       final shell = ShellScope.read(context);
       _scheduleLoad();

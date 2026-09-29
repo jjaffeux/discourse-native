@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -604,7 +605,7 @@ class _DToastViewportState extends State<_DToastViewport> {
                       },
                       child: Semantics(
                         container: true,
-                        label: 'Notifications',
+                        label: context.l10n.notifications,
                         child: SingleChildScrollView(
                           primary: false,
                           reverse: !top,
@@ -811,8 +812,8 @@ class _DToastCardState extends State<_DToastCard> {
                     const SizedBox(width: 4),
                     DButton.iconOnly(
                       icon: const Icon(Icons.close, size: 16),
-                      tooltip: 'Close toast',
-                      semanticLabel: 'Close notification',
+                      tooltip: context.l10n.closeToast,
+                      semanticLabel: context.l10n.closeNotification,
                       variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
                       onPressed: () => widget.controller.close(

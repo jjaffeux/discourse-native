@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -45,7 +46,7 @@ Future<void> showTopicMovePosts({
   if (!controller.openTopicUrl(absoluteDestination)) {
     DToast.show(
       context,
-      "Couldn't open the destination topic.",
+      appL10n.couldnTOpenTheDestinationTopic,
       type: DToastType.error,
     );
   }
@@ -182,14 +183,14 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     final count = widget.selectedPosts.length;
     return AlertDialog(
       key: const ValueKey('topic-move-posts-dialog'),
-      title: const Text('Move posts'),
+      title: Text(context.l10n.movePosts),
       content: SizedBox(
         width: 560,
         height: 430,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Move $count selected ${count == 1 ? 'post' : 'posts'}.'),
+            Text(context.l10n.moveSelected(count)),
             const SizedBox(height: 12),
             DToggleGroup<_MoveMode>(
               key: const ValueKey('topic-move-posts-mode'),
@@ -197,11 +198,19 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                 if (_canCreateNew)
                   DToggleGroupItem(
                     value: _MoveMode.newTopic,
-                    child: Text(_message ? 'New message' : 'New topic'),
+                    child: Text(
+                      _message
+                          ? context.l10n.newMessage
+                          : context.l10n.newTopic,
+                    ),
                   ),
                 DToggleGroupItem(
                   value: _MoveMode.existingTopic,
-                  child: Text(_message ? 'Existing message' : 'Existing topic'),
+                  child: Text(
+                    _message
+                        ? context.l10n.existingMessage
+                        : context.l10n.existingTopic,
+                  ),
                 ),
               ],
               values: [_mode],
@@ -235,13 +244,15 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
       ),
       actions: [
         DButton(
-          label: const Text('Cancel'),
+          label: Text(context.l10n.cancel),
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
         DButton(
           key: const ValueKey('topic-move-posts-submit'),
           label: Text(
-            _mode == _MoveMode.newTopic ? 'Create and move' : 'Move posts',
+            _mode == _MoveMode.newTopic
+                ? context.l10n.createAndMove
+                : context.l10n.movePosts,
           ),
           onPressed: _canSubmit ? () => unawaited(_move()) : null,
           variant: DButtonVariant.primary,
@@ -259,21 +270,21 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         autofocus: true,
         enabled: !_saving,
         onChanged: (_) => setState(() => _error = null),
-        labelText: _message ? 'Message title' : 'Topic title',
+        labelText: _message ? appL10n.messageTitle : appL10n.topicTitle,
       ),
       if (!_message) ...[
         const SizedBox(height: 16),
         DSelect<int>.controlled(
           key: const ValueKey('topic-move-posts-category'),
           value: _categoryId,
-          label: const Text('Category'),
+          label: Text(appL10n.category),
           isExpanded: true,
           enabled: !_saving,
           entries: [
-            const DSelectItem<int>(
+            DSelectItem<int>(
               value: null,
-              textValue: 'Default category',
-              child: Text('Default category'),
+              textValue: appL10n.defaultCategory,
+              child: Text(appL10n.defaultCategory),
             ),
             for (final category in widget.categories)
               DSelectItem(
@@ -312,8 +323,8 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         enabled: !_saving,
         onChanged: _scheduleSearch,
         labelText: _message
-            ? 'Search by message title or ID'
-            : 'Search by topic title or ID',
+            ? appL10n.searchByMessageTitleOrID
+            : appL10n.searchByTopicTitleOrID,
       ),
       const SizedBox(height: 8),
       Expanded(
@@ -322,10 +333,10 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
             : _destinations.isEmpty
             ? Center(
                 child: Text(switch ((_search.text.trim().isEmpty, _message)) {
-                  (true, false) => 'Search for a destination topic.',
-                  (true, true) => 'Search for a destination message.',
-                  (false, false) => 'No topics found.',
-                  (false, true) => 'No messages found.',
+                  (true, false) => appL10n.searchForADestinationTopic,
+                  (true, true) => appL10n.searchForADestinationMessage,
+                  (false, false) => appL10n.noTopicsFound,
+                  (false, true) => appL10n.noMessagesFound,
                 }),
               )
             : DRadioGroup<TopicMoveDestination>.controlled(
@@ -345,8 +356,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
                         value: destination,
                         label: Text(destination.title),
                         description: Text(
-                          '${_message ? 'Message' : 'Topic'} '
-                          '#${destination.id}',
+                          appL10n.messageTopicmovepostsValue(
+                            (_message).toString(),
+                            ((_message) ? (appL10n.messageTopicmoveposts) : '')
+                                .toString(),
+                            (destination.id).toString(),
+                            ((!(_message)) ? (appL10n.topic) : '').toString(),
+                          ),
                         ),
                       ),
                   ],
@@ -360,7 +376,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         onChanged: _saving
             ? null
             : (value) => setState(() => _chronologicalOrder = value ?? false),
-        title: const DLabel(child: Text('Preserve chronological order')),
+        title: DLabel(child: Text(appL10n.preserveChronologicalOrder)),
       ),
     ],
   );

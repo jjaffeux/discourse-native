@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart' as image_picker;
@@ -11,7 +12,7 @@ typedef ComposerImagePicker = ComposerFilePicker;
 Future<List<ComposerUploadFile>> pickComposerFiles() async {
   // Let the site/user validator decide which files are allowed. Native type
   // filters cannot describe every extension an instance may authorize.
-  final files = await selector.openFiles(confirmButtonText: 'Upload');
+  final files = await selector.openFiles(confirmButtonText: appL10n.upload);
   return composerUploadFilesFromSelection(files);
 }
 

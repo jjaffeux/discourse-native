@@ -1,3 +1,5 @@
+import 'package:discourse_native/l10n/strings.dart';
+
 /// A lossless view of a Markdown list item. Indentation belongs to the source;
 /// the editor presents the item's body in its own content column.
 class ComposerListItem {
@@ -29,10 +31,10 @@ class ComposerListItem {
   /// Later source markers remain untouched, as they do in Markdown rendering.
   final int? number;
   String get label => isTask
-      ? 'To-do'
+      ? appL10n.toDo
       : number == null
-      ? 'Bulleted list'
-      : 'Numbered list';
+      ? appL10n.bulletedList
+      : appL10n.numberedList;
   String get nextPrefix => number == null
       ? itemPrefix
       : '${' ' * indent}${number! + 1}${marker[marker.length - 1]} ';

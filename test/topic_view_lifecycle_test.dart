@@ -1406,16 +1406,16 @@ void main() {
           controller.store
             ..put(
               site.url,
-              const TopicDetail(
+              TopicDetail(
                 id: 1,
                 title: 'One',
-                stream: [1, 2, 3, 4, 5, 6],
+                stream: const [1, 2, 3, 4, 5, 6],
                 postsCount: 6,
                 recommendations: TopicRecommendations(
                   sources: [
                     TopicRecommendationSource(
                       definition: coreSuggestedTopicRecommendationSource,
-                      topics: [
+                      topics: const [
                         Topic(id: 2, title: 'Suggested', slug: 'suggested'),
                       ],
                     ),
@@ -2737,18 +2737,18 @@ void main() {
               cooked: '<p>Post $number</p>',
             ),
         };
-        const recommendations = TopicRecommendations(
+        final recommendations = TopicRecommendations(
           sources: [
             TopicRecommendationSource(
               definition: coreSuggestedTopicRecommendationSource,
-              topics: [Topic(id: 50, title: 'Keep me', slug: 'keep-me')],
+              topics: const [Topic(id: 50, title: 'Keep me', slug: 'keep-me')],
             ),
           ],
         );
         final api = FakeDiscourseApi(
           feeds: const {'/latest.json': []},
           postsById: allPosts,
-          postRecommendations: const {
+          postRecommendations: {
             1: TopicRecommendations(
               sources: [
                 TopicRecommendationSource(

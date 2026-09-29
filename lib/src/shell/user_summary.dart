@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
@@ -100,9 +101,9 @@ class _UserSummaryViewState extends State<UserSummaryView> {
       builder: (context, _) {
         final instance = _instance(controller);
         if (instance?.isConnected != true) {
-          return const _SummaryState(
+          return _SummaryState(
             icon: DIcons.user,
-            title: 'Connect this account to see its summary',
+            title: context.l10n.connectThisAccountToSeeItsSummary,
           );
         }
 
@@ -114,7 +115,7 @@ class _UserSummaryViewState extends State<UserSummaryView> {
             return _SummaryState(
               icon: DIcons.triangleExclamation,
               title: error,
-              actionLabel: 'Try again',
+              actionLabel: context.l10n.tryAgain,
               onAction: _refresh,
             );
           }
@@ -200,18 +201,21 @@ class _SummaryContentState extends State<_SummaryContent> {
           value: _tab,
           onChanged: _selectTab,
           children: [
-            const DTabList<_SummaryTab>(
+            DTabList<_SummaryTab>(
               variant: DTabListVariant.line,
               children: [
                 DTabTrigger(
                   value: _SummaryTab.highlights,
-                  child: Text('Highlights'),
+                  child: Text(context.l10n.highlights),
                 ),
                 DTabTrigger(
                   value: _SummaryTab.connections,
-                  child: Text('Connections'),
+                  child: Text(context.l10n.connections),
                 ),
-                DTabTrigger(value: _SummaryTab.reading, child: Text('Reading')),
+                DTabTrigger(
+                  value: _SummaryTab.reading,
+                  child: Text(context.l10n.reading),
+                ),
               ],
             ),
             const SizedBox(height: DSpacing.sm),
@@ -378,23 +382,25 @@ class _ProfileCard extends StatelessWidget {
                 _DetailStats(
                   values: [
                     (
-                      label: 'Days visited',
+                      label: context.l10n.daysVisited,
                       value: _number(summary.daysVisited),
                       semantics: null,
                     ),
                     (
-                      label: 'Time reading',
+                      label: context.l10n.timeReading,
                       value: time.short,
-                      semantics: 'read time: ${time.long}, all time',
+                      semantics: context.l10n.readTimeAllTime(
+                        (time.long).toString(),
+                      ),
                     ),
                     (
-                      label: 'Likes given',
+                      label: context.l10n.likesGiven,
                       value: _number(summary.likesGiven),
                       semantics: null,
                     ),
                     if (summary.bookmarkCount > 0)
                       (
-                        label: 'Bookmarks',
+                        label: context.l10n.bookmarks,
                         value: _number(summary.bookmarkCount),
                         semantics: null,
                       ),
@@ -422,17 +428,18 @@ class _Highlights extends StatelessWidget {
       children: [
         if (summary.canSeeSummaryStats) _HeadlineStats(summary: summary),
         if (summary.topics.isEmpty && summary.replies.isEmpty && !hasBadges)
-          const _EmptyCard(
-            title: 'Your story starts with a conversation.',
-            description:
-                'As you read, reply and connect with people, your highlights will appear here.',
+          _EmptyCard(
+            title: context.l10n.yourStoryStartsWithAConversation,
+            description: context
+                .l10n
+                .asYouReadReplyAndConnectWithPeopleYourHighlightsWill,
           )
         else ...[
           _PairedSections(
             left: _SummarySection(
-              title: 'Top topics',
+              title: context.l10n.topTopics,
               child: _TopicRows(
-                emptyMessage: 'No topics yet.',
+                emptyMessage: context.l10n.noTopicsYet,
                 rows: [
                   for (final topic in summary.topics)
                     _SummaryTopicRow(
@@ -445,9 +452,9 @@ class _Highlights extends StatelessWidget {
               ),
             ),
             right: _SummarySection(
-              title: 'Top replies',
+              title: context.l10n.topReplies,
               child: _TopicRows(
-                emptyMessage: 'No replies yet.',
+                emptyMessage: context.l10n.noRepliesYet,
                 rows: [
                   for (final reply in summary.replies)
                     _SummaryTopicRow(
@@ -463,7 +470,7 @@ class _Highlights extends StatelessWidget {
           ),
           if (instance.config.badgesEnabled)
             _SummarySection(
-              title: 'Your milestones',
+              title: context.l10n.yourMilestones,
               child: _BadgeRows(badges: summary.badges),
             ),
         ],
@@ -482,41 +489,40 @@ class _Connections extends StatelessWidget {
     if (summary.mostRepliedToUsers.isEmpty &&
         summary.mostLikedByUsers.isEmpty &&
         summary.mostLikedUsers.isEmpty) {
-      return const _EmptyCard(
-        title: 'No connections yet.',
+      return _EmptyCard(
+        title: context.l10n.noConnectionsYet,
         description:
-            'The people you reply to and exchange likes with will appear here.',
+            context.l10n.thePeopleYouReplyToAndExchangeLikesWithWillAppear,
       );
     }
     return _SectionStack(
       children: [
         _SummarySection(
-          title: 'Most replied to',
+          title: context.l10n.mostRepliedTo,
           child: _UserRows(
             siteUrl: siteUrl,
             users: summary.mostRepliedToUsers,
-            emptyMessage: 'No replies yet.',
-            noun: 'reply',
-            pluralNoun: 'replies',
+            emptyMessage: context.l10n.noRepliesYet,
+            noun: CountNoun.reply,
           ),
         ),
         _PairedSections(
           left: _SummarySection(
-            title: 'Most liked by',
+            title: context.l10n.mostLikedBy,
             child: _UserRows(
               siteUrl: siteUrl,
               users: summary.mostLikedByUsers,
-              emptyMessage: 'No likes yet.',
-              noun: 'like',
+              emptyMessage: context.l10n.noLikesYet,
+              noun: CountNoun.like,
             ),
           ),
           right: _SummarySection(
-            title: 'Most liked',
+            title: context.l10n.mostLiked,
             child: _UserRows(
               siteUrl: siteUrl,
               users: summary.mostLikedUsers,
-              emptyMessage: 'No likes yet.',
-              noun: 'like',
+              emptyMessage: context.l10n.noLikesYet,
+              noun: CountNoun.like,
             ),
           ),
         ),
@@ -538,13 +544,15 @@ class _Reading extends StatelessWidget {
       children: [
         if (summary.canSeeSummaryStats)
           _SummarySection(
-            title: 'Time well spent',
+            title: context.l10n.timeWellSpent,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DText(
                   time.short,
-                  semanticsLabel: 'read time: ${time.long}, all time',
+                  semanticsLabel: context.l10n.readTimeAllTime(
+                    (time.long).toString(),
+                  ),
                   style: const TextStyle(
                     fontSize: DiscourseTypography.xxxl,
                     height: 36 / 30,
@@ -554,28 +562,29 @@ class _Reading extends StatelessWidget {
                 const SizedBox(height: DSpacing.xs),
                 if (summary.showRecentTimeRead)
                   _Caption(
-                    '${recent.short} in the last 60 days',
-                    semantics:
-                        'recent read time: ${recent.long}, in the last 60 days',
+                    context.l10n.inTheLast60Days((recent.short).toString()),
+                    semantics: context.l10n.recentReadTimeInTheLast60Days(
+                      (recent.long).toString(),
+                    ),
                   )
                 else
-                  const _Caption('All-time reading'),
+                  _Caption(context.l10n.allTimeReading),
                 const SizedBox(height: DSpacing.sm),
                 _DetailStats(
                   values: [
                     (
-                      label: 'Topics viewed',
+                      label: context.l10n.topicsViewed,
                       value: _number(summary.topicsEntered),
                       semantics: null,
                     ),
                     (
-                      label: 'Posts read',
+                      label: context.l10n.postsRead,
                       value: _number(summary.postsReadCount),
                       semantics: null,
                     ),
                     if (summary.bookmarkCount > 0)
                       (
-                        label: 'Bookmarks',
+                        label: context.l10n.bookmarks,
                         value: _number(summary.bookmarkCount),
                         semantics: null,
                       ),
@@ -586,7 +595,7 @@ class _Reading extends StatelessWidget {
           ),
         if (summary.topCategories.isNotEmpty)
           _SummarySection(
-            title: 'Top categories',
+            title: context.l10n.topCategories,
             child: _CategoryRows(
               siteUrl: instance.url,
               username: instance.user!.username,
@@ -594,7 +603,7 @@ class _Reading extends StatelessWidget {
             ),
           ),
         _SummarySection(
-          title: 'Top links',
+          title: context.l10n.topLinks,
           child: _LinkRows(siteUrl: instance.url, links: summary.links),
         ),
       ],
@@ -614,15 +623,15 @@ class _HeadlineStats extends StatelessWidget {
           builder: (context, constraints) {
             final stats = [
               _Stat(
-                label: 'Likes received',
+                label: context.l10n.likesReceived,
                 value: _number(summary.likesReceived),
               ),
               _Stat(
-                label: 'Replies written',
+                label: context.l10n.repliesWritten,
                 value: _number(summary.postCount),
               ),
               _Stat(
-                label: 'Topics started',
+                label: context.l10n.topicsStarted,
                 value: _number(summary.topicCount),
               ),
             ];
@@ -872,9 +881,9 @@ class _SummaryTopicRow extends StatelessWidget {
       context,
     ).categoryFor(topic.categoryId, siteUrl: siteUrl);
     final label = [
-      'Open ${topic.title}',
+      context.l10n.openUsersummary((topic.title).toString()),
       ?date,
-      if (likes > 0) countLabel(likes, 'like'),
+      if (likes > 0) countLabel(likes, CountNoun.like),
     ].join(', ');
     return DItem(
       size: DItemSize.xs,
@@ -949,7 +958,7 @@ class _LinkRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => links.isEmpty
-      ? const _EmptySection(message: 'No links yet.')
+      ? _EmptySection(message: context.l10n.noLinksYet)
       : DItemGroup(
           spacing: DSpacing.sm,
           children: [
@@ -968,9 +977,10 @@ class _SummaryLinkRow extends StatelessWidget {
   Widget build(BuildContext context) => DItem(
     size: DItemSize.xs,
     padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-    semanticLabel:
-        'Open external link ${_shortUrl(link.url)}, '
-        '${countLabel(link.clicks, 'click')}',
+    semanticLabel: context.l10n.openExternalLink(
+      (_shortUrl(link.url)).toString(),
+      (countLabel(link.clicks, CountNoun.click)).toString(),
+    ),
     link: true,
     onPressed: () => unawaited(openExternalLink(link.url)),
     footer: DItemFooter(
@@ -978,7 +988,9 @@ class _SummaryLinkRow extends StatelessWidget {
         alignment: AlignmentDirectional.centerStart,
         child: DButton(
           variant: DButtonVariant.link,
-          semanticLabel: 'Open ${link.topic.title}',
+          semanticLabel: context.l10n.openUsersummaryValue(
+            (link.topic.title).toString(),
+          ),
           onPressed: () => ShellScope.read(
             context,
           ).openSummaryTopic(link.topic, postNumber: link.postNumber),
@@ -1005,7 +1017,11 @@ class _SummaryLinkRow extends StatelessWidget {
       ),
       ExcludeSemantics(
         child: _Caption(
-          countLabel(link.clicks, 'click', number: _number(link.clicks)),
+          countLabel(
+            link.clicks,
+            CountNoun.click,
+            number: _number(link.clicks),
+          ),
         ),
       ),
     ],
@@ -1018,13 +1034,11 @@ class _UserRows extends StatelessWidget {
     required this.users,
     required this.emptyMessage,
     required this.noun,
-    this.pluralNoun,
   });
   final String siteUrl;
   final List<UserSummaryUser> users;
   final String emptyMessage;
-  final String noun;
-  final String? pluralNoun;
+  final CountNoun noun;
 
   @override
   Widget build(BuildContext context) => users.isEmpty
@@ -1036,9 +1050,10 @@ class _UserRows extends StatelessWidget {
               UserCardTarget(
                 username: user.username,
                 siteUrl: siteUrl,
-                semanticLabel:
-                    'View profile for ${user.displayName}, '
-                    '${countLabel(user.count, noun, plural: pluralNoun)}',
+                semanticLabel: context.l10n.viewProfileForUsersummary(
+                  (user.displayName).toString(),
+                  (countLabel(user.count, noun)).toString(),
+                ),
                 child: DItem(
                   size: DItemSize.xs,
                   padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
@@ -1063,9 +1078,7 @@ class _UserRows extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         DText(_number(user.count), variant: DTextVariant.small),
-                        _Caption(
-                          countNoun(user.count, noun, plural: pluralNoun),
-                        ),
+                        _Caption(countNoun(user.count, noun)),
                       ],
                     ),
                   ],
@@ -1128,24 +1141,24 @@ class _CategoryRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DTable(
-    semanticLabel: 'Top categories',
+    semanticLabel: context.l10n.topCategories,
     columnWidths: const {
       0: IntrinsicColumnWidth(flex: 1),
       1: IntrinsicColumnWidth(),
       2: IntrinsicColumnWidth(),
     },
-    header: const DTableHeader(
+    header: DTableHeader(
       rows: [
         DTableRow(
           cells: [
-            DTableHead(child: Text('Category')),
+            DTableHead(child: Text(context.l10n.category)),
             DTableHead(
               alignment: AlignmentDirectional.centerEnd,
-              child: Text('Topics'),
+              child: Text(context.l10n.topics),
             ),
             DTableHead(
               alignment: AlignmentDirectional.centerEnd,
-              child: Text('Replies'),
+              child: Text(context.l10n.replies),
             ),
           ],
         ),
@@ -1188,9 +1201,25 @@ class _CategoryRows extends StatelessWidget {
                       ? const Text('—')
                       : DButton(
                           variant: DButtonVariant.link,
-                          semanticLabel:
-                              'Search ${topics ? countLabel(category.topicCount, 'topic') : countLabel(category.postCount, 'reply', plural: 'replies')} '
-                              'by @$username in ${category.name}',
+                          semanticLabel: context.l10n.searchByIn(
+                            (topics).toString(),
+                            ((topics)
+                                    ? (countLabel(
+                                        category.topicCount,
+                                        CountNoun.topic,
+                                      ))
+                                    : '')
+                                .toString(),
+                            (username).toString(),
+                            (category.name).toString(),
+                            ((!(topics))
+                                    ? (countLabel(
+                                        category.postCount,
+                                        CountNoun.reply,
+                                      ))
+                                    : '')
+                                .toString(),
+                          ),
                           onPressed: () =>
                               _search(context, category, topics: topics),
                           label: Text(
@@ -1213,7 +1242,7 @@ class _BadgeRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => badges.isEmpty
-      ? const _EmptySection(message: 'No badges yet.')
+      ? _EmptySection(message: context.l10n.noBadgesYet)
       : Wrap(
           spacing: DSpacing.sm,
           runSpacing: DSpacing.sm,
@@ -1226,8 +1255,10 @@ class _BadgeRows extends StatelessWidget {
                   focusable: true,
                   child: DBadge(
                     variant: DBadgeVariant.outline,
-                    semanticLabel:
-                        '${badge.name}, earned ${badge.count} ${badge.count == 1 ? 'time' : 'times'}',
+                    semanticLabel: context.l10n.earnedUsersummary(
+                      badge.count,
+                      (badge.name).toString(),
+                    ),
                     leading: DIcon(
                       pluginIconNamed(context, badge.icon) ??
                           DIcons.certificate,
@@ -1292,7 +1323,7 @@ class _SummaryErrorBanner extends StatelessWidget {
       description: DAlertDescription(child: Text(error)),
       action: DAlertAction(
         child: DButton(
-          label: const Text('Retry'),
+          label: Text(context.l10n.retry),
           onPressed: refreshing ? null : () => unawaited(onRetry()),
           variant: DButtonVariant.link,
         ),
@@ -1351,7 +1382,7 @@ class _SummaryLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     expand: true,
-    semanticsLabel: 'Loading summary',
+    semanticsLabel: context.l10n.loadingSummary,
     color: skeletonFill(context),
     child: const _SummaryLayout(
       profile: DCard(

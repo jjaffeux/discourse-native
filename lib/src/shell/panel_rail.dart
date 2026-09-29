@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -173,7 +174,7 @@ class _PanelRailState extends State<PanelRail>
   List<_Entry> get _entries => [
     (
       slot: 'restore',
-      title: 'Restore panel',
+      title: appL10n.restorePanel,
       icon: const DIcon(DIcons.upRightAndDownLeftFromCenter),
       label: null,
       selected: null,
@@ -191,10 +192,10 @@ class _PanelRailState extends State<PanelRail>
     (
       slot: 'new-tab',
       title: widget.onNewTab == null
-          ? 'Close a tab before opening another'
-          : 'New tab',
+          ? appL10n.closeATabBeforeOpeningAnother
+          : appL10n.newTab,
       icon: const DIcon(DIcons.plus),
-      label: const Text('New tab'),
+      label: Text(appL10n.newTab),
       selected: null,
       onPressed: widget.onNewTab,
     ),

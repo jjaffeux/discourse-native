@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -37,11 +38,11 @@ Future<void> showChatNewDirectMessageDialog({
       inset: true,
       fillAvailableHeight: true,
       initialFocusNode: searchFocus,
-      barrierLabel: 'Dismiss start chatting',
+      barrierLabel: appL10n.dismissStartChatting,
       builder: (context, sheet) => DSheetContent(
         key: const ValueKey('chat-new-direct-message-sheet'),
         side: DSheetSide.bottom,
-        semanticLabel: 'Start chatting',
+        semanticLabel: appL10n.startChatting,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
         showCloseButton: false,
@@ -198,7 +199,7 @@ class _ChatNewDirectMessageDialogState
         if (!mounted || generation != _generation) return;
         setState(() {
           _searching = false;
-          _error = _messageFor(error, fallback: 'Could not search Chat.');
+          _error = _messageFor(error, fallback: appL10n.couldNotSearchChat);
         });
       }
     });
@@ -218,7 +219,7 @@ class _ChatNewDirectMessageDialogState
       if (widget.shell.openChannel(channel.id) && mounted) {
         widget.dialog.close();
       } else if (mounted) {
-        setState(() => _error = 'This conversation is no longer available.');
+        setState(() => _error = appL10n.thisConversationIsNoLongerAvailable);
       }
       return;
     }
@@ -242,14 +243,14 @@ class _ChatNewDirectMessageDialogState
       } else {
         setState(() {
           _opening = false;
-          _error = 'This conversation is no longer available.';
+          _error = appL10n.thisConversationIsNoLongerAvailable;
         });
       }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _opening = false;
-        _error = _messageFor(error, fallback: 'Could not start this chat.');
+        _error = _messageFor(error, fallback: appL10n.couldNotStartThisChat);
       });
     }
   }
@@ -269,7 +270,9 @@ class _ChatNewDirectMessageDialogState
     if (!_canUseGroupChat || _opening) return;
     if (initialMembers.any((member) => !_canAddMember(member))) {
       setState(() {
-        _error = 'A group chat can include up to $_maximumGroupMembers people.';
+        _error = appL10n.aGroupChatCanIncludeUpToPeople(
+          (_maximumGroupMembers).toString(),
+        );
       });
       return;
     }
@@ -319,7 +322,9 @@ class _ChatNewDirectMessageDialogState
     }
     if (!_canAddMember(item)) {
       setState(() {
-        _error = 'A group chat can include up to $_maximumGroupMembers people.';
+        _error = appL10n.aGroupChatCanIncludeUpToPeople(
+          (_maximumGroupMembers).toString(),
+        );
       });
       return;
     }
@@ -371,14 +376,14 @@ class _ChatNewDirectMessageDialogState
       } else {
         setState(() {
           _opening = false;
-          _error = 'This conversation is no longer available.';
+          _error = appL10n.thisConversationIsNoLongerAvailable;
         });
       }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _opening = false;
-        _error = _messageFor(error, fallback: 'Could not create this group.');
+        _error = _messageFor(error, fallback: appL10n.couldNotCreateThisGroup);
       });
     }
   }
@@ -462,8 +467,8 @@ class _ChatNewDirectMessageDialogState
                         DDialogDescription(
                           child: Text(
                             _composingGroup
-                                ? 'Bring a few people into the conversation.'
-                                : 'Pick up a conversation or find someone new.',
+                                ? appL10n.bringAFewPeopleIntoTheConversation
+                                : appL10n.pickUpAConversationOrFindSomeoneNew,
                           ),
                         ),
                       ],
@@ -498,13 +503,13 @@ class _ChatNewDirectMessageDialogState
                       if (_composingGroup)
                         Expanded(child: _groupActions())
                       else if (showHints)
-                        _keyHint(const [DKbd('Esc')], 'close')
+                        _keyHint([DKbd(appL10n.esc)], 'close')
                       else
                         Expanded(
                           child: Align(
                             alignment: AlignmentDirectional.centerEnd,
                             child: DButton(
-                              label: const Text('Cancel'),
+                              label: Text(appL10n.cancel),
                               variant: DButtonVariant.outline,
                               onPressed: widget.dialog.close,
                             ),
@@ -521,14 +526,15 @@ class _ChatNewDirectMessageDialogState
     );
   }
 
-  String get _title => _composingGroup ? 'New group chat' : 'Start chatting';
+  String get _title =>
+      _composingGroup ? appL10n.newGroupChat : appL10n.startChatting;
 
   Widget _closeButton() => DButton.iconOnly(
     icon: const DIcon(DIcons.xmark),
     variant: DButtonVariant.transparentBackground,
     onPressed: widget.dialog.close,
-    tooltip: 'Close',
-    semanticLabel: 'Close start chatting',
+    tooltip: appL10n.close,
+    semanticLabel: appL10n.closeStartChatting,
   );
 
   Widget _buildGroupFields() => Padding(
@@ -545,8 +551,8 @@ class _ChatNewDirectMessageDialogState
           key: const ValueKey('chat-new-group-name'),
           controller: _groupName,
           enabled: !_opening,
-          hintText: 'Group name (optional)',
-          semanticLabel: 'Group name (optional)',
+          hintText: appL10n.groupNameOptional,
+          semanticLabel: appL10n.groupNameOptional,
         ),
         const SizedBox(height: DSpacing.sm),
         _buildMembers(),
@@ -566,7 +572,7 @@ class _ChatNewDirectMessageDialogState
       loop: true,
       vimBindings: false,
       loading: _searching || _opening,
-      semanticLabel: 'Chat destinations',
+      semanticLabel: appL10n.chatDestinations,
       onQueryChanged: _scheduleSearch,
       child: Column(
         mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
@@ -579,10 +585,10 @@ class _ChatNewDirectMessageDialogState
               controller: _search,
               focusNode: _searchFocus,
               enabled: !_opening,
-              semanticLabel: 'Search chat recipients',
+              semanticLabel: appL10n.searchChatRecipients,
               placeholder: _composingGroup
-                  ? 'Search users or groups'
-                  : 'Search users, groups, or channels',
+                  ? appL10n.searchUsersOrGroups
+                  : appL10n.searchUsersGroupsOrChannels,
             ),
           ),
           if (fill) Expanded(child: results) else results,
@@ -609,13 +615,13 @@ class _ChatNewDirectMessageDialogState
     runSpacing: DSpacing.sm,
     children: [
       DButton(
-        label: const Text('Back'),
+        label: Text(appL10n.back),
         variant: DButtonVariant.outline,
         onPressed: _opening ? null : _cancelGroup,
       ),
       DButton(
         key: const ValueKey('chat-create-group-direct-message'),
-        label: const Text('Start group chat'),
+        label: Text(appL10n.startGroupChat),
         variant: DButtonVariant.primary,
         loading: _opening,
         onPressed: _opening || _members.isEmpty
@@ -665,7 +671,9 @@ class _ChatNewDirectMessageDialogState
                 iconPosition: DButtonIconPosition.end,
                 size: DButtonSize.small,
                 variant: DButtonVariant.outline,
-                semanticLabel: 'Remove ${_memberLabel(member)}',
+                semanticLabel: appL10n.removeChatnewdirectmessage(
+                  (_memberLabel(member)).toString(),
+                ),
                 onPressed: _opening
                     ? null
                     : () {
@@ -680,7 +688,10 @@ class _ChatNewDirectMessageDialogState
       Semantics(
         liveRegion: true,
         child: Text(
-          '$_membersCount of $_maximumGroupMembers people selected',
+          appL10n.ofPeopleSelected(
+            (_membersCount).toString(),
+            (_maximumGroupMembers).toString(),
+          ),
           style: TextStyle(
             fontSize: DiscourseTypography.xs,
             color: DTokens.of(context).mutedForeground,
@@ -715,11 +726,12 @@ class _ChatNewDirectMessageDialogState
     final groups = <({String heading, List<DCommandItem<String>> items})>[];
     for (final item in results) {
       final heading = switch (item) {
-        ChatDirectMessageUser() => 'People',
-        ChatDirectMessageGroup() => 'Groups',
-        ChatDirectMessageChannel() when query.isEmpty => 'Recent conversations',
+        ChatDirectMessageUser() => appL10n.people,
+        ChatDirectMessageGroup() => appL10n.groups,
+        ChatDirectMessageChannel() when query.isEmpty =>
+          appL10n.recentConversations,
         ChatDirectMessageChannel(:final channel) =>
-          channel.isDirectMessage ? 'Conversations' : 'Channels',
+          channel.isDirectMessage ? appL10n.conversations : appL10n.channels,
       };
       if (groups.isEmpty || groups.last.heading != heading) {
         groups.add((heading: heading, items: []));
@@ -735,24 +747,26 @@ class _ChatNewDirectMessageDialogState
       height: fill
           ? double.infinity
           : math.min(288, MediaQuery.sizeOf(context).height / 3),
-      semanticLabel: 'Chat recipients and conversations',
+      semanticLabel: appL10n.chatRecipientsAndConversations,
       children: [
         DCommandLoading(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             spacing: DSpacing.sm,
-            children: [Text(_opening ? 'Opening conversation…' : 'Searching…')],
+            children: [
+              Text(_opening ? appL10n.openingConversation : appL10n.searching),
+            ],
           ),
         ),
         DCommandEmpty(
           child: Text(
             _error != null
-                ? 'Try searching again.'
+                ? appL10n.trySearchingAgain
                 : query.isEmpty
                 ? _composingGroup
-                      ? 'Search for people or groups to add.'
-                      : 'Search for a user to start a direct message.'
-                : 'No matches found. Try another name or username.',
+                      ? appL10n.searchForPeopleOrGroupsToAdd
+                      : appL10n.searchForAUserToStartADirectMessage
+                : appL10n.noMatchesFoundTryAnotherNameOrUsername,
             textAlign: TextAlign.center,
           ),
         ),
@@ -762,9 +776,9 @@ class _ChatNewDirectMessageDialogState
               DCommandItem<String>(
                 value: _newGroupValue,
                 leading: const DIcon(DIcons.plus),
-                child: const Text(
-                  'Create a group chat',
-                  key: ValueKey('chat-new-group-direct-message'),
+                child: Text(
+                  appL10n.createAGroupChat,
+                  key: const ValueKey('chat-new-group-direct-message'),
                 ),
                 onSelected: (_) => _startGroup(),
               ),
@@ -786,15 +800,15 @@ class _ChatNewDirectMessageDialogState
       final ChatDirectMessageUser user => (
         'chat-new-direct-message-user-${user.username}',
         user.name ?? user.username,
-        !user.enabled ? 'Chat is disabled for this user.' : '@${user.username}',
+        !user.enabled ? appL10n.chatIsDisabledForThisUser : '@${user.username}',
         _ChatAvatar(username: user.username, url: user.avatarUrl),
       ),
       final ChatDirectMessageGroup group => (
         'chat-new-direct-message-group-${group.name}',
         group.fullName ?? group.name,
         !group.enabled
-            ? 'This group cannot be added to Chat.'
-            : countLabel(group.memberCount, 'person', plural: 'people'),
+            ? appL10n.thisGroupCannotBeAddedToChat
+            : countLabel(group.memberCount, CountNoun.person),
         const DIcon(DIcons.users),
       ),
       ChatDirectMessageChannel(:final channel) => (
@@ -815,7 +829,7 @@ class _ChatNewDirectMessageDialogState
         title,
         detail,
         if (_composingGroup && item.enabled && !enabled)
-          'Group member limit reached',
+          appL10n.groupMemberLimitReached,
       ].where((part) => part.isNotEmpty).join('. '),
       // Command owns its surface key; keep the app's interaction key on content.
       leading: Padding(

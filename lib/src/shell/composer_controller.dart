@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
@@ -658,8 +659,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   String? get taxonomyValidationMessage => _tags.length < _minimumRequiredTags
-      ? 'Choose at least ${countLabel(_minimumRequiredTags, 'tag')} for this '
-            'category.'
+      ? appL10n.chooseAtLeastForThisCategory(
+          (countLabel(_minimumRequiredTags, CountNoun.tag)).toString(),
+        )
       : null;
 
   void setCategory(int? value, {int minimumRequiredTags = 0}) {
@@ -885,8 +887,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed) return;
     _clearTagRemovalNotice();
     _tagRemovalNotice = categoryName == null || categoryName.isEmpty
-        ? 'They aren’t available in this category.'
-        : 'They aren’t available in $categoryName.';
+        ? appL10n.theyArenTAvailableInThisCategory
+        : appL10n.theyArenTAvailableIn((categoryName).toString());
     _tagRemovalNoticeTimer = Timer(
       const Duration(seconds: 7),
       dismissTagRemovalNotice,
@@ -1013,7 +1015,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // already been chosen at this point, so a stale widget must not turn that
     // choice into a no-op. Keep the upload, but do not silently create a new
     // gallery in place of one the author changed or removed.
-    showNotice('That gallery changed, so the images will be added outside it.');
+    showNotice(appL10n.thatGalleryChangedSoTheImagesWillBeAddedOutsideIt);
     _addUploads(
       queued,
       _formerGalleryMemberSequenceEnd(gallery) ??
@@ -1037,20 +1039,23 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         .toList();
     final rejected = all.length - valid.length;
     if (rejected > 0) {
-      final purpose = imagesOnly ? ' for images' : '';
+      final purpose = imagesOnly ? appL10n.forImages : '';
       showNotice(
         rejected == 1
-            ? 'That file type is not allowed$purpose on this site.'
-            : '$rejected file types are not allowed$purpose on this site.',
+            ? appL10n.thatFileTypeIsNotAllowedOnThisSite((purpose).toString())
+            : appL10n.fileTypesAreNotAllowedOnThisSite(
+                (rejected).toString(),
+                (purpose).toString(),
+              ),
       );
     }
     if (valid.isEmpty) return;
     if (simultaneousUploads > 0 && valid.length > simultaneousUploads) {
       final kind = imagesOnly ? 'image' : 'file';
       final limit = simultaneousUploads == 1
-          ? 'one $kind'
+          ? appL10n.one((kind).toString())
           : '$simultaneousUploads ${kind}s';
-      showNotice('Upload at most $limit at a time.');
+      showNotice(appL10n.uploadAtMostAtATime((limit).toString()));
       return;
     }
 
@@ -1210,7 +1215,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
               _pendingUploads[id] != pending ||
               pending.abort.isCompleted) {
             await prepared.dispose();
-            throw const ComposerUploadException('Upload cancelled.');
+            throw ComposerUploadException(appL10n.uploadCancelled);
           }
           pending.prepared = prepared;
           final current = _uploadIndex(id);
@@ -1223,7 +1228,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         if (_disposed ||
             _pendingUploads[id] != pending ||
             pending.abort.isCompleted) {
-          throw const ComposerUploadException('Upload cancelled.');
+          throw ComposerUploadException(appL10n.uploadCancelled);
         }
         return uploader(
           pending.prepared?.file ?? file,
@@ -1258,7 +1263,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             status: ComposerUploadStatus.failed,
             error: switch (error) {
               ComposerUploadException(:final displayMessage) => displayMessage,
-              _ => "Couldn't upload ${file.name}.",
+              _ => appL10n.couldnTUpload((file.name).toString()),
             },
             retryable: switch (error) {
               ComposerUploadException(:final retryable) => retryable,
@@ -2894,7 +2899,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed) return;
     _state = ComposerState.checking;
     _error = null;
-    _notice = 'Checking whether that posted…';
+    _notice = appL10n.checkingWhetherThatPosted;
     _notify();
   }
 
@@ -2910,9 +2915,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed) return;
     _state = ComposerState.unresolved;
     _error = null;
-    _notice =
-        'That may have posted — the site could not be reached to check. '
-        'Check again before sending it a second time.';
+    _notice = appL10n.thatMayHavePostedTheSiteCouldNotBeReachedTo;
     _notify();
   }
 
@@ -2936,8 +2939,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     draftSettled();
     _state = ComposerState.editing;
     _error = null;
-    _notice =
-        message ?? 'Your reply was sent for review, so it is not posted yet.';
+    _notice = message ?? appL10n.yourReplyWasSentForReviewSoItIsNotPosted;
     _replaceDocument(TextEditingValue.empty);
     if (_target.createsTopic) {
       _replaceMetadata(titleValue: '', categoryId: null, tags: const []);

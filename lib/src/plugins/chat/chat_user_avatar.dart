@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_services.dart';
@@ -90,7 +91,7 @@ Widget _avatar({
   key: key,
   dimension: size,
   ring: ring,
-  ringSemanticLabel: ring ? 'Online' : null,
+  ringSemanticLabel: ring ? appL10n.online : null,
   child: AvatarImage(
     url: url,
     size: ring ? size - 4 : size,

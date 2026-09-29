@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'reaction.dart';
@@ -157,8 +158,8 @@ class _PostReactionButtonState extends State<PostReactionButton> {
           DIcons.byName[settings.likeIcon] ??
           DIcons.farHeart;
       final label = mine == null
-          ? 'Add reaction'
-          : 'Remove your $mine reaction';
+          ? context.l10n.addReaction
+          : context.l10n.removeYourReactionReactionpicker((mine).toString());
 
       return EmojiPickerAnchor(
         child: FocusTraversalGroup(
@@ -172,7 +173,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
               panelBuilder: (context) => FocusTraversalOrder(
                 order: const NumericFocusOrder(1),
                 child: DPopoverContent(
-                  semanticLabel: 'Choose a reaction',
+                  semanticLabel: context.l10n.chooseAReaction,
                   width: ReactionGrid.maxWidth,
                   padding: const EdgeInsets.all(DSpacing.xs),
                   child: ReactionGrid._withSession(
@@ -194,7 +195,8 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                   size: DToggleSize.post,
                   variant: DToggleVariant.outline,
                   semanticLabel: label,
-                  semanticLongPressHint: 'choose a reaction',
+                  semanticLongPressHint:
+                      context.l10n.chooseAReactionReactionpicker,
                   onPressedChanged: (_) => _toggle(buttonContext),
                   onLongPress: () => _panel.currentState?.open(),
                   icon: mine != null
@@ -292,7 +294,7 @@ Future<void> showReactionPicker(
   if (isTouch) {
     return showShellSheet<void>(
       context: context,
-      title: 'React',
+      title: appL10n.react,
       nested: nested,
       builder: (sheetContext) => ReactionGrid._withSession(
         pickerSession,
@@ -381,7 +383,7 @@ class ReactionGrid extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
-          'Still finding out which reactions this site allows.',
+          context.l10n.stillFindingOutWhichReactionsThisSiteAllows,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -428,7 +430,7 @@ class ReactionGrid extends StatelessWidget {
             onPressed: enabled ? more : null,
             size: DButtonSize.large,
             variant: DButtonVariant.ghost,
-            tooltip: 'More emojis',
+            tooltip: context.l10n.moreEmojis,
             icon: const DIcon(DIcons.farFaceSmile),
           ),
       ],

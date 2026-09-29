@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'composer_controller.dart';
@@ -19,23 +20,28 @@ class ComposerSelectionColors extends StatelessWidget {
   final bool enabled;
   static final _recent = Expando<List<DColorPreset>>();
 
-  static const _colors = [
-    ('Gray', 0xff9b9b9b, 0xff373736),
-    ('Brown', 0xffb58b71, 0xff523e32),
-    ('Orange', 0xffe58b39, 0xff613b21),
-    ('Yellow', 0xffd8ad45, 0xff5b4a1e),
-    ('Green', 0xff58a47a, 0xff244c39),
-    ('Blue', 0xff4d94d5, 0xff233f5c),
-    ('Purple', 0xffa578c3, 0xff463153),
-    ('Pink', 0xffc9669b, 0xff552c44),
-    ('Red', 0xffd75c55, 0xff592d2a),
+  static List<(String, int, int)> get _colors => [
+    (appL10n.gray, 0xff9b9b9b, 0xff373736),
+    (appL10n.brown, 0xffb58b71, 0xff523e32),
+    (appL10n.orange, 0xffe58b39, 0xff613b21),
+    (appL10n.yellow, 0xffd8ad45, 0xff5b4a1e),
+    (appL10n.green, 0xff58a47a, 0xff244c39),
+    (appL10n.blue, 0xff4d94d5, 0xff233f5c),
+    (appL10n.purple, 0xffa578c3, 0xff463153),
+    (appL10n.pink, 0xffc9669b, 0xff552c44),
+    (appL10n.red, 0xffd75c55, 0xff592d2a),
   ];
 
   List<DColorPreset> _presets(bool background) => [
     for (final (name, text, fill) in _colors)
       DColorPreset(
         color: Color(background ? fill : text),
-        label: '${background ? 'Background' : 'Text'} color: $name',
+        label: appL10n.colorComposerselectioncolors(
+          (background).toString(),
+          ((background) ? (appL10n.background) : '').toString(),
+          (name).toString(),
+          ((!(background)) ? (appL10n.text) : '').toString(),
+        ),
         appearance: background
             ? DColorPresetAppearance.background
             : DColorPresetAppearance.text,
@@ -87,7 +93,7 @@ class ComposerSelectionColors extends StatelessWidget {
     restoreFocus: false,
     content: DDropdownMenuContent(
       key: const ValueKey('composer-color-palette'),
-      semanticLabel: 'Text and background colors',
+      semanticLabel: context.l10n.textAndBackgroundColors,
       autofocus: !DControlStyle.isTouch(context),
       width: DControlStyle.isTouch(context) ? 292 : 220,
       side: DPopoverSide.top,
@@ -98,7 +104,9 @@ class ComposerSelectionColors extends StatelessWidget {
           DPopoverClose(
             builder: (context, close) => TextFieldTapRegion(
               child: DColorPickerPresets(
-                semanticLabel: background ? 'Background color' : 'Text color',
+                semanticLabel: background
+                    ? context.l10n.backgroundColor
+                    : context.l10n.textColor,
                 appearance: background
                     ? DColorPresetAppearance.background
                     : DColorPresetAppearance.text,
@@ -121,8 +129,8 @@ class ComposerSelectionColors extends StatelessWidget {
     ),
     child: DDropdownMenuTrigger(
       builder: (context, state) => DButton.iconOnly(
-        tooltip: 'Color',
-        semanticLabel: 'Color',
+        tooltip: context.l10n.color,
+        semanticLabel: context.l10n.color,
         icon: const Icon(Icons.format_color_text),
         variant: DButtonVariant.ghost,
         size: size,

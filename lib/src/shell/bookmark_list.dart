@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
@@ -107,19 +108,19 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     );
     final type = bookmark.coreTargetType;
     return BookmarkPresentation(
-      title: bookmark.title.isEmpty ? 'Bookmark' : bookmark.title,
+      title: bookmark.title.isEmpty ? appL10n.bookmark : bookmark.title,
       typeLabel: type == BookmarkTargetType.post
           ? bookmark.postNumber == null
-                ? 'Post'
-                : 'Post #${bookmark.postNumber}'
+                ? appL10n.post
+                : appL10n.postBookmarkui((bookmark.postNumber).toString())
           : type == BookmarkTargetType.topic
-          ? 'Topic'
-          : 'Bookmark',
+          ? appL10n.topic
+          : appL10n.bookmark,
       filterLabel: type == BookmarkTargetType.post
-          ? 'Posts'
+          ? appL10n.posts
           : type == BookmarkTargetType.topic
-          ? 'Topics'
-          : 'Other bookmarks',
+          ? appL10n.topics
+          : appL10n.otherBookmarks,
       contextLabel: category?.name,
       icon: type == BookmarkTargetType.post
           ? DIcons.reply
@@ -246,10 +247,10 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       );
     }
     if (!feed.loaded) {
-      return const UserMenuLoading(semanticsLabel: 'Loading bookmarks');
+      return UserMenuLoading(semanticsLabel: context.l10n.loadingBookmarks);
     }
     if (!feed.hasRows) {
-      return const UserMenuMessage(text: 'Nothing bookmarked yet.');
+      return UserMenuMessage(text: context.l10n.nothingBookmarkedYet);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -291,8 +292,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         (bookmark: bookmark, presentation: _present(bookmark)),
     ];
     final filters = <String>{
-      'Posts',
-      'Topics',
+      context.l10n.posts,
+      context.l10n.topics,
       for (final presenter
           in controller.pluginSession.capabilities<PluginBookmarkPresenter>())
         presenter.bookmarkFilterLabel,
@@ -321,8 +322,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         state = SliverToBoxAdapter(
           child: UserMenuMessage(
             text: feed.isEmpty
-                ? 'Nothing bookmarked yet.'
-                : 'No bookmarks in this filter.',
+                ? context.l10n.nothingBookmarkedYet
+                : context.l10n.noBookmarksInThisFilter,
           ),
         );
       }
@@ -358,7 +359,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               SliverToBoxAdapter(
                 child: Semantics(
                   liveRegion: true,
-                  label: 'Loading more bookmarks',
+                  label: context.l10n.loadingMoreBookmarks,
                   child: const SizedBox.shrink(),
                 ),
               ),
@@ -376,7 +377,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         Semantics(
           header: true,
           child: Text(
-            'Bookmarks',
+            context.l10n.bookmarks,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -387,13 +388,13 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           children: [
             DSelect<String>.controlled(
               size: DControlSize.filter,
-              semanticLabel: 'Filter bookmarks',
+              semanticLabel: context.l10n.filterBookmarks,
               value: _filter,
               entries: [
-                const DSelectOption(
+                DSelectOption(
                   value: null,
-                  label: 'All bookmarks',
-                  child: Text('All bookmarks'),
+                  label: context.l10n.allBookmarks,
+                  child: Text(context.l10n.allBookmarks),
                 ),
                 for (final filter in filters)
                   DSelectOption(
@@ -434,9 +435,11 @@ class BookmarkRow extends StatelessWidget {
     final details = presentation;
     final label = [
       if (details == null) ?bookmark.author,
-      details?.title ?? (bookmark.title.isEmpty ? 'Bookmark' : bookmark.title),
+      details?.title ??
+          (bookmark.title.isEmpty ? context.l10n.bookmark : bookmark.title),
       if (details != null) details.subtitle,
-      if (bookmark.name case final name?) 'Note: $name',
+      if (bookmark.name case final name?)
+        context.l10n.noteBookmarklist((name).toString()),
     ].join(', ');
     final color = details?.color ?? tokens.mutedForeground;
     final row = DItem(

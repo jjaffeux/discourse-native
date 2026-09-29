@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_icons.dart';
@@ -66,7 +67,7 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
       if (toast?.isDisposed != false) return;
       final message = switch (error) {
         final WriteException error => error.message,
-        _ => "Couldn't start the call.",
+        _ => appL10n.couldnTStartTheCall,
       };
       toast!.add(DToastOptions(description: message, type: DToastType.error));
     } finally {
@@ -79,7 +80,7 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
     width: double.infinity,
     child: DButton(
       key: ValueKey<String>('user-card-call-${widget.user.username}'),
-      label: const Text('Call'),
+      label: Text(context.l10n.call),
       onPressed: _call,
       icon: const DIcon(VoiceIcons.phone),
       variant: DButtonVariant.primary,

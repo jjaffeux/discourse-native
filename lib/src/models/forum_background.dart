@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 enum ForumBackgroundEffect { normal, lava, paper, gradient }
@@ -43,7 +44,7 @@ class ForumBackground {
 
   factory ForumBackground.fromJson(Object? value) {
     if (value is! Map<String, dynamic>) {
-      throw const FormatException('Invalid background.');
+      throw FormatException(appL10n.invalidBackground);
     }
     final color = value['color'];
     final strength = value['strength'];
@@ -75,7 +76,7 @@ class ForumBackground {
         effect == null ||
         (value.containsKey('useAccentTint') &&
             value['useAccentTint'] is! bool)) {
-      throw const FormatException('Invalid background.');
+      throw FormatException(appL10n.invalidBackground);
     }
     return ForumBackground(
       color: Color(0xff000000 | int.parse(color.substring(1), radix: 16)),

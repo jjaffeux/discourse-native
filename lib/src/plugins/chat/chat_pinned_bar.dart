@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -89,7 +90,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
     );
     await showShellSheet<void>(
       context: context,
-      title: 'Pinned messages',
+      title: appL10n.pinnedMessages,
       padding: EdgeInsets.zero,
       builder: (sheetContext) => ListView.builder(
         shrinkWrap: true,
@@ -97,13 +98,19 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
         itemBuilder: (context, index) {
           final pin = ordered[ordered.length - index - 1];
           final by = pin.pinnedBy.displayName.trim();
-          Widget metadata(String? when) =>
-              Text([if (by.isNotEmpty) 'Pinned by $by', ?when].join(' · '));
+          Widget metadata(String? when) => Text(
+            [
+              if (by.isNotEmpty) appL10n.pinnedBy((by).toString()),
+              ?when,
+            ].join(' · '),
+          );
           return ListTile(
             key: ValueKey('chat-pin-${pin.id}'),
             minTileHeight: 56,
             leading: Semantics(
-              label: 'Message by ${pin.message.author.displayName}',
+              label: appL10n.messageBy(
+                (pin.message.author.displayName).toString(),
+              ),
               child: ChatUserAvatar(
                 siteUrl: widget.siteUrl,
                 userId: pin.message.author.id,
@@ -160,7 +167,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                 leading: const DIcon(DIcons.thumbtack, size: 16),
                 title: Text(state.error!),
                 trailing: DButton(
-                  label: const Text('Retry'),
+                  label: Text(context.l10n.retry),
                   onPressed: () => _load(force: true),
                   variant: DButtonVariant.link,
                 ),
@@ -169,7 +176,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
           }
           return state.loading
               ? DSkeletonRegion(
-                  semanticsLabel: 'Loading pinned messages',
+                  semanticsLabel: context.l10n.loadingPinnedMessages,
                   color: skeletonFill(context),
                   child: const DSkeleton(height: 2),
                 )
@@ -208,7 +215,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Pinned message',
+                            context.l10n.pinnedMessage,
                             style: theme.textTheme.labelMedium?.copyWith(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.w700,
@@ -233,7 +240,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                           DButton.iconOnly(
                             onPressed: () => unawaited(_showAll(ordered)),
                             variant: DButtonVariant.ghost,
-                            tooltip: 'Pinned messages',
+                            tooltip: context.l10n.pinnedMessages,
                             icon: const DIcon(DIcons.list),
                           ),
                           if (widget.channel.membership.hasUnseenPins)
@@ -241,7 +248,8 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
                               top: 8,
                               end: 8,
                               child: DNotificationDot(
-                                semanticLabel: 'Unseen pinned messages',
+                                semanticLabel:
+                                    context.l10n.unseenPinnedMessages,
                                 color: theme.discourse.notificationIndicator,
                               ),
                             ),

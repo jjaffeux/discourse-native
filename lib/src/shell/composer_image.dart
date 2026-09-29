@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'composer_images.dart';
@@ -70,7 +71,7 @@ class ComposerImagePreview extends StatelessWidget {
 
     final preview = Semantics(
       image: true,
-      label: image.alt.isEmpty ? 'Image' : image.alt,
+      label: image.alt.isEmpty ? context.l10n.image : image.alt,
       selected: highlighted,
       child: Container(
         width: size.width,
@@ -168,7 +169,7 @@ class _ImageFallback extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                label.isEmpty ? 'Image' : label,
+                label.isEmpty ? context.l10n.image : label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

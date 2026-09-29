@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
@@ -86,7 +87,10 @@ final class _VoiceDiagnosticFailure implements Exception {
   final String errorType;
 
   @override
-  String toString() => 'Voice operation $operation failed ($errorType).';
+  String toString() => appL10n.voiceOperationFailed(
+    (operation).toString(),
+    (errorType).toString(),
+  );
 }
 
 final class _VoiceParticipantSession {
@@ -104,14 +108,13 @@ String _joinFailureMessage(Object error, VoiceRoom room) {
   if (error is VoiceMicrophoneException) {
     return switch (error.kind) {
       VoiceMicrophoneFailureKind.permissionDenied =>
-        'Microphone access is blocked. Allow microphone access in your '
-            'system settings, then try joining again.',
+        appL10n
+            .microphoneAccessIsBlockedAllowMicrophoneAccessInYourSystemSettings,
       VoiceMicrophoneFailureKind.unavailable =>
-        "We couldn't access your microphone. Check that it is connected and "
-            'not in use by another app, then try again.',
+        appL10n.weCouldnTAccessYourMicrophoneCheckThatItIsConnected,
     };
   }
-  return "Couldn't join ${room.name}.";
+  return appL10n.couldnTJoin((room.name).toString());
 }
 
 String _voiceSignalingDiagnosticType(Object? value) => switch (value) {
@@ -752,8 +755,8 @@ final class VoiceController extends ChangeNotifier {
       _notify(
         siteUrl,
         room.id,
-        'This call connects participants directly, so other participants '
-        'may be able to see your IP address.',
+        appL10n
+            .thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble,
       );
     }
     await join(siteUrl: siteUrl, siteName: siteName, room: room);
@@ -1071,12 +1074,12 @@ final class VoiceController extends ChangeNotifier {
         _pruneChatAssociations(siteUrl, const {});
         _unavailableSites.add(siteUrl);
       } else {
-        _errors[siteUrl] = "Couldn't load voice rooms.";
+        _errors[siteUrl] = appL10n.couldnTLoadVoiceRooms;
         _report(error, stackTrace, 'voice.directory');
       }
     } catch (error, stackTrace) {
       if (!isCurrent()) return;
-      _errors[siteUrl] = "Couldn't load voice rooms.";
+      _errors[siteUrl] = appL10n.couldnTLoadVoiceRooms;
       _report(error, stackTrace, 'voice.directory');
     } finally {
       if (isCurrent()) {
@@ -1414,7 +1417,7 @@ final class VoiceController extends ChangeNotifier {
         if (call.cameraEnabled) await _setCameraEnabled(false);
         if (call.screenSharing) await _setScreenSharing(false);
       }, 'voice.media.roomVideoDisabled');
-      _notify(siteUrl, room.id, 'Video was turned off in this room.');
+      _notify(siteUrl, room.id, appL10n.videoWasTurnedOffInThisRoom);
     }
   }
 
@@ -1487,8 +1490,8 @@ final class VoiceController extends ChangeNotifier {
           siteUrl,
           roomId,
           event.role == VoiceRole.participant
-              ? "You've been moved to listeners."
-              : "You've been made a speaker.",
+              ? appL10n.youVeBeenMovedToListeners
+              : appL10n.youVeBeenMadeASpeaker,
         );
       }
       return;
@@ -1528,10 +1531,10 @@ final class VoiceController extends ChangeNotifier {
         final recording = event.recording;
         if (recording != null && recording.active) {
           if (recording.startedById != _userIdFor(siteUrl)) {
-            _notify(siteUrl, roomId, 'This call is now being recorded.');
+            _notify(siteUrl, roomId, appL10n.thisCallIsNowBeingRecorded);
           }
         } else if (wasRecording) {
-          _notify(siteUrl, roomId, 'The recording has stopped.');
+          _notify(siteUrl, roomId, appL10n.theRecordingHasStopped);
         }
       }
     }
@@ -1563,7 +1566,7 @@ final class VoiceController extends ChangeNotifier {
     final held = inCall ? call.room : room(siteUrl, roomId);
     if (inCall && event.userId == userId) {
       if (!event.raised && event.reason == 'dismissed') {
-        _notify(siteUrl, roomId, 'Your request to speak was dismissed.');
+        _notify(siteUrl, roomId, appL10n.yourRequestToSpeakWasDismissed);
       }
     } else if (inCall && event.raised && (held?.canManage ?? false)) {
       final raiser = held?.participants
@@ -1573,7 +1576,9 @@ final class VoiceController extends ChangeNotifier {
         _notify(
           siteUrl,
           roomId,
-          '${raiser.name ?? raiser.username} raised their hand to speak.',
+          appL10n.raisedTheirHandToSpeak(
+            (raiser.name ?? raiser.username).toString(),
+          ),
         );
       }
     }
@@ -2551,8 +2556,7 @@ final class VoiceController extends ChangeNotifier {
         );
         _errors[call.siteUrl] = error.errors.isNotEmpty
             ? error.errors.join('\n')
-            : 'Your call session has expired. Rejoin the room to start a '
-                  'new one.';
+            : appL10n.yourCallSessionHasExpiredRejoinTheRoomToStartA;
         await _leave(
           notifyServer: error.statusCode != HttpStatus.notFound,
           reason: _VoiceLeaveReason.sessionExpired,
@@ -2659,7 +2663,7 @@ final class VoiceController extends ChangeNotifier {
       _notify(
         call.siteUrl,
         call.room.id,
-        'You were auto-muted after being idle. Unmute to keep talking.',
+        appL10n.youWereAutoMutedAfterBeingIdleUnmuteToKeepTalking,
       );
     }
     unawaited(_requestHeartbeat());
@@ -2693,8 +2697,9 @@ final class VoiceController extends ChangeNotifier {
       correlationId: _correlationFor(call),
       severity: DiagnosticSeverity.warning,
     );
-    _errors[call.siteUrl] =
-        'You were disconnected from ${call.room.name} due to inactivity.';
+    _errors[call.siteUrl] = appL10n.youWereDisconnectedFromDueToInactivity(
+      (call.room.name).toString(),
+    );
     _observe(
       () =>
           _leave(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
@@ -2802,7 +2807,7 @@ final class VoiceController extends ChangeNotifier {
             } catch (error, stackTrace) {
               if (isCurrent()) {
                 _call = _call!.copyWith(
-                  error: 'The media setting was not applied.',
+                  error: appL10n.theMediaSettingWasNotApplied,
                 );
                 notifyListeners();
               }
@@ -3454,7 +3459,7 @@ final class VoiceController extends ChangeNotifier {
         _call = rollback(
           current,
           call,
-        ).copyWith(error: 'The media setting was not applied.');
+        ).copyWith(error: appL10n.theMediaSettingWasNotApplied);
         notifyListeners();
       }
       _report(error, stackTrace, 'voice.mediaState');
@@ -3861,7 +3866,7 @@ final class VoiceController extends ChangeNotifier {
       if (!isCurrent()) return null;
       _errors[siteUrl] = error is WriteException
           ? error.message
-          : "Couldn't save the voice room.";
+          : appL10n.couldnTSaveTheVoiceRoom;
       _report(error, stackTrace, 'voice.saveRoom');
       notifyListeners();
       return null;
@@ -3893,7 +3898,7 @@ final class VoiceController extends ChangeNotifier {
       if (!isCurrent()) return;
       _errors[siteUrl] = error is WriteException
           ? error.message
-          : "Couldn't delete the voice room.";
+          : appL10n.couldnTDeleteTheVoiceRoom;
       _report(error, stackTrace, 'voice.deleteRoom');
       notifyListeners();
     }
@@ -3958,7 +3963,7 @@ final class VoiceController extends ChangeNotifier {
       if (conversation != null) await conversation.refresh(force: force);
     } catch (error, stackTrace) {
       if (!isCurrent()) return;
-      state.error = "Couldn't load room chat.";
+      state.error = appL10n.couldnTLoadRoomChat;
       _report(error, stackTrace, 'voice.chat.load');
     } finally {
       if (isCurrent()) {
@@ -4148,7 +4153,7 @@ final class VoiceController extends ChangeNotifier {
       state = _chats[key] ?? state;
       state
         ..sending = false
-        ..error = 'Message not sent.';
+        ..error = appL10n.messageNotSent;
       _report(error, stackTrace, 'voice.chat.send');
       notifyListeners();
     }
@@ -4611,7 +4616,7 @@ final class VoiceController extends ChangeNotifier {
   ) => _runMembershipWrite(
     () => _addMember(siteUrl, roomId, username, role),
     'voice.membership.add',
-    failure: "Couldn't add the member.",
+    failure: appL10n.couldnTAddTheMember,
   );
 
   Future<void> _addMember(
@@ -4648,7 +4653,7 @@ final class VoiceController extends ChangeNotifier {
   ) => _runMembershipWrite(
     () => _updateMember(siteUrl, roomId, membershipId, role),
     'voice.membership.update',
-    failure: "Couldn't change the member's role.",
+    failure: appL10n.couldnTChangeTheMemberSRole,
   );
 
   Future<void> _updateMember(
@@ -4681,7 +4686,7 @@ final class VoiceController extends ChangeNotifier {
       _runMembershipWrite(
         () => _removeMember(siteUrl, roomId, membershipId),
         'voice.membership.remove',
-        failure: "Couldn't remove the member.",
+        failure: appL10n.couldnTRemoveTheMember,
       );
 
   Future<void> _removeMember(
@@ -4761,7 +4766,7 @@ final class VoiceController extends ChangeNotifier {
         updated = updated.copyWith(
           status: status,
           error: status == VoiceCallStatus.failed
-              ? 'The media connection could not be restored.'
+              ? appL10n.theMediaConnectionCouldNotBeRestored
               : null,
           clearError: status == VoiceCallStatus.connected,
         );

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'found_group.dart';
@@ -39,7 +40,7 @@ class UserFlair {
   final String? color;
   final String? backgroundColor;
 
-  String get label => name ?? 'Group flair';
+  String get label => name ?? appL10n.groupFlair;
 
   @override
   bool operator ==(Object other) =>

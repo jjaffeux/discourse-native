@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/composer_upload.dart';
@@ -25,12 +26,17 @@ class ComposerUploadAttachment extends StatelessWidget {
     final retrying = upload.status == ComposerUploadStatus.retrying;
     final processing = upload.status == ComposerUploadStatus.processing;
     final description = failed
-        ? upload.error ?? "Couldn't upload this image."
+        ? upload.error ?? context.l10n.couldnTUploadThisImage
         : completed
-        ? 'Uploaded'
+        ? context.l10n.uploaded
         : processing
-        ? 'Processing image'
-        : '${retrying ? 'Retrying' : 'Uploading'} · ${(upload.progress * 100).round()}%';
+        ? context.l10n.processingImage
+        : context.l10n.messageComposeruploadattachment(
+            (retrying).toString(),
+            ((retrying) ? (context.l10n.retrying) : '').toString(),
+            ((upload.progress * 100).round()).toString(),
+            ((!(retrying)) ? (context.l10n.uploading) : '').toString(),
+          );
     return DAttachment(
       width: double.infinity,
       state: failed
@@ -76,14 +82,16 @@ class ComposerUploadAttachment extends StatelessWidget {
             if (failed && upload.retryable)
               DAttachmentAction(
                 icon: const Icon(Icons.refresh),
-                tooltip: 'Retry upload',
+                tooltip: context.l10n.retryUpload,
                 onPressed: composer.canUpload
                     ? () => composer.retryUpload(upload.id)
                     : null,
               ),
             DAttachmentAction(
               icon: const Icon(Icons.close),
-              tooltip: completed || failed ? 'Remove upload' : 'Cancel upload',
+              tooltip: completed || failed
+                  ? context.l10n.removeUpload
+                  : context.l10n.cancelUpload,
               onPressed: completed || failed
                   ? () => composer.removeUpload(upload.id)
                   : () => composer.cancelUpload(upload.id),
@@ -132,7 +140,7 @@ class _ComposerUploadThumbnail extends StatelessWidget {
             width: size,
             height: size,
             coverDecodeSize: constraints.constrain(const Size.square(size)),
-            semanticLabel: 'Preview of $filename',
+            semanticLabel: context.l10n.previewOf((filename).toString()),
             loadingBuilder: (_) => SizedBox.square(
               dimension: size,
               child: Center(child: fallback),

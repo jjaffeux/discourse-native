@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -43,7 +44,7 @@ VoiceClipboardReport boundVoiceReportForClipboard(
     'truncated': true,
     'reason': 'clipboard_limit',
     'fullReportBytes': utf8.encode(report).length,
-    'message': 'Recent records only. Use Share/Save for the full report.',
+    'message': appL10n.recentRecordsOnlyUseShareSaveForTheFullReport,
   });
   final retained = <String>[];
   var retainedBytes = utf8.encode('$marker\n').length;
@@ -101,8 +102,9 @@ final class NativeVoiceReportExporter
   final DateTime Function() _clock;
 
   @override
-  String get actionLabel =>
-      _platform == TargetPlatform.linux ? 'Save report' : 'Share report';
+  String get actionLabel => _platform == TargetPlatform.linux
+      ? appL10n.saveReport
+      : appL10n.shareReport;
 
   @override
   Future<VoiceReportExportOutcome> export(
@@ -213,10 +215,10 @@ final class _NativeExportEnvironment implements VoiceReportExportEnvironment {
   Future<String?> chooseSavePath({required String suggestedName}) async {
     final destination = await selector.getSaveLocation(
       suggestedName: suggestedName,
-      acceptedTypeGroups: const [
+      acceptedTypeGroups: [
         selector.XTypeGroup(
-          label: 'JSON Lines diagnostics',
-          extensions: ['jsonl'],
+          label: appL10n.jSONLinesDiagnostics,
+          extensions: const ['jsonl'],
         ),
       ],
     );
@@ -234,7 +236,7 @@ final class _NativeExportEnvironment implements VoiceReportExportEnvironment {
     final result = await sharing.SharePlus.instance.share(
       sharing.ShareParams(
         files: [sharing.XFile(file.path, mimeType: 'application/x-ndjson')],
-        subject: 'Voice diagnostics',
+        subject: appL10n.voiceDiagnostics,
         sharePositionOrigin: sharePositionOrigin,
       ),
     );

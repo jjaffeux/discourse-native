@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../theme/d_icon_sets.dart';
@@ -20,7 +21,7 @@ final class SharedAppearance {
   /// tint stored while it was shared is dropped: tints belong to themes.
   factory SharedAppearance.fromJson(Map<String, dynamic> json) {
     if (json['version'] != 1) {
-      throw const FormatException('Invalid appearance.');
+      throw FormatException(appL10n.invalidAppearance);
     }
     var effects = const ForumBackground.appearance();
     try {

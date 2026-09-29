@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -72,10 +73,10 @@ class InstanceRail extends StatelessWidget {
                         icon: const Icon(Icons.menu),
                         tooltipSide: DTooltipSide.right,
                         tooltip: onToggleSidebar == null
-                            ? 'Select a forum to toggle its sidebar'
+                            ? context.l10n.selectAForumToToggleItsSidebar
                             : sidebarExpanded
-                            ? 'Collapse sidebar'
-                            : 'Expand sidebar',
+                            ? context.l10n.collapseSidebar
+                            : context.l10n.expandSidebar,
                         variant: DButtonVariant.transparentBackground,
                         backgroundColor: Colors.transparent,
                         interactiveBackgroundColor: Colors.transparent,
@@ -149,7 +150,7 @@ class InstanceRail extends StatelessWidget {
       }
       DToast.show(
         context,
-        "Couldn't save the new site order. Try again.",
+        appL10n.couldnTSaveTheNewSiteOrderTryAgain,
         type: DToastType.error,
       );
     }());
@@ -921,7 +922,7 @@ class _AggregateRailButtonState extends State<_AggregateRailButton> {
                 child: DButton.iconOnly(
                   key: const ValueKey('aggregate-rail-button'),
                   icon: const DIcon(DIcons.circleNodes),
-                  tooltip: 'All forums',
+                  tooltip: context.l10n.allForums,
                   tooltipSide: DTooltipSide.right,
                   shortcut: widget.shortcutKey == null
                       ? null
@@ -956,7 +957,7 @@ class _RailLoadFailure extends StatelessWidget {
 
     return Center(
       child: DTooltip(
-        message: 'Retry loading sites',
+        message: context.l10n.retryLoadingSites,
         side: DTooltipSide.right,
         child: InkWell(
           key: const ValueKey('instance-load-retry-rail'),
@@ -1009,7 +1010,7 @@ class _RailFooter extends StatelessWidget {
           child: Center(
             child: _RailFooterButton(
               buttonKey: const ValueKey('styleguide-rail-button'),
-              tooltip: 'Open component styleguide',
+              tooltip: context.l10n.openComponentStyleguide,
               onTap: () => unawaited(showComponentStyleguide(context)),
               icon: Icon(
                 Icons.palette_outlined,
@@ -1076,7 +1077,7 @@ class _SettingsButton extends StatelessWidget {
     final theme = Theme.of(context);
     return _RailFooterButton(
       buttonKey: const ValueKey('settings-rail-button'),
-      tooltip: 'Settings',
+      tooltip: context.l10n.settings,
       onTap: onTap,
       icon: DIcon(
         DIcons.gear,
@@ -1107,8 +1108,8 @@ class _DiagnosticsButton extends StatelessWidget {
         final open = diagnostics.isPanelOpen;
         final unseen = diagnostics.unseenErrorCountListenable.value;
         final baseTooltip = unseen == 0
-            ? 'Diagnostics'
-            : 'Diagnostics, $unseen unseen ${unseen == 1 ? 'error' : 'errors'}';
+            ? context.l10n.diagnostics
+            : context.l10n.diagnosticsUnseen(unseen);
         final recordingLabels = [
           for (final plugin in pluginDiagnostics)
             if (plugin.isDiagnosticsRecording) plugin.diagnosticsRecordingLabel,
@@ -1201,25 +1202,25 @@ class _UpdateButton extends StatelessWidget {
 
         final (tooltip, icon, color, filled) = switch (updates.status) {
           UpdateStatus.available => (
-            'Update to $version',
+            context.l10n.updateTo((version).toString()),
             DIcons.download,
             theme.colorScheme.primary,
             true,
           ),
           UpdateStatus.readyToInstall => (
-            'Restart to finish updating',
+            context.l10n.restartToFinishUpdating,
             DIcons.farCircleCheck,
             theme.colorScheme.primary,
             true,
           ),
           UpdateStatus.failed => (
-            updates.error ?? 'The last update check failed',
+            updates.error ?? context.l10n.theLastUpdateCheckFailed,
             DIcons.triangleExclamation,
             theme.colorScheme.error,
             false,
           ),
           _ => (
-            'Check for updates',
+            context.l10n.checkForUpdates,
             DIcons.arrowsRotate,
             theme.shell.railForeground,
             false,
@@ -1437,8 +1438,9 @@ class _RailItemState extends State<_RailItem> {
               button: true,
               selected: widget.selected,
               customSemanticsActions: {
-                const CustomSemanticsAction(label: 'Move up'): ?widget.onMoveUp,
-                const CustomSemanticsAction(label: 'Move down'):
+                CustomSemanticsAction(label: context.l10n.moveUp):
+                    ?widget.onMoveUp,
+                CustomSemanticsAction(label: context.l10n.moveDown):
                     ?widget.onMoveDown,
               },
               child: InkWell(
@@ -1483,7 +1485,7 @@ class _RailItemState extends State<_RailItem> {
                                 ringColor: railSurface,
                                 semanticLabel: countLabel(
                                   widget.badgeCount,
-                                  'unread notification',
+                                  CountNoun.unreadNotification,
                                 ),
                                 child: Text(
                                   widget.badgeCount > 999
@@ -1656,7 +1658,7 @@ class _AddInstanceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const label = 'Add a Discourse site';
+    final label = context.l10n.addADiscourseSite;
     return DButton.iconOnly(
       key: const ValueKey('add-instance-rail-button'),
       tooltip: label,

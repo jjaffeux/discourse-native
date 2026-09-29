@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum VoiceDevicePreference { audioInput, audioOutput, camera }
@@ -156,7 +157,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     return _write(
       key,
       () => _persistence.writeString(key, value),
-      'media device',
+      appL10n.mediaDevice,
     );
   }
 
@@ -164,7 +165,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   Future<void> writePushToTalk(bool enabled) => _write(
     _pushToTalkKey,
     () => _persistence.writeBool(_pushToTalkKey, enabled),
-    'push-to-talk preference',
+    appL10n.pushToTalkPreference,
   );
 
   @override
@@ -177,7 +178,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     return _write(
       key,
       () => _persistence.writeBool(key, enabled),
-      'camera preference',
+      appL10n.cameraPreference,
     );
   }
 
@@ -192,7 +193,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) => _write(
     _meshPrivacyAcknowledgedKey,
     () => _persistence.writeBool(_meshPrivacyAcknowledgedKey, acknowledged),
-    'privacy acknowledgement',
+    appL10n.privacyAcknowledgement,
   );
 
   @override
@@ -202,7 +203,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   Future<void> writeAutoStatusEnabled(bool enabled) => _write(
     _autoStatusKey,
     () => _persistence.writeBool(_autoStatusKey, enabled),
-    'status preference',
+    appL10n.statusPreference,
   );
 
   Future<String?> _readString(String key) => _operations.run<String?>(
@@ -256,7 +257,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     return _write(
       key,
       () => _persistence.writeDouble(key, volume),
-      'participant volume',
+      appL10n.participantVolume,
     );
   }
 

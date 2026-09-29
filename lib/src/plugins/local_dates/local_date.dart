@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:discourse_native/src/foundation/count_label.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
@@ -522,17 +524,17 @@ class LocalDateFormatter {
     final monthsExact = milliseconds / 86400000 * 4800 / 146097;
     final months = monthsExact.round();
     final years = (monthsExact / 12).round();
-    if (seconds <= 44) return 'a few seconds';
-    if (minutes <= 1) return 'a minute';
-    if (minutes < 45) return '$minutes minutes';
-    if (hours <= 1) return 'an hour';
-    if (hours < 22) return '$hours hours';
-    if (days <= 1) return 'a day';
-    if (days < 26) return '$days days';
-    if (months <= 1) return 'a month';
-    if (months < 11) return '$months months';
-    if (years <= 1) return 'a year';
-    return '$years years';
+    if (seconds <= 44) return appL10n.aFewSeconds;
+    if (minutes <= 1) return appL10n.aMinute;
+    if (minutes < 45) return countLabel(minutes, CountNoun.minute);
+    if (hours <= 1) return appL10n.anHour;
+    if (hours < 22) return countLabel(hours, CountNoun.hour);
+    if (days <= 1) return appL10n.aDay;
+    if (days < 26) return countLabel(days, CountNoun.day);
+    if (months <= 1) return appL10n.aMonth;
+    if (months < 11) return countLabel(months, CountNoun.month);
+    if (years <= 1) return appL10n.aYear;
+    return countLabel(years, CountNoun.year);
   }
 
   static int _calendarDayDifference(DateTime value, DateTime reference) =>

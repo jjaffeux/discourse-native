@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../theme/d_icons.dart';
@@ -47,13 +48,13 @@ SidebarSection buildCategorySidebarSection({
 
   return SidebarSection(
     id: 'categories',
-    title: 'Categories',
+    title: appL10n.categories,
     destinations: List.unmodifiable([
       for (final category in visible)
         buildCategoryDestination(category, categoriesById: byId),
-      const SidebarDestination(
+      SidebarDestination(
         id: 'all-categories',
-        label: 'All categories',
+        label: appL10n.allCategoriesCategorysidebar,
         icon: DIcons.list,
       ),
     ]),

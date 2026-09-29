@@ -63,7 +63,7 @@ final class DiscourseAccountApi {
     try {
       final decoded = await decodeJsonHttpResponse(response);
       if (decoded is! List<dynamic>) {
-        throw const FormatException('Expected a topic tracking state list');
+        throw FormatException(appL10n.expectedATopicTrackingStateList);
       }
       return TopicTrackingState.fromJson(decoded);
     } catch (error, stackTrace) {
@@ -775,18 +775,18 @@ final class DiscourseAccountApi {
     required DateTime? reminderAt,
   }) {
     if (name != null && name.length > 100) {
-      throw const WriteException(
+      throw WriteException(
         WriteFailure.validation,
-        errors: ['Bookmark notes must be 100 characters or fewer.'],
+        errors: [appL10n.bookmarkNotesMustBe100CharactersOrFewer],
       );
     }
     if (reminderAt == null) return;
     final now = DateTime.now().toUtc();
     final reminder = reminderAt.toUtc();
     if (!reminder.isAfter(now)) {
-      throw const WriteException(
+      throw WriteException(
         WriteFailure.validation,
-        errors: ['Bookmark reminders must be in the future.'],
+        errors: [appL10n.bookmarkRemindersMustBeInTheFuture],
       );
     }
     final maximum = DateTime.utc(
@@ -800,9 +800,9 @@ final class DiscourseAccountApi {
       now.microsecond,
     );
     if (reminder.isAfter(maximum)) {
-      throw const WriteException(
+      throw WriteException(
         WriteFailure.validation,
-        errors: ['Bookmark reminders cannot be more than 10 years away.'],
+        errors: [appL10n.bookmarkRemindersCannotBeMoreThan10YearsAway],
       );
     }
   }

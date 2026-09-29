@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -263,9 +264,11 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
         ),
       )!,
     );
-    return '${status.description} — until '
-        '${MaterialLocalizations.of(context).formatMediumDate(until)} '
-        '${clockTimeLabel(context, until)}';
+    return appL10n.untilUserstatus(
+      (status.description).toString(),
+      (MaterialLocalizations.of(context).formatMediumDate(until)).toString(),
+      (clockTimeLabel(context, until)).toString(),
+    );
   }
 
   @override

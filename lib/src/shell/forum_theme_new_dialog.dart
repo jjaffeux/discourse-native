@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -66,8 +67,8 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
   }
 
   static String _suggestedName(ForumTheme base) {
-    if (base.id == blankForumTheme.id) return 'My theme';
-    final name = '${base.name} copy';
+    if (base.id == blankForumTheme.id) return appL10n.myTheme;
+    final name = appL10n.copyForumthemenewdialog((base.name).toString());
     return name.length <= 48 ? name : name.substring(0, 48).trimRight();
   }
 
@@ -84,14 +85,16 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
 
   @override
   Widget build(BuildContext context) => DDialogContent(
-    semanticLabel: 'New theme',
+    semanticLabel: context.l10n.newTheme,
     maxWidth: 560,
     children: [
-      const DDialogHeader(children: [DDialogTitle(child: Text('New theme'))]),
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.newTheme))],
+      ),
       DInput(
         key: const ValueKey('new-theme-name'),
         controller: _name,
-        labelText: 'Name',
+        labelText: context.l10n.name,
         autofocus: true,
         maxLength: 48,
         textInputAction: TextInputAction.done,
@@ -103,7 +106,7 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: DSpacing.md,
           children: [
-            const DFieldLabel(child: Text('Start from')),
+            DFieldLabel(child: Text(context.l10n.startFrom)),
             _grid([
               blankForumTheme,
               widget.forum,
@@ -116,13 +119,13 @@ class _ForumThemeNewDialogState extends State<ForumThemeNewDialog> {
       DDialogFooter(
         children: [
           DButton(
-            label: const Text('Cancel'),
+            label: Text(context.l10n.cancel),
             variant: DButtonVariant.outline,
             onPressed: widget.controller.close,
           ),
           DButton(
             key: const ValueKey('new-theme-continue'),
-            label: const Text('Continue'),
+            label: Text(context.l10n.messageContinue),
             onPressed: _name.text.trim().isEmpty ? null : _continue,
           ),
         ],

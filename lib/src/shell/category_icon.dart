@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
@@ -92,7 +93,7 @@ class CategoryIcon extends StatelessWidget {
           DIcons.lock,
           size: size,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
-          semanticLabel: 'Private category',
+          semanticLabel: context.l10n.privateCategory,
         ),
       ],
     );

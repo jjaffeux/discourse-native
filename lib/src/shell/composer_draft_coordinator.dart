@@ -2,6 +2,8 @@
 
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import '../data/discourse_api_contracts.dart';
 import '../data/draft_store.dart';
 import '../data/site_lifecycle.dart';
@@ -286,7 +288,7 @@ final class ComposerDraftCoordinator {
       if (identical(_restoreTasks[composer], restore)) {
         _restoreTasks[composer] = null;
       }
-      composer.showNotice("Couldn't check for an existing draft. Try again.");
+      composer.showNotice(appL10n.couldnTCheckForAnExistingDraftTryAgain);
     }
     return restored && _isCurrent(composer) && !composer.isDisposed;
   }
@@ -1055,9 +1057,9 @@ final class ComposerDraftCoordinator {
   static String _sequenceKey(String siteUrl, String draftKey) =>
       '$siteUrl#$draftKey';
 
-  static const _discardFailure = "Couldn't discard this draft. Try again.";
-  static const _draftChanged =
-      'This draft changed before it could be discarded. Review it and try again.';
+  static String get _discardFailure => appL10n.couldnTDiscardThisDraftTryAgain;
+  static String get _draftChanged =>
+      appL10n.thisDraftChangedBeforeItCouldBeDiscardedReviewItAnd;
 }
 
 final class ComposerDraftSession {

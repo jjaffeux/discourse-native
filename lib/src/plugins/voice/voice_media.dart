@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -35,13 +36,13 @@ final class VoiceMicrophoneException implements Exception {
     final message = error.toString().toLowerCase();
     final permissionDenied = <String>[
       'notallowed',
-      'not allowed',
+      appL10n.notAllowed,
       'permissiondenied',
-      'permission denied',
-      'permission dismissed',
+      appL10n.permissionDenied,
+      appL10n.permissionDismissed,
       'notauthorized',
-      'not authorized',
-      'media access denied',
+      appL10n.notAuthorized,
+      appL10n.mediaAccessDenied,
     ].any(message.contains);
     return VoiceMicrophoneException(
       permissionDenied
@@ -55,8 +56,9 @@ final class VoiceMicrophoneException implements Exception {
   @override
   String toString() => switch (kind) {
     VoiceMicrophoneFailureKind.permissionDenied =>
-      'Microphone permission was denied.',
-    VoiceMicrophoneFailureKind.unavailable => 'The microphone is unavailable.',
+      appL10n.microphonePermissionWasDenied,
+    VoiceMicrophoneFailureKind.unavailable =>
+      appL10n.theMicrophoneIsUnavailable,
   };
 }
 
@@ -76,7 +78,8 @@ final class _VoiceMediaDiagnosticFailure implements Exception {
   final String operation;
 
   @override
-  String toString() => 'Voice media operation $operation failed.';
+  String toString() =>
+      appL10n.voiceMediaOperationFailed((operation).toString());
 }
 
 abstract interface class VoiceLiveKitRoomAdapter {
@@ -2499,7 +2502,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   final Map<int, double> _participantVolumes = {};
   final VoiceTrackVolumeSetter _setTrackVolume;
   Future<void> _remoteMediaTail = Future<void>.value();
-  final Expando<bool> _rejectedTracks = Expando('rejected Voice track');
+  final Expando<bool> _rejectedTracks = Expando('rejected voice track');
 
   void _replaceRoster(List<VoiceParticipant> participants) {
     _roster
@@ -2607,7 +2610,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     if (credentials == null ||
         credentials.url.isEmpty ||
         credentials.token.isEmpty) {
-      throw const FormatException('Missing LiveKit credentials');
+      throw FormatException(appL10n.missingLiveKitCredentials);
     }
     _recordDiagnostic(
       diagnostics,
@@ -2807,8 +2810,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       FlutterErrorDetails(
         exception: _VoiceMediaDiagnosticFailure('livekit.$operation'),
         stack: stackTrace,
-        library: 'Voice media',
-        context: ErrorDescription('during LiveKit $operation'),
+        library: appL10n.voiceMedia,
+        context: ErrorDescription(
+          appL10n.duringLiveKit((operation).toString()),
+        ),
       ),
     );
   }

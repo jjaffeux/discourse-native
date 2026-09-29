@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
@@ -158,7 +159,7 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
       ),
       child: TopicSkeletonReveal(
         child: DSkeletonRegion(
-          semanticsLabel: 'Loading topic details',
+          semanticsLabel: context.l10n.loadingTopicDetails,
           liveRegion: false,
           color: skeletonFill(context),
           child: Row(
@@ -191,7 +192,7 @@ class TopicActivityPlaceholder extends StatelessWidget {
     return TopicSkeletonReveal(
       child: DSkeletonRegion(
         key: const ValueKey('topic-header-activity-placeholder'),
-        semanticsLabel: 'Loading topic activity',
+        semanticsLabel: context.l10n.loadingTopicActivity,
         liveRegion: false,
         color: skeletonFill(context),
         child: Column(
@@ -312,7 +313,7 @@ class _TopicHeaderTitle extends StatelessWidget {
           child: Center(
             child: TopicSkeletonReveal(
               child: DSkeletonRegion(
-                semanticsLabel: 'Loading topic title',
+                semanticsLabel: context.l10n.loadingTopicTitle,
                 liveRegion: false,
                 color: skeletonFill(context),
                 child: DSkeleton(height: lineHeight * .6),
@@ -333,7 +334,7 @@ class _TopicHeaderTitle extends StatelessWidget {
         ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
       );
     } else {
-      final value = known ?? 'Topic';
+      final value = known ?? context.l10n.topic;
       final text = siteUrl == null
           ? Text(
               value,
@@ -364,7 +365,7 @@ class _TopicHeaderTitle extends StatelessWidget {
               key: const ValueKey('topic-header-closed'),
               size: 16,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-              semanticLabel: 'Topic closed',
+              semanticLabel: context.l10n.topicClosed,
             ),
           ),
         Expanded(child: title),
@@ -390,17 +391,19 @@ class TopicCloseButton extends StatelessWidget {
         ? 'message'
         : 'topic';
     final source = controller.topicListContent;
-    final sourceTitle = source?.tabTitle ?? 'Back';
-    final label = sourceTitle == 'Latest' ? 'Latest topics' : sourceTitle;
+    final sourceTitle = source?.tabTitle ?? context.l10n.back;
+    final label = sourceTitle == 'Latest'
+        ? context.l10n.latestTopics
+        : sourceTitle;
     return DButton(
       key: const ValueKey('topic-close-reader'),
       icon: const DIcon(DIcons.chevronLeft),
       label: Text(label),
       tooltip: controller.mobileNavigationEnabled
-          ? 'Back'
+          ? context.l10n.back
           : backToList
-          ? 'Back to $content list'
-          : 'Collapse $content',
+          ? context.l10n.backToList((content).toString())
+          : context.l10n.collapseTopicinboxheader((content).toString()),
       variant: DButtonVariant.inline,
       density: DButtonDensity.backLink,
       onPressed: () {
@@ -553,13 +556,13 @@ class _TopicActivityStats extends StatelessWidget {
       stat(views, views == 1 ? 'view' : 'views'),
       stat(likes, likes == 1 ? 'like' : 'likes'),
       stat(links, links == 1 ? 'link' : 'links'),
-      if (readMinutes > 0) stat(readMinutes, 'min read'),
+      if (readMinutes > 0) stat(readMinutes, context.l10n.minRead),
       if (lastActivity case final activity?)
         RelativeTimeBuilder(
           when: activity,
           builder: (context, age) => Text(switch (age) {
-            'now' => 'last activity just now',
-            _ => 'last activity $age ago',
+            'now' => context.l10n.lastActivityJustNow,
+            _ => context.l10n.lastActivityAgo((age).toString()),
           }, style: style),
         ),
     ];
@@ -704,7 +707,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     ),
                   if (instance?.user != null || instance?.isConnected == true)
                     DButtonGroup(
-                      semanticLabel: 'Topic reminders',
+                      semanticLabel: context.l10n.topicReminders,
                       children: [
                         if (instance?.user != null)
                           TopicBookmarkButton(
@@ -839,7 +842,9 @@ class _TopicCategoryControl extends StatelessWidget {
       rootOnly: !subcategory,
       parentCategoryId: subcategory ? parentCategoryId : null,
       removeCategoryId: subcategory ? parentCategoryId : uncategorized?.id,
-      removeLabel: subcategory ? 'Remove subcategory' : 'Move to Uncategorized',
+      removeLabel: subcategory
+          ? context.l10n.removeSubcategory
+          : context.l10n.moveToUncategorized,
       builder: (context, edit, saving, trigger) {
         final browse = value == null
             ? null
@@ -851,7 +856,11 @@ class _TopicCategoryControl extends StatelessWidget {
         final chip = _CategoryChip(
           category: value,
           siteUrl: siteUrl,
-          label: value?.name ?? (subcategory ? '+ Subcategory' : '+ Category'),
+          label:
+              value?.name ??
+              (subcategory
+                  ? context.l10n.subcategory
+                  : context.l10n.categoryTopicinboxheader),
           edit: browseOnly ? browse : edit,
           primaryIsLink: browseOnly,
           saving: saving,
@@ -859,10 +868,10 @@ class _TopicCategoryControl extends StatelessWidget {
           expanded: trigger.open,
           compact: compressed,
           editLabel: browseOnly
-              ? 'Browse ${value?.name}'
+              ? context.l10n.browseTopicinboxheader((value?.name).toString())
               : subcategory
-              ? 'Edit topic subcategory'
-              : 'Edit topic category',
+              ? context.l10n.editTopicSubcategory
+              : context.l10n.editTopicCategory,
           navigate: showBrowseButton ? browse : null,
         );
         return browseOnly && value != null
@@ -940,7 +949,7 @@ class _CategoryChip extends StatelessWidget {
               borderColor: border,
               interactiveBackgroundColor: hover,
               loading: saving,
-              loadingSemanticLabel: 'Saving category',
+              loadingSemanticLabel: context.l10n.savingCategory,
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -974,7 +983,9 @@ class _CategoryChip extends StatelessWidget {
               child: DButton.iconOnly(
                 key: ValueKey('topic-header-browse-category-${category!.id}'),
                 icon: const DIcon(DIcons.upRightFromSquare),
-                tooltip: 'Browse ${category!.name}',
+                tooltip: context.l10n.browseTopicinboxheaderValue(
+                  (category!.name).toString(),
+                ),
                 isLink: true,
                 onPressed: navigate,
                 variant: DButtonVariant.outline,
@@ -1092,7 +1103,9 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
       context: context,
       anchorContext: anchorContext,
       title: widget.section.label,
-      barrierLabel: 'Dismiss ${widget.section.label}',
+      barrierLabel: appL10n.dismissTopicinboxheader(
+        (widget.section.label).toString(),
+      ),
       popoverHeight: null,
       popoverKey: ValueKey(('topic-header-property', widget.section.label)),
       builder: (pickerContext) => _TopicPropertyDetails(
@@ -1199,7 +1212,7 @@ class _TopicPropertyDetails extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: section?.values ?? const [Text('None')],
+                children: section?.values ?? [Text(context.l10n.none)],
               ),
             );
           }

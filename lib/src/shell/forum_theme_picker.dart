@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -74,7 +75,9 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
                   theme.id == preferences.customId,
               onPressed: () => widget.onTheme(theme.id),
               onEdit: () => widget.onEdit(theme),
-              editLabel: 'Edit ${theme.name}',
+              editLabel: context.l10n.editForumthemepicker(
+                (theme.name).toString(),
+              ),
             ),
           _row(
             widget.forum,
@@ -82,7 +85,9 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
             chosen: preferences.themeFor(widget.brightness) == null,
             onPressed: widget.onForum,
             onEdit: () => widget.onNewTheme(base: widget.forum.id),
-            editLabel: 'Create theme based on ${widget.forum.name}',
+            editLabel: context.l10n.createThemeBasedOn(
+              (widget.forum.name).toString(),
+            ),
           ),
           for (final option in forumThemePresetsFor(widget.brightness))
             _row(
@@ -92,14 +97,16 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
                   option.id == preset?.id,
               onPressed: () => widget.onPreset(widget.brightness, option.id),
               onEdit: () => widget.onNewTheme(base: option.id),
-              editLabel: 'Create theme based on ${option.name}',
+              editLabel: context.l10n.createThemeBasedOnForumthemepicker(
+                (option.name).toString(),
+              ),
             ),
         ]),
         SizedBox(
           width: double.infinity,
           child: DButton(
             key: const ValueKey('new-theme'),
-            label: const Text('New theme'),
+            label: Text(context.l10n.newTheme),
             icon: const DIcon(DIcons.plus),
             variant: DButtonVariant.dashedTile,
             alignment: AlignmentDirectional.centerStart,

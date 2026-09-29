@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'voice_diagnostics.dart';
@@ -100,7 +101,7 @@ final class VoiceDiagnosticsReport {
       'reason': 'clipboard_limit',
       'deepRetainedBytes': _voice.state.retainedBytes,
       'ordinaryRecentBytes': ordinaryBytes,
-      'message': 'Recent records only. Use Share/Save for the full report.',
+      'message': appL10n.recentRecordsOnlyUseShareSaveForTheFullReport,
     });
     final retained = <String>[];
     var retainedBytes = utf8.encode('$marker\n').length;
@@ -292,7 +293,7 @@ Map<String, Object?> _ordinaryVoiceEventJson(DiagnosticEvent event) {
         event.statusCode,
         event.state.name,
         if (event.totalDuration != null)
-          '${event.totalDuration!.inMilliseconds} ms',
+          appL10n.ms((event.totalDuration!.inMilliseconds).toString()),
       ].join(' · ');
     case ErrorDiagnosticEvent():
       json['event'] = event.operation ?? event.errorType;
@@ -417,7 +418,7 @@ String _enrichVoiceReportHeader(
               'source=voice',
               'operation=voice.*',
               'correlationId=voice-call-*',
-              'HTTP path contains /voice/',
+              appL10n.hTTPPathContainsVoice,
             ],
           },
           'deep': {

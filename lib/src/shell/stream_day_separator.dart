@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/calendar_day.dart';
@@ -45,7 +46,7 @@ class StreamDaySeparator extends StatelessWidget {
 
     Widget date;
     if (onTap case final onTap?) {
-      final actionLabel = 'Go to start of $label';
+      final actionLabel = context.l10n.goToStartOf((label).toString());
       date = DButton(
         label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         onPressed: onTap,

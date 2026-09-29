@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -179,7 +180,7 @@ class ChatPlugin
   PluginIconCatalog get iconCatalog => chatIconCatalog;
 
   @override
-  List<PluginNotificationFeedSource> get notificationFeeds => const [
+  List<PluginNotificationFeedSource> get notificationFeeds => [
     chatNotificationFeed,
   ];
 
@@ -234,7 +235,7 @@ class ChatPlugin
           PluginUserMenuSection(
             id: notificationsSection,
             icon: DIcons.comment,
-            label: 'Chat',
+            label: appL10n.chat,
             badge: context.totals?.chatNotifications ?? 0,
             notificationTypes: chatNotificationFeed.filterByTypes,
             builder: (buildContext, actions) => ChatUserMenuNotifications(
@@ -314,13 +315,13 @@ class ChatPlugin
           (publicChannelsEnabled && chat.publicChannels(siteUrl).isNotEmpty))
         SidebarSection(
           id: 'chat-inbox',
-          title: 'Conversations',
+          title: appL10n.conversations,
           showHeader: false,
           collapsible: false,
           // Keep the composer shortcut available through the section even
           // though the inbox has no visible section header.
           actionIcon: actions.startMessage ? DIcons.plus : null,
-          actionLabel: actions.startMessage ? 'Start a message' : null,
+          actionLabel: actions.startMessage ? appL10n.startAMessage : null,
           actionShortcut: actions.startMessage
               ? newDirectMessageShortcutForPlatform(Theme.of(context).platform)
               : null,
@@ -356,12 +357,12 @@ class ChatPlugin
     final unreadCount = shell.chat.unreadMessageCount(siteUrl);
     final actions = _panelActions(shell, siteUrl);
     return SidebarPanelContribution(
-      label: 'Chat',
+      label: appL10n.chat,
       mobileBuilder: (_) =>
           ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl),
       mobileAction: actions.startMessage
           ? SidebarPanelAction(
-              label: 'Start a message',
+              label: appL10n.startAMessage,
               icon: DIcons.plus,
               onPressed: () => _startMessage(context, shell, siteUrl),
             )
@@ -380,8 +381,7 @@ class ChatPlugin
               foregroundColor: Theme.of(
                 context,
               ).discourse.notificationForeground,
-              semanticLabel:
-                  '$unreadCount unread ${unreadCount == 1 ? 'message' : 'messages'}',
+              semanticLabel: appL10n.unreadChatplugin(unreadCount),
               child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
             )
           : null,
@@ -393,8 +393,7 @@ class ChatPlugin
                 context,
               ).discourse.notificationForeground,
               ringColor: Colors.transparent,
-              semanticLabel:
-                  '$unreadCount unread ${unreadCount == 1 ? 'message' : 'messages'}',
+              semanticLabel: appL10n.unreadChatplugin(unreadCount),
               child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
             )
           : null,
@@ -485,7 +484,7 @@ class ChatPlugin
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
-          ? const Center(child: Text('Chat channels are not available.'))
+          ? Center(child: Text(context.l10n.chatChannelsAreNotAvailable))
           : ChatChannelsView(
               key: ValueKey((siteUrl, listKind)),
               siteUrl: siteUrl,
@@ -497,7 +496,7 @@ class ChatPlugin
       return siteUrl == null
           ? const SizedBox.shrink()
           : !shell.chatAvailable(siteUrl)
-          ? const Center(child: Text('Chat is not available.'))
+          ? Center(child: Text(context.l10n.chatIsNotAvailable))
           : ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (route.id == browseRouteId) {
@@ -514,7 +513,7 @@ class ChatPlugin
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
-          ? const Center(child: Text('Chat channels are not available.'))
+          ? Center(child: Text(context.l10n.chatChannelsAreNotAvailable))
           : ChatBrowseChannelsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (channelIdFromThreadsRoute(route.id) case final channelId?) {
@@ -528,7 +527,7 @@ class ChatPlugin
           chat.siteConfigFor(siteUrl).chatSettings.threadsEnabled &&
           chat.channel(siteUrl, channelId)?.threadingEnabled == true;
       return !available
-          ? const Center(child: Text('Threads are not available.'))
+          ? Center(child: Text(context.l10n.threadsAreNotAvailable))
           : ChatChannelThreadsView(
               key: ValueKey((siteUrl, channelId)),
               siteUrl: siteUrl,
@@ -546,7 +545,7 @@ class ChatPlugin
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
-          ? const Center(child: Text('Chat threads are not available.'))
+          ? Center(child: Text(context.l10n.chatThreadsAreNotAvailable))
           : ChatMyThreadsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     if (route.id == searchRouteId) {
@@ -560,7 +559,7 @@ class ChatPlugin
       return siteUrl == null
           ? const SizedBox.shrink()
           : !available
-          ? const Center(child: Text('Chat search is not available.'))
+          ? Center(child: Text(context.l10n.chatSearchIsNotAvailable))
           : ChatSearchView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
     final chatRoute = ChatRoute.parse(route.id);

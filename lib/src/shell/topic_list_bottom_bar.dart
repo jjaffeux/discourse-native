@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
@@ -220,8 +221,8 @@ class TopicNavigationButtons extends StatelessWidget {
             key: const ValueKey('inbox-previous-topic'),
             tooltip:
                 ShellScope.read(context).topicListContent?.isMessages == true
-                ? 'Previous message'
-                : 'Previous topic',
+                ? context.l10n.previousMessage
+                : context.l10n.previousTopic,
             shortcut: DShortcut.sequence(
               ReadingCommand.openPreviousTopic.prefix!,
               ReadingCommand.openPreviousTopic.shortcuts.cast(),
@@ -244,8 +245,8 @@ class TopicNavigationButtons extends StatelessWidget {
             key: const ValueKey('inbox-next-topic'),
             tooltip:
                 ShellScope.read(context).topicListContent?.isMessages == true
-                ? 'Next message'
-                : 'Next topic',
+                ? context.l10n.nextMessage
+                : context.l10n.nextTopic,
             shortcut: DShortcut.sequence(
               ReadingCommand.openNextTopic.prefix!,
               ReadingCommand.openNextTopic.shortcuts.cast(),
@@ -283,9 +284,9 @@ class DismissNewTopicsButton extends StatelessWidget {
         return const SizedBox.shrink();
       }
       final label = switch (shell.currentTopicListMode) {
-        TopicListMode.newTopics => 'Dismiss new topics',
-        TopicListMode.newReplies => 'Dismiss new replies',
-        _ => 'Dismiss New',
+        TopicListMode.newTopics => context.l10n.dismissNewTopics,
+        TopicListMode.newReplies => context.l10n.dismissNewReplies,
+        _ => context.l10n.dismissNew,
       };
       Future<void> dismiss() async {
         final lease = shell.lifecycle.capture(shell.currentInstance!.url);

@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_api.dart';
@@ -124,7 +125,9 @@ final class ChatSearchController {
           query: query,
           sort: held.sort,
           phase: ChatSearchPhase.failed,
-          error: 'Search terms must be at most $maximumQueryLength characters.',
+          error: appL10n.searchTermsMustBeAtMostCharacters(
+            (maximumQueryLength).toString(),
+          ),
         ),
       );
       return;
@@ -197,7 +200,9 @@ final class ChatSearchController {
           phase: term.isEmpty ? ChatSearchPhase.idle : ChatSearchPhase.failed,
           error: term.isEmpty
               ? null
-              : 'Search terms must be at most $maximumQueryLength characters.',
+              : appL10n.searchTermsMustBeAtMostCharacters(
+                  (maximumQueryLength).toString(),
+                ),
         ),
       );
       return;
@@ -283,13 +288,13 @@ final class ChatSearchController {
                   hits: held.hits,
                   hasMore: held.hasMore,
                   nextOffset: held.nextOffset,
-                  error: 'Could not load more chat results.',
+                  error: appL10n.couldNotLoadMoreChatResults,
                 )
               : GlobalChatSearchState(
                   query: held.query,
                   sort: requestedSort,
                   phase: ChatSearchPhase.failed,
-                  error: 'Could not search Chat. Try again.',
+                  error: appL10n.couldNotSearchChatTryAgain,
                 ),
         );
       });

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/reaction_presentation.dart';
@@ -65,7 +66,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
       child: Builder(
         builder: (buttonContext) => DButton.iconOnly(
           key: const ValueKey('reaction-picker-surface'),
-          tooltip: 'Add reaction',
+          tooltip: context.l10n.addReaction,
           icon: const DIcon(DIcons.farFaceSmile),
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.post,
@@ -140,7 +141,9 @@ class _ReactionPillState extends State<ReactionPill> {
     _load();
     await showShellSheet<void>(
       context: context,
-      title: widget.count == 1 ? '1 reaction' : '${widget.count} reactions',
+      title: widget.count == 1
+          ? appL10n.message1Reaction
+          : appL10n.reactionsReactionpresentation((widget.count).toString()),
       builder: widget.reactorsBuilder,
     );
   }
@@ -168,8 +171,13 @@ class _ReactionPillState extends State<ReactionPill> {
   @override
   Widget build(BuildContext context) {
     final label = widget.count == 1
-        ? '1 ${widget.reaction} reaction'
-        : '${widget.count} ${widget.reaction} reactions';
+        ? context.l10n.message1ReactionReactionpresentation(
+            (widget.reaction).toString(),
+          )
+        : context.l10n.reactionsReactionpresentationValue(
+            (widget.count).toString(),
+            (widget.reaction).toString(),
+          );
     return DHoverCard(
       controller: _panel,
       enabled: widget.enabled,
@@ -195,7 +203,7 @@ class _ReactionPillState extends State<ReactionPill> {
           onLongPress: context.isTouch ? _openSheet : null,
           semanticLabel: label,
           semanticHint: widget.onToggle != null ? widget.onTapHint : null,
-          semanticLongPressHint: 'show who reacted',
+          semanticLongPressHint: context.l10n.showWhoReacted,
           variant: DToggleVariant.outline,
           icon: Builder(
             builder: (context) => SiteEmojiImage(
@@ -342,7 +350,7 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
       final error = _snapshot.error;
       if (error == null) {
         return DSkeletonRegion(
-          semanticsLabel: 'Loading reactions',
+          semanticsLabel: context.l10n.loadingReactions,
           color: skeletonFill(context, on: SkeletonSurface.floating),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -384,7 +392,7 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
               key: const ValueKey('reactor-list-retry'),
               onPressed: _retry,
               variant: DButtonVariant.ghost,
-              label: const Text('Retry'),
+              label: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -404,7 +412,9 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 2),
               child: Text(
-                hidden == 1 ? 'and 1 other' : 'and $hidden others',
+                hidden == 1
+                    ? context.l10n.and1Other
+                    : context.l10n.andOthers((hidden).toString()),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

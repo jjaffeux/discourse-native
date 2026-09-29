@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -254,7 +255,7 @@ final class VideoDownloadException implements Exception {
   const VideoDownloadException();
 
   @override
-  String toString() => 'The video could not be downloaded.';
+  String toString() => appL10n.theVideoCouldNotBeDownloaded;
 }
 
 String videoDownloadFilename({required String title, required Uri url}) =>

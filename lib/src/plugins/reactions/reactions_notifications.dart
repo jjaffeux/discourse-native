@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 abstract final class ReactionsNotificationTypes {
   static const reaction = NotificationWireType(25, 'reaction');
@@ -33,17 +34,17 @@ ResolvedNotification? _decodeReactionNotification(
   final title = payloadTitle is String && payloadTitle.isNotEmpty
       ? payloadTitle
       : notification.title.isEmpty
-      ? 'a topic'
+      ? appL10n.aTopic
       : notification.title;
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: DIcons.discourseEmojis,
-      actor: actor ?? 'Someone',
+      actor: actor ?? appL10n.someone,
       phrase: consolidated
           ? count > 0
-                ? 'reacted to $count of your posts'
-                : 'reacted to your posts'
-          : 'reacted to your post in $title',
+                ? appL10n.reactedToOfYourPosts((count).toString())
+                : appL10n.reactedToYourPosts
+          : appL10n.reactedToYourPostIn((title).toString()),
     ),
     path: consolidated
         ? Uri(

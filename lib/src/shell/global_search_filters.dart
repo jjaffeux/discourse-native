@@ -1,420 +1,421 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_models.dart';
 
-const globalSearchFilters = <GlobalSearchFilter>[
+List<GlobalSearchFilter> get globalSearchFilters => <GlobalSearchFilter>[
   GlobalSearchFilter(
     id: "category",
-    label: "Category",
+    label: appL10n.category,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.multi,
     icon: "folder",
-    group: "Where",
+    group: appL10n.where,
     operators: [
-      GlobalSearchFilterOperator("any", "include subcategories"),
-      GlobalSearchFilterOperator("exactCategory", "only these categories"),
+      GlobalSearchFilterOperator("any", appL10n.includeSubcategories),
+      GlobalSearchFilterOperator("exactCategory", appL10n.onlyTheseCategories),
     ],
     token: "category",
-    placeholder: "Choose categories",
-    help:
-        "Choose one or more categories. Multiple categories match any selected category.",
+    placeholder: appL10n.chooseCategories,
+    help: appL10n
+        .chooseOneOrMoreCategoriesMultipleCategoriesMatchAnySelectedCategory,
   ),
   GlobalSearchFilter(
     id: "tags",
-    label: "Tags",
+    label: appL10n.tags,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.multi,
     icon: "tag",
-    group: "Where",
+    group: appL10n.where,
     operators: [
-      GlobalSearchFilterOperator("any", "include any"),
-      GlobalSearchFilterOperator("all", "include all"),
-      GlobalSearchFilterOperator("none", "exclude any"),
-      GlobalSearchFilterOperator("notAll", "exclude combination"),
+      GlobalSearchFilterOperator("any", appL10n.includeAny),
+      GlobalSearchFilterOperator("all", appL10n.includeAll),
+      GlobalSearchFilterOperator("none", appL10n.excludeAny),
+      GlobalSearchFilterOperator("notAll", appL10n.excludeCombination),
     ],
     token: "tags",
-    placeholder: "Choose tags",
-    help: "Match any tag, every tag, or exclude selected tags.",
+    placeholder: appL10n.chooseTags,
+    help: appL10n.matchAnyTagEveryTagOrExcludeSelectedTags,
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.users,
     singleIdentifier: true,
     id: "author",
-    label: "Posted by",
+    label: appL10n.postedBy,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "user",
-    group: "People",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.people,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "@",
-    placeholder: "Username or me",
-    help: "Find posts written by a specific person. Use me for your posts.",
+    placeholder: appL10n.usernameOrMe,
+    help: appL10n.findPostsWrittenByASpecificPersonUseMeForYour,
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.users,
     singleIdentifier: true,
     id: "topicAuthor",
-    label: "Started by",
+    label: appL10n.startedBy,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "user",
-    group: "People",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.people,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "created:@",
-    placeholder: "Username",
-    help: "Find opening posts written by this person.",
+    placeholder: appL10n.username,
+    help: appL10n.findOpeningPostsWrittenByThisPerson,
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.groups,
     singleIdentifier: true,
     rejectQuotes: true,
     id: "authorGroup",
-    label: "Author’s group",
+    label: appL10n.authorSGroup,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "users",
-    group: "People",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.people,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "group",
-    placeholder: "Group name",
-    help:
-        "Find posts written by members of a group whose membership you can view.",
+    placeholder: appL10n.groupName,
+    help: appL10n.findPostsWrittenByMembersOfAGroupWhoseMembershipYou,
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.groups,
     singleIdentifier: true,
     rejectQuotes: true,
     id: "groupInbox",
-    label: "Group inbox",
+    label: appL10n.groupInbox,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "mail",
-    group: "Where",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.where,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "group_messages",
-    placeholder: "Group name",
-    help: "Search personal messages addressed to this group.",
+    placeholder: appL10n.groupName,
+    help: appL10n.searchPersonalMessagesAddressedToThisGroup,
   ),
   GlobalSearchFilter(
     id: "searchIn",
-    label: "Search in",
+    label: appL10n.searchIn,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "search",
-    group: "Where",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help:
-        "By default, results are grouped by topic. Every matching post shows separate results from the same topic.",
+    group: appL10n.where,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.byDefaultResultsAreGroupedByTopicEveryMatchingPostShows,
     choices: [
       GlobalSearchFilterChoice(
         value: "title",
-        label: "Topic titles",
+        label: appL10n.topicTitles,
         token: "in:title",
       ),
       GlobalSearchFilterChoice(
         value: "first",
-        label: "Opening posts",
+        label: appL10n.openingPosts,
         token: "in:first",
       ),
       GlobalSearchFilterChoice(
         value: "replies",
-        label: "Replies",
+        label: appL10n.replies,
         token: "in:replies",
       ),
       GlobalSearchFilterChoice(
         value: "allPosts",
-        label: "Every matching post",
+        label: appL10n.everyMatchingPost,
         token: "in:all-posts",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "privateMessages",
-    label: "Messages & topics",
+    label: appL10n.messagesTopics,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "mail",
-    group: "Where",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Search the topics and personal messages available to your account.",
+    group: appL10n.where,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.searchTheTopicsAndPersonalMessagesAvailableToYourAccount,
     choices: [
       GlobalSearchFilterChoice(
         value: "all",
-        label: "Topics and my messages",
+        label: appL10n.topicsAndMyMessages,
         token: "in:all",
       ),
       GlobalSearchFilterChoice(
         value: "personal",
-        label: "My personal messages",
+        label: appL10n.myPersonalMessages,
         token: "in:personal",
       ),
       GlobalSearchFilterChoice(
         value: "direct",
-        label: "One-to-one personal messages",
+        label: appL10n.oneToOnePersonalMessages,
         token: "in:personal-direct",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "activity",
-    label: "My activity",
+    label: appL10n.myActivity,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "bookmark",
-    group: "Personal",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help:
-        "Narrow results using your reading, notification, and posting activity.",
+    group: appL10n.personal,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.narrowResultsUsingYourReadingNotificationAndPostingActivity,
     choices: [
       GlobalSearchFilterChoice(
         value: "seen",
-        label: "Read posts",
+        label: appL10n.readPosts,
         token: "in:seen",
       ),
       GlobalSearchFilterChoice(
         value: "unseen",
-        label: "Unread posts",
+        label: appL10n.unreadPosts,
         token: "in:unseen",
       ),
       GlobalSearchFilterChoice(
         value: "watching",
-        label: "Watching",
+        label: appL10n.watching,
         token: "in:watching",
       ),
       GlobalSearchFilterChoice(
         value: "tracking",
-        label: "Tracking or watching",
+        label: appL10n.trackingOrWatching,
         token: "in:tracking",
       ),
       GlobalSearchFilterChoice(
         value: "bookmarks",
-        label: "Bookmarked posts",
+        label: appL10n.bookmarkedPosts,
         token: "in:bookmarks",
       ),
       GlobalSearchFilterChoice(
         value: "likes",
-        label: "Liked posts",
+        label: appL10n.likedPosts,
         token: "in:likes",
       ),
       GlobalSearchFilterChoice(
         value: "posted",
-        label: "My posts",
+        label: appL10n.myPosts,
         token: "in:posted",
       ),
       GlobalSearchFilterChoice(
         value: "created",
-        label: "Topics I started",
+        label: appL10n.topicsIStarted,
         token: "in:created",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "status",
-    label: "Topic status",
+    label: appL10n.topicStatus,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "status",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Open topics are neither closed nor archived.",
+    group: appL10n.content,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.openTopicsAreNeitherClosedNorArchived,
     choices: [
       GlobalSearchFilterChoice(
         value: "open",
-        label: "Open",
+        label: appL10n.open,
         token: "status:open",
       ),
       GlobalSearchFilterChoice(
         value: "closed",
-        label: "Closed",
+        label: appL10n.closed,
         token: "status:closed",
       ),
       GlobalSearchFilterChoice(
         value: "archived",
-        label: "Archived",
+        label: appL10n.archived,
         token: "status:archived",
       ),
       GlobalSearchFilterChoice(
         value: "noreplies",
-        label: "No replies",
+        label: appL10n.noReplies,
         token: "status:noreplies",
       ),
       GlobalSearchFilterChoice(
         value: "singleUser",
-        label: "One participant",
+        label: appL10n.oneParticipant,
         token: "status:single_user",
       ),
       GlobalSearchFilterChoice(
         value: "public",
-        label: "Public categories",
+        label: appL10n.publicCategories,
         token: "status:public",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "postType",
-    label: "Post type",
+    label: appL10n.postType,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "post",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Choose the type of post to find.",
+    group: appL10n.content,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.chooseTheTypeOfPostToFind,
     choices: [
       GlobalSearchFilterChoice(
         value: "regular",
-        label: "Regular posts",
+        label: appL10n.regularPosts,
         token: "in:regular",
       ),
       GlobalSearchFilterChoice(
         value: "wiki",
-        label: "Wiki posts",
+        label: appL10n.wikiPosts,
         token: "in:wiki",
       ),
       GlobalSearchFilterChoice(
         value: "pinned",
-        label: "Posts in pinned topics",
+        label: appL10n.postsInPinnedTopics,
         token: "in:pinned",
       ),
       GlobalSearchFilterChoice(
         value: "bot",
-        label: "Posts by bots",
+        label: appL10n.postsByBots,
         token: "in:bot",
       ),
       GlobalSearchFilterChoice(
         value: "human",
-        label: "Posts by people",
+        label: appL10n.postsByPeople,
         token: "in:human",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "content",
-    label: "Contains",
+    label: appL10n.contains,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "image",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Find posts with images or topics with or without tags.",
+    group: appL10n.content,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.findPostsWithImagesOrTopicsWithOrWithoutTags,
     choices: [
       GlobalSearchFilterChoice(
         value: "images",
-        label: "Images",
+        label: appL10n.images,
         token: "with:images",
       ),
       GlobalSearchFilterChoice(
         value: "tagged",
-        label: "At least one tag",
+        label: appL10n.atLeastOneTag,
         token: "in:tagged",
       ),
       GlobalSearchFilterChoice(
         value: "untagged",
-        label: "No tags",
+        label: appL10n.noTags,
         token: "in:untagged",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "files",
-    label: "File types",
+    label: appL10n.fileTypes,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "folder",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("any", "include any")],
+    group: appL10n.content,
+    operators: [GlobalSearchFilterOperator("any", appL10n.includeAny)],
     token: "filetypes",
-    placeholder: "pdf, png, jpg",
-    help: "Enter one or more file extensions, separated by commas.",
+    placeholder: appL10n.pdfPngJpg,
+    help: appL10n.enterOneOrMoreFileExtensionsSeparatedByCommas,
   ),
   GlobalSearchFilter(
     id: "postDate",
-    label: "Post date",
+    label: appL10n.postDate,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.date,
     icon: "calendar",
-    group: "Dates & counts",
-    operators: [
+    group: appL10n.datesCounts,
+    operators: const [
       GlobalSearchFilterOperator("after", "after"),
       GlobalSearchFilterOperator("before", "before"),
     ],
     token: "after",
-    placeholder: "YYYY-MM-DD",
-    help: "Match when a post was created.",
-    opTokens: {"after": "after", "before": "before"},
+    placeholder: appL10n.inputIsoDate,
+    help: appL10n.matchWhenAPostWasCreated,
+    opTokens: const {"after": "after", "before": "before"},
   ),
   GlobalSearchFilter(
     id: "postCount",
-    label: "Post count",
+    label: appL10n.postCount,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.number,
     icon: "topics",
-    group: "Dates & counts",
+    group: appL10n.datesCounts,
     operators: [
-      GlobalSearchFilterOperator("gte", "at least"),
-      GlobalSearchFilterOperator("lte", "at most"),
-      GlobalSearchFilterOperator("eq", "exactly"),
+      GlobalSearchFilterOperator("gte", appL10n.atLeast),
+      GlobalSearchFilterOperator("lte", appL10n.atMost),
+      const GlobalSearchFilterOperator("eq", "exactly"),
     ],
     token: "min_posts",
     placeholder: "10",
-    help: "Count all posts in the topic, including the opening post.",
-    opTokens: {"gte": "min_posts", "lte": "max_posts", "eq": "posts_count"},
+    help: appL10n.countAllPostsInTheTopicIncludingTheOpeningPost,
+    opTokens: const {
+      "gte": "min_posts",
+      "lte": "max_posts",
+      "eq": "posts_count",
+    },
   ),
   GlobalSearchFilter(
     id: "viewCount",
-    label: "Views",
+    label: appL10n.views,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.number,
     icon: "eye",
-    group: "Dates & counts",
+    group: appL10n.datesCounts,
     operators: [
-      GlobalSearchFilterOperator("gte", "at least"),
-      GlobalSearchFilterOperator("lte", "at most"),
+      GlobalSearchFilterOperator("gte", appL10n.atLeast),
+      GlobalSearchFilterOperator("lte", appL10n.atMost),
     ],
     token: "min_views",
     placeholder: "100",
-    help: "Match the topic’s view count.",
-    opTokens: {"gte": "min_views", "lte": "max_views"},
+    help: appL10n.matchTheTopicSViewCount,
+    opTokens: const {"gte": "min_views", "lte": "max_views"},
   ),
   GlobalSearchFilter(
     id: "locale",
-    label: "Language",
+    label: appL10n.language,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "globe",
-    group: "Content",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.content,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "locale",
-    placeholder: "en, fr, any, or none",
-    help:
-        "Enter a language code, any for a detected language, or none for posts without one.",
+    placeholder: appL10n.enFrAnyOrNone,
+    help: appL10n.enterALanguageCodeAnyForADetectedLanguageOrNone,
     choices: [
       GlobalSearchFilterChoice(
         value: "en",
-        label: "English",
+        label: appL10n.english,
         token: "locale:en",
       ),
       GlobalSearchFilterChoice(
         value: "fr",
-        label: "French",
+        label: appL10n.french,
         token: "locale:fr",
       ),
       GlobalSearchFilterChoice(
         value: "de",
-        label: "German",
+        label: appL10n.german,
         token: "locale:de",
       ),
       GlobalSearchFilterChoice(
         value: "es",
-        label: "Spanish",
+        label: appL10n.spanish,
         token: "locale:es",
       ),
       GlobalSearchFilterChoice(
         value: "any",
-        label: "Any detected language",
+        label: appL10n.anyDetectedLanguage,
         token: "locale:any",
       ),
       GlobalSearchFilterChoice(
         value: "none",
-        label: "No detected language",
+        label: appL10n.noDetectedLanguage,
         token: "locale:none",
       ),
     ],
@@ -422,92 +423,91 @@ const globalSearchFilters = <GlobalSearchFilter>[
   GlobalSearchFilter(
     rejectQuotes: true,
     id: "badge",
-    label: "Author’s badge",
+    label: appL10n.authorSBadge,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "badge",
-    group: "People",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.people,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "badge",
-    placeholder: "Badge name or ID",
-    help: "Find posts written by users who hold this badge.",
+    placeholder: appL10n.badgeNameOrID,
+    help: appL10n.findPostsWrittenByUsersWhoHoldThisBadge,
   ),
   GlobalSearchFilter(
     id: "topicId",
-    label: "Specific topic",
+    label: appL10n.specificTopic,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.number,
     icon: "topics",
-    group: "Where",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.where,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "topic",
-    placeholder: "Topic ID",
-    help: "Search posts within one topic.",
+    placeholder: appL10n.topicID,
+    help: appL10n.searchPostsWithinOneTopic,
   ),
   GlobalSearchFilter(
     id: "hashtag",
-    label: "Category, tag or tag group",
+    label: appL10n.categoryTagOrTagGroup,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "hash",
-    group: "Advanced",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.advanced,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "#",
-    placeholder: "Category, tag, or tag group slug",
-    help:
-        "Look up a category first, then a tag, then a tag group with this slug.",
+    placeholder: appL10n.categoryTagOrTagGroupSlug,
+    help: appL10n.lookUpACategoryFirstThenATagThenATag,
   ),
   GlobalSearchFilter(
     id: "visibility",
-    label: "Unlisted topics",
+    label: appL10n.unlistedTopics,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "eye",
-    group: "Permissions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help:
-        "Available when your account can view unlisted topics, including eligible trust level 4 users.",
+    group: appL10n.permissions,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n
+        .availableWhenYourAccountCanViewUnlistedTopicsIncludingEligibleTrust,
     optional: "staff",
     choices: [
       GlobalSearchFilterChoice(
         value: "include",
-        label: "Include unlisted topics",
+        label: appL10n.includeUnlistedTopics,
         token: "include:unlisted",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "whispers",
-    label: "Whispers",
+    label: appL10n.whispers,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "lock",
-    group: "Permissions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Requires permission to read whispers.",
+    group: appL10n.permissions,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.requiresPermissionToReadWhispers,
     optional: "staff",
     choices: [
       GlobalSearchFilterChoice(
         value: "whispers",
-        label: "Whisper posts",
+        label: appL10n.whisperPosts,
         token: "in:whisper",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "adminMessages",
-    label: "All personal messages",
+    label: appL10n.allPersonalMessages,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.choice,
     icon: "lock",
-    group: "Permissions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Administrator search across personal messages.",
+    group: appL10n.permissions,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.administratorSearchAcrossPersonalMessages,
     optional: "admin",
     choices: [
       GlobalSearchFilterChoice(
         value: "all",
-        label: "All users’ personal messages",
+        label: appL10n.allUsersPersonalMessages,
         token: "in:all-pms",
       ),
     ],
@@ -516,146 +516,146 @@ const globalSearchFilters = <GlobalSearchFilter>[
     lookup: GlobalSearchLookup.users,
     singleIdentifier: true,
     id: "adminUserMessages",
-    label: "User’s personal messages",
+    label: appL10n.userSPersonalMessages,
     scope: GlobalSearchScope.forum,
     kind: GlobalSearchFilterKind.text,
     icon: "mail",
-    group: "Permissions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.permissions,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "personal_messages",
-    placeholder: "Username",
-    help: "Administrator search within the personal messages of this user.",
+    placeholder: appL10n.username,
+    help: appL10n.administratorSearchWithinThePersonalMessagesOfThisUser,
     optional: "admin",
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.groups,
     id: "userGroup",
-    label: "Group",
+    label: appL10n.group,
     scope: GlobalSearchScope.users,
     kind: GlobalSearchFilterKind.text,
     icon: "users",
-    group: "People",
+    group: appL10n.people,
     operators: [
-      GlobalSearchFilterOperator("is", "is a member of"),
-      GlobalSearchFilterOperator("excludes", "is not a member of"),
+      GlobalSearchFilterOperator("is", appL10n.isAMemberOf),
+      GlobalSearchFilterOperator("excludes", appL10n.isNotAMemberOf),
     ],
     token: "group",
-    placeholder: "Group name",
-    help:
-        "Select a group whose membership is visible. Exclusions can contain multiple group names.",
-    opTokens: {"is": "group", "excludes": "exclude_groups"},
+    placeholder: appL10n.groupName,
+    help: appL10n
+        .selectAGroupWhoseMembershipIsVisibleExclusionsCanContainMultiple,
+    opTokens: const {"is": "group", "excludes": "exclude_groups"},
   ),
   GlobalSearchFilter(
     lookup: GlobalSearchLookup.users,
     id: "userName",
-    label: "Username",
+    label: appL10n.username,
     scope: GlobalSearchScope.users,
     kind: GlobalSearchFilterKind.text,
     icon: "user",
-    group: "People",
+    group: appL10n.people,
     operators: [
-      GlobalSearchFilterOperator("is", "is exactly"),
-      GlobalSearchFilterOperator("excludes", "excludes"),
+      GlobalSearchFilterOperator("is", appL10n.isExactly),
+      GlobalSearchFilterOperator("excludes", appL10n.searchOperatorExcludes),
     ],
     token: "username",
-    placeholder: "Username",
-    help: "Match one exact username, or exclude usernames separated by commas.",
-    opTokens: {"is": "username", "excludes": "exclude_usernames"},
+    placeholder: appL10n.username,
+    help: appL10n.matchOneExactUsernameOrExcludeUsernamesSeparatedByCommas,
+    opTokens: const {"is": "username", "excludes": "exclude_usernames"},
   ),
   GlobalSearchFilter(
     id: "userPeriod",
-    label: "Activity period",
+    label: appL10n.activityPeriod,
     scope: GlobalSearchScope.users,
     kind: GlobalSearchFilterKind.choice,
     icon: "calendar",
-    group: "Activity",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Choose the time period used for user activity statistics.",
+    group: appL10n.activity,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.chooseTheTimePeriodUsedForUserActivityStatistics,
     choices: [
       GlobalSearchFilterChoice(
         value: "all",
-        label: "All time",
+        label: appL10n.allTime,
         token: "period=all",
       ),
       GlobalSearchFilterChoice(
         value: "yearly",
-        label: "Year",
+        label: appL10n.year,
         token: "period=yearly",
       ),
       GlobalSearchFilterChoice(
         value: "quarterly",
-        label: "Quarter",
+        label: appL10n.quarter,
         token: "period=quarterly",
       ),
       GlobalSearchFilterChoice(
         value: "monthly",
-        label: "Month",
+        label: appL10n.month,
         token: "period=monthly",
       ),
       GlobalSearchFilterChoice(
         value: "weekly",
-        label: "Week",
+        label: appL10n.week,
         token: "period=weekly",
       ),
       GlobalSearchFilterChoice(
         value: "daily",
-        label: "Day",
+        label: appL10n.day,
         token: "period=daily",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "groupType",
-    label: "Group type",
+    label: appL10n.groupType,
     scope: GlobalSearchScope.groups,
     kind: GlobalSearchFilterKind.choice,
     icon: "users",
-    group: "Membership",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.membership,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     help:
-        "Filter group membership or admission. Closed membership does not mean the group is hidden.",
+        appL10n.filterGroupMembershipOrAdmissionClosedMembershipDoesNotMeanThe,
     choices: [
       GlobalSearchFilterChoice(
         value: "my",
-        label: "Groups I joined",
+        label: appL10n.groupsIJoined,
         token: "type=my",
       ),
       GlobalSearchFilterChoice(
         value: "owner",
-        label: "Groups I own",
+        label: appL10n.groupsIOwn,
         token: "type=owner",
       ),
       GlobalSearchFilterChoice(
         value: "public",
-        label: "Open membership",
+        label: appL10n.openMembership,
         token: "type=public",
       ),
       GlobalSearchFilterChoice(
         value: "close",
-        label: "Closed membership",
+        label: appL10n.closedMembership,
         token: "type=close",
       ),
       GlobalSearchFilterChoice(
         value: "non_automatic",
-        label: "Custom groups",
+        label: appL10n.customGroups,
         token: "type=non_automatic",
       ),
     ],
   ),
   GlobalSearchFilter(
     id: "groupAutomatic",
-    label: "Automatic groups",
+    label: appL10n.automaticGroups,
     scope: GlobalSearchScope.groups,
     kind: GlobalSearchFilterKind.choice,
     icon: "users",
-    group: "Permissions",
-    operators: [GlobalSearchFilterOperator("is", "is")],
-    help: "Browse automatic groups available to staff.",
+    group: appL10n.permissions,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+    help: appL10n.browseAutomaticGroupsAvailableToStaff,
     optional: "staff",
     choices: [
       GlobalSearchFilterChoice(
         value: "automatic",
-        label: "Automatic groups",
+        label: appL10n.automaticGroups,
         token: "type=automatic",
       ),
     ],
@@ -664,16 +664,15 @@ const globalSearchFilters = <GlobalSearchFilter>[
     lookup: GlobalSearchLookup.users,
     singleIdentifier: true,
     id: "groupMember",
-    label: "Member",
+    label: appL10n.member,
     scope: GlobalSearchScope.groups,
     kind: GlobalSearchFilterKind.text,
     icon: "user",
-    group: "Membership",
-    operators: [GlobalSearchFilterOperator("is", "is")],
+    group: appL10n.membership,
+    operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
     token: "username",
-    placeholder: "Username",
-    help:
-        "Find groups this person belongs to, where group membership is visible.",
+    placeholder: appL10n.username,
+    help: appL10n.findGroupsThisPersonBelongsToWhereGroupMembershipIsVisible,
   ),
 ];
 
@@ -726,37 +725,37 @@ List<GlobalSearchOrder> globalSearchOrders(
   GlobalSearchScope scope,
   GlobalSearchCapabilities c,
 ) => switch (scope) {
-  GlobalSearchScope.all => const [
-    GlobalSearchOrder('relevance', 'Most relevant'),
+  GlobalSearchScope.all => [
+    GlobalSearchOrder('relevance', appL10n.mostRelevant),
   ],
   GlobalSearchScope.forum => [
-    const GlobalSearchOrder('relevance', 'Most relevant'),
-    const GlobalSearchOrder('latest', 'Latest post'),
-    const GlobalSearchOrder('oldest', 'Oldest post'),
-    const GlobalSearchOrder('latest_topic', 'Newest topic'),
-    const GlobalSearchOrder('oldest_topic', 'Oldest topic'),
-    const GlobalSearchOrder('views', 'Most viewed'),
-    const GlobalSearchOrder('likes', 'Most liked'),
-    if (c.authenticated) const GlobalSearchOrder('read', 'Recently read'),
+    GlobalSearchOrder('relevance', appL10n.mostRelevant),
+    GlobalSearchOrder('latest', appL10n.latestPost),
+    GlobalSearchOrder('oldest', appL10n.oldestPost),
+    GlobalSearchOrder('latest_topic', appL10n.newestTopic),
+    GlobalSearchOrder('oldest_topic', appL10n.oldestTopic),
+    GlobalSearchOrder('views', appL10n.mostViewed),
+    GlobalSearchOrder('likes', appL10n.mostLiked),
+    if (c.authenticated) GlobalSearchOrder('read', appL10n.recentlyRead),
     for (final p in c.contributions)
       if (c.enabledContributions.contains(p.owner)) ...p.orders(scope),
   ],
   GlobalSearchScope.groups => [
-    const GlobalSearchOrder('name', 'Group name'),
+    GlobalSearchOrder('name', appL10n.groupName),
     if (c.groupDirectory && c.groupMemberOrder)
-      const GlobalSearchOrder('user_count', 'Member count'),
+      GlobalSearchOrder('user_count', appL10n.memberCount),
   ],
   GlobalSearchScope.users => [
     for (final key in c.userDirectory ? c.userOrders : const ['username'])
       GlobalSearchOrder(key, switch (key) {
-        'username' => 'Username',
-        'likes_received' => 'Likes received',
-        'likes_given' => 'Likes given',
-        'topics_entered' => 'Topics viewed',
-        'topic_count' => 'Topics created',
-        'post_count' => 'Posts created',
-        'posts_read' => 'Posts read',
-        'days_visited' => 'Days visited',
+        'username' => appL10n.username,
+        'likes_received' => appL10n.likesReceived,
+        'likes_given' => appL10n.likesGiven,
+        'topics_entered' => appL10n.topicsViewed,
+        'topic_count' => appL10n.topicsCreated,
+        'post_count' => appL10n.postsCreated,
+        'posts_read' => appL10n.postsRead,
+        'days_visited' => appL10n.daysVisited,
         _ => key.replaceAll('_', ' '),
       }),
   ],
@@ -772,30 +771,30 @@ String? validateGlobalSearchCondition(
 ) {
   final d = globalSearchFilter(condition.filterId, c);
   if (d == null || !globalSearchFilterAvailable(d, c)) {
-    return 'This filter is unavailable on this site.';
+    return appL10n.thisFilterIsUnavailableOnThisSite;
   }
   if (!d.operators.any((o) => o.value == condition.operator)) {
-    return 'Choose a supported condition.';
+    return appL10n.chooseASupportedCondition;
   }
   final values = condition.value;
   if (values.isEmpty || values.any((v) => v.trim().isEmpty)) {
-    return 'Choose or enter a value.';
+    return appL10n.chooseOrEnterAValue;
   }
   if (values.length > 30 ||
       values.any(
         (v) => v.length > 255 || v.contains('\n') || v.contains('\u0000'),
       )) {
-    return 'The filter value is too long.';
+    return appL10n.theFilterValueIsTooLong;
   }
   final value = values.join(',');
   if (d.kind == GlobalSearchFilterKind.choice &&
       !d.choices.any((v) => v.value == value)) {
-    return 'Choose an available value.';
+    return appL10n.chooseAnAvailableValue;
   }
   if (d.id == 'groupType' &&
       !c.authenticated &&
       ['my', 'owner'].contains(value)) {
-    return 'Sign in to search your memberships.';
+    return appL10n.signInToSearchYourMemberships;
   }
   if (d.id == 'files' &&
       value
@@ -804,39 +803,39 @@ String? validateGlobalSearchCondition(
             (v) =>
                 !RegExp(r'^\.?[a-zA-Z0-9][a-zA-Z0-9_-]*$').hasMatch(v.trim()),
           )) {
-    return 'Enter file extensions separated by commas.';
+    return appL10n.enterFileExtensionsSeparatedByCommas;
   }
   if (d.kind == GlobalSearchFilterKind.number &&
       (int.tryParse(value) == null ||
           int.parse(value) < 0 ||
           d.id == 'topicId' && int.parse(value) < 2)) {
-    return 'Enter a valid whole number.';
+    return appL10n.enterAValidWholeNumber;
   }
   if (d.kind == GlobalSearchFilterKind.date) {
     final date = DateTime.tryParse(value);
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) ||
         date == null ||
         date.toIso8601String().substring(0, 10) != value) {
-      return 'Choose a valid date.';
+      return appL10n.chooseAValidDate;
     }
   }
   if (d.singleIdentifier && RegExp(r'[\s,:]').hasMatch(value)) {
-    return 'Enter one username, group, or channel slug.';
+    return appL10n.enterOneUsernameGroupOrChannelSlug;
   }
   if (['userGroup', 'userName'].contains(d.id) &&
       condition.operator == 'is' &&
       RegExp(r'[,|\s]').hasMatch(value)) {
-    return 'Choose one value for this condition.';
+    return appL10n.chooseOneValueForThisCondition;
   }
   if (d.id == 'locale' && !RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value)) {
-    return 'Enter one language code, any, or none.';
+    return appL10n.enterOneLanguageCodeAnyOrNone;
   }
   if (['category', 'tags'].contains(d.id) &&
       values.any((v) => RegExp(r'[\s,"+]').hasMatch(v))) {
-    return 'Choose valid category slugs or tag names.';
+    return appL10n.chooseValidCategorySlugsOrTagNames;
   }
   if (d.rejectQuotes && value.contains('"')) {
-    return 'Remove quotes from the value.';
+    return appL10n.removeQuotesFromTheValue;
   }
   return null;
 }
@@ -946,7 +945,7 @@ GlobalSearchExpression parseGlobalSearchExpression(
     if (token.startsWith('order:')) {
       final value = token.substring(6);
       if (!globalSearchOrders(target, c).any((o) => o.value == value)) {
-        throw const FormatException('This ordering is unavailable.');
+        throw FormatException(appL10n.thisOrderingIsUnavailable);
       }
       order = value;
       continue;
@@ -1040,7 +1039,9 @@ GlobalSearchExpression parseGlobalSearchExpression(
     }
     if (condition == null) {
       if (RegExp(r'^(in|status|order|include):').hasMatch(token)) {
-        throw FormatException('Unknown or unavailable search operator: $token');
+        throw FormatException(
+          appL10n.unknownOrUnavailableSearchOperator((token).toString()),
+        );
       }
       plain.add(raw);
     } else {

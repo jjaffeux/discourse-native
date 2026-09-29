@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
@@ -72,7 +73,10 @@ String topicContinuationMarkdown({required String title, required String url}) {
       .replaceAll(r'\', r'\\')
       .replaceAll('[', r'\[')
       .replaceAll(']', r'\]');
-  return 'Continue the discussion from [$escaped]($url)';
+  return appL10n.continueTheDiscussionFrom(
+    (escaped).toString(),
+    (url).toString(),
+  );
 }
 
 Future<void> Function()? captureShareReplyAsNewTopic({
@@ -115,7 +119,7 @@ Future<void> showTopicShareSheet({
   bool privateMessage = false,
 }) => _showShareSheet(
   context: context,
-  heading: 'Share this topic',
+  heading: appL10n.shareThisTopic,
   title: title,
   url: url,
   onReplyAsNewTopic: onReplyAsNewTopic,
@@ -131,7 +135,7 @@ Future<void> showPostShareSheet({
   bool privateMessage = false,
 }) => _showShareSheet(
   context: context,
-  heading: 'Share post #$postNumber',
+  heading: appL10n.sharePost((postNumber).toString()),
   title: topicTitle,
   url: url,
   onReplyAsNewTopic: onReplyAsNewTopic,
@@ -161,7 +165,9 @@ Future<void> _showShareSheet({
             child: DButton(
               key: const ValueKey('topic-share-reply-as-new-topic'),
               label: Text(
-                privateMessage ? 'Reply as new message' : 'Reply as new topic',
+                privateMessage
+                    ? appL10n.replyAsNewMessage
+                    : appL10n.replyAsNewTopic,
                 maxLines: 2,
                 softWrap: true,
               ),
@@ -206,7 +212,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
     try {
       await Clipboard.setData(ClipboardData(text: widget.url));
     } catch (_) {
-      if (mounted) _notice("Couldn't copy link.");
+      if (mounted) _notice(appL10n.couldnTCopyLink);
       return;
     }
     if (!mounted) return;
@@ -232,7 +238,7 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
         ),
       );
     } catch (_) {
-      if (mounted) _notice("Couldn't open sharing.");
+      if (mounted) _notice(appL10n.couldnTOpenSharing);
     }
   }
 
@@ -283,7 +289,11 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
                   key: const ValueKey('topic-share-copy'),
                   label: Semantics(
                     liveRegion: true,
-                    child: Text(_copied ? 'Copied!' : 'Copy link'),
+                    child: Text(
+                      _copied
+                          ? context.l10n.copiedInviteeditor
+                          : context.l10n.copyLink,
+                    ),
                   ),
                   onPressed: () => unawaited(_copy()),
                   icon: DIcon(_copied ? DIcons.check : DIcons.copy),
@@ -323,8 +333,8 @@ class _TopicShareBodyState extends State<_TopicShareBody> {
             child: Builder(
               builder: (buttonContext) => DButton(
                 key: const ValueKey('topic-share-system'),
-                label: const Text(
-                  'Share to another app',
+                label: Text(
+                  context.l10n.shareToAnotherApp,
                   maxLines: 2,
                   softWrap: true,
                 ),

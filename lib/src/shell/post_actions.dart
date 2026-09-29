@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -219,8 +220,8 @@ class _PostActionsState extends State<PostActions> {
             PostAction(
               icon: DIcons.trashCan,
               placement: PostActionPlacement.overflow,
-              label: 'Delete',
-              tooltip: 'Delete this topic action',
+              label: appL10n.delete,
+              tooltip: appL10n.deleteThisTopicAction,
               destructive: true,
               onInvoke: () => _report(controller, controller.deletePost(post)),
             ),
@@ -260,8 +261,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: post.liked ? DIcons.heart : DIcons.farHeart,
             placement: PostActionPlacement.toolbar,
-            label: post.liked ? 'Remove like' : 'Like',
-            tooltip: post.liked ? 'Remove your like' : 'Like this post',
+            label: post.liked ? appL10n.removeLike : appL10n.like,
+            tooltip: post.liked ? appL10n.removeYourLike : appL10n.likeThisPost,
             tint: post.liked ? Theme.of(context).discourse.love : null,
             onInvoke: () => _report(
               controller,
@@ -272,8 +273,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.upRightFromSquare,
             placement: PostActionPlacement.overflow,
-            label: 'Share',
-            tooltip: 'Share this post',
+            label: appL10n.share,
+            tooltip: appL10n.shareThisPost,
             onInvoke: () => unawaited(
               showPostShareSheet(
                 context: context,
@@ -302,8 +303,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.link,
             placement: PostActionPlacement.toolbar,
-            label: 'Copy link',
-            tooltip: 'Copy a link to this post to clipboard',
+            label: appL10n.copyLink,
+            tooltip: appL10n.copyALinkToThisPostToClipboard,
             onInvoke: () => _copyLink(controller, url),
           ),
         if (controller.canReplyHere)
@@ -311,8 +312,8 @@ class _PostActionsState extends State<PostActions> {
             icon: DIcons.reply,
             placement: PostActionPlacement.trailing,
             showLabelInFooter: false,
-            label: 'Reply',
-            tooltip: 'Reply to this post',
+            label: appL10n.reply,
+            tooltip: appL10n.replyToThisPost,
             onInvoke: () => controller.openReply(
               replyToPostNumber: post.postNumber,
               replyToUsername: post.username,
@@ -324,8 +325,8 @@ class _PostActionsState extends State<PostActions> {
             icon: DIcons.pencil,
             placement: PostActionPlacement.overflow,
             showLabelInFooter: false,
-            label: 'Edit',
-            tooltip: 'Edit this post',
+            label: appL10n.edit,
+            tooltip: appL10n.editThisPost,
             onInvoke: () => controller.openEdit(post),
           ),
         if (controller.currentInstance?.url == widget.siteUrl &&
@@ -337,12 +338,14 @@ class _PostActionsState extends State<PostActions> {
               null when post.bookmark != null => DIcons.bookmark,
               null => DIcons.farBookmark,
             },
-            label: post.bookmark == null ? 'Bookmark' : 'Edit bookmark',
+            label: post.bookmark == null
+                ? appL10n.bookmark
+                : appL10n.editBookmark,
             placement: PostActionPlacement.overflow,
             showLabelInFooter: false,
             tooltip: post.bookmark == null
-                ? 'Bookmark this post'
-                : 'Edit this post bookmark',
+                ? appL10n.bookmarkThisPost
+                : appL10n.editThisPostBookmark,
             tint: post.bookmark == null
                 ? null
                 : Theme.of(context).colorScheme.primary,
@@ -366,18 +369,18 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.pencil,
             placement: PostActionPlacement.overflow,
-            label: 'View edit history',
-            tooltip: 'View this post\'s edit history',
+            label: appL10n.viewEditHistory,
+            tooltip: appL10n.viewThisPostSEditHistory,
             onInvoke: () => _openRevisionHistory(controller),
           ),
         if (post.canWiki)
           PostAction(
             icon: DIcons.farPenToSquare,
             placement: PostActionPlacement.overflow,
-            label: post.wiki ? 'Remove wiki' : 'Make wiki',
+            label: post.wiki ? appL10n.removeWiki : appL10n.makeWiki,
             tooltip: post.wiki
-                ? 'Return this to ordinary post editing'
-                : 'Allow community members to edit this post',
+                ? appL10n.returnThisToOrdinaryPostEditing
+                : appL10n.allowCommunityMembersToEditThisPost,
             onInvoke: () =>
                 _report(controller, controller.setPostWiki(post, !post.wiki)),
           ),
@@ -385,10 +388,10 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: post.locked ? DIcons.unlock : DIcons.lock,
             placement: PostActionPlacement.overflow,
-            label: post.locked ? 'Unlock post' : 'Lock post',
+            label: post.locked ? appL10n.unlockPost : appL10n.lockPost,
             tooltip: post.locked
-                ? 'Allow this post to be edited again'
-                : 'Prevent further edits to this post',
+                ? appL10n.allowThisPostToBeEditedAgain
+                : appL10n.preventFurtherEditsToThisPost,
             onInvoke: () => _report(
               controller,
               controller.setPostLocked(post, !post.locked),
@@ -398,8 +401,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.flag,
             placement: PostActionPlacement.overflow,
-            label: 'Flag',
-            tooltip: 'Privately flag this post for attention',
+            label: appL10n.flag,
+            tooltip: appL10n.privatelyFlagThisPostForAttention,
             onInvoke: () => showPostFlagEditor(
               context: context,
               siteUrl: widget.siteUrl,
@@ -413,8 +416,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.flag,
             placement: PostActionPlacement.overflow,
-            label: 'Report illegal content',
-            tooltip: 'Report illegal content by email',
+            label: appL10n.reportIllegalContent,
+            tooltip: appL10n.reportIllegalContentByEmail,
             onInvoke: () => showAnonymousIllegalContentDialog(
               context: context,
               email: anonymousReportEmail,
@@ -426,8 +429,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.farEye,
             placement: PostActionPlacement.overflow,
-            label: 'Unhide post',
-            tooltip: 'Restore this hidden post',
+            label: appL10n.unhidePost,
+            tooltip: appL10n.restoreThisHiddenPost,
             onInvoke: () => _report(controller, controller.unhidePost(post)),
           ),
         if (controller.canTogglePostType(post))
@@ -435,11 +438,11 @@ class _PostActionsState extends State<PostActions> {
             icon: DIcons.flag,
             placement: PostActionPlacement.overflow,
             label: post.isModeratorAction
-                ? 'Revert to regular post'
-                : 'Convert to moderator post',
+                ? appL10n.revertToRegularPost
+                : appL10n.convertToModeratorPost,
             tooltip: post.isModeratorAction
-                ? 'Remove the moderator styling from this post'
-                : 'Mark this as an official moderator post',
+                ? appL10n.removeTheModeratorStylingFromThisPost
+                : appL10n.markThisAsAnOfficialModeratorPost,
             onInvoke: () =>
                 _report(controller, controller.togglePostType(post)),
           ),
@@ -454,11 +457,11 @@ class _PostActionsState extends State<PostActions> {
             icon: DIcons.user,
             placement: PostActionPlacement.overflow,
             label: post.notice == null
-                ? 'Add post notice'
-                : 'Change post notice',
+                ? appL10n.addPostNotice
+                : appL10n.changePostNotice,
             tooltip: post.notice == null
-                ? 'Add a staff notice above this post'
-                : 'Change or remove the staff notice',
+                ? appL10n.addAStaffNoticeAboveThisPost
+                : appL10n.changeOrRemoveTheStaffNotice,
             onInvoke: () => showPostNoticeEditor(
               context: context,
               controller: controller,
@@ -471,8 +474,8 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.user,
             placement: PostActionPlacement.overflow,
-            label: 'Change owner',
-            tooltip: 'Assign this post to another account',
+            label: appL10n.changeOwner,
+            tooltip: appL10n.assignThisPostToAnotherAccount,
             onInvoke: () {
               final topic = controller.currentTopic;
               if (topic == null) return;
@@ -494,16 +497,16 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.tag,
             placement: PostActionPlacement.overflow,
-            label: 'Edit tags',
-            tooltip: 'Edit topic tags',
+            label: appL10n.editTags,
+            tooltip: appL10n.editTopicTagsPostactions,
             onInvoke: controller.openTagsEdit,
           ),
         if (topic != null && controller.canPermanentlyDeletePost(post))
           PostAction(
             icon: DIcons.trashCan,
             placement: PostActionPlacement.overflow,
-            label: 'Permanently delete',
-            tooltip: 'Permanently delete this post',
+            label: appL10n.permanentlyDelete,
+            tooltip: appL10n.permanentlyDeleteThisPost,
             destructive: true,
             onInvoke: () => unawaited(
               showPostPermanentDelete(
@@ -519,16 +522,16 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.arrowRotateLeft,
             placement: PostActionPlacement.overflow,
-            label: 'Undelete',
-            tooltip: 'Put this post back',
+            label: appL10n.undelete,
+            tooltip: appL10n.putThisPostBack,
             onInvoke: () => _report(controller, controller.recoverPost(post)),
           )
         else if (post.canDelete)
           PostAction(
             icon: DIcons.trashCan,
             placement: PostActionPlacement.overflow,
-            label: 'Delete',
-            tooltip: 'Delete this post',
+            label: appL10n.delete,
+            tooltip: appL10n.deleteThisPost,
             destructive: true,
             onInvoke: () => _report(controller, controller.deletePost(post)),
           ),
@@ -564,9 +567,9 @@ class _PostActionsState extends State<PostActions> {
           }
         },
         categoryLabel: (id) {
-          if (id == null) return 'Uncategorized';
+          if (id == null) return appL10n.uncategorized;
           return controller.categoryFor(id, siteUrl: siteUrl)?.name ??
-              'Category $id';
+              appL10n.categoryPostactions((id).toString());
         },
       ),
     );
@@ -612,9 +615,9 @@ class _PostActionsState extends State<PostActions> {
     String message;
     try {
       await Clipboard.setData(ClipboardData(text: url));
-      message = 'Link copied!';
+      message = appL10n.linkCopied;
     } catch (_) {
-      message = "Couldn't copy link.";
+      message = appL10n.couldnTCopyLink;
     }
     if (!mounted || !identical(ShellScope.maybeRead(context), controller)) {
       return;
@@ -906,7 +909,7 @@ class _PostActionsMenu extends StatelessWidget {
                   }
                 },
                 content: DDropdownMenuContent(
-                  semanticLabel: 'Actions',
+                  semanticLabel: context.l10n.actions,
                   width: 300,
                   constraints: const BoxConstraints(maxHeight: 440),
                   children: [
@@ -949,7 +952,7 @@ class _PostActionsMenu extends StatelessWidget {
                     size: DButtonSize.post,
                     key: const ValueKey('post-actions-overflow'),
 
-                    tooltip: 'More actions',
+                    tooltip: context.l10n.moreActions,
                     onPressed: state.toggle,
                     icon: const DIcon(DIcons.ellipsis, size: 16),
                   ),
@@ -1098,7 +1101,7 @@ class PostMoreActionsButton extends StatelessWidget {
           }
         },
         content: DDropdownMenuContent(
-          semanticLabel: 'Actions',
+          semanticLabel: context.l10n.actions,
           width: 300,
           constraints: const BoxConstraints(maxHeight: 440),
           children: [
@@ -1132,8 +1135,12 @@ class PostMoreActionsButton extends StatelessWidget {
             expanded: state.open,
             key: ValueKey('post-more-actions-${scope.postNumber}'),
             icon: const DIcon(DIcons.ellipsis),
-            tooltip: 'More actions for post ${scope.postNumber}',
-            semanticLabel: 'More actions for post ${scope.postNumber}',
+            tooltip: context.l10n.moreActionsForPost(
+              (scope.postNumber).toString(),
+            ),
+            semanticLabel: context.l10n.moreActionsForPost(
+              (scope.postNumber).toString(),
+            ),
             variant: DButtonVariant.outline,
             size: DButtonSize.post,
             onPressed: state.toggle,

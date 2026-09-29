@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/clock_time.dart';
@@ -158,39 +159,39 @@ List<UserMenuSection> userMenuSections(
     UserMenuSection(
       id: UserMenuSection.notificationsId,
       icon: DIcons.bell,
-      label: 'Notifications',
+      label: appL10n.notifications,
       badge: totals?.unreadNotifications ?? 0,
     ),
     UserMenuSection(
       id: UserMenuSection.repliesId,
       icon: DIcons.reply,
-      label: 'Replies',
+      label: appL10n.replies,
       badge: repliesBadge,
     ),
     if (user?.likesNotificationsDisabled != true)
       UserMenuSection(
         id: UserMenuSection.likesId,
         icon: DIcons.heart,
-        label: 'Likes',
+        label: appL10n.likes,
         badge: likesBadge,
       ),
     UserMenuSection(
       id: UserMenuSection.messagesId,
       icon: DIcons.envelope,
-      label: 'Messages',
+      label: appL10n.messages,
       badge: messagesBadge,
     ),
     UserMenuSection(
       id: UserMenuSection.bookmarksId,
       icon: DIcons.bookmark,
-      label: 'Bookmarks',
+      label: appL10n.bookmarks,
       badge: bookmarksBadge,
     ),
     if (user?.canInviteToForum == true)
-      const UserMenuSection(
+      UserMenuSection(
         id: UserMenuSection.invitesId,
         icon: DIcons.paperPlane,
-        label: 'Invites',
+        label: appL10n.invites,
       ),
     for (final contribution in pluginSections)
       UserMenuSection(
@@ -203,32 +204,32 @@ List<UserMenuSection> userMenuSections(
     UserMenuSection(
       id: UserMenuSection.otherId,
       icon: DIcons.ellipsis,
-      label: 'Other',
+      label: appL10n.other,
       badge: otherBadge,
     ),
     UserMenuSection(
       id: UserMenuSection.profileId,
       icon: DIcons.user,
-      label: 'Profile',
+      label: appL10n.profile,
       rows: [
         if (userStatusEnabled)
           UserMenuRow(
             DIcons.farFaceSmile,
-            user?.status?.description ?? 'Set a custom status',
+            user?.status?.description ?? appL10n.setACustomStatus,
             id: 'user-status',
             status: user?.status,
             userId: user?.id,
           ),
-        const UserMenuRow(DIcons.toggleOn, 'Online', id: 'hide-presence'),
-        const UserMenuRow(
+        UserMenuRow(DIcons.toggleOn, appL10n.online, id: 'hide-presence'),
+        UserMenuRow(
           DIcons.toggleOff,
-          'Pause notifications',
+          appL10n.pauseNotifications,
           id: 'do-not-disturb',
         ),
-        const UserMenuRow(DIcons.user, 'Summary', id: 'summary'),
-        const UserMenuRow(DIcons.list, 'Activity', id: 'activity'),
-        const UserMenuRow(DIcons.pencil, 'Drafts', id: 'drafts'),
-        const UserMenuRow(DIcons.gear, 'Preferences', id: 'preferences'),
+        UserMenuRow(DIcons.user, appL10n.summary, id: 'summary'),
+        UserMenuRow(DIcons.list, appL10n.activity, id: 'activity'),
+        UserMenuRow(DIcons.pencil, appL10n.drafts, id: 'drafts'),
+        UserMenuRow(DIcons.gear, appL10n.preferences, id: 'preferences'),
       ],
     ),
   ];
@@ -412,7 +413,10 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                                           ),
                                           value: section.id,
                                           semanticLabel: section.badge > 0
-                                              ? '${section.label}, ${section.badge} unread'
+                                              ? context.l10n.unreadUsermenu(
+                                                  (section.label).toString(),
+                                                  (section.badge).toString(),
+                                                )
                                               : section.label,
                                           child: ExcludeSemantics(
                                             child: Text(section.label),
@@ -641,7 +645,10 @@ class _SectionTab extends StatelessWidget {
       key: ValueKey('user-menu-tab-${section.id}'),
       value: section.id,
       semanticLabel: section.badge > 0
-          ? '${section.label}, ${section.badge} unread'
+          ? context.l10n.unreadUsermenu(
+              (section.label).toString(),
+              (section.badge).toString(),
+            )
           : section.label,
       child: ExcludeSemantics(
         child: compact
@@ -905,7 +912,7 @@ class UserProfileMenuItems extends StatelessWidget {
                   onDismiss();
                   controller.disconnectInstance(siteUrl).ignore();
                 },
-                child: const Text('Disconnect'),
+                child: Text(context.l10n.disconnect),
               ),
             ],
           ],
@@ -945,18 +952,18 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
             .stateFor(widget.siteUrl)
             .isActiveAt(DateTime.now());
         final label = paused
-            ? 'Notifications paused'
+            ? context.l10n.notificationsPaused
             : hidden == true
-            ? 'Offline'
+            ? context.l10n.offline
             : hidden == false
-            ? 'Online'
-            : 'Presence unavailable';
+            ? context.l10n.online
+            : context.l10n.presenceUnavailable;
         return DDropdownMenu(
           controller: _menu,
           content: DDropdownMenuContent(
             width: 208,
             align: DPopoverAlign.end,
-            semanticLabel: 'Status and notifications',
+            semanticLabel: context.l10n.statusAndNotifications,
             children: [
               UserProfileMenuItems(
                 siteUrl: widget.siteUrl,
@@ -970,8 +977,10 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
               key: const ValueKey('user-presence-menu'),
               variant: DButtonVariant.outline,
               size: DControlSize.chip,
-              tooltip: 'Status and notifications',
-              semanticLabel: 'Status and notifications, $label',
+              tooltip: context.l10n.statusAndNotifications,
+              semanticLabel: context.l10n.statusAndNotificationsUsermenu(
+                (label).toString(),
+              ),
               focusNode: state.focusNode,
               hasPopup: true,
               expanded: state.open,
@@ -1018,13 +1027,17 @@ class _DoNotDisturbTile extends StatelessWidget {
             : null;
         final localizations = MaterialLocalizations.of(context);
         final value = state.saving
-            ? 'Saving'
+            ? context.l10n.savingUsermenu
             : active
             ? state.isEternal
-                  ? 'On, no expiration'
-                  : 'On, until ${localizations.formatMediumDate(until!.toLocal())} '
-                        '${clockTimeLabel(context, until.toLocal())}'
-            : 'Off';
+                  ? context.l10n.onNoExpiration
+                  : context.l10n.onUntil(
+                      (localizations.formatMediumDate(
+                        until!.toLocal(),
+                      )).toString(),
+                      (clockTimeLabel(context, until.toLocal())).toString(),
+                    )
+            : context.l10n.off;
         final toastController = DToast.maybeOf(context);
 
         Future<void> resume() async {
@@ -1052,7 +1065,7 @@ class _DoNotDisturbTile extends StatelessWidget {
               size: 16,
             ),
             trailing: detail == null ? null : DDropdownMenuShortcut(detail),
-            child: const Text('Pause notifications'),
+            child: Text(context.l10n.pauseNotifications),
           );
         }
         return Padding(
@@ -1063,7 +1076,7 @@ class _DoNotDisturbTile extends StatelessWidget {
             button: true,
             enabled: !state.saving,
             toggled: active,
-            label: 'Pause notifications',
+            label: context.l10n.pauseNotifications,
             value: value,
             onTap: action,
             child: ExcludeSemantics(
@@ -1090,9 +1103,9 @@ class _DoNotDisturbTile extends StatelessWidget {
                                 : theme.colorScheme.onSurfaceVariant,
                           ),
                         const SizedBox(width: 10),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Pause notifications',
+                            context.l10n.pauseNotifications,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1173,25 +1186,25 @@ class _HidePresenceTile extends StatelessWidget {
       final hidden = state.hidden;
       final loading = hidden == null && state.error == null;
       final title = switch ((hidden, state.error)) {
-        (true, _) => 'Offline',
-        (false, _) => 'Online',
-        (null, null) => 'Loading presence…',
-        (null, _) => 'Presence unavailable',
+        (true, _) => context.l10n.offline,
+        (false, _) => context.l10n.online,
+        (null, null) => context.l10n.loadingPresence,
+        (null, _) => context.l10n.presenceUnavailable,
       };
       final VoidCallback? onTap = state.saving || loading
           ? null
           : hidden == null
           ? () => unawaited(controller.retryHidePresence(siteUrl))
           : () => unawaited(controller.toggleHidePresence(siteUrl));
-      final semanticsLabel = hidden == null ? 'Presence' : title;
+      final semanticsLabel = hidden == null ? context.l10n.presence : title;
       final semanticsValue = state.saving
-          ? 'Saving'
+          ? context.l10n.savingUsermenu
           : loading
-          ? 'Loading'
+          ? context.l10n.loadingDbutton
           : null;
       final semanticsHint = hidden == null && state.error != null
-          ? 'Retry loading the presence setting'
-          : 'Toggle presence features';
+          ? context.l10n.retryLoadingThePresenceSetting
+          : context.l10n.togglePresenceFeatures;
 
       if (dropdown) {
         return Column(
@@ -1235,7 +1248,7 @@ class _HidePresenceTile extends StatelessWidget {
               onTap: onTap,
               child: ExcludeSemantics(
                 child: DTooltip(
-                  message: 'Toggle presence features',
+                  message: context.l10n.togglePresenceFeatures,
                   excludeFromSemantics: true,
                   child: InkWell(
                     onTap: onTap,
@@ -1277,7 +1290,7 @@ class _HidePresenceTile extends StatelessWidget {
                               )
                             else if (hidden == null)
                               Text(
-                                'Retry',
+                                context.l10n.retry,
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: theme.colorScheme.primary,
                                 ),
@@ -1405,7 +1418,7 @@ class _DisconnectTile extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Disconnect',
+                  context.l10n.disconnect,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.error,
                     fontWeight: FontWeight.w600,
@@ -1432,7 +1445,7 @@ class _Badge extends StatelessWidget {
       size: DBadgeSize.compact,
       backgroundColor: colors.notificationIndicator,
       foregroundColor: colors.notificationForeground,
-      semanticLabel: '$count unread',
+      semanticLabel: context.l10n.unreadUsermenuValue((count).toString()),
       child: Text(count > 99 ? '99+' : '$count'),
     );
   }
@@ -1463,7 +1476,7 @@ Future<T?> _showAccountSheet<T>({
               if (nested)
                 DButton.iconOnly(
                   onPressed: controller.close,
-                  tooltip: 'Back',
+                  tooltip: appL10n.back,
                   variant: DButtonVariant.ghost,
                   icon: const DIcon(DIcons.arrowLeft),
                 ),
@@ -1471,7 +1484,7 @@ Future<T?> _showAccountSheet<T>({
               if (!nested)
                 DButton.iconOnly(
                   onPressed: controller.close,
-                  tooltip: 'Close',
+                  tooltip: appL10n.close,
                   variant: DButtonVariant.ghost,
                   icon: const DIcon(DIcons.xmark),
                 ),
@@ -1500,7 +1513,7 @@ Future<void> showUserMenuSheet(
     final navigator = Navigator.of(context);
     final action = await _showAccountSheet<UserMenuAction>(
       context: context,
-      title: 'Profile',
+      title: appL10n.profile,
       padding: const EdgeInsets.symmetric(vertical: 8),
       builder: (sheetContext) => _LiveNestedSectionBody(
         sectionId: UserMenuSection.profileId,
@@ -1528,7 +1541,7 @@ Future<void> showUserMenuSheet(
   }
   await _showAccountSheet<void>(
     context: context,
-    title: 'Notifications',
+    title: appL10n.notifications,
     padding: const EdgeInsets.symmetric(vertical: 8),
     builder: (sheetContext) => _SectionList(siteUrl: instance.url),
   );
@@ -1598,14 +1611,16 @@ class _SectionList extends StatelessWidget {
       final host = state.host;
       if (currentSiteUrl == null || host == null) {
         return UserMenuMessage(
-          text: controller.loaded ? 'This site is no longer available.' : null,
+          text: controller.loaded
+              ? context.l10n.thisSiteIsNoLongerAvailable
+              : null,
         );
       }
       final theme = Theme.of(context);
       final user = state.user;
       if (user == null) {
-        return const UserMenuMessage(
-          text: 'This account is no longer connected.',
+        return UserMenuMessage(
+          text: context.l10n.thisAccountIsNoLongerConnected,
         );
       }
 
@@ -1692,11 +1707,11 @@ class _LiveNestedSectionBody extends StatelessWidget {
       final host = state.host;
       final user = state.user;
       if (currentSiteUrl == null || host == null) {
-        return const UserMenuMessage(text: 'This site is no longer available.');
+        return UserMenuMessage(text: context.l10n.thisSiteIsNoLongerAvailable);
       }
       if (user == null) {
-        return const UserMenuMessage(
-          text: 'This account is no longer connected.',
+        return UserMenuMessage(
+          text: context.l10n.thisAccountIsNoLongerConnected,
         );
       }
 
@@ -1740,8 +1755,8 @@ class _LiveNestedSectionBody extends StatelessWidget {
               .where((candidate) => candidate.id == sectionId)
               .firstOrNull;
           if (section == null) {
-            return const UserMenuMessage(
-              text: 'This section is no longer available.',
+            return UserMenuMessage(
+              text: context.l10n.thisSectionIsNoLongerAvailable,
             );
           }
           return _SectionBody(

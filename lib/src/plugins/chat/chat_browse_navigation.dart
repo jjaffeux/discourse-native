@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_plugin_data.dart';
@@ -32,9 +33,9 @@ class ChatBrowseNavigation extends StatelessWidget {
       children: [
         Text(
           switch (page) {
-            ChatBrowsePage.chats => 'Browse chats',
-            ChatBrowsePage.channels => 'Browse channels',
-            ChatBrowsePage.threads => 'Browse threads',
+            ChatBrowsePage.chats => context.l10n.browseChats,
+            ChatBrowsePage.channels => context.l10n.browseChannels,
+            ChatBrowsePage.threads => context.l10n.browseThreads,
           },
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontSize: DiscourseTypography.xxl,
@@ -48,24 +49,24 @@ class ChatBrowseNavigation extends StatelessWidget {
           scrollable: true,
           allowEmptySelection: false,
           values: [page],
-          semanticLabel: 'Browse chat',
+          semanticLabel: context.l10n.browseChat,
           items: [
-            const DToggleGroupItem(
+            DToggleGroupItem(
               value: ChatBrowsePage.chats,
-              icon: DIcon(DIcons.comment),
-              child: Text('Chats'),
+              icon: const DIcon(DIcons.comment),
+              child: Text(context.l10n.chats),
             ),
             if (settings.publicChannelsEnabled)
-              const DToggleGroupItem(
+              DToggleGroupItem(
                 value: ChatBrowsePage.channels,
-                icon: Text('#'),
-                child: Text('Channels'),
+                icon: const Text('#'),
+                child: Text(context.l10n.channels),
               ),
             if (settings.threadsEnabled)
-              const DToggleGroupItem(
+              DToggleGroupItem(
                 value: ChatBrowsePage.threads,
-                icon: DIcon(DIcons.comments),
-                child: Text('Threads'),
+                icon: const DIcon(DIcons.comments),
+                child: Text(context.l10n.threads),
               ),
           ],
           onChanged: (values) => switch (values.single) {

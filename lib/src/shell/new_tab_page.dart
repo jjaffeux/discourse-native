@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -187,17 +188,17 @@ class _NewTabPageState extends State<NewTabPage> {
         : <Bookmark>[];
     final closed =
         shell?.recentlyClosedTabsForCurrentForum ?? const <ForumTab>[];
-    const chatDestination = SidebarDestination(
+    final chatDestination = SidebarDestination(
       id: 'chat-channels',
-      label: 'Chat',
+      label: context.l10n.chat,
       icon: DIcons.comments,
     );
     void openCategories() => openLink(context, shell!.siteLink('/categories'));
     void openChat() => shell!.selectDestination(chatDestination);
     void openBookmarks() => shell!.selectDestination(
-      const SidebarDestination(
+      SidebarDestination(
         id: 'user-bookmarks',
-        label: 'Bookmarks',
+        label: context.l10n.bookmarks,
         icon: DIcons.bookmark,
       ),
     );
@@ -245,7 +246,9 @@ class _NewTabPageState extends State<NewTabPage> {
       for (final bookmark in bookmarks)
         _StartPageEntry(
           id: 'bookmark-${bookmark.id}',
-          title: bookmark.title.isEmpty ? 'Bookmark' : bookmark.title,
+          title: bookmark.title.isEmpty
+              ? context.l10n.bookmark
+              : bookmark.title,
           icon: bookmark.coreTargetType == BookmarkTargetType.post
               ? DIcons.reply
               : bookmark.coreTargetType == BookmarkTargetType.topic
@@ -254,8 +257,8 @@ class _NewTabPageState extends State<NewTabPage> {
           time: bookmark.reminderAt == null
               ? null
               : bookmark.reminderAt!.isBefore(DateTime.now())
-              ? 'Due'
-              : 'Reminder',
+              ? context.l10n.due
+              : context.l10n.reminderNewtabpage,
           description: bookmark.name,
           reminderAt: bookmark.reminderAt,
           postNumber: bookmark.postNumber,
@@ -278,7 +281,7 @@ class _NewTabPageState extends State<NewTabPage> {
         : <_StartSection>[
             if (bookmarkRows.isNotEmpty)
               _StartSection(
-                title: 'Bookmarks',
+                title: context.l10n.bookmarks,
                 icon: DIcons.bookmark,
                 rows: bookmarkRows,
                 compact: _compact,
@@ -287,7 +290,7 @@ class _NewTabPageState extends State<NewTabPage> {
               ),
             if (categoryRows.isNotEmpty)
               _StartSection(
-                title: 'Categories',
+                title: context.l10n.categories,
                 icon: DIcons.tag,
                 rows: categoryRows,
                 compact: _compact,
@@ -296,7 +299,7 @@ class _NewTabPageState extends State<NewTabPage> {
               ),
             if (hasChat && chatRows.isNotEmpty)
               _StartSection(
-                title: 'Chat',
+                title: context.l10n.chat,
                 icon: DIcons.comment,
                 rows: chatRows,
                 compact: _compact,
@@ -305,7 +308,7 @@ class _NewTabPageState extends State<NewTabPage> {
               ),
             if (topicRows.isNotEmpty)
               _StartSection(
-                title: 'Latest topics',
+                title: context.l10n.latestTopics,
                 icon: DIcons.layerGroup,
                 rows: topicRows,
                 compact: _compact,
@@ -338,7 +341,7 @@ class _NewTabPageState extends State<NewTabPage> {
                           children: [
                             if (siteUrl == null)
                               Text(
-                                'Start page',
+                                context.l10n.startPage,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.headlineSmall,
@@ -370,18 +373,18 @@ class _NewTabPageState extends State<NewTabPage> {
                         inset: true,
                         density: DToggleDensity.compactInset,
                         size: DToggleSize.small,
-                        items: const [
+                        items: [
                           DToggleGroupItem<bool>.iconOnly(
                             value: false,
-                            icon: DIcon(DIcons.grip, size: 12),
-                            semanticLabel: 'Comfortable',
-                            tooltip: 'Comfortable',
+                            icon: const DIcon(DIcons.grip, size: 12),
+                            semanticLabel: context.l10n.comfortable,
+                            tooltip: context.l10n.comfortable,
                           ),
                           DToggleGroupItem<bool>.iconOnly(
                             value: true,
-                            icon: DIcon(DIcons.list, size: 12),
-                            semanticLabel: 'Compact',
-                            tooltip: 'Compact',
+                            icon: const DIcon(DIcons.list, size: 12),
+                            semanticLabel: context.l10n.compact,
+                            tooltip: context.l10n.compact,
                           ),
                         ],
                       ),
@@ -394,7 +397,7 @@ class _NewTabPageState extends State<NewTabPage> {
                   if (shell != null) ...[
                     if (closedRows.isNotEmpty)
                       _StartSection(
-                        title: 'Recently closed',
+                        title: context.l10n.recentlyClosedNewtabpage,
                         icon: DIcons.arrowRotateLeft,
                         rows: closedRows,
                         compact: _compact,
@@ -423,7 +426,7 @@ class _NewTabPageState extends State<NewTabPage> {
                     else
                       ...primarySections,
                     _StartSection(
-                      title: 'Everything else',
+                      title: context.l10n.everythingElse,
                       icon: DIcons.ellipsis,
                       rows: const [],
                       compact: _compact,
@@ -438,27 +441,27 @@ class _NewTabPageState extends State<NewTabPage> {
                           children: [
                             if (bookmarkRows.isEmpty && forum?.user != null)
                               _LinkButton(
-                                label: 'Bookmarks',
+                                label: context.l10n.bookmarks,
                                 icon: DIcons.bookmark,
                                 onPressed: openBookmarks,
                               ),
                             if (topicRows.isEmpty)
                               _LinkButton(
-                                label: 'Latest topics',
+                                label: context.l10n.latestTopics,
                                 icon: DIcons.layerGroup,
                                 url: shell.siteLink('/latest'),
                                 onPressed: widget.onBrowseTopics,
                               ),
                             if (categoryRows.isEmpty)
                               _LinkButton(
-                                label: 'Categories',
+                                label: context.l10n.categories,
                                 icon: DIcons.tag,
                                 url: shell.siteLink('/categories'),
                                 onPressed: openCategories,
                               ),
                             if (hasChat && chatRows.isEmpty)
                               _LinkButton(
-                                label: 'Chat',
+                                label: context.l10n.chat,
                                 icon: DIcons.comment,
                                 content: ContentRoute.fromDestination(
                                   chatDestination,
@@ -467,7 +470,7 @@ class _NewTabPageState extends State<NewTabPage> {
                               ),
                             if (forum?.user != null)
                               _LinkButton(
-                                label: 'Messages',
+                                label: context.l10n.messages,
                                 icon: DIcons.inbox,
                                 url: shell.siteLink('/my/messages'),
                                 onPressed: () => openLink(
@@ -476,14 +479,14 @@ class _NewTabPageState extends State<NewTabPage> {
                                 ),
                               ),
                             _LinkButton(
-                              label: 'Groups',
+                              label: context.l10n.groups,
                               icon: DIcons.users,
                               url: shell.siteLink('/g'),
                               onPressed: () =>
                                   openLink(context, shell.siteLink('/g')),
                             ),
                             _LinkButton(
-                              label: 'Badges',
+                              label: context.l10n.badges,
                               icon: DIcons.certificate,
                               url: shell.siteLink('/badges'),
                               onPressed: () =>
@@ -497,7 +500,7 @@ class _NewTabPageState extends State<NewTabPage> {
                                     shell.selectDestination(shortcut),
                               ),
                             _LinkButton(
-                              label: 'Users',
+                              label: context.l10n.users,
                               icon: DIcons.user,
                               url: shell.siteLink('/u'),
                               onPressed: () =>
@@ -505,12 +508,12 @@ class _NewTabPageState extends State<NewTabPage> {
                             ),
                             if (forum?.user != null)
                               _LinkButton(
-                                label: 'Preferences',
+                                label: context.l10n.preferences,
                                 icon: DIcons.filter,
                                 onPressed: () => shell.openPreferences(siteUrl),
                               ),
                             _LinkButton(
-                              label: 'Settings',
+                              label: context.l10n.settings,
                               icon: DIcons.gear,
                               onPressed: () => shell.openForumSettings(siteUrl),
                             ),
@@ -521,7 +524,7 @@ class _NewTabPageState extends State<NewTabPage> {
                   ] else if (_dismissed != null)
                     DButton(
                       onPressed: widget.onBrowseTopics,
-                      label: const Text('Browse latest topics'),
+                      label: Text(context.l10n.browseLatestTopics),
                     ),
                 ],
               ),
@@ -574,7 +577,10 @@ String reminderDateLabel(
   final label =
       upcomingDayName(wall, now: tz.TZDateTime.from(now, location)) ??
       DateFormat.yMMMd().format(wall);
-  return '$label at ${clockTime(wall, use24HourClock: use24HourClock)}';
+  return appL10n.atNewtabpage(
+    (label).toString(),
+    (clockTime(wall, use24HourClock: use24HourClock)).toString(),
+  );
 }
 
 String _reminderDate(
@@ -886,7 +892,7 @@ class _StartSection extends StatelessWidget {
                       SiteEmojiText.plain(
                         [
                           if (entry.postNumber case final number?)
-                            'Post #$number',
+                            context.l10n.postNewtabpage((number).toString()),
                           if (entry.description?.isNotEmpty == true)
                             entry.description!,
                         ].join(' · '),
@@ -1078,21 +1084,21 @@ class _PanelTutorial extends StatelessWidget {
                         end: compact ? DSpacing.xxl : 0,
                       ),
                       child: Text(
-                        'Work with two panels',
+                        context.l10n.workWithTwoPanels,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    const _PanelGestureHint(
-                      keys: ['Middle click'],
-                      description: 'Opens a new tab in main panel',
+                    _PanelGestureHint(
+                      keys: [context.l10n.middleClick],
+                      description: context.l10n.opensANewTabInMainPanel,
                     ),
-                    const _PanelGestureHint(
-                      keys: ['Shift', 'Click'],
-                      description: 'Open in secondary panel',
+                    _PanelGestureHint(
+                      keys: [context.l10n.shift, context.l10n.click],
+                      description: context.l10n.openInSecondaryPanel,
                     ),
-                    const _PanelGestureHint(
-                      keys: ['Shift', 'Middle click'],
-                      description: 'Open in a new tab in secondary panel',
+                    _PanelGestureHint(
+                      keys: [context.l10n.shift, context.l10n.middleClick],
+                      description: context.l10n.openInANewTabInSecondaryPanel,
                     ),
                   ],
                 ),
@@ -1122,7 +1128,7 @@ class _PanelTutorial extends StatelessWidget {
             child: DButton.iconOnly(
               key: const ValueKey('dismiss-panel-tutorial'),
               icon: const DIcon(DIcons.xmark),
-              tooltip: "Don't show this tutorial again",
+              tooltip: context.l10n.donTShowThisTutorialAgain,
               onPressed: onDismiss,
               variant: DButtonVariant.transparentBackground,
               size: DButtonSize.small,
@@ -1151,7 +1157,7 @@ class _PanelTutorialDiagram extends StatelessWidget {
           spacing: DSpacing.md,
           children: [
             Text(
-              'TWO PANELS',
+              context.l10n.tWOPANELS,
               style: Theme.of(
                 context,
               ).textTheme.labelSmall?.copyWith(color: tokens.mutedForeground),
@@ -1160,10 +1166,10 @@ class _PanelTutorialDiagram extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: DSpacing.sm,
               children: [
-                const Expanded(child: _PanelPreview(label: 'Main')),
+                Expanded(child: _PanelPreview(label: context.l10n.main)),
                 Expanded(
                   child: _PanelPreview(
-                    label: 'Secondary',
+                    label: context.l10n.secondary,
                     backgroundColor: tokens.selected,
                     highlightFirstLine: true,
                   ),
@@ -1173,7 +1179,7 @@ class _PanelTutorialDiagram extends StatelessWidget {
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: Text(
-                'Shift + click opens here',
+                context.l10n.shiftClickOpensHere,
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),

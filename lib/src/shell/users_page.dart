@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -478,7 +479,7 @@ class _UsersPageState extends State<UsersPage> {
   List<DDataTableColumn<UserDirectoryItem>> _columns(double metricWidth) => [
     DDataTableColumn(
       id: _identityColumnWidthKey,
-      label: 'User',
+      label: appL10n.userUserspage,
       hideable: false,
       resizable: true,
       width: const FixedColumnWidth(186),
@@ -520,7 +521,7 @@ class _UsersPageState extends State<UsersPage> {
     ),
     DDataTableColumn(
       id: 'name',
-      label: 'Name',
+      label: appL10n.name,
       resizable: true,
       width: const FixedColumnWidth(186),
       minWidth: 120,
@@ -652,8 +653,8 @@ class _UsersPageState extends State<UsersPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const DText(
-                        'Users',
+                      DText(
+                        context.l10n.users,
                         variant: DTextVariant.h3,
                         headingLevel: 1,
                       ),
@@ -671,7 +672,7 @@ class _UsersPageState extends State<UsersPage> {
                               size: DControlSize.field,
                               maxWidth: double.infinity,
                               value: _searchText,
-                              hintText: 'Filter users',
+                              hintText: context.l10n.filterUsers,
                               onChanged: _search,
                             ),
                           ),
@@ -703,7 +704,8 @@ class _UsersPageState extends State<UsersPage> {
                                         ),
                                         width: periodWidth,
                                         value: data.query.period,
-                                        semanticLabel: 'Activity period',
+                                        semanticLabel:
+                                            context.l10n.activityPeriod,
                                         enabled: widget.onPeriodChanged != null,
                                         onChanged: (value) {
                                           if (value != null) {
@@ -740,24 +742,27 @@ class _UsersPageState extends State<UsersPage> {
                                         value:
                                             data.query.group ??
                                             '__all_groups__',
-                                        anchor: const DComboboxInput<String>(
+                                        anchor: DComboboxInput<String>(
                                           size: DControlSize.filter,
-                                          semanticLabel: 'Filter by group',
-                                          placeholder: 'All groups',
+                                          semanticLabel:
+                                              context.l10n.filterByGroup,
+                                          placeholder: context.l10n.allGroups,
                                         ),
-                                        content: const DComboboxContent(
+                                        content: DComboboxContent(
                                           children: [
                                             DComboboxEmpty<String>(
-                                              child: Text('No groups found.'),
+                                              child: Text(
+                                                context.l10n.noGroupsFound,
+                                              ),
                                             ),
-                                            DComboboxList<String>(),
+                                            const DComboboxList<String>(),
                                           ],
                                         ),
                                         enabled: widget.onGroupChanged != null,
                                         filter: (value, query, label) =>
                                             query ==
                                                 (data.query.group ??
-                                                    'All groups') ||
+                                                    context.l10n.allGroups) ||
                                             label.toLowerCase().contains(
                                               query.toLowerCase(),
                                             ),
@@ -768,9 +773,9 @@ class _UsersPageState extends State<UsersPage> {
                                                   : value,
                                             ),
                                         options: [
-                                          const DComboboxOption(
+                                          DComboboxOption(
                                             value: '__all_groups__',
-                                            label: 'All groups',
+                                            label: context.l10n.allGroups,
                                           ),
                                           for (final group
                                               in (<String>{
@@ -793,7 +798,7 @@ class _UsersPageState extends State<UsersPage> {
                                 DDataTableColumnToggle<UserDirectoryItem>(
                                   key: const ValueKey('users-columns'),
                                   size: DControlSize.filter,
-                                  menuLabel: 'Columns',
+                                  menuLabel: context.l10n.columns,
                                   columns: columns,
                                   hiddenColumnIds: _hiddenColumnIds,
                                   onChanged: (hidden) => setState(
@@ -817,7 +822,7 @@ class _UsersPageState extends State<UsersPage> {
                         ? _TableState(
                             key: const ValueKey('users-error'),
                             icon: DIcons.triangleExclamation,
-                            title: 'Directory unavailable',
+                            title: context.l10n.directoryUnavailable,
                             detail: data.error!,
                             onRetry: widget.onRefresh == null
                                 ? null
@@ -835,7 +840,7 @@ class _UsersPageState extends State<UsersPage> {
                               data.query,
                             )),
                             variant: DDataTableVariant.borderless,
-                            semanticLabel: 'Users',
+                            semanticLabel: context.l10n.users,
                             data: data.items,
                             columns: columns,
                             rowId: (item) => item.id,
@@ -848,9 +853,9 @@ class _UsersPageState extends State<UsersPage> {
                             onColumnWidthsChanged: _resizeColumns,
                             onColumnResizeStart: _beginColumnResize,
                             onColumnResizeEnd: _finishColumnResize,
-                            empty: const Text(
-                              'No matching users.',
-                              key: ValueKey('users-empty'),
+                            empty: Text(
+                              context.l10n.noMatchingUsers,
+                              key: const ValueKey('users-empty'),
                             ),
                             state: DDataTableState(
                               hiddenColumnIds: _hiddenColumnIds,
@@ -933,7 +938,7 @@ class _TableState extends StatelessWidget {
           if (onRetry != null)
             DEmptyContent(
               children: [
-                DButton(label: const Text('Retry'), onPressed: onRetry),
+                DButton(label: Text(context.l10n.retry), onPressed: onRetry),
               ],
             ),
         ],

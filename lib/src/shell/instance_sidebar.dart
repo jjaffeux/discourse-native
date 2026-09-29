@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -174,15 +175,15 @@ const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
 const double _sidebarRowGap = 2;
 
-const SidebarDestination _newTopicDestination = SidebarDestination(
+SidebarDestination get _newTopicDestination => SidebarDestination(
   id: _newTopicDestinationId,
-  label: 'New Topic',
+  label: appL10n.newTopicInstancesidebar,
   icon: DIcons.plus,
 );
 
-const SidebarDestination _moreDestination = SidebarDestination(
+SidebarDestination get _moreDestination => SidebarDestination(
   id: _moreDestinationId,
-  label: 'More',
+  label: appL10n.more,
   icon: DIcons.ellipsisVertical,
 );
 
@@ -454,8 +455,15 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       ),
       width: width,
       collapsible: DSidebarCollapsible.none,
-      semanticLabel:
-          '${showShortcuts ? 'Shortcuts' : activePanel?.panel.label ?? 'Forum'} navigation',
+      semanticLabel: context.l10n.navigationInstancesidebar(
+        (showShortcuts).toString(),
+        ((showShortcuts) ? (context.l10n.shortcutsInstancesidebar) : '')
+            .toString(),
+        ((!(showShortcuts))
+                ? (activePanel?.panel.label ?? context.l10n.forum)
+                : '')
+            .toString(),
+      ),
       footer: switch (activePanel) {
         final panel? when !widget.mobile && panel.panel.footerBuilder != null =>
           PluginUiScope.own(
@@ -471,11 +479,19 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                       value: _shortcuts,
                       onChanged: (value) =>
                           setState(() => _shortcuts = value ?? false),
-                      children: const [
+                      children: [
                         DTabList<bool>(
                           children: [
-                            DTabTrigger(value: false, child: Text('Forum')),
-                            DTabTrigger(value: true, child: Text('Shortcuts')),
+                            DTabTrigger(
+                              value: false,
+                              child: Text(context.l10n.forum),
+                            ),
+                            DTabTrigger(
+                              value: true,
+                              child: Text(
+                                context.l10n.shortcutsInstancesidebar,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -822,10 +838,10 @@ class _SidebarPanelTabs extends StatelessWidget {
         DTabList<String>(
           variant: DTabListVariant.line,
           children: [
-            const DTabTrigger(
-              key: ValueKey('sidebar-panel-switch-main'),
+            DTabTrigger(
+              key: const ValueKey('sidebar-panel-switch-main'),
               value: 'forum',
-              child: Text('Forum'),
+              child: Text(context.l10n.forum),
             ),
             for (final candidate in panels)
               if (candidate.panel.showSwitch)
@@ -843,10 +859,10 @@ class _SidebarPanelTabs extends StatelessWidget {
                     ],
                   ),
                 ),
-            const DTabTrigger(
-              key: ValueKey('sidebar-panel-switch-shortcuts'),
+            DTabTrigger(
+              key: const ValueKey('sidebar-panel-switch-shortcuts'),
               value: 'shortcuts',
-              child: Text('Shortcuts'),
+              child: Text(context.l10n.shortcutsInstancesidebar),
             ),
           ],
         ),
@@ -934,7 +950,7 @@ class ForumIdentityHeader extends StatelessWidget {
             key: const ValueKey('forum-identity-open-browser'),
             leading: const DIcon(DIcons.upRightFromSquare, size: 16),
             onPressed: () => unawaited(openExternalLink(siteUrl)),
-            child: const Text('Open forum in browser'),
+            child: Text(context.l10n.openForumInBrowser),
           ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(
@@ -947,7 +963,7 @@ class ForumIdentityHeader extends StatelessWidget {
                 await confirmInstanceRemoval(context, instance);
               }
             },
-            child: const Text('Remove forum'),
+            child: Text(context.l10n.removeForum),
           ),
         ],
       ),
@@ -971,7 +987,7 @@ class ForumIdentityHeader extends StatelessWidget {
                   ],
                 ),
                 tooltip: name,
-                semanticLabel: '$name, forum menu',
+                semanticLabel: context.l10n.forumMenu((name).toString()),
                 variant: DButtonVariant.inline,
                 size: compact ? DButtonSize.regular : DButtonSize.large,
                 focusNode: menu.focusNode,
@@ -984,7 +1000,7 @@ class ForumIdentityHeader extends StatelessWidget {
                 key: const ValueKey('forum-identity-button'),
                 icon: logo,
                 tooltip: name,
-                semanticLabel: '$name, forum menu',
+                semanticLabel: context.l10n.forumMenu((name).toString()),
                 variant: DButtonVariant.ghost,
                 size: compact ? DButtonSize.regular : DButtonSize.large,
                 focusNode: menu.focusNode,
@@ -1155,12 +1171,10 @@ class _RestoredSidebarSectionsState extends State<_RestoredSidebarSections> {
 }
 
 class _SidebarLoadingSkeleton extends StatelessWidget {
-  const _SidebarLoadingSkeleton({
-    this.semanticsLabel = 'Loading navigation',
-    this.rowCount = 8,
-  });
+  const _SidebarLoadingSkeleton({this._semanticsLabel, this.rowCount = 8});
 
-  final String semanticsLabel;
+  final String? _semanticsLabel;
+  String get semanticsLabel => _semanticsLabel ?? appL10n.loadingNavigation;
   final int rowCount;
 
   @override
@@ -1221,12 +1235,12 @@ class _SectionState extends State<_Section> {
       if (source.public || target.public) {
         final confirmed = await showDiscourseAlertDialog<bool>(
           context: context,
-          title: const Text('Move public link?'),
-          description: const Text(
-            'This changes a public sidebar section for everyone on this forum.',
+          title: Text(appL10n.movePublicLink),
+          description: Text(
+            appL10n.thisChangesAPublicSidebarSectionForEveryoneOnThisForum,
           ),
-          cancelLabel: const Text('Cancel'),
-          actionLabel: const Text('Move'),
+          cancelLabel: Text(appL10n.cancel),
+          actionLabel: Text(appL10n.move),
           actionResult: true,
         );
         if (confirmed != true) return;
@@ -1247,7 +1261,7 @@ class _SectionState extends State<_Section> {
       if (mounted && widget.siteUrl == siteUrl) {
         DToast.show(
           context,
-          "Couldn't move link. Try again.",
+          appL10n.couldnTMoveLinkTryAgain,
           type: DToastType.error,
         );
       }
@@ -1286,12 +1300,12 @@ class _SectionState extends State<_Section> {
       if (section.public) {
         final confirmed = await showDiscourseAlertDialog<bool>(
           context: context,
-          title: const Text('Reorder public links?'),
-          description: const Text(
-            'This changes the sidebar link order for everyone on this forum.',
+          title: Text(appL10n.reorderPublicLinks),
+          description: Text(
+            appL10n.thisChangesTheSidebarLinkOrderForEveryoneOnThisForum,
           ),
-          cancelLabel: const Text('Cancel'),
-          actionLabel: const Text('Reorder'),
+          cancelLabel: Text(appL10n.cancel),
+          actionLabel: Text(appL10n.reorder),
           actionResult: true,
         );
         if (confirmed != true) return;
@@ -1311,7 +1325,7 @@ class _SectionState extends State<_Section> {
       if (mounted && widget.siteUrl == siteUrl) {
         DToast.show(
           context,
-          "Couldn't reorder links. Try again.",
+          appL10n.couldnTReorderLinksTryAgain,
           type: DToastType.error,
         );
       }
@@ -1495,7 +1509,9 @@ class _SectionState extends State<_Section> {
     if (section.loading) {
       return SliverToBoxAdapter(
         child: _SidebarLoadingSkeleton(
-          semanticsLabel: 'Loading ${section.title}',
+          semanticsLabel: context.l10n.loadingInstancesidebar(
+            (section.title).toString(),
+          ),
           rowCount: 4,
         ),
       );
@@ -1599,7 +1615,7 @@ class _MoreDestinationsTile extends StatelessWidget {
         focusNode: menu.focusNode,
         expanded: menu.open,
         onPressed: menu.toggle,
-        child: const Text('More'),
+        child: Text(context.l10n.more),
       ),
     ),
   );
@@ -1618,10 +1634,15 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unreadDescription = section.unreadCount > 0
-        ? ', ${section.unreadCount} unread ${section.unreadCount == 1 ? 'message' : 'messages'}'
+        ? context.l10n.unreadInstancesidebar(section.unreadCount)
         : '';
-    final description =
-        '${collapsed ? 'Expand' : 'Collapse'} ${section.title}$unreadDescription';
+    final description = context.l10n.messageInstancesidebar(
+      (collapsed).toString(),
+      ((collapsed) ? (context.l10n.expand) : '').toString(),
+      (section.title).toString(),
+      (unreadDescription).toString(),
+      ((!(collapsed)) ? (context.l10n.collapse) : '').toString(),
+    );
     final label = Row(
       mainAxisSize: MainAxisSize.min,
       spacing: DSpacing.xs,
@@ -1724,7 +1745,9 @@ class SidebarDestinationTile extends StatelessWidget {
         key: ValueKey('sidebar-destination-loading-${destination.id}'),
         dimension: 16.0,
         child: DSkeletonRegion(
-          semanticsLabel: 'Loading ${destination.label}',
+          semanticsLabel: context.l10n.loadingInstancesidebarValue(
+            (destination.label).toString(),
+          ),
           color: skeletonFill(context, on: SkeletonSurface.row),
           child: const DSkeleton.circle(diameter: 16),
         ),
@@ -1815,7 +1838,9 @@ class SidebarDestinationTile extends StatelessWidget {
     final action = destination.onSecondaryTap;
     final description = destination.semanticDescription;
     final count = badge.isVisible && !badge.dot ? badge.count : null;
-    final dotLabel = badge.urgent ? 'Unread mentions' : 'Unread';
+    final dotLabel = badge.urgent
+        ? context.l10n.unreadMentions
+        : context.l10n.unread;
     // The trailing texts sit beside the button, outside its node, so they are
     // spoken as part of its name instead: otherwise a screen reader stops on
     // a bare number before it reaches the destination the number belongs to.
@@ -1827,7 +1852,11 @@ class SidebarDestinationTile extends StatelessWidget {
       if (count != null)
         destination.id == 'drafts'
             ? '$count'
-            : '$count ${count == 1 ? 'unread item' : 'unread items'}',
+            : context.l10n.messageInstancesidebarValue(
+                count,
+                ((count == 1) ? (context.l10n.unreadItem) : '').toString(),
+                ((!(count == 1)) ? (context.l10n.unreadItems) : '').toString(),
+              ),
     ];
     Widget tile = DSidebarMenuItem(
       badge: trailingLabel != null || count != null
@@ -1860,7 +1889,9 @@ class SidebarDestinationTile extends StatelessWidget {
           (action == null
               ? null
               : DSidebarMenuAction(
-                  semanticLabel: 'Open ${destination.label}',
+                  semanticLabel: context.l10n.openInstancesidebar(
+                    (destination.label).toString(),
+                  ),
                   onPressed: destination.enabled ? action : null,
                   child: DIcon(
                     destination.trailingIcon ?? DIcons.chevronRight,

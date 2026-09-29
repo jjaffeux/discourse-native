@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -39,28 +40,30 @@ class SmallActionDescription {
   static String _phrase(String code, String? who) {
     final subject = who ?? 'them';
     return switch (code) {
-      'closed.enabled' || 'autoclosed.enabled' => 'closed this topic',
-      'closed.disabled' || 'autoclosed.disabled' => 'opened this topic',
-      'archived.enabled' => 'archived this topic',
-      'archived.disabled' => 'unarchived this topic',
-      'pinned.enabled' => 'pinned this topic',
-      'pinned.disabled' => 'unpinned this topic',
-      'pinned_globally.enabled' => 'pinned this topic globally',
-      'pinned_globally.disabled' => 'unpinned this topic globally',
-      'banner.enabled' => 'made this topic a banner',
-      'banner.disabled' => 'removed this banner',
-      'visible.enabled' => 'listed this topic',
-      'visible.disabled' => 'unlisted this topic',
-      'split_topic' => 'split this topic',
-      'moved_post' => 'moved this post',
-      'invited_user' || 'invited_group' => 'invited $subject',
-      'removed_user' || 'removed_group' => 'removed $subject',
-      'user_left' => 'removed themselves from this message',
-      'autobumped' => 'automatically bumped this topic',
-      'public_topic' => 'made this topic public',
-      'private_topic' => 'made this topic a personal message',
-      'open_topic' => 'converted this to a topic',
-      'forwarded' => 'forwarded the above email',
+      'closed.enabled' || 'autoclosed.enabled' => appL10n.closedThisTopic,
+      'closed.disabled' || 'autoclosed.disabled' => appL10n.openedThisTopic,
+      'archived.enabled' => appL10n.archivedThisTopic,
+      'archived.disabled' => appL10n.unarchivedThisTopic,
+      'pinned.enabled' => appL10n.pinnedThisTopic,
+      'pinned.disabled' => appL10n.unpinnedThisTopic,
+      'pinned_globally.enabled' => appL10n.pinnedThisTopicGlobally,
+      'pinned_globally.disabled' => appL10n.unpinnedThisTopicGlobally,
+      'banner.enabled' => appL10n.madeThisTopicABanner,
+      'banner.disabled' => appL10n.removedThisBanner,
+      'visible.enabled' => appL10n.listedThisTopic,
+      'visible.disabled' => appL10n.unlistedThisTopic,
+      'split_topic' => appL10n.splitThisTopic,
+      'moved_post' => appL10n.movedThisPost,
+      'invited_user' ||
+      'invited_group' => appL10n.invitedSmallaction((subject).toString()),
+      'removed_user' ||
+      'removed_group' => appL10n.removed((subject).toString()),
+      'user_left' => appL10n.removedThemselvesFromThisMessage,
+      'autobumped' => appL10n.automaticallyBumpedThisTopic,
+      'public_topic' => appL10n.madeThisTopicPublic,
+      'private_topic' => appL10n.madeThisTopicAPersonalMessage,
+      'open_topic' => appL10n.convertedThisToATopic,
+      'forwarded' => appL10n.forwardedTheAboveEmail,
       // Plugins add action codes of their own, and Discourse adds new ones
       // between releases. An unknown code still names what happened, so read
       // it out rather than dropping the notice.

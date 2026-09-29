@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 // The review harness deliberately seeds the exact production store without
@@ -80,6 +81,9 @@ class _MessageScrollerReviewState extends State<_MessageScrollerReview> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    localeListResolutionCallback: resolveAppLocale,
     theme: _plum
         ? StyleguideTheme.plum.resolve(AppTheme.light)
         : _dark

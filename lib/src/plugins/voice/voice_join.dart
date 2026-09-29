@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_controller.dart';
@@ -92,22 +93,21 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
   Widget build(BuildContext context) => AlertDialog(
     constraints: const BoxConstraints(maxWidth: 560),
     scrollable: true,
-    title: const Text('Before you join this room'),
+    title: Text(context.l10n.beforeYouJoinThisRoom),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'This room connects participants directly to each other, so while '
-          'you are in the call other participants may be able to see your IP '
-          'address. This is how peer-to-peer calls work and is usually '
-          'harmless, but join only if you are comfortable with it.',
+        Text(
+          context
+              .l10n
+              .thisRoomConnectsParticipantsDirectlyToEachOtherSoWhileYou,
         ),
         const SizedBox(height: 12),
         DCheckbox(
           value: _dontShowAgain,
           onChanged: (value) => setState(() => _dontShowAgain = value ?? false),
-          title: const DLabel(child: Text("Don't show this again")),
+          title: DLabel(child: Text(context.l10n.donTShowThisAgain)),
 
           contentPadding: EdgeInsets.zero,
         ),
@@ -116,14 +116,14 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
     actions: [
       DButton(
         onPressed: () => Navigator.pop(context),
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
       ),
       DButton(
         onPressed: () => Navigator.pop(
           context,
           VoiceMeshPrivacyDecision(join: true, dontShowAgain: _dontShowAgain),
         ),
-        label: const Text('Join room'),
+        label: Text(context.l10n.joinRoom),
         variant: DButtonVariant.primary,
       ),
     ],

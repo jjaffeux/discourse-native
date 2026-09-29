@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'chat_channel_list_controller.dart';
@@ -22,9 +23,9 @@ class ChatChannelListActions extends StatelessWidget {
   final bool showFilterToggle;
 
   String get _label => switch (section) {
-    ChatChannelListSection.channels => 'Channels',
-    ChatChannelListSection.starred => 'Starred channels',
-    ChatChannelListSection.directMessages => 'Direct messages',
+    ChatChannelListSection.channels => appL10n.channels,
+    ChatChannelListSection.starred => appL10n.starredChannels,
+    ChatChannelListSection.directMessages => appL10n.directMessages,
   };
 
   Future<void> _save(BuildContext context, Future<bool> save) async {
@@ -54,11 +55,11 @@ class ChatChannelListActions extends StatelessWidget {
               key: ValueKey('chat-filter-toggle-${section.name}'),
               icon: DIcon(bypassed ? DIcons.filter : DIcons.farEye),
               tooltip: bypassed
-                  ? 'Reapply filter: $_label'
-                  : 'Show all: $_label',
+                  ? context.l10n.reapplyFilter((_label).toString())
+                  : context.l10n.showAll((_label).toString()),
               semanticLabel: bypassed
-                  ? 'Reapply filter: $_label'
-                  : 'Show all: $_label',
+                  ? context.l10n.reapplyFilter((_label).toString())
+                  : context.l10n.showAll((_label).toString()),
               variant: DButtonVariant.ghost,
               size: DButtonSize.small,
               onPressed: savingFilter
@@ -67,12 +68,16 @@ class ChatChannelListActions extends StatelessWidget {
             ),
           DDropdownMenu(
             content: DDropdownMenuContent(
-              semanticLabel: '$_label options',
+              semanticLabel: context.l10n.optionsChatchannellistactions(
+                (_label).toString(),
+              ),
               children: [
                 if (controller.errorFor(siteUrl, section) case final error?)
                   DDropdownMenuLabel(child: Text(error)),
                 if (preferences.supports(section.filterField)) ...[
-                  const DDropdownMenuLabel(child: Text('Filter')),
+                  DDropdownMenuLabel(
+                    child: Text(context.l10n.filterChatchannellistactions),
+                  ),
                   DDropdownMenuRadioGroup<ChatChannelListFilter>(
                     value: filter,
                     onChanged: savingFilter
@@ -95,7 +100,7 @@ class ChatChannelListActions extends StatelessWidget {
                 if (preferences.supports(section.sortField)) ...[
                   if (preferences.supports(section.filterField))
                     const DDropdownMenuSeparator(),
-                  const DDropdownMenuLabel(child: Text('Sort')),
+                  DDropdownMenuLabel(child: Text(context.l10n.sort)),
                   DDropdownMenuRadioGroup<ChatChannelListSort>(
                     value: sort,
                     onChanged: savingSort
@@ -120,8 +125,12 @@ class ChatChannelListActions extends StatelessWidget {
             child: DDropdownMenuTrigger(
               builder: (context, state) => DButton.iconOnly(
                 key: ValueKey('chat-list-options-${section.name}'),
-                tooltip: '$_label options',
-                semanticLabel: '$_label options',
+                tooltip: context.l10n.optionsChatchannellistactions(
+                  (_label).toString(),
+                ),
+                semanticLabel: context.l10n.optionsChatchannellistactions(
+                  (_label).toString(),
+                ),
                 icon: const DIcon(DIcons.ellipsis),
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.small,

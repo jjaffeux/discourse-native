@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
@@ -24,7 +25,7 @@ class Authenticator implements ApiCredentialReader {
     String Function()? nonceGenerator,
     PushRegistrationProvider? pushRegistrations,
     this.protocol = const UserApiKeyProtocol(),
-    this.applicationName = 'Discourse Native',
+    this._applicationName,
     Duration pushRegistrationRetryInterval = const Duration(minutes: 2),
     DateTime Function()? clock,
   }) : assert(pushRegistrationRetryInterval >= Duration.zero),
@@ -39,7 +40,8 @@ class Authenticator implements ApiCredentialReader {
 
   final SecureStore store;
   final UserApiKeyProtocol protocol;
-  final String applicationName;
+  final String? _applicationName;
+  String get applicationName => _applicationName ?? appL10n.discourseNative;
   final WebAuthLauncher _launch;
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
@@ -55,9 +57,9 @@ class Authenticator implements ApiCredentialReader {
   DateTime? _pushRegistrationUnavailableAt;
   Future<PushRegistration?>? _pendingPushRegistration;
 
-  static const _supersededConnection = UserApiAuthException(
+  static UserApiAuthException get _supersededConnection => UserApiAuthException(
     UserApiAuthFailure.cancelled,
-    'connection superseded',
+    appL10n.connectionSuperseded,
   );
 
   Future<UserApiCredentials> connect(String siteUrl) =>

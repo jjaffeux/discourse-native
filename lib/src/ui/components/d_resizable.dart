@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -667,7 +668,7 @@ class DResizableHandle extends StatefulWidget {
     super.key,
     this.withHandle = false,
     this.disabled = false,
-    this.semanticLabel = 'Resize panel',
+    this._semanticLabel,
     this.focusNode,
     this.keyboardStep = 10,
     this.disableDoubleClick = false,
@@ -696,7 +697,7 @@ class DResizableHandle extends StatefulWidget {
     super.key,
     this.withHandle = false,
     this.disabled = false,
-    this.semanticLabel = 'Resize panel',
+    this._semanticLabel,
     this.focusNode,
     this.orientation = Axis.horizontal,
     required this.value,
@@ -729,7 +730,8 @@ class DResizableHandle extends StatefulWidget {
   final double value, min, max, keyboardStep, dividerThickness;
   final double? focusedDividerThickness;
   final Axis orientation;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.resizePanel;
   final FocusNode? focusNode;
   final ValueChanged<double>? onChanged;
   final VoidCallback? onChangeEnd, onChangeStart, onReset, onToggle;
@@ -762,7 +764,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
           ? -1
           : 1);
   String _format(double v) =>
-      widget.valueFormatter?.call(v) ?? '${v.round()} pixels';
+      widget.valueFormatter?.call(v) ?? appL10n.pixels((v.round()).toString());
   @override
   void didUpdateWidget(DResizableHandle oldWidget) {
     super.didUpdateWidget(oldWidget);

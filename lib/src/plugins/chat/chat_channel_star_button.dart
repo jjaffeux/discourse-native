@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -37,8 +38,8 @@ class ChatChannelStarButton extends StatelessWidget {
             return DButton.iconOnly(
               key: const ValueKey('chat-channel-star-button'),
               tooltip: starred
-                  ? 'Remove from starred channels'
-                  : 'Add to starred channels',
+                  ? context.l10n.removeFromStarredChannels
+                  : context.l10n.addToStarredChannels,
               onPressed: busy
                   ? null
                   : () => unawaited(_change(context, chat, !starred)),

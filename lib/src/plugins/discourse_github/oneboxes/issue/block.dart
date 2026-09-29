@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -80,14 +81,18 @@ class _Info extends StatelessWidget {
         if (data.openedAt case final openedAt?)
           RelativeTimeBuilder(
             when: openedAt,
-            builder: (context, age) =>
-                Text('${data.openedVerb ?? 'Opened'} $age', style: muted),
+            builder: (context, age) => Text(
+              '${data.openedVerb ?? context.l10n.opened} $age',
+              style: muted,
+            ),
           ),
         if (data.closedAt case final closedAt?)
           RelativeTimeBuilder(
             when: closedAt,
-            builder: (context, age) =>
-                Text('${data.closedVerb ?? 'Closed'} $age', style: muted),
+            builder: (context, age) => Text(
+              '${data.closedVerb ?? context.l10n.closed} $age',
+              style: muted,
+            ),
           ),
         if (data.userLogin != null)
           GithubUser(

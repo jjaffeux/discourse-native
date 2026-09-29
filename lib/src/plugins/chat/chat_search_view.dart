@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_message_tile.dart';
@@ -104,9 +105,9 @@ class _ChatSearchViewState extends State<ChatSearchView> {
 
   Widget _results(GlobalChatSearchState state) {
     if (!state.hasQuery) {
-      return const _SearchMessage(
+      return _SearchMessage(
         icon: DIcons.magnifyingGlass,
-        text: 'Search messages across your Chat channels.',
+        text: appL10n.searchMessagesAcrossYourChatChannels,
       );
     }
     if (state.hits.isEmpty &&
@@ -115,14 +116,14 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       return const SizedBox.shrink();
     }
     if (state.phase == ChatSearchPhase.empty) {
-      return const _SearchMessage(
+      return _SearchMessage(
         icon: DIcons.magnifyingGlass,
-        text: 'No chat messages found.',
+        text: appL10n.noChatMessagesFound,
       );
     }
     if (state.phase == ChatSearchPhase.failed && state.hits.isEmpty) {
       return _SearchFailure(
-        message: state.error ?? 'Could not search Chat.',
+        message: state.error ?? appL10n.couldNotSearchChat,
         onRetry: () => _search.retryGlobal(widget.siteUrl),
       );
     }
@@ -153,7 +154,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
                   ],
                   DButton(
                     label: Text(
-                      state.error == null ? 'Load more' : 'Try again',
+                      state.error == null ? appL10n.loadMore : appL10n.tryAgain,
                     ),
                     onPressed: () => _search.loadMore(widget.siteUrl),
                   ),
@@ -191,7 +192,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       if (!mounted) return;
       DToast.show(
         context,
-        'Could not open this chat message.',
+        appL10n.couldNotOpenThisChatMessage,
         type: DToastType.error,
       );
     }
@@ -215,24 +216,24 @@ class _SearchControls extends StatelessWidget {
   final VoidCallback onClear;
   final ValueChanged<ChatSearchSort> onSort;
 
-  static const _sortOptions = [
+  static List<ChoiceMenuOption<ChatSearchSort>> get _sortOptions => [
     ChoiceMenuOption(
       value: ChatSearchSort.relevance,
-      title: 'Relevance',
-      description: 'Best matching messages first',
+      title: appL10n.relevance,
+      description: appL10n.bestMatchingMessagesFirst,
       icon: DIcons.magnifyingGlass,
     ),
     ChoiceMenuOption(
       value: ChatSearchSort.latest,
-      title: 'Latest',
-      description: 'Newest messages first',
+      title: appL10n.latest,
+      description: appL10n.newestMessagesFirst,
       icon: DIcons.farClock,
     ),
   ];
 
   String _sortLabel(ChatSearchSort sort) => switch (sort) {
-    ChatSearchSort.relevance => 'Relevance',
-    ChatSearchSort.latest => 'Latest',
+    ChatSearchSort.relevance => appL10n.relevance,
+    ChatSearchSort.latest => appL10n.latest,
   };
 
   @override
@@ -255,8 +256,8 @@ class _SearchControls extends StatelessWidget {
                     controller: controller,
                     focusNode: focusNode,
                     autofocus: true,
-                    semanticLabel: 'Search messages',
-                    hintText: 'Search messages',
+                    semanticLabel: context.l10n.searchMessages,
+                    hintText: context.l10n.searchMessages,
                     textInputAction: TextInputAction.search,
                     onChanged: onChanged,
                   ),
@@ -269,7 +270,7 @@ class _SearchControls extends StatelessWidget {
                       child: DInputGroupButton.icon(
                         onPressed: onClear,
                         icon: const DIcon(DIcons.xmark, size: 16),
-                        tooltip: 'Clear search',
+                        tooltip: context.l10n.clearSearch,
                       ),
                     ),
                 ],
@@ -277,7 +278,7 @@ class _SearchControls extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             ChoiceMenuAnchor<ChatSearchSort>(
-              title: 'Sort search results',
+              title: context.l10n.sortSearchResults,
               value: state.sort,
               options: _sortOptions,
               onSelected: onSort,
@@ -293,8 +294,10 @@ class _SearchControls extends StatelessWidget {
                       const DIcon(DIcons.chevronDown, size: 12),
                     ],
                   ),
-                  tooltip: 'Sort search results',
-                  semanticLabel: 'Sort search results by $label',
+                  tooltip: context.l10n.sortSearchResults,
+                  semanticLabel: context.l10n.sortSearchResultsBy(
+                    (label).toString(),
+                  ),
                   variant: DButtonVariant.ghost,
                   onPressed: openMenu,
                 );
@@ -326,7 +329,7 @@ class _ChatSearchResult extends StatelessWidget {
     final label = [
       '${hit.message.author.displayName}:',
       if (preview.isNotEmpty) preview,
-      if (threadTitle != null) 'in thread $threadTitle',
+      if (threadTitle != null) context.l10n.inThread((threadTitle).toString()),
     ].join(' ');
     return Semantics(
       button: true,
@@ -407,7 +410,7 @@ class _SearchFailure extends StatelessWidget {
           DEmptyHeader(children: [DEmptyTitle(message)]),
           DEmptyContent(
             children: [
-              DButton(label: const Text('Try again'), onPressed: onRetry),
+              DButton(label: Text(context.l10n.tryAgain), onPressed: onRetry),
             ],
           ),
         ],

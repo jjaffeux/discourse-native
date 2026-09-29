@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 import 'ai_generation_write.dart';
 
@@ -24,8 +25,6 @@ final class AiProofreadingApi {
     for (final suggestion in jsonArray(body['suggestions'])) {
       if (jsonText(suggestion) case final text?) return text;
     }
-    throw const FormatException(
-      'Proofreading response contained no suggestion.',
-    );
+    throw FormatException(appL10n.proofreadingResponseContainedNoSuggestion);
   }
 }

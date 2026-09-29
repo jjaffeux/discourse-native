@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
@@ -83,7 +84,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
     try {
       await widget.onSave(_theme(name));
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not save theme. Try again.');
+      if (mounted) setState(() => _error = appL10n.couldNotSaveThemeTryAgain);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -100,7 +101,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           children: [
             DButton(
               key: const ValueKey('all-themes'),
-              label: const Text('All themes'),
+              label: Text(context.l10n.allThemes),
               icon: const DIcon(DIcons.chevronLeft, size: 11),
               variant: DButtonVariant.inline,
               size: DButtonSize.small,
@@ -118,8 +119,8 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         DInput(
           key: const ValueKey('theme-name'),
           controller: _name,
-          labelText: 'Name',
-          hintText: 'Name this theme',
+          labelText: context.l10n.name,
+          hintText: context.l10n.nameThisTheme,
           maxLength: 48,
           readOnly: _saving,
           onChanged: (_) => setState(() {}),
@@ -133,32 +134,32 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
                 .clamp(1, 3);
             final fields = <(String, Color, ValueChanged<Color>)>[
               (
-                'Background',
+                context.l10n.background,
                 palette.secondary,
                 (c) => _palette = palette.copyWith(secondary: c),
               ),
               (
-                'Text',
+                context.l10n.text,
                 palette.primary,
                 (c) => _palette = palette.copyWith(primary: c),
               ),
               (
-                'Accent',
+                context.l10n.accent,
                 palette.tertiary,
                 (c) => _palette = palette.copyWith(tertiary: c),
               ),
               (
-                'Highlight',
+                context.l10n.highlight,
                 palette.quaternary,
                 (c) => _palette = palette.copyWith(quaternary: c),
               ),
               (
-                'Success',
+                context.l10n.success,
                 palette.success,
                 (c) => _palette = palette.copyWith(success: c),
               ),
               (
-                'Attention',
+                context.l10n.attention,
                 palette.danger,
                 (c) => _palette = palette.copyWith(danger: c),
               ),
@@ -183,7 +184,7 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
         ),
         DField(
           children: [
-            const DFieldLabel(child: Text('Sidebar')),
+            DFieldLabel(child: Text(context.l10n.sidebar)),
             DToggleGroup<bool>(
               key: const ValueKey('theme-sidebar'),
               values: [palette.darkerSidebars],
@@ -191,15 +192,18 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               expanded: true,
               inset: true,
               allowEmptySelection: false,
-              semanticLabel: 'Sidebar',
+              semanticLabel: context.l10n.sidebar,
               onChanged: (values) {
                 if (values.isNotEmpty) {
                   _palette = palette.copyWith(darkerSidebars: values.first);
                 }
               },
-              items: const [
-                DToggleGroupItem(value: false, child: Text('Neutral')),
-                DToggleGroupItem(value: true, child: Text('Darker')),
+              items: [
+                DToggleGroupItem(
+                  value: false,
+                  child: Text(context.l10n.neutral),
+                ),
+                DToggleGroupItem(value: true, child: Text(context.l10n.darker)),
               ],
             ),
           ],
@@ -223,10 +227,10 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
           spacing: DSpacing.controlGap,
           children: [
             if (widget.creating)
-              const Expanded(
+              Expanded(
                 child: DFieldDescription(
                   child: Text(
-                    'Starts from the theme in use. Name it to keep it.',
+                    context.l10n.startsFromTheThemeInUseNameItToKeepIt,
                   ),
                 ),
               )
@@ -234,9 +238,13 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               const Spacer(),
             DButton(
               key: const ValueKey('theme-save'),
-              label: Text(widget.creating ? 'Create theme' : 'Save theme'),
+              label: Text(
+                widget.creating
+                    ? context.l10n.createTheme
+                    : context.l10n.saveTheme,
+              ),
               loading: _saving,
-              loadingSemanticLabel: 'Saving theme',
+              loadingSemanticLabel: context.l10n.savingTheme,
               onPressed: _name.text.trim().isEmpty ? null : _save,
             ),
           ],
@@ -293,25 +301,27 @@ class _ColorFieldState extends State<_ColorField> {
       DColorPicker.inline(
         size: DColorPickerSize.compact,
         value: widget.color,
-        semanticLabel: '${widget.label} colour palette',
+        semanticLabel: context.l10n.colourPalette((widget.label).toString()),
         onChanged: _pick,
       ),
       DInput(
         filled: true,
         key: ValueKey('theme-color-${widget.label.toLowerCase()}'),
         controller: _text,
-        semanticLabel: '${widget.label} hex colour',
+        semanticLabel: context.l10n.hexColour((widget.label).toString()),
         prefix: DColorPicker(
           size: DColorPickerSize.compact,
           value: widget.color,
-          semanticLabel: 'Choose ${widget.label.toLowerCase()} colour',
+          semanticLabel: context.l10n.chooseColour(
+            (widget.label.toLowerCase()).toString(),
+          ),
           onChanged: _pick,
         ),
         textDirection: TextDirection.ltr,
         autocorrect: false,
         enableSuggestions: false,
         maxLength: 7,
-        errorText: _invalid ? 'Use #RRGGBB.' : null,
+        errorText: _invalid ? context.l10n.useRRGGBB : null,
         onChanged: (value) {
           final parsed = ForumTheme.parseHex(value.trim());
           setState(() => _invalid = parsed == null);

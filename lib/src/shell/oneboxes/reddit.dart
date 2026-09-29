@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -105,7 +106,11 @@ class RedditOneboxData {
         host: 'www.reddit.com',
         pathSegments: segments,
       ),
-      title: 'Reddit ${comment ? 'comment' : 'post'} · ${path[0]}/${path[1]}',
+      title: appL10n.reddit(
+        (comment).toString(),
+        (path[0]).toString(),
+        (path[1]).toString(),
+      ),
       height: height,
     );
   }
@@ -128,7 +133,7 @@ Widget? redditOneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
             externalUri: data.linkUri,
             title: data.title,
             height: data.height,
-            openLabel: 'Open on Reddit',
+            openLabel: appL10n.openOnReddit,
             resizeMessageType: 'resize.embed',
             canNavigate: data.allowsNavigation,
             onOpenLink: (uri) =>

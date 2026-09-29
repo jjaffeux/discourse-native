@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -175,7 +176,7 @@ final class _EventCalendarState extends State<EventCalendar> {
       ),
       EventCalendarView.schedule =>
         kalender.ScheduleViewConfiguration.paginated(
-          name: 'Schedule',
+          name: appL10n.schedule,
           initialDateTime: date,
           dateResolver: (_) =>
               kalender.FloatingDateTime.fromDateTime(widget.page.date),
@@ -190,7 +191,7 @@ final class _EventCalendarState extends State<EventCalendar> {
         ),
       // Core's Year button is FullCalendar listYear: an agenda for that year.
       EventCalendarView.year => kalender.ScheduleViewConfiguration.continuous(
-        name: 'Year',
+        name: appL10n.year,
         initialDateTime: _inCalendar(_days.start),
         dateResolver: (_) =>
             kalender.FloatingDateTime.fromDateTime(_days.start),
@@ -329,8 +330,13 @@ final class _EventCalendarState extends State<EventCalendar> {
         direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
         size: 11,
       ),
-      tooltip:
-          '${direction < 0 ? 'Previous' : 'Next'} ${_schedule ? 'month' : _view.name}',
+      tooltip: context.l10n.messageEventcalendar(
+        (direction < 0).toString(),
+        (_schedule).toString(),
+        ((direction < 0) ? (context.l10n.previous) : '').toString(),
+        ((!(_schedule)) ? (_view.name) : '').toString(),
+        ((!(direction < 0)) ? (context.l10n.next) : '').toString(),
+      ),
       onPressed:
           widget.page.move(direction).date.year >= 1900 &&
               widget.page.move(direction).date.year < 2200
@@ -346,7 +352,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           Semantics(
             header: true,
             child: Text(
-              'Events',
+              context.l10n.events,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: tokens.foreground,
                 fontSize: DiscourseTypography.xxl,
@@ -371,9 +377,11 @@ final class _EventCalendarState extends State<EventCalendar> {
                       runSpacing: 8,
                       children: [
                         _select(
-                          'Event filter',
+                          context.l10n.eventFilter,
                           const [false, true],
-                          (mine) => mine ? 'My events' : 'All events',
+                          (mine) => mine
+                              ? context.l10n.myEvents
+                              : context.l10n.allEvents,
                           widget.mine,
                           widget.onMineChanged,
                           lead: true,
@@ -381,7 +389,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                         // A page in a view the select does not offer still
                         // names that view on the trigger.
                         _select(
-                          'Calendar view',
+                          context.l10n.calendarView,
                           const [
                             EventCalendarView.month,
                             EventCalendarView.schedule,
@@ -396,7 +404,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                   DButton(
                     variant: DButtonVariant.outline,
                     size: DControlSize.chip,
-                    label: const Text('Today'),
+                    label: Text(context.l10n.todayDcalendarevents),
                     onPressed: _today,
                   ),
                 ],
@@ -502,7 +510,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             variant: DButtonVariant.ghost,
             size: DButtonSize.small,
             label: Text(
-              '+$numberOfHiddenRows more',
+              appL10n.moreEventcalendar((numberOfHiddenRows).toString()),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -667,7 +675,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           : null,
       today: today,
       time: event.isAllDay
-          ? 'All day'
+          ? context.l10n.allDay
           : _use24HourClock
           ? _time(event.localStart)
           : (event.localStart.minute == 0
@@ -728,7 +736,7 @@ final class _EventCalendarState extends State<EventCalendar> {
               ],
             ),
             if (events.isEmpty)
-              const Text('No events on this day.')
+              Text(appL10n.noEventsOnThisDay)
             else
               SizedBox(
                 height: math.min(420, MediaQuery.sizeOf(context).height * .5),
@@ -767,7 +775,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                 DButton(
                   variant: DButtonVariant.ghost,
                   onPressed: dialog.close,
-                  label: const Text('Close'),
+                  label: Text(appL10n.close),
                 ),
               ],
             ),
@@ -778,7 +786,7 @@ final class _EventCalendarState extends State<EventCalendar> {
   }
 
   String _timeLabel(EventCalendarEntry event) => event.isAllDay
-      ? 'All day'
+      ? appL10n.allDay
       : '${_time(event.localStart)} – ${_time(event.localEnd)}';
 
   Widget _tile(
@@ -821,8 +829,12 @@ final class _EventCalendarState extends State<EventCalendar> {
                     children: [
                       if (!event.isAllDay && !compact)
                         TextSpan(
-                          text:
-                              '${timeline ? _timeLabel(event) : _time(event.localStart)} ',
+                          text: context.l10n.messageEventcalendarValue(
+                            (timeline).toString(),
+                            ((timeline) ? (_timeLabel(event)) : '').toString(),
+                            ((!(timeline)) ? (_time(event.localStart)) : '')
+                                .toString(),
+                          ),
                           style: const TextStyle(fontWeight: FontWeight.normal),
                         ),
                       if (event.event.recurring && !compact)

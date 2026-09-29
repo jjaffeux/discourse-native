@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -18,12 +19,12 @@ class ComposerTagRemovalNotice extends StatelessWidget {
     constraints: const BoxConstraints(maxWidth: 360),
     child: DAlert(
       icon: const DIcon(DIcons.tag),
-      title: const DAlertTitle(child: Text('Some tags were removed')),
+      title: DAlertTitle(child: Text(context.l10n.someTagsWereRemoved)),
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton.iconOnly(
           icon: const DIcon(DIcons.xmark),
-          tooltip: 'Dismiss tag notice',
+          tooltip: context.l10n.dismissTagNotice,
           variant: DButtonVariant.ghost,
           size: DButtonSize.regular,
           onPressed: onDismiss,

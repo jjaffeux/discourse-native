@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/invites_api.dart';
@@ -113,7 +114,7 @@ final class InvitesController extends FrameSafeNotifier {
     } catch (exception, stackTrace) {
       if (!current()) return;
       _report(exception, stackTrace, 'invites.load');
-      error = "Couldn't load invites. Please try again.";
+      error = appL10n.couldnTLoadInvitesPleaseTryAgain;
     } finally {
       if (current()) {
         loading = false;
@@ -128,7 +129,7 @@ final class InvitesController extends FrameSafeNotifier {
     }
     return _write(
       'invites.create',
-      draft.sendEmail ? 'Invitation email sent.' : 'Invite link created.',
+      draft.sendEmail ? appL10n.invitationEmailSent : appL10n.inviteLinkCreated,
       (auth) => api.create(
         siteUrl: instance.url,
         apiKey: auth.apiKey,
@@ -140,7 +141,7 @@ final class InvitesController extends FrameSafeNotifier {
 
   Future<bool?> remove(DiscourseInvite invite) async {
     if (!invite.canDelete || !invites.contains(invite)) return false;
-    return _write('invites.remove', 'Invite removed.', (auth) async {
+    return _write('invites.remove', appL10n.inviteRemoved, (auth) async {
       await api.remove(
         siteUrl: instance.url,
         apiKey: auth.apiKey,
@@ -158,7 +159,7 @@ final class InvitesController extends FrameSafeNotifier {
         !instance.config.invites.allowEmail) {
       return false;
     }
-    return _write('invites.resend', 'Invitation email sent.', (auth) async {
+    return _write('invites.resend', appL10n.invitationEmailSent, (auth) async {
       await api.resend(
         siteUrl: instance.url,
         apiKey: auth.apiKey,
@@ -192,7 +193,7 @@ final class InvitesController extends FrameSafeNotifier {
       _report(exception, stackTrace, operation);
       actionError = exception is WriteException
           ? exception.message
-          : "Couldn't save the invite. Please try again.";
+          : appL10n.couldnTSaveTheInvitePleaseTryAgain;
       return null;
     } finally {
       if (isCurrent) {

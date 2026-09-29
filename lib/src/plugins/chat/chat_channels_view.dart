@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
@@ -64,8 +65,8 @@ class ChatChannelsView extends StatelessWidget {
                   .publicChannelsEnabled =>
             _ChannelListListAction(
               key: const ValueKey('chat-channel-list-browse-action'),
-              label: 'Browse',
-              tooltip: 'Browse channels',
+              label: context.l10n.browse,
+              tooltip: context.l10n.browseChannels,
               icon: DIcons.plus,
               onPressed: shell.openBrowseChannels,
             ),
@@ -74,8 +75,8 @@ class ChatChannelsView extends StatelessWidget {
                   shell.currentUser?.canDirectMessage == true =>
             _ChannelListListAction(
               key: const ValueKey('chat-channel-list-new-message-action'),
-              label: 'New',
-              tooltip: 'New message',
+              label: context.l10n.messageNew,
+              tooltip: context.l10n.newMessage,
               icon: DIcons.plus,
               onPressed: () => unawaited(
                 showChatNewDirectMessageDialog(
@@ -108,10 +109,12 @@ class ChatChannelsView extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 switch (kind) {
-                                  ChatChannelListKind.channels => 'Channels',
-                                  ChatChannelListKind.starred => 'Starred',
+                                  ChatChannelListKind.channels =>
+                                    context.l10n.channels,
+                                  ChatChannelListKind.starred =>
+                                    context.l10n.starred,
                                   ChatChannelListKind.directMessages =>
-                                    'Direct messages',
+                                    context.l10n.directMessages,
                                 },
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -187,14 +190,16 @@ class ChatChannelsView extends StatelessWidget {
                             padding: const EdgeInsets.all(24),
                             child: Text(
                               filtered
-                                  ? 'No channels match this filter.'
+                                  ? context.l10n.noChannelsMatchThisFilter
                                   : switch (kind) {
                                       ChatChannelListKind.channels =>
-                                        'You have not joined any channels yet.',
+                                        context
+                                            .l10n
+                                            .youHaveNotJoinedAnyChannelsYet,
                                       ChatChannelListKind.starred =>
-                                        'You have no starred channels.',
+                                        context.l10n.youHaveNoStarredChannels,
                                       ChatChannelListKind.directMessages =>
-                                        'You have no direct messages yet.',
+                                        context.l10n.youHaveNoDirectMessagesYet,
                                     },
                               textAlign: TextAlign.center,
                             ),
@@ -239,7 +244,7 @@ class _ChatChannelListLoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
     key: const ValueKey('chat-sidebar-loading-skeleton'),
-    semanticsLabel: 'Loading chat channels',
+    semanticsLabel: context.l10n.loadingChatChannels,
     color: skeletonFill(context),
     expand: true,
     child: ListView(
@@ -330,7 +335,7 @@ class _ChannelListChannelRow extends StatelessWidget {
     final at = _channelActivityAt(channel);
     final preview =
         channel.lastMessagePreview ??
-        (channel.lastMessageId == null ? 'No messages yet' : '');
+        (channel.lastMessageId == null ? context.l10n.noMessagesYet : '');
     return ChatChannelMenu(
       siteUrl: siteUrl,
       channelId: channel.id,
@@ -338,7 +343,7 @@ class _ChannelListChannelRow extends StatelessWidget {
         key: ValueKey('chat-channel-list-channel-${channel.id}'),
         size: DItemSize.sm,
         onPressed: onTap,
-        semanticLabel: badge.isVisible ? 'Unread conversation' : null,
+        semanticLabel: badge.isVisible ? context.l10n.unreadConversation : null,
         children: [
           DItemMedia(
             variant: DItemMediaVariant.avatar,
@@ -497,7 +502,7 @@ class _ChannelListBadge extends StatelessWidget {
       );
     }
     return DBadge(
-      semanticLabel: '${badge.count} urgent notifications',
+      semanticLabel: context.l10n.urgentNotifications((badge.count).toString()),
       backgroundColor: Theme.of(context).discourse.success,
       foregroundColor: Theme.of(context).discourse.notificationForeground,
       child: Text(badge.count > 99 ? '99+' : '${badge.count}'),

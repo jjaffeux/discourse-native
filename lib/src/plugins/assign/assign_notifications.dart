@@ -1,27 +1,31 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'assign_icons.dart';
 
 abstract final class AssignNotificationTypes {
   static const assigned = NotificationWireType(34, 'assigned');
 }
 
-const assignNotificationFeed = PluginNotificationFeedSource(
-  id: PluginNotificationFeedId(
-    owner: PluginId('discourse-assign'),
-    name: 'assign-list',
-  ),
-  filterByTypes: [NotificationTypeName('assigned')],
-  reconnectMessage: 'Reconnect to this forum to see assignment notifications.',
-  failureMessage: "Couldn't load assignment notifications from this forum.",
-  emptyMessage: 'You don’t have any assignments yet.',
-  compare: _compareAssignNotifications,
-  dismissal: PluginNotificationFeedDismissal(
-    notificationTypes: [AssignNotificationTypes.assigned],
-    buttonLabel: 'Dismiss',
-    buttonTooltip: 'Mark all unread assign notifications as read',
-    confirmationMessage: _assignDismissConfirmation,
-  ),
-);
+PluginNotificationFeedSource get assignNotificationFeed =>
+    PluginNotificationFeedSource(
+      id: const PluginNotificationFeedId(
+        owner: PluginId('discourse-assign'),
+        name: 'assign-list',
+      ),
+      filterByTypes: const [NotificationTypeName('assigned')],
+      reconnectMessage:
+          appL10n.reconnectToThisForumToSeeAssignmentNotifications,
+      failureMessage: appL10n.couldnTLoadAssignmentNotificationsFromThisForum,
+      emptyMessage: appL10n.youDonTHaveAnyAssignmentsYet,
+      compare: _compareAssignNotifications,
+      dismissal: PluginNotificationFeedDismissal(
+        notificationTypes: const [AssignNotificationTypes.assigned],
+        buttonLabel: appL10n.dismiss,
+        buttonTooltip: appL10n.markAllUnreadAssignNotificationsAsRead,
+        confirmationMessage: _assignDismissConfirmation,
+      ),
+    );
 
 const assignNotificationTypes = <PluginNotificationType>[
   PluginNotificationType(
@@ -50,7 +54,7 @@ ResolvedNotification? _decodeAssignedNotification(
       ? notification.title
       : payloadTitle is String && payloadTitle.isNotEmpty
       ? payloadTitle
-      : 'a topic';
+      : appL10n.aTopic;
   final isGroup =
       data['message'] == 'discourse_assign.assign_group_notification';
   final postNumber = notification.postNumber;
@@ -60,7 +64,9 @@ ResolvedNotification? _decodeAssignedNotification(
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: isGroup ? AssignIcons.groupPlus : DIcons.userPlus,
-      actor: isGroup ? jsonText(data['display_username']) ?? 'a group' : null,
+      actor: isGroup
+          ? jsonText(data['display_username']) ?? appL10n.aGroup
+          : null,
       phrase: description,
     ),
     path: notificationTopicPath(notification),
@@ -84,7 +90,10 @@ int _compareAssignNotifications(
 
 String _assignDismissConfirmation(int unreadCount) {
   final notifications = unreadCount == 1 ? 'notification' : 'notifications';
-  return 'Are you sure? You have $unreadCount unread assign $notifications.';
+  return appL10n.areYouSureYouHaveUnreadAssign(
+    (unreadCount).toString(),
+    (notifications).toString(),
+  );
 }
 
 int _compareDescending(DateTime? left, DateTime? right) {

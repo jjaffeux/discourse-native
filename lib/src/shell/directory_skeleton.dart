@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'skeleton_fill.dart';
@@ -22,7 +23,9 @@ class DirectorySkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DSkeletonRegion(
-    semanticsLabel: 'Loading ${kind.name}',
+    semanticsLabel: context.l10n.loadingDirectoryskeleton(
+      (kind.name).toString(),
+    ),
     color: skeletonFill(context),
     expand: true,
     child: LayoutBuilder(

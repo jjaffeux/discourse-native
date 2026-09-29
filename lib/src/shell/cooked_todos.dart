@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -66,7 +67,7 @@ Widget? cookedTodoWidgetBuilder(
             : DCheckboxSize.standard,
         value: box.classes.contains('checked'),
         readOnly: !interactive,
-        semanticLabel: label.isEmpty ? 'To-do' : label,
+        semanticLabel: label.isEmpty ? appL10n.toDo : label,
         onChanged: (checked) {
           if (interactive) onToggle(target, checked == true);
         },
@@ -75,7 +76,7 @@ Widget? cookedTodoWidgetBuilder(
   }
 
   if (_isCheckbox(element)) {
-    return InlineCustomWidget(child: checkbox(element, 'To-do'));
+    return InlineCustomWidget(child: checkbox(element, appL10n.toDo));
   }
   if (cookedTodoListMarker(element) case final marker?) {
     final copy = element.clone(true);

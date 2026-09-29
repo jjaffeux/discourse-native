@@ -218,7 +218,7 @@ class _LoadMoreRow extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: DButton(
         key: const ValueKey('group-load-more'),
-        label: const Text('Load more'),
+        label: Text(context.l10n.loadMore),
         onPressed: loading ? null : onPressed,
       ),
     ),
@@ -294,18 +294,18 @@ String _fieldLabel(String key) {
 }
 
 String _levelLabel(int value) => switch (value) {
-  0 => 'Everyone',
-  1 => 'Logged-in users',
-  2 => 'Group members',
-  3 => 'Group owners',
-  4 => 'Staff',
-  99 => 'Nobody',
-  _ => 'Level $value',
+  0 => appL10n.everyone,
+  1 => appL10n.loggedInUsers,
+  2 => appL10n.groupMembers,
+  3 => appL10n.groupOwners,
+  4 => appL10n.staff,
+  99 => appL10n.nobody,
+  _ => appL10n.level((value).toString()),
 };
 
 String _humanizeLog(String action) {
   final words = action.replaceAll('_', ' ').trim();
-  if (words.isEmpty) return 'Group changed';
+  if (words.isEmpty) return appL10n.groupChanged;
   return '${words[0].toUpperCase()}${words.substring(1)}';
 }
 

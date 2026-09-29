@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:ui' show AppExitResponse, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/gestures.dart'
@@ -692,7 +693,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     required ThemeMode themeMode,
   }) => MaterialApp(
     navigatorKey: _navigatorKey,
-    title: 'Discourse',
+    onGenerateTitle: (context) => context.l10n.discourse,
     debugShowCheckedModeBanner: false,
     theme: theme,
     darkTheme: darkTheme,
@@ -701,8 +702,12 @@ class _DiscourseAppState extends State<DiscourseApp>
     // every theme-dependent subtree rebuild on each tick, including cooked
     // HTML.
     themeAnimationStyle: AnimationStyle.noAnimation,
-    localizationsDelegates: RelativeTimeLocalizations.localizationsDelegates,
-    supportedLocales: RelativeTimeLocalizations.supportedLocales,
+    localizationsDelegates: const [
+      ...AppLocalizations.localizationsDelegates,
+      RelativeTimeLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    localeListResolutionCallback: resolveAppLocale,
     builder: (context, child) => DFocusHighlight(
       child: DToaster(
         key: ObjectKey(_controller),

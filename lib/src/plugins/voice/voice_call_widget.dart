@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'voice_call_port.dart';
@@ -53,7 +54,7 @@ class VoiceCallWidget extends StatelessWidget {
                               children: [
                                 if (call.recording) ...[
                                   DTooltip(
-                                    message: 'Recording',
+                                    message: context.l10n.recording,
                                     child: DIcon(
                                       DIcons.circle,
                                       size: 10,
@@ -74,7 +75,10 @@ class VoiceCallWidget extends StatelessWidget {
                               ],
                             ),
                             Text(
-                              '${call.siteName} · ${call.participantCount} present',
+                              context.l10n.present(
+                                (call.siteName).toString(),
+                                (call.participantCount).toString(),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.labelSmall,
@@ -84,14 +88,18 @@ class VoiceCallWidget extends StatelessWidget {
                       ),
                     ),
                     DTooltip(
-                      message: call.muted ? 'Unmute' : 'Mute',
+                      message: call.muted
+                          ? context.l10n.unmute
+                          : context.l10n.mute,
                       labelTrigger: true,
                       excludeFromSemantics: true,
                       child: DToggle.iconOnly(
                         pressed: call.muted,
                         onPressedChanged: (_) =>
                             port.dispatch(VoiceCallAction.toggleMuted),
-                        semanticLabel: call.muted ? 'Unmute' : 'Mute',
+                        semanticLabel: call.muted
+                            ? context.l10n.unmute
+                            : context.l10n.mute,
                         icon: DIcon(
                           call.muted
                               ? DIcons.microphoneSlash
@@ -103,7 +111,7 @@ class VoiceCallWidget extends StatelessWidget {
                     DButton.iconOnly(
                       onPressed: () => port.dispatch(VoiceCallAction.leave),
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Leave room',
+                      tooltip: context.l10n.leaveRoom,
                       icon: DIcon(
                         DIcons.phoneSlash,
                         color: Theme.of(context).colorScheme.error,

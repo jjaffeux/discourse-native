@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -88,10 +89,10 @@ final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
   final ComposerController composer;
 
   @override
-  ComposerSyntaxKind get kind => const ComposerSyntaxKind(
-    owner: PluginId('core'),
+  ComposerSyntaxKind get kind => ComposerSyntaxKind(
+    owner: const PluginId('core'),
     name: 'upload',
-    label: 'Upload',
+    label: appL10n.upload,
   );
 
   @override

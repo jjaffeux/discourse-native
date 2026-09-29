@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -176,7 +177,7 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
     final presentation = _presentation;
     final room = presentation.room;
     if (room == null) {
-      return const Center(child: Text('This voice room is unavailable.'));
+      return Center(child: Text(context.l10n.thisVoiceRoomIsUnavailable));
     }
     return Focus(
       autofocus: true,
@@ -306,7 +307,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     final controller = widget.controller;
     final room = widget.room;
     if (room == null) {
-      return const Center(child: Text('This voice room is unavailable.'));
+      return Center(child: Text(context.l10n.thisVoiceRoomIsUnavailable));
     }
     final active = widget.call;
     // Leaving releases the call's media before the server confirms the leave,
@@ -329,7 +330,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
             actions: [
               DButton(
                 onPressed: () => controller.dismissCallError(siteUrl),
-                label: const Text('Dismiss'),
+                label: Text(context.l10n.dismiss),
                 variant: DButtonVariant.ghost,
               ),
             ],
@@ -418,7 +419,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                               widget.meshPrivacyWarningEnabled,
                         ),
                         icon: const DIcon(DIcons.microphoneLines),
-                        label: const Text('Join room'),
+                        label: Text(context.l10n.joinRoom),
                         variant: DButtonVariant.primary,
                       ),
                     ],
@@ -475,7 +476,7 @@ class _RingingTile extends StatelessWidget {
     final theme = Theme.of(context);
     final user = entry.user;
     return Semantics(
-      label: 'Calling ${user.name ?? user.username}',
+      label: context.l10n.calling((user.name ?? user.username).toString()),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerLow,
@@ -508,7 +509,9 @@ class _RingingTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Calling ${user.name ?? user.username}…',
+                  context.l10n.callingVoiceroomview(
+                    (user.name ?? user.username).toString(),
+                  ),
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -532,8 +535,8 @@ class _RecordingBadge extends StatelessWidget {
     final startedBy = recording.startedByUsername;
     return DTooltip(
       message: startedBy == null
-          ? 'This call is being recorded'
-          : 'Recording started by @$startedBy',
+          ? context.l10n.thisCallIsBeingRecorded
+          : context.l10n.recordingStartedBy((startedBy).toString()),
       child: Container(
         width: double.infinity,
         color: theme.colorScheme.errorContainer,
@@ -543,7 +546,7 @@ class _RecordingBadge extends StatelessWidget {
             DIcon(DIcons.circle, size: 12, color: theme.colorScheme.error),
             const SizedBox(width: 8),
             Text(
-              'Recording',
+              context.l10n.recording,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
               ),
@@ -570,7 +573,7 @@ class _EmptyRoom extends StatelessWidget {
                 variant: DEmptyMediaVariant.icon,
                 child: DIcon(DIcons.microphoneLines),
               ),
-              DEmptyTitle('Nobody is in ${room.name} yet.'),
+              DEmptyTitle(context.l10n.nobodyIsInYet((room.name).toString())),
               // Preserve cooked markup ownership, including links and embedded content.
               if (room.cookedDescription case final cooked?)
                 DEmptyDescription.child(child: CookedHtml(html: cooked))
@@ -670,7 +673,7 @@ class _ParticipantTileState extends State<_ParticipantTile> {
         participant.name ?? participant.username,
         if (speaking) 'speaking',
         if (participant.muted) 'muted',
-        if (participant.handRaisedAt != null) 'hand raised',
+        if (participant.handRaisedAt != null) context.l10n.handRaised,
       ].join(', '),
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -780,43 +783,43 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                         explicitChildNodes: true,
                         child: DDropdownMenu(
                           content: DDropdownMenuContent(
-                            semanticLabel: 'Participant actions',
+                            semanticLabel: context.l10n.participantActions,
                             width: 280,
                             children: [
                               DDropdownMenuItem(
                                 onPressed: () => onSelect('volume'),
-                                child: const Text('Local volume'),
+                                child: Text(context.l10n.localVolume),
                               ),
                               DDropdownMenuItem(
                                 onPressed: () => onSelect('flag'),
-                                child: const Text('Notify moderators'),
+                                child: Text(context.l10n.notifyModerators),
                               ),
                               if (stageRoleChange case final role?)
                                 DDropdownMenuItem(
                                   onPressed: () => onSelect('role'),
                                   child: Text(
                                     role == VoiceRole.speaker
-                                        ? 'Make speaker'
-                                        : 'Move to listeners',
+                                        ? context.l10n.makeSpeaker
+                                        : context.l10n.moveToListeners,
                                   ),
                                 ),
                               if (canManage && participant.handRaisedAt != null)
                                 DDropdownMenuItem(
                                   onPressed: () => onSelect('dismiss'),
-                                  child: const Text('Dismiss raised hand'),
+                                  child: Text(context.l10n.dismissRaisedHand),
                                 ),
                               if (canKick)
                                 DDropdownMenuItem(
                                   onPressed: () => onSelect('kick'),
                                   variant: DDropdownMenuItemVariant.destructive,
-                                  child: const Text('Remove from room'),
+                                  child: Text(context.l10n.removeFromRoom),
                                 ),
                             ],
                           ),
                           child: DDropdownMenuTrigger(
                             builder: (triggerContext, state) =>
                                 DButton.iconOnly(
-                                  tooltip: 'Participant actions',
+                                  tooltip: context.l10n.participantActions,
                                   variant: DButtonVariant.secondary,
                                   icon: const DIcon(DIcons.ellipsis, size: 16),
                                   focusNode: state.focusNode,
@@ -885,27 +888,29 @@ class _CallControls extends StatelessWidget {
       children: [
         if (canPublish)
           VoiceToolbarControl(
-            label: call.muted ? 'Unmute' : 'Mute',
+            label: call.muted ? context.l10n.unmute : context.l10n.mute,
             icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
             selected: call.muted,
             onPressed: () => controller.setMuted(!call.muted),
           ),
         VoiceToolbarControl(
-          label: call.deafened ? 'Listen' : 'Deafen',
+          label: call.deafened ? context.l10n.listen : context.l10n.deafen,
           icon: DIcons.earListen,
           selected: call.deafened,
           onPressed: () => controller.setDeafened(!call.deafened),
         ),
         if (canPublishVideo)
           VoiceToolbarControl(
-            label: cameraOn ? 'Camera off' : 'Camera on',
+            label: cameraOn ? context.l10n.cameraOff : context.l10n.cameraOn,
             icon: cameraOn ? DIcons.videoSlash : DIcons.video,
             selected: cameraOn,
             onPressed: () => controller.setCameraEnabled(!cameraOn),
           ),
         if (canShare)
           VoiceToolbarControl(
-            label: call.screenSharing ? 'Stop sharing' : 'Share screen',
+            label: call.screenSharing
+                ? context.l10n.stopSharing
+                : context.l10n.shareScreen,
             icon: DIcons.display,
             selected: call.screenSharing,
             onPressed: () => controller.setScreenSharing(!call.screenSharing),
@@ -913,7 +918,9 @@ class _CallControls extends StatelessWidget {
         if (call.room.type == VoiceRoomType.stage &&
             role == VoiceRole.participant)
           VoiceToolbarControl(
-            label: me?.handRaisedAt == null ? 'Raise hand' : 'Lower hand',
+            label: me?.handRaisedAt == null
+                ? context.l10n.raiseHand
+                : context.l10n.lowerHand,
             icon: DIcons.hand,
             selected: me?.handRaisedAt != null,
             onPressed: () =>
@@ -926,7 +933,7 @@ class _CallControls extends StatelessWidget {
         ),
         if (call.room.canInvite)
           VoiceToolbarControl(
-            label: 'Invite people',
+            label: context.l10n.invitePeople,
             icon: DIcons.userPlus,
             selected: null,
             onPressed: () => _showVoiceInvite(
@@ -939,7 +946,7 @@ class _CallControls extends StatelessWidget {
           ),
         if (call.room.chatAvailable)
           VoiceToolbarControl(
-            label: 'Room chat',
+            label: context.l10n.roomChat,
             icon: DIcons.comment,
             selected: null,
             onPressed: () => _showVoiceChat(
@@ -954,8 +961,8 @@ class _CallControls extends StatelessWidget {
             recordingEnabled)
           VoiceToolbarControl(
             label: call.room.recording?.active == true
-                ? 'Stop recording'
-                : 'Start recording',
+                ? context.l10n.stopRecording
+                : context.l10n.startRecording,
             icon: DIcons.circle,
             selected: call.room.recording?.active == true,
             onPressed: () => _confirmRecording(
@@ -966,7 +973,7 @@ class _CallControls extends StatelessWidget {
             ),
           ),
         VoiceToolbarControl(
-          label: 'Media settings',
+          label: context.l10n.mediaSettings,
           icon: DIcons.gear,
           selected: null,
           onPressed: () => _showMediaSettings(
@@ -977,7 +984,7 @@ class _CallControls extends StatelessWidget {
         ),
         if (call.room.canManage)
           VoiceToolbarControl(
-            label: 'Edit room',
+            label: context.l10n.editRoom,
             icon: DIcons.gear,
             selected: null,
             onPressed: () => showVoiceRoomEditor(
@@ -993,7 +1000,7 @@ class _CallControls extends StatelessWidget {
           ),
         if (call.room.canManage)
           VoiceToolbarControl(
-            label: 'Manage members',
+            label: context.l10n.manageMembers,
             icon: DIcons.users,
             selected: null,
             onPressed: () => _showVoiceMembers(
@@ -1006,7 +1013,7 @@ class _CallControls extends StatelessWidget {
         DButton(
           onPressed: controller.leave,
           icon: const DIcon(DIcons.phoneSlash),
-          label: const Text('Leave room'),
+          label: Text(context.l10n.leaveRoom),
           variant: DButtonVariant.destructive,
         ),
       ],
@@ -1244,15 +1251,19 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
         final count = result.invitedUsernames.length;
         DToast.show(
           context,
-          count == 1 ? 'Invite sent.' : '$count invites sent.',
+          count == 1
+              ? appL10n.inviteSent
+              : appL10n.invitesSent((count).toString()),
           type: DToastType.success,
         );
       }
       if (result.skippedUsernames.isNotEmpty) {
         DToast.show(
           context,
-          "${result.skippedUsernames.map((name) => '@$name').join(', ')} "
-          "can't be invited because they don't have access to voice rooms.",
+          appL10n.canTBeInvitedBecauseTheyDonTHaveAccessTo(
+            (result.skippedUsernames.map((name) => '@$name').join(', '))
+                .toString(),
+          ),
           type: DToastType.warning,
         );
       }
@@ -1261,7 +1272,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       if (!mounted) return false;
       DToast.show(
         context,
-        error is WriteException ? error.message : "Couldn't send the invite.",
+        error is WriteException ? error.message : appL10n.couldnTSendTheInvite,
         type: DToastType.error,
       );
       return false;
@@ -1289,7 +1300,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
     final suggestions = _suggestions;
     final link = widget.inviteLink;
     return AlertDialog(
-      title: Text('Invite to ${widget.room.name}'),
+      title: Text(context.l10n.inviteTo((widget.room.name).toString())),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -1304,9 +1315,9 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                       style: Theme.of(context).textTheme.bodyMedium,
                       controller: _username,
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Invite by name',
-                        hintText: 'username',
+                      decoration: InputDecoration(
+                        labelText: context.l10n.inviteByName,
+                        hintText: context.l10n.usernameLowercase,
                       ),
                       onSubmitted: (_) {
                         if (!_sending) unawaited(_inviteTyped());
@@ -1317,7 +1328,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                   DButton(
                     onPressed: _sending ? null : _inviteTyped,
                     icon: const DIcon(DIcons.paperPlane),
-                    label: const Text('Send invite'),
+                    label: Text(context.l10n.sendInvite),
                     variant: DButtonVariant.primary,
                     loading: _sending,
                   ),
@@ -1328,7 +1339,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
               else if (suggestions.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
-                  "People you've shared this room with",
+                  context.l10n.peopleYouVeSharedThisRoomWith,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 for (final suggestion in suggestions)
@@ -1353,23 +1364,24 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                     ),
                     title: Text(suggestion.user.username),
                     subtitle: Text(
-                      '${_timeTogether(suggestion.totalSeconds)} together '
-                      'recently',
+                      context.l10n.togetherRecently(
+                        (_timeTogether(suggestion.totalSeconds)).toString(),
+                      ),
                     ),
                     trailing: _invited.contains(suggestion.user.username)
-                        ? const Text('Invited')
+                        ? Text(context.l10n.invited)
                         : DButton(
                             onPressed: _sending
                                 ? null
                                 : () => _invite([suggestion.user.username]),
-                            label: const Text('Invite'),
+                            label: Text(context.l10n.invite),
                           ),
                   ),
               ],
               if (link != null) ...[
                 const SizedBox(height: 16),
                 Text(
-                  'Or share an invite link',
+                  context.l10n.orShareAnInviteLink,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 4),
@@ -1383,13 +1395,13 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                         if (context.mounted) {
                           DToast.show(
                             context,
-                            'Link copied to clipboard',
+                            context.l10n.linkCopiedToClipboard,
                             type: DToastType.success,
                           );
                         }
                       },
                       icon: const DIcon(DIcons.copy),
-                      label: const Text('Copy'),
+                      label: Text(context.l10n.copy),
                     ),
                   ],
                 ),
@@ -1401,7 +1413,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       actions: [
         DButton(
           onPressed: () => Navigator.pop(context),
-          label: const Text('Done'),
+          label: Text(context.l10n.done),
         ),
       ],
     );
@@ -1431,7 +1443,7 @@ Future<void> _showParticipantVolume(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Participant volume'),
+        title: Text(appL10n.participantVolumeVoiceroomview),
         content: VoiceParticipantVolumeSlider(
           value: volume,
           onChanged: (value) {
@@ -1449,7 +1461,7 @@ Future<void> _showParticipantVolume(
         actions: [
           DButton(
             onPressed: () => Navigator.pop(context),
-            label: const Text('Done'),
+            label: Text(appL10n.done),
           ),
         ],
       ),
@@ -1484,7 +1496,7 @@ Future<void> _showMediaSettings(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Media settings'),
+        title: Text(appL10n.mediaSettings),
         content: SizedBox(
           width: 430,
           child: SingleChildScrollView(
@@ -1492,7 +1504,7 @@ Future<void> _showMediaSettings(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _DevicePicker(
-                  label: 'Microphone',
+                  label: appL10n.microphone,
                   devices: inputs,
                   value: input,
                   onChanged: (value) async {
@@ -1502,7 +1514,7 @@ Future<void> _showMediaSettings(
                   },
                 ),
                 _DevicePicker(
-                  label: 'Speaker',
+                  label: appL10n.speaker,
                   devices: outputs,
                   value: output,
                   onChanged: (value) async {
@@ -1512,7 +1524,7 @@ Future<void> _showMediaSettings(
                   },
                 ),
                 _DevicePicker(
-                  label: 'Camera',
+                  label: appL10n.camera,
                   devices: cameras,
                   value: camera,
                   onChanged: (value) async {
@@ -1524,10 +1536,8 @@ Future<void> _showMediaSettings(
                 if (Platform.isMacOS || Platform.isLinux)
                   DSwitchTile(
                     value: pushToTalk,
-                    title: const DLabel(child: Text('Push to talk')),
-                    subtitle: const Text(
-                      'Hold Space while the room is focused.',
-                    ),
+                    title: DLabel(child: Text(appL10n.pushToTalk)),
+                    subtitle: Text(appL10n.holdSpaceWhileTheRoomIsFocused),
                     onChanged: (value) async {
                       setState(() => pushToTalk = value);
                       await controller.setPushToTalkEnabled(value);
@@ -1536,23 +1546,22 @@ Future<void> _showMediaSettings(
                 if (autoStatusAvailable)
                   DSwitchTile(
                     value: autoStatus,
-                    title: const DLabel(
-                      child: Text('Show my status while in a call'),
+                    title: DLabel(
+                      child: Text(appL10n.showMyStatusWhileInACall),
                     ),
-                    subtitle: const Text(
-                      'Sets your user status to the room you are in.',
-                    ),
+                    subtitle: Text(appL10n.setsYourUserStatusToTheRoomYouAreIn),
                     onChanged: (value) async {
                       setState(() => autoStatus = value);
                       await controller.setAutoStatusEnabled(value);
                     },
                   ),
-                const ListTile(
-                  title: Text('Native noise suppression'),
+                ListTile(
+                  title: Text(appL10n.nativeNoiseSuppression),
                   subtitle: Text(
-                    'Echo cancellation, noise suppression, and automatic gain control are active.',
+                    appL10n
+                        .echoCancellationNoiseSuppressionAndAutomaticGainControlAreActive,
                   ),
-                  trailing: DIcon(DIcons.check, size: 18),
+                  trailing: const DIcon(DIcons.check, size: 18),
                 ),
                 DButton(
                   onPressed: testing
@@ -1571,8 +1580,9 @@ Future<void> _showMediaSettings(
                               DToast.show(
                                 context,
                                 available
-                                    ? 'Microphone is available.'
-                                    : "Couldn't test the microphone. Please try again.",
+                                    ? appL10n.microphoneIsAvailable
+                                    : appL10n
+                                          .couldnTTestTheMicrophonePleaseTryAgain,
                                 type: available
                                     ? DToastType.success
                                     : DToastType.error,
@@ -1587,9 +1597,9 @@ Future<void> _showMediaSettings(
                           }
                         },
                   icon: const DIcon(DIcons.microphoneLines),
-                  label: const Text('Test microphone'),
+                  label: Text(appL10n.testMicrophone),
                   loading: testing,
-                  loadingLabel: const Text('Testing…'),
+                  loadingLabel: Text(appL10n.testing),
                 ),
               ],
             ),
@@ -1598,7 +1608,7 @@ Future<void> _showMediaSettings(
         actions: [
           DButton(
             onPressed: () => Navigator.pop(context),
-            label: const Text('Done'),
+            label: Text(appL10n.done),
           ),
         ],
       ),
@@ -1692,8 +1702,14 @@ class _DevicePicker extends StatelessWidget {
       for (final device in devices)
         DSelectOption(
           value: device.deviceId,
-          label: device.label.isEmpty ? 'Default $label' : device.label,
-          child: Text(device.label.isEmpty ? 'Default $label' : device.label),
+          label: device.label.isEmpty
+              ? context.l10n.messageDefaultVoiceroomview((label).toString())
+              : device.label,
+          child: Text(
+            device.label.isEmpty
+                ? context.l10n.messageDefaultVoiceroomview((label).toString())
+                : device.label,
+          ),
         ),
     ],
     initialValue: value,
@@ -1721,7 +1737,7 @@ Future<void> _showParticipantFlag(
   if (!sent && context.mounted) {
     DToast.show(
       context,
-      'Moderator notification is unavailable.',
+      appL10n.moderatorNotificationIsUnavailable,
       type: DToastType.error,
     );
   }
@@ -1747,22 +1763,24 @@ class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Notify moderators about @${widget.username}'),
+    title: Text(
+      context.l10n.notifyModeratorsAbout((widget.username).toString()),
+    ),
     content: DTextarea(
       controller: _message,
       autofocus: true,
       minLines: 3,
       maxLines: 6,
-      labelText: 'What should moderators know?',
+      labelText: context.l10n.whatShouldModeratorsKnow,
     ),
     actions: [
       DButton(
         onPressed: () => Navigator.pop(context),
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
       ),
       DButton(
         onPressed: () => Navigator.pop(context, _message.text),
-        label: const Text('Notify'),
+        label: Text(context.l10n.notify),
         variant: DButtonVariant.primary,
       ),
     ],
@@ -1777,14 +1795,18 @@ Future<void> _confirmRecording(
 }) async {
   final confirmed = await showDiscourseAlertDialog<bool>(
     context: context,
-    title: Text(active ? 'Stop recording?' : 'Start recording?'),
+    title: Text(
+      active
+          ? appL10n.stopRecordingVoiceroomview
+          : appL10n.startRecordingVoiceroomview,
+    ),
     description: Text(
       active
-          ? 'The current room recording will stop.'
-          : 'Every participant will see that this room is being recorded.',
+          ? appL10n.theCurrentRoomRecordingWillStop
+          : appL10n.everyParticipantWillSeeThatThisRoomIsBeingRecorded,
     ),
-    cancelLabel: const Text('Cancel'),
-    actionLabel: Text(active ? 'Stop' : 'Start'),
+    cancelLabel: Text(appL10n.cancel),
+    actionLabel: Text(active ? appL10n.stop : appL10n.start),
     cancelResult: false,
     actionResult: true,
     actionVariant: active ? DButtonVariant.destructive : DButtonVariant.primary,
@@ -1821,9 +1843,9 @@ Future<void> _showVoiceChat(
       builder: (context, _) => DSheetContent(
         side: DSheetSide.bottom,
         topBottomMaxHeightFactor: .85,
-        semanticLabel: 'Room chat',
+        semanticLabel: appL10n.roomChat,
         children: [
-          const DSheetHeader(children: [DSheetTitle(child: Text('Room chat'))]),
+          DSheetHeader(children: [DSheetTitle(child: Text(appL10n.roomChat))]),
           _VoiceChatSheet(
             controller: controller,
             siteUrl: siteUrl,
@@ -1926,7 +1948,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                   controller: _composer,
                   minLines: 1,
                   maxLines: 4,
-                  hintText: 'Message the room',
+                  hintText: context.l10n.messageTheRoom,
                 ),
               ),
               ListenableBuilder(
@@ -1935,7 +1957,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                   onPressed: _send,
                   loading: _sending || (_chat?.sending ?? false),
                   variant: DButtonVariant.primary,
-                  tooltip: 'Send message',
+                  tooltip: context.l10n.sendMessage,
                   icon: const DIcon(DIcons.paperPlane),
                 ),
               ),
@@ -1953,7 +1975,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
       // rather than read as an empty room.
       return chat.loading || chat.error != null
           ? const SizedBox.shrink()
-          : const Center(child: Text('No messages yet.'));
+          : Center(child: Text(appL10n.noMessagesYetVoiceroomview));
     }
     return ListView.builder(
       itemCount: chat.messages.length + (chat.canLoadMorePast ? 1 : 0),
@@ -1965,7 +1987,7 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
                 widget.siteUrl,
                 widget.roomId,
               ),
-              label: const Text('Load older messages'),
+              label: Text(appL10n.loadOlderMessages),
               variant: DButtonVariant.link,
             ),
           );
@@ -1991,7 +2013,7 @@ Future<void> _showVoiceMembers(
   if (memberships == null) {
     DToast.show(
       context,
-      "Couldn't load the room's members.",
+      appL10n.couldnTLoadTheRoomSMembers,
       type: DToastType.error,
     );
     return;
@@ -2104,7 +2126,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
     if (memberships == null) {
       DToast.show(
         context,
-        "Couldn't refresh the room's members.",
+        appL10n.couldnTRefreshTheRoomSMembers,
         type: DToastType.error,
       );
       return;
@@ -2114,7 +2136,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Members of ${widget.room.name}'),
+    title: Text(context.l10n.membersOf((widget.room.name).toString())),
     content: SizedBox(
       width: 500,
       child: Column(
@@ -2129,7 +2151,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                     title: Text(
                       membership.user?.name ??
                           membership.user?.username ??
-                          'User ${membership.userId}',
+                          context.l10n.user((membership.userId).toString()),
                     ),
                     subtitle: Text(membership.role.name),
                     trailing: Row(
@@ -2144,7 +2166,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                               explicitChildNodes: true,
                               child: DDropdownMenu(
                                 content: DDropdownMenuContent(
-                                  semanticLabel: 'Change role',
+                                  semanticLabel: context.l10n.changeRole,
                                   width: 280,
                                   children: [
                                     for (final role in VoiceRole.values)
@@ -2157,7 +2179,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                                 child: DDropdownMenuTrigger(
                                   builder: (triggerContext, state) =>
                                       DButton.iconOnly(
-                                        tooltip: 'Change role',
+                                        tooltip: context.l10n.changeRole,
                                         variant: DButtonVariant.ghost,
                                         icon: const Icon(Icons.more_vert),
                                         focusNode: state.focusNode,
@@ -2178,7 +2200,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                                 ? null
                                 : () => _removeMember(membership),
                             variant: DButtonVariant.ghost,
-                            tooltip: 'Remove member',
+                            tooltip: context.l10n.removeMember,
                             icon: const DIcon(DIcons.trashCan),
                           ),
                       ],
@@ -2194,7 +2216,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
                 child: TextField(
                   style: Theme.of(context).textTheme.bodyMedium,
                   controller: _username,
-                  decoration: const InputDecoration(labelText: 'Username'),
+                  decoration: InputDecoration(labelText: context.l10n.username),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2219,7 +2241,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
               DButton.iconOnly(
                 onPressed: _writing ? null : _addMember,
                 variant: DButtonVariant.secondary,
-                tooltip: 'Add member',
+                tooltip: context.l10n.addMember,
                 icon: const DIcon(DIcons.userPlus),
               ),
             ],
@@ -2230,7 +2252,7 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
     actions: [
       DButton(
         onPressed: () => Navigator.pop(context),
-        label: const Text('Done'),
+        label: Text(context.l10n.done),
       ),
     ],
   );
@@ -2253,7 +2275,7 @@ class VoiceParticipantVolumeSlider extends StatelessWidget {
       value: value,
       max: 1,
       step: 0.1,
-      semanticLabel: 'Participant volume',
+      semanticLabel: context.l10n.participantVolumeVoiceroomview,
       semanticFormatterCallback: (value) => '${(value * 100).round()}%',
       onChanged: onChanged,
     ),

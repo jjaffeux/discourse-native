@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -32,7 +33,7 @@ Widget? cookedDetailsWidgetBuilder(
           children: [
             DAccordionHeader(
               child: DAccordionTrigger(
-                child: Text(title.isEmpty ? 'Details' : title),
+                child: Text(title.isEmpty ? appL10n.details : title),
               ),
             ),
             DAccordionContent(
@@ -57,7 +58,7 @@ String _summaryLabel(dom.Element? summary) {
   }
   for (final spoiler
       in visible.querySelectorAll('div.spoiler, span.spoiler').reversed) {
-    spoiler.replaceWith(dom.Text(' Spoiler '));
+    spoiler.replaceWith(dom.Text(appL10n.spoiler));
   }
   return visible.text.trim().replaceAll(RegExp(r'\s+'), ' ');
 }

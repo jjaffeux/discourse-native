@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
@@ -42,7 +43,7 @@ class DMessageInboxMenu<T> extends StatefulWidget {
     required this.value,
     required this.options,
     required this.onChanged,
-    this.semanticLabel = 'Choose inbox',
+    this._semanticLabel,
     this.size = DButtonSize.small,
     this.variant = DButtonVariant.ghost,
     this.buttonKey,
@@ -51,7 +52,8 @@ class DMessageInboxMenu<T> extends StatefulWidget {
   final T value;
   final List<DMessageInboxOption<T>> options;
   final ValueChanged<T>? onChanged;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.chooseInbox;
   final DButtonSize size;
   final DButtonVariant variant;
   final Key? buttonKey;
@@ -99,14 +101,14 @@ class _DMessageInboxMenuState<T> extends State<DMessageInboxMenu<T>> {
           Padding(
             padding: const EdgeInsets.all(4),
             child: DComboboxInput<DMessageInboxOption<T>>(
-              placeholder: 'Search inboxes…',
-              semanticLabel: 'Search inboxes',
+              placeholder: context.l10n.searchInboxes,
+              semanticLabel: context.l10n.searchInboxesDmessageinboxmenu,
               registerAsAnchor: false,
               showTrigger: false,
             ),
           ),
           DComboboxEmpty<DMessageInboxOption<T>>(
-            child: const Text('No inboxes found.'),
+            child: Text(context.l10n.noInboxesFound),
           ),
           DComboboxList<DMessageInboxOption<T>>(
             itemBuilder: (context, item) => Semantics(

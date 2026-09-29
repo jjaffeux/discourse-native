@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
@@ -8,7 +9,6 @@ import 'package:html/dom.dart' as dom;
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../ui/foundation/code_typography.dart';
-
 import 'cooked_dom.dart';
 import 'syntax.dart';
 
@@ -194,49 +194,49 @@ Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
   _ => null,
 };
 
-const Map<String, String> _languageLabels = {
-  'bash': 'Bash',
+Map<String, String> get _languageLabels => {
+  'bash': appL10n.bash,
   'c': 'C',
-  'clojure': 'Clojure',
+  'clojure': appL10n.clojure,
   'coffee': 'CoffeeScript',
   'coffeescript': 'CoffeeScript',
   'cpp': 'C++',
   'cs': 'C#',
   'csharp': 'C#',
   'css': 'CSS',
-  'dart': 'Dart',
-  'diff': 'Diff',
-  'dockerfile': 'Dockerfile',
-  'elixir': 'Elixir',
+  'dart': appL10n.dart,
+  'diff': appL10n.diff,
+  'dockerfile': appL10n.dockerfile,
+  'elixir': appL10n.elixir,
   'erb': 'ERB',
-  'go': 'Go',
+  'go': appL10n.go,
   'graphql': 'GraphQL',
-  'handlebars': 'Handlebars',
-  'hbs': 'Handlebars',
+  'handlebars': appL10n.handlebars,
+  'hbs': appL10n.handlebars,
   'html': 'HTML',
-  'html.hbs': 'Handlebars',
-  'java': 'Java',
+  'html.hbs': appL10n.handlebars,
+  'java': appL10n.java,
   'javascript': 'JavaScript',
   'js': 'JavaScript',
   'json': 'JSON',
   'jsx': 'JSX',
-  'kotlin': 'Kotlin',
-  'kt': 'Kotlin',
-  'markdown': 'Markdown',
-  'md': 'Markdown',
-  'objectivec': 'Objective-C',
+  'kotlin': appL10n.kotlin,
+  'kt': appL10n.kotlin,
+  'markdown': appL10n.markdown,
+  'md': appL10n.markdown,
+  'objectivec': appL10n.objectiveC,
   'php': 'PHP',
-  'plaintext': 'Plain text',
-  'python': 'Python',
-  'py': 'Python',
-  'rb': 'Ruby',
-  'ruby': 'Ruby',
-  'rust': 'Rust',
+  'plaintext': appL10n.plainText,
+  'python': appL10n.python,
+  'py': appL10n.python,
+  'rb': appL10n.ruby,
+  'ruby': appL10n.ruby,
+  'rust': appL10n.rust,
   'scss': 'SCSS',
-  'shell': 'Shell',
+  'shell': appL10n.shell,
   'sql': 'SQL',
-  'swift': 'Swift',
-  'text': 'Plain text',
+  'swift': appL10n.swift,
+  'text': appL10n.plainText,
   'tsx': 'TSX',
   'typescript': 'TypeScript',
   'ts': 'TypeScript',
@@ -251,7 +251,7 @@ String codeLanguageLabel(String? language) {
       normalized.isEmpty ||
       normalized == 'auto' ||
       normalized == 'nohighlight') {
-    return 'Code';
+    return appL10n.code;
   }
 
   return _languageLabels[normalized] ??
@@ -377,8 +377,8 @@ class _CodeBlockState extends State<CodeBlock> {
                 DButton.iconOnly(
                   key: const ValueKey('code-block-fullscreen'),
                   onPressed: _openFullscreen,
-                  tooltip: 'View code full screen',
-                  semanticLabel: 'View code full screen',
+                  tooltip: context.l10n.viewCodeFullScreen,
+                  semanticLabel: context.l10n.viewCodeFullScreen,
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
                   icon: const DIcon(DIcons.expand),
@@ -494,8 +494,8 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                     DButton.iconOnly(
                       key: const ValueKey('code-block-fullscreen-close'),
                       onPressed: Navigator.of(context).pop,
-                      tooltip: 'Close',
-                      semanticLabel: 'Close code viewer',
+                      tooltip: context.l10n.close,
+                      semanticLabel: context.l10n.closeCodeViewer,
                       variant: DButtonVariant.ghost,
                       size: DButtonSize.small,
                       icon: const DIcon(DIcons.xmark),
@@ -507,7 +507,7 @@ class _CodeBlockFullscreenState extends State<CodeBlockFullscreen> {
                     key: const ValueKey('code-block-fullscreen-editor'),
                     controller: _controller,
                     readOnly: true,
-                    semanticLabel: 'Post code',
+                    semanticLabel: context.l10n.postCode,
                   ),
                 ),
               ],
@@ -631,7 +631,7 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
       await Clipboard.setData(ClipboardData(text: widget.text));
     } catch (_) {
       if (mounted) {
-        DToast.show(context, "Couldn't copy code.", type: DToastType.error);
+        DToast.show(context, appL10n.couldnTCopyCode, type: DToastType.error);
       }
       return;
     }
@@ -650,8 +650,10 @@ class _CodeCopyButtonState extends State<_CodeCopyButton> {
     return DButton.iconOnly(
       key: const ValueKey('code-block-copy'),
       onPressed: _copied ? null : () => unawaited(_copy()),
-      tooltip: _copied ? 'Copied!' : 'Copy code',
-      semanticLabel: _copied ? 'Code copied' : 'Copy code',
+      tooltip: _copied
+          ? context.l10n.copiedInviteeditor
+          : context.l10n.copyCode,
+      semanticLabel: _copied ? context.l10n.codeCopied : context.l10n.copyCode,
       variant: DButtonVariant.ghost,
       size: DButtonSize.small,
       icon: DIcon(

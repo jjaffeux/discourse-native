@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -121,7 +122,7 @@ class _SheetBody extends StatelessWidget {
                     DButton.iconOnly(
                       onPressed: () => Navigator.of(context).maybePop(),
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Back',
+                      tooltip: context.l10n.back,
                       icon: const DIcon(DIcons.arrowLeft),
                     ),
                   Expanded(
@@ -135,7 +136,7 @@ class _SheetBody extends StatelessWidget {
                     DButton.iconOnly(
                       onPressed: () => Navigator.of(context).maybePop(),
                       variant: DButtonVariant.ghost,
-                      tooltip: 'Close',
+                      tooltip: context.l10n.close,
                       icon: const DIcon(DIcons.xmark),
                     ),
                 ],

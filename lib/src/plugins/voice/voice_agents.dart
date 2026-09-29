@@ -2,6 +2,7 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 import 'voice_models.dart';
 
@@ -26,8 +27,8 @@ final class VoiceAgentPermission {
 
 String? validateVoiceAgentName(String value) {
   final name = value.trim();
-  if (name.isEmpty) return 'Enter an agent name.';
-  if (name.runes.length > 256) return 'Use 256 characters or fewer.';
+  if (name.isEmpty) return appL10n.enterAnAgentName;
+  if (name.runes.length > 256) return appL10n.use256CharactersOrFewer;
   return null;
 }
 
@@ -75,7 +76,7 @@ final class VoiceAgentInvitation extends FrameSafeNotifier {
     } catch (_) {
       if (!isCurrent || revision != _revision) return;
       names = const [];
-      catalogueError = "Couldn't load deployed agents. You can type a name.";
+      catalogueError = appL10n.couldnTLoadDeployedAgentsYouCanTypeAName;
     } finally {
       if (isCurrent && revision == _revision) {
         loading = false;
@@ -97,12 +98,12 @@ final class VoiceAgentInvitation extends FrameSafeNotifier {
       final accepted = await _invite(value.trim());
       if (!isCurrent) return;
       sent = accepted;
-      if (!accepted) error = 'This invitation is no longer available.';
+      if (!accepted) error = appL10n.thisInvitationIsNoLongerAvailable;
     } catch (failure) {
       if (!isCurrent) return;
       error = failure is WriteException
           ? failure.message
-          : "Couldn't invite the agent. Try again.";
+          : appL10n.couldnTInviteTheAgentTryAgain;
     } finally {
       if (isCurrent) {
         sending = false;

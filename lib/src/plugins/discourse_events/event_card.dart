@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -135,7 +136,8 @@ class _EventCardState extends State<EventCard> {
                             if (open) _openingRespond = onRespond;
                           },
                           content: DDropdownMenuContent(
-                            semanticLabel: 'Choose recurring attendance',
+                            semanticLabel:
+                                context.l10n.chooseRecurringAttendance,
                             width: 280,
                             children: [
                               DDropdownMenuCheckboxItem(
@@ -146,7 +148,7 @@ class _EventCardState extends State<EventCard> {
                                 onChanged: (_) => onSelect(
                                   () => _openingRespond?.call(status, false),
                                 ),
-                                child: const Text('This occurrence only'),
+                                child: Text(context.l10n.thisOccurrenceOnly),
                               ),
                               DDropdownMenuCheckboxItem(
                                 checked:
@@ -156,7 +158,7 @@ class _EventCardState extends State<EventCard> {
                                 onChanged: (_) => onSelect(
                                   () => _openingRespond?.call(status, true),
                                 ),
-                                child: const Text('Every occurrence'),
+                                child: Text(context.l10n.everyOccurrence),
                               ),
                             ],
                           ),
@@ -166,7 +168,7 @@ class _EventCardState extends State<EventCard> {
                               builder: (triggerContext, state) => DButton(
                                 size: DButtonSize.post,
                                 label: Text(eventResponseLabel(status)),
-                                tooltip: 'Choose recurring attendance',
+                                tooltip: context.l10n.chooseRecurringAttendance,
                                 variant: selected == status
                                     ? DButtonVariant.primary
                                     : DButtonVariant.outline,
@@ -201,14 +203,15 @@ class _EventCardState extends State<EventCard> {
       children: [
         for (final invitee in event.sampleInvitees)
           _Avatar(user: invitee.user, site: siteUrl, size: 24),
-        if (stats?['going'] case final int count) Text('$count going'),
+        if (stats?['going'] case final int count)
+          Text(context.l10n.goingEventcard((count).toString())),
         if (stats?['interested'] case final int count)
           Text(
-            '· $count interested',
+            context.l10n.interestedEventcard((count).toString()),
             style: TextStyle(color: tokens.mutedForeground),
           ),
         if (event.sampleInvitees.isEmpty && stats == null)
-          const Text('Participants'),
+          Text(context.l10n.participants),
       ],
     );
     final participants = onParticipants == null
@@ -219,12 +222,13 @@ class _EventCardState extends State<EventCard> {
             variant: DButtonVariant.inline,
             alignment: AlignmentDirectional.centerStart,
             semanticLabel: [
-              'View participants',
-              if (stats?['going'] case final int count) '$count going',
+              context.l10n.viewParticipants,
+              if (stats?['going'] case final int count)
+                context.l10n.goingEventcard((count).toString()),
               if (stats?['interested'] case final int count)
-                '$count interested',
+                context.l10n.interestedEventcardValue((count).toString()),
             ].join(', '),
-            tooltip: 'View participants',
+            tooltip: context.l10n.viewParticipants,
             icon: const Icon(Icons.people_outline),
             label: participantLabel,
           );
@@ -244,7 +248,7 @@ class _EventCardState extends State<EventCard> {
               ),
               variant: DButtonVariant.inline,
               icon: const Icon(Icons.chat_bubble_outline),
-              label: const Text('Open event chat'),
+              label: Text(context.l10n.openEventChat),
             ),
           );
     return Padding(
@@ -276,7 +280,9 @@ class _EventCardState extends State<EventCard> {
                           width: double.infinity,
                           height: 180,
                           fit: BoxFit.cover,
-                          semanticLabel: '${event.title} cover',
+                          semanticLabel: context.l10n.cover(
+                            (event.title).toString(),
+                          ),
                         ),
                       ),
                     ),
@@ -319,13 +325,13 @@ class _EventCardState extends State<EventCard> {
                                   ),
                                   Text(
                                     event.private
-                                        ? 'Private'
+                                        ? context.l10n.private
                                         : event.public
-                                        ? 'Public'
-                                        : 'Event',
+                                        ? context.l10n.public
+                                        : context.l10n.event,
                                   ),
                                   if (creator != null) ...[
-                                    const Text('· Created by'),
+                                    Text(context.l10n.createdBy),
                                     _Avatar(
                                       user: creator,
                                       site: siteUrl,
@@ -358,40 +364,48 @@ class _EventCardState extends State<EventCard> {
                                   if (open) _openingWithdraw = onWithdraw;
                                 },
                                 content: DDropdownMenuContent(
-                                  semanticLabel: 'Event actions',
+                                  semanticLabel: context.l10n.eventActions,
                                   width: 280,
                                   children: [
                                     if (onEdit != null)
                                       DDropdownMenuItem(
                                         onPressed: onEdit,
-                                        child: const Text('Edit event'),
+                                        child: Text(context.l10n.editEvent),
                                       ),
                                     if (onInvite != null)
                                       DDropdownMenuItem(
                                         onPressed: onInvite,
-                                        child: const Text('Invite people'),
+                                        child: Text(context.l10n.invitePeople),
                                       ),
                                     if (onWithdraw != null)
                                       DDropdownMenuItem(
                                         onPressed: () =>
                                             _openingWithdraw?.call(),
-                                        child: const Text('Remove my response'),
+                                        child: Text(
+                                          context.l10n.removeMyResponse,
+                                        ),
                                       ),
                                     if (onExport != null)
                                       DDropdownMenuItem(
                                         onPressed: onExport,
-                                        child: const Text('Export calendar'),
+                                        child: Text(
+                                          context.l10n.exportCalendar,
+                                        ),
                                       ),
                                     if (onWeb != null)
                                       DDropdownMenuItem(
                                         onPressed: onWeb,
-                                        child: const Text('Open event on web'),
+                                        child: Text(
+                                          context.l10n.openEventOnWeb,
+                                        ),
                                       ),
                                     if (onWeb != null && event.canManage)
                                       DDropdownMenuItem(
                                         onPressed: onWeb,
-                                        child: const Text(
-                                          'Bulk invitations and reports on web',
+                                        child: Text(
+                                          context
+                                              .l10n
+                                              .bulkInvitationsAndReportsOnWeb,
                                         ),
                                       ),
                                   ],
@@ -400,7 +414,7 @@ class _EventCardState extends State<EventCard> {
                                   builder: (triggerContext, state) =>
                                       DButton.iconOnly(
                                         size: DButtonSize.post,
-                                        tooltip: 'Event actions',
+                                        tooltip: context.l10n.eventActions,
                                         variant: DButtonVariant.ghost,
                                         icon: const Icon(Icons.more_vert),
                                         focusNode: state.focusNode,
@@ -520,7 +534,7 @@ class _EventCardState extends State<EventCard> {
                         ),
                         variant: DButtonVariant.inline,
                         icon: const Icon(Icons.videocam_outlined),
-                        label: const Text('Open livestream'),
+                        label: Text(context.l10n.openLivestream),
                       ),
                     ),
                   if (event.flag('is_closed') ||
@@ -530,10 +544,10 @@ class _EventCardState extends State<EventCard> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         event.flag('is_closed')
-                            ? 'This event is closed.'
+                            ? context.l10n.thisEventIsClosed
                             : event.flag('is_expired')
-                            ? 'This event has ended.'
-                            : 'This event is at capacity.',
+                            ? context.l10n.thisEventHasEnded
+                            : context.l10n.thisEventIsAtCapacity,
                       ),
                     ),
                   if (onConnect != null &&
@@ -541,13 +555,15 @@ class _EventCardState extends State<EventCard> {
                       !event.flag('is_closed'))
                     DButton(
                       size: DButtonSize.post,
-                      label: const Text('Connect to respond'),
+                      label: Text(context.l10n.connectToRespond),
                       onPressed: onConnect,
                     ),
                   if (pending)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: DProgress(semanticsLabel: 'Loading event'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: DProgress(
+                        semanticsLabel: context.l10n.loadingEvent,
+                      ),
                     ),
                   if (error != null)
                     Padding(
@@ -566,7 +582,7 @@ class _EventCardState extends State<EventCard> {
                                 size: DButtonSize.post,
                                 onPressed: onRetry,
                                 variant: DButtonVariant.inline,
-                                label: const Text('Refresh event'),
+                                label: Text(context.l10n.refreshEvent),
                               ),
                           ],
                         ),
@@ -671,7 +687,9 @@ class _EventDescriptionState extends State<_EventDescription> {
                           _expanded ? Icons.expand_less : Icons.expand_more,
                         ),
                         label: Text(
-                          _expanded ? 'Show less' : 'Show full description',
+                          _expanded
+                              ? context.l10n.showLess
+                              : context.l10n.showFullDescription,
                         ),
                       ),
                     ),
@@ -714,10 +732,10 @@ class _ResponseButton extends StatelessWidget {
 }
 
 String eventResponseLabel(String? status) => switch (status) {
-  'going' => 'Going',
-  'interested' => 'Interested',
-  'not_going' => 'Not going',
-  _ => 'Invited',
+  'going' => appL10n.going,
+  'interested' => appL10n.interested,
+  'not_going' => appL10n.notGoing,
+  _ => appL10n.invited,
 };
 
 class _Detail extends StatelessWidget {
@@ -858,7 +876,7 @@ class _PostEventCardState extends State<PostEventCard> {
         DToast.show(
           context,
           error is EmptyEventCalendarException
-              ? 'This event has no dates left to export.'
+              ? appL10n.thisEventHasNoDatesLeftToExport
               : eventError(error, reading: true),
           type: DToastType.error,
         );
@@ -962,8 +980,8 @@ class EventUnavailableCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(error ?? 'Event details are unavailable.'),
-          if (loading) const DProgress(semanticsLabel: 'Loading event'),
+          Text(error ?? context.l10n.eventDetailsAreUnavailable),
+          if (loading) DProgress(semanticsLabel: context.l10n.loadingEvent),
           Wrap(
             spacing: DSpacing.controlGap,
             children: [
@@ -972,14 +990,14 @@ class EventUnavailableCard extends StatelessWidget {
                   size: DButtonSize.post,
                   onPressed: onRetry,
                   variant: DButtonVariant.link,
-                  label: const Text('Refresh event'),
+                  label: Text(context.l10n.refreshEvent),
                 ),
               if (onWeb != null)
                 DButton(
                   size: DButtonSize.post,
                   onPressed: onWeb,
                   variant: DButtonVariant.link,
-                  label: const Text('Open event on web'),
+                  label: Text(context.l10n.openEventOnWeb),
                 ),
             ],
           ),
@@ -999,7 +1017,7 @@ class EventCookedFallback extends StatelessWidget {
     final visible = eventVisibleCookedElement(element);
     return EventCookedFallback._(
       key: key,
-      title: visible.attributes['data-name'] ?? 'Event',
+      title: visible.attributes['data-name'] ?? appL10n.event,
       start: visible.attributes['data-start'],
       description: visible.text.trim(),
       descriptionHtml: visible.innerHtml.trim(),

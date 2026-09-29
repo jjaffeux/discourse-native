@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_services.dart';
@@ -62,7 +63,7 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
         WriteException(errors: final errors) when errors.isNotEmpty =>
           errors.join('\n'),
         final WriteException error => error.message,
-        _ => 'Could not start this chat.',
+        _ => appL10n.couldNotStartThisChat,
       };
       DToast.show(context, message, type: DToastType.error);
     } finally {
@@ -76,7 +77,7 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
       width: double.infinity,
       child: DButton(
         key: ValueKey<String>('user-card-chat-${widget.user.username}'),
-        label: const Text('Chat'),
+        label: Text(context.l10n.chat),
         onPressed: _open,
         icon: const DIcon(DIcons.comment),
         variant: DButtonVariant.primary,

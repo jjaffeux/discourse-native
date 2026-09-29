@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/site_emoji.dart';
@@ -258,17 +259,17 @@ final class _EmojiPickerPreferences {
     if (decoded is! Map<Object?, Object?> ||
         (decoded['version'] != 1 &&
             decoded['version'] != EmojiPickerStore.formatVersion)) {
-      throw const FormatException('Unsupported emoji picker preferences.');
+      throw FormatException(appL10n.unsupportedEmojiPickerPreferences);
     }
 
     final Object? rawTone = decoded['tone'];
     if (rawTone != null && !_isSupportedTone(rawTone)) {
-      throw const FormatException('Invalid emoji picker skin tone.');
+      throw FormatException(appL10n.invalidEmojiPickerSkinTone);
     }
 
     final Object? rawHistory = decoded['history'];
     if (rawHistory != null && rawHistory is! Map<Object?, Object?>) {
-      throw const FormatException('Invalid emoji picker history.');
+      throw FormatException(appL10n.invalidEmojiPickerHistory);
     }
     final rawHistories = rawHistory as Map<Object?, Object?>?;
     final histories = <String, List<String>>{};
@@ -276,7 +277,7 @@ final class _EmojiPickerPreferences {
       for (final entry in rawHistories.entries) {
         final key = entry.key;
         if (key is! String || key.isEmpty) {
-          throw const FormatException('Invalid emoji picker context key.');
+          throw FormatException(appL10n.invalidEmojiPickerContextKey);
         }
         histories[key] = _decodeHistory(entry.value);
       }
@@ -341,7 +342,7 @@ final class _EmojiPickerPreferences {
   static List<String> _decodeHistory(Object? value) {
     if (value == null) return const [];
     if (value is! List) {
-      throw const FormatException('Invalid emoji picker context history.');
+      throw FormatException(appL10n.invalidEmojiPickerContextHistory);
     }
 
     final normalized = <String>[];

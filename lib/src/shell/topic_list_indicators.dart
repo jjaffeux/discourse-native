@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -18,7 +19,7 @@ class TopicUnreadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = '$count unread ${count == 1 ? 'post' : 'posts'}';
+    final label = context.l10n.unreadTopiclistindicators(count);
     final colors = Theme.of(context).discourse;
     return DTooltip(
       message: label,

@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'post_reactors.dart';
@@ -226,7 +227,7 @@ class ReactionsController extends FrameSafeNotifier {
       );
       lease.commit(() {
         if (reactors(siteUrl, postId, filter: filter) == null) {
-          _errors[key] = 'Could not find out who reacted.';
+          _errors[key] = appL10n.couldNotFindOutWhoReacted;
         }
       });
     } finally {

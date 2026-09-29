@@ -1,19 +1,26 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'poll_composer_parser.dart';
 
 enum PollResultMode {
-  always('always', 'Always visible'),
-  onVote('on_vote', 'After voting'),
-  onClose('on_close', 'After the poll closes'),
-  staffOnly('staff_only', 'Staff only'),
-  unknown('', 'Unknown');
+  always('always'),
+  onVote('on_vote'),
+  onClose('on_close'),
+  staffOnly('staff_only'),
+  unknown('');
 
-  const PollResultMode(this.markupValue, this.label);
+  const PollResultMode(this.markupValue);
 
   final String markupValue;
-  final String label;
+  String get label => switch (this) {
+    always => appL10n.alwaysVisible,
+    onVote => appL10n.afterVoting,
+    onClose => appL10n.afterThePollCloses,
+    staffOnly => appL10n.staffOnly,
+    unknown => appL10n.unknown,
+  };
 
   static PollResultMode parse(String? value) => switch (value) {
     null || '' || 'always' => always,
@@ -178,47 +185,49 @@ class PollComposerDraft {
   }) {
     final errors = <String>[];
     if (maximumOptions < 1) {
-      errors.add('The site poll option limit is unavailable.');
+      errors.add(appL10n.theSitePollOptionLimitIsUnavailable);
       return PollComposerValidation(List.unmodifiable(errors));
     }
     if (isNew && type == ComposerPollType.rankedChoice) {
-      errors.add('Ranked-choice polls can only be created on the web.');
+      errors.add(appL10n.rankedChoicePollsCanOnlyBeCreatedOnTheWeb);
     }
     if (_initial?.type == ComposerPollType.rankedChoice &&
         type != ComposerPollType.rankedChoice) {
-      errors.add('The type of an existing ranked-choice poll cannot change.');
+      errors.add(appL10n.theTypeOfAnExistingRankedChoicePollCannotChange);
     }
     if (type == ComposerPollType.unknown) {
-      errors.add('This poll type can only be edited as raw source.');
+      errors.add(appL10n.thisPollTypeCanOnlyBeEditedAsRawSource);
     }
 
     if (results == PollResultMode.staffOnly &&
         !isStaff &&
         _initial?.results != PollResultMode.staffOnly) {
-      errors.add('Only staff can make poll results staff-only.');
+      errors.add(appL10n.onlyStaffCanMakePollResultsStaffOnly);
     }
 
     final closeValue = close.trim();
     if (closeValue.isNotEmpty &&
         DateTime.tryParse(closeValue) == null &&
         close != _initial?.close) {
-      errors.add('Automatic close must be a valid ISO-8601 date and time.');
+      errors.add(appL10n.automaticCloseMustBeAValidISO8601DateAndTime);
     }
 
     if (type == ComposerPollType.number) {
-      if (minimum < 0) errors.add('Minimum must be zero or greater.');
+      if (minimum < 0) errors.add(appL10n.minimumMustBeZeroOrGreater);
       if (maximum < minimum) {
-        errors.add('Maximum must be greater than or equal to minimum.');
+        errors.add(appL10n.maximumMustBeGreaterThanOrEqualToMinimum);
       }
-      if (step < 1) errors.add('Step must be at least 1.');
+      if (step < 1) errors.add(appL10n.stepMustBeAtLeast1);
       if (minimum >= 0 && maximum >= minimum && step >= 1) {
         final generated = ((maximum - minimum) ~/ step) + 1;
         if (generated < 2) {
-          errors.add('A number poll must generate at least two options.');
+          errors.add(appL10n.aNumberPollMustGenerateAtLeastTwoOptions);
         }
         if (generated > maximumOptions) {
           errors.add(
-            'A poll can have at most $maximumOptions generated options.',
+            appL10n.aPollCanHaveAtMostGeneratedOptions(
+              (maximumOptions).toString(),
+            ),
           );
         }
       }
@@ -227,16 +236,18 @@ class PollComposerDraft {
 
     final trimmed = options.map((option) => option.trim()).toList();
     if (trimmed.any((option) => option.isEmpty)) {
-      errors.add('Every option needs text.');
+      errors.add(appL10n.everyOptionNeedsText);
     }
     if (trimmed.length < 2) {
-      errors.add('A poll needs at least two options.');
+      errors.add(appL10n.aPollNeedsAtLeastTwoOptions);
     }
     if (trimmed.length > maximumOptions) {
-      errors.add('A poll can have at most $maximumOptions options.');
+      errors.add(
+        appL10n.aPollCanHaveAtMostOptions((maximumOptions).toString()),
+      );
     }
     if (trimmed.toSet().length != trimmed.length) {
-      errors.add('Poll options must be unique.');
+      errors.add(appL10n.pollOptionsMustBeUnique);
     }
 
     if (type == ComposerPollType.multiple &&
@@ -245,8 +256,8 @@ class PollComposerDraft {
             maximum <= trimmed.length &&
             minimum < trimmed.length)) {
       errors.add(
-        'Multiple choice requires 1 ≤ minimum ≤ maximum ≤ option count, '
-        'with minimum below the option count.',
+        appL10n
+            .multipleChoiceRequires1MinimumMaximumOptionCountWithMinimumBelow,
       );
     }
     return PollComposerValidation(List.unmodifiable(errors));
@@ -548,14 +559,13 @@ class PollComposerMutation {
   factory PollComposerMutation.applied(TextEditingValue value) =>
       PollComposerMutation._(value: value, applied: true);
 
-  factory PollComposerMutation.stale(
-    TextEditingValue value,
-  ) => PollComposerMutation._(
-    value: value,
-    applied: false,
-    message:
-        'The composer changed while this poll was open. Nothing was changed.',
-  );
+  factory PollComposerMutation.stale(TextEditingValue value) =>
+      PollComposerMutation._(
+        value: value,
+        applied: false,
+        message:
+            appL10n.theComposerChangedWhileThisPollWasOpenNothingWasChanged,
+      );
 
   final TextEditingValue value;
   final bool applied;

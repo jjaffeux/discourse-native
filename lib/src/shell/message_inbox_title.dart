@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/d_icons.dart';
@@ -22,9 +23,9 @@ class MessageInboxTitle extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     key: const ValueKey('message-inbox-title'),
     children: [
-      const Flexible(
+      Flexible(
         child: DText(
-          'Messages',
+          context.l10n.messages,
           variant: DTextVariant.h3,
           headingLevel: 1,
           maxLines: 1,
@@ -78,17 +79,17 @@ class MessageInboxSelector extends StatelessWidget {
       };
       final value = selectedGroup == null ? _personal : 'group:$selectedGroup';
       final options = [
-        const DMessageInboxOption(
+        DMessageInboxOption(
           value: _personal,
-          label: 'Personal',
-          description: 'Private messages sent directly to you',
-          icon: DIcon(DIcons.user),
+          label: context.l10n.personal,
+          description: context.l10n.privateMessagesSentDirectlyToYou,
+          icon: const DIcon(DIcons.user),
         ),
         for (final group in groups)
           DMessageInboxOption(
             value: 'group:$group',
             label: group,
-            description: 'Private messages sent to @$group',
+            description: context.l10n.privateMessagesSentTo((group).toString()),
             icon: const DIcon(DIcons.users),
           ),
       ];
@@ -117,7 +118,7 @@ class MessageInboxSelector extends StatelessWidget {
                 size: DControlSize.filter,
                 key: const ValueKey('message-inbox-selector'),
                 value: value,
-                semanticLabel: 'Choose inbox',
+                semanticLabel: context.l10n.chooseInbox,
                 width: 160,
                 valueBuilder: (context, value, item) => Row(
                   children: [

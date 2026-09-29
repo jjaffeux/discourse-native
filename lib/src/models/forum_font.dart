@@ -1,13 +1,20 @@
+import 'package:discourse_native/l10n/strings.dart';
+
 /// Bundled reading fonts, available without network access on every platform.
 enum ForumFont {
-  system('System default', null),
-  openSans('Open Sans', 'Open Sans'),
-  lato('Lato', 'Lato'),
-  jetBrainsMono('JetBrains Mono', 'JetBrains Mono');
+  system(null),
+  openSans('Open Sans'),
+  lato('Lato'),
+  jetBrainsMono('JetBrains Mono');
 
-  const ForumFont(this.label, this.family);
+  const ForumFont(this.family);
 
-  final String label;
+  String get label => switch (this) {
+    system => appL10n.systemDefault,
+    openSans => appL10n.openSans,
+    lato => appL10n.lato,
+    jetBrainsMono => appL10n.jetBrainsMono,
+  };
   final String? family;
 
   static ForumFont fromName(Object? name) =>

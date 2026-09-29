@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -358,7 +359,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
         setState(() {
           _occurrences = const [];
           _events = const [];
-          _error = 'Unable to load events. Try refreshing the calendar.';
+          _error = appL10n.unableToLoadEventsTryRefreshingTheCalendar;
           _loading = false;
         });
       }
@@ -407,17 +408,17 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
                   DButton(
                     variant: DButtonVariant.outline,
                     onPressed: _load,
-                    label: const Text('Retry'),
+                    label: Text(context.l10n.retry),
                   ),
                 ],
               ),
             ),
           ),
         if (!_loading && _error == null && _events.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8),
+          Padding(
+            padding: const EdgeInsets.all(8),
             child: Text(
-              'No events in this period.',
+              context.l10n.noEventsInThisPeriod,
               textAlign: TextAlign.center,
             ),
           ),

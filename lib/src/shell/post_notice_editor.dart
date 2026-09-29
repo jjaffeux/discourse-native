@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -81,7 +82,9 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
   Widget build(BuildContext context) => AlertDialog(
     key: const ValueKey('post-notice-dialog'),
     title: Text(
-      widget.post.notice == null ? 'Add post notice' : 'Change post notice',
+      widget.post.notice == null
+          ? context.l10n.addPostNotice
+          : context.l10n.changePostNotice,
     ),
     content: SizedBox(
       width: 500,
@@ -89,7 +92,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('This staff notice will be shown above the post.'),
+          Text(context.l10n.thisStaffNoticeWillBeShownAboveThePost),
           const SizedBox(height: 12),
           DTextarea(
             key: const ValueKey('post-notice-text'),
@@ -99,7 +102,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
             minLines: 4,
             maxLines: 8,
             onChanged: (_) => setState(() => _error = null),
-            labelText: 'Notice',
+            labelText: context.l10n.notice,
           ),
           if (_error case final error?) ...[
             const SizedBox(height: 8),
@@ -116,17 +119,17 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
       if (widget.post.notice != null)
         DButton(
           key: const ValueKey('post-notice-delete'),
-          label: const Text('Delete notice'),
+          label: Text(context.l10n.deleteNotice),
           onPressed: _saving ? null : () => unawaited(_set(null)),
           variant: DButtonVariant.destructive,
         ),
       DButton(
-        label: const Text('Cancel'),
+        label: Text(context.l10n.cancel),
         onPressed: _saving ? null : () => Navigator.of(context).pop(),
       ),
       DButton(
         key: const ValueKey('post-notice-save'),
-        label: const Text('Save'),
+        label: Text(context.l10n.save),
         onPressed: _canSave ? () => unawaited(_set(_text.text)) : null,
         variant: DButtonVariant.primary,
         loading: _saving,

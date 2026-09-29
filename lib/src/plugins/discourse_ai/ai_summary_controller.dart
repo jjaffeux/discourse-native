@@ -3,6 +3,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'ai_summary.dart';
 import 'ai_summary_api.dart';
 
@@ -113,7 +115,7 @@ final class AiSummaryController {
       if (AiTopicSummary.fromJson(response) case final summary?) {
         request._complete(summary);
       } else if (tracker == null) {
-        throw const FormatException('Summary response had no summary.');
+        throw FormatException(appL10n.summaryResponseHadNoSummary);
       } else {
         request._waitForStream(streamTimeout);
       }
@@ -186,7 +188,7 @@ final class AiSummaryRequest {
     _waitingForStream = true;
     _deadline = Timer(timeout, () {
       if (_checkCurrent()) {
-        _fail(TimeoutException('Summary stream timed out.', timeout));
+        _fail(TimeoutException(appL10n.summaryStreamTimedOut, timeout));
       }
     });
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -64,7 +65,9 @@ class _PostLikesState extends State<PostLikes> {
 
     await showShellSheet<void>(
       context: context,
-      title: count == 1 ? '1 like' : '$count likes',
+      title: count == 1
+          ? appL10n.message1Like
+          : appL10n.likesPostlikes((count).toString()),
       builder: (sheetContext) =>
           _Likers(siteUrl: widget.siteUrl, post: widget.post),
     );
@@ -123,11 +126,13 @@ class _LikeCount extends StatelessWidget {
       size: DToggleSize.post,
       variant: DToggleVariant.outline,
       semanticLabel: post.likeCount == 1
-          ? '1 like, from ${post.liked ? 'you' : 'someone else'}'
-          : '${post.likeCount} likes',
+          ? context.l10n.message1LikeFrom((post.liked).toString())
+          : context.l10n.likesPostlikesValue((post.likeCount).toString()),
       semanticHint: toggle == null
-          ? 'show who liked this post'
-          : (post.liked ? 'remove your like' : 'like this post'),
+          ? context.l10n.showWhoLikedThisPost
+          : (post.liked
+                ? context.l10n.removeYourLikePostlikes
+                : context.l10n.likeThisPostPostlikes),
       onPressedChanged: (_) => (toggle ?? onOpen)(),
       icon: DIcon(DIcons.heart, color: theme.discourse.love),
       child: Text('${post.likeCount}'),
@@ -313,7 +318,9 @@ class _LikersViewState extends State<_LikersView> {
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 2),
               child: Text(
-                hidden == 1 ? 'and 1 other' : 'and $hidden others',
+                hidden == 1
+                    ? context.l10n.and1Other
+                    : context.l10n.andOthers((hidden).toString()),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +46,7 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
     this.enabled = true,
     this.showPopoverTitle = true,
     this.filterHint,
-    this.filterEmptyMessage = 'No matching options.',
+    this._filterEmptyMessage,
     this.alwaysVisibleValues = const {},
   });
 
@@ -58,7 +59,9 @@ class ChoiceMenuAnchor<T> extends StatefulWidget {
 
   final bool showPopoverTitle;
   final String? filterHint;
-  final String filterEmptyMessage;
+  final String? _filterEmptyMessage;
+  String get filterEmptyMessage =>
+      _filterEmptyMessage ?? appL10n.noMatchingOptions;
   final Set<T> alwaysVisibleValues;
 
   @override
@@ -107,7 +110,7 @@ Future<T?> showChoiceMenu<T>({
   required List<ChoiceMenuOption<T>> options,
   bool showPopoverTitle = true,
   String? filterHint,
-  String filterEmptyMessage = 'No matching options.',
+  String? filterEmptyMessage,
   Set<T> alwaysVisibleValues = const {},
 }) {
   if (options.isEmpty) return Future<T?>.value();
@@ -123,7 +126,7 @@ Future<T?> showChoiceMenu<T>({
         touch: true,
         onSelected: (choice) => Navigator.of(sheetContext).pop(choice),
         filterHint: filterHint,
-        filterEmptyMessage: filterEmptyMessage,
+        filterEmptyMessage: filterEmptyMessage ?? appL10n.noMatchingOptions,
         alwaysVisibleValues: alwaysVisibleValues,
       ),
     );
@@ -147,7 +150,7 @@ Future<T?> showChoiceMenu<T>({
     PageRouteBuilder<T>(
       opaque: false,
       barrierDismissible: true,
-      barrierLabel: 'Dismiss $title',
+      barrierLabel: appL10n.dismissChoicemenu((title).toString()),
       barrierColor: Colors.transparent,
       transitionDuration: disableAnimations
           ? Duration.zero
@@ -165,7 +168,7 @@ Future<T?> showChoiceMenu<T>({
             transitionAlignment: alignment,
             showTitle: showPopoverTitle,
             filterHint: filterHint,
-            filterEmptyMessage: filterEmptyMessage,
+            filterEmptyMessage: filterEmptyMessage ?? appL10n.noMatchingOptions,
             alwaysVisibleValues: alwaysVisibleValues,
           ),
     ),
@@ -480,7 +483,7 @@ class _FilterableChoiceRowsState<T> extends State<_FilterableChoiceRows<T>> {
                         key: const ValueKey('choice-menu-filter-clear'),
                         onPressed: _clearFilter,
                         variant: DButtonVariant.ghost,
-                        tooltip: 'Clear filter',
+                        tooltip: context.l10n.clearFilter,
                         icon: const DIcon(DIcons.xmark),
                       ),
                 suffixIconConstraints: const BoxConstraints(
@@ -619,7 +622,7 @@ class _ChoiceRowsState<T> extends State<_ChoiceRows<T>> {
       policy: OrderedTraversalPolicy(),
       child: Semantics(
         role: SemanticsRole.menu,
-        label: 'Choices',
+        label: context.l10n.choices,
         explicitChildNodes: true,
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../chat/chat_contract.dart';
@@ -38,8 +39,8 @@ final class VoicePlugin
   @override
   PluginDraftPresentation? draftPresentation(UserDraft draft) =>
       draft.key.startsWith('new_topic_voice_')
-      ? const PluginDraftPresentation(
-          label: 'Call transcript draft',
+      ? PluginDraftPresentation(
+          label: appL10n.callTranscriptDraft,
           icon: DIcons.closedCaptioning,
         )
       : null;
@@ -124,7 +125,7 @@ final class VoicePlugin
     }
     return SidebarPanelContribution(
       groupId: 'chat',
-      label: 'Chat',
+      label: appL10n.chat,
       icon: DIcons.comment,
       active: roomIdIn(shell.currentContent?.id ?? '') != null,
       separateWhenActive: true,
@@ -161,7 +162,7 @@ final class VoicePlugin
     return [
       SidebarSection(
         id: 'voice-rooms',
-        title: 'Voice rooms',
+        title: appL10n.voiceRooms,
         showHeader: true,
         collapsible: false,
         bodyBuilder: (_) => SliverList.list(

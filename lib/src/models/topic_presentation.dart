@@ -1,8 +1,13 @@
+import 'package:discourse_native/l10n/strings.dart';
+
 /// Whether reading tabs share the list panel or occupy their own panel.
 enum TopicPresentation {
-  merged('Keep topic tabs with the list'),
-  split('Split with the list');
+  merged(),
+  split();
 
-  const TopicPresentation(this.label);
-  final String label;
+  const TopicPresentation();
+  String get label => switch (this) {
+    merged => appL10n.keepTopicTabsWithTheList,
+    split => appL10n.splitWithTheList,
+  };
 }

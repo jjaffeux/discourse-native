@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
@@ -200,7 +201,7 @@ class _InlineVideoState extends State<InlineVideo> {
         );
         toast!.add(
           DToastOptions(
-            description: 'Saved $filename.',
+            description: appL10n.saved((filename).toString()),
             type: DToastType.success,
           ),
           id: 'video-download',
@@ -217,8 +218,8 @@ class _InlineVideoState extends State<InlineVideo> {
       );
       if (mounted && toast?.isDisposed == false) {
         toast!.add(
-          const DToastOptions(
-            description: "Couldn't download video. Try again.",
+          DToastOptions(
+            description: appL10n.couldnTDownloadVideoTryAgain,
             type: DToastType.error,
           ),
           id: 'video-download',
@@ -243,7 +244,9 @@ class _InlineVideoState extends State<InlineVideo> {
             onPressed: downloading ? null : () => unawaited(_download(context)),
             variant: DButtonVariant.secondary,
             size: DButtonSize.post,
-            tooltip: downloading ? 'Downloading video…' : 'Download video',
+            tooltip: downloading
+                ? context.l10n.downloadingVideo
+                : context.l10n.downloadVideo,
             loading: downloading,
             icon: const DIcon(DIcons.download),
           );
@@ -347,7 +350,7 @@ class _InlineVideoState extends State<InlineVideo> {
   }
 
   Widget _buildPoster(BuildContext context, Size size) {
-    final playLabel = 'Play video: ${widget.data.title}';
+    final playLabel = context.l10n.playVideo((widget.data.title).toString());
     Widget generatedPoster() => GeneratedVideoPoster(
       source: widget.data.source,
       siteUrl: widget.siteUrl,
@@ -382,7 +385,7 @@ class _InlineVideoState extends State<InlineVideo> {
                 child: DButton.iconOnly(
                   key: const ValueKey('inline-video-play'),
                   onPressed: _load,
-                  tooltip: 'Play video',
+                  tooltip: context.l10n.playVideoInlinevideo,
                   variant: DButtonVariant.secondary,
                   size: DButtonSize.post,
                   icon: const DIcon(DIcons.play),
@@ -623,7 +626,7 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
             );
           }
           return Semantics(
-            label: 'Video player: ${widget.data.title}',
+            label: context.l10n.videoPlayer((widget.data.title).toString()),
             child: ColoredBox(
               color: Colors.black,
               child: Stack(
@@ -800,7 +803,9 @@ class _InlineVideoFullscreenState extends State<_InlineVideoFullscreen> {
               final playerBuilder = presentation.playerBuilder;
               if (playerBuilder == null) return const SizedBox.shrink();
               return Semantics(
-                label: 'Full-screen video player: ${widget.data.title}',
+                label: context.l10n.fullScreenVideoPlayer(
+                  (widget.data.title).toString(),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -876,7 +881,7 @@ class _PlaybackControls extends StatelessWidget {
                 onPressed: onTogglePlayback,
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
-                tooltip: isPlaying ? 'Pause' : 'Play',
+                tooltip: isPlaying ? context.l10n.pause : context.l10n.play,
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 ),
@@ -891,7 +896,7 @@ class _PlaybackControls extends StatelessWidget {
                 onPressed: exit,
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
-                tooltip: 'Exit full screen',
+                tooltip: context.l10n.exitFullScreen,
                 icon: const Icon(Icons.fullscreen_exit_rounded),
               )
             else if (onEnterFullscreen != null && controls.supportsFullscreen)
@@ -900,7 +905,7 @@ class _PlaybackControls extends StatelessWidget {
                 onPressed: onEnterFullscreen,
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
-                tooltip: 'Enter full screen',
+                tooltip: context.l10n.enterFullScreen,
                 icon: const DIcon(DIcons.expand),
               )
             else
@@ -947,7 +952,7 @@ class _PlaybackTimeline extends StatelessWidget {
               step: null,
               // The domain uses milliseconds; Page keys seek 10% of the clip.
               largeStep: math.max(durationMilliseconds, 1) / 10,
-              semanticLabel: 'Playback position',
+              semanticLabel: context.l10n.playbackPosition,
               semanticFormatterCallback: (value) =>
                   _duration(Duration(milliseconds: value.round())),
               secondaryTrackValue: durationMilliseconds > 0
@@ -1028,7 +1033,7 @@ class _OpenVideoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = 'Open video: ${data.title}';
+    final label = context.l10n.openVideo((data.title).toString());
     void open() => unawaited(openExternalLink(data.source.toString()));
     return Semantics(
       link: true,
@@ -1039,7 +1044,7 @@ class _OpenVideoButton extends StatelessWidget {
           onPressed: open,
           variant: DButtonVariant.secondary,
           size: DButtonSize.post,
-          tooltip: 'Open video',
+          tooltip: context.l10n.openVideoInlinevideo,
           icon: const DIcon(DIcons.upRightFromSquare),
         ),
       ),
@@ -1060,9 +1065,9 @@ class _VideoFailure extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "Couldn't play this video.",
-            style: TextStyle(color: Colors.white),
+          Text(
+            context.l10n.couldnTPlayThisVideo,
+            style: const TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1070,13 +1075,13 @@ class _VideoFailure extends StatelessWidget {
             children: [
               DButton(
                 size: DButtonSize.post,
-                label: const Text('Try again'),
+                label: Text(context.l10n.tryAgain),
                 onPressed: onRetry,
                 variant: DButtonVariant.link,
               ),
               DButton(
                 size: DButtonSize.post,
-                label: const Text('Open video'),
+                label: Text(context.l10n.openVideoInlinevideo),
                 onPressed: () =>
                     unawaited(openExternalLink(data.source.toString())),
                 variant: DButtonVariant.link,
@@ -1125,7 +1130,7 @@ double _safeAspectRatio(double? value) {
 
 String _filename(Uri source) {
   final segments = tryUriPathSegments(source)?.where((part) => part.isNotEmpty);
-  return segments == null || segments.isEmpty ? 'Video' : segments.last;
+  return segments == null || segments.isEmpty ? appL10n.video : segments.last;
 }
 
 String _duration(Duration duration) {

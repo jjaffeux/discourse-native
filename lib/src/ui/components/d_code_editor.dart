@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
 import 'package:highlight/highlight.dart' show Mode;
@@ -67,7 +68,7 @@ class DCodeEditor extends StatefulWidget {
     this.focusNode,
     this.onChanged,
     this.readOnly,
-    this.semanticLabel = 'Code editor',
+    this._semanticLabel,
   });
 
   final DCodeEditingController controller;
@@ -76,7 +77,8 @@ class DCodeEditor extends StatefulWidget {
   /// Called on text changes, including controller commands and external edits.
   final ValueChanged<String>? onChanged;
   final bool? readOnly;
-  final String semanticLabel;
+  final String? _semanticLabel;
+  String get semanticLabel => _semanticLabel ?? appL10n.codeEditor;
 
   @override
   State<DCodeEditor> createState() => _DCodeEditorState();

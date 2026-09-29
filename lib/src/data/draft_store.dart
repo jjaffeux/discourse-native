@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -161,7 +162,9 @@ final class AppleFileDraftPersistence implements DraftPersistence {
     try {
       decoded = jsonDecode(contents);
     } on FormatException catch (error) {
-      throw FormatException('Invalid draft storage: ${error.message}');
+      throw FormatException(
+        appL10n.invalidDraftStorage((error.message).toString()),
+      );
     }
     return _DraftFileState.decode(decoded);
   }
@@ -192,17 +195,13 @@ final class _DraftFileState {
       final values = <String, String>{};
       for (final MapEntry(:key, :value) in rawValues.entries) {
         if (key is! String || value is! String) {
-          throw const FormatException(
-            'Invalid draft storage: values must be strings',
-          );
+          throw FormatException(appL10n.invalidDraftStorageValuesMustBeStrings);
         }
         values[key] = value;
       }
       if (rawKeys.any((value) => value is! String) ||
           rawPrefixes.any((value) => value is! String)) {
-        throw const FormatException(
-          'Invalid draft storage: blockers must be strings',
-        );
+        throw FormatException(appL10n.invalidDraftStorageBlockersMustBeStrings);
       }
       final state = _DraftFileState(
         values: values,
@@ -215,7 +214,7 @@ final class _DraftFileState {
       // taken after decoding.
       return state..blockedLegacyKeys.removeWhere(state._coveredBySite);
     }
-    throw const FormatException('Invalid draft storage format');
+    throw FormatException(appL10n.invalidDraftStorageFormat);
   }
 
   bool blocksLegacy(String key) =>

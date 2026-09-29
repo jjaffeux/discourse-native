@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -75,7 +76,9 @@ class EventTopicTitle extends StatelessWidget {
                   icon: mobile
                       ? const DIcon(EventIcons.calendar, size: 14)
                       : null,
-                  semanticLabel: 'View event schedule: ${schedule.description}',
+                  semanticLabel: context.l10n.viewEventSchedule(
+                    (schedule.description).toString(),
+                  ),
                   tooltip: schedule.description,
                   label: Builder(
                     // Retain the button's typography while allowing long ranges
@@ -166,21 +169,30 @@ class _EventSchedule {
     if (spansDays) {
       final date = year ? DateFormat.yMMMd(locale) : DateFormat.MMMd(locale);
       final days = _day(end!).difference(_day(start)).inDays + 1;
-      return '${date.format(start)} – ${date.format(end!)} · '
-          '${allDay ? 'All day' : '$days days'}';
+      return appL10n.messageEventtopictitle(
+        (allDay).toString(),
+        (date.format(start)).toString(),
+        (date.format(end!)).toString(),
+        ((allDay) ? (appL10n.allDay) : '').toString(),
+        ((!(allDay)) ? (days) : '').toString(),
+      );
     }
     final date = year
         ? DateFormat.yMMMEd(locale)
         : includeDate
         ? DateFormat.MMMEd(locale)
         : DateFormat.E(locale);
-    return '${date.format(start)} · '
-        '${allDay ? 'All day' : _time(start)}';
+    return appL10n.messageEventtopictitleValue(
+      (allDay).toString(),
+      (date.format(start)).toString(),
+      ((allDay) ? (appL10n.allDay) : '').toString(),
+      ((!(allDay)) ? (_time(start)) : '').toString(),
+    );
   }
 
   String fullDate(DateTime date) =>
       '${_fullDateFormat.format(date)}'
-      '${allDay ? ' · All day' : ' · ${_time(date)}'}';
+      '${allDay ? appL10n.allDayEventtopictitle : ' · ${_time(date)}'}';
 
   late final String description =
       '${fullDate(start)}'
@@ -205,11 +217,11 @@ class _EventScheduleDialog extends StatelessWidget {
     );
     final schedule = this.schedule;
     return DDialogContent(
-      semanticLabel: 'Event schedule',
+      semanticLabel: context.l10n.eventSchedule,
       maxWidth: 440,
       children: [
-        const DDialogHeader(
-          children: [DDialogTitle(child: Text('Event schedule'))],
+        DDialogHeader(
+          children: [DDialogTitle(child: Text(context.l10n.eventSchedule))],
         ),
         DDialogScrollArea(
           child: Column(
@@ -218,13 +230,14 @@ class _EventScheduleDialog extends StatelessWidget {
             children: [
               DDialogDescription(child: Text(title)),
               if (schedule == null)
-                const Text('Date unavailable')
+                Text(context.l10n.dateUnavailable)
               else ...[
-                field('Starts', schedule.fullDate(schedule.start)),
+                field(context.l10n.starts, schedule.fullDate(schedule.start)),
                 if (schedule.end case final end?)
-                  field('Ends', schedule.fullDate(end)),
+                  field(context.l10n.ends, schedule.fullDate(end)),
                 if (!schedule.allDay)
-                  if (schedule.zone case final zone?) field('Timezone', zone),
+                  if (schedule.zone case final zone?)
+                    field(context.l10n.timezone, zone),
               ],
             ],
           ),

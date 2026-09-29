@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../diagnostics/diagnostics_controller.dart';
@@ -122,7 +123,7 @@ final class GroupMemberAdditionController extends ChangeNotifier {
       if (_disposed || request != _sequence) return;
       _reportGroupFormError(error, stackTrace, 'groups.members.search');
       _results = const [];
-      _error = 'Members could not be searched. Try again.';
+      _error = appL10n.membersCouldNotBeSearchedTryAgain;
     }
     _searching = false;
     notifyListeners();
@@ -160,13 +161,15 @@ final class GroupMemberAdditionController extends ChangeNotifier {
     if (_disposed) return false;
     if (result == null) {
       _saving = false;
-      _error = 'The selected members could not be added.';
+      _error = appL10n.theSelectedMembersCouldNotBeAdded;
       notifyListeners();
       return false;
     }
     if (result.skippedUsernames.isNotEmpty) {
       _saving = false;
-      _error = 'Not added: ${result.skippedUsernames.join(', ')}';
+      _error = appL10n.notAdded(
+        (result.skippedUsernames.join(', ')).toString(),
+      );
       notifyListeners();
       return false;
     }
@@ -225,7 +228,7 @@ final class GroupInviteController extends ChangeNotifier {
     if (_disposed) return GroupInviteSubmission.failed;
     if (invite == null) {
       _saving = false;
-      _error = 'The invitation could not be created.';
+      _error = appL10n.theInvitationCouldNotBeCreated;
       notifyListeners();
       return GroupInviteSubmission.failed;
     }
@@ -237,9 +240,7 @@ final class GroupInviteController extends ChangeNotifier {
     final rawLink = invite.link;
     _saving = false;
     _link = rawLink == null ? null : resolveSitePath(siteUrl, rawLink);
-    _error = rawLink == null
-        ? 'The server did not return an invite link.'
-        : null;
+    _error = rawLink == null ? appL10n.theServerDidNotReturnAnInviteLink : null;
     notifyListeners();
     return rawLink == null
         ? GroupInviteSubmission.failed

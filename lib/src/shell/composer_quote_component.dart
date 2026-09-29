@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 
@@ -5,10 +6,10 @@ import '../plugin_api/composer_component.dart';
 import '../plugin_api/composer_syntax.dart';
 import 'composer_quotes.dart';
 
-const composerQuoteComponentKind = ComposerSyntaxKind(
-  owner: PluginId('core'),
+ComposerSyntaxKind get composerQuoteComponentKind => ComposerSyntaxKind(
+  owner: const PluginId('core'),
   name: 'quote',
-  label: 'Quote',
+  label: appL10n.quote,
 );
 
 /// Core's atomic block declaration for a complete Markdown quote.
@@ -39,7 +40,9 @@ ComposerComponent<ComposerQuoteBlock> composerQuoteComponent({
   },
   semanticLabel: (context, component) {
     final title = component.value.title;
-    return title == null ? 'Quote' : 'Quote from $title';
+    return title == null
+        ? appL10n.quote
+        : appL10n.quoteFrom((title).toString());
   },
   onRemove: _removeQuote,
 );

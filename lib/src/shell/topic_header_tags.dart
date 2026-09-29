@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -45,16 +46,16 @@ class TopicHeaderTags extends StatelessWidget {
               ? DPopoverTrigger(
                   builder: (context, trigger) => DButton(
                     key: const ValueKey('topic-header-edit-tags'),
-                    label: const Text('Add tag'),
+                    label: Text(context.l10n.addTag),
                     icon: const DIcon(DIcons.tag),
-                    tooltip: 'Add tag',
+                    tooltip: context.l10n.addTag,
                     variant: DButtonVariant.outline,
                     size: DButtonSize.filter,
                     focusNode: trigger.focusNode,
                     hasPopup: true,
                     expanded: trigger.open,
                     loading: saving,
-                    loadingSemanticLabel: 'Saving tags',
+                    loadingSemanticLabel: context.l10n.savingTags,
                     onPressed: edit == null
                         ? null
                         : trigger.open
@@ -102,7 +103,7 @@ class TopicHeaderTags extends StatelessWidget {
         }
 
         String overflowLabel(int visible) => visible == 0
-            ? 'Tags · ${tags.length}'
+            ? context.l10n.tagsTopicheadertags((tags.length).toString())
             : '+${tags.length - visible}';
         final editWidth = DControlStyle.scaledHeight(
           DControlSize.filter,
@@ -145,7 +146,7 @@ class TopicHeaderTags extends StatelessWidget {
             : () => unawaited(
                 TopicTaxonomyPickerAnchor.show<void>(
                   anchorContext: context,
-                  title: 'Topic tags',
+                  title: context.l10n.topicTags,
                   popoverKey: const ValueKey('topic-header-tags-popover'),
                   builder: (pickerContext, close) => _ReadOnlyTags(
                     tags: tags,
@@ -223,8 +224,12 @@ class TopicHeaderTags extends StatelessWidget {
                   '# ${tags[index].name}',
                   ValueKey(('topic-header-tag', tags[index].name)),
                   semanticLabel: editOnTap && topic.canEditTags
-                      ? 'Edit topic tags: ${tags[index].name}'
-                      : 'Open tag ${tags[index].name}',
+                      ? context.l10n.editTopicTags(
+                          (tags[index].name).toString(),
+                        )
+                      : context.l10n.openTagTopicheadertags(
+                          (tags[index].name).toString(),
+                        ),
                   tag: tags[index],
                 ),
               ),
@@ -243,8 +248,10 @@ class TopicHeaderTags extends StatelessWidget {
                   overflowLabel(visible),
                   const ValueKey('topic-header-more-tags'),
                   semanticLabel: topic.canEditTags
-                      ? 'View and edit all ${tags.length} topic tags'
-                      : 'View all ${tags.length} topic tags',
+                      ? context.l10n.viewAndEditAllTopicTags(
+                          (tags.length).toString(),
+                        )
+                      : context.l10n.viewAllTopicTags((tags.length).toString()),
                 ),
               ),
             ],
@@ -253,7 +260,7 @@ class TopicHeaderTags extends StatelessWidget {
                 builder: (context, trigger) => DButton.iconOnly(
                   key: const ValueKey('topic-header-edit-tags'),
                   icon: const DIcon(DIcons.pencil),
-                  tooltip: 'Add or remove topic tags',
+                  tooltip: context.l10n.addOrRemoveTopicTags,
                   onPressed: edit == null
                       ? null
                       : trigger.open
@@ -263,7 +270,7 @@ class TopicHeaderTags extends StatelessWidget {
                   expanded: trigger.open,
                   hasPopup: true,
                   loading: saving,
-                  loadingSemanticLabel: 'Saving tags',
+                  loadingSemanticLabel: context.l10n.savingTags,
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.filter,
                 ),
@@ -304,7 +311,7 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
     return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-header-tags-search'),
       queryController: _query,
-      queryHint: 'Find a topic tag',
+      queryHint: context.l10n.findATopicTag,
       onQueryChanged: (_) => setState(() {}),
       onQuerySubmitted: (_) {},
       children: [
@@ -334,7 +341,9 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
             ),
           ),
         if (matches.isEmpty)
-          const TopicTaxonomyPickerMessage('No matching tags'),
+          TopicTaxonomyPickerMessage(
+            context.l10n.noMatchingTagsTopicheadertags,
+          ),
       ],
     );
   }

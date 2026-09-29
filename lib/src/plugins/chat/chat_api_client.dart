@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_direct_message_search.dart';
@@ -104,7 +106,7 @@ final class ChatApiClient implements ChatApi {
     );
     final channel = body['channel'];
     if (channel is! Map<String, dynamic>) {
-      throw const FormatException('Missing direct-message chat channel.');
+      throw FormatException(appL10n.missingDirectMessageChatChannel);
     }
     return ChatChannel.fromJson(channel, siteUrl);
   }
@@ -142,7 +144,7 @@ final class ChatApiClient implements ChatApi {
     );
     final channel = body['channel'];
     if (channel is! Map<String, dynamic>) {
-      throw const FormatException('Missing chat channel.');
+      throw FormatException(appL10n.missingChatChannel);
     }
     return ChatChannel.fromJson(channel, siteUrl);
   }
@@ -274,7 +276,7 @@ final class ChatApiClient implements ChatApi {
     );
     final membership = body['membership'];
     if (membership is! Map<String, dynamic>) {
-      throw const FormatException('Missing chat channel membership.');
+      throw FormatException(appL10n.missingChatChannelMembership);
     }
     return ChatMembership.fromJson(membership);
   }
@@ -420,7 +422,7 @@ final class ChatApiClient implements ChatApi {
     );
     final membership = body['membership'];
     if (membership is! Map<String, dynamic>) {
-      throw const FormatException('Missing chat channel membership.');
+      throw FormatException(appL10n.missingChatChannelMembership);
     }
     return ChatMembership.fromJson(membership);
   }
@@ -543,7 +545,7 @@ final class ChatApiClient implements ChatApi {
     final returnedDestination = jsonIntOrNull(body['destination_channel_id']);
     final firstMovedMessage = jsonIntOrNull(body['first_moved_message_id']);
     if (returnedDestination == null || firstMovedMessage == null) {
-      throw const FormatException('Missing chat message move destination.');
+      throw FormatException(appL10n.missingChatMessageMoveDestination);
     }
     return (
       destinationChannelId: returnedDestination,
@@ -619,7 +621,7 @@ final class ChatApiClient implements ChatApi {
     );
     final markdown = body['markdown'];
     if (markdown is! String || markdown.trim().isEmpty) {
-      throw const FormatException('Missing chat quote markdown.');
+      throw FormatException(appL10n.missingChatQuoteMarkdown);
     }
     return markdown;
   }
@@ -1017,7 +1019,7 @@ final class ChatApiClient implements ChatApi {
     );
     final membership = ChatThreadMembership.fromJson(body['membership']);
     if (membership == null) {
-      throw const FormatException('Missing chat thread membership.');
+      throw FormatException(appL10n.missingChatThreadMembership);
     }
     return membership;
   }
@@ -1067,7 +1069,7 @@ final class ChatApiClient implements ChatApi {
         value.length > maximumSearchTermLength) {
       // Composer values can contain private names and may reach diagnostics.
       throw ArgumentError(
-        'Composer lookup values must be ${allowEmpty ? 'at most' : 'between 1 and'} '
+        'Composer lookup values must be ${allowEmpty ? appL10n.atMost : appL10n.between1And} '
         '$maximumSearchTermLength characters.',
       );
     }

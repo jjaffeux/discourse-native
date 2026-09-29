@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -85,8 +86,8 @@ class EmbeddedOneboxData {
       title: title != null && title.isNotEmpty
           ? title
           : isScript
-          ? 'Asciinema recording'
-          : '${uri.host} embed',
+          ? appL10n.asciinemaRecording
+          : appL10n.embed((uri.host).toString()),
       width: _dimension(element, 'width'),
       height: (_dimension(element, 'height') ?? 400).clamp(120, 2000),
     );
@@ -175,13 +176,13 @@ class _EmbeddedOneboxState extends State<EmbeddedOnebox> {
                         children: [
                           DButton(
                             size: DButtonSize.post,
-                            label: const Text('Load embed'),
+                            label: Text(context.l10n.loadEmbed),
                             onPressed: () => setState(() => _activated = true),
                           ),
                           DButton(
                             size: DButtonSize.post,
                             variant: DButtonVariant.outline,
-                            label: const Text('Open in browser'),
+                            label: Text(context.l10n.openInBrowser),
                             onPressed: () => unawaited(
                               openLink(
                                 context,

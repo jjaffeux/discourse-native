@@ -1,12 +1,13 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
-const chatSearchScope = GlobalSearchScope.plugin(
+GlobalSearchScope get chatSearchScope => GlobalSearchScope.plugin(
   owner: 'chat',
   name: 'chat',
-  label: 'Chat',
+  label: appL10n.chat,
   showAvatar: true,
   singletonFilters: true,
-  displayProperties: {
+  displayProperties: const {
     GlobalSearchDisplayProperty.excerpt,
     GlobalSearchDisplayProperty.likes,
   },
@@ -15,55 +16,55 @@ const chatSearchScope = GlobalSearchScope.plugin(
 final class ChatGlobalSearch extends GlobalSearchContribution {
   const ChatGlobalSearch() : super('chat');
   @override
-  List<GlobalSearchScope> get scopes => const [chatSearchScope];
+  List<GlobalSearchScope> get scopes => [chatSearchScope];
   @override
-  List<GlobalSearchFilter> get filters => const [
+  List<GlobalSearchFilter> get filters => [
     GlobalSearchFilter(
       id: "chatAuthor",
       lookup: GlobalSearchLookup.users,
       singleIdentifier: true,
-      label: "Sent by",
+      label: appL10n.sentBy,
       scope: chatSearchScope,
       kind: GlobalSearchFilterKind.text,
       icon: "user",
-      group: "People",
-      operators: [GlobalSearchFilterOperator("is", "is")],
+      group: appL10n.people,
+      operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
       token: "@",
-      placeholder: "Username or me",
-      help: "Find messages sent by one person.",
+      placeholder: appL10n.usernameOrMe,
+      help: appL10n.findMessagesSentByOnePerson,
     ),
     GlobalSearchFilter(
       id: "chatChannel",
       lookup: GlobalSearchLookup.contributed,
       singleIdentifier: true,
-      label: "Channel",
+      label: appL10n.channel,
       scope: chatSearchScope,
       kind: GlobalSearchFilterKind.text,
       icon: "hash",
-      group: "Where",
-      operators: [GlobalSearchFilterOperator("is", "is")],
+      group: appL10n.where,
+      operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
       token: "#",
-      placeholder: "Channel slug or ID",
-      help: "Search one channel available to your account.",
+      placeholder: appL10n.channelSlugOrID,
+      help: appL10n.searchOneChannelAvailableToYourAccount,
     ),
     GlobalSearchFilter(
       id: "chatThreads",
-      label: "Thread replies",
+      label: appL10n.threadReplies,
       scope: chatSearchScope,
       kind: GlobalSearchFilterKind.choice,
       icon: "post",
-      group: "Content",
-      operators: [GlobalSearchFilterOperator("is", "is")],
-      help: "Excluding replies still includes messages that started a thread.",
+      group: appL10n.content,
+      operators: [GlobalSearchFilterOperator("is", appL10n.searchOperatorIs)],
+      help: appL10n.excludingRepliesStillIncludesMessagesThatStartedAThread,
       choices: [
         GlobalSearchFilterChoice(
           value: "include",
-          label: "Include thread replies",
+          label: appL10n.includeThreadReplies,
           token: "exclude_threads=false",
         ),
         GlobalSearchFilterChoice(
           value: "exclude",
-          label: "Exclude thread replies",
+          label: appL10n.excludeThreadReplies,
           token: "exclude_threads=true",
         ),
       ],
@@ -83,9 +84,9 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
   @override
   List<GlobalSearchOrder> orders(GlobalSearchScope scope) =>
       scope == chatSearchScope
-      ? const [
-          GlobalSearchOrder('relevance', 'Most relevant'),
-          GlobalSearchOrder('latest', 'Latest message'),
+      ? [
+          GlobalSearchOrder('relevance', appL10n.mostRelevant),
+          GlobalSearchOrder('latest', appL10n.latestMessage),
         ]
       : const [];
   @override
@@ -94,7 +95,7 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
     GlobalSearchRequest request,
   ) async {
     if (!context.authenticated) {
-      throw const FormatException('Chat search is unavailable.');
+      throw FormatException(appL10n.chatSearchIsUnavailable);
     }
     final r = request;
     final site = context.siteUrl;
@@ -116,7 +117,7 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
           ),
     ].where((x) => x.trim().isNotEmpty).join(' ');
     if (terms.isEmpty) {
-      return const GlobalSearchPage(
+      return GlobalSearchPage(
         sections: [GlobalSearchSection(scope: chatSearchScope)],
       );
     }

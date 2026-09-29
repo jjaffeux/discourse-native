@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'discourse_instance.dart';
@@ -47,7 +48,7 @@ final class BadgeRoute {
     if (id is! int ||
         (slug != null && slug is! String) ||
         (username != null && username is! String)) {
-      throw const FormatException('Invalid badge route');
+      throw FormatException(appL10n.invalidBadgeRoute);
     }
     try {
       return BadgeRoute.detail(
@@ -56,7 +57,7 @@ final class BadgeRoute {
         username: username as String?,
       );
     } on ArgumentError {
-      throw const FormatException('Invalid badge route');
+      throw FormatException(appL10n.invalidBadgeRoute);
     }
   }
 

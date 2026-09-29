@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -169,31 +170,31 @@ class LocalDateComposerDraft {
     final resolvedFormatter =
         formatter ?? LocalDateFormatter(environment: environment);
     final errors = <String>[];
-    if (!_validDate(startDate)) errors.add('Choose a valid start date.');
+    if (!_validDate(startDate)) errors.add(appL10n.chooseAValidStartDate);
     if (startTime != null && !_validTime(startTime!)) {
-      errors.add('Choose a valid start time.');
+      errors.add(appL10n.chooseAValidStartTime);
     }
     if (endDate != null && !_validDate(endDate!)) {
-      errors.add('Choose a valid end date.');
+      errors.add(appL10n.chooseAValidEndDate);
     }
     if (endTime != null && (endDate == null || !_validTime(endTime!))) {
-      errors.add('An end time needs a valid end date.');
+      errors.add(appL10n.anEndTimeNeedsAValidEndDate);
     }
     if (previewTimezones.length > 5) {
-      errors.add('Choose at most five preview timezones.');
+      errors.add(appL10n.chooseAtMostFivePreviewTimezones);
     }
     final zones = [timezone, ?displayedTimezone, ...previewTimezones];
     if (zones.any((zone) => environment.canonicalTimezone(zone) == null)) {
-      errors.add('Every timezone must be a valid IANA timezone.');
+      errors.add(appL10n.everyTimezoneMustBeAValidIANATimezone);
     }
     if (recurring != null &&
         !RegExp(
           r'^[1-9]\d*\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?)$',
         ).hasMatch(recurring!)) {
-      errors.add('Recurrence must look like “1.weeks”.');
+      errors.add(appL10n.recurrenceMustLookLike1Weeks);
     }
     if (isRange && (recurring != null || countdown)) {
-      errors.add('Ranges cannot recur or use countdown mode.');
+      errors.add(appL10n.rangesCannotRecurOrUseCountdownMode);
     }
     if (errors.isNotEmpty) {
       return LocalDateComposerValidation(List.unmodifiable(errors));
@@ -209,7 +210,7 @@ class LocalDateComposerDraft {
       now: DateTime.fromMillisecondsSinceEpoch(0),
     );
     if (start == null) {
-      errors.add('The start time does not exist in that timezone.');
+      errors.add(appL10n.theStartTimeDoesNotExistInThatTimezone);
     }
     if (endDate != null) {
       final end = resolvedFormatter.resolve(
@@ -223,9 +224,9 @@ class LocalDateComposerDraft {
         now: DateTime.fromMillisecondsSinceEpoch(0),
       );
       if (end == null) {
-        errors.add('The end time does not exist in that timezone.');
+        errors.add(appL10n.theEndTimeDoesNotExistInThatTimezone);
       } else if (start != null && end.source.isBefore(start.source)) {
-        errors.add('The end must be after the start.');
+        errors.add(appL10n.theEndMustBeAfterTheStart);
       }
     }
     return LocalDateComposerValidation(List.unmodifiable(errors));
@@ -413,14 +414,13 @@ class LocalDateComposerMutation {
   factory LocalDateComposerMutation.applied(TextEditingValue value) =>
       LocalDateComposerMutation._(value: value, applied: true);
 
-  factory LocalDateComposerMutation.stale(
-    TextEditingValue value,
-  ) => LocalDateComposerMutation._(
-    value: value,
-    applied: false,
-    message:
-        'The composer changed while this date was open. Nothing was changed.',
-  );
+  factory LocalDateComposerMutation.stale(TextEditingValue value) =>
+      LocalDateComposerMutation._(
+        value: value,
+        applied: false,
+        message:
+            appL10n.theComposerChangedWhileThisDateWasOpenNothingWasChanged,
+      );
 
   final TextEditingValue value;
   final bool applied;

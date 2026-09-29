@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../plugin_api/plugin_data.dart';
@@ -832,23 +833,23 @@ class SiteConfig {
     Map<String, dynamic> json, {
     required bool wire,
   }) {
-    const types = <String, String>{
+    final types = <String, String>{
       'enable_emoji_shortcuts': 'bool',
       'enable_inline_emoji_translation': 'bool',
       'unicode_usernames': 'bool',
       'traditional_markdown_linebreaks': 'bool',
       'enable_markdown_typographer': 'bool',
-      'markdown_typographer_quotation_marks': 'String',
-      'default_code_lang': 'String',
+      'markdown_typographer_quotation_marks': appL10n.string,
+      'default_code_lang': appL10n.string,
       'secure_uploads': 'bool',
-      'block_hotlinked_media_exceptions': 'String',
+      'block_hotlinked_media_exceptions': appL10n.string,
       'block_hotlinked_media': 'bool',
-      'exclude_rel_nofollow_domains': 'String',
+      'exclude_rel_nofollow_domains': appL10n.string,
       'add_rel_nofollow_to_user_content': 'bool',
       'enable_emoji': 'bool',
       'enable_mentions': 'bool',
-      'emoji_set': 'String',
-      'external_emoji_url': 'String',
+      'emoji_set': appL10n.string,
+      'external_emoji_url': appL10n.string,
       'enable_markdown_linkify': 'bool',
       'markdown_linkify_tlds': 'list',
     };

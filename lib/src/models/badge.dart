@@ -1,16 +1,21 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'badge_route.dart';
 import 'json.dart';
 
 enum BadgeTier {
-  gold(1, 'Gold'),
-  silver(2, 'Silver'),
-  bronze(3, 'Bronze');
+  gold(1),
+  silver(2),
+  bronze(3);
 
-  const BadgeTier(this.id, this.label);
+  const BadgeTier(this.id);
   final int id;
-  final String label;
+  String get label => switch (this) {
+    gold => appL10n.gold,
+    silver => appL10n.silver,
+    bronze => appL10n.bronze,
+  };
 
   static BadgeTier fromId(int id) =>
       values.firstWhere((tier) => tier.id == id, orElse: () => bronze);
@@ -37,7 +42,7 @@ final class DiscourseBadge {
   factory DiscourseBadge.fromJson(Map<String, dynamic> json, String siteUrl) =>
       DiscourseBadge(
         id: jsonInt(json['id']),
-        name: jsonText(json['name']) ?? 'Badge',
+        name: jsonText(json['name']) ?? appL10n.badge,
         description: jsonString(json['description']),
         longDescription: jsonString(json['long_description']),
         icon: jsonText(json['icon']) ?? 'certificate',
@@ -119,7 +124,7 @@ final class BadgeCatalog {
       for (final id in ids)
         BadgeGroup(
           id: id,
-          name: jsonText(groupings[id]?['name']) ?? 'Other',
+          name: jsonText(groupings[id]?['name']) ?? appL10n.other,
           badges: byGroup[id]!
             ..sort((a, b) {
               // Core presents bronze, silver, then gold within each grouping.

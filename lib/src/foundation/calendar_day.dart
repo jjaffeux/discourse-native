@@ -1,5 +1,8 @@
 library;
 
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:intl/intl.dart';
+
 /// The reader's midnight at or before [value].
 ///
 /// Topic timelines use this for every post's creation date, regardless of
@@ -18,9 +21,12 @@ DateTime? calendarDay(DateTime? value) {
 /// spelled out. A day still to come is dated rather than named.
 String dayLabel(DateTime day, {required DateTime now}) {
   final offset = _calendarDaysFrom(now, day);
-  if (offset == 0) return 'Today';
-  if (offset == -1) return 'Yesterday';
-  return '${day.day} ${monthName(day.month)} ${day.year}';
+  if (offset == 0) return appL10n.todayDcalendarevents;
+  if (offset == -1) return appL10n.yesterday;
+  return DateFormat(
+    appL10n.calendarDatePattern,
+    appL10n.localeName,
+  ).format(day);
 }
 
 /// Today or Tomorrow when [day] is one of them, for a moment the reader is
@@ -28,8 +34,8 @@ String dayLabel(DateTime day, {required DateTime now}) {
 /// caller to date it in its own format.
 String? upcomingDayName(DateTime day, {required DateTime now}) =>
     switch (_calendarDaysFrom(now, day)) {
-      0 => 'Today',
-      1 => 'Tomorrow',
+      0 => appL10n.todayDcalendarevents,
+      1 => appL10n.tomorrow,
       _ => null,
     };
 
@@ -42,23 +48,9 @@ int _calendarDaysFrom(DateTime now, DateTime day) {
   return DateTime.utc(day.year, day.month, day.day).difference(today).inDays;
 }
 
-String monthName(int month) => _months[month - 1];
+String monthName(int month) =>
+    DateFormat.MMMM(appL10n.localeName).format(DateTime(2000, month));
 
-/// [monthName] cut to its first three letters, which is every English
-/// month's abbreviation, so there is no second table to drift from it.
-String shortMonthName(int month) => monthName(month).substring(0, 3);
-
-const List<String> _months = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+/// Locale-specific abbreviation; some languages do not use three letters.
+String shortMonthName(int month) =>
+    DateFormat.MMM(appL10n.localeName).format(DateTime(2000, month));

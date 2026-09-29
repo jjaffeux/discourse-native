@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../plugin_api/notification_feed_host.dart';
@@ -207,9 +208,9 @@ class _PluginNotificationsSectionState
     final siteUrl = widget.siteUrl;
     final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      title: const Text('Mark notifications as read?'),
+      title: Text(appL10n.markNotificationsAsRead),
       description: Text(dismissal.confirmationMessage(widget.unreadCount)),
-      cancelLabel: const Text('Cancel'),
+      cancelLabel: Text(appL10n.cancel),
       actionLabel: Text(dismissal.buttonLabel),
       cancelResult: false,
       actionResult: true,
@@ -235,7 +236,7 @@ class _PluginNotificationsSectionState
     } catch (_) {
       if (mounted && revision == _dismissRevision) {
         setState(() {
-          _dismissError = "Couldn't mark notifications as read. Try again.";
+          _dismissError = appL10n.couldnTMarkNotificationsAsReadTryAgain;
         });
       }
     } finally {
@@ -364,7 +365,9 @@ class _PluginNotificationsSectionState
         );
       }
       if (!feed.loaded) {
-        return const UserMenuLoading(semanticsLabel: 'Loading notifications');
+        return UserMenuLoading(
+          semanticsLabel: context.l10n.loadingNotifications,
+        );
       }
       if (feed.isEmpty) {
         return _withActions(
@@ -487,16 +490,18 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
           return UserMenuMessage(text: error, onRetry: retry);
         }
         if (!currentFeed.loaded) {
-          return const UserMenuLoading(semanticsLabel: 'Loading notifications');
+          return UserMenuLoading(
+            semanticsLabel: context.l10n.loadingNotifications,
+          );
         }
         if (currentFeed.isEmpty) {
           return UserMenuMessage(
             text: switch (widget.kind) {
               _NotificationFeedKind.likes =>
-                "You haven't received any likes yet.",
+                context.l10n.youHavenTReceivedAnyLikesYet,
               _NotificationFeedKind.other =>
-                'You don’t have any other notifications yet.',
-              _ => 'Nothing new.',
+                context.l10n.youDonTHaveAnyOtherNotificationsYet,
+              _ => context.l10n.nothingNew,
             },
           );
         }
@@ -558,7 +563,9 @@ class NotificationRow extends StatelessWidget {
       final actor? => '$actor ${description.phrase}',
       null => description.phrase,
     };
-    final accessibilityLabel = notification.isUnread ? '$line, unread' : line;
+    final accessibilityLabel = notification.isUnread
+        ? context.l10n.unreadNotificationlist((line).toString())
+        : line;
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),

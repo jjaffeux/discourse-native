@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
@@ -471,7 +472,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     controller.canPopContent))
               DButton.iconOnly(
                 icon: const DIcon(DIcons.arrowLeft),
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
                 variant: DButtonVariant.ghost,
                 onPressed: () =>
                     controller.handleBack(canReturnToSidebar: true),
@@ -575,8 +576,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       edge: ResizablePaneEdge.trailing,
                       resizeKey: 'inbox-list',
                       semanticsLabel: messages
-                          ? 'Resize message list'
-                          : 'Resize topic list',
+                          ? context.l10n.resizeMessageList
+                          : context.l10n.resizeTopicList,
                       maximumWidth: maximumListWidth,
                       // The resize handle owns the list/reader boundary. When the
                       // list fills the reader, the shell or composer owns its edge.
@@ -1038,7 +1039,7 @@ class _ContentHeader extends StatelessWidget {
                     }
                   },
                   icon: const DIcon(DIcons.arrowLeft),
-                  tooltip: 'Back',
+                  tooltip: context.l10n.back,
                   variant: DButtonVariant.ghost,
                 )
               else
@@ -1103,7 +1104,10 @@ class _ContentHeader extends StatelessWidget {
                                 onPressed: contentHeaderTitleAction,
                                 size: DButtonSize.large,
                                 variant: DButtonVariant.transparentBackground,
-                                semanticLabel: 'Open ${route.title} details',
+                                semanticLabel: context.l10n
+                                    .openDetailsMaincontent(
+                                      (route.title).toString(),
+                                    ),
                                 icon: contentHeaderLeading == null
                                     ? DIcon(route.icon)
                                     : KeyedSubtree(
@@ -1122,7 +1126,9 @@ class _ContentHeader extends StatelessWidget {
                           button: contentHeaderTitleAction != null,
                           label: contentHeaderTitleAction == null
                               ? null
-                              : 'Open ${route.title} details',
+                              : context.l10n.openDetailsMaincontent(
+                                  (route.title).toString(),
+                                ),
                           child: InkWell(
                             key: contentHeaderTitleAction == null
                                 ? null
@@ -1255,17 +1261,22 @@ class _TopicListHeadingTitle extends StatelessWidget {
       return ShellSelector<TopicListMode?>(
         select: (shell) => shell.currentTopicListMode,
         builder: (context, mode, _) => title(
-          mode == null ? pageTitle : '${TopicFeedMenu.label(mode)} topics',
+          mode == null
+              ? pageTitle
+              : context.l10n.topicsMaincontent(
+                  (TopicFeedMenu.label(mode)).toString(),
+                ),
         ),
       );
     }
     final siteUrl = this.siteUrl;
-    if (siteUrl == null) return title('Category');
+    if (siteUrl == null) return title(context.l10n.category);
     return ValueListenableBuilder<TopicCategory?>(
       valueListenable: ShellScope.read(
         context,
       ).categoryRef(siteUrl, categoryId),
-      builder: (context, category, _) => title(category?.name ?? 'Category'),
+      builder: (context, category, _) =>
+          title(category?.name ?? context.l10n.category),
     );
   }
 }
@@ -1351,7 +1362,9 @@ class _CategoryHeaderIdentity extends StatelessWidget {
               child: InlineAction.link(
                 key: const ValueKey('content-header-parent-category'),
                 onTap: () => controller.openCategory(parent, siteUrl: siteUrl),
-                semanticLabel: 'Parent category: ${parent.name}',
+                semanticLabel: context.l10n.parentCategory(
+                  (parent.name).toString(),
+                ),
                 excludeChildSemantics: true,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: 32),
@@ -1441,7 +1454,7 @@ class _CategoryHeaderTitle extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Open ${route.title} details',
+      label: context.l10n.openDetailsMaincontent((route.title).toString()),
       child: InkWell(
         key: const ValueKey('content-header-title-action'),
         onTap: titleAction,
@@ -1468,7 +1481,9 @@ class _GroupsDirectoryCount extends StatelessWidget {
         final count = state.totalRows;
         return Text(
           key: const ValueKey('groups-header-count'),
-          count == 1 ? '1 group' : '$count groups',
+          count == 1
+              ? context.l10n.message1Group
+              : context.l10n.groupsMaincontent((count).toString()),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1589,76 +1604,77 @@ class _SignedOutMessagesState extends StatelessWidget {
   const _SignedOutMessagesState();
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => ShellSelector<({bool connecting, String? error})>(
-    select: (controller) =>
-        (connecting: controller.connecting, error: controller.connectError),
-    builder: (context, state, _) {
-      final theme = Theme.of(context);
-      final controller = ShellScope.read(context);
+  Widget build(BuildContext context) =>
+      ShellSelector<({bool connecting, String? error})>(
+        select: (controller) =>
+            (connecting: controller.connecting, error: controller.connectError),
+        builder: (context, state, _) {
+          final theme = Theme.of(context);
+          final controller = ShellScope.read(context);
 
-      return Center(
-        child: SingleChildScrollView(
-          child: DEmpty(
-            children: [
-              const DEmptyHeader(
+          return Center(
+            child: SingleChildScrollView(
+              child: DEmpty(
                 children: [
-                  DEmptyMedia(
-                    variant: DEmptyMediaVariant.icon,
-                    child: DIcon(DIcons.lock),
+                  DEmptyHeader(
+                    children: [
+                      const DEmptyMedia(
+                        variant: DEmptyMediaVariant.icon,
+                        child: DIcon(DIcons.lock),
+                      ),
+                      DEmptyTitle(context.l10n.signInToViewYourMessages),
+                      DEmptyDescription(
+                        context
+                            .l10n
+                            .privateMessagesAreTiedToYourForumAccountAndArenT,
+                      ),
+                    ],
                   ),
-                  DEmptyTitle('Sign in to view your messages'),
-                  DEmptyDescription(
-                    'Private messages are tied to your forum account and aren’t available while you’re signed out.',
-                  ),
-                ],
-              ),
-              if (state.error case final error?)
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    error,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
+                  if (state.error case final error?)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              DEmptyContent(
-                children: [
-                  DButton(
-                    key: const ValueKey('messages-sign-in'),
-                    label: const Text('Sign in'),
-                    onPressed: () =>
-                        unawaited(controller.connectCurrentInstance()),
-                    icon: const DIcon(DIcons.user),
-                    variant: DButtonVariant.primary,
-                    loading: state.connecting,
-                    loadingLabel: const Text('Signing in…'),
+                  DEmptyContent(
+                    children: [
+                      DButton(
+                        key: const ValueKey('messages-sign-in'),
+                        label: Text(context.l10n.signIn),
+                        onPressed: () =>
+                            unawaited(controller.connectCurrentInstance()),
+                        icon: const DIcon(DIcons.user),
+                        variant: DButtonVariant.primary,
+                        loading: state.connecting,
+                        loadingLabel: Text(context.l10n.signingIn),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
-    },
-  );
 }
 
 class _ContentNotFound extends StatelessWidget {
   const _ContentNotFound();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: SingleChildScrollView(
       child: DEmpty(
         children: [
           DEmptyHeader(
             children: [
-              DEmptyTitle('Not found'),
-              DEmptyDescription('The requested page could not be found.'),
+              DEmptyTitle(context.l10n.notFound),
+              DEmptyDescription(context.l10n.theRequestedPageCouldNotBeFound),
             ],
           ),
         ],

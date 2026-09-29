@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart' show DResizableHandle;
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
@@ -242,7 +243,8 @@ class _ResizablePaneState extends State<ResizablePane> {
                       : widget.edge == ResizablePaneEdge.leading
                       ? AlignmentDirectional.centerStart
                       : AlignmentDirectional.centerEnd,
-                  valueFormatter: (value) => '${value.round()} pixels wide',
+                  valueFormatter: (value) =>
+                      context.l10n.pixelsWide((value.round()).toString()),
                   onChangeStart: () {
                     // An outer-window resize may be displaying a temporary
                     // width that differs from the saved preference. Start a

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'assign_notifications.dart';
@@ -26,11 +27,11 @@ class AssignUserMenuNotifications extends StatelessWidget {
     source: assignNotificationFeed,
     unreadCount: unreadCount,
     viewAll: PluginNotificationFeedLink(
-      label: 'View all assigned',
+      label: context.l10n.viewAllAssigned,
       path: viewAllPath,
     ),
-    emptyStateAction: const PluginNotificationFeedLink(
-      label: 'Notification preferences',
+    emptyStateAction: PluginNotificationFeedLink(
+      label: context.l10n.notificationPreferences,
       path: '/my/preferences/notifications',
     ),
   );

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
@@ -176,15 +177,21 @@ class SearchResults {
 }
 
 enum SearchResultKind {
-  topic('Topics'),
-  category('Categories'),
-  tag('Tags'),
-  user('Users'),
-  group('Groups');
+  topic(),
+  category(),
+  tag(),
+  user(),
+  group();
 
-  const SearchResultKind(this.label);
+  const SearchResultKind();
 
-  final String label;
+  String get label => switch (this) {
+    topic => appL10n.topics,
+    category => appL10n.categories,
+    tag => appL10n.tags,
+    user => appL10n.users,
+    group => appL10n.groups,
+  };
 }
 
 @immutable

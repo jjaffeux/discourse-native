@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'reaction.dart';
@@ -70,9 +71,10 @@ class ReactionsRow extends StatelessWidget {
                   key: ValueKey('post-reaction-summary-${post.id}'),
                   size: DButtonSize.post,
                   variant: DButtonVariant.outline,
-                  semanticLabel:
-                      '${countLabel(count, 'reaction')}. Show all reactions',
-                  tooltip: 'Show all reactions',
+                  semanticLabel: context.l10n.showAllReactions(
+                    (countLabel(count, CountNoun.reaction)).toString(),
+                  ),
+                  tooltip: context.l10n.showAllReactionsReactionsrow,
                   icon: Row(
                     mainAxisSize: MainAxisSize.min,
                     spacing: DSpacing.controlGap,
@@ -165,9 +167,9 @@ class ReactionsRow extends StatelessWidget {
       side: DSheetSide.bottom,
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
-        semanticLabel: 'Post reactions',
+        semanticLabel: appL10n.postReactions,
         children: [
-          const DSheetHeader(children: [DSheetTitle(child: Text('Reactions'))]),
+          DSheetHeader(children: [DSheetTitle(child: Text(appL10n.reactions))]),
           DSheetBody(
             child: StatefulBuilder(
               builder: (context, setSheetState) => ListenableBuilder(
@@ -201,9 +203,9 @@ class ReactionsRow extends StatelessWidget {
                               size: DToggleSize.large,
                               variant: DToggleVariant.outline,
                               pressed: filter == entry.id,
-                              semanticLabel: countLabel(
+                              semanticLabel: appL10n.namedReactions(
                                 entry.count,
-                                '${entry.id} reaction',
+                                entry.id,
                               ),
                               onPressedChanged: (_) => setSheetState(() {
                                 filter = filter == entry.id ? null : entry.id;
@@ -252,9 +254,9 @@ class ReactionsRow extends StatelessWidget {
   String? _tapHint(Post post, String reaction) {
     if (!post.canReact) return null;
     return switch (post.reactions?.mine?.id) {
-      final id when id == reaction => 'remove your reaction',
-      null => 'add this reaction',
-      _ => 'change your reaction to $reaction',
+      final id when id == reaction => appL10n.removeYourReaction,
+      null => appL10n.addThisReaction,
+      _ => appL10n.changeYourReactionTo((reaction).toString()),
     };
   }
 }

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 enum ChatChannelListSection {
@@ -12,27 +13,36 @@ enum ChatChannelListSection {
 }
 
 enum ChatChannelListFilter {
-  all('all', 'All'),
-  active('active', 'Active in the last 30 days'),
-  unread('unread', 'Unread'),
-  mentions('mentions', 'Mentions');
+  all('all'),
+  active('active'),
+  unread('unread'),
+  mentions('mentions');
 
-  const ChatChannelListFilter(this.wireValue, this.label);
+  const ChatChannelListFilter(this.wireValue);
   final String wireValue;
-  final String label;
+  String get label => switch (this) {
+    all => appL10n.all,
+    active => appL10n.activeInTheLast30Days,
+    unread => appL10n.unread,
+    mentions => appL10n.mentions,
+  };
 
   static ChatChannelListFilter read(Object? value) =>
       values.where((filter) => filter.wireValue == value).firstOrNull ?? all;
 }
 
 enum ChatChannelListSort {
-  alphabetical('alphabetical', 'Alphabetical'),
-  recentActivity('recent_activity', 'Recent activity'),
-  priority('priority', 'Priority');
+  alphabetical('alphabetical'),
+  recentActivity('recent_activity'),
+  priority('priority');
 
-  const ChatChannelListSort(this.wireValue, this.label);
+  const ChatChannelListSort(this.wireValue);
   final String wireValue;
-  final String label;
+  String get label => switch (this) {
+    alphabetical => appL10n.alphabetical,
+    recentActivity => appL10n.recentActivity,
+    priority => appL10n.priority,
+  };
 
   static ChatChannelListSort read(Object? value) =>
       values.where((sort) => sort.wireValue == value).firstOrNull ??

@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'json.dart';
@@ -237,6 +238,10 @@ class PostRevision {
     final current = currentVersion > 0 ? currentVersion : 1;
     final previous = current > 1 ? current - 1 : 1;
     final total = versionCount > 0 ? versionCount : current;
-    return 'Comparing version $previous to $current of $total';
+    return appL10n.comparingVersionToOf(
+      (previous).toString(),
+      (current).toString(),
+      (total).toString(),
+    );
   }
 }

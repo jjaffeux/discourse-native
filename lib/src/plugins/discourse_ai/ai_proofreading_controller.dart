@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'ai_proofreading_api.dart';
@@ -155,11 +156,11 @@ final class AiProofreadingController extends FrameSafeNotifier
     if (!isAvailable(composer)) {
       _postingWithout[composer] = true;
       notifySafely();
-      return const PluginComposerSubmitPreparation.failed(
+      return PluginComposerSubmitPreparation.failed(
         WriteException(
           WriteFailure.validation,
           errors: [
-            "Proofreading isn't available right now. Nothing was posted. Try again to post without it.",
+            appL10n.proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain,
           ],
         ),
       );
@@ -213,11 +214,11 @@ final class AiProofreadingController extends FrameSafeNotifier
       ),
     );
     if (!committed) {
-      return const PluginComposerSubmitPreparation.failed(
+      return PluginComposerSubmitPreparation.failed(
         WriteException(
           WriteFailure.conflict,
           errors: [
-            'The post changed while it was being proofread. Nothing was posted. Review it and try again.',
+            appL10n.thePostChangedWhileItWasBeingProofreadNothingWasPosted,
           ],
         ),
       );

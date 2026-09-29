@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 import 'retry_after.dart';
@@ -145,8 +147,10 @@ final class MediaOriginRateLimitedException implements Exception {
   final Duration retryAfter;
 
   @override
-  String toString() =>
-      'Media requests to $origin are paused for ${retryAfter.inSeconds}s.';
+  String toString() => appL10n.mediaRequestsToArePausedForS(
+    (origin).toString(),
+    (retryAfter.inSeconds).toString(),
+  );
 }
 
 final class MediaRequestOverloadException implements Exception {
@@ -156,6 +160,8 @@ final class MediaRequestOverloadException implements Exception {
   final int maxQueued;
 
   @override
-  String toString() =>
-      'Media request backlog for $origin already contains $maxQueued operations.';
+  String toString() => appL10n.mediaRequestBacklogForAlreadyContainsOperations(
+    (origin).toString(),
+    (maxQueued).toString(),
+  );
 }

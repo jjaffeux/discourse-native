@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -136,21 +137,21 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final dockDestinations = <_DockDestination>[
           (
             tab: MobileTab.start,
-            label: 'Start',
+            label: context.l10n.start,
             icon: DIcons.house,
             badge: null,
             onPressed: () => shell.selectMobileDestination(
               MobileTab.start,
-              const SidebarDestination(
+              SidebarDestination(
                 id: 'new-tab',
-                label: 'Start page',
+                label: context.l10n.startPage,
                 icon: DIcons.house,
               ),
             ),
           ),
           (
             tab: MobileTab.topics,
-            label: 'Topics',
+            label: context.l10n.topics,
             icon: DIcons.layerGroup,
             badge: null,
             onPressed: () => shell.selectMobileDestination(
@@ -169,7 +170,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           if (destination('messages') case final messages?)
             (
               tab: MobileTab.messages,
-              label: 'Inbox',
+              label: context.l10n.inbox,
               icon: DIcons.inbox,
               badge: null,
               onPressed: () =>
@@ -178,7 +179,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           if (destination('users') case final users?)
             (
               tab: MobileTab.users,
-              label: 'Users',
+              label: context.l10n.users,
               icon: DIcons.user,
               badge: null,
               onPressed: () =>
@@ -237,8 +238,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         key: const ValueKey('mobile-menu-button'),
                         icon: const Icon(Icons.menu, size: 20),
                         tooltip: sidebarOpen
-                            ? 'Close navigation'
-                            : 'Open navigation',
+                            ? context.l10n.closeNavigation
+                            : context.l10n.openNavigation,
                         variant: DButtonVariant.ghost,
                         expanded: sidebarOpen,
                         onPressed: () {
@@ -381,9 +382,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                               for (final id in ['groups', 'badges'])
                                 ?destination(id),
                               if (instance.isConnected)
-                                const SidebarDestination(
+                                SidebarDestination(
                                   id: 'user-bookmarks',
-                                  label: 'Bookmarks',
+                                  label: context.l10n.bookmarks,
                                   icon: DIcons.bookmark,
                                 ),
                             ],
@@ -448,10 +449,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final actionLabel =
         pageAction?.label ??
         (showReply
-            ? 'Reply'
+            ? context.l10n.reply
             : showNewMessage
-            ? 'New message'
-            : panelAction?.label ?? 'New topic');
+            ? context.l10n.newMessage
+            : panelAction?.label ?? context.l10n.newTopic);
     final actionIcon =
         pageAction?.icon ??
         (showReply
@@ -480,8 +481,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ? DButton(
               key: const ValueKey('mobile-topic-reply'),
               icon: const DIcon(DIcons.reply),
-              label: const Text('Reply'),
-              tooltip: 'Reply to this topic',
+              label: Text(context.l10n.reply),
+              tooltip: context.l10n.replyToThisTopic,
               shape: DButtonShape.pill,
               density: DButtonDensity.mobileDockAction,
               onPressed: shell.openReply,
@@ -489,7 +490,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           : DButton.iconOnly(
               key: const ValueKey('mobile-topic-reply'),
               icon: const DIcon(DIcons.reply),
-              tooltip: 'Reply to this topic',
+              tooltip: context.l10n.replyToThisTopic,
               shape: DButtonShape.pill,
               density: DButtonDensity.mobileDockAction,
               onPressed: shell.openReply,
@@ -512,7 +513,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       primaryAction = _dockAction(
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.plus,
-        label: 'New topic',
+        label: context.l10n.newTopic,
         showLabel: showLabel,
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
       );
@@ -539,7 +540,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               Expanded(
                 child: DDropdownMenu(
                   content: DDropdownMenuContent(
-                    semanticLabel: 'More destinations',
+                    semanticLabel: context.l10n.moreDestinations,
                     side: DPopoverSide.top,
                     align: DPopoverAlign.end,
                     children: [
@@ -548,7 +549,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           leading: DIcon(item.icon),
                           onPressed: item.onPressed,
                           child: Text(
-                            item.label == 'Inbox' ? 'Messages' : item.label,
+                            item.tab == MobileTab.messages
+                                ? context.l10n.messages
+                                : item.label,
                           ),
                         ),
                       for (final entry in moreDestinations)
@@ -566,7 +569,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     builder: (context, state) => DMobileDockItem(
                       key: const ValueKey('mobile-mode-more'),
                       icon: const DIcon(DIcons.ellipsisVertical),
-                      label: 'More',
+                      label: context.l10n.more,
                       selected:
                           selected == MobileTab.more ||
                           spilled.any((item) => item.tab == selected),

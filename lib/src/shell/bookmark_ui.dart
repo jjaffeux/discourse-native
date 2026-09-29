@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -160,7 +161,7 @@ Future<void> showPostBookmarkMenu({
   final uiActions = _CoreBookmarkUiHost(actions, topicId, session);
   final result = await showShellSheet<_QuickMenuResult>(
     context: context,
-    title: post.bookmark == null ? 'Bookmark post' : 'Post bookmark',
+    title: post.bookmark == null ? appL10n.bookmarkPost : appL10n.postBookmark,
     dialogOnDesktop: true,
     builder: (_) => _BookmarkQuickSheet(
       controller: uiActions,
@@ -226,7 +227,9 @@ Future<void> showTopicBookmarkMenu({
   if (topic.postBookmarks.isEmpty) {
     final result = await showShellSheet<_QuickMenuResult>(
       context: context,
-      title: topic.topicBookmark == null ? 'Bookmark topic' : 'Topic bookmark',
+      title: topic.topicBookmark == null
+          ? appL10n.bookmarkTopic
+          : appL10n.topicBookmark,
       dialogOnDesktop: true,
       builder: (_) => _BookmarkQuickSheet(
         controller: topicUiActions,
@@ -249,7 +252,7 @@ Future<void> showTopicBookmarkMenu({
 
   final result = await showShellSheet<_TopicBookmarksAction>(
     context: context,
-    title: 'Topic bookmarks',
+    title: appL10n.topicBookmarks,
     dialogOnDesktop: true,
     builder: (_) => _TopicBookmarksSheet(
       session: session,
@@ -271,8 +274,8 @@ Future<void> showTopicBookmarkMenu({
       final quick = await showShellSheet<_QuickMenuResult>(
         context: context,
         title: current.topicBookmark == null
-            ? 'Bookmark topic'
-            : 'Topic bookmark',
+            ? appL10n.bookmarkTopic
+            : appL10n.topicBookmark,
         dialogOnDesktop: true,
         builder: (_) => _BookmarkQuickSheet(
           controller: topicUiActions,
@@ -312,9 +315,9 @@ Future<void> showTopicBookmarkMenu({
       if (bookmark.reminderAt != null &&
           !await _confirm(
             context,
-            title: 'Delete bookmark?',
-            message: 'This also removes its scheduled reminder.',
-            action: 'Delete',
+            title: appL10n.deleteBookmark,
+            message: appL10n.thisAlsoRemovesItsScheduledReminder,
+            action: appL10n.delete,
           )) {
         return;
       }
@@ -334,9 +337,9 @@ Future<void> showTopicBookmarkMenu({
     case _TopicBookmarksActionKind.clearAll:
       if (!await _confirm(
         context,
-        title: 'Delete all bookmarks?',
-        message: 'Every topic and post bookmark in this topic will be removed.',
-        action: 'Delete all',
+        title: appL10n.deleteAllBookmarks,
+        message: appL10n.everyTopicAndPostBookmarkInThisTopicWillBeRemoved,
+        action: appL10n.deleteAll,
       )) {
         return;
       }
@@ -381,7 +384,7 @@ Future<void> _showBookmarkEditor({
   DateTime Function()? now,
 }) => showShellSheet<void>(
   context: context,
-  title: 'Edit bookmark',
+  title: appL10n.editBookmark,
   dialogOnDesktop: true,
   builder: (_) => _BookmarkEditor(
     controller: controller,
@@ -498,9 +501,9 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     if (bookmark.reminderAt != null &&
         !await _confirm(
           context,
-          title: 'Delete bookmark?',
-          message: 'This also removes its scheduled reminder.',
-          action: 'Delete',
+          title: appL10n.deleteBookmark,
+          message: appL10n.thisAlsoRemovesItsScheduledReminder,
+          action: appL10n.delete,
         )) {
       return;
     }
@@ -544,7 +547,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_busy) ...[
-          const DProgress(semanticsLabel: 'Saving bookmark'),
+          DProgress(semanticsLabel: context.l10n.savingBookmark),
           const SizedBox(height: 16),
         ],
         if (_error case final error?) ...[
@@ -555,9 +558,16 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
           const SizedBox(height: 12),
         ],
         if (bookmark == null)
-          Text(_busy ? 'Saving bookmark…' : 'The bookmark was not saved.')
+          Text(
+            _busy
+                ? context.l10n.savingBookmarkBookmarkui
+                : context.l10n.theBookmarkWasNotSaved,
+          )
         else if (widget.initialBookmark == null) ...[
-          Text('Bookmarked!', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            context.l10n.bookmarkedBookmarkui,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: 8),
           for (final suggestion in suggestions)
             ListTile(
@@ -573,7 +583,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const DIcon(DIcons.pencil),
-            title: const Text('More options'),
+            title: Text(context.l10n.moreOptions),
             enabled: !_busy,
             onTap: _busy ? null : () => _edit(bookmark),
           ),
@@ -581,7 +591,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const DIcon(DIcons.pencil),
-            title: const Text('Edit bookmark'),
+            title: Text(context.l10n.editBookmark),
             enabled: !_busy,
             onTap: _busy ? null : () => _edit(bookmark),
           ),
@@ -589,7 +599,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const DIcon(DIcons.farClock),
-              title: const Text('Clear reminder'),
+              title: Text(context.l10n.clearReminder),
               enabled: !_busy,
               onTap: _busy ? null : _clearReminder,
             ),
@@ -600,7 +610,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
               color: Theme.of(context).colorScheme.error,
             ),
             title: Text(
-              'Delete bookmark',
+              context.l10n.deleteBookmarkBookmarkui,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
             enabled: !_busy,
@@ -731,7 +741,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     if (instant == null) {
       setState(
         () => _error =
-            'That local time does not exist because of daylight saving time.',
+            appL10n.thatLocalTimeDoesNotExistBecauseOfDaylightSavingTime,
       );
       return;
     }
@@ -748,7 +758,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   void _setRelative() {
     final amount = int.tryParse(_relative.text.trim());
     if (amount == null || amount < 1 || amount > 3650) {
-      setState(() => _error = 'Enter a positive reminder duration.');
+      setState(() => _error = appL10n.enterAPositiveReminderDuration);
       return;
     }
     setState(() {
@@ -762,7 +772,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     final now = widget.now().toUtc();
     final reminder = _reminder?.toUtc();
     if (reminder != null && !reminder.isAfter(now)) {
-      setState(() => _error = 'Choose a reminder in the future.');
+      setState(() => _error = appL10n.chooseAReminderInTheFuture);
       return;
     }
     final maximum = DateTime.utc(
@@ -776,7 +786,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       now.microsecond,
     );
     if (reminder != null && reminder.isAfter(maximum)) {
-      setState(() => _error = 'Choose a reminder no more than 10 years away.');
+      setState(() => _error = appL10n.chooseAReminderNoMoreThan10YearsAway);
       return;
     }
     setState(() {
@@ -824,16 +834,16 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             controller: _name,
             maxLength: 100,
             enabled: !_busy,
-            decoration: const InputDecoration(
-              labelText: 'Note',
-              hintText: 'Why are you saving this?',
+            decoration: InputDecoration(
+              labelText: context.l10n.noteBookmarkui,
+              hintText: context.l10n.whyAreYouSavingThis,
             ),
           ),
           const SizedBox(height: 12),
           DSelect<BookmarkAutoDeletePreference>.controlled(
             isExpanded: true,
             value: _preference,
-            label: const Text('Afterward'),
+            label: Text(context.l10n.afterward),
             entries: [
               for (final preference in BookmarkAutoDeletePreference.values)
                 DSelectOption(
@@ -849,10 +859,13 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             enabled: !_busy,
           ),
           const SizedBox(height: 20),
-          Text('Remind me', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            context.l10n.remindMe,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: 4),
           Text(
-            'Times use $zoneName.',
+            context.l10n.timesUse((zoneName).toString()),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 10),
@@ -870,24 +883,24 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               if (_postDate case final postDate?)
                 ActionChip(
                   avatar: const DIcon(DIcons.farClock, size: 16),
-                  label: const Text('Date in post'),
+                  label: Text(context.l10n.dateInPost),
                   onPressed: _busy
                       ? null
                       : () => setState(() => _reminder = postDate),
                 ),
               if (_lastCustom case final last?)
                 ActionChip(
-                  label: const Text('Last custom time'),
+                  label: Text(context.l10n.lastCustomTime),
                   onPressed: _busy
                       ? null
                       : () => setState(() => _reminder = last),
                 ),
               ActionChip(
-                label: const Text('Custom date and time'),
+                label: Text(context.l10n.customDateAndTime),
                 onPressed: _busy ? null : _pickCustom,
               ),
               ActionChip(
-                label: const Text('No reminder'),
+                label: Text(context.l10n.noReminder),
                 onPressed: _busy
                     ? null
                     : () => setState(() => _reminder = null),
@@ -904,7 +917,9 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
                   controller: _relative,
                   keyboardType: TextInputType.number,
                   enabled: !_busy,
-                  decoration: const InputDecoration(labelText: 'In'),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.messageIn,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -929,14 +944,18 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               ),
               const SizedBox(width: DSpacing.controlGap),
               DButton(
-                label: const Text('Set'),
+                label: Text(context.l10n.messageSet),
                 onPressed: _busy ? null : _setRelative,
               ),
             ],
           ),
           if (_reminder case final reminder?) ...[
             const SizedBox(height: 12),
-            Text('Reminder: ${_formatReminder(context, reminder, zoneName)}'),
+            Text(
+              context.l10n.reminder(
+                (_formatReminder(context, reminder, zoneName)).toString(),
+              ),
+            ),
           ],
           if (_error case final error?) ...[
             const SizedBox(height: 12),
@@ -950,12 +969,12 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               DButton(
-                label: const Text('Cancel'),
+                label: Text(context.l10n.cancel),
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
               ),
               const SizedBox(width: DSpacing.controlGap),
               DButton(
-                label: const Text('Save'),
+                label: Text(context.l10n.save),
                 onPressed: _save,
                 variant: DButtonVariant.primary,
                 loading: _busy,
@@ -1050,7 +1069,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
     builder: (context, snapshot, _) {
       final topic = snapshot.topic;
       if (topic == null) {
-        return const Text('This topic is no longer available.');
+        return Text(context.l10n.thisTopicIsNoLongerAvailable);
       }
       final siteContext = session.siteContext;
       final zoneName = TimezoneEnvironment.instance.readerTimezone(
@@ -1071,7 +1090,9 @@ class _TopicBookmarksSheet extends StatelessWidget {
                   : DIcons.discourseBookmarkClock,
             ),
             title: Text(
-              topic.topicBookmark == null ? 'Bookmark topic' : 'Topic bookmark',
+              topic.topicBookmark == null
+                  ? context.l10n.bookmarkTopic
+                  : context.l10n.topicBookmark,
             ),
             subtitle: _bookmarkContext(context, topic.topicBookmark, zoneName),
             enabled: !topicBusy,
@@ -1093,7 +1114,11 @@ class _TopicBookmarksSheet extends StatelessWidget {
                     ? DIcons.bookmark
                     : DIcons.discourseBookmarkClock,
               ),
-              title: Text('Post #${bookmark.postNumber ?? '?'}'),
+              title: Text(
+                context.l10n.postBookmarkui(
+                  (bookmark.postNumber ?? '?').toString(),
+                ),
+              ),
               subtitle: _bookmarkContext(context, bookmark, zoneName),
               enabled: !snapshot.busyTargets
                   .split(',')
@@ -1128,31 +1153,31 @@ class _TopicBookmarksSheet extends StatelessWidget {
                     explicitChildNodes: true,
                     child: DDropdownMenu(
                       content: DDropdownMenuContent(
-                        semanticLabel: 'Post bookmark actions',
+                        semanticLabel: context.l10n.postBookmarkActions,
                         width: 280,
                         children: [
                           if (bookmark.postNumber != null)
                             DDropdownMenuItem(
                               onPressed: () =>
                                   onSelect(_TopicBookmarksActionKind.jump),
-                              child: const Text('Jump'),
+                              child: Text(context.l10n.jump),
                             ),
                           DDropdownMenuItem(
                             onPressed: () =>
                                 onSelect(_TopicBookmarksActionKind.edit),
-                            child: const Text('Edit'),
+                            child: Text(context.l10n.edit),
                           ),
                           DDropdownMenuItem(
                             onPressed: () =>
                                 onSelect(_TopicBookmarksActionKind.delete),
                             variant: DDropdownMenuItemVariant.destructive,
-                            child: const Text('Delete'),
+                            child: Text(context.l10n.delete),
                           ),
                         ],
                       ),
                       child: DDropdownMenuTrigger(
                         builder: (triggerContext, state) => DButton.iconOnly(
-                          tooltip: 'Post bookmark actions',
+                          tooltip: context.l10n.postBookmarkActions,
                           variant: DButtonVariant.ghost,
                           icon: const Icon(Icons.more_vert),
                           focusNode: state.focusNode,
@@ -1174,7 +1199,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
           if (topic.bookmarks.length > 1) ...[
             const DSeparator(),
             DButton(
-              label: const Text('Delete all bookmarks'),
+              label: Text(context.l10n.deleteAllBookmarksBookmarkui),
               onPressed: snapshot.busyTargets.isNotEmpty
                   ? null
                   : () => _choose(
@@ -1202,7 +1227,9 @@ Widget? _bookmarkContext(
   final lines = <String>[
     if (bookmark.name case final name? when name.isNotEmpty) name,
     if (bookmark.reminderAt case final reminder?)
-      'Reminder: ${_formatReminder(context, reminder, zoneName)}',
+      context.l10n.reminder(
+        (_formatReminder(context, reminder, zoneName)).toString(),
+      ),
   ];
   if (lines.isEmpty) return null;
   return Text(lines.join('\n'), maxLines: 3, overflow: TextOverflow.ellipsis);
@@ -1225,7 +1252,7 @@ Future<bool> _confirm(
       context: context,
       title: Text(title),
       description: Text(message),
-      cancelLabel: const Text('Cancel'),
+      cancelLabel: Text(appL10n.cancel),
       actionLabel: Text(action),
       cancelResult: false,
       actionResult: true,
@@ -1241,12 +1268,12 @@ void _showWriteMessage(BuildContext context, BookmarkWriteResult result) {
 
 String _preferenceLabel(BookmarkAutoDeletePreference preference) =>
     switch (preference) {
-      BookmarkAutoDeletePreference.never => 'Keep bookmark',
+      BookmarkAutoDeletePreference.never => appL10n.keepBookmark,
       BookmarkAutoDeletePreference.whenReminderSent =>
-        'Delete after the reminder',
-      BookmarkAutoDeletePreference.onOwnerReply => 'Delete once I reply',
+        appL10n.deleteAfterTheReminder,
+      BookmarkAutoDeletePreference.onOwnerReply => appL10n.deleteOnceIReply,
       BookmarkAutoDeletePreference.clearReminder =>
-        'Keep bookmark and clear reminder',
+        appL10n.keepBookmarkAndClearReminder,
     };
 
 String _formatReminder(
@@ -1257,8 +1284,10 @@ String _formatReminder(
   final environment = TimezoneEnvironment.instance;
   final wall = tzDate(instant, environment.location(zoneName)!);
   final localizations = MaterialLocalizations.of(context);
-  return '${localizations.formatMediumDate(wall)} at '
-      '${clockTimeLabel(context, wall)}';
+  return appL10n.at(
+    (localizations.formatMediumDate(wall)).toString(),
+    (clockTimeLabel(context, wall)).toString(),
+  );
 }
 
 tz.TZDateTime tzDate(DateTime instant, tz.Location location) {

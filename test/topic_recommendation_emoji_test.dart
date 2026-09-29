@@ -47,16 +47,16 @@ void main() {
     controller.store
       ..put(
         site.url,
-        const TopicDetail(
+        TopicDetail(
           id: 1,
           title: 'Topic',
-          stream: [1],
+          stream: const [1],
           postsCount: 1,
           recommendations: TopicRecommendations(
             sources: [
               TopicRecommendationSource(
                 definition: coreSuggestedTopicRecommendationSource,
-                topics: [
+                topics: const [
                   Topic(
                     id: 2,
                     title: ':world_map: Weekly product updates',
@@ -66,7 +66,7 @@ void main() {
               ),
               TopicRecommendationSource(
                 definition: discourseAiRelatedTopicRecommendationSource,
-                topics: [
+                topics: const [
                   Topic(
                     id: 3,
                     title: ':world_map: Related updates',

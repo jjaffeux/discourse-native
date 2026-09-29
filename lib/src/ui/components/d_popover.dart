@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -732,7 +733,9 @@ class _DPopoverState extends State<DPopover>
               DSheetHeader(
                 children: [
                   DSheetTitle(
-                    child: Text(widget.content.semanticLabel ?? 'Options'),
+                    child: Text(
+                      widget.content.semanticLabel ?? context.l10n.options,
+                    ),
                   ),
                 ],
               ),

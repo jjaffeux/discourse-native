@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
@@ -309,8 +310,8 @@ final class UserDirectoryController extends FrameSafeNotifier {
           hasMore: current.hasMore,
           loaded: true,
           error: more
-              ? "Couldn't load more users."
-              : "Couldn't load the user directory.",
+              ? appL10n.couldnTLoadMoreUsers
+              : appL10n.couldnTLoadTheUserDirectory,
           pageError: more,
         );
         notifySafely();

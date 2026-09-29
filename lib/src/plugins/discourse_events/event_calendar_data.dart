@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
@@ -166,7 +167,7 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
         sourceZone != null &&
         tz.TZDateTime.from(start, sourceZone).timeZoneOffset !=
             start.timeZoneOffset) {
-      title += ' (local time)';
+      title += appL10n.localTime;
     }
     return EventCalendarEntry._(
       id: '${event.id}:${event.startsAt}',
@@ -207,7 +208,10 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
     ?event.creator?.username ??
         eventText(eventObject(event.fields['post'])?['username']),
     if (spansDays)
-      'day ${day.difference(firstDay).inDays + 1} of ${lastDay.difference(firstDay).inDays + 1}',
+      appL10n.dayOf(
+        (day.difference(firstDay).inDays + 1).toString(),
+        (lastDay.difference(firstDay).inDays + 1).toString(),
+      ),
   ].join(' · ');
   late final localStart = tz.TZDateTime.from(start, location);
   late final localEnd = tz.TZDateTime.from(end, location);

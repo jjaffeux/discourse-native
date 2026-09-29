@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -105,7 +106,7 @@ class ComposerBlockquoteMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Quote',
+    label: context.l10n.quote,
     child: SizedBox(
       // Indent quoted line starts with their source prefix, leaving ordinary
       // paragraphs at the native editable's left edge.

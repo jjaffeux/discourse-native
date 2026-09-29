@@ -56,9 +56,9 @@ class _TopicListTitle extends StatelessWidget {
     final tokens = DTokens.of(context);
     final statusIcons = [
       for (final (shown, icon, label) in [
-        (topic.pinned, DIcons.thumbtack, 'Pinned'),
-        (topic.closed, DIcons.lock, 'Closed'),
-        (topic.bookmarked, DIcons.bookmark, 'Bookmarked'),
+        (topic.pinned, DIcons.thumbtack, context.l10n.pinned),
+        (topic.closed, DIcons.lock, context.l10n.closed),
+        (topic.bookmarked, DIcons.bookmark, context.l10n.bookmarked),
       ])
         if (shown)
           DIcon(
@@ -76,17 +76,17 @@ class _TopicListTitle extends StatelessWidget {
         children: [
           // AppTheme maps Discourse tertiary to primary, highlight to tertiary.
           for (final (shown, icon, label, color) in [
-            (topic.closed, DIcons.lock, 'Closed', null),
+            (topic.closed, DIcons.lock, context.l10n.closed, null),
             (
               topic.pinned && !mobile,
               DIcons.thumbtack,
-              'Pinned',
+              context.l10n.pinned,
               theme.colorScheme.tertiary,
             ),
             (
               topic.bookmarked,
               DIcons.bookmark,
-              'Bookmarked',
+              context.l10n.bookmarked,
               theme.colorScheme.primary,
             ),
           ])
@@ -144,8 +144,8 @@ class _TopicListTitle extends StatelessWidget {
                     padding: const EdgeInsetsDirectional.only(start: 6),
                     child: TopicStateDot(
                       label: topic.showNewTopicDot
-                          ? 'New topic'
-                          : 'Topic has new replies',
+                          ? context.l10n.newTopic
+                          : context.l10n.topicHasNewReplies,
                     ),
                   ),
                 if (topic.showUnreadCount)

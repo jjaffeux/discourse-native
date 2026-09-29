@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/count_label.dart';
@@ -248,7 +249,7 @@ class _TopicListNavigationControls extends StatelessWidget {
     return Semantics(
       key: const ValueKey('topic-list-navigation'),
       container: true,
-      label: 'Topic lists',
+      label: context.l10n.topicLists,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -341,23 +342,23 @@ class TopicFeedMenu extends StatelessWidget {
   final int unreadCount, newCount, topicCount, replyCount;
 
   static String label(TopicListMode mode) => switch (mode) {
-    TopicListMode.latest => 'Latest',
-    TopicListMode.unread => 'Unread',
-    TopicListMode.newActivity => 'New',
-    TopicListMode.newTopics => 'New · Topics',
-    TopicListMode.newReplies => 'New · Replies',
-    TopicListMode.unseen => 'Unseen',
-    TopicListMode.popular => 'Trending',
-    _ => 'Top · ${mode.topPeriod!.label}',
+    TopicListMode.latest => appL10n.latest,
+    TopicListMode.unread => appL10n.unread,
+    TopicListMode.newActivity => appL10n.messageNew,
+    TopicListMode.newTopics => appL10n.newTopics,
+    TopicListMode.newReplies => appL10n.newReplies,
+    TopicListMode.unseen => appL10n.unseen,
+    TopicListMode.popular => appL10n.trending,
+    _ => appL10n.top((mode.topPeriod!.label).toString()),
   };
 
   @override
   Widget build(BuildContext context) {
     final selected = mode;
     String itemLabel(TopicListMode value) => switch (value) {
-      TopicListMode.newActivity when unifiedNew => 'All',
-      TopicListMode.newTopics => 'Topics',
-      TopicListMode.newReplies => 'Replies',
+      TopicListMode.newActivity when unifiedNew => context.l10n.all,
+      TopicListMode.newTopics => context.l10n.topics,
+      TopicListMode.newReplies => context.l10n.replies,
       _ => value.isTop ? value.topPeriod!.label : label(value),
     };
     Widget item(TopicListMode value, {int count = 0}) => DDropdownMenuItem(
@@ -376,7 +377,7 @@ class TopicFeedMenu extends StatelessWidget {
       ),
       onPressed: () => onSelected(value),
       semanticLabel:
-          '${itemLabel(value)}${count > 0 ? ', ${countLabel(count, 'topic')}' : ''}${selected == value ? ', selected' : ''}',
+          '${itemLabel(value)}${count > 0 ? ', ${countLabel(count, CountNoun.topic)}' : ''}${selected == value ? context.l10n.selectedTopiclistnavigation : ''}',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -402,16 +403,16 @@ class TopicFeedMenu extends StatelessWidget {
       sheetOnMobile: true,
       content: DDropdownMenuContent(
         width: 304,
-        semanticLabel: 'Choose topic feed',
+        semanticLabel: context.l10n.chooseTopicFeed,
         children: [
           item(TopicListMode.latest),
           if (signedIn) ...[
             item(TopicListMode.unread, count: unreadCount),
             if (unifiedNew) ...[
-              const DDropdownMenuLabel(child: Text('New')),
+              DDropdownMenuLabel(child: Text(context.l10n.messageNew)),
               DDropdownMenuGroup(
                 showGuide: true,
-                semanticLabel: 'New activity',
+                semanticLabel: context.l10n.newActivity,
                 children: [
                   item(TopicListMode.newActivity, count: newCount),
                   item(TopicListMode.newTopics, count: topicCount),
@@ -422,10 +423,10 @@ class TopicFeedMenu extends StatelessWidget {
               item(TopicListMode.newActivity, count: newCount),
             item(TopicListMode.unseen),
           ],
-          const DDropdownMenuLabel(child: Text('Top')),
+          DDropdownMenuLabel(child: Text(context.l10n.topTopiclistnavigation)),
           DDropdownMenuGroup(
             showGuide: true,
-            semanticLabel: 'Top periods',
+            semanticLabel: context.l10n.topPeriods,
             children: [
               for (final period in [
                 TopPeriod.yearly,

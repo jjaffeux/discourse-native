@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 const aiSummaryAvailabilityDataKey = PluginDataKey<AiSummaryAvailability>(
@@ -124,5 +125,5 @@ final class AiSummaryStreamFailure implements Exception {
   bool get creditLimitExceeded => type == creditLimitExceededType;
 
   @override
-  String toString() => 'AiSummaryStreamFailure(type: $type)';
+  String toString() => appL10n.aiSummaryStreamFailureType((type).toString());
 }

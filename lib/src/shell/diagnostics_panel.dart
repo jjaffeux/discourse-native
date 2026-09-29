@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -209,18 +210,18 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   width: double.infinity,
                   child: DToggleGroup<DiagnosticsKindFilter>(
                     key: const ValueKey('diagnostics-kind-filter'),
-                    items: const [
+                    items: [
                       DToggleGroupItem(
                         value: DiagnosticsKindFilter.all,
-                        child: Text('All'),
+                        child: Text(context.l10n.all),
                       ),
                       DToggleGroupItem(
                         value: DiagnosticsKindFilter.requests,
-                        child: Text('Requests'),
+                        child: Text(context.l10n.requests),
                       ),
                       DToggleGroupItem(
                         value: DiagnosticsKindFilter.errors,
-                        child: Text('Errors'),
+                        child: Text(context.l10n.errors),
                       ),
                     ],
                     values: [panelState.kindFilter],
@@ -239,7 +240,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   controller: _search,
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Search diagnostics',
+                    hintText: context.l10n.searchDiagnostics,
                     prefixIcon: const Padding(
                       padding: EdgeInsets.all(12),
                       child: DIcon(DIcons.magnifyingGlass, size: 18),
@@ -252,7 +253,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                               widget.controller.setQuery('');
                             },
                             variant: DButtonVariant.ghost,
-                            tooltip: 'Clear search',
+                            tooltip: context.l10n.clearSearch,
                             icon: const DIcon(DIcons.xmark),
                           ),
                     border: const OutlineInputBorder(),
@@ -265,7 +266,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     Expanded(
                       child: _MultiSelectMenu(
                         key: const ValueKey('diagnostics-severity-filter'),
-                        label: 'Severity',
+                        label: context.l10n.severity,
                         values: DiagnosticSeverity.values
                             .map((severity) => severity.name)
                             .toList(),
@@ -288,7 +289,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                     Expanded(
                       child: _MultiSelectMenu(
                         key: const ValueKey('diagnostics-source-filter'),
-                        label: 'Source',
+                        label: context.l10n.source,
                         values: sources,
                         selected: panelState.sources,
                         onToggle: (value) {
@@ -332,7 +333,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     await Clipboard.setData(
       ClipboardData(text: widget.controller.formatEvent(event)),
     );
-    if (mounted) _showCopied('Event copied');
+    if (mounted) _showCopied(appL10n.eventCopied);
   }
 
   Future<void> _copyReport() async {
@@ -343,20 +344,19 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         ),
       ),
     );
-    if (mounted) _showCopied('Filtered report copied');
+    if (mounted) _showCopied(appL10n.filteredReportCopied);
   }
 
   Future<void> _confirmClear() async {
     final controller = widget.controller;
     final confirmed = await showDiscourseAlertDialog<bool>(
       context: context,
-      title: const Text('Clear diagnostics history?'),
-      description: const Text(
-        'This removes the recorded requests and errors from this device. '
-        'Requests already in progress will not be restored afterward.',
+      title: Text(appL10n.clearDiagnosticsHistory),
+      description: Text(
+        appL10n.thisRemovesTheRecordedRequestsAndErrorsFromThisDeviceRequests,
       ),
-      cancelLabel: const Text('Cancel'),
-      actionLabel: const Text('Clear history'),
+      cancelLabel: Text(appL10n.cancel),
+      actionLabel: Text(appL10n.clearHistory),
       cancelResult: false,
       actionResult: true,
       actionVariant: DButtonVariant.destructive,
@@ -413,12 +413,14 @@ class _PanelHeader extends StatelessWidget {
               key: const ValueKey('diagnostics-detail-back'),
               onPressed: onBack,
               variant: DButtonVariant.ghost,
-              tooltip: 'Back to diagnostics',
+              tooltip: context.l10n.backToDiagnostics,
               icon: const DIcon(DIcons.arrowLeft),
             ),
           Expanded(
             child: Text(
-              showingDetail ? 'Event details' : 'Diagnostics',
+              showingDetail
+                  ? context.l10n.eventDetails
+                  : context.l10n.diagnostics,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(
@@ -431,21 +433,23 @@ class _PanelHeader extends StatelessWidget {
               key: const ValueKey('diagnostics-freeze'),
               onPressed: onToggleFrozen,
               variant: DButtonVariant.ghost,
-              tooltip: frozen ? 'Resume live updates' : 'Freeze visible events',
+              tooltip: frozen
+                  ? context.l10n.resumeLiveUpdates
+                  : context.l10n.freezeVisibleEvents,
               icon: DIcon(frozen ? DIcons.play : DIcons.snowflake),
             ),
             DButton.iconOnly(
               key: const ValueKey('diagnostics-copy-report'),
               onPressed: onCopyReport,
               variant: DButtonVariant.ghost,
-              tooltip: 'Copy filtered report',
+              tooltip: context.l10n.copyFilteredReport,
               icon: const DIcon(DIcons.copy),
             ),
             DButton.iconOnly(
               key: const ValueKey('diagnostics-clear'),
               onPressed: onClear,
               variant: DButtonVariant.ghost,
-              tooltip: 'Clear history',
+              tooltip: context.l10n.clearHistory,
               icon: const DIcon(DIcons.trashCan),
             ),
           ],
@@ -453,7 +457,7 @@ class _PanelHeader extends StatelessWidget {
             key: const ValueKey('diagnostics-close'),
             onPressed: onClose,
             variant: DButtonVariant.ghost,
-            tooltip: 'Close diagnostics',
+            tooltip: context.l10n.closeDiagnostics,
             icon: const DIcon(DIcons.xmark),
           ),
           const SizedBox(width: 4),
@@ -507,8 +511,11 @@ class _DiagnosticsTabs extends StatelessWidget {
             DTabList<int>(
               key: const ValueKey('diagnostics-top-level-tabs'),
               children: [
-                const DTabTrigger(value: 0, child: Text('General')),
-                const DTabTrigger(value: 1, child: Text('Scroll performance')),
+                DTabTrigger(value: 0, child: Text(context.l10n.general)),
+                DTabTrigger(
+                  value: 1,
+                  child: Text(context.l10n.scrollPerformance),
+                ),
                 for (var index = 0; index < plugins.length; index++)
                   DTabTrigger(
                     value: index + 2,
@@ -542,37 +549,33 @@ class _TopicScrollCapturePanel extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Scroll performance capture',
+            context.l10n.scrollPerformanceCapture,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
-            'Record scrolling in a topic, topic list or users directory, then copy a performance report '
-            'to share for investigation. The capture stays in '
-            'memory and never includes post bodies, titles, site URLs, or '
-            'credentials.',
+            context.l10n.recordScrollingInATopicTopicListOrUsersDirectoryThen,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
           if (state.isRecording) ...[
             _CaptureStatus(
-              label: 'Recording',
+              label: context.l10n.recording,
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 12),
             Text(
-              'Close Diagnostics, reproduce the issue in a topic, topic list or users directory, then return '
-              'here and stop the capture. Scroll for 5–10 seconds, then wait '
-              'a second for frame timings before stopping. Recording stops automatically after '
-              '${controller.maximumDuration.inMinutes} minutes or '
-              '${controller.maximumEvents} events.',
+              context.l10n.closeDiagnosticsReproduceTheIssueInATopicTopicListOr(
+                (controller.maximumDuration.inMinutes).toString(),
+                (controller.maximumEvents).toString(),
+              ),
             ),
             const SizedBox(height: 16),
             DButton(
               key: const ValueKey('topic-scroll-capture-stop'),
-              label: const Text('Stop capture'),
+              label: Text(context.l10n.stopCapture),
               onPressed: controller.stop,
               variant: DButtonVariant.destructive,
             ),
@@ -586,7 +589,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             const SizedBox(height: 16),
             DButton(
               key: const ValueKey('topic-scroll-performance-copy'),
-              label: const Text('Copy performance report'),
+              label: Text(context.l10n.copyPerformanceReport),
               onPressed: () => _copyCapture(context, compact: true),
               icon: const DIcon(DIcons.copy),
               variant: DButtonVariant.primary,
@@ -594,30 +597,27 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             const SizedBox(height: 8),
             DButton(
               key: const ValueKey('topic-scroll-capture-copy'),
-              label: const Text('Copy full JSON capture'),
+              label: Text(context.l10n.copyFullJSONCapture),
               onPressed: () => _copyCapture(context, compact: false),
               icon: const DIcon(DIcons.copy),
             ),
             const SizedBox(height: 8),
             DButton(
               key: const ValueKey('topic-scroll-capture-restart'),
-              label: const Text('Start a new capture'),
+              label: Text(context.l10n.startANewCapture),
               onPressed: () => _startCapture(context),
             ),
             DButton(
               key: const ValueKey('topic-scroll-capture-clear'),
-              label: const Text('Discard capture'),
+              label: Text(context.l10n.discardCapture),
               onPressed: controller.clear,
               variant: DButtonVariant.destructive,
             ),
           ] else ...[
             Text(
-              'The trace includes topic-list row builds and scroll bookkeeping, '
-              'topic scroll notifications, post-sliver '
-              'visible range and geometry update, paging and anchor decision, '
-              'row layout cost, viewport bookkeeping cost, and Flutter frame '
-              'timing. The performance report summarizes slow frames and the '
-              'most expensive posts without copying the full event log.',
+              context
+                  .l10n
+                  .theTraceIncludesTopicListRowBuildsAndScrollBookkeepingTopic,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -625,7 +625,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
             const SizedBox(height: 16),
             DButton(
               key: const ValueKey('topic-scroll-capture-start'),
-              label: const Text('Start capture'),
+              label: Text(context.l10n.startCapture),
               onPressed: () => _startCapture(context),
               variant: DButtonVariant.primary,
             ),
@@ -651,7 +651,7 @@ class _TopicScrollCapturePanel extends StatelessWidget {
     if (!context.mounted) return;
     DToast.show(
       context,
-      compact ? 'Performance report copied' : 'Scroll capture copied',
+      compact ? appL10n.performanceReportCopied : appL10n.scrollCaptureCopied,
       id: 'diagnostics-copy',
     );
   }
@@ -686,12 +686,16 @@ class _CaptureSummary extends StatelessWidget {
     final duration = state.duration ?? Duration.zero;
     final seconds = duration.inMilliseconds / 1000;
     return Text(
-      '${state.eventCount} events over ${seconds.toStringAsFixed(1)}s\n'
-      '${state.topicEventCount} topic events · ${state.frameCount} frames\n'
-      '${state.slowBuildFrameCount} slow builds · '
-      '${state.slowRasterFrameCount} slow rasters\n'
-      'Budget: ${(state.frameBudgetMicroseconds / 1000).toStringAsFixed(2)} ms '
-      'at ${state.displayRefreshRate.toStringAsFixed(0)} Hz',
+      context.l10n.eventsOverSTopicEventsFramesSlowBuildsSlowRastersBudget(
+        (state.eventCount).toString(),
+        (seconds.toStringAsFixed(1)).toString(),
+        (state.topicEventCount).toString(),
+        (state.frameCount).toString(),
+        (state.slowBuildFrameCount).toString(),
+        (state.slowRasterFrameCount).toString(),
+        ((state.frameBudgetMicroseconds / 1000).toStringAsFixed(2)).toString(),
+        (state.displayRefreshRate.toStringAsFixed(0)).toString(),
+      ),
       key: const ValueKey('topic-scroll-capture-summary'),
       style: Theme.of(context).textTheme.bodyMedium,
     );
@@ -700,9 +704,9 @@ class _CaptureSummary extends StatelessWidget {
 
 String _captureStopLabel(TopicScrollCaptureStopReason? reason) =>
     switch (reason) {
-      TopicScrollCaptureStopReason.durationLimit => 'Stopped at time limit',
-      TopicScrollCaptureStopReason.eventLimit => 'Stopped at event limit',
-      TopicScrollCaptureStopReason.manual || null => 'Capture ready',
+      TopicScrollCaptureStopReason.durationLimit => appL10n.stoppedAtTimeLimit,
+      TopicScrollCaptureStopReason.eventLimit => appL10n.stoppedAtEventLimit,
+      TopicScrollCaptureStopReason.manual || null => appL10n.captureReady,
     };
 
 class _MultiSelectMenu extends StatelessWidget {
@@ -735,7 +739,9 @@ class _MultiSelectMenu extends StatelessWidget {
           explicitChildNodes: true,
           child: DDropdownMenu(
             content: DDropdownMenuContent(
-              semanticLabel: 'Filter by ${label.toLowerCase()}',
+              semanticLabel: context.l10n.filterBy(
+                (label.toLowerCase()).toString(),
+              ),
               width: 280,
               children: [
                 for (final value in values)
@@ -751,7 +757,7 @@ class _MultiSelectMenu extends StatelessWidget {
               builder: (triggerContext, state) => DButton(
                 label: Text(sentenceCase(description)),
                 icon: const DIcon(DIcons.filter),
-                semanticLabel: 'Filter by $label',
+                semanticLabel: context.l10n.filterBy((label).toString()),
                 variant: DButtonVariant.outline,
                 focusNode: state.focusNode,
                 hasPopup: true,
@@ -906,7 +912,7 @@ class _EventDetail extends StatelessWidget {
             ),
             DButton(
               key: const ValueKey('diagnostics-copy-event'),
-              label: const Text('Copy'),
+              label: Text(context.l10n.copy),
               onPressed: onCopy,
               icon: const DIcon(DIcons.copy),
             ),
@@ -982,14 +988,16 @@ class _EmptyTimeline extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              hasEvents ? 'No matching events' : 'No diagnostics yet',
+              hasEvents
+                  ? context.l10n.noMatchingEvents
+                  : context.l10n.noDiagnosticsYet,
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 4),
             Text(
               hasEvents
-                  ? 'Change the filters or search to see more.'
-                  : 'Requests, logs, and operational errors will appear here.',
+                  ? context.l10n.changeTheFiltersOrSearchToSeeMore
+                  : context.l10n.requestsLogsAndOperationalErrorsWillAppearHere,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -1033,7 +1041,7 @@ String _eventTitle(DiagnosticEvent event) {
     ErrorDiagnosticEvent(:final errorType, :final message) =>
       '${event.operation ?? errorType}: $message',
     DiagnosticSessionEvent(:final state, :final message) =>
-      message ?? 'Session ${state.name}',
+      message ?? appL10n.session((state.name).toString()),
   };
 }
 
@@ -1051,7 +1059,7 @@ String _eventDuration(DiagnosticEvent event) {
   if (event case HttpDiagnosticEvent(:final totalDuration?)) {
     final milliseconds = totalDuration.inMicroseconds / 1000;
     return milliseconds < 1000
-        ? '${milliseconds.round()} ms'
+        ? appL10n.msDiagnosticspanel((milliseconds.round()).toString())
         : '${(milliseconds / 1000).toStringAsFixed(1)} s';
   }
   return '';

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
@@ -150,7 +151,7 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
     if (known != null && known.text == text) return Map.of(known.preferences);
     final decoded = jsonDecode(text);
     if (decoded is! Map<String, Object?>) {
-      throw const FormatException('Preferences are not a JSON object.');
+      throw FormatException(appL10n.preferencesAreNotAJSONObject);
     }
     final preferences = {
       for (final MapEntry(:key, :value) in decoded.entries)
@@ -188,8 +189,9 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
   static void _reportSetAside(File damaged) => reportStorageFailure(
     // Never quote the contents: they hold forum titles and usernames.
     FormatException(
-      'Unreadable preferences were set aside as '
-      '${damaged.uri.pathSegments.last}.',
+      appL10n.unreadablePreferencesWereSetAsideAs(
+        (damaged.uri.pathSegments.last).toString(),
+      ),
     ),
     StackTrace.current,
     'preferences.decode',

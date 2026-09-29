@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/discourse_user.dart';
@@ -11,33 +12,41 @@ final class GlobalSearchScope {
   const GlobalSearchScope.plugin({
     required this.owner,
     required this.name,
-    required this.label,
+    required String this._label,
     this.showAvatar = false,
     this.singletonFilters = false,
     this.displayProperties = const {GlobalSearchDisplayProperty.excerpt},
   });
   const GlobalSearchScope._core(
-    this.name,
-    this.label, {
+    this.name, {
     this.showAvatar = false,
     this.singletonFilters = false,
-  }) : owner = 'core',
+  }) : _label = null,
+       owner = 'core',
        displayProperties = const {GlobalSearchDisplayProperty.excerpt};
-  static const all = GlobalSearchScope._core('all', 'All');
-  static const forum = GlobalSearchScope._core('forum', 'Topics & posts');
+  static const all = GlobalSearchScope._core('all');
+  static const forum = GlobalSearchScope._core('forum');
   static const users = GlobalSearchScope._core(
     'users',
-    'Users',
     showAvatar: true,
     singletonFilters: true,
   );
   static const groups = GlobalSearchScope._core(
     'groups',
-    'Groups',
     singletonFilters: true,
   );
   static const values = [all, forum, users, groups];
-  final String owner, name, label;
+  final String owner, name;
+  final String? _label;
+  String get label =>
+      _label ??
+      switch (name) {
+        'all' => appL10n.all,
+        'forum' => appL10n.topicsPosts,
+        'users' => appL10n.users,
+        'groups' => appL10n.groups,
+        _ => name,
+      };
   final bool showAvatar, singletonFilters;
   final Set<GlobalSearchDisplayProperty> displayProperties;
   bool get isCore => owner == 'core';

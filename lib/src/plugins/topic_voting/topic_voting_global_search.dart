@@ -1,21 +1,22 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 final class TopicVotingGlobalSearch extends GlobalSearchContribution {
   const TopicVotingGlobalSearch() : super('discourse-topic-voting');
   @override
-  List<GlobalSearchFilter> get filters => const [
+  List<GlobalSearchFilter> get filters => [
     GlobalSearchFilter(
       id: "votes",
-      label: "Topic votes",
+      label: appL10n.topicVotes,
       scope: GlobalSearchScope.forum,
       kind: GlobalSearchFilterKind.number,
       icon: "heart",
-      group: "Extensions",
-      operators: [GlobalSearchFilterOperator("gte", "at least")],
+      group: appL10n.extensions,
+      operators: [GlobalSearchFilterOperator("gte", appL10n.atLeast)],
       token: "min_vote_count",
       placeholder: "5",
-      help: "Match the number of votes on a topic.",
-      opTokens: {"gte": "min_vote_count"},
+      help: appL10n.matchTheNumberOfVotesOnATopic,
+      opTokens: const {"gte": "min_vote_count"},
     ),
   ];
   @override
@@ -27,6 +28,6 @@ final class TopicVotingGlobalSearch extends GlobalSearchContribution {
   @override
   List<GlobalSearchOrder> orders(GlobalSearchScope scope) =>
       scope == GlobalSearchScope.forum
-      ? const [GlobalSearchOrder('votes', 'Most votes')]
+      ? [GlobalSearchOrder('votes', appL10n.mostVotes)]
       : const [];
 }
