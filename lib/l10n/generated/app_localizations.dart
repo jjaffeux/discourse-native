@@ -22802,6 +22802,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 forum} other{{count} forums}}'**
   String startPageForumCount(int count);
+
+  /// Composer toolbar action to nest the current list or to-do item under the preceding item.
+  ///
+  /// In en, this message translates to:
+  /// **'Indent'**
+  String get composerIndent;
+
+  /// Composer toolbar action to move the current list or to-do item up one nesting level.
+  ///
+  /// In en, this message translates to:
+  /// **'Outdent'**
+  String get composerOutdent;
 }
 
 class _AppLocalizationsDelegate

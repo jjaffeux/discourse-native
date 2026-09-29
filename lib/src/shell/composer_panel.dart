@@ -23,6 +23,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'composer_autocomplete.dart';
 import 'composer_block_surface.dart';
 import 'composer_blockquote.dart';
@@ -4233,6 +4234,8 @@ class _Toolbar extends StatelessWidget {
               ),
             ),
           ),
+        if (composer is ComposerListBodyController)
+          _ListIndentationControls(composer: composer),
         if (options.isNotEmpty)
           DDropdownMenu(
             content: DDropdownMenuContent(
@@ -4257,6 +4260,87 @@ class _Toolbar extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ListIndentationControls extends StatefulWidget {
+  const _ListIndentationControls({required this.composer});
+
+  final ComposerListBodyController composer;
+
+  @override
+  State<_ListIndentationControls> createState() =>
+      _ListIndentationControlsState();
+}
+
+class _ListIndentationControlsState extends State<_ListIndentationControls> {
+  bool _scheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.composer.history.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_ListIndentationControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.composer.history != widget.composer.history) {
+      oldWidget.composer.history.removeListener(_changed);
+      widget.composer.history.addListener(_changed);
+    }
+  }
+
+  void _changed() {
+    if (_scheduled) return;
+    _scheduled = true;
+    // Embedded editors can attach to history during the editor's build.
+    scheduleMicrotask(() {
+      _scheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.composer.history.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = widget.composer;
+    return TextFieldTapRegion(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: DSpacing.controlGap,
+        children: [
+          for (final (key, label, icon, action) in [
+            (
+              'composer-outdent',
+              context.l10n.composerOutdent,
+              DNativeIcons.outdent,
+              list.canOutdent ? list.outdent : null,
+            ),
+            (
+              'composer-indent',
+              context.l10n.composerIndent,
+              DNativeIcons.indent,
+              list.canIndent ? list.indent : null,
+            ),
+          ])
+            DButton.iconOnly(
+              key: ValueKey(key),
+              tooltip: label,
+              variant: DButtonVariant.transparentBackground,
+              foregroundColor: _composerToolForeground(context),
+              size: _composerToolbarSize(context),
+              icon: DIcon(icon),
+              onPressed: action,
+            ),
+        ],
+      ),
     );
   }
 }

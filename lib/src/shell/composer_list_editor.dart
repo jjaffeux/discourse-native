@@ -607,8 +607,36 @@ class ComposerListBodyController extends ComposerController {
     return true;
   }
 
+  bool get _canChangeIndentation =>
+      isEditing && isCurrent && !history.composing;
+
+  bool get canOutdent =>
+      _canChangeIndentation && parent is ComposerListBodyController;
+
+  ComposerListItem? get _indentParent {
+    if (!_canChangeIndentation) return null;
+    final siblings = composerListItems(
+      parent.text.text,
+      referenceMarkers: parent.text.todoReferenceMarkers,
+    );
+    final index = siblings.indexWhere((item) => item.start == _item.start);
+    if (index <= 0) return null;
+    final previous = siblings[index - 1];
+    if (!previous.closed ||
+        previous.contentIndent <= _item.indent ||
+        parent.text.text
+            .substring(previous.end, _item.start)
+            .trim()
+            .isNotEmpty) {
+      return null;
+    }
+    return previous;
+  }
+
+  bool get canIndent => _indentParent != null;
+
   void outdent() {
-    if (!isEditing || !_matches) return;
+    if (!canOutdent) return;
     final outer = parent;
     if (outer is! ComposerListBodyController) return;
     final document = outer.parent;
@@ -624,15 +652,15 @@ class ComposerListBodyController extends ComposerController {
               '$prefix${line.substring(line.length < _item.indent ? line.length : _item.indent)}',
         )
         .join(outer.item.newline);
+    final promotedItem = composerListItems(
+      promoted,
+      referenceMarkers: parent.text.todoReferenceMarkers,
+    ).first;
+    final caret = text.selection.isValid ? text.selection.extentOffset : 0;
     final next = TextEditingValue(
       text: value.text.replaceRange(start, end, promoted),
       selection: TextSelection.collapsed(
-        offset:
-            start +
-            prefix.length +
-            _item.contentStart -
-            _item.start -
-            _item.indent,
+        offset: start + promotedItem.body.sourceOffset(caret),
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -646,19 +674,9 @@ class ComposerListBodyController extends ComposerController {
   }
 
   void indent() {
-    if (!isEditing || !_matches) return;
-    final siblings = composerListItems(parent.text.text);
-    final index = siblings.indexWhere((item) => item.start == _item.start);
-    if (index <= 0) return;
-    final previous = siblings[index - 1];
-    if (parent.text.text
-        .substring(previous.end, _item.start)
-        .trim()
-        .isNotEmpty) {
-      return;
-    }
+    final previous = _indentParent;
+    if (previous == null) return;
     final prefix = ' ' * (previous.contentIndent - _item.indent);
-    if (prefix.isEmpty) return;
     final indented = _item.source
         .split(RegExp(r'\r?\n'))
         .map((line) => '$prefix$line')
