@@ -964,7 +964,8 @@ class _StartSection extends StatelessWidget {
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
-      variant: DItemVariant.standard,
+      variant: fullWidth ? DItemVariant.muted : DItemVariant.standard,
+      fitContent: fullWidth,
       size: compact ? DItemSize.xs : DItemSize.standard,
       link: entry.path != null,
       onPressed: entry.onPressed,
@@ -1026,13 +1027,15 @@ class _StartSection extends StatelessWidget {
         ?metadata,
       ],
     );
-    final card = DCard(
-      spacing: 0,
-      border: false,
-      borderRadius: BorderRadius.circular(9),
-      backgroundColor: tokens.footerBackground,
-      child: row,
-    );
+    final card = fullWidth
+        ? row
+        : DCard(
+            spacing: 0,
+            border: false,
+            borderRadius: BorderRadius.circular(9),
+            backgroundColor: tokens.footerBackground,
+            child: row,
+          );
     return entry.path == null
         ? card
         : LinkTarget(
@@ -1284,17 +1287,30 @@ class _StartSection extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final gap = compact ? 4.0 : 10.0;
+              if (compact && fullWidth) {
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    for (final entry in rows.take(8))
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth.clamp(0.0, 280.0),
+                        ),
+                        child: _row(context, entry),
+                      ),
+                  ],
+                );
+              }
               final across = single || (compact && !fullWidth)
                   ? 1
                   : ((constraints.maxWidth + gap) /
                             ((compact ? 250 : 190) + gap))
                         .floor()
-                        .clamp(1, 8);
+                        .clamp(compact ? 1 : 2, 8);
               final columnWidth =
                   (constraints.maxWidth - (across - 1) * gap) / across;
-              final width = compact && fullWidth
-                  ? columnWidth.clamp(0.0, 280.0)
-                  : columnWidth;
+
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
@@ -1306,7 +1322,7 @@ class _StartSection extends StatelessWidget {
                         ? (fullWidth ? 8 : 4)
                         : across,
                   ))
-                    SizedBox(width: width, child: _row(context, entry)),
+                    SizedBox(width: columnWidth, child: _row(context, entry)),
                 ],
               );
             },

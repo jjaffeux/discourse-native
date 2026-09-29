@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
@@ -7,6 +8,7 @@ import '../styleguide_example.dart';
 const _assets = 'packages/discourse_native/src/styleguide/assets/item/';
 
 final itemExamples = ComponentExamples(
+  topLevelExampleIndex: 1,
   status: ComponentStatus.implemented,
   description: 'Content with media, a title, a description, and actions.',
   notes:
@@ -14,11 +16,21 @@ final itemExamples = ComponentExamples(
       'passive unless onPressed is supplied. Link navigation remains caller-owned. '
       'Use Field for editable inputs. Default and sm share padding; sm changes '
       'image and group sizing. Native large text reflows and removes clamps. '
-      'At narrow widths content and actions stack. All artwork is bundled from '
+      'At narrow widths content and actions stack. fitContent sizes an item to '
+      'its content under loose constraints, retaining its visible hit and drag bounds. '
+      'All artwork is bundled from '
       'the reference sources. Actions use final Button outline/ghost variants '
       'and accessible round icon buttons. The Dropdown example composes accepted '
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
+    StyleguideExample(
+      title: 'Fit content',
+      description:
+          'Naturally sized items wrap within the available width. Tap or drag an item; long titles stay bounded.',
+      code:
+          "Wrap(children: [DItem(fitContent: true, size: DItemSize.xs, variant: DItemVariant.muted, onPressed: open, dragData: 'topic', children: [DItemContent(children: [Text('Topic')])])])",
+      builder: (_) => itemFitContentPreview(),
+    ),
     StyleguideExample(
       title: 'Whole-row drag',
       description:
@@ -930,6 +942,65 @@ class _HoverExampleState extends State<_HoverExample> {
       ),
       Text(
         '${_hovered ? 'Pointer inside' : 'Pointer outside'} · Opened $_opened times',
+      ),
+    ],
+  );
+}
+
+@Preview(name: 'Item fit content', group: 'Native', size: Size(360, 280))
+Widget itemFitContentPreview() => const _FitContentExample();
+
+class _FitContentExample extends StatefulWidget {
+  const _FitContentExample();
+
+  @override
+  State<_FitContentExample> createState() => _FitContentExampleState();
+}
+
+class _FitContentExampleState extends State<_FitContentExample> {
+  String _status = 'Tap or drag an item';
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: DSpacing.md,
+    children: [
+      Wrap(
+        spacing: DSpacing.xs,
+        runSpacing: DSpacing.xs,
+        children: [
+          for (final title in [
+            'Topic',
+            'Longer conversation',
+            'A long title constrained to the available space',
+          ])
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: DItem(
+                fitContent: true,
+                size: DItemSize.xs,
+                variant: DItemVariant.muted,
+                dragData: title,
+                dragFeedback: DItem(
+                  variant: DItemVariant.muted,
+                  fitContent: true,
+                  children: [Text(title)],
+                ),
+                onPressed: () => setState(() => _status = 'Opened $title'),
+                children: [
+                  const DItemMedia(child: Icon(Icons.chat_bubble_outline)),
+                  DItemContent(children: [DItemTitle(child: Text(title))]),
+                ],
+              ),
+            ),
+        ],
+      ),
+      DDragRegion<String>(
+        accepts: (_) => true,
+        onMove: (_, _) {},
+        onLeave: () {},
+        onDrop: (title, _) => setState(() => _status = 'Dropped $title'),
+        child: DCard(child: Text(_status)),
       ),
     ],
   );

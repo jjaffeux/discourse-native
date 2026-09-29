@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -221,6 +222,90 @@ void main() {
       find.descendant(of: page, matching: find.text('Removed category')),
       findsNothing,
     );
+  });
+
+  testStartPage('compact closed chips size naturally, wrap, drag and restore', (
+    tester,
+  ) async {
+    await pumpShell(tester, const Size(1400, 1000));
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    final closed = <String>[];
+    for (final (id, title) in [
+      (41, 'Short'),
+      (42, 'A longer closed topic'),
+      (43, 'Third topic'),
+      (44, 'Fourth topic'),
+      (45, 'Fifth topic'),
+    ]) {
+      shell.createTab(panel: ForumPanel.secondary);
+      shell.pushContent(
+        ContentRoute.topic(topicId: id, slug: 'topic-$id', title: title),
+      );
+      closed.add(shell.activeTabId!);
+      shell.closeTab(shell.activeTabId!);
+    }
+    shell.createTab(panel: ForumPanel.secondary);
+    await tester.pumpAndSettle();
+    Finder chip(int index) =>
+        find.byKey(ValueKey('start-page-recent-closed-${closed[index]}'));
+    expect(
+      closed.map(
+        (id) => find
+            .byKey(ValueKey('start-page-recent-closed-$id'))
+            .evaluate()
+            .length,
+      ),
+      everyElement(1),
+    );
+    final short = tester.getRect(chip(0));
+    final longer = tester.getRect(chip(1));
+    expect(short.width, lessThan(longer.width));
+    expect(longer.width, lessThanOrEqualTo(280));
+    expect(tester.widget<DItem>(chip(0)).fitContent, isTrue);
+    expect(
+      {
+        for (var i = 0; i < closed.length; i++) tester.getTopLeft(chip(i)).dy,
+      }.length,
+      greaterThan(1),
+    );
+    final active = shell.activeTabId;
+    await tester.tapAt(Offset(short.right + 2, short.center.dy));
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, active);
+    final before = shell.tabsForCurrentForum.length;
+    final existingIds = shell.tabsForCurrentForum.map((tab) => tab.id).toSet();
+    final gesture = await tester.startGesture(
+      tester.getCenter(chip(0)),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, -16));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('start-page-drag-feedback')),
+      findsOneWidget,
+    );
+    await gesture.moveTo(
+      tester.getCenter(find.byKey(const ValueKey('forum-tabs-add')).last),
+    );
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(shell.tabsForCurrentForum.length, before + 1);
+    expect(
+      shell.tabsForCurrentForum
+          .singleWhere((tab) => !existingIds.contains(tab.id))
+          .currentContent
+          .topicId,
+      41,
+    );
+    shell.selectTab(active!);
+    await tester.pumpAndSettle();
+    await tester.tap(chip(1));
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, closed[1]);
+    expect(shell.currentContent?.topicId, 42);
   });
 
   testStartPage(
