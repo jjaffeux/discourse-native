@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -139,9 +140,13 @@ class DSheet<T> extends StatelessWidget {
 /// [DSheetContent.showCloseButton] or supply [DSheetContent.closeButton] with
 /// the host's close action; route-owned [DSheetClose] is unavailable here.
 class DSheetViewport extends StatelessWidget {
-  const DSheetViewport({super.key, required this.content});
+  const DSheetViewport({super.key, required this.content, this.onDismiss});
 
   final DSheetContent content;
+
+  /// Enables mobile bottom-sheet swipes and requests removal after the exit
+  /// animation. If the host keeps the sheet mounted, it returns to its position.
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -163,8 +168,9 @@ class DSheetViewport extends StatelessWidget {
         content.animateSize,
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
-        false,
+        onDismiss != null,
         retainKeyboardInsets: true,
+        onRetainedDismiss: onDismiss,
       ),
     );
   }
@@ -325,6 +331,7 @@ Widget _sheetPresentation(
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
   bool retainKeyboardInsets = false,
+  VoidCallback? onRetainedDismiss,
 }) => _DSheetCurves(
   animation: presentation.animation,
   builder: (context, popupCurve, backdropCurve, swipeProgress) => _sheetLayout(
@@ -342,6 +349,7 @@ Widget _sheetPresentation(
     extendBehindKeyboard,
     dismissOnSwipe,
     retainKeyboardInsets: retainKeyboardInsets,
+    onRetainedDismiss: onRetainedDismiss,
   ),
 );
 
@@ -360,6 +368,7 @@ Widget _sheetLayout(
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
   bool retainKeyboardInsets = false,
+  VoidCallback? onRetainedDismiss,
 }) {
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
@@ -427,16 +436,19 @@ Widget _sheetLayout(
   };
   if (dismissOnSwipe && mobile && side == DSheetSide.bottom) {
     final content = popup;
-    popup = DSheetClose<void>(
-      builder: (context, close) => _DSheetSwipeDismiss(
-        onDismiss: close,
-        routeAnimation: presentation.animation,
-        popupCurve: popupCurve,
-        scale: fillAvailableHeight,
-        swipeProgress: swipeProgress,
-        child: content,
-      ),
-    );
+    Widget swipe(VoidCallback close, {bool retained = false}) =>
+        _DSheetSwipeDismiss(
+          onDismiss: close,
+          retained: retained,
+          routeAnimation: presentation.animation,
+          popupCurve: popupCurve,
+          scale: fillAvailableHeight,
+          swipeProgress: swipeProgress,
+          child: content,
+        );
+    popup = onRetainedDismiss != null
+        ? swipe(onRetainedDismiss, retained: true)
+        : DSheetClose<void>(builder: (context, close) => swipe(close));
   } else {
     popup = _DSheetMotion(
       curve: popupCurve,
@@ -553,30 +565,79 @@ class _DSheetMotion extends StatelessWidget {
 // Start the exit at the swipe's release velocity. Slow swipes accelerate to
 // finish within 320ms; a faster swipe coasts without losing any of its speed.
 class _DSheetDismissSimulation extends Simulation {
-  _DSheetDismissSimulation(this.distance, this.velocity, this.initialValue)
-    : acceleration = math.max(0, 2 * (distance - velocity * .32) / (.32 * .32));
+  _DSheetDismissSimulation(
+    this.distance,
+    this.velocity,
+    this.initialValue, {
+    this.endValue = 0,
+  }) : acceleration = math.max(
+         0,
+         2 * (distance - velocity * .32) / (.32 * .32),
+       );
 
   final double distance;
   final double velocity;
   final double initialValue;
+  final double endValue;
   final double acceleration;
+
+  double _progress(double time) =>
+      (velocity * time + acceleration * time * time / 2) / distance;
 
   @override
   double x(double time) =>
-      initialValue *
-      (1 - (velocity * time + acceleration * time * time / 2) / distance);
+      initialValue + (endValue - initialValue) * _progress(time).clamp(0, 1);
 
   @override
   double dx(double time) =>
-      -initialValue * (velocity + acceleration * time) / distance;
+      (endValue - initialValue) * (velocity + acceleration * time) / distance;
 
   @override
-  bool isDone(double time) => x(time) <= 0;
+  bool isDone(double time) => _progress(time) >= 1;
+}
+
+/// A visible sheet region that drags the sheet independently of body scrolling.
+///
+/// Wrap a pinned header to allow dismissal even when its scrollable ancestor
+/// is away from the top. In sheets without swipe dismissal this is inert.
+class DSheetDragRegion extends StatelessWidget {
+  const DSheetDragRegion({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final swipe = context
+        .dependOnInheritedWidgetOfExactType<_DSheetSwipeScope>()
+        ?.swipe;
+    if (swipe == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      supportedDevices: const {PointerDeviceKind.touch},
+      onVerticalDragStart: (_) => swipe._start(),
+      onVerticalDragUpdate: (details) => swipe._update(details.delta.dy),
+      onVerticalDragEnd: (details) =>
+          swipe._finish(details.primaryVelocity ?? 0),
+      onVerticalDragCancel: () => swipe._finish(0, cancelled: true),
+      child: child,
+    );
+  }
+}
+
+class _DSheetSwipeScope extends InheritedWidget {
+  const _DSheetSwipeScope({required this.swipe, required super.child});
+
+  final _DSheetSwipeDismissState swipe;
+
+  @override
+  bool updateShouldNotify(_DSheetSwipeScope oldWidget) =>
+      swipe != oldWidget.swipe;
 }
 
 class _DSheetSwipeDismiss extends StatefulWidget {
   const _DSheetSwipeDismiss({
     required this.onDismiss,
+    required this.retained,
     required this.routeAnimation,
     required this.popupCurve,
     required this.scale,
@@ -585,6 +646,7 @@ class _DSheetSwipeDismiss extends StatefulWidget {
   });
 
   final VoidCallback onDismiss;
+  final bool retained;
   final Animation<double> routeAnimation;
   final Animation<double> popupCurve;
   final bool scale;
@@ -602,6 +664,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
   bool _dragging = false;
+  bool _exiting = false;
   DOverlayRoute<dynamic, Object>? _route;
   Simulation? Function()? _pendingSimulation;
   _DSheetDismissSimulation? _dismissal;
@@ -673,6 +736,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _start() {
+    if (_exiting) return;
     final box = context.findRenderObject()! as RenderBox;
     _swipeExtent = math.max(
       1,
@@ -684,6 +748,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _update(double delta) {
+    if (_exiting) return;
     _travel.value = math.max(0, _travel.value + delta);
   }
 
@@ -703,6 +768,43 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         });
   }
 
+  void _dismissRetained(double velocity) {
+    _exiting = true;
+    void complete() {
+      if (!mounted) return;
+      widget.onDismiss();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _exiting = false;
+        _restore();
+      });
+    }
+
+    if (MediaQuery.disableAnimationsOf(context)) {
+      complete();
+      return;
+    }
+    final box = context.findRenderObject()! as RenderBox;
+    final distance = math.max(
+      1.0,
+      MediaQuery.sizeOf(context).height -
+          box.localToGlobal(Offset.zero).dy -
+          _travel.value,
+    );
+    unawaited(
+      _travel
+          .animateWith(
+            _DSheetDismissSimulation(
+              distance,
+              math.max(0, velocity),
+              _travel.value,
+              endValue: _travel.value + distance,
+            ),
+          )
+          .then<void>((_) => complete()),
+    );
+  }
+
   void _finish(double velocity, {bool cancelled = false}) {
     if (!_dragging) return;
     _dragging = false;
@@ -711,6 +813,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     // the distance off-screen so opening the keyboard does not make the sheet
     // easier to dismiss; velocity only determines how an accepted exit moves.
     if (!cancelled && _travel.value >= _swipeExtent * .3) {
+      if (widget.retained) {
+        _dismissRetained(velocity);
+        return;
+      }
       final route = ModalRoute.of(context);
       if (!MediaQuery.disableAnimationsOf(context) &&
           route is DOverlayRoute<dynamic, Object>) {
@@ -734,7 +840,8 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (_pointer == null ||
+    if (_exiting ||
+        _pointer == null ||
         notification.metrics.axisDirection != AxisDirection.down ||
         (_scrollOrigin != null && _scrollOrigin != notification.context)) {
       return false;
@@ -793,7 +900,11 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     },
     child: Listener(
       onPointerDown: (event) {
-        if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
+        if (_exiting ||
+            _pointer != null ||
+            event.kind != PointerDeviceKind.touch) {
+          return;
+        }
         _pointer = event.pointer;
         _velocity = VelocityTracker.withKind(event.kind)
           ..addPosition(event.timeStamp, event.position);
@@ -825,7 +936,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         onVerticalDragCancel: () => _finish(0, cancelled: true),
         child: NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
-          child: widget.child,
+          child: _DSheetSwipeScope(swipe: this, child: widget.child),
         ),
       ),
     ),

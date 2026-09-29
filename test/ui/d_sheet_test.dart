@@ -110,7 +110,9 @@ void main() {
     tester,
     find.byWidgetPredicate(
       (widget) =>
-          widget is ModalBarrier && widget.semanticsLabel == 'Dismiss sheet',
+          widget is ModalBarrier &&
+          (widget.semanticsLabel == 'Dismiss sheet' ||
+              widget.semanticsLabel == 'Sheet background'),
     ),
   );
 
@@ -120,6 +122,8 @@ void main() {
     bool imperative = false,
     bool dismissOnSwipe = true,
     bool controlled = false,
+    bool retained = false,
+    VoidCallback? onRetainedDismiss,
     bool disableAnimations = false,
     Size size = const Size(390, 844),
     DSheetSide side = DSheetSide.bottom,
@@ -129,8 +133,10 @@ void main() {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    var visible = true;
     DSheetContent content() => DSheetContent(
       side: side,
+      showCloseButton: !retained,
       fillAvailableHeight: true,
       scrollWholeSheet: false,
       children: [
@@ -147,8 +153,22 @@ void main() {
     );
     await tester.pumpWidget(
       _host(
-        Builder(
-          builder: (context) => imperative
+        StatefulBuilder(
+          builder: (context, setState) => retained
+              ? visible
+                    ? DSheetViewport(
+                        onDismiss: dismissOnSwipe
+                            ? () {
+                                onRetainedDismiss?.call();
+                                if (!controlled) {
+                                  setState(() => visible = false);
+                                }
+                              }
+                            : null,
+                        content: content(),
+                      )
+                    : const SizedBox.shrink()
+              : imperative
               ? DButton(
                   label: const Text('Open'),
                   onPressed: () => unawaited(
@@ -177,7 +197,7 @@ void main() {
         disableAnimations: disableAnimations,
       ),
     );
-    if (!controlled) await tester.tap(find.text('Open'));
+    if (!controlled && !retained) await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
   }
 
@@ -306,6 +326,8 @@ void main() {
       (4000.0, 'header'),
       (1800.0, 'scroll'),
       (1800.0, 'helper'),
+      (400.0, 'retained header'),
+      (1800.0, 'retained scroll'),
     ]) {
       testWidgets('swipe exit retains $speed px/s from $origin on $platform', (
         tester,
@@ -314,11 +336,12 @@ void main() {
           tester,
           platform: platform,
           imperative: origin == 'helper',
+          retained: origin.startsWith('retained'),
         );
         final sheet = find.byType(DSheetContent);
         final gesture = await tester.startGesture(
           tester.getCenter(
-            origin == 'scroll'
+            origin.endsWith('scroll')
                 ? find.byType(ListView)
                 : find.text('Swipe sheet'),
           ),
@@ -330,7 +353,11 @@ void main() {
         // Build a real velocity history instead of a drag with zero timestamps.
         // iOS overscroll resistance needs more finger travel to cross the
         // same sheet dismissal threshold.
-        for (var step = 0; step < (origin == 'scroll' ? 64 : 24); step++) {
+        for (
+          var step = 0;
+          step < (origin.endsWith('scroll') ? 64 : 24);
+          step++
+        ) {
           elapsed += sampleDuration;
           await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
           await tester.pump(sampleDuration);
@@ -493,6 +520,74 @@ void main() {
     expect(changes.single.reason, DSheetChangeReason.close);
     expect(tester.getRect(find.byType(DSheetContent)), bounds);
     expect(backdropOpacity(tester), 1);
+  });
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'retained sheets restore cancelled and declined swipes (reduced: $reducedMotion)',
+      (tester) async {
+        var requests = 0;
+        await openSwipeSheet(
+          tester,
+          retained: true,
+          controlled: true,
+          disableAnimations: reducedMotion,
+          onRetainedDismiss: () => requests++,
+        );
+        final title = find.text('Swipe sheet');
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        await tester.drag(title, const Offset(0, 35));
+        await tester.pumpAndSettle();
+        expect(requests, 0);
+        expect(tester.getRect(sheet), bounds);
+        final gesture = await tester.startGesture(tester.getCenter(title));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 120));
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(requests, 0);
+        expect(tester.getRect(sheet), bounds);
+
+        await tester.drag(title, const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(requests, 1);
+        expect(tester.getRect(sheet), bounds);
+        expect(backdropOpacity(tester), 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('retained sheets without a close callback do not swipe', (
+    tester,
+  ) async {
+    await openSwipeSheet(tester, retained: true, dismissOnSwipe: false);
+    final sheet = find.byType(DSheetContent);
+    final bounds = tester.getRect(sheet);
+    await tester.drag(find.text('Swipe sheet'), const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(sheet), bounds);
+  });
+
+  testWidgets('removing a retained sheet cancels its pending dismissal', (
+    tester,
+  ) async {
+    var requests = 0;
+    await openSwipeSheet(
+      tester,
+      retained: true,
+      onRetainedDismiss: () => requests++,
+    );
+    await tester.drag(find.text('Swipe sheet'), const Offset(0, 300));
+    await tester.pump();
+    expect(requests, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(requests, 0);
+    expect(tester.takeException(), isNull);
   });
 
   for (final scenario in ['disabled', 'desktop', 'side', 'mouse']) {
