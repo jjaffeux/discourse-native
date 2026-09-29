@@ -50,6 +50,8 @@ final class AggregatePreferences {
 final class AggregateTabPreferences {
   AggregateTabPreferences({
     required this.id,
+    this.showStartPage = true,
+    this.unread = false,
     String? name,
     Set<String>? excludedForums,
     Map<String, String>? queries,
@@ -58,12 +60,16 @@ final class AggregateTabPreferences {
        queries = Map.unmodifiable(queries ?? const {});
 
   final String id;
+  final bool showStartPage;
+  final bool unread;
   final String? name;
   final Set<String> excludedForums;
   final Map<String, String> queries;
 
   Map<String, Object?> toJson() => {
     'id': id,
+    if (!showStartPage) 'show_start_page': false,
+    if (unread) 'unread': true,
     if (name != null) 'name': name,
     'excluded_forums': {
       for (final value in excludedForums) ?tryStoredForumBase(value),
@@ -86,6 +92,8 @@ final class AggregateTabPreferences {
     final queries = value['queries'];
     return AggregateTabPreferences(
       id: id,
+      showStartPage: value['show_start_page'] != false,
+      unread: value['unread'] == true,
       name: value['name'] is String ? value['name'] as String : null,
       excludedForums: {
         if (excluded is List)

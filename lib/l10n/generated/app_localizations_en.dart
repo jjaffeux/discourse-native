@@ -14558,4 +14558,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmUseEverywhere => 'Use everywhere';
+
+  @override
+  String startPageForumCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count forums',
+      one: '1 forum',
+    );
+    return '$_temp0';
+  }
 }

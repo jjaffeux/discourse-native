@@ -469,6 +469,8 @@ void main() {
         ),
         findsOneWidget,
       );
+      await tester.tap(find.widgetWithText(DButton, 'Latest topics'));
+      await tester.pumpAndSettle();
       final heroFinder = find.byKey(const ValueKey('aggregate-hero'));
       expect(tester.getCenter(heroFinder).dx, closeTo(500, 0.5));
       expect(tester.getCenter(heroFinder).dy, closeTo(24, 0.5));
@@ -593,6 +595,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.widgetWithText(DButton, 'Latest topics'));
+      await tester.pumpAndSettle();
       final tabs = tester.widget<ForumTabsBar>(find.byType(ForumTabsBar)).items;
       expect(tabs, hasLength(2));
       expect(view().retainedScrollControllerCount, 2);
@@ -864,4 +868,11 @@ Future<void> _openAggregate(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('aggregate-rail-button')));
   await tester.pumpAndSettle();
   expect(find.byTooltip('Close navigation'), findsNothing);
+  if (find
+      .byKey(const ValueKey('aggregate-start-page'))
+      .evaluate()
+      .isNotEmpty) {
+    await tester.tap(find.widgetWithText(DButton, 'Latest topics'));
+    await tester.pumpAndSettle();
+  }
 }

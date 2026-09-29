@@ -15,6 +15,7 @@ import 'content_reading_lane.dart';
 import 'forum_settings_controller.dart';
 import 'forum_settings_page.dart';
 import 'forum_tabs_bar.dart';
+import 'new_tab_page.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_panel.dart';
@@ -119,6 +120,7 @@ class AggregateViewState extends State<AggregateView> {
               final state = controller.aggregate.state;
               final tabId = controller.activeAggregateTabId;
               final settingsOpen = facade.settingsOpen;
+              final startPage = controller.aggregate.showStartPage;
               return DPageSurface(
                 border: false,
                 borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
@@ -130,7 +132,7 @@ class AggregateViewState extends State<AggregateView> {
                 tabs: controller.forumTabsEnabled || settingsOpen
                     ? _AggregateTabsBar(controller: controller)
                     : null,
-                header: settingsOpen
+                header: settingsOpen || startPage
                     ? null
                     : Column(
                         key: const ValueKey('aggregate-page-header'),
@@ -139,10 +141,46 @@ class AggregateViewState extends State<AggregateView> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
+                                DButton.iconOnly(
+                                  icon: const DIcon(DIcons.house),
+                                  tooltip: context.l10n.startPage,
+                                  variant: DButtonVariant.transparentBackground,
+                                  onPressed: () => unawaited(
+                                    controller.aggregate.openStartPage(
+                                      controller.instances,
+                                    ),
+                                  ),
+                                ),
                                 Expanded(
-                                  child: Text(
-                                    context.l10n.topics,
-                                    style: theme.textTheme.titleMedium,
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: DToggleGroup<AggregateFeedMode>(
+                                      key: const ValueKey(
+                                        'aggregate-feed-mode',
+                                      ),
+                                      values: [controller.aggregate.mode],
+                                      allowEmptySelection: false,
+                                      onChanged: (values) {
+                                        if (values.isNotEmpty) {
+                                          unawaited(
+                                            controller.aggregate.openFeed(
+                                              controller.instances,
+                                              mode: values.single,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      items: [
+                                        DToggleGroupItem(
+                                          value: AggregateFeedMode.latest,
+                                          child: Text(context.l10n.latest),
+                                        ),
+                                        DToggleGroupItem(
+                                          value: AggregateFeedMode.unread,
+                                          child: Text(context.l10n.unread),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 _AggregateInlineFilters(
@@ -160,6 +198,14 @@ class AggregateViewState extends State<AggregateView> {
                 child: settingsOpen
                     ? const ForumSettingsPage(
                         siteUrl: ForumSettingsController.homeSite,
+                      )
+                    : startPage
+                    ? NewTabPage(
+                        key: ValueKey(('aggregate-start', tabId)),
+                        aggregate: true,
+                        onBrowseTopics: () => unawaited(
+                          controller.aggregate.openFeed(controller.instances),
+                        ),
                       )
                     : ContentReadingLane(
                         widthLimit: topicListContentWidth,

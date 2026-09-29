@@ -45,6 +45,7 @@ class DItem extends StatefulWidget {
     this.variant = DItemVariant.standard,
     this.borderColor,
     this.size = DItemSize.standard,
+    this.fitContent = false,
     this.shape = DItemShape.standard,
     this.onPressed,
     this.onHoverChanged,
@@ -72,6 +73,14 @@ class DItem extends StatefulWidget {
   final Color? borderColor;
 
   final DItemSize size;
+
+  /// Whether the item uses its content width within the parent's constraints.
+  ///
+  /// Use loose constraints, such as a [Wrap], for naturally sized items.
+  /// Tight constraints and children that expand still determine the width.
+  /// Padding, focus, activation, and dragging keep the same visible bounds.
+  final bool fitContent;
+
   final DItemShape shape;
   final VoidCallback? onPressed;
 
@@ -266,7 +275,9 @@ class _DItemState extends State<DItem> {
                 ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: widget.fitContent
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.stretch,
               children: [
                 if (widget.header != null) ...[
                   widget.header!,
@@ -277,6 +288,7 @@ class _DItemState extends State<DItem> {
                   _ItemBody(
                     gap: gap,
                     described: described,
+                    fitContent: widget.fitContent,
                     children: [
                       ...widget.children,
                       if (widget.selected && widget.showSelectionIndicator)
@@ -412,10 +424,12 @@ class _ItemBody extends MultiChildRenderObjectWidget {
   const _ItemBody({
     required this.gap,
     required this.described,
+    required this.fitContent,
     required super.children,
   });
   final double gap;
   final bool described;
+  final bool fitContent;
   int get flexibleIndex =>
       children.indexWhere((child) => child is DItemContent);
   Set<int> get mediaIndices => {
@@ -430,12 +444,14 @@ class _ItemBody extends MultiChildRenderObjectWidget {
     mediaIndices,
     Directionality.of(context),
     MediaQuery.textScalerOf(context).scale(14) > 21,
+    fitContent,
   );
   @override
   void updateRenderObject(BuildContext context, _ItemLayout renderObject) {
     renderObject
       ..gap = gap
       ..described = described
+      ..fitContent = fitContent
       ..flexibleIndex = flexibleIndex
       ..mediaIndices = mediaIndices
       ..direction = Directionality.of(context)
@@ -465,6 +481,7 @@ class _ItemLayout extends RenderBox
     this.mediaIndices,
     this.direction,
     this.largeText,
+    this.fitContent,
   );
   double gap;
   bool described;
@@ -472,6 +489,7 @@ class _ItemLayout extends RenderBox
   Set<int> mediaIndices;
   TextDirection direction;
   bool largeText;
+  bool fitContent;
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! ContainerBoxParentData<RenderBox>) {
@@ -498,24 +516,32 @@ class _ItemLayout extends RenderBox
           occupied > width || (flexibleIndex >= 0 && width - occupied < 64);
       if (!stacked && flexibleIndex >= 0) {
         boxes[flexibleIndex].layout(
-          BoxConstraints.tightFor(width: width - occupied),
+          fitContent
+              ? BoxConstraints(maxWidth: width - occupied)
+              : BoxConstraints.tightFor(width: width - occupied),
           parentUsesSize: true,
         );
       }
     }
     var height = 0.0;
+    var contentWidth = 0.0;
     if (stacked) {
       for (final box in boxes) {
         box.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
         height += box.size.height;
+        if (box.size.width > contentWidth) contentWidth = box.size.width;
       }
       height += gap * (boxes.length - 1);
     } else {
+      contentWidth = gap * (boxes.length - 1);
       for (final box in boxes) {
+        contentWidth += box.size.width;
         if (box.size.height > height) height = box.size.height;
       }
     }
-    size = constraints.constrain(Size(width, height));
+    size = constraints.constrain(
+      Size(fitContent ? contentWidth : width, height),
+    );
     var position = 0.0;
     for (var i = 0; i < boxes.length; i++) {
       final box = boxes[i];

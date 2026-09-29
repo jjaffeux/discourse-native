@@ -19501,5 +19501,14 @@
   "confirmUseEverywhere": "Use everywhere",
   "@confirmUseEverywhere": {
     "description": "Confirm replacement of theme selections across every forum and Home."
+  },
+  "startPageForumCount": "{count, plural, =1{1 forum} other{{count} forums}}",
+  "@startPageForumCount": {
+    "description": "Number of saved forums on the All forums start page.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

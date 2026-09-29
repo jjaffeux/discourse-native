@@ -57,6 +57,169 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  for (final direction in TextDirection.values) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('fit-content items stay bounded in $direction at $scale', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          host(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final title in [
+                  'Short',
+                  'A much longer title for this item',
+                ])
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: DItem(
+                      key: ValueKey(title),
+                      fitContent: true,
+                      size: DItemSize.xs,
+                      variant: DItemVariant.muted,
+                      children: [
+                        DItemMedia(
+                          child: LayoutBuilder(
+                            builder: (_, _) =>
+                                const SizedBox(width: 24, height: 24),
+                          ),
+                        ),
+                        DItemContent(
+                          children: [DItemTitle(child: Text(title))],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            width: 320,
+            direction: direction,
+            scale: scale,
+          ),
+        );
+        final short = tester.getRect(find.byKey(const ValueKey('Short')));
+        final long = tester.getRect(
+          find.byKey(const ValueKey('A much longer title for this item')),
+        );
+        expect(short.width, lessThan(long.width));
+        expect(long.width, lessThanOrEqualTo(220));
+        final media = find.descendant(
+          of: find.byKey(const ValueKey('Short')),
+          matching: find.byType(DItemMedia),
+        );
+        if (scale == 1) {
+          final text = tester.getRect(find.text('Short'));
+          final mark = tester.getRect(media);
+          expect(
+            direction == TextDirection.ltr
+                ? mark.right <= text.left
+                : mark.left >= text.right,
+            isTrue,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets(
+    'fit-content hit bounds, keyboard activation and drag use the visible item',
+    (tester) async {
+      var taps = 0;
+      String? dropped;
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        host(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 20,
+                children: [
+                  DItem(
+                    key: const Key('fit-source'),
+                    fitContent: true,
+                    size: DItemSize.xs,
+                    variant: DItemVariant.muted,
+                    focusNode: focus,
+                    dragData: 'topic-42',
+                    onPressed: () => taps++,
+                    children: const [
+                      DItemContent(children: [Text('Short')]),
+                    ],
+                  ),
+                  const DItem(
+                    fitContent: true,
+                    size: DItemSize.xs,
+                    children: [Text('Neighbour')],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 60),
+              DDragRegion<String>(
+                accepts: (_) => true,
+                onMove: (_, _) {},
+                onLeave: () {},
+                onDrop: (data, _) => dropped = data,
+                child: const SizedBox(
+                  key: Key('fit-target'),
+                  width: 200,
+                  height: 60,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      final source = find.byKey(const Key('fit-source'));
+      final rect = tester.getRect(source);
+      expect(rect.width, lessThan(150));
+      await tester.tapAt(Offset(rect.right + 5, rect.center.dy));
+      expect(taps, 0);
+      await tester.tap(source);
+      expect(taps, 1);
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(taps, 2);
+      final gesture = await tester.startGesture(
+        rect.center,
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveTo(
+        tester.getCenter(find.byKey(const Key('fit-target'))),
+      );
+      await gesture.up();
+      await tester.pump();
+      expect(dropped, 'topic-42');
+      expect(taps, 2);
+    },
+  );
+
+  testWidgets(
+    'changing fit-content keeps child state and honors tight widths',
+    (tester) async {
+      final mounts = <State>[];
+      Widget item(bool fitContent) => DItem(
+        fitContent: fitContent,
+        children: [
+          DItemContent(children: [_MountProbe(mounts)]),
+        ],
+      );
+      await tester.pumpWidget(host(Wrap(children: [item(false)])));
+      final expandedWidth = tester.getSize(find.byType(DItem)).width;
+      await tester.pumpWidget(host(Wrap(children: [item(true)])));
+      expect(tester.getSize(find.byType(DItem)).width, lessThan(expandedWidth));
+      expect(mounts, hasLength(1));
+      await tester.pumpWidget(host(item(true), width: 240));
+      expect(tester.getSize(find.byType(DItem)).width, 240);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'hover callbacks follow pointer entry and exit without activation',
     (tester) async {
