@@ -3732,6 +3732,28 @@ class ShellController extends FrameSafeNotifier
   CategoryFeed categoryFeedFor(String siteUrl) =>
       _categoryFeeds[siteUrl] ?? const CategoryFeed();
 
+  /// Per-category unread topic counts from the loaded account snapshot.
+  /// Null means tracking is not ready; sparse live arrivals are not a total.
+  Map<int, int>? categoryUnreadTopicCountsFor(String siteUrl) {
+    if (currentUserFor(siteUrl) == null ||
+        !_topicTrackingSnapshotsLoaded.contains(siteUrl)) {
+      return null;
+    }
+    final tracking = _topicTrackingBySite[siteUrl];
+    if (tracking == null) return null;
+    final counts = <int, int>{};
+    for (final topic in tracking.topics) {
+      if (topic.isUnread && topic.categoryId != null) {
+        counts.update(
+          topic.categoryId!,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
+    }
+    return counts;
+  }
+
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
       _categoriesBySite[siteUrl] ?? const [];
 

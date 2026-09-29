@@ -19438,5 +19438,30 @@
   "removeBookmark": "Remove bookmark",
   "@removeBookmark": {
     "description": "Shared link menu action to delete the clicked target bookmark."
+  },
+  "categoryDirectoryScope": "Category scope",
+  "@categoryDirectoryScope": {
+    "description": "Accessible label for the category directory scope selector."
+  },
+  "categoriesWithTopics": "With topics",
+  "@categoriesWithTopics": {
+    "description": "Category directory scope showing categories containing topics."
+  },
+  "noUnreadCategories": "No categories with unread topics",
+  "@noUnreadCategories": {
+    "description": "Empty state when no accessible category has unread topics."
+  },
+  "noCategoriesWithTopics": "No categories with topics",
+  "@noCategoriesWithTopics": {
+    "description": "Empty state when no accessible category contains topics."
+  },
+  "categoryUnreadTopics": "{count, plural, =1{1 unread topic} other{{count} unread topics}}",
+  "@categoryUnreadTopics": {
+    "description": "Accessible unread topic count for a category and its subcategories.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
