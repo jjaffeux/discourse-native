@@ -91,7 +91,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                     listenable: appSettings,
                     builder: (context, _) => DSwitchTile(
                       key: const ValueKey('disable-gif-animations-switch'),
-                      hoverHighlight: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                       title: DLabel(
                         child: Text(context.l10n.disableGIFAnimations),
                       ),
