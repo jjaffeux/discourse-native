@@ -6975,6 +6975,126 @@ class ShellController extends FrameSafeNotifier
     return site == null ? path : resolveSiteRootPath(site, path);
   }
 
+  /// Resolves the clicked link without selecting its forum, tab, or topic.
+  Future<BookmarkLinkAction?> resolveBookmarkLink(
+    String url, {
+    Bookmark? targetBookmark,
+  }) async {
+    final target = Uri.tryParse(url);
+    if (target == null || !{'http', 'https'}.contains(target.scheme)) {
+      return null;
+    }
+    final instance = _instances
+        .where((site) => site.serves(target))
+        .firstOrNull;
+    if (instance == null || !instance.isConnected || instance.user == null) {
+      return null;
+    }
+    final siteUrl = instance.url;
+    final lease = lifecycle.capture(siteUrl);
+    try {
+      final link = TopicLink.parse(url, siteUrl: siteUrl);
+      if (link == null) {
+        for (final resolver
+            in _pluginSession.capabilities<PluginBookmarkLinkResolver>()) {
+          final action = await resolver.resolveBookmarkLink(siteUrl, url);
+          if (!lease.isCurrent) return null;
+          if (action != null) return action;
+        }
+        return null;
+      }
+      if (targetBookmark != null && targetBookmark.coreTargetType == null) {
+        return null;
+      }
+      final version = _bookmarkVersion(siteUrl, link.topicId);
+      final credential = await _readSessionValue(
+        lease,
+        () => credentials.apiKeyFor(siteUrl),
+      );
+      if (credential?.value == null || !lease.isCurrent) return null;
+      final payload = await api.topicContent.topic(
+        siteUrl: siteUrl,
+        slug: link.slug,
+        id: link.topicId,
+        postNumber: link.postNumber,
+        apiKey: credential!.value,
+      );
+      if (!lease.isCurrent ||
+          payload.detail.id != link.topicId ||
+          version != _bookmarkVersion(siteUrl, link.topicId)) {
+        return null;
+      }
+      final topicTarget =
+          targetBookmark?.coreTargetType == BookmarkTargetType.topic ||
+          (targetBookmark == null && link.postNumber == null);
+      final post = topicTarget
+          ? null
+          : payload.posts
+                .where(
+                  (post) => targetBookmark?.bookmarkableId != null
+                      ? post.id == targetBookmark!.bookmarkableId
+                      : post.postNumber == link.postNumber,
+                )
+                .firstOrNull;
+      if (!topicTarget && (post == null || post.isDeleted || post.hidden)) {
+        return null;
+      }
+      if (topicTarget &&
+          targetBookmark?.bookmarkableId != null &&
+          targetBookmark!.bookmarkableId != link.topicId) {
+        return null;
+      }
+      final type = topicTarget
+          ? BookmarkTargetType.topic
+          : BookmarkTargetType.post;
+      final targetId = topicTarget ? link.topicId : post!.id;
+      final bookmark = topicTarget
+          ? payload.detail.topicBookmark
+          : post!.bookmark;
+      if (bookmarkWriteInFlight(
+        siteUrl: siteUrl,
+        topicId: link.topicId,
+        targetType: type,
+        targetId: targetId,
+      )) {
+        return null;
+      }
+      return BookmarkLinkAction(
+        bookmark: bookmark,
+        invoke: () async {
+          if (!lease.isCurrent ||
+              version != _bookmarkVersion(siteUrl, link.topicId)) {
+            return BookmarkWriteResult.refused(
+              appL10n.bookmarkChangedRefreshMenu,
+            );
+          }
+          final host = bookmarkTarget(type);
+          return bookmark == null
+              ? host.createBookmark(
+                  siteUrl: siteUrl,
+                  topicId: link.topicId,
+                  targetId: targetId,
+                )
+              : host.deleteBookmark(
+                  siteUrl: siteUrl,
+                  topicId: link.topicId,
+                  bookmark: bookmark,
+                );
+        },
+      );
+    } catch (error, stackTrace) {
+      if (lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'bookmark.resolveLink',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      return null;
+    }
+  }
+
   bool openTopicUrl(String url) => _openTopicUrl(url);
 
   TabOpenResult openLinkInNewTab(

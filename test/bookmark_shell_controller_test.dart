@@ -28,6 +28,172 @@ const _otherSite = 'https://other.example';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('shared bookmark links', () {
+    for (final post in [false, true]) {
+      test(
+        'bookmarks an unopened ${post ? 'post' : 'topic'} without navigating',
+        () async {
+          final api = _BookmarkFakeApi();
+          final shell = await _loadShell(api);
+          addTearDown(shell.dispose);
+          api.topics[99] = topicPayload(
+            id: 99,
+            posts: const [
+              Post(
+                id: 990,
+                postNumber: 3,
+                username: 'other',
+                cooked: '<p>Other</p>',
+              ),
+            ],
+          );
+          final before = shell.currentContent;
+          final action = await shell.resolveBookmarkLink(
+            '$_site/t/other/99${post ? '/3' : ''}',
+          );
+          expect(action, isNotNull);
+          expect(action!.bookmark, isNull);
+          expect((await action.invoke()).saved, isTrue);
+          expect(
+            api.createdBookmarks.single.targetType,
+            post ? BookmarkTargetType.post : BookmarkTargetType.topic,
+          );
+          expect(api.createdBookmarks.single.targetId, post ? 990 : 99);
+          expect(shell.currentContent, before);
+        },
+      );
+    }
+
+    test(
+      'removes only the clicked post bookmark and rejects an outdated action',
+      () async {
+        const bookmark = Bookmark(
+          id: 73,
+          bookmarkableId: 12,
+          bookmarkableType: 'Post',
+          postNumber: 2,
+        );
+        final api = _BookmarkFakeApi(bookmark: bookmark);
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final action = (await shell.resolveBookmarkLink('$_site/t/topic/7/2'))!;
+        expect(action.bookmark, bookmark);
+        expect((await action.invoke()).saved, isTrue);
+        expect(api.deletedBookmarks, [73]);
+        expect((await action.invoke()).saved, isFalse);
+        expect(api.deletedBookmarks, [73]);
+      },
+    );
+
+    test(
+      'a resolved action cannot write after the account disconnects',
+      () async {
+        final api = _BookmarkFakeApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final action = (await shell.resolveBookmarkLink('$_site/t/topic/7/2'))!;
+        expect(await shell.disconnectInstance(_site), isTrue);
+        expect((await action.invoke()).saved, isFalse);
+        expect(api.createdBookmarks, isEmpty);
+        expect(await shell.resolveBookmarkLink('$_site/t/topic/7/2'), isNull);
+      },
+    );
+
+    test('topic bookmark rows retain topic identity on a /1 URL', () async {
+      const bookmark = Bookmark(
+        id: 73,
+        bookmarkableId: 7,
+        bookmarkableType: 'Topic',
+      );
+      final api = _BookmarkFakeApi(bookmark: bookmark);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final action = await shell.resolveBookmarkLink(
+        '$_site/t/topic/7/1',
+        targetBookmark: bookmark,
+      );
+      expect(action?.bookmark, bookmark);
+      expect((await action!.invoke()).saved, isTrue);
+      expect(api.deletedBookmarks, [73]);
+    });
+
+    test(
+      'unsupported, missing, and deleted targets expose no action',
+      () async {
+        final api = _BookmarkFakeApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        for (final url in [
+          '$_site/c/general/1',
+          '$_site/latest',
+          '$_site/chat/c/general/9',
+          'https://foreign.example/t/topic/7',
+          '$_site/t/missing/99',
+          '$_site/t/topic/7/999',
+        ]) {
+          expect(await shell.resolveBookmarkLink(url), isNull, reason: url);
+        }
+        api.topics[7] = topicPayload(
+          id: 7,
+          posts: const [
+            Post(
+              id: 12,
+              postNumber: 2,
+              username: 'sam',
+              cooked: '',
+              userDeleted: true,
+            ),
+          ],
+        );
+        expect(await shell.resolveBookmarkLink('$_site/t/topic/7/2'), isNull);
+        expect(api.createdBookmarks, isEmpty);
+      },
+    );
+
+    test(
+      'chat message links use plugin permissions and persistence without opening a stream',
+      () async {
+        final api = _ChatBookmarkFakeApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        _putChatFixture(shell);
+        final chat = shell.pluginSession.require(chatControllerService);
+        final before = shell.currentContent;
+        final action = await shell.resolveBookmarkLink(
+          '$_site/chat/c/support/9/42',
+        );
+        expect(action, isNotNull);
+        expect((await action!.invoke()).saved, isTrue);
+        await pumpEventQueue();
+        expect(
+          api.createdBookmarks.single.targetType,
+          chatMessageBookmarkTarget,
+        );
+        expect(api.createdBookmarks.single.targetId, 42);
+        expect(shell.currentContent, before);
+        final remove = (await shell.resolveBookmarkLink(
+          '$_site/chat/c/support/9/42',
+        ))!;
+        expect(remove.bookmark, isNotNull);
+        expect((await remove.invoke()).saved, isTrue);
+        expect(api.deletedBookmarks, [remove.bookmark!.id]);
+        chat.putRecordForTesting(
+          _site,
+          const ChatChannel(
+            id: 9,
+            title: 'Archived',
+            kind: ChatChannelKind.category,
+            status: ChatChannelStatus.archived,
+          ),
+        );
+        expect(
+          await shell.resolveBookmarkLink('$_site/chat/c/support/9/42'),
+          isNull,
+        );
+      },
+    );
+  });
+
   group('post bookmark lifecycle', () {
     test('create updates every cached representation', () async {
       final reminder = DateTime.utc(2030, 3, 4, 12, 30);

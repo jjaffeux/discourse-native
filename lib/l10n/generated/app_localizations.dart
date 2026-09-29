@@ -22688,6 +22688,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{label}, opens in browser'**
   String aboutExternalLinkLabel(String label);
+
+  /// Bookmark list scope including all bookmarks with a reminder date.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get bookmarkReminders;
+
+  /// Accessible label for the bookmark target type selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter bookmark type'**
+  String get filterBookmarkType;
+
+  /// Unfiltered bookmark target type selector option.
+  ///
+  /// In en, this message translates to:
+  /// **'All types'**
+  String get allBookmarkTypes;
+
+  /// Accessible status for a bookmark whose reminder time has arrived.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder expired'**
+  String get bookmarkReminderExpired;
+
+  /// Shared bookmark menu action rejected because its state changed since opening.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmark changed. Open the menu again to refresh it.'**
+  String get bookmarkChangedRefreshMenu;
+
+  /// Shared link menu action to delete the clicked target bookmark.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove bookmark'**
+  String get removeBookmark;
 }
 
 class _AppLocalizationsDelegate

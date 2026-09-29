@@ -19414,5 +19414,29 @@
         "type": "String"
       }
     }
+  },
+  "bookmarkReminders": "Reminders",
+  "@bookmarkReminders": {
+    "description": "Bookmark list scope including all bookmarks with a reminder date."
+  },
+  "filterBookmarkType": "Filter bookmark type",
+  "@filterBookmarkType": {
+    "description": "Accessible label for the bookmark target type selector."
+  },
+  "allBookmarkTypes": "All types",
+  "@allBookmarkTypes": {
+    "description": "Unfiltered bookmark target type selector option."
+  },
+  "bookmarkReminderExpired": "Reminder expired",
+  "@bookmarkReminderExpired": {
+    "description": "Accessible status for a bookmark whose reminder time has arrived."
+  },
+  "bookmarkChangedRefreshMenu": "Bookmark changed. Open the menu again to refresh it.",
+  "@bookmarkChangedRefreshMenu": {
+    "description": "Shared bookmark menu action rejected because its state changed since opening."
+  },
+  "removeBookmark": "Remove bookmark",
+  "@removeBookmark": {
+    "description": "Shared link menu action to delete the clicked target bookmark."
   }
 }

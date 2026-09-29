@@ -70,6 +70,65 @@ const _bookmarks = [
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('reminder scopes compose with types and accent expired rows', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    final shell = await _shell(
+      bookmarks: [
+        _bookmarks[0].copyWith(
+          reminderAt: now.subtract(const Duration(days: 1)),
+        ),
+        _bookmarks[1].copyWith(reminderAt: now.add(const Duration(days: 1))),
+        _bookmarks[3].copyWith(
+          reminderAt: now.subtract(const Duration(minutes: 1)),
+        ),
+        _bookmarks[2],
+      ],
+    );
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell, size: const Size(320, 844), scale: 1.5);
+    final expired = tester.widget<DItem>(
+      find.byKey(const ValueKey('bookmark-row-1')),
+    );
+    expect(expired.selected, isTrue);
+    expect(expired.selectionStyle, DItemSelectionStyle.leadingAccent);
+    expect(expired.showSelectionIndicator, isFalse);
+    expect(expired.semanticLabel, contains('Reminder expired'));
+    expect(
+      tester
+          .widget<DItem>(find.byKey(const ValueKey('bookmark-row-2')))
+          .selected,
+      isFalse,
+    );
+    await _reminderFilter(tester, 'Reminders');
+    expect(find.byType(BookmarkRow), findsNWidgets(3));
+    await _reminderFilter(tester, 'Expired');
+    expect(find.byType(BookmarkRow), findsNWidgets(2));
+    await _filter(tester, 'Posts');
+    expect(find.byType(BookmarkRow), findsOneWidget);
+    await _filter(tester, 'Chat');
+    expect(find.text('No bookmarks in this filter.'), findsOneWidget);
+    await _reminderFilter(tester, 'All bookmarks');
+    expect(find.text('flourpower in #travel'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expired filter reads pages until a matching reminder is found', (
+    tester,
+  ) async {
+    final bookmarks = _numbered(45);
+    bookmarks[44] = bookmarks[44].copyWith(reminderAt: DateTime.utc(2000));
+    final api = FakeDiscourseApi(user: _user, bookmarkList: bookmarks);
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+    await _reminderFilter(tester, 'Expired');
+    expect(find.byType(BookmarkRow), findsOneWidget);
+    expect(find.byKey(const ValueKey('bookmark-row-45')), findsOneWidget);
+    expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 2]);
+  });
+
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
     testWidgets('bookmark skeleton fills the page at $size', (tester) async {
       final api = _DelayedBookmarksApi();
@@ -127,7 +186,9 @@ void main() {
       final selectRect = tester.getRect(find.byType(DSelect<String>));
       expect(titleRect.bottom, lessThan(selectRect.top));
       expect(
-        tester.getRect(find.byKey(const Key('d-select-trigger-visual'))).left,
+        tester
+            .getRect(find.byKey(const Key('d-select-trigger-visual')).first)
+            .left,
         titleRect.left,
       );
       expect(
@@ -142,7 +203,7 @@ void main() {
       expect(find.byType(BookmarkRow), findsOneWidget);
       await _filter(tester, 'Chat');
       expect(find.byType(BookmarkRow), findsNWidgets(2));
-      await _filter(tester, 'All bookmarks');
+      await _filter(tester, 'All types');
       expect(find.byType(BookmarkRow), findsNWidgets(5));
       await tester.tap(find.byKey(const ValueKey('bookmark-row-1')));
       await tester.pumpAndSettle();
@@ -204,7 +265,7 @@ void main() {
     await _pumpPage(tester, shell);
     await _filter(tester, 'Topics');
     expect(find.text('No bookmarks in this filter.'), findsOneWidget);
-    await _filter(tester, 'All bookmarks');
+    await _filter(tester, 'All types');
     expect(find.byType(BookmarkRow), findsOneWidget);
   });
 
@@ -515,4 +576,11 @@ Future<void> _pumpPage(
   } else {
     await tester.pump();
   }
+}
+
+Future<void> _reminderFilter(WidgetTester tester, String label) async {
+  await tester.tap(find.byType(DSelect<BookmarkReminderFilter>));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
 }

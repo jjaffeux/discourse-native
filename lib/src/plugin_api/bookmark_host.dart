@@ -161,3 +161,12 @@ abstract interface class PluginBookmarkHost {
 abstract interface class PluginBookmarkHostFactory {
   PluginBookmarkHost forTarget(BookmarkTargetType targetType);
 }
+
+/// A resolved link's bookmark action, owned by its core or plugin controller.
+/// Resolving never navigates. Invoking must recheck session and target state.
+final class BookmarkLinkAction {
+  const BookmarkLinkAction({required this.bookmark, required this.invoke});
+
+  final Bookmark? bookmark;
+  final Future<BookmarkWriteResult> Function() invoke;
+}

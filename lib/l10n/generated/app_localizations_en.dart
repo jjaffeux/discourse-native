@@ -14489,4 +14489,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String aboutExternalLinkLabel(String label) {
     return '$label, opens in browser';
   }
+
+  @override
+  String get bookmarkReminders => 'Reminders';
+
+  @override
+  String get filterBookmarkType => 'Filter bookmark type';
+
+  @override
+  String get allBookmarkTypes => 'All types';
+
+  @override
+  String get bookmarkReminderExpired => 'Reminder expired';
+
+  @override
+  String get bookmarkChangedRefreshMenu =>
+      'Bookmark changed. Open the menu again to refresh it.';
+
+  @override
+  String get removeBookmark => 'Remove bookmark';
 }
