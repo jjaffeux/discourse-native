@@ -94,6 +94,24 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Composer toolbar action that inserts @ and opens mention search.
+  ///
+  /// In en, this message translates to:
+  /// **'Mention users or groups'**
+  String get mentionUsersOrGroups;
+
+  /// Guidance above the composer mention autocomplete results.
+  ///
+  /// In en, this message translates to:
+  /// **'Type to search users and groups'**
+  String get mentionSearchHint;
+
+  /// Shown when the composer mention search request fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not search users and groups. Try typing again.'**
+  String get mentionSearchFailed;
+
   /// English UI message used by ui/components/d_navigation_menu.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

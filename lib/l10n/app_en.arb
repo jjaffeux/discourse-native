@@ -1,5 +1,18 @@
 {
   "@@locale": "en",
+  "mentionUsersOrGroups": "Mention users or groups",
+  "@mentionUsersOrGroups": {
+    "description": "Composer toolbar action that inserts @ and opens mention search."
+  },
+  "mentionSearchHint": "Type to search users and groups",
+  "@mentionSearchHint": {
+    "description": "Guidance above the composer mention autocomplete results."
+  },
+  "mentionSearchFailed": "Could not search users and groups. Try typing again.",
+  "@mentionSearchFailed": {
+    "description": "Shown when the composer mention search request fails."
+  },
+
   "primaryNavigation": "Primary navigation",
   "@primaryNavigation": {
     "description": "English UI message used by ui/components/d_navigation_menu.dart. Keep placeholders intact."

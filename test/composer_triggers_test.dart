@@ -53,8 +53,9 @@ void main() {
       expect(triggerIn('a :s|'), ':s');
     });
 
-    test('opens on the first character of a mention', () {
-      expect(triggerIn('@|'), '-');
+    test('opens immediately on a mention sigil', () {
+      expect(triggerIn('@|'), '@');
+      expect(triggerIn('hello @|'), '@');
       expect(triggerIn('@j|'), '@j');
     });
 

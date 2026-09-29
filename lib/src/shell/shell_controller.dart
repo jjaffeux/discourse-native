@@ -11269,17 +11269,28 @@ class ShellController extends FrameSafeNotifier
       unawaited(ensureEmojiCatalog(target.siteUrl));
     }
 
+    final mentionTopicId = target.isPlugin
+        ? target.policy!.mentionTopicId
+        : target.topicId;
     return (
       users: (term) async {
-        final found = await searchUsers(
+        final found = await _searchMentions(
           siteUrl: target.siteUrl,
-          topicId: target.isPlugin
-              ? target.policy!.mentionTopicId
-              : target.topicId,
+          topicId: mentionTopicId != null && mentionTopicId > 0
+              ? mentionTopicId
+              : null,
           term: term,
         );
         return [
-          for (final user in found)
+          for (final group in found.groups)
+            ComposerSuggestion(
+              kind: ComposerTriggerKind.mention,
+              value: group.name,
+              label: group.name,
+              detail: group.fullName ?? appL10n.group,
+              art: const ArtIcon(null, fallback: DIcons.users),
+            ),
+          for (final user in found.users)
             ComposerSuggestion(
               kind: ComposerTriggerKind.mention,
               value: user.username,
@@ -15391,6 +15402,63 @@ class ShellController extends FrameSafeNotifier
       }
       return const FoundUsersAndGroups();
     }
+  }
+
+  Future<FoundUsersAndGroups> _searchMentions({
+    required String siteUrl,
+    required int? topicId,
+    required String term,
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    final FoundUsersAndGroups found;
+    try {
+      final credential = await _readSessionValue(
+        lease,
+        () => credentials.apiKeyFor(siteUrl),
+      );
+      if (credential == null) return const FoundUsersAndGroups();
+      final identity = await _readClientIdFor(lease, credential.value);
+      if (identity == null || !lease.isCurrent) {
+        return const FoundUsersAndGroups();
+      }
+      found = await api.search.searchMentions(
+        siteUrl: siteUrl,
+        term: term,
+        topicId: topicId,
+        apiKey: credential.value,
+        clientId: identity.value,
+      );
+    } catch (error, stackTrace) {
+      if (!isDisposed && lease.isCurrent) {
+        _reportOperationalError(
+          error,
+          stackTrace,
+          'mentions.search',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+      if (lease.isCurrent) rethrow;
+      return const FoundUsersAndGroups();
+    }
+
+    // The site just named these, so they exist — accepting one draws its pill
+    // without asking again.
+    final accepted = lease.commit(() {
+      final known = _mentioned.putIfAbsent(
+        siteUrl,
+        () => BoundedLruCache(composerIdentityCacheCapacity),
+      );
+      for (final user in found.users) {
+        known.put(user.username, true);
+      }
+      for (final group in found.groups) {
+        known.put(group.name, true);
+      }
+      if (found.users.isNotEmpty || found.groups.isNotEmpty) {
+        cooking.contextChanged(siteUrl);
+      }
+    });
+    return accepted ? found : const FoundUsersAndGroups();
   }
 
   Future<List<FoundUser>> searchUsers({

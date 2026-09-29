@@ -4151,6 +4151,20 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
+        DButton.iconOnly(
+          key: const ValueKey('composer-mention'),
+          tooltip: context.l10n.mentionUsersOrGroups,
+          variant: DButtonVariant.transparentBackground,
+          foregroundColor: _composerToolForeground(context),
+          size: _composerToolbarSize(context),
+          onPressed: !composer.isEditing
+              ? null
+              : () {
+                  composer.insertMention();
+                  composer.focus.requestFocus();
+                },
+          icon: const DIcon(DIcons.at),
+        ),
         _FormattingToolbar(composer: this.composer),
         if (!context.isTouch)
           const Padding(

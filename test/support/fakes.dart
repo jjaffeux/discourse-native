@@ -627,6 +627,7 @@ class FakeDiscourseApi
     this.customEmojisBySite = const {},
     this.customEmojiGate,
     this.userSearches = const {},
+    this.mentionGroupSearches = const {},
     this.filterTagSearches = const {},
     this.filterGroupSearches = const {},
     this.hashtagSearches = const {},
@@ -1122,6 +1123,7 @@ class FakeDiscourseApi
   final List<String> customEmojisRequired = [];
 
   final Map<String, List<FoundUser>> userSearches;
+  final Map<String, List<FoundGroup>> mentionGroupSearches;
 
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
@@ -2360,6 +2362,29 @@ class FakeDiscourseApi
       topicId: topicId,
     ));
     return searchResults[term] ?? const SearchResults();
+  }
+
+  @override
+  Future<FoundUsersAndGroups> searchMentions({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 7,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final users = await searchUsers(
+      siteUrl: siteUrl,
+      term: term,
+      topicId: topicId,
+      limit: limit,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return FoundUsersAndGroups(
+      users: users.take(limit).toList(),
+      groups: (mentionGroupSearches[term] ?? const []).take(limit).toList(),
+    );
   }
 
   @override

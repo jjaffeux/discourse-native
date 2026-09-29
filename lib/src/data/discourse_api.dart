@@ -481,6 +481,23 @@ class DiscourseApi
   );
 
   @override
+  Future<FoundUsersAndGroups> searchMentions({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 7,
+    String? apiKey,
+    String? clientId,
+  }) async => _search.searchMentions(
+    siteUrl: siteUrl,
+    term: term,
+    topicId: topicId,
+    limit: limit,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
     required String siteUrl,
     required String term,

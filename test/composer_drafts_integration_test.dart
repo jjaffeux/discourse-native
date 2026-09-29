@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -1162,6 +1163,9 @@ void _registerComposerAndDraftTests() {
     FakeDiscourseApi api() => FakeDiscourseApi(
       feeds: {'/latest.json': listed},
       topics: {7: detail()},
+      mentionGroupSearches: const {
+        'st': [FoundGroup(name: 'staff', fullName: 'Staff team')],
+      },
       userSearches: {
         'sa': const [
           FoundUser(username: 'sam', name: 'Sam Saffron'),
@@ -1220,6 +1224,22 @@ void _registerComposerAndDraftTests() {
 
     TextField field(WidgetTester tester) =>
         tester.widget<TextField>(_composerField);
+
+    testWidgets('offers mentionable groups and inserts their name', (
+      tester,
+    ) async {
+      final fake = api();
+      await openComposer(tester, fake);
+      await tester.enterText(_composerField, 'hello @st');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(find.text('Staff team'), findsOneWidget);
+      expect(fake.userSearchesRequested.single.topicId, 7);
+      await tester.tap(find.text('staff'));
+      await tester.pumpAndSettle();
+      expect(field(tester).controller!.text, 'hello @staff ');
+      expect(find.text('Staff team'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('offers people once enough has been typed', (tester) async {
       final fake = api();

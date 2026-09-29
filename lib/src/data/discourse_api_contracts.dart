@@ -429,6 +429,15 @@ abstract interface class ShellSearchApi {
     String? clientId,
   });
 
+  Future<FoundUsersAndGroups> searchMentions({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 7,
+    String? apiKey,
+    String? clientId,
+  });
+
   Future<FoundUsersAndGroups> searchUsersAndGroups({
     required String siteUrl,
     required String term,

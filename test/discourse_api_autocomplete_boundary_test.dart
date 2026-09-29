@@ -14,6 +14,73 @@ import 'package:http/testing.dart';
 
 void main() {
   test(
+    'mentions request mentionable groups and preserve topic ranking',
+    () async {
+      final requests = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request.url);
+          return http.Response(
+            jsonEncode({
+              'users': [
+                {'username': 'stan', 'name': 'Stan'},
+                {'username': 'stella'},
+              ],
+              'groups': [
+                {'name': 'staff', 'full_name': 'Staff team'},
+                {'name': 'students'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final found = await api.searchMentions(
+        siteUrl: 'https://example.com',
+        term: 'st',
+        topicId: 7,
+        limit: 1,
+      );
+      expect(found.users.single.username, 'stan');
+      expect(found.groups.single.name, 'staff');
+      expect(found.groups.single.fullName, 'Staff team');
+      expect(requests.single.queryParameters, {
+        'term': 'st',
+        'topic_id': '7',
+        'limit': '1',
+        'include_mentionable_groups': 'true',
+      });
+      await api.searchMentions(siteUrl: 'https://example.com', term: '');
+      expect(requests.last.queryParameters['last_seen_users'], 'true');
+      expect(requests.last.queryParameters, isNot(contains('topic_id')));
+      await expectLater(
+        api.searchMentions(
+          siteUrl: 'https://example.com',
+          term: 'st',
+          topicId: 0,
+        ),
+        throwsRangeError,
+      );
+      await expectLater(
+        api.searchMentions(
+          siteUrl: 'https://example.com',
+          term: 'st',
+          limit: 0,
+        ),
+        throwsRangeError,
+      );
+      await expectLater(
+        api.searchMentions(
+          siteUrl: 'https://example.com',
+          term: 'x' * (DiscourseApi.maximumSearchTermLength + 1),
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, hasLength(2));
+    },
+  );
+
+  test(
     'chat paging retains the response edge adjacent to its target',
     () async {
       final api = DiscourseApi(

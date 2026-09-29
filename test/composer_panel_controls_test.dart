@@ -7,10 +7,12 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_link.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_table.dart';
+import 'package:discourse_native/src/shell/composer_triggers.dart';
 import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -32,6 +34,81 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    testWidgets(
+      'mobile mention button opens user and group search above the keyboard',
+      (tester) async {
+        final queries = <String>[];
+        final composer = ComposerController(
+          _replyTarget,
+          search: (
+            users: (query) async {
+              queries.add(query);
+              return query.isEmpty
+                  ? const []
+                  : const [
+                      ComposerSuggestion(
+                        kind: ComposerTriggerKind.mention,
+                        value: 'staff',
+                        label: 'staff',
+                        detail: 'Staff group',
+                        art: ArtIcon(null, fallback: DIcons.users),
+                      ),
+                      ComposerSuggestion(
+                        kind: ComposerTriggerKind.mention,
+                        value: 'stan',
+                        label: 'stan',
+                        detail: 'Stan User',
+                        art: ArtAvatar(null),
+                      ),
+                    ];
+            },
+            hashtags: (_) async => const [],
+            emojis: (_) async => const [],
+          ),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: 330 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(390, 800),
+          height: 800,
+        );
+        final button = find.byKey(const ValueKey('composer-mention'));
+        expect(button.hitTestable(), findsOneWidget);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(composer.raw, '@');
+        expect(composer.focus.hasFocus, isTrue);
+        expect(find.text('Type to search users and groups'), findsOneWidget);
+        expect(queries, ['']);
+        expect(
+          tester.getRect(find.byType(DCommand<ComposerSuggestion>)).bottom,
+          lessThanOrEqualTo(470),
+        );
+        composer.text.value = const TextEditingValue(
+          text: '@st',
+          selection: TextSelection.collapsed(offset: 3),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Staff group'), findsOneWidget);
+        expect(find.text('Stan User'), findsOneWidget);
+        await tester.tap(find.text('staff'));
+        await tester.pumpAndSettle();
+        expect(composer.text.text, '@staff ');
+        expect(composer.focus.hasFocus, isTrue);
+        expect(find.text('Type to search users and groups'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
     testWidgets('topic scrollbar aligns with the title separator endpoint', (
       tester,
     ) async {

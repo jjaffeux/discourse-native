@@ -1614,6 +1614,32 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     );
   }
 
+  void insertMention() {
+    if (!isEditing) return;
+    final old = text.value;
+    // Reopen a dismissed mention without adding a second @ to its query.
+    if (composerTriggerAt(old)?.kind == ComposerTriggerKind.mention) {
+      autocomplete.close();
+      autocomplete.update(old);
+      return;
+    }
+    final selection = old.selection.isValid
+        ? old.selection
+        : TextSelection.collapsed(offset: old.text.length);
+    final start = selection.start;
+    final prefix = _emojiSigilOpensWord(old.text, start) ? '' : ' ';
+    final suffix =
+        selection.end < old.text.length &&
+            !RegExp(r'\s').hasMatch(old.text[selection.end])
+        ? ' '
+        : '';
+    text.value = old.copyWith(
+      text: old.text.replaceRange(start, selection.end, '$prefix@$suffix'),
+      selection: TextSelection.collapsed(offset: start + prefix.length + 1),
+      composing: TextRange.empty,
+    );
+  }
+
   void insertEmoji(String bareCode) {
     if (!isEditing) return;
     final code = bareCode

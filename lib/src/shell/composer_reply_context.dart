@@ -240,7 +240,7 @@ class _ComposerReplyContextState extends State<ComposerReplyContext> {
                                       quarterTurns: expanded ? 2 : 0,
                                       child: DIcon(
                                         DIcons.chevronDown,
-                                        size: 10,
+                                        size: 20,
                                         color: DTokens.of(
                                           context,
                                         ).mutedForeground,
