@@ -230,7 +230,6 @@ final class EventTopicPlugin
     if (event == null || controller == null) return null;
     return EventTopicTitle(
       site: siteUrl,
-      topicTitle: topic.title,
       event: event,
       controller: controller,
       child: title,

@@ -15,14 +15,12 @@ class EventTopicTitle extends StatelessWidget {
   const EventTopicTitle({
     super.key,
     required this.site,
-    required this.topicTitle,
     required this.event,
     required this.controller,
     required this.child,
   });
 
   final String site;
-  final String topicTitle;
   final EventTopicData event;
   final EventController controller;
   final Widget child;
@@ -68,39 +66,29 @@ class EventTopicTitle extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 child,
-                DButton(
-                  key: const ValueKey('event-schedule-trigger'),
-                  variant: DButtonVariant.inline,
-                  size: DButtonSize.small,
-                  alignment: AlignmentDirectional.centerStart,
-                  icon: mobile
-                      ? const DIcon(EventIcons.calendar, size: 14)
-                      : null,
-                  semanticLabel: context.l10n.viewEventSchedule(
-                    (schedule.description).toString(),
-                  ),
-                  tooltip: schedule.description,
-                  label: Builder(
-                    // Retain the button's typography while allowing long ranges
-                    // to wrap naturally at narrow widths and large text sizes.
-                    builder: (context) => DefaultTextStyle(
-                      style: DefaultTextStyle.of(context).style,
-                      child: Text(
-                        schedule.summary(
-                          controller.api.clock().year,
-                          includeDate: mobile,
+                DTooltip(
+                  key: const ValueKey('event-schedule-summary'),
+                  message: schedule.description,
+                  excludeFromSemantics: true,
+                  // Let the topic row own pointer interactions, like its title.
+                  triggerMode: TooltipTriggerMode.manual,
+                  child: DItemDescription(
+                    maxLines: null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: DSpacing.sm,
+                      children: [
+                        if (mobile) const DIcon(EventIcons.calendar, size: 14),
+                        Flexible(
+                          child: Text(
+                            schedule.summary(
+                              controller.api.clock().year,
+                              includeDate: mobile,
+                            ),
+                            semanticsLabel: schedule.description,
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  onPressed: () => showDDialog<void>(
-                    context: context,
-                    builder: (context, _) => ListenableBuilder(
-                      listenable: controller.readerChanges,
-                      builder: (context, _) => _EventScheduleDialog(
-                        title: topicTitle,
-                        schedule: _schedule(context),
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -198,51 +186,4 @@ class _EventSchedule {
       '${fullDate(start)}'
       '${end == null ? '' : ' → ${fullDate(end!)}'}'
       '${allDay || zone == null ? '' : ' · $zone'}';
-}
-
-class _EventScheduleDialog extends StatelessWidget {
-  const _EventScheduleDialog({required this.title, required this.schedule});
-  final String title;
-  final _EventSchedule? schedule;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget field(String label, String value) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: DSpacing.xs,
-      children: [
-        DLabel(child: Text(label)),
-        Text(value),
-      ],
-    );
-    final schedule = this.schedule;
-    return DDialogContent(
-      semanticLabel: context.l10n.eventSchedule,
-      maxWidth: 440,
-      children: [
-        DDialogHeader(
-          children: [DDialogTitle(child: Text(context.l10n.eventSchedule))],
-        ),
-        DDialogScrollArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: DSpacing.lg,
-            children: [
-              DDialogDescription(child: Text(title)),
-              if (schedule == null)
-                Text(context.l10n.dateUnavailable)
-              else ...[
-                field(context.l10n.starts, schedule.fullDate(schedule.start)),
-                if (schedule.end case final end?)
-                  field(context.l10n.ends, schedule.fullDate(end)),
-                if (!schedule.allDay)
-                  if (schedule.zone case final zone?)
-                    field(context.l10n.timezone, zone),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
