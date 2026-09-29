@@ -4,12 +4,19 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/count_label.dart';
+import '../models/category_directory.dart';
 import '../models/category_feed.dart';
+import '../models/category_sidebar.dart';
+import '../models/content_route.dart';
+import '../models/json.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'open_link.dart';
+import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
@@ -28,6 +35,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   (ShellController, String)? _requestedIdentity;
   final ScrollController _scrollController = ScrollController();
   bool _endCheckScheduled = false;
+  CategoryDirectoryScope _scope = CategoryDirectoryScope.all;
 
   @override
   void dispose() {
@@ -44,7 +52,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   void didUpdateWidget(CategoriesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl) _requestFirstPage();
+    if (oldWidget.siteUrl != widget.siteUrl) {
+      _scope = CategoryDirectoryScope.all;
+      _requestFirstPage();
+    }
   }
 
   void _requestFirstPage({bool retry = false}) {
@@ -125,309 +136,351 @@ class _CategoriesPageState extends State<CategoriesPage> {
       );
     }
 
+    final controller = ShellScope.of(context);
+    final user = controller.currentUserFor(widget.siteUrl);
+    final counts = controller.categoryUnreadTopicCountsFor(widget.siteUrl);
+    final scope = user == null && _scope == CategoryDirectoryScope.unread
+        ? CategoryDirectoryScope.all
+        : _scope;
+    final entries = categoryDirectoryEntries(
+      rootCategoryIds: feed.categoryIds,
+      categories: controller.filterCategoriesFor(widget.siteUrl),
+      unreadTopicCounts: counts ?? const {},
+      mutedCategoryIds: {
+        ...?user?.mutedCategoryIds,
+        ...?user?.indirectlyMutedCategoryIds,
+      },
+    ).where((entry) => entry.matches(scope)).toList();
     _scheduleVisibleEndCheck();
 
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) {
-        const gap = 12.0;
-        final columns = _columnsFor(
-          ContentReadingLane.breakpointWidthOf(context, lane.width),
-        );
-        final cardWidth = (lane.width - gap * (columns - 1)) / columns;
-
-        return NotificationListener<ScrollNotification>(
-          onNotification: _onScroll,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: lane.padding,
-                sliver: SliverMainAxisGroup(
-                  slivers: [
-                    if (!feed.pageError && feed.error != null)
-                      SliverToBoxAdapter(
+      builder: (context, lane) => NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: lane.padding,
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: DSelect<CategoryDirectoryScope>.controlled(
+                          key: ValueKey(('category-scope', widget.siteUrl)),
+                          value: scope,
+                          semanticLabel: context.l10n.categoryDirectoryScope,
+                          entries: [
+                            for (final value in CategoryDirectoryScope.values)
+                              DSelectOption(
+                                value: value,
+                                label: _scopeLabel(context, value),
+                                enabled:
+                                    value != CategoryDirectoryScope.unread ||
+                                    user != null,
+                                child: Text(_scopeLabel(context, value)),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() => _scope = value);
+                            if (_scrollController.hasClients) {
+                              _scrollController.jumpTo(0);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: DSeparator()),
+                  if (!feed.pageError && feed.error != null)
+                    SliverToBoxAdapter(
+                      child: _CategoryErrorBanner(
+                        message: feed.error!,
+                        onRetry: _retry,
+                      ),
+                    ),
+                  SliverList.builder(
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) => Column(
+                      children: [
+                        _CategoryActivityRow(
+                          key: ValueKey(
+                            'category-row-${entries[index].category.id}',
+                          ),
+                          siteUrl: widget.siteUrl,
+                          entry: entries[index],
+                        ),
+                        if (index < entries.length - 1) const DSeparator(),
+                      ],
+                    ),
+                  ),
+                  if (entries.isEmpty && feed.error == null)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: _CategoryPageState(
+                          icon: DIcons.list,
+                          title:
+                              feed.loadingMore ||
+                                  feed.hasMore ||
+                                  (scope == CategoryDirectoryScope.unread &&
+                                      counts == null)
+                              ? context.l10n.loading
+                              : scope == CategoryDirectoryScope.unread
+                              ? context.l10n.noUnreadCategories
+                              : context.l10n.noCategoriesWithTopics,
+                        ),
+                      ),
+                    ),
+                  if (feed.pageError && feed.error != null)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
                         child: _CategoryErrorBanner(
                           message: feed.error!,
                           onRetry: _retry,
                         ),
                       ),
-                    _CategoryGrid(
-                      siteUrl: widget.siteUrl,
-                      categoryIds: feed.categoryIds,
-                      columns: columns,
-                      cardWidth: cardWidth,
-                      gap: gap,
                     ),
-                    if (feed.loadingMore)
-                      const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    if (feed.pageError && feed.error != null)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: _CategoryErrorBanner(
-                            message: feed.error!,
-                            onRetry: _retry,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  static int _columnsFor(double width) {
-    if (width >= 960) return 3;
-    if (width >= 620) return 2;
-    return 1;
-  }
+  String _scopeLabel(BuildContext context, CategoryDirectoryScope scope) =>
+      switch (scope) {
+        CategoryDirectoryScope.all => context.l10n.allCategoriesCategorysidebar,
+        CategoryDirectoryScope.unread => context.l10n.unread,
+        CategoryDirectoryScope.withTopics => context.l10n.categoriesWithTopics,
+      };
 }
 
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({
-    required this.siteUrl,
-    required this.categoryIds,
-    required this.columns,
-    required this.cardWidth,
-    required this.gap,
-  });
-
-  final String siteUrl;
-  final List<int> categoryIds;
-  final int columns;
-  final double cardWidth;
-  final double gap;
-
-  @override
-  Widget build(BuildContext context) {
-    final rowCount = (categoryIds.length + columns - 1) ~/ columns;
-
-    return SliverList.builder(
-      itemCount: rowCount,
-      itemBuilder: (context, rowIndex) {
-        final start = rowIndex * columns;
-        return Padding(
-          padding: EdgeInsets.only(top: rowIndex == 0 ? 0 : gap),
-          // Only peer cards need an intrinsic pass to equalize row heights.
-          child: columns == 1
-              ? SizedBox(
-                  width: cardWidth,
-                  child: _CategoryCardSlot(
-                    key: ValueKey('category-card-${categoryIds[start]}'),
-                    siteUrl: siteUrl,
-                    categoryId: categoryIds[start],
-                  ),
-                )
-              : IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var column = 0; column < columns; column++) ...[
-                        if (column > 0) SizedBox(width: gap),
-                        SizedBox(
-                          width: cardWidth,
-                          child: start + column < categoryIds.length
-                              ? _CategoryCardSlot(
-                                  key: ValueKey(
-                                    'category-card-${categoryIds[start + column]}',
-                                  ),
-                                  siteUrl: siteUrl,
-                                  categoryId: categoryIds[start + column],
-                                )
-                              : null,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _CategoryCardSlot extends StatelessWidget {
-  const _CategoryCardSlot({
+class _CategoryActivityRow extends StatelessWidget {
+  const _CategoryActivityRow({
     super.key,
     required this.siteUrl,
-    required this.categoryId,
+    required this.entry,
   });
 
   final String siteUrl;
-  final int categoryId;
+  final CategoryDirectoryEntry entry;
 
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    return ValueListenableBuilder<TopicCategory?>(
-      valueListenable: controller.categoryRef(siteUrl, categoryId),
-      builder: (context, category, _) => category == null
-          ? const SizedBox.shrink()
-          : _CategoryCard(
-              siteUrl: siteUrl,
-              category: category,
-              onTap: () => controller.openCategory(category),
+    final category = entry.category;
+    final tokens = DTokens.of(context);
+    final unread = entry.unreadTopicCount > 0;
+    final foreground = entry.muted ? tokens.mutedForeground : tokens.foreground;
+    final latest = entry.latestTopic;
+    final categoriesById = {
+      for (final category in controller.filterCategoriesFor(siteUrl))
+        category.id: category,
+    };
+    ContentRoute routeFor(TopicCategory category) =>
+        ContentRoute.fromDestination(
+          buildCategoryDestination(category, categoriesById: categoriesById),
+        );
+    final title = DItemTitle(
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              category.name,
+              style: TextStyle(
+                color: foreground,
+                fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          if (category.readRestricted) ...[
+            const SizedBox(width: 6),
+            DIcon(
+              DIcons.lock,
+              size: 13,
+              color: tokens.mutedForeground,
+              semanticLabel: context.l10n.privateCategory,
+            ),
+          ],
+          if (entry.muted) ...[
+            const SizedBox(width: 6),
+            DIcon(
+              DIcons.discourseBellSlash,
+              size: 13,
+              color: tokens.mutedForeground,
+              semanticLabel: context.l10n.muted,
+            ),
+          ],
+        ],
+      ),
+    );
+    final activity = DItemDescription(
+      maxLines: 1,
+      child: latest?.activityAt != null
+          ? RelativeTimeText(latest!.activityAt!)
+          : Text(
+              latest != null && entry.topicCount == 0
+                  ? context.l10n.latest
+                  : countLabel(entry.topicCount, CountNoun.topic),
             ),
     );
-  }
-}
-
-class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({
-    required this.siteUrl,
-    required this.category,
-    required this.onTap,
-  });
-
-  final String siteUrl;
-  final TopicCategory category;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final foreground = category.isMuted
-        ? theme.colorScheme.onSurfaceVariant
-        : theme.colorScheme.onSurface;
-
-    return DCard(
-      spacing: 0,
-      child: Semantics(
-        button: true,
-        child: InkWell(
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: ColoredBox(
-                  color: Color(category.colorValue),
-                  child: const SizedBox(width: 5),
+    return LinkTarget.content(
+      content: routeFor(category),
+      siteUrl: siteUrl,
+      child: DItem(
+        shape: DItemShape.fullWidth,
+        selectionStyle: DItemSelectionStyle.leadingAccent,
+        showSelectionIndicator: false,
+        link: true,
+        semanticLabel: unread
+            ? context.l10n.categoryUnreadTopics(entry.unreadTopicCount)
+            : null,
+        onPressed: () => controller.openCategory(category, siteUrl: siteUrl),
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.avatar,
+            child: DAvatar(
+              size: DAvatarSize.lg,
+              border: false,
+              decorative: true,
+              borderRadius: BorderRadius.circular(DRadius.popover),
+              fallback: DAvatarFallback(
+                backgroundColor: Color(
+                  category.colorValue,
+                ).withValues(alpha: .15),
+                child: CategoryIcon(
+                  category: category,
+                  siteUrl: siteUrl,
+                  size: 18,
+                  showLock: false,
                 ),
               ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 118),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Wrap(
-                          spacing: 7,
-                          runSpacing: 4,
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            CategoryIcon(
-                              key: ValueKey((
-                                'category-card-icon',
-                                category.id,
-                              )),
-                              category: category,
+            ),
+          ),
+          DItemContent(
+            alignment: CrossAxisAlignment.stretch,
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) =>
+                    constraints.maxWidth < 240 ||
+                        MediaQuery.textScalerOf(context).scale(14) > 21
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [title, activity],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: title),
+                          const SizedBox(width: 8),
+                          activity,
+                        ],
+                      ),
+              ),
+              if (latest != null)
+                _LatestTopicLink(
+                  siteUrl: siteUrl,
+                  topic: latest,
+                  unread: unread,
+                )
+              else if (jsonHtmlText(category.descriptionExcerpt)
+                  case final description?)
+                DItemDescription(maxLines: 1, child: Text(description)),
+              if (entry.subcategories.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final child in entry.subcategories)
+                      LinkTarget.content(
+                        content: routeFor(child),
+                        siteUrl: siteUrl,
+                        child: DButton(
+                          key: ValueKey('category-subcategory-${child.id}'),
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.small,
+                          icon: CategoryIcon(
+                            category: child,
+                            siteUrl: siteUrl,
+                            size: 12,
+                          ),
+                          label: Text(
+                            controller.topicCategoryPathLabel(
+                              child,
                               siteUrl: siteUrl,
-                              size: 15,
-                              squareSize: 12,
                             ),
-                            Text(
-                              category.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: foreground,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                          ),
+                          onPressed: () =>
+                              controller.openCategory(child, siteUrl: siteUrl),
                         ),
                       ),
-                      if (!category.isMuted &&
-                          category.featuredTopics.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        for (final topic in category.featuredTopics)
-                          _FeaturedTopicRow(siteUrl: siteUrl, topic: topic),
-                      ],
-                    ],
-                  ),
+                  ],
                 ),
-              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _FeaturedTopicRow extends StatelessWidget {
-  const _FeaturedTopicRow({required this.siteUrl, required this.topic});
-
+class _LatestTopicLink extends StatelessWidget {
+  const _LatestTopicLink({
+    required this.siteUrl,
+    required this.topic,
+    required this.unread,
+  });
   final String siteUrl;
   final CategoryFeaturedTopic topic;
-
-  DIconData get _icon {
-    if (topic.pinned) return DIcons.thumbtack;
-    if (topic.closed || topic.archived) return DIcons.lock;
-    return DIcons.farFileLines;
-  }
-
-  String? get _status {
-    if (topic.pinned) return appL10n.pinned;
-    if (topic.closed) return appL10n.closed;
-    if (topic.archived) return appL10n.archived;
-    return null;
-  }
+  final bool unread;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // The row speaks its status ahead of the title; the icon only draws it.
-    return Semantics(
-      button: true,
-      label: _status,
-      child: InkWell(
-        key: ValueKey('category-featured-topic-${topic.id}'),
-        onTap: () => ShellScope.read(context).openFeaturedTopic(topic),
-        borderRadius: BorderRadius.circular(5),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 3),
-                child: ExcludeSemantics(
-                  child: DIcon(
-                    _icon,
-                    size: 13,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: TopicTitle(
-                  topic.title,
-                  siteUrl: siteUrl,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ],
+    final status = topic.pinned
+        ? context.l10n.pinned
+        : topic.closed
+        ? context.l10n.closed
+        : topic.archived
+        ? context.l10n.archived
+        : null;
+    final icon = topic.pinned
+        ? DIcons.thumbtack
+        : topic.closed || topic.archived
+        ? DIcons.lock
+        : DIcons.farFileLines;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: LinkTarget(
+        url: '/t/${topic.slug}/${topic.id}/${topic.firstUnreadPostNumber ?? 1}',
+        title: topic.title,
+        siteUrl: siteUrl,
+        child: DButton(
+          key: ValueKey('category-featured-topic-${topic.id}'),
+          variant: DButtonVariant.inline,
+          size: DButtonSize.small,
+          tooltip: status,
+          icon: DIcon(icon, size: 13, semanticLabel: status),
+          label: TopicTitle(
+            topic.title,
+            siteUrl: siteUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: unread
+                  ? DTokens.of(context).foreground
+                  : DTokens.of(context).mutedForeground,
+              fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
+          onPressed: () => ShellScope.read(context).openFeaturedTopic(topic),
         ),
       ),
     );
@@ -443,7 +496,7 @@ class _CategoryErrorBanner extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 12),
     child: DAlert(
       variant: DAlertVariant.destructive,
-      icon: const Icon(Icons.error_outline),
+      icon: const DIcon(DIcons.triangleExclamation),
       description: DAlertDescription(child: Text(message)),
       action: DAlertAction(
         child: DButton(

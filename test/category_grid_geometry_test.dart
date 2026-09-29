@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:discourse_native/src/shell/categories_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +6,9 @@ import 'support/category_grid_fixture.dart';
 
 void main() {
   for (final width in [390.0, 700.0, 1100.0]) {
-    testWidgets('preserves real category geometry at $width', (tester) async {
+    testWidgets('renders real category activity rows at $width', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -21,7 +20,7 @@ void main() {
       final geometry = <String, List<double>>{};
       void capture() {
         for (final category in categories) {
-          final finder = find.byKey(ValueKey('category-card-${category.id}'));
+          final finder = find.byKey(ValueKey('category-row-${category.id}'));
           if (finder.evaluate().isEmpty) continue;
           final rect = tester.getRect(finder);
           geometry['${category.id}'] = [rect.left, rect.width, rect.height];
@@ -33,7 +32,7 @@ void main() {
         of: find.byType(CategoriesPage),
         matching: find.byType(IntrinsicHeight),
       );
-      expect(intrinsicRows, width == 390 ? findsNothing : findsWidgets);
+      expect(intrinsicRows, findsNothing);
       final scroll = tester
           .widget<CustomScrollView>(find.byType(CustomScrollView))
           .controller!;
@@ -44,15 +43,15 @@ void main() {
         await tester.pump();
         capture();
       }
-      final baseline =
-          jsonDecode(
-                File(
-                  'test/fixtures/categories/geometry.json',
-                ).readAsStringSync(),
-              )
-              as Map;
       expect(geometry.length, categories.length);
-      expect(geometry, baseline['$width']);
+      final first = geometry.values.first;
+      for (final rect in geometry.values) {
+        expect(rect[0], first[0]);
+        expect(rect[1], first[1]);
+        expect(rect[1], greaterThan(width * .8));
+        expect(rect[0] + rect[1], lessThanOrEqualTo(width));
+        expect(rect[2], greaterThan(0));
+      }
       expect(tester.takeException(), isNull);
     });
   }

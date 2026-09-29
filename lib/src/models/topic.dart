@@ -694,6 +694,7 @@ class CategoryFeaturedTopic {
     this.archived = false,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
+    this.activityAt,
   });
 
   factory CategoryFeaturedTopic.fromJson(Map<String, dynamic> json) =>
@@ -706,6 +707,10 @@ class CategoryFeaturedTopic {
         archived: json['archived'] == true,
         lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
         highestPostNumber: jsonInt(json['highest_post_number']),
+        activityAt:
+            jsonDate(json['bumped_at']) ??
+            jsonDate(json['last_posted_at']) ??
+            jsonDate(json['created_at']),
       );
 
   final int id;
@@ -716,6 +721,7 @@ class CategoryFeaturedTopic {
   final bool archived;
   final int? lastReadPostNumber;
   final int highestPostNumber;
+  final DateTime? activityAt;
 
   int? get firstUnreadPostNumber {
     if (highestPostNumber <= 0) return null;
@@ -735,7 +741,8 @@ class CategoryFeaturedTopic {
           other.closed == closed &&
           other.archived == archived &&
           other.lastReadPostNumber == lastReadPostNumber &&
-          other.highestPostNumber == highestPostNumber;
+          other.highestPostNumber == highestPostNumber &&
+          other.activityAt == activityAt;
 
   @override
   int get hashCode => Object.hash(
@@ -747,6 +754,7 @@ class CategoryFeaturedTopic {
     archived,
     lastReadPostNumber,
     highestPostNumber,
+    activityAt,
   );
 }
 

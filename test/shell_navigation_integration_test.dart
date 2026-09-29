@@ -1594,9 +1594,9 @@ void _registerShellNavigationTests() {
     expect(controller.destinationId, 'all-categories');
     expect(controller.currentContent?.id, 'all-categories');
     expect(find.byType(CategoriesPage), findsOneWidget);
-    expect(find.byKey(const ValueKey('category-card-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('category-card-2')), findsNothing);
-    expect(find.byKey(const ValueKey('category-card-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-row-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category-row-2')), findsNothing);
+    expect(find.byKey(const ValueKey('category-row-3')), findsOneWidget);
     expect(launched, isEmpty);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

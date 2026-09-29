@@ -14508,4 +14508,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeBookmark => 'Remove bookmark';
+
+  @override
+  String get categoryDirectoryScope => 'Category scope';
+
+  @override
+  String get categoriesWithTopics => 'With topics';
+
+  @override
+  String get noUnreadCategories => 'No categories with unread topics';
+
+  @override
+  String get noCategoriesWithTopics => 'No categories with topics';
+
+  @override
+  String categoryUnreadTopics(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread topics',
+      one: '1 unread topic',
+    );
+    return '$_temp0';
+  }
 }

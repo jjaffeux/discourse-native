@@ -1,6 +1,12 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/category_directory.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
@@ -9,11 +15,9 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,12 +25,19 @@ import 'support/fakes.dart';
 
 const Size _viewport = Size(1200, 900);
 
-Future<ShellController> _loadCategories(FakeDiscourseApi api) async {
-  final site = instance('meta.discourse.org', title: 'Discourse Meta');
+Future<ShellController> _loadCategories(
+  FakeDiscourseApi api, {
+  bool connected = false,
+}) async {
+  final site = instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
+    user: connected ? const DiscourseUser(id: 7, username: 'joffreyj') : null,
+  );
+  final authenticator = FakeAuthenticator();
+  if (connected) authenticator.keys[site.url] = 'test-key';
   final controller = ShellController(
     instanceStore: FakeInstanceStore([site]),
     api: api,
-    authenticator: FakeAuthenticator(),
+    authenticator: authenticator,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
@@ -93,25 +104,167 @@ Future<void> _pumpPage(
   await tester.pumpAndSettle();
 }
 
-Finder _card(int categoryId) =>
-    find.byKey(ValueKey('category-card-$categoryId'));
+Finder _row(int categoryId) => find.byKey(ValueKey('category-row-$categoryId'));
 
 Finder _featuredTopic(int topicId) =>
     find.byKey(ValueKey('category-featured-topic-$topicId'));
 
-DIconData _topicIcon(WidgetTester tester, int topicId) => tester
-    .widget<DIcon>(
-      find.descendant(
-        of: _featuredTopic(topicId),
-        matching: find.byType(DIcon),
-      ),
-    )
-    .icon;
+Future<void> _selectScope(WidgetTester tester, String label) async {
+  await tester.tap(find.byType(DSelect<CategoryDirectoryScope>));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  group('category grid', () {
+  group('category directory', () {
     testWidgets(
-      'keeps root server order, featured topic order, and muted cards',
+      'shows full-width activity rows in server order and keeps private and muted categories',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: [
+            TopicCategory(
+              id: 30,
+              name: 'Alerts',
+              color: 'F15A24',
+              slug: 'alerts',
+              readRestricted: true,
+              featuredTopics: [
+                CategoryFeaturedTopic(
+                  id: 101,
+                  title: 'Old pinned topic',
+                  slug: 'old',
+                  pinned: true,
+                  activityAt: DateTime(2020),
+                ),
+                CategoryFeaturedTopic(
+                  id: 102,
+                  title: 'Latest topic',
+                  slug: 'latest',
+                  activityAt: DateTime.now().subtract(const Duration(hours: 2)),
+                ),
+              ],
+            ),
+            const TopicCategory(
+              id: 31,
+              name: 'Child',
+              color: 'DD4411',
+              slug: 'child',
+              parentCategoryId: 30,
+            ),
+            const TopicCategory(
+              id: 10,
+              name: 'Muted',
+              color: '999999',
+              slug: 'muted',
+              topicCount: 9,
+              descriptionExcerpt: '<p>Quiet &amp; calm</p>',
+              notificationLevel: CategoryNotificationLevel.muted,
+              featuredTopics: [
+                CategoryFeaturedTopic(
+                  id: 104,
+                  title: 'Hidden muted topic',
+                  slug: 'hidden',
+                ),
+              ],
+            ),
+            const TopicCategory(
+              id: 20,
+              name: 'Product',
+              color: '10AFA0',
+              slug: 'product',
+              topicCount: 2,
+            ),
+          ],
+        );
+        final controller = await _loadCategories(api);
+        await _pumpPage(tester, controller);
+        expect(_row(31), findsNothing);
+        expect(
+          find.byKey(const ValueKey('category-subcategory-31')),
+          findsOneWidget,
+        );
+        for (final id in [10, 20]) {
+          expect(
+            tester.getTopLeft(_row(id)).dx,
+            tester.getTopLeft(_row(30)).dx,
+          );
+          expect(
+            tester.getSize(_row(id)).width,
+            tester.getSize(_row(30)).width,
+          );
+        }
+        expect(
+          tester.getTopLeft(_row(30)).dy,
+          lessThan(tester.getTopLeft(_row(10)).dy),
+        );
+        expect(
+          tester.getTopLeft(_row(10)).dy,
+          lessThan(tester.getTopLeft(_row(20)).dy),
+        );
+        expect(_featuredTopic(102), findsOneWidget);
+        expect(_featuredTopic(101), findsNothing);
+        expect(_featuredTopic(104), findsNothing);
+        expect(find.text('2h'), findsOneWidget);
+        expect(find.text('9 topics'), findsOneWidget);
+        expect(find.text('Quiet & calm'), findsOneWidget);
+        expect(find.byType(DAvatar), findsNWidgets(3));
+        expect(find.text('0 topics'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(CategoriesPage),
+            matching: find.byType(DCard),
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'opens category and subcategory feeds and Back restores the directory',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: const {
+            '/latest.json': [],
+            '/c/alerts/30.json': [],
+            '/c/alerts/child/31.json': [],
+          },
+          categoryList: const [
+            TopicCategory(
+              id: 30,
+              name: 'Alerts',
+              color: 'F15A24',
+              slug: 'alerts',
+            ),
+            TopicCategory(
+              id: 31,
+              name: 'Child',
+              color: 'DD4411',
+              slug: 'child',
+              parentCategoryId: 30,
+            ),
+          ],
+        );
+        final controller = await _loadCategories(api);
+        await _pumpPage(tester, controller);
+        await tester.tap(find.text('Alerts'));
+        await tester.pumpAndSettle();
+        expect(controller.currentContent?.feedPath, '/c/alerts/30.json');
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('category-subcategory-31')));
+        await tester.pumpAndSettle();
+        expect(controller.currentContent?.feedPath, '/c/alerts/child/31.json');
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byType(CategoriesPage), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'latest topic is a keyboard action and opens at its first unread post',
       (tester) async {
         final api = FakeDiscourseApi(
           feeds: const {'/latest.json': []},
@@ -124,116 +277,60 @@ void main() {
               featuredTopics: [
                 CategoryFeaturedTopic(
                   id: 101,
-                  title: 'Pinned and closed',
-                  slug: 'pinned-and-closed',
-                  pinned: true,
-                  closed: true,
-                ),
-                CategoryFeaturedTopic(
-                  id: 102,
-                  title: 'Closed topic',
-                  slug: 'closed-topic',
-                  closed: true,
-                ),
-                CategoryFeaturedTopic(
-                  id: 103,
-                  title: 'Ordinary topic',
-                  slug: 'ordinary-topic',
+                  title: 'Partly read topic',
+                  slug: 'partly-read-topic',
+                  lastReadPostNumber: 3,
+                  highestPostNumber: 8,
                 ),
               ],
-            ),
-            TopicCategory(
-              id: 31,
-              name: 'Alerts child',
-              color: 'DD4411',
-              slug: 'child',
-              parentCategoryId: 30,
-            ),
-            TopicCategory(
-              id: 10,
-              name: 'Muted',
-              color: '999999',
-              slug: 'muted',
-              notificationLevel: CategoryNotificationLevel.muted,
-              featuredTopics: [
-                CategoryFeaturedTopic(
-                  id: 104,
-                  title: 'Hidden muted topic',
-                  slug: 'hidden-muted-topic',
-                ),
-              ],
-            ),
-            TopicCategory(
-              id: 20,
-              name: 'Product',
-              color: '10AFA0',
-              slug: 'product',
             ),
           ],
+          topics: {
+            101: topicPayload(
+              id: 101,
+              title: 'Partly read topic',
+              posts: const [
+                Post(
+                  id: 1004,
+                  postNumber: 4,
+                  username: 'sam',
+                  cooked: '<p>Fourth post</p>',
+                ),
+              ],
+            ),
+          },
         );
         final controller = await _loadCategories(api);
-        await _pumpPage(tester, controller);
-
-        expect(find.byType(CategoriesPage), findsOneWidget);
-        expect(_card(30), findsOneWidget);
-        expect(_card(31), findsNothing);
-        expect(_card(10), findsOneWidget);
-        expect(_card(20), findsOneWidget);
-
-        final alerts = tester.getTopLeft(_card(30));
-        final muted = tester.getTopLeft(_card(10));
-        final product = tester.getTopLeft(_card(20));
-        expect(alerts.dy, muted.dy);
-        expect(muted.dy, product.dy);
-        expect(alerts.dx, lessThan(muted.dx));
-        expect(muted.dx, lessThan(product.dx));
-        expect(
-          tester.getBottomRight(_card(30)).dy,
-          tester.getBottomRight(_card(10)).dy,
-        );
-        expect(
-          tester.getBottomRight(_card(10)).dy,
-          tester.getBottomRight(_card(20)).dy,
-        );
-
-        expect(_featuredTopic(101), findsOneWidget);
-        expect(_featuredTopic(102), findsOneWidget);
-        expect(_featuredTopic(103), findsOneWidget);
-        expect(_featuredTopic(104), findsNothing);
-        expect(
-          tester.getTopLeft(_featuredTopic(101)).dy,
-          lessThan(tester.getTopLeft(_featuredTopic(102)).dy),
-        );
-        expect(
-          tester.getTopLeft(_featuredTopic(102)).dy,
-          lessThan(tester.getTopLeft(_featuredTopic(103)).dy),
-        );
-        expect(_topicIcon(tester, 101), DIcons.thumbtack);
-        expect(_topicIcon(tester, 102), DIcons.lock);
-        expect(_topicIcon(tester, 103), DIcons.farFileLines);
-
-        final categoryTitle = tester.widget<Text>(
-          find.descendant(of: _card(30), matching: find.text('Alerts')),
-        );
-        final featuredTitle = tester.widget<Text>(
-          find.descendant(
-            of: _featuredTopic(103),
-            matching: find.text('Ordinary topic'),
-          ),
-        );
-        // Category names and featured topics are row titles in the shared
-        // type scale.
-        expect(categoryTitle.style?.fontSize, DiscourseTypography.rowTitle);
-        expect(categoryTitle.style?.fontWeight, FontWeight.w700);
-        expect(featuredTitle.style?.fontSize, DiscourseTypography.rowTitle);
-        expect(
-          featuredTitle.style?.color,
-          AppTheme.light.colorScheme.onSurface,
-        );
+        final semantics = tester.ensureSemantics();
+        try {
+          await _pumpPage(tester, controller, width: 390);
+          expect(
+            tester.getSemantics(_featuredTopic(101)).getSemanticsData().label,
+            contains('Partly read topic'),
+          );
+          final target = find
+              .descendant(
+                of: _featuredTopic(101),
+                matching: find.byType(MouseRegion),
+              )
+              .last;
+          Focus.of(tester.element(target)).requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(controller.currentContent?.topicId, 101);
+          expect(controller.currentContent?.postNumber, 4);
+          expect(api.topicPostNumbersOpened.last, 4);
+          expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+          await tester.pumpAndSettle();
+          expect(_featuredTopic(101), findsOneWidget);
+        } finally {
+          semantics.dispose();
+        }
       },
     );
 
-    testWidgets('opens a native category feed and Back restores the grid', (
+    testWidgets('category context menu opens its actual route in a new tab', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
@@ -249,296 +346,263 @@ void main() {
       );
       final controller = await _loadCategories(api);
       await _pumpPage(tester, controller);
-
-      await tester.tap(
-        find.descendant(of: _card(30), matching: find.text('Alerts')),
+      await tester.tap(_row(30), buttons: kSecondaryMouseButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Open in new main tab'), findsOneWidget);
+      await tester.tap(find.text('Open in new main tab'));
+      await tester.pumpAndSettle();
+      expect(
+        controller.tabsForCurrentForum.any(
+          (tab) => tab.contentStack.any((route) => route.categoryId == 30),
+        ),
+        isTrue,
       );
-      await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.id, 'category-30');
-      expect(controller.currentContent?.feedPath, '/c/alerts/30.json');
-      expect(api.feedPaths.last, '/c/alerts/30.json');
-      expect(find.byType(CategoriesPage), findsNothing);
-
-      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-      await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.id, 'all-categories');
-      expect(find.byType(CategoriesPage), findsOneWidget);
-      expect(_card(30), findsOneWidget);
-    });
-
-    testWidgets('opens a featured topic at its first unread post and returns', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryList: const [
-          TopicCategory(
-            id: 30,
-            name: 'Alerts',
-            color: 'F15A24',
-            slug: 'alerts',
-            featuredTopics: [
-              CategoryFeaturedTopic(
-                id: 101,
-                title: 'Partly read topic',
-                slug: 'partly-read-topic',
-                lastReadPostNumber: 3,
-                highestPostNumber: 8,
-              ),
-            ],
-          ),
-        ],
-        topics: {
-          101: topicPayload(
-            id: 101,
-            title: 'Partly read topic',
-            posts: const [
-              Post(
-                id: 1004,
-                postNumber: 4,
-                username: 'sam',
-                cooked: '<p>Fourth post</p>',
-              ),
-            ],
-          ),
-        },
-      );
-      final controller = await _loadCategories(api);
-      await _pumpPage(tester, controller);
-
-      await tester.tap(_featuredTopic(101));
-      await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.topicId, 101);
-      expect(controller.currentContent?.postNumber, 4);
-      expect(api.topicsOpened.last, 101);
-      expect(api.topicPostNumbersOpened.last, 4);
-      expect(find.byType(CategoriesPage), findsNothing);
-
-      expect(controller.handleBack(canReturnToSidebar: false), isTrue);
-      await tester.pumpAndSettle();
-
-      expect(controller.currentContent?.id, 'all-categories');
-      expect(find.byType(CategoriesPage), findsOneWidget);
-      expect(_featuredTopic(101), findsOneWidget);
     });
 
     testWidgets(
-      'a featured topic is a named keyboard target at least 44 pixels tall',
+      'With topics uses server totals and retains descendants and read-only categories',
+      (tester) async {
+        final controller = await _loadCategories(
+          FakeDiscourseApi(
+            feeds: const {'/latest.json': []},
+            categoryList: const [
+              TopicCategory(id: 1, name: 'Empty', color: '111111'),
+              TopicCategory(
+                id: 2,
+                name: 'Read only',
+                color: '222222',
+                permission: 2,
+                topicCount: 12,
+              ),
+              TopicCategory(id: 3, name: 'Parent', color: '333333'),
+              TopicCategory(
+                id: 4,
+                name: 'Child',
+                color: '444444',
+                parentCategoryId: 3,
+                topicCount: 5,
+              ),
+            ],
+          ),
+        );
+        await _pumpPage(tester, controller);
+        await _selectScope(tester, 'With topics');
+        expect(_row(1), findsNothing);
+        expect(_row(2), findsOneWidget);
+        expect(_row(3), findsOneWidget);
+        expect(find.text('5 topics'), findsOneWidget);
+        await _selectScope(tester, 'All categories');
+        expect(_row(1), findsOneWidget);
+        await tester.tap(find.byType(DSelect<CategoryDirectoryScope>));
+        await tester.pumpAndSettle();
+        final select = tester.widget<DSelect<CategoryDirectoryScope>>(
+          find.byType(DSelect<CategoryDirectoryScope>),
+        );
+        expect(
+          select.entries
+              .whereType<DSelectOption<CategoryDirectoryScope>>()
+              .singleWhere(
+                (option) => option.value == CategoryDirectoryScope.unread,
+              )
+              .enabled,
+          isFalse,
+        );
+      },
+    );
+
+    testWidgets(
+      'Unread waits for the tracking snapshot before trusting live arrivals',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'General', color: '111111'),
+          ],
+          trackingStateGate: gate,
+          trackingState: TopicTrackingState(const [
+            TrackedTopicState(
+              topicId: 10,
+              categoryId: 1,
+              highestPostNumber: 4,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
+            ),
+          ]),
+        );
+        final controller = await _loadCategories(api, connected: true);
+        await _pumpPage(tester, controller);
+        FakeSiteTracker.built.single.deliverTopicTracking(const {
+          'topic_id': 10,
+          'message_type': 'unread',
+          'payload': {'highest_post_number': 4, 'category_id': 1},
+        });
+        await tester.pumpAndSettle();
+        expect(
+          controller.categoryUnreadTopicCountsFor('https://meta.discourse.org'),
+          isNull,
+        );
+        await _selectScope(tester, 'Unread');
+        expect(find.text('No categories with unread topics'), findsNothing);
+        expect(_row(1), findsNothing);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(_row(1), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Unread follows live tracking and ignores muted and new-only topics',
       (tester) async {
         final api = FakeDiscourseApi(
           feeds: const {'/latest.json': []},
           categoryList: const [
+            TopicCategory(id: 1, name: 'Unread parent', color: '111111'),
             TopicCategory(
-              id: 30,
-              name: 'Alerts',
-              color: 'F15A24',
-              slug: 'alerts',
-              featuredTopics: [
-                CategoryFeaturedTopic(
-                  id: 101,
-                  title: 'Ordinary topic',
-                  slug: 'ordinary-topic',
-                ),
-              ],
+              id: 2,
+              name: 'Child',
+              color: '222222',
+              parentCategoryId: 1,
             ),
+            TopicCategory(
+              id: 3,
+              name: 'Muted',
+              color: '333333',
+              notificationLevel: CategoryNotificationLevel.muted,
+            ),
+            TopicCategory(id: 4, name: 'Only new', color: '444444'),
           ],
-          topics: {
-            101: topicPayload(
-              id: 101,
-              title: 'Ordinary topic',
-              posts: const [
-                Post(
-                  id: 1001,
-                  postNumber: 1,
-                  username: 'sam',
-                  cooked: '<p>First post</p>',
-                ),
-              ],
+          trackingState: TopicTrackingState(const [
+            TrackedTopicState(
+              topicId: 10,
+              categoryId: 2,
+              highestPostNumber: 4,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
             ),
-          },
+            TrackedTopicState(
+              topicId: 11,
+              categoryId: 3,
+              highestPostNumber: 4,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
+            ),
+            TrackedTopicState(
+              topicId: 12,
+              categoryId: 4,
+              highestPostNumber: 1,
+              createdInNewPeriod: true,
+            ),
+          ]),
         );
-        final controller = await _loadCategories(api);
-        final semantics = tester.ensureSemantics();
-        try {
-          await _pumpPage(tester, controller, width: 390);
-
-          final topic = _featuredTopic(101);
-          expect(tester.getSize(topic).height, greaterThanOrEqualTo(44));
-          expect(
-            tester.getSemantics(topic),
-            isSemantics(
-              label: 'Ordinary topic',
-              isButton: true,
-              isFocusable: true,
-              hasTapAction: true,
-              hasFocusAction: true,
-            ),
-          );
-
-          final focusChild = find
-              .descendant(of: topic, matching: find.byType(MouseRegion))
-              .first;
-          final focus = Focus.of(tester.element(focusChild));
-          focus.requestFocus();
-          await tester.pumpAndSettle();
-          expect(focus.hasPrimaryFocus, isTrue);
-          expect(
-            tester.getSemantics(topic),
-            isSemantics(isFocusable: true, isFocused: true),
-          );
-
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
-
-          expect(controller.currentContent?.topicId, 101);
-          expect(api.topicsOpened, [101]);
-        } finally {
-          semantics.dispose();
-        }
+        final controller = await _loadCategories(api, connected: true);
+        await _pumpPage(tester, controller);
+        expect(
+          controller.categoryUnreadTopicCountsFor('https://meta.discourse.org'),
+          {2: 1, 3: 1},
+        );
+        expect(
+          tester.widget<Text>(find.text('Unread parent')).style?.fontWeight,
+          FontWeight.w700,
+        );
+        await _selectScope(tester, 'Unread');
+        expect(_row(1), findsOneWidget);
+        expect(_row(3), findsNothing);
+        expect(_row(4), findsNothing);
+        FakeSiteTracker.built.single.deliverTopicTracking(const {
+          'topic_id': 10,
+          'message_type': 'read',
+          'payload': {'last_read_post_number': 4},
+        });
+        await tester.pumpAndSettle();
+        expect(_row(1), findsNothing);
+        expect(find.text('No categories with unread topics'), findsOneWidget);
       },
     );
 
-    testWidgets('cards are buttons and featured topics speak their status', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryList: const [
-          TopicCategory(
-            id: 30,
-            name: 'Alerts',
-            color: 'F15A24',
-            slug: 'alerts',
-            featuredTopics: [
-              CategoryFeaturedTopic(
-                id: 101,
-                title: 'Read me first',
-                slug: 'read-me-first',
-                pinned: true,
-                closed: true,
+    testWidgets(
+      'keeps full-width rows readable at phone widths and 200 percent text',
+      (tester) async {
+        final controller = await _loadCategories(
+          FakeDiscourseApi(
+            feeds: const {'/latest.json': []},
+            categoryList: const [
+              TopicCategory(
+                id: 1,
+                name: 'A long category name that wraps with large text',
+                color: '111111',
+                topicCount: 42000,
+                featuredTopics: [
+                  CategoryFeaturedTopic(
+                    id: 101,
+                    title: 'A long latest topic that must fit within the row',
+                    slug: 'long',
+                  ),
+                ],
               ),
-              CategoryFeaturedTopic(
-                id: 102,
-                title: 'Closed topic',
-                slug: 'closed-topic',
-                closed: true,
-              ),
-              CategoryFeaturedTopic(
-                id: 103,
-                title: 'Archived topic',
-                slug: 'archived-topic',
-                archived: true,
-              ),
-              CategoryFeaturedTopic(
-                id: 104,
-                title: 'Ordinary topic',
-                slug: 'ordinary-topic',
-              ),
+              TopicCategory(id: 2, name: 'Two', color: '222222'),
+              TopicCategory(id: 3, name: 'Three', color: '333333'),
             ],
           ),
-        ],
-      );
-      final controller = await _loadCategories(api);
-      final semantics = tester.ensureSemantics();
-      await _pumpPage(tester, controller, width: 390);
-
-      final card = tester
-          .getSemantics(find.bySemanticsLabel('Alerts'))
-          .getSemanticsData();
-      expect(card.flagsCollection.isButton, isTrue);
-      expect(card.hasAction(SemanticsAction.tap), isTrue);
-      for (final (id, label) in [
-        (101, 'Pinned\nRead me first'),
-        (102, 'Closed\nClosed topic'),
-        (103, 'Archived\nArchived topic'),
-        (104, 'Ordinary topic'),
-      ]) {
-        final topic = tester
-            .getSemantics(_featuredTopic(id))
-            .getSemanticsData();
-        expect(topic.label, label);
-        expect(topic.flagsCollection.isButton, isTrue);
-        // The status icon is drawn, not announced as an image of its own.
-        expect(topic.flagsCollection.isImage, isFalse);
-      }
-      semantics.dispose();
-    });
-
-    testWidgets('adapts category cards from three columns to two and one', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryList: const [
-          TopicCategory(id: 1, name: 'One', color: '111111'),
-          TopicCategory(id: 2, name: 'Two', color: '222222'),
-          TopicCategory(id: 3, name: 'Three', color: '333333'),
-        ],
-      );
-      final controller = await _loadCategories(api);
-
-      await _pumpPage(tester, controller, width: 1100);
-      expect(tester.getTopLeft(_card(1)).dy, tester.getTopLeft(_card(2)).dy);
-      expect(tester.getTopLeft(_card(2)).dy, tester.getTopLeft(_card(3)).dy);
-
-      await _pumpPage(tester, controller, width: 700);
-      expect(tester.getTopLeft(_card(1)).dy, tester.getTopLeft(_card(2)).dy);
-      expect(
-        tester.getTopLeft(_card(3)).dy,
-        greaterThan(tester.getTopLeft(_card(2)).dy),
-      );
-
-      await _pumpPage(tester, controller, width: 500);
-      expect(
-        tester.getTopLeft(_card(2)).dy,
-        greaterThan(tester.getTopLeft(_card(1)).dy),
-      );
-      expect(
-        tester.getTopLeft(_card(3)).dy,
-        greaterThan(tester.getTopLeft(_card(2)).dy),
-      );
-    });
-
-    testWidgets('keeps column breakpoints relative to app text zoom', (
-      tester,
-    ) async {
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryList: const [
-          TopicCategory(id: 1, name: 'One', color: '111111'),
-          TopicCategory(id: 2, name: 'Two', color: '222222'),
-          TopicCategory(id: 3, name: 'Three', color: '333333'),
-        ],
-      );
-      final controller = await _loadCategories(api);
-      final previousPlatform = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        await _pumpPage(tester, controller, width: 1200);
-        expect(tester.getTopLeft(_card(1)).dy, tester.getTopLeft(_card(2)).dy);
-        expect(tester.getTopLeft(_card(3)).dy, tester.getTopLeft(_card(2)).dy);
-
-        await controller.appSettings.setTextScale(AppTextScale.percent200);
-        await tester.pumpAndSettle();
-
-        expect(
-          tester.getTopLeft(_card(2)).dy,
-          greaterThan(tester.getTopLeft(_card(1)).dy),
         );
-        expect(
-          tester.getTopLeft(_card(3)).dy,
-          greaterThan(tester.getTopLeft(_card(2)).dy),
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = previousPlatform;
-      }
-    });
+        for (final width in [1100.0, 700.0, 390.0]) {
+          await _pumpPage(tester, controller, width: width);
+          expect(
+            tester.getTopLeft(_row(1)).dy,
+            lessThan(tester.getTopLeft(_row(2)).dy),
+          );
+          expect(tester.getSize(_row(1)).width, tester.getSize(_row(2)).width);
+          expect(tester.takeException(), isNull);
+        }
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await controller.appSettings.setTextScale(AppTextScale.percent200);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      },
+    );
   });
 
   group('paging', () {
+    testWidgets(
+      'filtered empty pages continue until a matching category is found',
+      (tester) async {
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryPages: {
+            1: [
+              for (var id = 1; id <= 30; id++)
+                TopicCategory(id: id, name: 'Empty $id', color: '111111'),
+            ],
+            2: const [
+              TopicCategory(id: 31, name: 'Also empty', color: '222222'),
+            ],
+            3: const [
+              TopicCategory(
+                id: 32,
+                name: 'With topics',
+                color: '333333',
+                topicCount: 12,
+              ),
+            ],
+            4: const [],
+          },
+        );
+        final controller = await _loadCategories(api);
+        await _pumpPage(tester, controller);
+        expect(api.categoryPagesRequested, [1]);
+        await _selectScope(tester, 'With topics');
+        expect(api.categoryPagesRequested, [1, 2, 3, 4]);
+        expect(_row(1), findsNothing);
+        expect(_row(32), findsOneWidget);
+        expect(find.text('No categories with topics'), findsNothing);
+      },
+    );
+
     test('keeps paging after a short page until an empty response', () async {
       final firstPage = [
         for (var id = 1; id <= 20; id++)
@@ -594,8 +658,8 @@ void main() {
         await _pumpPage(tester, controller);
 
         expect(api.categoryPagesRequested, [1, 2, 3]);
-        expect(_card(1), findsOneWidget);
-        expect(_card(2), findsOneWidget);
+        expect(_row(1), findsOneWidget);
+        expect(_row(2), findsOneWidget);
         expect(
           controller.categoryFeedFor(controller.currentInstance!.url).hasMore,
           isFalse,
@@ -638,7 +702,7 @@ void main() {
           await _pumpPage(tester, controller);
 
           expect(api.categoryPagesRequested, [1]);
-          expect(_card(80), findsNothing);
+          expect(_row(80), findsNothing);
 
           final scrollView = tester.widget<CustomScrollView>(
             find.byType(CustomScrollView),
@@ -658,20 +722,20 @@ void main() {
           expect(api.categoryPagesRequested, [1, 2]);
           expect(scrollController.offset, offsetBeforeAppend);
           expect(controller.categoryFeedFor(siteUrl).categoryIds.last, 80);
-          expect(_card(80), findsNothing);
+          expect(_row(80), findsNothing);
 
           final scrollable = find.descendant(
             of: find.byType(CustomScrollView),
             matching: find.byType(Scrollable),
           );
           await tester.scrollUntilVisible(
-            _card(80),
+            _row(80),
             500,
             scrollable: scrollable,
           );
           await tester.pumpAndSettle();
 
-          expect(_card(80), findsOneWidget);
+          expect(_row(80), findsOneWidget);
           expect(
             tester.getSemantics(_featuredTopic(800)),
             isSemantics(
@@ -691,7 +755,7 @@ void main() {
     );
 
     testWidgets(
-      'stops automatic paging once cards overflow and keeps distant rows lazy',
+      'stops automatic paging once rows overflow and keeps distant rows lazy',
       (tester) async {
         final secondPage = [
           for (var id = 2; id <= 51; id++)
@@ -721,8 +785,8 @@ void main() {
               .last,
           51,
         );
-        expect(_card(51), findsNothing);
-        expect(_card(52), findsNothing);
+        expect(_row(51), findsNothing);
+        expect(_row(52), findsNothing);
         expect(
           controller.categoryFeedFor(controller.currentInstance!.url).nextPage,
           3,

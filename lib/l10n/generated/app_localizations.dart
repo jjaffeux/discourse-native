@@ -22724,6 +22724,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove bookmark'**
   String get removeBookmark;
+
+  /// Accessible label for the category directory scope selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Category scope'**
+  String get categoryDirectoryScope;
+
+  /// Category directory scope showing categories containing topics.
+  ///
+  /// In en, this message translates to:
+  /// **'With topics'**
+  String get categoriesWithTopics;
+
+  /// Empty state when no accessible category has unread topics.
+  ///
+  /// In en, this message translates to:
+  /// **'No categories with unread topics'**
+  String get noUnreadCategories;
+
+  /// Empty state when no accessible category contains topics.
+  ///
+  /// In en, this message translates to:
+  /// **'No categories with topics'**
+  String get noCategoriesWithTopics;
+
+  /// Accessible unread topic count for a category and its subcategories.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unread topic} other{{count} unread topics}}'**
+  String categoryUnreadTopics(int count);
 }
 
 class _AppLocalizationsDelegate

@@ -39,7 +39,7 @@ void main() {
           final geometry = <String, List<double>>{};
           void capture() {
             for (final c in categories) {
-              final card = find.byKey(ValueKey('category-card-${c.id}'));
+              final card = find.byKey(ValueKey('category-row-${c.id}'));
               if (card.evaluate().isNotEmpty) {
                 final r = tester.getRect(card);
                 geometry['${c.id}'] = [r.left, r.width, r.height];
