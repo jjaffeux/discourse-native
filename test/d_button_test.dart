@@ -358,9 +358,10 @@ void main() {
     );
   }
 
-  testWidgets('an icon-only dock action fills its slot around a centred icon', (
+  testWidgets('an icon-only dock action stays circular within a wider slot', (
     tester,
   ) async {
+    var presses = 0;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
@@ -368,12 +369,14 @@ void main() {
           body: Center(
             child: SizedBox(
               width: 160,
-              child: DButton.iconOnly(
-                density: DButtonDensity.mobileDockAction,
-                shape: DButtonShape.pill,
-                icon: const Icon(Icons.add),
-                tooltip: 'New topic',
-                onPressed: () {},
+              child: Center(
+                child: DButton.iconOnly(
+                  density: DButtonDensity.mobileDockAction,
+                  shape: DButtonShape.pill,
+                  icon: const Icon(Icons.add),
+                  tooltip: 'New topic',
+                  onPressed: () => presses++,
+                ),
               ),
             ),
           ),
@@ -385,10 +388,19 @@ void main() {
           widget is AnimatedContainer && widget.decoration is DButtonDecoration,
     );
     final icon = find.byIcon(Icons.add);
-    expect(tester.getSize(surface), const Size(160, 44));
+    expect(tester.getSize(surface), const Size(44, 44));
+    expect(tester.getSize(find.byType(DButton)), tester.getSize(surface));
+    final decoration =
+        tester.widget<AnimatedContainer>(surface).decoration!
+            as DButtonDecoration;
+    expect(decoration.borderRadius, BorderRadius.circular(22));
     expect(tester.getSize(icon), const Size(20, 20));
     expect(tester.getCenter(icon), tester.getCenter(surface));
     expect(tester.getSemantics(find.byType(DButton)).label, 'New topic');
+    await tester.tapAt(tester.getTopRight(surface) + const Offset(4, 22));
+    expect(presses, 0);
+    await tester.tap(find.byType(DButton));
+    expect(presses, 1);
   });
 
   for (final platform in [

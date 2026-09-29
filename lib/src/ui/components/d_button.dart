@@ -67,8 +67,8 @@ enum DButtonDensity {
   mobileDock,
 
   /// The primary action beside a mobile dock: a 44px pill with a 20px icon
-  /// matching the dock's artwork. Icon-only, it fills the slot its parent
-  /// gives it and centres the icon, rather than staying square.
+  /// matching the dock's artwork. Icon-only, its square bounds keep the pill
+  /// circular, with the hit area matching the visible surface.
   mobileDockAction,
 
   /// Short toolbar surfaces: 24px high, 32px wide for icon-only actions,
@@ -638,7 +638,6 @@ class DButton extends StatelessWidget {
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final mobileDock = density == DButtonDensity.mobileDock;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
-    final fillsSlot = _iconOnly && mobileDockAction;
     final compactToolbar = density == DButtonDensity.compactToolbar;
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -798,18 +797,14 @@ class DButton extends StatelessWidget {
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        fillsSlot
-            ? Size(0, surfaceHeight)
-            : _iconOnly && !intrinsicIcon
+        _iconOnly && !intrinsicIcon
             ? iconOnlySurfaceSize
             : Size(0, surfaceHeight),
       ),
-      fixedSize: _iconOnly && !intrinsicIcon && !fillsSlot
+      fixedSize: _iconOnly && !intrinsicIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : null,
-      maximumSize: fillsSlot
-          ? WidgetStatePropertyAll(Size(double.infinity, surfaceHeight))
-          : _iconOnly && !intrinsicIcon
+      maximumSize: _iconOnly && !intrinsicIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(

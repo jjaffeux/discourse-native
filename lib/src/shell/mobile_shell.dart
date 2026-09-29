@@ -423,17 +423,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final pageAction = _footerAction.action;
     final labelGrowth = MediaQuery.textScalerOf(context).scale(11) - 11;
     final itemMin = 66.0 + labelGrowth * 2;
-    final itemMax = 72.0 + labelGrowth * 2;
-    const actionMin = 48.0;
-    const gap = DSpacing.controlGap;
+    final itemMax = 80.0 + labelGrowth * 2;
     // The dock is sized from the width, the text scale and the destinations
     // alone, always leaving room for one trailing action. Sizing it from the
     // active tab's actions resized and re-spilled every slot on each switch.
-    final dockRoom = (constraints.maxWidth - actionMin - gap).clamp(
-      0.0,
-      double.infinity,
-    );
-    final fits = (dockRoom / itemMin).floor();
+    final fits = (constraints.maxWidth / itemMin).floor() - 1;
     final minimumSlots = labelGrowth > 3 ? 3 : 4;
     final shownCount = (math.max(fits, minimumSlots) - 1).clamp(
       1,
@@ -441,9 +435,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     );
     final shown = destinations.take(shownCount).toList();
     final spilled = destinations.skip(shownCount).toList();
-    final dockWidth = (itemMax * (shown.length + 1)).clamp(0.0, dockRoom);
-    final actionWidth = (constraints.maxWidth - dockWidth - gap).clamp(
-      actionMin,
+    // Give the action the same column as a destination on compact screens.
+    // Wider layouts can use the remaining room for a labelled action.
+    final itemWidth = math.min(
+      itemMax,
+      constraints.maxWidth / (shown.length + 2),
+    );
+    final dockWidth = itemWidth * (shown.length + 1);
+    final actionWidth = (constraints.maxWidth - dockWidth).clamp(
+      itemWidth,
       220.0,
     );
     final actionLabel =
@@ -462,7 +462,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             : panelAction?.icon ?? DIcons.plus);
     final showLabel =
         pageAction != null ||
-        _creationLabelFits(context, actionWidth, 0, actionLabel);
+        (constraints.maxWidth > itemMax * (shown.length + 2) &&
+            _creationLabelFits(context, actionWidth, 0, actionLabel));
     Widget? primaryAction;
     if (pageAction case final action?) {
       primaryAction = DButton(
@@ -586,20 +587,25 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         ),
         SizedBox(
           width: actionWidth,
-          child: DActionTransition(
-            // Never retain an outgoing action across a site/account change.
-            key: ValueKey((
-              shell.currentInstance?.url,
-              shell.currentAccountIdentity,
-            )),
-            child: primaryAction == null
-                ? null
-                : KeyedSubtree(
-                    // Only a visible change should animate. Route-specific
-                    // tooltips and callbacks still update for identical icons.
-                    key: ValueKey((actionIcon, showLabel ? actionLabel : null)),
-                    child: primaryAction,
-                  ),
+          child: Center(
+            child: DActionTransition(
+              // Never retain an outgoing action across a site/account change.
+              key: ValueKey((
+                shell.currentInstance?.url,
+                shell.currentAccountIdentity,
+              )),
+              child: primaryAction == null
+                  ? null
+                  : KeyedSubtree(
+                      // Only a visible change should animate. Route-specific
+                      // tooltips and callbacks still update for identical icons.
+                      key: ValueKey((
+                        actionIcon,
+                        showLabel ? actionLabel : null,
+                      )),
+                      child: primaryAction,
+                    ),
+            ),
           ),
         ),
       ],
