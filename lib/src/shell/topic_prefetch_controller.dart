@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import '../diagnostics/topic_prefetch_trace.dart';
 import '../models/post.dart';
+
+enum TopicPrefetchIntent { hover, keyboard, trajectory }
 
 typedef TopicPrefetchKey = ({
   String siteUrl,
@@ -37,8 +40,8 @@ final class TopicPrefetchCancellation {
 typedef TopicPrefetchLoader =
     Future<PrefetchedTopic?> Function(TopicPrefetchCancellation cancellation);
 
-/// One speculative request, one replaceable hover target, and one retained
-/// result. Navigation takes ownership before a row can cancel its hover.
+/// One speculative request, one replaceable intent target, and one retained
+/// result. Navigation takes ownership before the list can release its interest.
 final class TopicPrefetchController {
   TopicPrefetchController({DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
@@ -58,21 +61,26 @@ final class TopicPrefetchController {
     TopicPrefetchKey key, {
     required TopicPrefetchLoader load,
     required bool Function() isCurrent,
+    TopicPrefetchIntent intent = TopicPrefetchIntent.hover,
   }) {
     final owner = Object();
     final held = _candidate;
     if (held == null || held.key != key || !_usable(held)) {
       _discardCandidate();
-      final next = _Prefetch(key, load, isCurrent);
+      final next = _Prefetch(key, load, isCurrent, intent);
       _candidate = next;
-      _timer = Timer(hoverDelay, () {
-        _timer = null;
-        if (!identical(_candidate, next)) return;
-        next.ready = true;
-        _drain();
-      });
+      next.ready = intent == TopicPrefetchIntent.trajectory;
+      if (!next.ready) {
+        _timer = Timer(hoverDelay, () {
+          _timer = null;
+          if (!identical(_candidate, next)) return;
+          next.ready = true;
+          _drain();
+        });
+      }
     }
     _hoverOwner = owner;
+    _drain();
     return () {
       if (!identical(_hoverOwner, owner)) return;
       _hoverOwner = null;
@@ -88,6 +96,8 @@ final class TopicPrefetchController {
       _discardCandidate();
       return null;
     }
+    entry.adopted = true;
+    _trace(entry, 'adopted');
     _candidate = null;
     _hoverOwner = null;
     _timer?.cancel();
@@ -113,7 +123,16 @@ final class TopicPrefetchController {
   void _discardCandidate() {
     _timer?.cancel();
     _timer = null;
-    _candidate?.cancellation.cancel();
+    final entry = _candidate;
+    if (entry != null) {
+      if (entry.started && entry.completedAt == null) {
+        _trace(entry, 'cancelled');
+      } else if (entry.hasResult) {
+        _trace(entry, 'unused');
+      }
+      entry.discarded = true;
+      entry.cancellation.cancel();
+    }
     _candidate = null;
     _hoverOwner = null;
   }
@@ -127,6 +146,8 @@ final class TopicPrefetchController {
       return;
     }
     entry.started = true;
+    entry.startedAt = _clock();
+    _trace(entry, 'started');
     _active = entry;
     unawaited(_load(entry));
   }
@@ -136,10 +157,14 @@ final class TopicPrefetchController {
     try {
       result = await entry.load(entry.cancellation);
     } catch (_) {
-      // Hover errors are silent. A click retries through normal topic loading.
+      // Speculative errors are silent. A click retries through normal topic loading.
     } finally {
       if (entry.cancellation.isCancelled) result = null;
       entry.completedAt = _clock();
+      entry.hasResult = result != null;
+      if (!entry.discarded) {
+        _trace(entry, result == null ? 'failed' : 'ready');
+      }
       entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
       _active = null;
@@ -147,18 +172,42 @@ final class TopicPrefetchController {
     }
   }
 
+  void _trace(_Prefetch entry, String event) {
+    if (!TopicPrefetchTrace.enabled) return;
+    TopicPrefetchTrace.record(event, {
+      'request': entry.traceId,
+      'intent': entry.intent.name,
+      'elapsedMs': entry.startedAt == null
+          ? 0
+          : _clock().difference(entry.startedAt!).inMilliseconds,
+      'completed': entry.completedAt != null,
+      'adopted': entry.adopted,
+    });
+  }
+
   /// Used when the window closes or the account session is retired, including
   /// cancellation of a request already adopted by navigation.
   void clear() {
     _discardCandidate();
-    _active?.cancellation.cancel();
+    final active = _active;
+    if (active != null && !active.discarded) {
+      _trace(active, 'cancelled');
+      active.discarded = true;
+      active.cancellation.cancel();
+    }
   }
 }
 
 final class _Prefetch {
-  _Prefetch(this.key, this.load, this.isCurrent);
+  _Prefetch(this.key, this.load, this.isCurrent, this.intent);
 
   final TopicPrefetchKey key;
+  final TopicPrefetchIntent intent;
+  final traceId = TopicPrefetchTrace.nextId();
+  DateTime? startedAt;
+  bool adopted = false;
+  bool discarded = false;
+  bool hasResult = false;
   final TopicPrefetchLoader load;
   final bool Function() isCurrent;
   final cancellation = TopicPrefetchCancellation();

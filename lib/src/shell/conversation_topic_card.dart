@@ -12,6 +12,8 @@ class _ConversationTopicCard extends StatefulWidget {
 class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   _TopicRowBody get row => widget.row;
   VoidCallback? _releaseHover;
+  final _prefetchBounds = GlobalKey();
+  _TopicListPrefetch? _prefetch;
 
   void _stopHover() {
     _releaseHover?.call();
@@ -19,6 +21,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   }
 
   void _hoverChanged(bool hovered) {
+    if (_prefetch case final prefetch?) {
+      prefetch.hover(this, hovered);
+      return;
+    }
     _stopHover();
     if (hovered && TickerMode.valuesOf(context).enabled) {
       _releaseHover = ShellScope.maybeRead(
@@ -35,17 +41,32 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
         oldWidget.row.topic.lastUnreadPostNumber !=
             row.topic.lastUnreadPostNumber) {
       _stopHover();
+      _prefetch?.invalidate((
+        oldWidget.row.siteUrl,
+        oldWidget.row.topic.id,
+        oldWidget.row.topic.lastUnreadPostNumber,
+      ));
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final prefetch = context
+        .findAncestorStateOfType<_TopicListViewState>()
+        ?._prefetch;
+    if (!identical(prefetch, _prefetch)) {
+      _prefetch?.unregister(this);
+      _stopHover();
+      _prefetch = prefetch;
+    }
+    _prefetch?.register(this);
     if (!TickerMode.valuesOf(context).enabled) _stopHover();
   }
 
   @override
   void deactivate() {
+    _prefetch?.unregister(this);
     _stopHover();
     super.deactivate();
   }
@@ -237,6 +258,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
               ? EdgeInsets.symmetric(horizontal: selected ? 4 : 16)
               : EdgeInsets.zero),
       child: LinkTarget(
+        key: _prefetchBounds,
         bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
         url: resolveSiteRootPath(
           row.siteUrl,
