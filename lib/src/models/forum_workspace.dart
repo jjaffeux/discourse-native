@@ -495,12 +495,16 @@ final class ForumWorkspace {
   }) : assert(siteUrl.isNotEmpty),
        assert(accountIdentity.isNotEmpty),
        assert(tabs.isNotEmpty),
-       assert(tabs.length <= maximumTabs),
+       assert(tabs.length <= maximumWorkspaceTabs),
        assert(tabs.map((tab) => tab.id).toSet().length == tabs.length),
        assert(tabs.any((tab) => tab.id == activeTabId)),
        tabs = List.unmodifiable(tabs);
 
   static const int maximumTabs = 20;
+
+  // A restored single-panel workspace may already be at the user tab limit.
+  // Leave room for the other panel's Start page without discarding a document.
+  static const int maximumWorkspaceTabs = maximumTabs + 1;
 
   final String siteUrl;
   final String accountIdentity;
@@ -586,11 +590,11 @@ final class ForumWorkspace {
     for (final rawTab in rawTabs) {
       final rawId = rawTab is Map ? rawTab['id'] : null;
       final isPersistedActive = rawId == json['active_tab_id'];
-      if (tabs.length >= maximumTabs && !isPersistedActive) continue;
+      if (tabs.length >= maximumWorkspaceTabs && !isPersistedActive) continue;
 
       final tab = ForumTab.tryFromJson(rawTab);
       if (tab == null || !seen.add(tab.id)) continue;
-      if (tabs.length < maximumTabs) {
+      if (tabs.length < maximumWorkspaceTabs) {
         tabs.add(tab);
       } else {
         // Keep the restored active context reachable even when a snapshot
@@ -600,6 +604,16 @@ final class ForumWorkspace {
       }
     }
     if (tabs.isEmpty) return null;
+
+    // The extra slot is only needed by a workspace with two panels. A legacy
+    // or corrupt single-panel snapshot still observes the ordinary tab cap.
+    if (tabs.length > maximumTabs &&
+        tabs.every((tab) => tab.panel == tabs.first.panel)) {
+      final index = tabs.lastIndexWhere(
+        (tab) => tab.id != json['active_tab_id'],
+      );
+      seen.remove(tabs.removeAt(index).id);
+    }
 
     final requestedActive = json['active_tab_id'];
     final activeTabId =

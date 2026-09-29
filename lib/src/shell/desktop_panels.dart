@@ -9,7 +9,6 @@ import '../models/forum_workspace.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
 import 'forum_tabs_bar.dart';
-import 'forum_theme_surfaces.dart';
 import 'main_content.dart';
 import 'panel_rail.dart';
 import 'resizable_pane.dart';
@@ -652,36 +651,7 @@ class _DesktopPanel extends StatelessWidget {
                   },
                   child: Listener(
                     onPointerDown: (_) => activate(),
-                    child: tabId == null
-                        ? DPageSurface(
-                            border: false,
-                            backgroundColor: ForumWindowBackground.panelColor(
-                              context,
-                            ),
-                            child: Center(
-                              child: DEmpty(
-                                children: [
-                                  DEmptyHeader(
-                                    children: [
-                                      DEmptyTitle(
-                                        panel == ForumPanel.main
-                                            ? context.l10n.mainPanel
-                                            : context.l10n.secondaryPanel,
-                                      ),
-                                      DEmptyDescription(
-                                        candidates.isNotEmpty
-                                            ? context.l10n.dropThisTabHere
-                                            : context
-                                                  .l10n
-                                                  .dragATabHereOrOpenANewTab,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : content!,
+                    child: content ?? const SizedBox.shrink(),
                   ),
                 ),
               ),

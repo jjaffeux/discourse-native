@@ -32,8 +32,15 @@ import 'support/shell_test_harness.dart';
 
 // The mobile dock labels its Chat panel too; section headings are asserted
 // on the Start page itself.
-Finder startPageText(String text) =>
-    find.descendant(of: find.byType(NewTabPage), matching: find.text(text));
+Finder startPageText(String text) => find.descendant(
+  of: find.byType(NewTabPage).first,
+  matching: find.text(text),
+);
+
+Finder startPageItem(Key key) => find.descendant(
+  of: find.byType(NewTabPage).first,
+  matching: find.byKey(key),
+);
 
 void main() {
   testWidgets('the app width setting applies to tab content', (tester) async {
@@ -96,7 +103,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.byKey(ValueKey('start-page-recent-${category.id}')),
+        startPageItem(ValueKey('start-page-recent-${category.id}')),
         kind: PointerDeviceKind.mouse,
         buttons: kSecondaryMouseButton,
       );
@@ -108,7 +115,7 @@ void main() {
       expect(shell.tabsForCurrentForum.last.currentContent.title, 'Support');
 
       await tester.tap(
-        find.widgetWithText(DButton, 'Groups'),
+        find.widgetWithText(DButton, 'Groups').first,
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );
@@ -215,7 +222,7 @@ void main() {
       await tester.tap(find.byTooltip('Comfortable'));
       await tester.pumpAndSettle();
 
-      final card = find.byKey(
+      final card = startPageItem(
         const ValueKey('start-page-recent-list-/c/plants/12.json'),
       );
       expect(
@@ -272,7 +279,7 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
 
-      final row = find.byKey(const ValueKey('start-page-recent-topic-42'));
+      final row = startPageItem(const ValueKey('start-page-recent-topic-42'));
       expect(row, findsOneWidget);
       expect(shell.desktopPanelsEnabled, isTrue);
       final startTabId = shell.activeTabId;
@@ -470,7 +477,7 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('start-page-recent-topic-42')),
+      startPageItem(const ValueKey('start-page-recent-topic-42')),
       findsNothing,
     );
     expect(
@@ -515,11 +522,11 @@ void main() {
     expect(find.text('Latest topics'), findsOneWidget);
     expect(find.text('Actual latest topic'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('start-page-recent-topic-77')),
+      startPageItem(const ValueKey('start-page-recent-topic-77')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('start-page-recent-topic-42')),
+      startPageItem(const ValueKey('start-page-recent-topic-42')),
       findsNothing,
     );
     expect(find.text('Recently visited'), findsNothing);
@@ -542,8 +549,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(shell.activeTab?.rootDestinationId, 'new-tab');
-      expect(find.text('Recent topic'), findsOneWidget);
-      await tester.tap(find.text('Latest topics'));
+      expect(
+        find.descendant(
+          of: find.byType(MainContent).first,
+          matching: find.text('Recent topic'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(startPageText('Latest topics'));
       await tester.pumpAndSettle();
 
       expect(shell.currentContent?.id, 'latest');
@@ -551,7 +564,13 @@ void main() {
       expect(shell.currentTopicListMode, TopicListMode.latest);
       expect(shell.currentFeed?.topicIds, [42]);
       expect(find.text('Not found'), findsNothing);
-      expect(find.text('Recent topic'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(MainContent).first,
+          matching: find.text('Recent topic'),
+        ),
+        findsOneWidget,
+      );
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
@@ -599,7 +618,7 @@ void main() {
     expect(find.text('General'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
-    final channelCard = find.byKey(
+    final channelCard = startPageItem(
       const ValueKey('start-page-recent-chat-c-9'),
     );
     expect(
@@ -675,12 +694,12 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
-    final newest = find.byKey(const ValueKey('start-page-recent-chat-c-3'));
-    final older = find.byKey(const ValueKey('start-page-recent-chat-c-2'));
+    final newest = startPageItem(const ValueKey('start-page-recent-chat-c-3'));
+    final older = startPageItem(const ValueKey('start-page-recent-chat-c-2'));
     expect(newest, findsOneWidget);
     expect(older, findsOneWidget);
     expect(
-      find.byKey(const ValueKey('start-page-recent-chat-c-1')),
+      startPageItem(const ValueKey('start-page-recent-chat-c-1')),
       findsOneWidget,
     );
     expect(tester.getTopLeft(newest).dy, lessThan(tester.getTopLeft(older).dy));
@@ -795,7 +814,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('start-page-recent-bookmark-18')),
+        of: startPageItem(const ValueKey('start-page-recent-bookmark-18')),
         matching: find.textContaining('Jan 3, 2030 at 1:45'),
       ),
       findsOneWidget,
@@ -940,7 +959,7 @@ void main() {
     List<String> emojiIn(String id) => tester
         .widgetList<SiteEmojiImage>(
           find.descendant(
-            of: find.byKey(ValueKey('start-page-recent-$id')),
+            of: startPageItem(ValueKey('start-page-recent-$id')),
             matching: find.byType(SiteEmojiImage),
           ),
         )
@@ -974,7 +993,7 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
-    final row = find.byKey(const ValueKey('start-page-recent-topic-42'));
+    final row = startPageItem(const ValueKey('start-page-recent-topic-42'));
     expect(tester.widget<DItem>(row).size, DItemSize.xs);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
@@ -1065,7 +1084,7 @@ void main() {
 
     final cards = [
       for (final route in shell.recentCategoriesFor(shell.currentInstance!.url))
-        find.byKey(ValueKey('start-page-recent-${route.id}')),
+        startPageItem(ValueKey('start-page-recent-${route.id}')),
     ];
     expect(cards, hasLength(4));
     await tester.tap(find.byTooltip('Comfortable'));
@@ -1194,7 +1213,7 @@ void main() {
     expect(find.text('Alex'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('start-page-recent-chat-c-11')),
+        of: startPageItem(const ValueKey('start-page-recent-chat-c-11')),
         matching: find.byType(DAvatar),
       ),
       findsOneWidget,
@@ -1202,7 +1221,7 @@ void main() {
     expect(startPageText('Chat'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
-    final directCard = find.byKey(
+    final directCard = startPageItem(
       const ValueKey('start-page-recent-chat-c-11'),
     );
     expect(
@@ -1294,13 +1313,13 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
 
-      expect(find.text('Recently closed'), findsOneWidget);
+      expect(startPageText('Recently closed'), findsOneWidget);
       expect(
-        find.byKey(ValueKey('start-page-recent-closed-$closedId')),
+        startPageItem(ValueKey('start-page-recent-closed-$closedId')),
         findsOneWidget,
       );
       await tester.tap(
-        find.byKey(ValueKey('start-page-recent-closed-$closedId')),
+        startPageItem(ValueKey('start-page-recent-closed-$closedId')),
       );
       await tester.pumpAndSettle();
       expect(shell.activeTabId, closedId);
@@ -1329,7 +1348,7 @@ void main() {
             shell.pushContent(ContentRoute.newTab());
             await tester.pumpAndSettle();
 
-            final source = find.byKey(
+            final source = startPageItem(
               const ValueKey('start-page-recent-topic-42'),
             );
             expect(source, findsOneWidget);
@@ -1378,7 +1397,7 @@ void main() {
           final existingIds = shell.tabsForCurrentForum
               .map((tab) => tab.id)
               .toSet();
-          final source = find.byKey(
+          final source = startPageItem(
             const ValueKey('start-page-recent-topic-42'),
           );
           expect(source, findsOneWidget);
@@ -1436,7 +1455,9 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
       final before = shell.tabsForCurrentForum.length;
-      final source = find.byKey(const ValueKey('start-page-recent-topic-42'));
+      final source = startPageItem(
+        const ValueKey('start-page-recent-topic-42'),
+      );
       final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
       final gesture = await tester.startGesture(tester.getCenter(source));
       await gesture.moveTo(tabBar.center);

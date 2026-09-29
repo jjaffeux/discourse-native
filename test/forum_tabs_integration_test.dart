@@ -42,21 +42,24 @@ void main() {
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       final originalId = controller.activeTabId;
       controller.openTopicUrl('/t/current-topic/42');
       await tester.pumpAndSettle();
       expect(controller.activeTabId, originalId);
       expect(controller.activeTab?.panel, ForumPanel.main);
-      expect(controller.selectedTabIn(ForumPanel.secondary), isNull);
+      expect(
+        controller.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+        isTrue,
+      );
       expect(controller.currentContent?.topicId, 42);
 
       await tester.tap(_sidebarText('Topics'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
 
       expect(controller.activeTabId, originalId);
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.tabsForCurrentForum, hasLength(2));
       expect(controller.currentContent?.id, 'latest');
       expect(controller.handleBack(canReturnToSidebar: false), isTrue);
       expect(controller.currentContent?.topicId, 42);
@@ -68,7 +71,7 @@ void main() {
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       final original = controller.activeTab!;
 
@@ -84,7 +87,7 @@ void main() {
 
       expect(controller.currentWorkspace?.tabById(original.id), original);
       expect(controller.activeTabId, original.id);
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(3));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.panel, ForumPanel.main);
       expect(opened.currentContent.id, 'latest');
@@ -110,12 +113,12 @@ void main() {
         ),
       );
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       final original = controller.activeTab!;
 
       await tester.tap(
-        find.text(topic.title),
+        find.text(topic.title).first,
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );
@@ -123,7 +126,7 @@ void main() {
 
       expect(controller.currentWorkspace?.tabById(original.id), original);
       expect(controller.activeTab?.panel, ForumPanel.main);
-      expect(controller.tabsForCurrentForum, hasLength(2));
+      expect(controller.tabsForCurrentForum, hasLength(3));
       final opened = controller.tabsForCurrentForum.last;
       expect(opened.currentContent.topicId, topic.id);
       expect(opened.currentContent.title, topic.title);
@@ -138,7 +141,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.currentWorkspace?.tabById(original.id), original);
       expect(controller.activeTab?.panel, ForumPanel.main);
-      expect(controller.tabsForCurrentForum, hasLength(3));
+      expect(controller.tabsForCurrentForum, hasLength(4));
       expect(
         controller.tabsForCurrentForum.last.currentContent.feedPath,
         '/tag/flutter/12.json',
@@ -163,7 +166,7 @@ void main() {
       ];
       await _pumpShell(tester, instances: forums);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
 
       expect(controller.instanceIndex, 0);
@@ -230,7 +233,7 @@ void main() {
         await tester.pump(DTooltip.defaultHoverDelay);
         await tester.pumpAndSettle();
         expect(
-          tester.getRect(find.text(message)).left,
+          tester.getRect(find.text(message).last).left,
           greaterThan(tester.getRect(button).right),
           reason: '$message should appear to the right of the rail control',
         );
@@ -269,7 +272,7 @@ void main() {
       (tester) => _withPlatform(platform, () async {
         await _pumpShell(tester, twoForums: true);
         final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(find.byType(MainContent).first),
         );
         controller.createTab();
         controller.createTab();
@@ -319,14 +322,14 @@ void main() {
     await _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       final originalTabId = controller.activeTabId!;
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.tabsForCurrentForum, hasLength(2));
 
       unawaited(
         showDialog<void>(
-          context: tester.element(find.byType(MainContent)),
+          context: tester.element(find.byType(MainContent).first),
           builder: (_) => const AlertDialog(title: Text('Remove this forum?')),
         ),
       );
@@ -350,7 +353,7 @@ void main() {
         isFalse,
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.tabsForCurrentForum, hasLength(2));
       expect(find.text('Remove this forum?'), findsOneWidget);
       expect(binding.exitRequests, isEmpty);
 
@@ -366,9 +369,9 @@ void main() {
         isTrue,
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
-        originalTabId,
-      ]);
+      expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
+      expect(controller.currentContent!.isNewTab, isTrue);
+      expect(binding.exitRequests, isEmpty);
     });
   });
 
@@ -382,7 +385,7 @@ void main() {
       (tester) => _withPlatform(platform, () async {
         await _pumpShell(tester);
         final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(find.byType(MainContent).first),
         );
         final originalTabId = controller.activeTabId!;
         final modifier = platform == TargetPlatform.macOS
@@ -390,7 +393,7 @@ void main() {
             : LogicalKeyboardKey.controlLeft;
 
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyT), isFalse);
-        expect(controller.tabsForCurrentForum, hasLength(1));
+        expect(controller.tabsForCurrentForum, hasLength(2));
         expect(
           await _pressShortcut(
             tester,
@@ -409,7 +412,7 @@ void main() {
 
         final openedTabId = controller.activeTabId!;
         expect(openedTabId, isNot(originalTabId));
-        expect(controller.tabsForCurrentForum, hasLength(2));
+        expect(controller.tabsForCurrentForum, hasLength(3));
         expect(_bar(tester).selectedId, openedTabId);
 
         expect(
@@ -418,9 +421,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
-          originalTabId,
-        ]);
+        expect(
+          controller.currentWorkspace!
+              .tabsIn(ForumPanel.main)
+              .map((tab) => tab.id),
+          [originalTabId],
+        );
         expect(controller.activeTabId, originalTabId);
         expect(_bar(tester).selectedId, originalTabId);
         expect(binding.exitRequests, isEmpty);
@@ -436,10 +442,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
-          originalTabId,
-          openedTabId,
-        ]);
+        expect(
+          controller.currentWorkspace!
+              .tabsIn(ForumPanel.main)
+              .map((tab) => tab.id),
+          [originalTabId, openedTabId],
+        );
         expect(controller.activeTabId, openedTabId);
         expect(_bar(tester).selectedId, openedTabId);
 
@@ -482,11 +490,11 @@ void main() {
 
     for (final rootMode in [ShellRootMode.forum, ShellRootMode.aggregate]) {
       testWidgets(
-        '${platform.name} requests app exit when closing the last ${rootMode.name} tab',
+        '${platform.name} closing the last ${rootMode.name} tab keeps a usable workspace',
         (tester) => _withPlatform(platform, () async {
           await _pumpShell(tester);
           final controller = ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(find.byType(MainContent).first),
           );
           if (rootMode == ShellRootMode.aggregate) {
             controller.selectAggregate();
@@ -503,16 +511,26 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(binding.exitRequests, [
-            (type: AppExitType.cancelable, exitCode: 0),
-          ]);
-          expect(_bar(tester).selectedId, originalTabId);
-          expect(
-            rootMode == ShellRootMode.aggregate
-                ? controller.aggregateTabs.map((tab) => tab.id)
-                : controller.tabsForCurrentForum.map((tab) => tab.id),
-            [originalTabId],
-          );
+          if (rootMode == ShellRootMode.aggregate) {
+            expect(binding.exitRequests, [
+              (type: AppExitType.cancelable, exitCode: 0),
+            ]);
+            expect(_bar(tester).selectedId, originalTabId);
+            expect(controller.aggregateTabs.map((tab) => tab.id), [
+              originalTabId,
+            ]);
+          } else {
+            expect(binding.exitRequests, isEmpty);
+            expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
+            expect(controller.currentContent!.isNewTab, isTrue);
+            expect(
+              controller
+                  .selectedTabIn(ForumPanel.secondary)!
+                  .currentContent
+                  .isNewTab,
+              isTrue,
+            );
+          }
         }),
       );
     }
@@ -559,7 +577,7 @@ void main() {
             ),
           );
           final controller = ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(find.byType(MainContent).first),
           );
           if (tabCount == 2) {
             controller.createTab();
@@ -571,7 +589,7 @@ void main() {
             for (final tab in controller.tabsForCurrentForum) tab.id,
           ];
           final activeTabId = controller.activeTabId!;
-          expect(tabIds, hasLength(tabCount));
+          expect(tabIds, hasLength(tabCount + 1));
 
           controller.openReply();
           await tester.pumpAndSettle();
@@ -609,10 +627,10 @@ void main() {
           await tester.pumpAndSettle();
 
           if (tabCount == 1) {
-            expect(binding.exitRequests, [
-              (type: AppExitType.cancelable, exitCode: 0),
-            ]);
-            expect(controller.tabsForCurrentForum.map((tab) => tab.id), tabIds);
+            expect(binding.exitRequests, isEmpty);
+            expect(controller.currentWorkspace!.tabById(activeTabId), isNull);
+            expect(controller.currentContent!.isNewTab, isTrue);
+            expect(controller.tabsForCurrentForum, hasLength(2));
           } else {
             expect(binding.exitRequests, isEmpty);
             expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
@@ -635,7 +653,7 @@ void main() {
       (tester) => _withPlatform(platform, () async {
         await _pumpShell(tester);
         final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(find.byType(MainContent).first),
         );
         final modifier = platform == TargetPlatform.macOS
             ? LogicalKeyboardKey.metaLeft
@@ -723,11 +741,11 @@ void main() {
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       final originalId = controller.activeTabId!;
 
-      expect(find.byType(ForumTabsBar), findsOneWidget);
+      expect(find.byType(ForumTabsBar), findsNWidgets(2));
       expect(_bar(tester).forumName, 'One');
       expect(_bar(tester).items.single.title, 'Latest');
       expect(_bar(tester).selectedId, originalId);
@@ -749,7 +767,7 @@ void main() {
       expect(_bar(tester).items.last.title, 'Top - month');
       expect(_bar(tester).items, hasLength(3));
 
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+      await tester.tap(find.byKey(const ValueKey('forum-tabs-add')).first);
       await tester.pumpAndSettle();
 
       final newId = controller.activeTabId!;
@@ -796,12 +814,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(controller.tabsForCurrentForum, hasLength(3));
+      expect(controller.tabsForCurrentForum, hasLength(4));
       expect(
         controller.tabsForCurrentForum.where(
           (tab) => !tab.currentContent.isTopic,
         ),
-        hasLength(2),
+        hasLength(3),
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
@@ -823,7 +841,7 @@ void main() {
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(tester, twoForums: true);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
 
       controller.createTab();
@@ -912,7 +930,7 @@ void main() {
 
       await _pumpShell(tester, api: api, forumTabs: tabStore);
       final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(find.byType(MainContent).first),
       );
       const originalViewportKey = ValueKey('inbox-topic-list-pane');
       final slowViewportKey = ValueKey<(String?, String?, String, int?)>((
@@ -995,8 +1013,8 @@ void main() {
 
       expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
       expect(_inSidebar(find.text('OPEN')), findsNothing);
-      expect(_inWorkspace(find.byType(ForumTabsBar)), findsOneWidget);
-      expect(find.byType(ForumTabsBar), findsOneWidget);
+      expect(_inWorkspace(find.byType(ForumTabsBar)), findsNWidgets(2));
+      expect(find.byType(ForumTabsBar), findsNWidgets(2));
     }),
   );
 
@@ -1018,14 +1036,20 @@ void main() {
           expect(_inSidebar(find.byType(ForumTabsBar)), findsNothing);
           expect(_inSidebar(find.text('OPEN')), findsNothing);
 
-          expect(find.byType(MainContent), findsOneWidget);
-          expect(_inWorkspace(find.byType(ForumTabsBar)), findsOneWidget);
+          final panelCount = size == _compact ? 1 : 2;
+          expect(find.byType(MainContent), findsNWidgets(panelCount));
+          expect(find.byType(ForumTabsBar), findsNWidgets(panelCount));
           expect(
-            tester.getRect(find.byType(ForumTabsBar)).top,
-            lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
+            tester.getRect(find.byType(ForumTabsBar).first).top,
+            lessThanOrEqualTo(
+              tester.getRect(find.byType(MainContent).first).top,
+            ),
           );
           expect(find.byType(CurrentForumTabsBar), findsWidgets);
-          expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('forum-tabs-add')),
+            findsNWidgets(panelCount),
+          );
           expect(_bar(tester).items.single.title, 'Latest');
         }
       }),

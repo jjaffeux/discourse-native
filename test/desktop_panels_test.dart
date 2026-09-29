@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/panel_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
@@ -112,7 +113,7 @@ void main() {
       expect(shell.currentContent?.id, 'all-categories');
       expect(
         shell.tabsForCurrentForum,
-        hasLength(panel == ForumPanel.main ? 1 : 2),
+        hasLength(panel == ForumPanel.main ? 2 : 3),
       );
     });
   }
@@ -123,13 +124,13 @@ void main() {
     expect(shell.activeTabId, main.id);
     expect(shell.activeTab?.panel, ForumPanel.main);
     expect(shell.currentContent?.topicId, 42);
-    expect(shell.tabsForCurrentForum, hasLength(1));
+    expect(shell.tabsForCurrentForum, hasLength(2));
 
     expect(shell.openTopicFromList(_otherTopic), TabOpenResult.opened);
     expect(shell.activeTabId, main.id);
     expect(shell.currentContent?.topicId, 43);
     expect(shell.contentStack, hasLength(2));
-    expect(shell.tabsForCurrentForum, hasLength(1));
+    expect(shell.tabsForCurrentForum, hasLength(2));
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
     expect(shell.currentContent?.topicId, 42);
     expect(shell.handleForward(), isTrue);
@@ -156,7 +157,7 @@ void main() {
     expect(shell.activeTab?.anchors['topic-42'], isNull);
     expect(shell.currentWorkspace?.tabById(other.id), other);
     expect(shell.selectedTabIn(ForumPanel.secondary)?.id, selectedId);
-    expect(shell.tabsForCurrentForum, hasLength(3));
+    expect(shell.tabsForCurrentForum, hasLength(4));
   });
 
   test('topic clicks retain the current list as their source', () {
@@ -171,7 +172,7 @@ void main() {
     expect(shell.activeTabId, mainId);
     expect(shell.topicListContent, list);
     expect(shell.currentContent?.topicId, 43);
-    expect(shell.tabsForCurrentForum, hasLength(1));
+    expect(shell.tabsForCurrentForum, hasLength(2));
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
     expect(shell.currentContent, list);
   });
@@ -218,7 +219,7 @@ void main() {
   });
 
   test(
-    'opening the first secondary tab at the limit leaves main unchanged',
+    'opening content in the secondary Start page works at the tab limit',
     () {
       while (shell.canCreateTab) {
         shell.createTab(panel: ForumPanel.main);
@@ -234,11 +235,15 @@ void main() {
           ),
           panel: ForumPanel.secondary,
         ),
-        TabOpenResult.limitReached,
+        TabOpenResult.opened,
       );
 
-      expect(shell.currentWorkspace, before);
-      expect(shell.selectedTabIn(ForumPanel.secondary), isNull);
+      expect(shell.selectedTabIn(ForumPanel.main), before!.activeTab);
+      expect(
+        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+        42,
+      );
+      expect(shell.tabsForCurrentForum, hasLength(ForumWorkspace.maximumTabs));
     },
   );
 
@@ -386,40 +391,47 @@ void main() {
     },
   );
 
-  testWidgets('a panel cannot stand down while the other one is empty', (
+  testWidgets('an unused panel shows a Start page and can take focus', (
     tester,
   ) async {
-    final main = shell.activeTabId!;
+    final main = shell.activeTab!;
+    final start = shell.selectedTabIn(ForumPanel.secondary)!;
     await _pump(tester, shell);
-    final minimizeMain = tester.widget<DButton>(
-      find.byKey(const ValueKey('minimize-panel-main')),
-    );
-    expect(minimizeMain.onPressed, isNull);
-    expect(minimizeMain.tooltip, 'Open a tab in the other panel first');
-
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
-    await tester.pumpAndSettle();
+    expect(start.currentContent.isNewTab, isTrue);
     expect(find.text('Secondary panel'), findsNothing);
+    expect(find.text('Drag a tab here or open a new tab.'), findsNothing);
     expect(
-      find.descendant(
-        of: _rail(ForumPanel.secondary),
-        matching: find.byType(DButton),
-      ),
-      findsNWidgets(2),
+      find.descendant(of: _secondaryPanel, matching: find.byType(NewTabPage)),
+      findsOneWidget,
     );
-    expect(
-      tester
-          .widget<DButton>(find.byKey(const ValueKey('minimize-panel-main')))
-          .onPressed,
-      isNull,
-    );
+    expect(shell.activeTabId, main.id);
 
-    await tester.tap(find.byKey(const ValueKey('panel-rail-new-tab')));
+    await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
     await tester.pumpAndSettle();
-    expect(_rail(ForumPanel.secondary), findsNothing);
-    expect(shell.activeTab?.panel, ForumPanel.secondary);
-    expect(shell.activeTabId, isNot(main));
-    expect(shell.tabsForCurrentForum, hasLength(2));
+    expect(_rail(ForumPanel.main), findsOneWidget);
+    expect(shell.activeTabId, start.id);
+    expect(find.byType(NewTabPage), findsOneWidget);
+    expect(shell.currentWorkspace!.tabById(main.id), main);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Start page links navigate in their own panel', (tester) async {
+    final main = shell.activeTab!;
+    final start = shell.selectedTabIn(ForumPanel.secondary)!;
+    await _pump(tester, shell);
+
+    await tester.tap(
+      find.descendant(of: _secondaryPanel, matching: find.text(_topic.title)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(shell.activeTabId, start.id);
+    expect(
+      shell.selectedTabIn(ForumPanel.secondary)?.currentContent.topicId,
+      42,
+    );
+    expect(shell.currentWorkspace!.tabById(main.id), main);
+    expect(find.text('Content for 42', findRichText: true), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -465,7 +477,13 @@ void main() {
             ),
           )
           .map((button) => button.tooltip),
-      ['Restore panel', 'Panel topic', 'Another topic', 'New tab'],
+      [
+        'Restore panel',
+        'Start page',
+        'Panel topic',
+        'Another topic',
+        'New tab',
+      ],
     );
 
     await tester.tap(find.byKey(ValueKey('panel-rail-tab-$first')));
@@ -803,7 +821,7 @@ void main() {
     await _pump(tester, shell);
     final main = shell.activeTabId;
     await tester.tap(
-      find.text(_topic.title),
+      find.descendant(of: _mainPanel, matching: find.text(_topic.title)),
       kind: PointerDeviceKind.mouse,
       buttons: kMiddleMouseButton,
     );
@@ -841,7 +859,7 @@ void main() {
           42,
         );
         expect(shell.selectedTabIn(ForumPanel.main)?.id, main);
-        expect(shell.tabsForCurrentForum, hasLength(2));
+        expect(shell.tabsForCurrentForum, hasLength(3));
         expect(find.text('Content for 43', findRichText: true), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
@@ -873,7 +891,7 @@ void main() {
       expect(indicator, findsNothing);
     }
 
-    await moveToPanel(find.text('Secondary panel'));
+    await moveToPanel(_secondaryPanel);
     await tester.pumpAndSettle();
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.activeTabId, id);
@@ -906,35 +924,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an empty panel previews its first tab and clears on drag exit', (
-    tester,
-  ) async {
-    await _pump(tester, shell);
-    final original = shell.currentWorkspace!;
-    final source = find.byKey(ValueKey('forum-tab-${shell.activeTabId}'));
-    final gesture = await tester.startGesture(
-      tester.getCenter(source),
-      kind: PointerDeviceKind.mouse,
-    );
-    await gesture.moveBy(const Offset(0, 20));
-    await tester.pump();
-    await gesture.moveTo(tester.getCenter(find.text('Secondary panel')));
-    await tester.pumpAndSettle();
-    final placeholder = find.byKey(
-      const ValueKey('forum-tab-drop-placeholder'),
-    );
-    expect(placeholder, findsOneWidget);
-    expect(tester.getRect(placeholder).bottom, lessThan(100));
-    expect(shell.currentWorkspace, original);
+  testWidgets(
+    'a Start page panel previews an incoming tab and clears on drag exit',
+    (tester) async {
+      await _pump(tester, shell);
+      final original = shell.currentWorkspace!;
+      final source = find.byKey(ValueKey('forum-tab-${shell.activeTabId}'));
+      final gesture = await tester.startGesture(
+        tester.getCenter(source),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(_secondaryPanel));
+      await tester.pumpAndSettle();
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      expect(tester.getRect(placeholder).bottom, lessThan(100));
+      expect(shell.currentWorkspace, original);
 
-    await gesture.moveTo(const Offset(-20, -20));
-    await tester.pumpAndSettle();
-    expect(placeholder, findsNothing);
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(shell.currentWorkspace, original);
-    expect(tester.takeException(), isNull);
-  });
+      await gesture.moveTo(const Offset(-20, -20));
+      await tester.pumpAndSettle();
+      expect(placeholder, findsNothing);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.currentWorkspace, original);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final direction in TextDirection.values) {
     testWidgets('the placeholder matches the insertion position in $direction', (
@@ -1130,7 +1149,7 @@ void main() {
     expect(shell.activeTabId, second);
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.selectedTabIn(ForumPanel.main)?.id, original);
-    expect(shell.currentWorkspace!.tabsIn(ForumPanel.secondary), hasLength(2));
+    expect(shell.currentWorkspace!.tabsIn(ForumPanel.secondary), hasLength(3));
     expect(tester.takeException(), isNull);
   });
 
@@ -1183,9 +1202,6 @@ void main() {
     testWidgets('reordering within ${panel.name} shows an insertion bar', (
       tester,
     ) async {
-      if (panel == ForumPanel.secondary) {
-        _openTopicTab(shell, _topic);
-      }
       final first = shell.selectedTabIn(panel)!.id;
       shell.createTab(panel: panel);
       final second = shell.selectedTabIn(panel)!.id;
@@ -1222,9 +1238,6 @@ void main() {
 
     testWidgets('reordering within ${panel.name} keeps the dragged tab in '
         'place and drops past a whole neighbour', (tester) async {
-      if (panel == ForumPanel.secondary) {
-        _openTopicTab(shell, _topic);
-      }
       final first = shell.selectedTabIn(panel)!.id;
       shell.createTab(panel: panel);
       final second = shell.selectedTabIn(panel)!.id;
