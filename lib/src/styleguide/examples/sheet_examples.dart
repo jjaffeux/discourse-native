@@ -18,6 +18,8 @@ final sheetExamples = ComponentExamples(
       'surface over a darker opaque backdrop in both light and dark themes. '
       'Mobile bottom sheets dismiss with a downward touch swipe from their '
       'header or the top of scrolling content; dismissOnSwipe can disable it. '
+      'Release before 30% of the distance to the screen bottom to restore the '
+      'open position, including after a fast flick. '
       'The exit preserves release velocity, accelerating slower swipes until '
       'the sheet clears the screen. The backdrop fades with swipe progress '
       'to reveal the screen underneath and restores if the swipe is cancelled. '
