@@ -1024,7 +1024,7 @@ void main() {
     final shell = await pumpMobileShellFixture(tester);
     final topic = find.byKey(const ValueKey('mobile-new-topic'));
     expect(topic, findsOneWidget);
-    expect(tester.getRect(topic).right, tester.getRect(_bar).right);
+    expect(tester.getRect(topic).right, lessThan(tester.getRect(_bar).right));
     expect(tester.getCenter(topic).dy, tester.getCenter(_bar).dy);
     expect(
       find.descendant(of: topic, matching: find.text('New topic')),
@@ -1363,8 +1363,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.widget<DButton>(action).label is! Text, isTrue);
         expect(tester.getCenter(action).dy, tester.getCenter(_bar).dy);
-        expect(tester.getRect(action).right, tester.getRect(_bar).right);
-        expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
+        expect(
+          tester.getRect(action).right,
+          lessThan(tester.getRect(_bar).right),
+        );
+        expect(tester.getSize(action), const Size(44, 44));
         for (final button
             in find
                 .descendant(of: _bar, matching: find.byType(DMobileDockItem))
@@ -1386,30 +1389,61 @@ void main() {
     }
   });
 
-  _mobileTest('icon-only dock actions centre dock-sized artwork', (
+  _mobileTest('circular dock actions share evenly spaced columns with tabs', (
     tester,
   ) async {
-    await pumpMobileShellFixture(tester);
-    for (final (tab, key) in [
-      ('topics', 'mobile-new-topic'),
-      ('messages', 'new-message-button'),
-      ('panel/chat', 'mobile-panel-action'),
-    ]) {
-      await _tapDockTab(tester, tab);
-      final action = find.byKey(ValueKey(key));
-      final icon = find.descendant(of: action, matching: find.byType(DIcon));
-      final dockIcon = find.descendant(
-        of: find.byKey(const ValueKey('mobile-mode-topics')),
-        matching: find.byType(DIcon),
-      );
-      expect(tester.widget<DButton>(action).label is! Text, isTrue);
-      expect(tester.getSize(action).width, greaterThan(48));
-      expect(tester.getSize(icon), tester.getSize(dockIcon));
-      expect(
-        tester.getCenter(icon).dx,
-        closeTo(tester.getCenter(action).dx, .5),
-      );
-      expect(tester.takeException(), isNull);
+    await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(id: 7, canCreatePost: true),
+    );
+    for (final width in [320.0, 390.0, 430.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      await tester.pumpAndSettle();
+      for (final (tab, key) in [
+        ('topics', 'mobile-new-topic'),
+        ('messages', 'new-message-button'),
+        ('panel/chat', 'mobile-panel-action'),
+        ('topics', 'mobile-topic-reply'),
+      ]) {
+        await _tapDockTab(tester, tab);
+        if (key == 'mobile-topic-reply') {
+          await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+          await tester.pumpAndSettle();
+        }
+        final action = find.byKey(ValueKey(key));
+        final icon = find.descendant(of: action, matching: find.byType(DIcon));
+        final dockIcon = find.descendant(
+          of: find.byKey(const ValueKey('mobile-mode-topics')),
+          matching: find.byType(DIcon),
+        );
+        expect(tester.widget<DButton>(action).label is! Text, isTrue);
+        expect(tester.getSize(action), const Size(44, 44));
+        expect(tester.getSize(icon), tester.getSize(dockIcon));
+        expect(
+          tester.getCenter(icon).dx,
+          closeTo(tester.getCenter(action).dx, .5),
+        );
+        final centers = [
+          for (final item in find.byType(DMobileDockItem).evaluate())
+            tester.getCenter(find.byElementPredicate((e) => e == item)).dx,
+          tester.getCenter(action).dx,
+        ];
+        final bar = tester.getRect(_bar);
+        final columnWidth = bar.width / centers.length;
+        for (var i = 0; i < centers.length; i++) {
+          expect(centers[i], closeTo(bar.left + columnWidth * (i + .5), .01));
+        }
+        final surface = find.descendant(
+          of: action,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is DButtonDecoration,
+          ),
+        );
+        expect(tester.getRect(surface), tester.getRect(action));
+        expect(tester.takeException(), isNull);
+      }
     }
   });
 
@@ -1521,7 +1555,8 @@ void main() {
     final action = find.byKey(const ValueKey('mobile-new-topic'));
     expect(more, findsOneWidget);
     expect(tester.getRect(more).right, lessThan(tester.getRect(action).left));
-    expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(action).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(action).width, tester.getSize(action).height);
     await tester.tap(more);
     await tester.pumpAndSettle();
     expect(
