@@ -1,14 +1,15 @@
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'composer_autocomplete.dart';
 import 'composer_controller.dart';
+import 'composer_triggers.dart';
 import 'emoji.dart';
 import 'emoji_picker.dart';
 import 'shell_metrics.dart';
@@ -42,6 +43,8 @@ class ComposerSuggestionField extends StatefulWidget {
 }
 
 class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
+  final DCommandController<ComposerSuggestion> _command =
+      DCommandController<ComposerSuggestion>();
   final OverlayPortalController _portal = OverlayPortalController();
   final GlobalKey _anchorKey = GlobalKey();
   final ValueNotifier<Rect?> _anchor = ValueNotifier<Rect?>(null);
@@ -88,6 +91,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     _popupSyncToken = null;
     _popup.removeListener(_onPopupChanged);
     _anchor.dispose();
+    _command.dispose();
     super.dispose();
   }
 
@@ -116,11 +120,12 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
-        _popup.moveSelection(1);
-        return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp:
-        _popup.moveSelection(-1);
-        return KeyEventResult.handled;
+        if (_popup.suggestions.isEmpty) return KeyEventResult.ignored;
+        return _command.handleKeyEvent(
+          event,
+          isComposing: widget.composer.text.value.composing.isValid,
+        );
       case LogicalKeyboardKey.escape:
         _popup.dismiss();
         return KeyEventResult.handled;
@@ -131,6 +136,10 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
         // list must not be what decides when a reply is posted.
         if (HardwareKeyboard.instance.isMetaPressed ||
             HardwareKeyboard.instance.isControlPressed) {
+          return KeyEventResult.ignored;
+        }
+        if (_popup.selected == null ||
+            widget.composer.text.value.composing.isValid) {
           return KeyEventResult.ignored;
         }
         _accept();
@@ -173,15 +182,24 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
         controller: _portal,
         overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
           valueListenable: _anchor,
-          builder: (context, anchor, child) => CustomSingleChildLayout(
-            delegate: AnchoredLayout(
-              anchor: anchor,
-              maxWidth: composerSuggestionsWidth,
-              preferAbove: true,
+          builder: (context, anchor, child) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: child!,
+            child: CustomSingleChildLayout(
+              delegate: AnchoredLayout(
+                anchor: anchor,
+                maxWidth: composerSuggestionsWidth,
+                preferAbove: true,
+              ),
+              child: child!,
+            ),
           ),
-          child: _Suggestions(composer: widget.composer, onTap: _activate),
+          child: _Suggestions(
+            composer: widget.composer,
+            controller: _command,
+            onTap: _activate,
+          ),
         ),
         child: EmojiPickerAnchor(
           child: KeyedSubtree(key: _anchorKey, child: widget.field),
@@ -192,41 +210,121 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
 }
 
 class _Suggestions extends StatelessWidget {
-  const _Suggestions({required this.composer, required this.onTap});
+  const _Suggestions({
+    required this.composer,
+    required this.controller,
+    required this.onTap,
+  });
 
   final ComposerController composer;
+  final DCommandController<ComposerSuggestion> controller;
   final ValueChanged<ComposerSuggestion> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return ListenableBuilder(
       listenable: composer.autocomplete,
       builder: (context, _) {
         final popup = composer.autocomplete;
         if (!popup.isOpen) return const SizedBox.shrink();
-
-        return Material(
-          color: theme.shell.floating,
-          elevation: 8,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: composerSuggestionsWidth,
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.shell.divider),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 4),
+        final mention = popup.trigger?.kind == ComposerTriggerKind.mention;
+        return SizedBox(
+          width: composerSuggestionsWidth,
+          child: DCommand<ComposerSuggestion>(
+            controller: controller,
+            value: popup.selected,
+            onValueChanged: popup.highlight,
+            onSelected: onTap,
+            shouldFilter: false,
+            loop: true,
+            outlined: true,
+            backgroundColor: Theme.of(context).shell.floating,
+            loading: popup.isLoading && popup.suggestions.isEmpty,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final (index, suggestion) in popup.suggestions.indexed)
-                  _SuggestionRow(
-                    suggestion: suggestion,
-                    isSelected: index == popup.selectedIndex,
-                    onTap: () => onTap(suggestion),
+                if (mention)
+                  Padding(
+                    padding: const EdgeInsets.all(DSpacing.md),
+                    child: Text(
+                      context.l10n.mentionSearchHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                    ),
                   ),
+                Flexible(
+                  child: DCommandList<ComposerSuggestion>(
+                    children: [
+                      if (mention) ...[
+                        const DCommandLoading(child: DSpinner()),
+                        DCommandEmpty(
+                          child: Text(
+                            popup.hasError
+                                ? context.l10n.mentionSearchFailed
+                                : popup.trigger!.query.isEmpty
+                                ? context.l10n.searchUsersOrGroups
+                                : context.l10n.noUsersOrGroupsFound,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                      for (final suggestion in popup.suggestions)
+                        DCommandItem<ComposerSuggestion>(
+                          value: suggestion,
+                          searchValue: suggestion.label,
+                          semanticLabel: [
+                            suggestion.label,
+                            ?suggestion.detail,
+                            ?suggestion.userStatus?.description,
+                          ].join(', '),
+                          leading: _SuggestionArt(suggestion: suggestion),
+                          trailing: switch ((
+                            suggestion.siteUrl,
+                            suggestion.userStatus,
+                          )) {
+                            (final siteUrl?, final status?) =>
+                              UserStatusMessage(
+                                siteUrl: siteUrl,
+                                userId: suggestion.userId,
+                                status: status,
+                                showDescription: true,
+                                size: 15,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            _ => null,
+                          },
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  suggestion.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (suggestion.detail case final detail?) ...[
+                                const SizedBox(width: DSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    detail,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: DTokens.of(
+                                        context,
+                                      ).mutedForeground,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -236,123 +334,36 @@ class _Suggestions extends StatelessWidget {
   }
 }
 
-class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({
-    required this.suggestion,
-    required this.isSelected,
-    required this.onTap,
-  });
+class _SuggestionArt extends StatelessWidget {
+  const _SuggestionArt({required this.suggestion});
 
   final ComposerSuggestion suggestion;
-  final bool isSelected;
-  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      // Not an InkWell: it asks for focus when tapped, and taking focus off
-      // the field drops the caret and closes this list before the tap has
-      // resolved into a completion.
-      child: Semantics(
-        button: true,
-        selected: isSelected,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            height: composerSuggestionRowHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            color: isSelected ? theme.shell.hover : null,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: switch (suggestion.art) {
-                    null => null,
-                    // No `alt`: the name is already written beside it, and
-                    // artwork that will not load should leave a gap rather than
-                    // print the shortcode twice on the same row.
-                    ArtImage(:final url) => EmojiImage(
-                      url: url,
-                      size: 20,
-                      alt: '',
-                    ),
-                    ArtAvatar(:final url) => DAvatar.frame(
-                      child: AvatarImage(
-                        url: url,
-                        size: 22,
-                        fallback: const SizedBox.shrink(),
-                      ),
-                    ),
-                    ArtSquare(:final colorValues) => Center(
-                      child: _Swatch(colorValues: colorValues),
-                    ),
-                    ArtIcon(:final name, :final colorValue, :final fallback) =>
-                      DIcon(
-                        name == null
-                            ? fallback
-                            : pluginIconNamed(context, name) ?? fallback,
-                        size: 18,
-                        color: colorValue == null
-                            ? theme.colorScheme.onSurfaceVariant
-                            : Color(colorValue),
-                      ),
-                  },
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          suggestion.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (suggestion.detail case final detail?) ...[
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            detail,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if ((suggestion.siteUrl, suggestion.userStatus) case (
-                  final siteUrl?,
-                  final status?,
-                ))
-                  UserStatusMessage(
-                    siteUrl: siteUrl,
-                    userId: suggestion.userId,
-                    status: status,
-                    showDescription: true,
-                    size: 15,
-                    style: theme.textTheme.bodySmall,
-                    leadingGap: 8,
-                  ),
-              ],
-            ),
-          ),
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 22,
+    child: switch (suggestion.art) {
+      null => null,
+      ArtImage(:final url) => EmojiImage(url: url, size: 20, alt: ''),
+      ArtAvatar(:final url) => DAvatar.frame(
+        child: AvatarImage(
+          url: url,
+          size: 22,
+          fallback: const SizedBox.shrink(),
         ),
       ),
-    );
-  }
+      ArtSquare(:final colorValues) => Center(
+        child: _Swatch(colorValues: colorValues),
+      ),
+      ArtIcon(:final name, :final colorValue, :final fallback) => DIcon(
+        name == null ? fallback : pluginIconNamed(context, name) ?? fallback,
+        size: 18,
+        color: colorValue == null
+            ? DTokens.of(context).mutedForeground
+            : Color(colorValue),
+      ),
+    },
+  );
 }
 
 class _Swatch extends StatelessWidget {

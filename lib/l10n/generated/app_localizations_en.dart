@@ -9,6 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get mentionUsersOrGroups => 'Mention users or groups';
+
+  @override
+  String get mentionSearchHint => 'Type to search users and groups';
+
+  @override
+  String get mentionSearchFailed =>
+      'Could not search users and groups. Try typing again.';
+
+  @override
   String get primaryNavigation => 'Primary navigation';
 
   @override

@@ -311,6 +311,22 @@ void main() {
   });
 
   group('mention autocomplete', () {
+    testWidgets('opens on bare @ while loading and keeps an empty menu', (
+      tester,
+    ) async {
+      popup.update(typed('@'));
+      expect(popup.isOpen, isTrue);
+      expect(popup.isLoading, isTrue);
+      expect(popup.moveSelection(1), isFalse);
+      await tester.pump(ComposerAutocomplete.debounce);
+      expect(asked, ['']);
+      expect(popup.isOpen, isTrue);
+      expect(popup.isLoading, isFalse);
+      expect(popup.suggestions, isEmpty);
+      popup.dismiss();
+      expect(popup.isOpen, isFalse);
+    });
+
     testWidgets('waits out the debounce before asking', (tester) async {
       popup.update(typed('hey @sa'));
       expect(asked, isEmpty);

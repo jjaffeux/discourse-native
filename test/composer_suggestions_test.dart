@@ -129,7 +129,7 @@ void main() {
     composer.dispose();
   });
 
-  testWidgets('rows are named 44-pixel choices in the field keyboard flow', (
+  testWidgets('Native command rows stay in the field keyboard flow', (
     tester,
   ) async {
     final composer = _composerWith(['smile', 'smirk']);
@@ -161,8 +161,8 @@ void main() {
       final smirkTarget = find
           .ancestor(of: smirk, matching: find.byType(GestureDetector))
           .first;
-      expect(tester.getSize(smileTarget).height, 44);
-      expect(tester.getSize(smirkTarget).height, 44);
+      expect(tester.getSize(smileTarget).height, 32);
+      expect(tester.getSize(smirkTarget).height, 32);
       _expectSuggestion(tester, smile, selected: true);
       _expectSuggestion(tester, smirk, selected: false);
       expect(composer.focus.hasPrimaryFocus, isTrue);
@@ -297,6 +297,8 @@ void _expectSuggestion(
       hasSelectedState: true,
       isSelected: selected,
       hasTapAction: true,
+      hasEnabledState: true,
+      isEnabled: true,
     ),
   );
 }

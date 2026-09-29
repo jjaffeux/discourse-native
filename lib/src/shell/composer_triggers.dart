@@ -16,7 +16,7 @@ enum ComposerTriggerKind {
   };
 
   int get minimum => switch (this) {
-    ComposerTriggerKind.mention => 1,
+    ComposerTriggerKind.mention => 0,
     ComposerTriggerKind.hashtag => 1,
     ComposerTriggerKind.emoji => 1,
   };

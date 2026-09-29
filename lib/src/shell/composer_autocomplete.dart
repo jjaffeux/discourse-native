@@ -101,7 +101,17 @@ class ComposerAutocomplete extends ChangeNotifier {
       ? _suggestions[_selected]
       : null;
 
-  bool get isOpen => _trigger != null && _suggestions.isNotEmpty;
+  bool get isOpen =>
+      !_disposed &&
+      _trigger != null &&
+      (_trigger!.kind == ComposerTriggerKind.mention ||
+          _suggestions.isNotEmpty);
+
+  bool _loading = false;
+  bool get isLoading => _loading;
+
+  bool _failed = false;
+  bool get hasError => _failed;
 
   int _epoch = 0;
 
@@ -134,6 +144,8 @@ class ComposerAutocomplete extends ChangeNotifier {
     _trigger = next;
     final epoch = ++_epoch;
     _selected = 0;
+    _loading = true;
+    _failed = false;
 
     // Rows from the same kind stay visible while the new answer is loading;
     // that avoids a flash on every keystroke. A different kind's rows would
@@ -183,7 +195,11 @@ class ComposerAutocomplete extends ChangeNotifier {
       ComposerTriggerKind.hashtag => search?.hashtags,
       ComposerTriggerKind.emoji => search?.emojis,
     };
-    if (find == null) return;
+    if (find == null) {
+      _loading = false;
+      notifyListeners();
+      return;
+    }
 
     List<ComposerSuggestion> found;
     try {
@@ -192,6 +208,8 @@ class ComposerAutocomplete extends ChangeNotifier {
       if (_disposed || request.epoch != _epoch) return;
       _suggestions = const [];
       _selected = 0;
+      _loading = false;
+      _failed = true;
       notifyListeners();
       return;
     }
@@ -202,6 +220,7 @@ class ComposerAutocomplete extends ChangeNotifier {
 
     _suggestions = _take(found);
     _selected = 0;
+    _loading = false;
     notifyListeners();
   }
 
@@ -228,11 +247,19 @@ class ComposerAutocomplete extends ChangeNotifier {
   }
 
   bool moveSelection(int delta) {
-    if (_disposed || !isOpen) return false;
+    if (_disposed || !isOpen || _suggestions.isEmpty) return false;
     _selected = (_selected + delta) % _suggestions.length;
     if (_selected < 0) _selected += _suggestions.length;
     notifyListeners();
     return true;
+  }
+
+  void highlight(ComposerSuggestion? suggestion) {
+    if (_disposed || suggestion == null) return;
+    final index = _suggestions.indexOf(suggestion);
+    if (index < 0 || index == _selected) return;
+    _selected = index;
+    notifyListeners();
   }
 
   void close() {
@@ -255,6 +282,8 @@ class ComposerAutocomplete extends ChangeNotifier {
     _trigger = null;
     _suggestions = const [];
     _selected = 0;
+    _loading = false;
+    _failed = false;
     if (!_disposed) notifyListeners();
   }
 

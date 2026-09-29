@@ -14,6 +14,37 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('inserts a mention at the caret without absorbing adjacent words', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'helloworld',
+      selection: TextSelection.collapsed(offset: 5),
+    );
+    composer.insertMention();
+    expect(composer.raw, 'hello @ world');
+    expect(composer.text.selection.baseOffset, 7);
+    expect(composer.autocomplete.trigger?.query, '');
+    expect(composer.autocomplete.isOpen, isTrue);
+  });
+
+  test('mention button replaces a selection and reopens a dismissed query', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'hello name!',
+      selection: TextSelection(baseOffset: 6, extentOffset: 10),
+    );
+    composer.insertMention();
+    expect(composer.raw, 'hello @ !');
+    composer.text.value = _typed('hello @staff');
+    composer.autocomplete.dismiss();
+    composer.insertMention();
+    expect(composer.raw, 'hello @staff');
+    expect(composer.autocomplete.trigger?.query, 'staff');
+    expect(composer.autocomplete.isOpen, isTrue);
+  });
+
   test('keeps the composer target site on its image renderer', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);
@@ -536,42 +567,44 @@ void main() {
     },
   );
 
-  testWidgets('a failed autocomplete search closes stale suggestions', (
-    tester,
-  ) async {
-    final composer = ComposerController(
-      _target,
-      search: (
-        users: (query) async {
-          if (query == 'sa') {
-            return const [
-              ComposerSuggestion(
-                kind: ComposerTriggerKind.mention,
-                value: 'sam',
-                label: 'Sam',
-              ),
-            ];
-          }
-          throw StateError('search failed');
-        },
-        hashtags: (_) async => const [],
-        emojis: (_) async => const [],
-      ),
-    );
-    addTearDown(composer.dispose);
+  testWidgets(
+    'a failed mention search clears stale rows and exposes an error',
+    (tester) async {
+      final composer = ComposerController(
+        _target,
+        search: (
+          users: (query) async {
+            if (query == 'sa') {
+              return const [
+                ComposerSuggestion(
+                  kind: ComposerTriggerKind.mention,
+                  value: 'sam',
+                  label: 'Sam',
+                ),
+              ];
+            }
+            throw StateError('search failed');
+          },
+          hashtags: (_) async => const [],
+          emojis: (_) async => const [],
+        ),
+      );
+      addTearDown(composer.dispose);
 
-    composer.text.value = _typed('hello @sa');
-    await tester.pump(ComposerAutocomplete.debounce);
-    await tester.pump();
-    expect(composer.autocomplete.suggestions.single.label, 'Sam');
+      composer.text.value = _typed('hello @sa');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(composer.autocomplete.suggestions.single.label, 'Sam');
 
-    composer.text.value = _typed('hello @sam');
-    await tester.pump(ComposerAutocomplete.debounce);
-    await tester.pump();
+      composer.text.value = _typed('hello @sam');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
 
-    expect(composer.autocomplete.suggestions, isEmpty);
-    expect(composer.autocomplete.isOpen, isFalse);
-  });
+      expect(composer.autocomplete.suggestions, isEmpty);
+      expect(composer.autocomplete.isOpen, isTrue);
+      expect(composer.autocomplete.hasError, isTrue);
+    },
+  );
 
   test('restoring a draft does not count idle time as typing', () {
     var now = DateTime.utc(2026, 8, 8, 12);

@@ -53,6 +53,41 @@ final class DiscourseSearchApi {
     return SearchResults.fromJson(body, siteUrl);
   }
 
+  Future<FoundUsersAndGroups> searchMentions({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 7,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _validateAutocompleteRequest(term: term, limit: limit);
+    if (topicId != null) _requirePositiveId(topicId, 'topicId');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/u/search/users.json').replace(
+        queryParameters: {
+          if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
+          'include_mentionable_groups': 'true',
+          if (topicId != null) 'topic_id': '$topicId',
+          'limit': '$limit',
+        },
+      ),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return FoundUsersAndGroups(
+      users: List.unmodifiable([
+        for (final user in jsonObjects(body['users']).take(limit))
+          FoundUser.fromJson(user, siteUrl),
+      ]),
+      groups: List.unmodifiable([
+        for (final group in jsonObjects(body['groups']).take(limit))
+          FoundGroup.fromJson(group, siteUrl),
+      ]),
+    );
+  }
+
   Future<FoundUsersAndGroups> searchUsersAndGroups({
     required String siteUrl,
     required String term,
