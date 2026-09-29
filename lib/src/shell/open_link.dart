@@ -5,8 +5,10 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
+import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/shell_extensions.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
@@ -136,6 +138,8 @@ class LinkTarget extends StatefulWidget {
     required this.url,
     required this.child,
     this.title,
+    this.bookmarkUrl,
+    this.targetBookmark,
     this.siteUrl,
     this.longPressEnabled = true,
   }) : content = null,
@@ -148,6 +152,8 @@ class LinkTarget extends StatefulWidget {
     this.siteUrl,
     this.longPressEnabled = true,
   }) : url = null,
+       bookmarkUrl = null,
+       targetBookmark = null,
        title = null,
        action = null;
 
@@ -157,10 +163,15 @@ class LinkTarget extends StatefulWidget {
     required this.child,
     this.longPressEnabled = true,
   }) : url = null,
+       bookmarkUrl = null,
+       targetBookmark = null,
        title = null,
        siteUrl = null,
        content = null;
 
+  /// The item identity when its navigation URL includes a reading position.
+  final String? bookmarkUrl;
+  final Bookmark? targetBookmark;
   final String? url;
   final String? title;
   final String? siteUrl;
@@ -179,6 +190,61 @@ class LinkTarget extends StatefulWidget {
 
 class _LinkTargetState extends State<LinkTarget> {
   final _menu = LinkContextMenuSession();
+  BookmarkLinkAction? _bookmarkAction;
+  int _bookmarkGeneration = 0;
+
+  void _onOpenChange(bool open, DPopoverChangeReason reason) {
+    _menu.onOpenChange(open, reason);
+    final generation = ++_bookmarkGeneration;
+    if (!open) return;
+    setState(() => _bookmarkAction = null);
+    final controller = ShellScope.maybeRead(context);
+    if (controller == null) return;
+    final route = widget.content;
+    final url =
+        widget.bookmarkUrl ??
+        widget.url ??
+        (route?.topicId == null
+            ? null
+            : controller.siteLink(
+                '/t/${route!.topicId}',
+                siteUrl: widget.siteUrl,
+              ));
+    if (url == null) return;
+    unawaited(
+      controller
+          .resolveBookmarkLink(
+            controller.absoluteUrl(url, siteUrl: widget.siteUrl),
+            targetBookmark: widget.targetBookmark,
+          )
+          .then((action) {
+            if (mounted && generation == _bookmarkGeneration) {
+              setState(() => _bookmarkAction = action);
+            }
+          }),
+    );
+  }
+
+  Future<void> _invokeBookmark(BookmarkLinkAction action) async {
+    final result = await action.invoke();
+    if (mounted && result.message != null) {
+      DToast.show(context, result.message!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(LinkTarget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url ||
+        oldWidget.bookmarkUrl != widget.bookmarkUrl ||
+        oldWidget.content != widget.content ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.targetBookmark != widget.targetBookmark) {
+      _bookmarkGeneration++;
+      _bookmarkAction = null;
+      _menu.controller.close();
+    }
+  }
 
   @override
   void initState() {
@@ -241,7 +307,7 @@ class _LinkTargetState extends State<LinkTarget> {
             ShellScope.maybeRead(context)?.desktopPanelsEnabled == true;
         return DContextMenu(
           controller: _menu.controller,
-          onOpenChange: _menu.onOpenChange,
+          onOpenChange: _onOpenChange,
           content: DContextMenuContent(
             semanticLabel: context.l10n.openLinkOpenlink,
             children: [
@@ -264,6 +330,17 @@ class _LinkTargetState extends State<LinkTarget> {
                     activate(newTab: true, panel: ForumPanel.secondary),
                 child: Text(context.l10n.openInNewSecondaryTab),
               ),
+              if (_bookmarkAction case final action?) ...[
+                const DContextMenuSeparator(),
+                DContextMenuItem(
+                  onPressed: () => unawaited(_invokeBookmark(action)),
+                  child: Text(
+                    action.bookmark == null
+                        ? context.l10n.bookmark
+                        : context.l10n.removeBookmark,
+                  ),
+                ),
+              ],
             ],
           ),
           child: DContextMenuTrigger(

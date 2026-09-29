@@ -178,6 +178,10 @@ class Bookmark {
 
   final DateTime? reminderAt;
 
+  /// A reminder expires at its scheduled instant, regardless of display zone.
+  bool reminderExpiredAt(DateTime now) =>
+      reminderAt != null && !reminderAt!.isAfter(now);
+
   final BookmarkAutoDeletePreference autoDeletePreference;
 
   Bookmark copyWith({

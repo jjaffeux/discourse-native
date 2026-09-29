@@ -6,6 +6,27 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('reminders expire at the instant, across timezone offsets', () {
+    final now = DateTime.utc(2030, 9, 29, 10);
+    expect(const Bookmark(id: 1).reminderExpiredAt(now), isFalse);
+    for (final at in [
+      '2030-09-29T11:59:59+02:00',
+      '2030-09-29T12:00:00+02:00',
+    ]) {
+      expect(
+        Bookmark(id: 1, reminderAt: DateTime.parse(at)).reminderExpiredAt(now),
+        isTrue,
+      );
+    }
+    expect(
+      Bookmark(
+        id: 1,
+        reminderAt: now.add(const Duration(microseconds: 1)),
+      ).reminderExpiredAt(now),
+      isFalse,
+    );
+  });
+
   group('activity bookmark parsing', () {
     test('retains target, route, and reminder metadata', () {
       final bookmark = Bookmark.fromJson(const {

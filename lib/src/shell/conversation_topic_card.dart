@@ -237,6 +237,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
               ? EdgeInsets.symmetric(horizontal: selected ? 4 : 16)
               : EdgeInsets.zero),
       child: LinkTarget(
+        bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
         url: resolveSiteRootPath(
           row.siteUrl,
           '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',

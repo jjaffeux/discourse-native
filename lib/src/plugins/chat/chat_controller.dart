@@ -25,6 +25,7 @@ import 'chat_plugin_data.dart';
 import 'chat_prepared_cooking.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
+import 'chat_route.dart';
 import 'chat_send_coordinator.dart';
 import 'chat_stream_target.dart';
 import 'chat_thread.dart';
@@ -2607,6 +2608,66 @@ class ChatController extends FrameSafeNotifier {
         );
       }
     }
+  }
+
+  /// Reads a linked message without replacing a channel/thread's visible window.
+  Future<ChatMessage?> resolveBookmarkMessage(
+    String siteUrl,
+    ChatLink link,
+  ) async {
+    final messageId = link.messageId;
+    final user = _currentUserFor(siteUrl);
+    if (isDisposed ||
+        messageId == null ||
+        user == null ||
+        user.hasChatEnabled == false ||
+        user.canChat == false ||
+        !siteConfigFor(siteUrl).chatSettings.chatEnabled) {
+      return null;
+    }
+    final lease = _requests.capture(siteUrl);
+    final version = _bookmarkVersion(siteUrl);
+    await ensureChannel(siteUrl, link.route.channelId);
+    final credentials = await _requests.credentialsFor(siteUrl);
+    if (!lease.isCurrent || isDisposed || credentials.apiKey == null) {
+      return null;
+    }
+    final threadId = link.route.threadId;
+    final page = threadId == null
+        ? await api.chatMessages(
+            siteUrl: siteUrl,
+            channelId: link.route.channelId,
+            targetMessageId: messageId,
+            apiKey: credentials.apiKey,
+            clientId: credentials.clientId,
+          )
+        : await api.chatThreadMessages(
+            siteUrl: siteUrl,
+            channelId: link.route.channelId,
+            threadId: threadId,
+            targetMessageId: messageId,
+            apiKey: credentials.apiKey,
+            clientId: credentials.clientId,
+          );
+    if (!lease.isCurrent ||
+        isDisposed ||
+        version != _bookmarkVersion(siteUrl)) {
+      return null;
+    }
+    final resolved = page.messages
+        .where(
+          (message) =>
+              message.id == messageId &&
+              message.channelId == link.route.channelId &&
+              (threadId == null || message.threadId == threadId),
+        )
+        .firstOrNull;
+    if (resolved == null || !canBookmarkMessage(siteUrl, resolved)) return null;
+    lease.commit(
+      () =>
+          _putMessages(siteUrl, [resolved], bookmarkVersionAtDispatch: version),
+    );
+    return message(siteUrl, messageId);
   }
 
   // Message rows redraw the per-message checks only when the channel's

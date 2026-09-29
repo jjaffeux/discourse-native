@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -15,6 +19,117 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 
 void main() {
+  for (final post in [false, true]) {
+    testWidgets(
+      'shared menu bookmarks and removes the clicked ${post ? 'post' : 'topic'}',
+      (tester) async {
+        final api = _LinkBookmarkApi();
+        final controller = await _pumpLink(
+          tester,
+          signedIn: true,
+          api: api,
+          url: '/t/clicked/42${post ? '/3' : ''}',
+        );
+        final before = controller.currentContent;
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Bookmark'), findsOneWidget);
+        await tester.tap(find.text('Bookmark'));
+        await tester.pumpAndSettle();
+        expect(api.createdBookmarks.single.targetId, post ? 99 : 42);
+        expect(
+          api.createdBookmarks.single.targetType,
+          post ? BookmarkTargetType.post : BookmarkTargetType.topic,
+        );
+        expect(controller.currentContent, before);
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Remove bookmark'), findsOneWidget);
+        await tester.tap(find.text('Remove bookmark'));
+        await tester.pumpAndSettle();
+        expect(api.deletedBookmarks, [1000]);
+        expect(controller.currentContent, before);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('topic item bookmark identity ignores its navigation position', (
+    tester,
+  ) async {
+    final api = _LinkBookmarkApi();
+    await _pumpLink(
+      tester,
+      signedIn: true,
+      api: api,
+      url: '/t/clicked/42/3',
+      bookmarkUrl: '/t/clicked/42',
+    );
+    await tester.tap(
+      find.text('Open link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bookmark'));
+    await tester.pumpAndSettle();
+    expect(api.createdBookmarks.single.targetType, BookmarkTargetType.topic);
+    expect(api.createdBookmarks.single.targetId, 42);
+  });
+
+  testWidgets('dismissed menu ignores a late bookmark lookup', (tester) async {
+    final gate = Completer<void>();
+    final api = FakeDiscourseApi(
+      topics: {42: topicPayload(id: 42)},
+      topicGate: gate,
+    );
+    await _pumpLink(tester, signedIn: true, api: api);
+    await tester.tap(
+      find.text('Open link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Bookmark'), findsNothing);
+    expect(api.createdBookmarks, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final signedIn in [false, true]) {
+    testWidgets(
+      'shared menus omit unsupported targets (signed in: $signedIn)',
+      (tester) async {
+        await _pumpLink(
+          tester,
+          signedIn: signedIn,
+          url: signedIn ? '/c/general/1' : '/t/topic/42',
+          api: _LinkBookmarkApi(),
+        );
+        await tester.tap(
+          find.text('Open link'),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Open in main panel'), findsOneWidget);
+        expect(find.text('Bookmark'), findsNothing);
+        expect(find.text('Remove bookmark'), findsNothing);
+      },
+    );
+  }
+
   for (final newTab in [false, true]) {
     testWidgets('opens the forum users URL natively (new tab: $newTab)', (
       tester,
@@ -588,6 +703,7 @@ void main() {
 Future<ShellController> _pumpLink(
   WidgetTester tester, {
   String url = '/t/a-topic/42',
+  String? bookmarkUrl,
   bool tabsEnabled = true,
   bool desktopPanels = false,
   bool signedIn = false,
@@ -627,6 +743,7 @@ Future<ShellController> _pumpLink(
             builder: (context) => Center(
               child: LinkTarget(
                 url: url,
+                bookmarkUrl: bookmarkUrl,
                 child: TextButton(
                   onPressed: () => openLink(context, url),
                   child: const Text('Open link'),
@@ -640,4 +757,75 @@ Future<ShellController> _pumpLink(
   );
   await tester.pumpAndSettle();
   return controller;
+}
+
+final class _LinkBookmarkApi extends FakeDiscourseApi {
+  _LinkBookmarkApi() : super(topics: {42: _payload()});
+
+  static TopicPayload _payload([Bookmark? bookmark]) => topicPayload(
+    id: 42,
+    posts: [
+      Post(
+        id: 99,
+        postNumber: 3,
+        username: 'author',
+        cooked: '<p>Clicked</p>',
+        bookmark: bookmark?.coreTargetType == BookmarkTargetType.post
+            ? bookmark
+            : null,
+      ),
+    ],
+    bookmarks: [?bookmark],
+  );
+
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    final id = await super.createBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+      clientId: clientId,
+    );
+    topics[42] = _payload(
+      Bookmark(
+        id: id,
+        bookmarkableId: targetId,
+        bookmarkableType: targetType.wireName,
+        postNumber: 3,
+      ),
+    );
+    return id;
+  }
+
+  @override
+  Future<bool?> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    required BookmarkTargetType targetType,
+    String? clientId,
+  }) async {
+    await super.deleteBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      bookmarkId: bookmarkId,
+      targetType: targetType,
+      clientId: clientId,
+    );
+    topics[42] = _payload();
+    return false;
+  }
 }

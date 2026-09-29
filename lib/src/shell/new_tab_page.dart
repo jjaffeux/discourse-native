@@ -263,6 +263,7 @@ class _NewTabPageState extends State<NewTabPage> {
           reminderAt: bookmark.reminderAt,
           postNumber: bookmark.postNumber,
           path: bookmark.path,
+          targetBookmark: bookmark,
           onPressed: () => openLink(context, bookmark.path!),
         ),
     ];
@@ -273,6 +274,12 @@ class _NewTabPageState extends State<NewTabPage> {
           title: tab.currentContent.title,
           icon: tab.currentContent.icon,
           path: _recentRouteUrl(siteUrl, tab.currentContent),
+          bookmarkUrl: tab.currentContent.topicId == null || siteUrl == null
+              ? null
+              : resolveSiteRootPath(
+                  siteUrl,
+                  '/t/${tab.currentContent.topicId}',
+                ),
           onPressed: () => shell!.reopenClosedTab(tab.id),
         ),
     ];
@@ -613,6 +620,8 @@ class _StartPageEntry {
     this.reminderAt,
     this.postNumber,
     this.path,
+    this.targetBookmark,
+    this.bookmarkUrl,
   });
 
   factory _StartPageEntry.fromRoute(
@@ -631,6 +640,9 @@ class _StartPageEntry {
     activityAt: destination?.lastActivityAt,
     description: description ?? destination?.preview ?? route.subtitle,
     path: _recentRouteUrl(siteUrl, route),
+    bookmarkUrl: route.topicId == null || siteUrl == null
+        ? null
+        : resolveSiteRootPath(siteUrl, '/t/${route.topicId}'),
     onPressed: onPressed,
   );
 
@@ -645,6 +657,8 @@ class _StartPageEntry {
   final DateTime? reminderAt;
   final int? postNumber;
   final String? path;
+  final String? bookmarkUrl;
+  final Bookmark? targetBookmark;
   final VoidCallback? onPressed;
 
   /// The age of [activityAt], which advances while the page stays open, or
@@ -765,6 +779,8 @@ class _StartSection extends StatelessWidget {
         ? card
         : LinkTarget(
             url: entry.path!,
+            bookmarkUrl: entry.bookmarkUrl,
+            targetBookmark: entry.targetBookmark,
             title: entry.title,
             siteUrl: siteUrl,
             child: card,
@@ -933,6 +949,8 @@ class _StartSection extends StatelessWidget {
         ? card
         : LinkTarget(
             url: entry.path!,
+            bookmarkUrl: entry.bookmarkUrl,
+            targetBookmark: entry.targetBookmark,
             title: entry.title,
             siteUrl: siteUrl,
             child: card,

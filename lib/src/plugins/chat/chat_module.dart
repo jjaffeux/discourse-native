@@ -110,6 +110,9 @@ final class ChatModule implements PluginModule {
           store: store,
           reporter: reporter,
         );
+        final bookmarkHost = bindings
+            .require(corePluginBookmarkPort)
+            .forTarget(chatMessageBookmarkTarget);
         final shell = ChatShellService(
           chat: controller,
           host: navigation,
@@ -133,12 +136,7 @@ final class ChatModule implements PluginModule {
               searchController,
             ),
             PluginService<Object>(chatShellService, shell),
-            PluginService<Object>(
-              chatBookmarkHostService,
-              bindings
-                  .require(corePluginBookmarkPort)
-                  .forTarget(chatMessageBookmarkTarget),
-            ),
+            PluginService<Object>(chatBookmarkHostService, bookmarkHost),
             PluginService<Object>(chatComposerHostService, composerHost),
             PluginService<Object>(chatDiagnosticsReporterService, reporter),
             PluginService<Object>(
@@ -152,7 +150,10 @@ final class ChatModule implements PluginModule {
             if (gifs case final GifPickerSession value)
               PluginService<Object>(chatGifsService, value),
           ],
-          capabilities: [shell],
+          capabilities: [
+            shell,
+            ChatBookmarkLinkResolver(controller, bookmarkHost),
+          ],
         );
       },
       requires: const [

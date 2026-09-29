@@ -12,6 +12,7 @@ import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
 import '../theme/d_icon.dart';
+import 'bookmark_host.dart';
 import 'composer_syntax.dart';
 import 'live_channels.dart';
 import 'plugin_manifest.dart';
@@ -256,4 +257,10 @@ abstract interface class PluginBookmarkPresenter
     implements PluginSessionCapability {
   String get bookmarkFilterLabel;
   BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark);
+}
+
+/// Resolves only server-backed targets owned by the plugin, without opening them.
+abstract interface class PluginBookmarkLinkResolver
+    implements PluginSessionCapability {
+  Future<BookmarkLinkAction?> resolveBookmarkLink(String siteUrl, String url);
 }
