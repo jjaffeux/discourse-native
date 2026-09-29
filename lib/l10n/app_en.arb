@@ -10314,6 +10314,15 @@
   "@filterSuggestions": {
     "description": "English UI message used by shell/topic_filter_input.dart. Keep placeholders intact."
   },
+  "editTopicFilterToken": "Edit filter {label}",
+  "@editTopicFilterToken": {
+    "description": "Accessible label for reopening a topic filter token to choose a new value.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "removeTopicfilterinput": "Remove {label}",
   "@removeTopicfilterinput": {
     "description": "English UI message used by shell/topic_filter_input.dart. Keep placeholders intact.",

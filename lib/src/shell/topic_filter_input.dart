@@ -240,6 +240,17 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     unawaited(filter.openSuggestions());
   }
 
+  void _editToken(int index) {
+    if (!widget.enabled || index < 0 || index >= _tokens.length) return;
+    final token = _tokens[index];
+    setState(() => _tokens = [..._tokens]..removeAt(index));
+    _setTokenDraft(topicFilterClauseKey(token) ?? token);
+    widget.onChanged?.call(_composeTokenQuery());
+    filter.dismiss();
+    _focus.requestFocus();
+    unawaited(filter.openSuggestions());
+  }
+
   Future<void> _clearTokenQuery() async {
     if (!widget.enabled) return;
     setState(() => _tokens = const []);
@@ -267,6 +278,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (!widget.enabled || !_focus.hasFocus) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -290,9 +302,20 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
           when widget.tokenized &&
+              filter.text.text.isNotEmpty &&
+              topicFilterClauseKey(filter.text.text) == filter.text.text &&
+              filter.text.selection.isCollapsed &&
+              filter.text.selection.baseOffset == filter.text.text.length:
+        _setTokenDraft('');
+        widget.onChanged?.call(_composeTokenQuery());
+        filter.dismiss();
+        unawaited(filter.openSuggestions());
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.backspace
+          when widget.tokenized &&
               filter.text.text.isEmpty &&
               _tokens.isNotEmpty:
-        _removeToken(_tokens.length - 1);
+        _editToken(_tokens.length - 1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
@@ -375,6 +398,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           index: i,
           categories: widget.categories,
           enabled: widget.enabled,
+          onEdited: () => _editToken(i),
           onDeleted: () => _removeToken(i),
         ),
     ],
@@ -566,6 +590,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
     required this.index,
     required this.categories,
     required this.enabled,
+    required this.onEdited,
     required this.onDeleted,
   });
 
@@ -573,6 +598,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
   final int index;
   final List<TopicCategory> categories;
   final bool enabled;
+  final VoidCallback onEdited;
   final VoidCallback onDeleted;
 
   @override
@@ -580,25 +606,30 @@ class _TopicFilterTokenChip extends StatelessWidget {
     final label = _topicFilterTokenLabel(raw, categories);
     return DTooltip(
       message: raw,
-      child: DBadge(
+      child: Row(
         key: ValueKey('topic-filter-token-$index'),
-        variant: DBadgeVariant.secondary,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            DButton.iconOnly(
-              key: ValueKey('topic-filter-token-remove-$index'),
-              icon: const DIcon(DIcons.xmark),
-              tooltip: context.l10n.removeTopicfilterinput((label).toString()),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: DButton(
+              key: ValueKey('topic-filter-token-edit-$index'),
+              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              semanticLabel: context.l10n.editTopicFilterToken(label),
               size: DButtonSize.small,
-              variant: DButtonVariant.transparentBackground,
-              onPressed: enabled ? onDeleted : null,
+              shape: DButtonShape.pill,
+              variant: DButtonVariant.secondary,
+              onPressed: enabled ? onEdited : null,
             ),
-          ],
-        ),
+          ),
+          DButton.iconOnly(
+            key: ValueKey('topic-filter-token-remove-$index'),
+            icon: const DIcon(DIcons.xmark),
+            tooltip: context.l10n.removeTopicfilterinput(label),
+            size: DButtonSize.small,
+            variant: DButtonVariant.transparentBackground,
+            onPressed: enabled ? onDeleted : null,
+          ),
+        ],
       ),
     );
   }

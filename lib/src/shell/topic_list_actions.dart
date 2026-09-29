@@ -158,10 +158,11 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                   pressed: splitTopicFilterQuery(_query).contains(query),
                   variant: DToggleVariant.outline,
                   onPressedChanged: (pressed) => setState(() {
-                    final clauses = splitTopicFilterQuery(_query)
-                      ..removeWhere((clause) => clause == query);
-                    if (pressed) clauses.add(query);
-                    _query = clauses.join(' ');
+                    _query = setTopicFilterShortcut(
+                      _query,
+                      query,
+                      selected: pressed,
+                    );
                     _presetRevision++;
                   }),
                   child: Text(label),

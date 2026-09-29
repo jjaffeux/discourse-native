@@ -140,6 +140,58 @@ void main() {
       );
     });
 
+    test('extracts editable keys without treating quoted text as a clause', () {
+      for (final prefix in ['', '-', '=', '-=', '=-']) {
+        expect(
+          topicFilterClauseKey('${prefix}tag_group:"Design team"'),
+          '${prefix}tag_group:',
+        );
+      }
+      expect(topicFilterClauseKey('category:parent:child'), 'category:');
+      expect(topicFilterClauseKey('"status:open"'), isNull);
+      expect(topicFilterClauseKey('feedback'), isNull);
+    });
+
+    test('shortcuts replace their key and preserve unrelated clauses', () {
+      expect(
+        setTopicFilterShortcut(
+          'tag:"customer feedback" status:open status:noreplies '
+              'in:watching "status:open" -status:open',
+          'status:closed',
+          selected: true,
+        ),
+        'tag:"customer feedback" in:watching "status:open" '
+        '-status:open status:closed',
+      );
+      expect(
+        setTopicFilterShortcut(
+          'status:open in:bookmarked in:watching',
+          'in:unseen',
+          selected: true,
+        ),
+        'status:open in:unseen',
+      );
+      expect(
+        setTopicFilterShortcut(
+          'STATUS:open tag:bug',
+          'status:closed',
+          selected: true,
+        ),
+        'tag:bug status:closed',
+      );
+    });
+
+    test('deselecting a shortcut removes its duplicates only', () {
+      expect(
+        setTopicFilterShortcut(
+          'status:open tag:bug status:closed status:open',
+          'status:open',
+          selected: false,
+        ),
+        'tag:bug status:closed',
+      );
+    });
+
     test(
       'completes multi-value tags and suppresses values already used',
       () async {
@@ -846,12 +898,18 @@ void main() {
       matching: find.byType(DInputGroup),
     );
     final initialBounds = tester.getRect(group);
-    await tester.enterText(field, 'status:open\ntag:feedback');
+    await tester.enterText(
+      field,
+      'status:open\ncategory:feature\ntag_group:"Design team"\ncreated:30\ntag:feedback',
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.text('Apply filter'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    expect(_filterQuery(tester), 'status:open tag:feedback');
+    expect(
+      _filterQuery(tester),
+      'status:open category:feature tag_group:"Design team" created:30 tag:feedback',
+    );
     final apply = tester.getRect(
       find.ancestor(
         of: find.text('Apply filter'),
@@ -863,7 +921,13 @@ void main() {
       apply.top,
       greaterThan(tester.getRect(find.text('Tracking')).bottom),
     );
-    final expectedClauses = ['status:open', 'tag:feedback'];
+    final expectedClauses = [
+      'status:open',
+      'category:feature',
+      'tag_group:"Design team"',
+      'created:30',
+      'tag:feedback',
+    ];
     for (final (label, query) in [
       ('New topics', 'in:new-topics'),
       ('Unseen', 'in:unseen'),
@@ -873,12 +937,22 @@ void main() {
     ]) {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
+      expectedClauses.removeWhere(
+        (clause) => clause.startsWith('${query.split(':').first}:'),
+      );
       expectedClauses.add(query);
       expect(tester.getRect(group), initialBounds);
       expect(_filterQuery(tester), expectedClauses.join(' '));
       expect(api.feedPaths, ['/latest.json', '/filter.json']);
     }
-    final chips = find.byType(DBadge);
+    final chips = find.byWidgetPredicate(
+      (widget) =>
+          widget is Row &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'topic-filter-token-',
+          ),
+    );
     final first = tester.getRect(chips.first);
     final last = tester.getRect(chips.last);
     expect(last.top, greaterThan(first.top));
@@ -906,6 +980,170 @@ void main() {
       api.feedPaths,
       contains(
         '/filter.json?q=${Uri.encodeQueryComponent(expectedClauses.join(' '))}',
+      ),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('editing a chip stages its key and applies the replacement', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      filterOptionsByPath: const {
+        '/filter.json': [
+          TopicFilterOption(name: 'status:open'),
+          TopicFilterOption(name: 'status:closed'),
+        ],
+      },
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final textarea = find.byType(DInputGroupTextarea);
+    final field = find.descendant(
+      of: textarea,
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(textarea, 'tag:"customer feedback" status:open ');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topic-filter-token-edit-1')));
+    await tester.pumpAndSettle();
+    final input = tester.widget<TextField>(field);
+    expect(input.controller!.text, 'status:');
+    expect(
+      input.controller!.selection,
+      const TextSelection.collapsed(offset: 7),
+    );
+    expect(input.focusNode!.hasFocus, isTrue);
+    expect(_filterQuery(tester), 'tag:"customer feedback" status:');
+    expect(find.text('status: open'), findsNothing);
+    expect(find.text('status:closed'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'tag:"customer feedback" status:closed');
+    expect(api.feedPaths, ['/latest.json', '/filter.json']);
+    await tester.tap(find.text('Apply filter'));
+    await tester.pumpAndSettle();
+    expect(
+      api.feedPaths,
+      contains(
+        '/filter.json?q=${Uri.encodeQueryComponent('tag:"customer feedback" status:closed')}',
+      ),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('Backspace dismantles a token through its staged key', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final textarea = find.byType(DInputGroupTextarea);
+    await tester.enterText(textarea, 'tag:bug -tag_group:"Design team" ');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'tag:bug -tag_group:');
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'tag:bug');
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'tag:');
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), isEmpty);
+    expect(api.feedPaths, ['/latest.json', '/filter.json']);
+
+    await tester.enterText(textarea, '"status:open" ');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DTextarea>(textarea).controller!.text,
+      '"status:open"',
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('chip editing and removal are separate keyboard actions', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final textarea = find.byType(DInputGroupTextarea);
+    await tester.enterText(textarea, 'category:parent:child status:open ');
+    await tester.pumpAndSettle();
+    final edit = find.byKey(const ValueKey('topic-filter-token-edit-0'));
+    expect(
+      tester.widget<DButton>(edit).semanticLabel,
+      'Edit filter category: Parent › Child',
+    );
+    Focus.of(
+      tester.element(
+        find.descendant(of: edit, matching: find.byType(Text)).first,
+      ),
+    ).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'status:open category:');
+    await tester.tap(find.byKey(const ValueKey('topic-filter-token-remove-0')));
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'category:');
+    expect(find.text('status: open'), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('quick filters replace choices that share a key', (tester) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    await tester.enterText(
+      find.byType(DInputGroupTextarea),
+      'tag:"customer feedback"',
+    );
+    await tester.pumpAndSettle();
+    for (final label in [
+      'Open topics',
+      'Closed topics',
+      'Bookmarked',
+      'Watching',
+    ]) {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+    expect(
+      _filterQuery(tester),
+      'tag:"customer feedback" status:closed in:watching',
+    );
+    expect(
+      tester
+          .widget<DToggle>(find.widgetWithText(DToggle, 'Open topics'))
+          .pressed,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<DToggle>(find.widgetWithText(DToggle, 'Bookmarked'))
+          .pressed,
+      isFalse,
+    );
+    await tester.tap(find.text('Watching'));
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'tag:"customer feedback" status:closed');
+    await tester.tap(find.text('Apply filter'));
+    await tester.pumpAndSettle();
+    expect(
+      api.feedPaths,
+      contains(
+        '/filter.json?q=${Uri.encodeQueryComponent('tag:"customer feedback" status:closed')}',
       ),
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1186,8 +1424,13 @@ Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
 
 String _filterQuery(WidgetTester tester) {
   final tokens = tester
-      .widgetList<DTooltip>(find.byType(DTooltip))
-      .where((tooltip) => tooltip.child is DBadge)
+      .widgetList<DTooltip>(
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-token-field')),
+          matching: find.byType(DTooltip),
+        ),
+      )
+      .where((tooltip) => tooltip.child is Row)
       .map((tooltip) => tooltip.message);
   final draft = tester
       .widget<DTextarea>(find.byType(DInputGroupTextarea))
