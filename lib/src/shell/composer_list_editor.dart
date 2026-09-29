@@ -224,6 +224,12 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
     super.dispose();
   }
 
+  bool get _isFirstNestedItem {
+    final parent = widget.composer;
+    return parent is ComposerListBodyController &&
+        parent.item.children.firstOrNull?.start == widget.item.start;
+  }
+
   @override
   Widget build(BuildContext context) => ComposerEmbeddedEditor(
     owner: widget.composer,
@@ -231,7 +237,12 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor> {
     semanticLabel: context.l10n.item((widget.item.label).toString()),
     child: Padding(
       padding: widget.item.isTask
-          ? const EdgeInsets.only(bottom: DSpacing.sm)
+          ? EdgeInsets.only(
+              // The parent's bottom padding follows its entire subtree, so
+              // its first child needs its own gap from the parent's text.
+              top: _isFirstNestedItem ? DSpacing.sm : 0,
+              bottom: DSpacing.sm,
+            )
           : EdgeInsets.zero,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
