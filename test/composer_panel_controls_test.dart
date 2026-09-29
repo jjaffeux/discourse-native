@@ -371,7 +371,10 @@ void main() {
           ('Inline code', LogicalKeyboardKey.keyE, '`format` me'),
           ('Link', LogicalKeyboardKey.keyL, null),
         ];
-        for (final (label, key, _) in actions) {
+        expect(find.byTooltip('Inline code'), findsNothing);
+        for (final (label, key, _) in actions.where(
+          (action) => action.$1 != 'Inline code',
+        )) {
           final button = tester.widget<DButton>(
             find.byWidgetPredicate(
               (widget) => widget is DButton && widget.tooltip == label,

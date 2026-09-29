@@ -637,6 +637,10 @@
   "@toggleSidebar": {
     "description": "English UI message used by ui/components/d_sidebar.dart. Keep placeholders intact."
   },
+  "codeBlock": "Code block",
+  "@codeBlock": {
+    "description": "Composer code block insertion action and editor label."
+  },
   "codeEditor": "Code editor",
   "@codeEditor": {
     "description": "English UI message used by ui/components/d_code_editor.dart. Keep placeholders intact."

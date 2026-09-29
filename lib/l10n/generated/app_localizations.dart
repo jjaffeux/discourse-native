@@ -922,6 +922,12 @@ abstract class AppLocalizations {
   /// **'Toggle Sidebar'**
   String get toggleSidebar;
 
+  /// Composer code block insertion action and editor label.
+  ///
+  /// In en, this message translates to:
+  /// **'Code block'**
+  String get codeBlock;
+
   /// English UI message used by ui/components/d_code_editor.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

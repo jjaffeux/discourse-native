@@ -453,6 +453,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toggleSidebar => 'Toggle Sidebar';
 
   @override
+  String get codeBlock => 'Code block';
+
+  @override
   String get codeEditor => 'Code editor';
 
   @override

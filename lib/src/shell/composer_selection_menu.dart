@@ -239,11 +239,10 @@ class _ComposerFormattingControlsState
         );
         final code = _toggle(
           context.l10n.inlineCode,
-          const DIcon(DIcons.code),
+          const Icon(Icons.code),
           pressed('code'),
           () => _mark(ComposerMark.inlineCode),
           key: inline ? const ValueKey('composer-format-inlineCode') : null,
-          selectionOnly: !inline,
         );
         final more = DDropdownMenu(
           restoreFocus: false,

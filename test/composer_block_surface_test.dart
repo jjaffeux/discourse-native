@@ -791,7 +791,13 @@ void main() {
           find.byKey(ValueKey('composer-block-handle-${block.id}')),
         );
         final editable = tester
-            .state<EditableTextState>(find.byType(EditableText))
+            .state<EditableTextState>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is EditableText &&
+                    widget.controller == composer.text,
+              ),
+            )
             .renderEditable;
         final caret = editable.getLocalRectForCaret(
           TextPosition(offset: block.start),
