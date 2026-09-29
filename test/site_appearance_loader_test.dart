@@ -74,96 +74,104 @@ void main() {
       }
     });
 
-    test(
-      'uses authenticated preferences and isolates CSS credentials',
-      () async {
-        final client = _Client((request) async {
-          final path = request.url.path;
-          if (path == '/site.json') {
-            return _response(
-              request,
-              _siteJson(),
-              contentType: 'application/json',
-            );
-          }
-          if (path == '/u/alice.json') {
-            return _response(
-              request,
-              _userJson(
-                themeIds: const [6],
-                colorSchemeId: 20,
-                darkSchemeId: 21,
-                interfaceColorMode: 3,
-              ),
-              contentType: 'application/json',
-            );
-          }
-          if (path == '/color-scheme-stylesheet/20/6.json') {
-            return _response(
-              request,
-              _details('/styles/light.css'),
-              contentType: 'application/json',
-            );
-          }
-          if (path == '/color-scheme-stylesheet/21/6.json') {
-            return _response(
-              request,
-              _details('/styles/dark.css'),
-              contentType: 'application/json',
-            );
-          }
-          if (path == '/') {
-            return _response(
-              request,
-              _themeDocument(),
-              contentType: 'text/html',
-            );
-          }
-          if (path == '/styles/light.css') {
-            return _response(request, _paletteCss, contentType: 'text/css');
-          }
-          if (path == '/styles/dark.css') {
-            return _response(
-              request,
-              _paletteCss.replaceFirst('light', 'dark'),
-              contentType: 'text/css',
-            );
-          }
-          throw StateError('Unexpected request: ${request.url}');
-        });
+    for (final clientId in ['', 'client-id']) {
+      test(
+        'uses authenticated preferences and isolates CSS credentials (client ID: $clientId)',
+        () async {
+          final client = _Client((request) async {
+            final path = request.url.path;
+            if (path == '/site.json') {
+              return _response(
+                request,
+                _siteJson(),
+                contentType: 'application/json',
+              );
+            }
+            if (path == '/u/alice.json') {
+              return _response(
+                request,
+                _userJson(
+                  themeIds: const [6],
+                  colorSchemeId: 20,
+                  darkSchemeId: 21,
+                  interfaceColorMode: 3,
+                ),
+                contentType: 'application/json',
+              );
+            }
+            if (path == '/color-scheme-stylesheet/20/6.json') {
+              return _response(
+                request,
+                _details('/styles/light.css'),
+                contentType: 'application/json',
+              );
+            }
+            if (path == '/color-scheme-stylesheet/21/6.json') {
+              return _response(
+                request,
+                _details('/styles/dark.css'),
+                contentType: 'application/json',
+              );
+            }
+            if (path == '/') {
+              return _response(
+                request,
+                _themeDocument(),
+                contentType: 'text/html',
+              );
+            }
+            if (path == '/styles/light.css') {
+              return _response(request, _paletteCss, contentType: 'text/css');
+            }
+            if (path == '/styles/dark.css') {
+              return _response(
+                request,
+                _paletteCss.replaceFirst('light', 'dark'),
+                contentType: 'text/css',
+              );
+            }
+            throw StateError('Unexpected request: ${request.url}');
+          });
 
-        final appearance = await SiteAppearanceLoader(client: client).load(
-          siteUrl: 'https://forum.example',
-          username: 'alice',
-          apiKey: 'secret-key',
-          clientId: 'client-id',
-        );
+          final appearance = await SiteAppearanceLoader(client: client).load(
+            siteUrl: 'https://forum.example',
+            username: 'alice',
+            apiKey: 'secret-key',
+            clientId: clientId,
+          );
 
-        expect(appearance?.mode, SiteAppearanceMode.alternate);
-        expect(client.requests.map((request) => request.url.path), [
-          '/site.json',
-          '/u/alice.json',
-          '/color-scheme-stylesheet/20/6.json',
-          '/color-scheme-stylesheet/21/6.json',
-          '/',
-          '/styles/light.css',
-          '/styles/dark.css',
-        ]);
-        for (final request in client.requests.take(4)) {
-          expect(request.headers['accept'], 'application/json');
-          expect(request.headers['user-api-key'], 'secret-key');
-          expect(request.headers['user-api-client-id'], 'client-id');
-        }
-        expect(client.requests[4].headers['accept'], 'text/html');
-        expect(client.requests[4].headers['user-api-key'], 'secret-key');
-        expect(client.requests[4].headers['user-api-client-id'], 'client-id');
-        for (final request in client.requests.skip(5)) {
-          expect(request.headers['accept'], 'text/css');
-          expect(request.headers, isNot(contains('user-api-key')));
-          expect(request.headers, isNot(contains('user-api-client-id')));
-        }
-      },
-    );
+          expect(appearance?.mode, SiteAppearanceMode.alternate);
+          expect(client.requests.map((request) => request.url.path), [
+            '/site.json',
+            '/u/alice.json',
+            '/color-scheme-stylesheet/20/6.json',
+            '/color-scheme-stylesheet/21/6.json',
+            '/',
+            '/styles/light.css',
+            '/styles/dark.css',
+          ]);
+          for (final request in client.requests.take(4)) {
+            expect(request.headers['accept'], 'application/json');
+            expect(request.headers['user-api-key'], 'secret-key');
+            expect(
+              request.headers['user-api-client-id'],
+              clientId.isEmpty ? null : clientId,
+            );
+          }
+          expect(client.requests[4].headers['accept'], 'text/html');
+          expect(client.requests[4].headers['user-api-key'], 'secret-key');
+          expect(
+            client.requests[4].headers['user-api-client-id'],
+            clientId.isEmpty ? null : clientId,
+          );
+          for (final request in client.requests.skip(5)) {
+            expect(request.headers['accept'], 'text/css');
+            expect(request.headers, isNot(contains('user-api-key')));
+            expect(request.headers, isNot(contains('user-api-client-id')));
+          }
+        },
+      );
+    }
 
     test('applies selected theme CSS after the color definitions', () async {
       final metaCss = _paletteCss.replaceAll('#0088cc', '#7b5fe2');

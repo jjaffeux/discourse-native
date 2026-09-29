@@ -34,37 +34,47 @@ void main() {
         expect(requestCount, 0);
       });
 
-      test('disables redirects on polls carrying an API key', () async {
-        final firstRequest = Completer<http.Request>();
-        final tracker = SiteTracker(
-          siteUrl: 'https://example.com',
-          apiKey: 'secret',
-          clientId: 'client-id',
-          onIncomingTopics: () {},
-          onNotifications: (_) {},
-          onReviewableCounts: (_) {},
-          shouldLongPoll: () => false,
-          httpClient: MockClient((request) async {
-            if (!firstRequest.isCompleted) firstRequest.complete(request);
-            return http.Response(
-              '',
-              302,
-              headers: {'location': 'http://attacker.example/message-bus/poll'},
+      for (final clientId in ['', 'client-id']) {
+        test(
+          'disables redirects on polls carrying an API key (client ID: $clientId)',
+          () async {
+            final firstRequest = Completer<http.Request>();
+            final tracker = SiteTracker(
+              siteUrl: 'https://example.com',
+              apiKey: 'secret',
+              clientId: clientId,
+              onIncomingTopics: () {},
+              onNotifications: (_) {},
+              onReviewableCounts: (_) {},
+              shouldLongPoll: () => false,
+              httpClient: MockClient((request) async {
+                if (!firstRequest.isCompleted) firstRequest.complete(request);
+                return http.Response(
+                  '',
+                  302,
+                  headers: {
+                    'location': 'http://attacker.example/message-bus/poll',
+                  },
+                );
+              }),
             );
-          }),
-        );
-        addTearDown(tracker.dispose);
-        tracker.start();
+            addTearDown(tracker.dispose);
+            tracker.start();
 
-        final request = await firstRequest.future.timeout(
-          const Duration(seconds: 1),
+            final request = await firstRequest.future.timeout(
+              const Duration(seconds: 1),
+            );
+            expect(request.followRedirects, isFalse);
+            expect(request.headers['User-Api-Key'], 'secret');
+            expect(
+              request.headers['User-Api-Client-Id'],
+              clientId.isEmpty ? null : clientId,
+            );
+            expect(request.bodyFields['/latest'], '-1');
+            expect(request.bodyFields['/new'], '-1');
+          },
         );
-        expect(request.followRedirects, isFalse);
-        expect(request.headers['User-Api-Key'], 'secret');
-        expect(request.headers['User-Api-Client-Id'], 'client-id');
-        expect(request.bodyFields['/latest'], '-1');
-        expect(request.bodyFields['/new'], '-1');
-      });
+      }
 
       test('registers account channels and forwards message data', () async {
         final bus = _FakeMessageBusSession();

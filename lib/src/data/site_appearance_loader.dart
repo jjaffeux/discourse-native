@@ -107,7 +107,8 @@ final class SiteAppearanceLoader {
       'User-Agent': _userAgent,
       if (apiKey != null) ...{
         'User-Api-Key': apiKey,
-        'User-Api-Client-Id': ?clientId,
+        if (clientId case final id? when id.isNotEmpty)
+          'User-Api-Client-Id': id,
       },
     };
     final authenticatedOrigin = apiKey == null ? null : siteBase.origin;
