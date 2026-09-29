@@ -211,7 +211,10 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
   Map<String, String> requestHeaders(Uri url, Uri original) {
     final key = apiKey;
     if (key == null || url.origin != authenticatedOrigin) return const {};
-    return {'User-Api-Key': key, 'User-Api-Client-Id': ?clientId};
+    return {
+      'User-Api-Key': key,
+      if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
+    };
   }
 
   @override

@@ -25,17 +25,12 @@ class Authenticator implements ApiCredentialReader {
     PushRegistrationProvider? pushRegistrations,
     this.protocol = const UserApiKeyProtocol(),
     this.applicationName = 'Discourse Native',
-    Duration pushRegistrationRetryInterval = const Duration(minutes: 2),
-    DateTime Function()? clock,
-  }) : assert(pushRegistrationRetryInterval >= Duration.zero),
-       store = store ?? SecureStore(),
+  }) : store = store ?? SecureStore(),
        _launch = launcher ?? _launchWebAuth,
        _generateKeyPair = keyPairGenerator ?? _generateAuthKeyPair,
        _generateNonce = nonceGenerator ?? SecureStore.randomToken,
        _pushRegistrations =
-           pushRegistrations ?? PlatformPushRegistrationProvider(),
-       _pushRegistrationRetryInterval = pushRegistrationRetryInterval,
-       _clock = clock ?? DateTime.now;
+           pushRegistrations ?? PlatformPushRegistrationProvider();
 
   final SecureStore store;
   final UserApiKeyProtocol protocol;
@@ -45,15 +40,8 @@ class Authenticator implements ApiCredentialReader {
   final String Function() _generateNonce;
   final PushRegistrationProvider _pushRegistrations;
 
-  /// How long [clientId] keeps answering without a live push registration
-  /// after the platform reported none before asking it again.
-  final Duration _pushRegistrationRetryInterval;
-
-  final DateTime Function() _clock;
   final Map<String, Object> _connectionGenerations = {};
   PushRegistration? _knownPushRegistration;
-  DateTime? _pushRegistrationUnavailableAt;
-  Future<PushRegistration?>? _pendingPushRegistration;
 
   static const _supersededConnection = UserApiAuthException(
     UserApiAuthFailure.cancelled,
@@ -77,8 +65,7 @@ class Authenticator implements ApiCredentialReader {
     final generation = Object();
     _connectionGenerations[siteUrl] = generation;
     try {
-      // Connecting is when registration must be attempted, so the platform is
-      // asked directly: an absence remembered by [clientId] is not trusted.
+      // Push identity is registered only through the authorization handshake.
       await _rememberPushRegistration(await _pushRegistrations.registration());
       final clientId = await _readClientId();
       // Only a registration the platform has answered vouches for a push URL.
@@ -172,21 +159,17 @@ class Authenticator implements ApiCredentialReader {
   @override
   Future<String?> apiKeyFor(String siteUrl) => store.readApiKey(siteUrl);
 
+  /// Ordinary requests must preserve the client associated with their API key.
+  /// Discourse interprets a different User-Api-Client-Id as a client migration,
+  /// creating a row even if that ID already exists. A live APNs token is not
+  /// necessarily the token used to authorize this key (notably across iOS
+  /// build environments), and concurrent migrations can also collide.
+  /// An empty ID tells transports to omit the optional header. Sign-in still
+  /// registers the push token; token changes require a new authorization.
   @override
-  Future<String> clientId() async {
-    await _pushRegistration();
-    return _readClientId();
-  }
+  Future<String> clientId() async => '';
 
-  /// Answers the live push registration, else the newest one this install has
-  /// recorded, else the per-install id.
-  ///
-  /// Discourse moves a key to a newly created client row whenever a request
-  /// names a different client id, and keeps the row it left. Naming an older
-  /// id again would create that row a second time, which its unique index
-  /// refuses on every request. The id therefore only moves forward: the
-  /// per-install id until the first registration, then each newer token, even
-  /// while the platform cannot currently answer.
+  /// The client identity for a new authorization, never for ordinary requests.
   Future<String> _readClientId() async {
     if (_knownPushRegistration case final known?) return known.clientId;
     final recorded = await store.readPushClientId();
@@ -197,8 +180,7 @@ class Authenticator implements ApiCredentialReader {
     return _knownPushRegistration?.clientId ?? fallback;
   }
 
-  /// Records [registration] before any request can name it, so a relaunch
-  /// that cannot reach the platform still answers this id, never an older one.
+  /// Records [registration] for subsequent authorization attempts.
   ///
   /// The store completes these writes in call order, so memory and storage
   /// settle on the same, latest registration.
@@ -213,47 +195,6 @@ class Authenticator implements ApiCredentialReader {
       reportStorageFailure(error, stackTrace, 'credentials.pushClientId');
     }
     _knownPushRegistration = registration;
-    _pushRegistrationUnavailableAt = null;
-  }
-
-  /// Reads the push registration for [clientId], asking the platform at most
-  /// once at a time and, once it has answered that none is available, at most
-  /// once per retry interval.
-  ///
-  /// A registration is kept for this authenticator's lifetime: the platform
-  /// keeps the token it handed out, so the answer cannot change. An absence is
-  /// believed only for the interval because the platform re-runs registration
-  /// on the next read, and that read can wait its whole registration timeout
-  /// while APNs is unreachable. Every authenticated request reads the client
-  /// id, so that wait is paid once per interval rather than once per request.
-  Future<PushRegistration?> _pushRegistration() {
-    final known = _knownPushRegistration;
-    if (known != null) return Future.value(known);
-    final pending = _pendingPushRegistration;
-    if (pending != null) return pending;
-    final unavailableAt = _pushRegistrationUnavailableAt;
-    if (unavailableAt != null &&
-        _clock().difference(unavailableAt) <= _pushRegistrationRetryInterval) {
-      return Future.value(null);
-    }
-
-    late final Future<PushRegistration?> read;
-    read = _pushRegistrations
-        .registration()
-        .then((registration) async {
-          await _rememberPushRegistration(registration);
-          if (_knownPushRegistration == null) {
-            _pushRegistrationUnavailableAt = _clock();
-          }
-          return _knownPushRegistration;
-        })
-        .whenComplete(() {
-          if (identical(_pendingPushRegistration, read)) {
-            _pendingPushRegistration = null;
-          }
-        });
-    _pendingPushRegistration = read;
-    return read;
   }
 
   Future<void> disconnect(String siteUrl) {

@@ -571,7 +571,7 @@ final class DiscourseTransport {
 
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
-    'User-Api-Client-Id': ?clientId,
+    if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
     'User-Agent': userAgent,
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',

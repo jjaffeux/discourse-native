@@ -13,42 +13,51 @@ void main() {
   const siteUrl = 'https://forum.example';
   const secureUrl = '$siteUrl/secure-uploads/original/image.png';
 
-  test('authenticates the forum hop but never a CDN redirect', () async {
-    final credentials = FakeApiCredentialReader()
-      ..keys[siteUrl] = 'account-key';
-    final requests = <http.Request>[];
-    final repository = SiteImageRepository(
-      credentials: credentials,
-      lifecycle: SiteLifecycle(),
-      client: MockClient((request) async {
-        requests.add(request);
-        if (request.url.host == 'forum.example') {
-          return http.Response(
-            '',
-            302,
-            headers: {
-              'location': 'https://objects.example/signed/image.png?token=x',
-              'cache-control': 'private, no-store',
-            },
-          );
-        }
-        return http.Response.bytes([1, 2, 3], 200);
-      }),
+  for (final clientId in ['', 'test-client']) {
+    test(
+      'authenticates the forum hop but never a CDN redirect (client ID: $clientId)',
+      () async {
+        final credentials = FakeApiCredentialReader(clientIdValue: clientId)
+          ..keys[siteUrl] = 'account-key';
+        final requests = <http.Request>[];
+        final repository = SiteImageRepository(
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          client: MockClient((request) async {
+            requests.add(request);
+            if (request.url.host == 'forum.example') {
+              return http.Response(
+                '',
+                302,
+                headers: {
+                  'location':
+                      'https://objects.example/signed/image.png?token=x',
+                  'cache-control': 'private, no-store',
+                },
+              );
+            }
+            return http.Response.bytes([1, 2, 3], 200);
+          }),
+        );
+        addTearDown(repository.dispose);
+
+        final image = await repository.load(siteUrl: siteUrl, url: secureUrl);
+
+        expect(image?.bytes, orderedEquals([1, 2, 3]));
+        expect(image?.isAnimated, isFalse);
+        expect(requests, hasLength(2));
+        expect(requests.first.followRedirects, isFalse);
+        expect(requests.first.headers['User-Api-Key'], 'account-key');
+        expect(
+          requests.first.headers['User-Api-Client-Id'],
+          clientId.isEmpty ? null : clientId,
+        );
+        expect(requests.last.url.host, 'objects.example');
+        expect(requests.last.headers, isNot(contains('User-Api-Key')));
+        expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
+      },
     );
-    addTearDown(repository.dispose);
-
-    final image = await repository.load(siteUrl: siteUrl, url: secureUrl);
-
-    expect(image?.bytes, orderedEquals([1, 2, 3]));
-    expect(image?.isAnimated, isFalse);
-    expect(requests, hasLength(2));
-    expect(requests.first.followRedirects, isFalse);
-    expect(requests.first.headers['User-Api-Key'], 'account-key');
-    expect(requests.first.headers['User-Api-Client-Id'], 'test-client');
-    expect(requests.last.url.host, 'objects.example');
-    expect(requests.last.headers, isNot(contains('User-Api-Key')));
-    expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
-  });
+  }
 
   test('recognizes animated image responses', () async {
     final repository = SiteImageRepository(

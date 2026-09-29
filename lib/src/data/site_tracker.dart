@@ -495,7 +495,7 @@ class SiteTracker {
   static Map<String, String> _headers(String? apiKey, String? clientId) => {
     'User-Agent': DiscourseApi.userAgent,
     'User-Api-Key': ?apiKey,
-    'User-Api-Client-Id': ?clientId,
+    if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
   };
 }
 

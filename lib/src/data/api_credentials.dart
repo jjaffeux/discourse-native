@@ -3,13 +3,11 @@ abstract interface class SiteApiKeyReader {
 }
 
 abstract interface class ApiCredentialReader implements SiteApiKeyReader {
-  /// The `User-Api-Client-Id` to send beside a user API key.
+  /// An optional client migration ID; empty means omit User-Api-Client-Id.
   ///
-  /// Read this only for a request that carries a key: the site ignores the
-  /// header without one, and reading it may ask the platform for a push
-  /// registration. On Apple that raises the notification permission prompt,
-  /// which belongs to connecting an account, and can wait out the whole
-  /// registration timeout while APNs is unreachable.
+  /// Normal requests should leave this empty: the API key already identifies
+  /// its registered client. Sending a different ID asks Discourse to create a
+  /// new client row, which can collide with an existing registration.
   Future<String> clientId();
 }
 
