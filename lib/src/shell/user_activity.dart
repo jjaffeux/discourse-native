@@ -336,7 +336,8 @@ class UserActivityRow extends StatelessWidget {
                           CookedHtml(
                             html: item.excerpt,
                             siteUrl: siteUrl,
-                            textStyle: theme.textTheme.bodyMedium?.copyWith(
+                            textStyle: theme.textTheme.bodyLarge?.copyWith(
+                              height: theme.textTheme.bodyMedium?.height,
                               color: theme.discourse.primaryHigh,
                             ),
                             compactParagraphs: true,

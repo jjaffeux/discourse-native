@@ -158,13 +158,32 @@ final class ForumThemePreferences {
         },
       };
 
+  /// Resolves this forum's choices against the shared library.
+  ForumThemePreferences withLibrary(List<ForumTheme> library) =>
+      ForumThemePreferences(
+        source:
+            source == ForumThemeSource.custom &&
+                !library.any((theme) => theme.id == customId)
+            ? ForumThemeSource.forum
+            : source,
+        presets: presets,
+        customId: customId,
+        customThemes: library,
+      );
+
   /// Reuses an identical theme already in the library, including the sender's
   /// original saved theme when they use their own shared card.
   ForumThemePreferences importTheme(ForumTheme theme) {
     final existing = customThemes
         .where((held) => ForumThemeShare.matches(held, theme))
         .firstOrNull;
-    return existing == null ? save(theme) : useTheme(existing.id);
+    if (existing != null) return useTheme(existing.id);
+    var id = theme.id;
+    var suffix = 2;
+    while (customThemes.any((held) => held.id == id)) {
+      id = '${theme.id}-${suffix++}';
+    }
+    return save(ForumTheme.fromJson(theme.toJson(), id: id));
   }
 
   Map<String, dynamic> toJson() => {

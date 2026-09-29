@@ -121,7 +121,10 @@ void main() {
       final saved = await store.loadThemes(site);
       expect(saved.customThemes, [existing, incoming]);
       expect(saved.customTheme, incoming);
-      expect(await store.loadThemes(otherSite), original);
+      expect(
+        await store.loadThemes(otherSite),
+        original.withLibrary([existing, incoming]),
+      );
       await settings.importTheme(site, incoming);
       expect(settings.themesFor(site).customThemes, [existing, incoming]);
       final second = ForumThemeShare.decode(

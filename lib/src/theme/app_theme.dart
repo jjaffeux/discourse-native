@@ -455,6 +455,7 @@ abstract final class AppTheme {
   static ThemeData forBrightness(
     Brightness brightness, {
     String? fontFamily,
+    String? readingFontFamily,
     ForumBackground? background,
   }) {
     final theme = _build(
@@ -465,6 +466,7 @@ abstract final class AppTheme {
           ? DiscourseColors.dark
           : DiscourseColors.light,
       fontFamily: fontFamily,
+      readingFontFamily: readingFontFamily,
     );
     if (background == null || background.isPlain) return theme;
     return theme.copyWith(
@@ -491,6 +493,7 @@ abstract final class AppTheme {
   static ThemeData fromPalette(
     ResolvedSitePalette palette, {
     String? fontFamily,
+    String? readingFontFamily,
   }) {
     final fallback = palette.brightness == Brightness.dark
         ? ShellColors.dark
@@ -619,6 +622,7 @@ abstract final class AppTheme {
       code,
       discourse,
       fontFamily: fontFamily,
+      readingFontFamily: readingFontFamily,
       colorScheme: colorScheme,
       avatarBorderRadius: palette.avatarBorderRadius,
     );
@@ -662,7 +666,11 @@ abstract final class AppTheme {
         success: palette.success,
         love: palette.love,
       ).resolve(Brightness.dark, forumPalette: palette);
-      sidebarTheme = fromPalette(sidebarPalette, fontFamily: fontFamily);
+      sidebarTheme = fromPalette(
+        sidebarPalette,
+        fontFamily: fontFamily,
+        readingFontFamily: readingFontFamily,
+      );
     }
     return theme.copyWith(
       extensions: [
@@ -691,6 +699,7 @@ abstract final class AppTheme {
     CodeColors code,
     DiscourseColors discourse, {
     String? fontFamily,
+    String? readingFontFamily,
     ColorScheme? colorScheme,
     AvatarBorderRadius avatarBorderRadius = defaultDiscourseAvatarBorderRadius,
   }) {
@@ -706,6 +715,14 @@ abstract final class AppTheme {
         fontFamily: fontFamily,
         fontFamilyFallback: forumFontFamilyFallback(fontFamily),
       ).textTheme,
+    );
+    final readingTextTheme = textTheme.copyWith(
+      bodyLarge: textTheme.bodyLarge!.copyWith(
+        fontFamily: readingFontFamily ?? textTheme.bodyLarge!.fontFamily,
+        fontFamilyFallback:
+            forumFontFamilyFallback(readingFontFamily) ??
+            textTheme.bodyLarge!.fontFamilyFallback,
+      ),
     );
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(DRadius.control),
@@ -761,7 +778,7 @@ abstract final class AppTheme {
       fontFamily: fontFamily,
       fontFamilyFallback: forumFontFamilyFallback(fontFamily),
       colorScheme: resolvedColorScheme,
-      textTheme: textTheme,
+      textTheme: readingTextTheme,
       // MaterialApp remains the common application shell, but Flutter's
       // adaptive widgets read CupertinoTheme on Apple platforms. Keep that
       // theme on the same Discourse palette rather than falling back to the

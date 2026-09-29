@@ -19463,5 +19463,43 @@
         "type": "int"
       }
     }
+  },
+  "interfaceFontUse": "Interface",
+  "@interfaceFontUse": {
+    "description": "Font assignment for app navigation and controls."
+  },
+  "readingFontUse": "Reading",
+  "@readingFontUse": {
+    "description": "Font assignment for authored prose and content."
+  },
+  "fontForInterface": "{font} for interface",
+  "@fontForInterface": {
+    "description": "Accessible label assigning a named font to app controls.",
+    "placeholders": {
+      "font": {
+        "type": "String"
+      }
+    }
+  },
+  "fontForReading": "{font} for reading",
+  "@fontForReading": {
+    "description": "Accessible label assigning a named font to prose.",
+    "placeholders": {
+      "font": {
+        "type": "String"
+      }
+    }
+  },
+  "fontAssignmentsDescription": "Choose fonts for the interface and reading in every forum. System default reading follows the interface font.",
+  "@fontAssignmentsDescription": {
+    "description": "Explanation of the independent shared font assignments."
+  },
+  "confirmThemeEverywhere": "Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.",
+  "@confirmThemeEverywhere": {
+    "description": "Confirmation before replacing theme selections across forums and Home."
+  },
+  "confirmUseEverywhere": "Use everywhere",
+  "@confirmUseEverywhere": {
+    "description": "Confirm replacement of theme selections across every forum and Home."
   }
 }

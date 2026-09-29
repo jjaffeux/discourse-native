@@ -289,7 +289,7 @@ class CookedHtml extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = textStyle ?? theme.textTheme.bodyLarge;
+    final style = theme.textTheme.bodyLarge?.merge(textStyle) ?? textStyle;
     final surface = theme.colorScheme.surface;
     final horizontalRuleColor = _cssColor(
       theme.extension<ShellColors>()?.divider ?? theme.dividerColor,

@@ -6,14 +6,23 @@ enum AppThemeMode { system, light, dark }
 enum TopicListDisplayMode { card, compact }
 
 enum AppTextScale {
-  percent80(0.8),
-  percent90(0.9),
-  percent100(1.0),
-  percent110(1.1),
+  percent80(0.80),
+  percent85(0.85),
+  percent90(0.90),
+  percent95(0.95),
+  percent100(1.00),
+  percent105(1.05),
+  percent110(1.10),
+  percent115(1.15),
+  percent120(1.20),
   percent125(1.25),
-  percent150(1.5),
+  percent130(1.30),
+  percent135(1.35),
+  percent140(1.40),
+  percent145(1.45),
+  percent150(1.50),
   percent175(1.75),
-  percent200(2.0);
+  percent200(2.00);
 
   const AppTextScale(this.factor);
 
@@ -23,7 +32,7 @@ enum AppTextScale {
 @immutable
 final class AppSettings {
   const AppSettings({
-    this.limitContentSize = false,
+    this.limitContentSize = true,
     this.disableGifAnimations = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,

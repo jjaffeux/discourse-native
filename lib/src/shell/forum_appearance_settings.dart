@@ -32,6 +32,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   /// The theme being edited. It is saved only from the editor.
   ForumTheme? _editing;
   bool _creating = false;
+  bool _confirmEverywhere = false;
 
   /// The editor's latest draft, which the app shows until Save or Cancel.
   ForumTheme? _draft;
@@ -177,13 +178,41 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                   .firstOrNull
                   ?.title ??
               Uri.parse(site).host;
-    final note = _HeadingNote(appL10n.appliesToOnly((forumName).toString()));
-    Widget action() => DButton(
-      key: const ValueKey('theme-use-everywhere'),
-      label: Text(appL10n.useOnEveryForum),
-      variant: DButtonVariant.outline,
-      size: DButtonSize.regular,
-      onPressed: () => unawaited(_useEverywhere(others)),
+    final note = _HeadingNote(
+      _confirmEverywhere
+          ? context.l10n.confirmThemeEverywhere
+          : appL10n.appliesToOnly((forumName).toString()),
+    );
+    Widget action() => Wrap(
+      spacing: DSpacing.sm,
+      runSpacing: DSpacing.sm,
+      children: [
+        if (_confirmEverywhere)
+          DButton(
+            key: const ValueKey('theme-use-everywhere-cancel'),
+            label: Text(context.l10n.cancel),
+            variant: DButtonVariant.ghost,
+            onPressed: () => setState(() => _confirmEverywhere = false),
+          ),
+        DButton(
+          key: const ValueKey('theme-use-everywhere'),
+          label: Text(
+            _confirmEverywhere
+                ? context.l10n.confirmUseEverywhere
+                : appL10n.useOnEveryForum,
+          ),
+          variant: DButtonVariant.outline,
+          size: DButtonSize.regular,
+          onPressed: () {
+            if (_confirmEverywhere) {
+              setState(() => _confirmEverywhere = false);
+              unawaited(_useEverywhere(others));
+            } else {
+              setState(() => _confirmEverywhere = true);
+            }
+          },
+        ),
+      ],
     );
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth < 500
@@ -245,7 +274,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       final preferences = settings.themesFor(widget.siteUrl);
       final mode = settings.themeModeFor(widget.siteUrl);
       final brightness = _brightness();
-      final fontFamily = settings.shared.font.family;
+      final fontFamily = settings.shared.interfaceFont.family;
       final others = _otherForums();
       final editing = _editing;
       return SingleChildScrollView(

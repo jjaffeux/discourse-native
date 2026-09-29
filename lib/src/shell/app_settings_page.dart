@@ -6,10 +6,11 @@ import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
 import '../models/forum_background.dart';
-import '../models/forum_font.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
 import 'forum_appearance_effects.dart';
+import 'forum_display_settings.dart';
+import 'forum_font_chooser.dart';
 import 'forum_settings_controller.dart';
 import 'shell_scope.dart';
 
@@ -71,22 +72,25 @@ class AppSettingsModal extends StatelessWidget {
             builder: (context, _) => DFieldGroup(
               key: const ValueKey('app-settings-form'),
               children: [
-                DSwitchTile(
-                  key: const ValueKey('limit-content-size-switch'),
-                  hoverHighlight: true,
-                  title: DLabel(child: Text(context.l10n.limitContentSize)),
-                  subtitle: DFieldDescription(
-                    child: Text(
-                      context
-                          .l10n
-                          .centerContentInEachPanelWithAMaximumWidthOf825,
+                if (MediaQuery.sizeOf(context).width >=
+                    ForumDisplaySettings.wideLayoutMinWidth) ...[
+                  DSwitchTile(
+                    key: const ValueKey('limit-content-size-switch'),
+                    hoverHighlight: true,
+                    title: DLabel(child: Text(context.l10n.limitContentSize)),
+                    subtitle: DFieldDescription(
+                      child: Text(
+                        context
+                            .l10n
+                            .centerContentInEachPanelWithAMaximumWidthOf825,
+                      ),
                     ),
+                    value: appSettings.limitContentSize,
+                    onChanged: (value) =>
+                        unawaited(appSettings.setLimitContentSize(value)),
                   ),
-                  value: appSettings.limitContentSize,
-                  onChanged: (value) =>
-                      unawaited(appSettings.setLimitContentSize(value)),
-                ),
-                const DFieldSeparator(),
+                  const DFieldSeparator(),
+                ],
                 _TextSizeSetting(
                   scale: appSettings.textScale,
                   onDecrease: appSettings.textScale.index == 0
@@ -151,110 +155,32 @@ class _SettingsField extends StatelessWidget {
   );
 }
 
-/// The reading font, which every forum and Aggregate share. Each choice is
-/// drawn in its own face so it can be compared before it is chosen.
 class _FontSetting extends StatelessWidget {
   const _FontSetting({required this.settings});
-
   final ForumSettingsController settings;
 
-  Future<void> _choose(BuildContext context, ForumFont font) async {
-    try {
-      // Read when the choice lands: the effects may have changed since the
-      // modal last drew.
-      await settings.setShared(settings.shared.copyWith(font: font));
-    } catch (_) {
-      if (context.mounted) {
-        DToast.show(
-          context,
-          appL10n.couldNotSaveTheFont,
-          type: DToastType.error,
-        );
-      }
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final systemFamily = ThemeData(
-      platform: theme.platform,
-    ).textTheme.bodyLarge!.fontFamily;
-    return ListenableBuilder(
-      listenable: settings,
-      builder: (context, _) {
-        final chosen = settings.shared.font;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: DSpacing.md,
-          children: [
-            DFieldContent(
-              children: [
-                DFieldTitle(
-                  child: Semantics(
-                    headingLevel: 2,
-                    child: Text(context.l10n.font),
-                  ),
-                ),
-                DFieldDescription(
-                  child: Text(
-                    context.l10n.usedForReadingAndWritingInEveryForum,
-                  ),
-                ),
-              ],
-            ),
-            DCard(
-              spacing: 16,
-              backgroundColor: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              children: [
-                DCardContent(
-                  child: DItemGroup(
-                    key: const ValueKey('app-settings-font'),
-                    spacing: 0,
-                    children: [
-                      for (final font in ForumFont.values) ...[
-                        if (font != ForumFont.values.first)
-                          const DItemSeparator(),
-                        DItem(
-                          key: ValueKey('appearance-font-${font.name}'),
-                          selected: chosen == font,
-                          shape: DItemShape.fullWidth,
-                          selectionStyle: DItemSelectionStyle.leadingAccent,
-                          onPressed: () => unawaited(_choose(context, font)),
-                          children: [
-                            DItemContent(
-                              children: [
-                                Text(
-                                  font.label,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                Text(
-                                  context
-                                      .l10n
-                                      .theQuickBrownFoxJumpsOverTheLazyDog,
-                                  style: theme.textTheme.bodyLarge!.copyWith(
-                                    fontFamily: font.family ?? systemFamily,
-                                    fontFamilyFallback:
-                                        forumFontFamilyFallback(font.family) ??
-                                        const [],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DFieldContent(
+        children: [
+          DFieldTitle(
+            child: Semantics(headingLevel: 2, child: Text(context.l10n.font)),
+          ),
+          DFieldDescription(
+            child: Text(context.l10n.fontAssignmentsDescription),
+          ),
+        ],
+      ),
+      ForumFontChooser(
+        key: const ValueKey('app-settings-font'),
+        settings: settings,
+        keyPrefix: 'appearance',
+      ),
+    ],
+  );
 }
 
 /// The window effects, which every forum draws over its own colours. The

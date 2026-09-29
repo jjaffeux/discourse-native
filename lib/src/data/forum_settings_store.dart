@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_settings.dart';
 import '../models/forum_background.dart';
 import '../models/forum_font.dart';
+import '../models/forum_theme_library.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/shared_appearance.dart';
 import 'scalar_preference_repository.dart';
@@ -128,45 +129,125 @@ final class ForumSettingsStore {
     );
   }
 
+  static const themeLibraryKey = 'discourse_native.theme_library';
+  ForumThemeLibrary _themeLibrary = ForumThemeLibrary();
+  final _pendingThemeMigrations = <String, ForumThemePreferences>{};
+  ForumThemeLibrary get themeLibrary => _themeLibrary;
+
+  Future<ForumThemeLibrary> _readThemeLibrary() async {
+    final raw = await _persistence.read(themeLibraryKey);
+    var library = raw == null
+        ? ForumThemeLibrary()
+        : ForumThemeLibrary.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    for (final entry in _pendingThemeMigrations.entries) {
+      library = library.migrate(entry.key, entry.value);
+    }
+    return library;
+  }
+
+  Future<ForumThemeLibrary> _migrateThemes(
+    ForumThemeLibrary library,
+    String site,
+  ) async {
+    if (library.forums.containsKey(site)) return library;
+    final raw = await _persistence.read(themesKey(site));
+    final legacy = raw == null
+        ? ForumThemePreferences.defaults
+        : ForumThemePreferences.fromJson(
+            jsonDecode(raw) as Map<String, dynamic>,
+          );
+    _pendingThemeMigrations[site] = legacy;
+    return library.migrate(site, legacy);
+  }
+
+  Future<void> _writeThemeLibrary(ForumThemeLibrary library) async {
+    if (!await _persistence.write(
+      themeLibraryKey,
+      jsonEncode(library.toJson()),
+    )) {
+      throw StateError('Could not save the theme library.');
+    }
+    _themeLibrary = library;
+    _pendingThemeMigrations.removeWhere(
+      (site, _) => library.forums.containsKey(site),
+    );
+  }
+
   Future<ForumThemePreferences> loadThemes(String siteUrl) => _operations.run(
     owner: _persistence,
-    key: themesKey(siteUrl),
+    key: themeLibraryKey,
     operation: () async {
+      final site = requireStoredForumBase(siteUrl);
       try {
-        final raw = await _persistence.read(themesKey(siteUrl));
-        if (raw == null) return ForumThemePreferences.defaults;
-        return ForumThemePreferences.fromJson(
-          jsonDecode(raw) as Map<String, dynamic>,
-        );
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
-        return ForumThemePreferences.defaults;
-      }
-    },
-  );
-
-  Future<void> writeThemes(String siteUrl, ForumThemePreferences value) =>
-      _operations.run<void>(
-        owner: _persistence,
-        key: themesKey(siteUrl),
-        operation: () async {
+        final library = await _readThemeLibrary();
+        final migrated = await _migrateThemes(library, site);
+        if (!identical(library, migrated) ||
+            _pendingThemeMigrations.isNotEmpty) {
+          // Keep the legacy document until the whole migration is durable.
           try {
-            if (!await _persistence.write(
-              themesKey(siteUrl),
-              jsonEncode(value.toJson()),
-            )) {
-              throw StateError('Could not save the forum theme.');
-            }
+            await _writeThemeLibrary(migrated);
           } catch (error, stackTrace) {
             reportStorageFailure(
               error,
               stackTrace,
-              'forumSettings.writeThemes',
+              'forumSettings.migrateThemes',
             );
-            rethrow;
+            // Keep showing the legacy choice and retry migration next load.
+            _themeLibrary = migrated;
           }
-        },
+        } else {
+          _themeLibrary = library;
+        }
+        return migrated.forSite(site);
+      } catch (error, stackTrace) {
+        reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+        return _themeLibrary.forSite(site);
+      }
+    },
+  );
+
+  Future<void> writeThemes(
+    String siteUrl,
+    ForumThemePreferences value, {
+    ForumThemePreferences? previous,
+  }) => _operations.run<void>(
+    owner: _persistence,
+    key: themeLibraryKey,
+    operation: () async {
+      final site = requireStoredForumBase(siteUrl);
+      try {
+        final library = await _migrateThemes(await _readThemeLibrary(), site);
+        await _writeThemeLibrary(
+          library.update(
+            site,
+            value,
+            previous: previous ?? library.forSite(site),
+          ),
+        );
+      } catch (error, stackTrace) {
+        reportStorageFailure(error, stackTrace, 'forumSettings.writeThemes');
+        rethrow;
+      }
+    },
+  );
+
+  /// Disconnecting forgets selections but keeps the shared authored themes.
+  Future<void> forgetThemes(ForgottenSites sites) => _operations.run<void>(
+    owner: _persistence,
+    key: themeLibraryKey,
+    operation: () async {
+      final library = await _readThemeLibrary();
+      _pendingThemeMigrations.removeWhere((site, _) => sites.includes(site));
+      await _writeThemeLibrary(
+        ForumThemeLibrary(
+          themes: library.themes,
+          forums: Map.fromEntries(
+            library.forums.entries.where((entry) => !sites.includes(entry.key)),
+          ),
+        ),
       );
+    },
+  );
 
   /// Seeds a previously unconfigured forum once, preserving the old app choice
   /// for existing forums and using System for newly connected forums.

@@ -203,6 +203,41 @@ TextStyle styleOf(WidgetTester tester, String text) {
 }
 
 void main() {
+  testWidgets(
+    'prose uses the reading font with local styles and keeps explicit code fonts',
+    (tester) async {
+      final theme = AppTheme.forBrightness(
+        Brightness.light,
+        fontFamily: 'Open Sans',
+        readingFontFamily: 'Lato',
+      );
+      for (final (override, expected) in [
+        (const TextStyle(fontSize: 17), 'Lato'),
+        (const TextStyle(fontFamily: 'monospace'), 'monospace'),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: CookedHtml(
+                html: '<p>Reading sample</p>',
+                textStyle: override,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(
+          tester
+              .widget<HtmlWidget>(find.byType(HtmlWidget))
+              .textStyle!
+              .fontFamily,
+          expected,
+        );
+      }
+    },
+  );
+
   testWidgets('completed task strikes only its first logical line', (
     tester,
   ) async {

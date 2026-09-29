@@ -373,7 +373,10 @@ void main() {
       const SharedAppearance(font: ForumFont.lato, iconSet: DIconSet.phosphor),
     );
     expect(
-      SharedAppearance.fromJson({...shared.toJson(), 'font': 'unknown'}).font,
+      SharedAppearance.fromJson({
+        ...shared.toJson(),
+        'readingFont': 'unknown',
+      }).font,
       ForumFont.system,
     );
     expect(
@@ -388,7 +391,7 @@ void main() {
       DIconSet.defaultSet,
     );
     expect(
-      () => SharedAppearance.fromJson(const {'version': 2}),
+      () => SharedAppearance.fromJson(const {'version': 3}),
       throwsFormatException,
     );
     // An older shared theme's own tint colour becomes the accent tint, which
@@ -647,7 +650,7 @@ void main() {
 
       await settings.setThemes(
         site,
-        ForumThemePreferences().withPreset(Brightness.dark, 'dracula'),
+        settings.themesFor(site).withPreset(Brightness.dark, 'dracula'),
       );
       await settings.useThemesIn(site, [site, other, third]);
       for (final forum in [other, third]) {
@@ -684,7 +687,7 @@ void main() {
       await store.writeThemes(other, ForumThemePreferences().save(theirs));
       final settings = ForumSettingsController(store: store);
       addTearDown(settings.dispose);
-      await settings.setThemes(site, ForumThemePreferences().save(custom));
+      await settings.setThemes(site, settings.themesFor(site).save(custom));
       await settings.useThemesIn(site, [other]);
       expect(settings.themesFor(other).customThemes, [theirs, custom]);
       expect((await store.loadThemes(other)).customTheme, custom);
