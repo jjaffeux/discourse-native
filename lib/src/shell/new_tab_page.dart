@@ -13,25 +13,36 @@ import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
+import '../models/list_link.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
+import 'app_settings_page.dart';
+import 'avatar_image.dart';
+import 'external_link.dart';
 import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'start_page_drag.dart';
+import 'topic_list_actions.dart';
 
 /// The landing surface for an otherwise empty forum tab.
 class NewTabPage extends StatefulWidget {
-  const NewTabPage({super.key, required this.onBrowseTopics});
+  const NewTabPage({
+    super.key,
+    required this.onBrowseTopics,
+    this.aggregate = false,
+  });
 
   final VoidCallback onBrowseTopics;
+  final bool aggregate;
 
   @override
   State<NewTabPage> createState() => _NewTabPageState();
@@ -54,6 +65,7 @@ class _NewTabPageState extends State<NewTabPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (widget.aggregate) return;
     final instance = ShellScope.maybeOf(context)?.currentInstance;
     if (instance == null || (instance.loginRequired && !instance.isConnected)) {
       _requestedLatestSite = null;
@@ -126,6 +138,11 @@ class _NewTabPageState extends State<NewTabPage> {
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
+        if (widget.aggregate) ...[
+          shell.aggregate,
+          for (final ref in shell.aggregate.state.topics.take(8))
+            shell.topicRef(ref.siteUrl, ref.topicId),
+        ],
         TimezoneEnvironment.instance,
         ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
@@ -134,20 +151,29 @@ class _NewTabPageState extends State<NewTabPage> {
   }
 
   Widget _buildPage(BuildContext context) {
+    if (widget.aggregate) return _buildAggregatePage(context);
     final shell = ShellScope.maybeOf(context);
     final forum = shell?.currentInstance;
     final registry = PluginScope.maybeOf(context)?.registry;
     final siteUrl = forum?.url;
     final pluginSections =
         registry?.sidebarSections(context) ?? const <SidebarSection>[];
-    final unreadChannels = [
+    final conversations = [
       for (final section in pluginSections)
         for (final destination in section.destinations)
           if (destination.enabled &&
-              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id) &&
-              (destination.badge?.isVisible ?? false))
+              RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id))
             destination,
     ];
+    conversations.sort((a, b) {
+      final unread = (b.badge?.isVisible == true ? 1 : 0).compareTo(
+        a.badge?.isVisible == true ? 1 : 0,
+      );
+      if (unread != 0) return unread;
+      return (b.lastActivityAt ?? DateTime(1970)).compareTo(
+        a.lastActivityAt ?? DateTime(1970),
+      );
+    });
     final hasChat = pluginSections.any(
       (section) =>
           section.id.startsWith('chat') || section.id == 'direct-messages',
@@ -164,18 +190,34 @@ class _NewTabPageState extends State<NewTabPage> {
             )
             .toList() ??
         const <SidebarDestination>[];
-    final categories = siteUrl == null
-        ? <ContentRoute>[]
-        : shell!.recentCategoriesFor(siteUrl);
     final categoryDetails = siteUrl == null
         ? <int, TopicCategory>{}
         : {
-            for (final category in shell!.topicComposerCategories(siteUrl))
+            for (final category in shell!.filterCategoriesFor(siteUrl))
               category.id: category,
           };
+    // This catalogue is scoped by the server to the current reader. History
+    // must never reintroduce categories removed by a permission change.
+    final categories = [
+      for (final category in categoryDetails.values)
+        ContentRoute.list(
+          ListLink.parse(
+            Uri(
+              pathSegments: [
+                '',
+                'c',
+                if (category.slug.isNotEmpty) category.slug,
+                '${category.id}',
+              ],
+            ).toString(),
+          )!,
+          title: category.name,
+          color: Color(category.colorValue),
+        ),
+    ];
     final latest = siteUrl == null
         ? <Topic>[]
-        : shell!.cachedLatestTopicsFor(siteUrl).take(4).toList();
+        : shell!.cachedLatestTopicsFor(siteUrl).take(8).toList();
     final bookmarks = siteUrl == null
         ? <Bookmark>[]
         : shell!.bookmarksFor(siteUrl).loaded
@@ -183,7 +225,7 @@ class _NewTabPageState extends State<NewTabPage> {
               .bookmarksFor(siteUrl)
               .bookmarks
               .where((b) => b.path != null)
-              .take(4)
+              .take(8)
               .toList()
         : <Bookmark>[];
     final closed =
@@ -204,7 +246,7 @@ class _NewTabPageState extends State<NewTabPage> {
     );
 
     final categoryRows = [
-      for (final route in categories.take(4))
+      for (final route in categories.take(8))
         _StartPageEntry.fromRoute(
           route,
           () => _openRoute(context, route),
@@ -216,10 +258,10 @@ class _NewTabPageState extends State<NewTabPage> {
         ),
     ];
     final chatRows = [
-      for (final destination in unreadChannels.take(4))
+      for (final destination in conversations.take(8))
         _StartPageEntry.fromRoute(
           ContentRoute.fromDestination(destination),
-          () => destination.onTap?.call(),
+          () => shell!.selectDestination(destination),
           siteUrl: siteUrl,
           destination: destination,
         ),
@@ -268,20 +310,8 @@ class _NewTabPageState extends State<NewTabPage> {
         ),
     ];
     final closedRows = [
-      for (final tab in closed.take(4))
-        _StartPageEntry(
-          id: 'closed-${tab.id}',
-          title: tab.currentContent.title,
-          icon: tab.currentContent.icon,
-          path: _recentRouteUrl(siteUrl, tab.currentContent),
-          bookmarkUrl: tab.currentContent.topicId == null || siteUrl == null
-              ? null
-              : resolveSiteRootPath(
-                  siteUrl,
-                  '/t/${tab.currentContent.topicId}',
-                ),
-          onPressed: () => shell!.reopenClosedTab(tab.id),
-        ),
+      for (final tab in closed.take(8))
+        _closedEntry(context, tab, siteUrl!, categoryDetails, conversations),
     ];
     final primarySections = siteUrl == null
         ? <_StartSection>[]
@@ -324,7 +354,6 @@ class _NewTabPageState extends State<NewTabPage> {
               ),
           ];
 
-    final tokens = DTokens.of(context);
     return SingleChildScrollView(
       child: DPageReadingLaneBox(
         child: Align(
@@ -362,39 +391,23 @@ class _NewTabPageState extends State<NewTabPage> {
                                 ).textTheme.headlineSmall,
                               ),
                             if (forum != null)
-                              Text(
-                                Uri.tryParse(forum.url)?.host ?? forum.url,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: tokens.mutedForeground),
+                              DButton(
+                                key: const ValueKey('start-page-forum-website'),
+                                variant: DButtonVariant.link,
+                                size: DButtonSize.small,
+                                isLink: true,
+                                label: Text(
+                                  Uri.tryParse(forum.url)?.host ?? forum.url,
+                                ),
+                                onPressed: () =>
+                                    unawaited(openExternalLink(forum.url)),
                               ),
                           ],
                         ),
                       ),
-                      DToggleGroup<bool>(
-                        key: const ValueKey('start-page-density'),
-                        values: [_compact],
-                        onChanged: (values) {
-                          if (values.isNotEmpty) _setCompact(values.single);
-                        },
-                        allowEmptySelection: false,
-                        inset: true,
-                        density: DToggleDensity.compactInset,
-                        size: DToggleSize.small,
-                        items: [
-                          DToggleGroupItem<bool>.iconOnly(
-                            value: false,
-                            icon: const DIcon(DIcons.grip, size: 12),
-                            semanticLabel: context.l10n.comfortable,
-                            tooltip: context.l10n.comfortable,
-                          ),
-                          DToggleGroupItem<bool>.iconOnly(
-                            value: true,
-                            icon: const DIcon(DIcons.list, size: 12),
-                            semanticLabel: context.l10n.compact,
-                            tooltip: context.l10n.compact,
-                          ),
-                        ],
-                      ),
+                      if (siteUrl != null)
+                        TopicListFilterMenu(siteUrl: siteUrl, query: ''),
+                      _densityControl(context),
                     ],
                   ),
                   if (_dismissed == false &&
@@ -542,6 +555,215 @@ class _NewTabPageState extends State<NewTabPage> {
     );
   }
 
+  Widget _densityControl(BuildContext context) => DToggleGroup<bool>(
+    key: const ValueKey('start-page-density'),
+    values: [_compact],
+    onChanged: (values) {
+      if (values.isNotEmpty) _setCompact(values.single);
+    },
+    allowEmptySelection: false,
+    inset: true,
+    density: DToggleDensity.compactInset,
+    size: DToggleSize.small,
+    items: [
+      DToggleGroupItem<bool>.iconOnly(
+        value: false,
+        icon: const DIcon(DIcons.grip, size: 12),
+        semanticLabel: context.l10n.comfortable,
+        tooltip: context.l10n.comfortable,
+      ),
+      DToggleGroupItem<bool>.iconOnly(
+        value: true,
+        icon: const DIcon(DIcons.list, size: 12),
+        semanticLabel: context.l10n.compact,
+        tooltip: context.l10n.compact,
+      ),
+    ],
+  );
+
+  Widget _buildAggregatePage(BuildContext context) {
+    final shell = ShellScope.of(context);
+    final state = shell.aggregate.state;
+    final entries = [
+      for (final reference in state.topics.take(8))
+        if (shell.store.read<Topic>(reference.siteUrl, reference.topicId)
+            case final topic?)
+          _StartPageEntry(
+            id: 'aggregate-${reference.siteUrl}-${topic.id}',
+            siteUrl: reference.siteUrl,
+            sourceLabel: shell.instanceFor(reference.siteUrl)?.title,
+            title: topic.title,
+            icon: DIcons.layerGroup,
+            description: topic.excerpt,
+            count: topic.unreadCount,
+            activityAt: topic.bumpedAt,
+            prefixBuilder: (context, size) => ForumIcon(
+              forum: shell.instanceFor(reference.siteUrl)!,
+              size: size,
+            ),
+            onPressed: () {
+              final result = shell.openAggregateTopic(
+                reference.siteUrl,
+                topic.id,
+              );
+              if (result == AggregateTopicOpenResult.tabLimitReached) {
+                DToast.show(
+                  context,
+                  context.l10n.thisForumAlreadyHas20TabsCloseOneAndTryAgain,
+                );
+              } else if (result == AggregateTopicOpenResult.unavailable) {
+                DToast.show(context, context.l10n.thatTopicIsNoLongerAvailable);
+              }
+            },
+          ),
+    ];
+    return SingleChildScrollView(
+      key: const ValueKey('aggregate-start-page'),
+      child: DPageReadingLaneBox(
+        child: Padding(
+          padding: const EdgeInsets.all(DSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.lg,
+            children: [
+              Row(
+                spacing: DSpacing.md,
+                children: [
+                  const DAvatar(
+                    size: DAvatarSize.lg,
+                    fallback: DAvatarFallback(child: DIcon(DIcons.layerGroup)),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.l10n.allForums,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        Text(
+                          context.l10n.startPageForumCount(
+                            shell.instances.length,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _densityControl(context),
+                ],
+              ),
+              if (state.failures.isNotEmpty)
+                DAlert(
+                  variant: DAlertVariant.destructive,
+                  description: DAlertDescription(
+                    child: Text(
+                      context.l10n.notBeRefreshed(state.failures.length),
+                    ),
+                  ),
+                  action: DAlertAction(
+                    child: DButton(
+                      variant: DButtonVariant.link,
+                      label: Text(context.l10n.retry),
+                      onPressed: () => unawaited(shell.refreshAggregate()),
+                    ),
+                  ),
+                ),
+              if (entries.isNotEmpty)
+                _StartSection(
+                  title: context.l10n.latestTopics,
+                  icon: DIcons.layerGroup,
+                  rows: entries,
+                  compact: _compact,
+                  siteUrl: '',
+                  single: true,
+                  onHeading: widget.onBrowseTopics,
+                ),
+              _StartSection(
+                title: context.l10n.everythingElse,
+                icon: DIcons.ellipsis,
+                rows: const [],
+                compact: _compact,
+                siteUrl: '',
+                content: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    if (entries.isEmpty)
+                      _LinkButton(
+                        label: context.l10n.latestTopics,
+                        icon: DIcons.layerGroup,
+                        onPressed: widget.onBrowseTopics,
+                      ),
+                    _LinkButton(
+                      label: context.l10n.preferences,
+                      icon: DIcons.filter,
+                      onPressed: () => unawaited(showAppSettingsModal(context)),
+                    ),
+                    _LinkButton(
+                      label: context.l10n.settings,
+                      icon: DIcons.gear,
+                      onPressed: shell.openCurrentSettings,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  _StartPageEntry _closedEntry(
+    BuildContext context,
+    ForumTab tab,
+    String siteUrl,
+    Map<int, TopicCategory> categories,
+    List<SidebarDestination> conversations,
+  ) {
+    final shell = ShellScope.read(context);
+    final route = tab.currentContent;
+    final topic = route.topicId == null
+        ? null
+        : shell.store.read<Topic>(siteUrl, route.topicId!);
+    final category = categories[route.categoryId];
+    final destination = conversations
+        .where((d) => d.id == route.id)
+        .firstOrNull;
+    return _StartPageEntry(
+      id: 'closed-${tab.id}',
+      title:
+          topic?.title ?? category?.name ?? destination?.label ?? route.title,
+      icon:
+          destination?.icon ??
+          (topic?.pinned == true
+              ? DIcons.thumbtack
+              : topic?.closed == true
+              ? DIcons.lock
+              : route.icon),
+      color: category == null ? route.color : Color(category.colorValue),
+      count:
+          topic?.unreadCount ??
+          destination?.unreadCount ??
+          (category == null
+              ? null
+              : shell.categoryActivityCountFor(siteUrl, category.id)),
+      activityAt: topic?.bumpedAt ?? destination?.lastActivityAt,
+      description:
+          topic?.excerpt ??
+          category?.descriptionExcerpt ??
+          destination?.preview ??
+          route.subtitle,
+      avatarUrl: destination?.avatarUrl,
+      prefixBuilder: destination?.prefixBuilder,
+      path: _recentRouteUrl(siteUrl, route),
+      bookmarkUrl: route.topicId == null
+          ? null
+          : resolveSiteRootPath(siteUrl, '/t/${route.topicId}'),
+      onPressed: () => shell.reopenClosedTab(tab.id),
+    );
+  }
+
   void _openRoute(BuildContext context, ContentRoute route) {
     final site = ShellScope.read(context).currentInstance;
     if (site == null) return;
@@ -622,6 +844,10 @@ class _StartPageEntry {
     this.path,
     this.targetBookmark,
     this.bookmarkUrl,
+    this.avatarUrl,
+    this.prefixBuilder,
+    this.siteUrl,
+    this.sourceLabel,
   });
 
   factory _StartPageEntry.fromRoute(
@@ -637,6 +863,8 @@ class _StartPageEntry {
     icon: destination?.icon ?? route.icon,
     color: destination?.iconColor ?? route.color,
     count: count ?? destination?.unreadCount ?? destination?.badge?.count,
+    avatarUrl: destination?.avatarUrl,
+    prefixBuilder: destination?.prefixBuilder,
     activityAt: destination?.lastActivityAt,
     description: description ?? destination?.preview ?? route.subtitle,
     path: _recentRouteUrl(siteUrl, route),
@@ -659,7 +887,26 @@ class _StartPageEntry {
   final String? path;
   final String? bookmarkUrl;
   final Bookmark? targetBookmark;
+  final String? siteUrl;
+  final String? sourceLabel;
+  final String? avatarUrl;
+  final SidebarRowDecorationBuilder? prefixBuilder;
   final VoidCallback? onPressed;
+
+  Widget mark(BuildContext context, double size) {
+    if (prefixBuilder case final builder?) return builder(context, size);
+    if (avatarUrl case final url?) {
+      return DAvatar.frame(
+        decorative: true,
+        child: AvatarImage(
+          url: url,
+          size: size,
+          fallback: DIcon(icon, size: size, color: color),
+        ),
+      );
+    }
+    return DIcon(icon, size: size, color: color);
+  }
 
   /// The age of [activityAt], which advances while the page stays open, or
   /// else the fixed [time].
@@ -683,6 +930,7 @@ class _StartSection extends StatelessWidget {
     required this.siteUrl,
     this.onHeading,
     this.fullWidth = false,
+    this.single = false,
     this.content,
   });
 
@@ -693,9 +941,11 @@ class _StartSection extends StatelessWidget {
   final String siteUrl;
   final VoidCallback? onHeading;
   final bool fullWidth;
+  final bool single;
   final Widget? content;
 
   Widget _row(BuildContext context, _StartPageEntry entry) {
+    final siteUrl = entry.siteUrl ?? this.siteUrl;
     final canDrag =
         entry.path != null && ShellScope.of(context).desktopPanelsEnabled;
     if (!compact) return _comfortableRow(context, entry, canDrag: canDrag);
@@ -741,7 +991,7 @@ class _StartSection extends StatelessWidget {
               ),
             ),
       children: [
-        DIcon(entry.icon, size: compact ? 16 : 18, color: entry.color),
+        entry.mark(context, entry.avatarUrl == null ? 16 : 24),
         DItemContent(
           children: [
             SiteEmojiText.plain(
@@ -754,6 +1004,14 @@ class _StartSection extends StatelessWidget {
                 fontWeight: compact ? FontWeight.w500 : FontWeight.w600,
               ),
             ),
+            if (entry.sourceLabel case final source?)
+              DItemDescription(
+                child: Text(
+                  source,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             if (!compact && entry.description?.isNotEmpty == true)
               DItemDescription(
                 child: SiteEmojiText.plain(
@@ -792,6 +1050,7 @@ class _StartSection extends StatelessWidget {
     _StartPageEntry entry, {
     required bool canDrag,
   }) {
+    final siteUrl = entry.siteUrl ?? this.siteUrl;
     final tokens = DTokens.of(context);
     final accent = entry.color ?? tokens.primary;
     final metadata = entry.reminderAt != null
@@ -846,16 +1105,18 @@ class _StartSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DItemMedia(
-                  child: Container(
-                    width: 29,
-                    height: 29,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Color.lerp(tokens.background, accent, .2),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: DIcon(entry.icon, size: 13, color: accent),
-                  ),
+                  child: entry.avatarUrl != null || entry.prefixBuilder != null
+                      ? entry.mark(context, 29)
+                      : Container(
+                          width: 29,
+                          height: 29,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Color.lerp(tokens.background, accent, .2),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: DIcon(entry.icon, size: 13, color: accent),
+                        ),
                 ),
                 const SizedBox(width: 9),
                 Expanded(
@@ -878,6 +1139,14 @@ class _StartSection extends StatelessWidget {
                 if (metadata != null) ...[const SizedBox(width: 4), metadata],
               ],
             ),
+            if (entry.sourceLabel case final source?)
+              DItemDescription(
+                child: Text(
+                  source,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             if (entry.reminderAt case final reminder?)
               DItemDescription(
                 child: Column(
@@ -1015,12 +1284,12 @@ class _StartSection extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final gap = compact ? 4.0 : 10.0;
-              final across = compact && !fullWidth
+              final across = single || (compact && !fullWidth)
                   ? 1
                   : ((constraints.maxWidth + gap) /
                             ((compact ? 250 : 190) + gap))
                         .floor()
-                        .clamp(compact ? 1 : 2, 100);
+                        .clamp(1, 8);
               final columnWidth =
                   (constraints.maxWidth - (across - 1) * gap) / across;
               final width = compact && fullWidth
@@ -1030,7 +1299,13 @@ class _StartSection extends StatelessWidget {
                 spacing: gap,
                 runSpacing: gap,
                 children: [
-                  for (final entry in rows)
+                  for (final entry in rows.take(
+                    single
+                        ? 8
+                        : compact
+                        ? (fullWidth ? 8 : 4)
+                        : across,
+                  ))
                     SizedBox(width: width, child: _row(context, entry)),
                 ],
               );

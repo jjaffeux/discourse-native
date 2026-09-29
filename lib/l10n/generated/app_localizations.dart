@@ -22796,6 +22796,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use everywhere'**
   String get confirmUseEverywhere;
+
+  /// Number of saved forums on the All forums start page.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 forum} other{{count} forums}}'**
+  String startPageForumCount(int count);
 }
 
 class _AppLocalizationsDelegate

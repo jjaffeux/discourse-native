@@ -71,7 +71,20 @@ void main() {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      await pumpShell(tester, desktop);
+      await pumpShell(
+        tester,
+        desktop,
+        api: FakeDiscourseApi(
+          categoryList: const [
+            TopicCategory(
+              id: 12,
+              name: 'Support',
+              slug: 'support',
+              color: '0088cc',
+            ),
+          ],
+        ),
+      );
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
@@ -194,7 +207,7 @@ void main() {
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
-      shell.openListUrl('/c/plants/12', title: 'Plants');
+      expect(shell.recentCategoriesFor(site), isEmpty);
       final categoryRequests = api.categoryRequests.length;
       final trackingRequests = api.topicTrackingRequests.length;
       shell.pushContent(ContentRoute.newTab());
@@ -203,9 +216,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final card = find.byKey(
-        ValueKey(
-          'start-page-recent-${shell.recentCategoriesFor(site).single.id}',
-        ),
+        const ValueKey('start-page-recent-list-/c/plants/12.json'),
       );
       expect(
         find.descendant(of: card, matching: find.text('Plants')),
@@ -604,7 +615,7 @@ void main() {
     expect(shell.currentContent?.id, 'chat-c-9');
   });
 
-  testWidgets('Chat shows latest unread channels without fetching again', (
+  testWidgets('Chat previews retain read conversations after unread ones', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -670,7 +681,7 @@ void main() {
     expect(older, findsOneWidget);
     expect(
       find.byKey(const ValueKey('start-page-recent-chat-c-1')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(tester.getTopLeft(newest).dy, lessThan(tester.getTopLeft(older).dy));
     expect(api.chatChannelsRequested, hasLength(requestsBefore));
@@ -855,6 +866,14 @@ void main() {
     const user = DiscourseUser(username: 'reader');
     final api = FakeDiscourseApi(
       user: user,
+      categoryList: const [
+        TopicCategory(
+          id: 12,
+          name: 'Plants :tada:',
+          slug: 'plants',
+          color: '0088cc',
+        ),
+      ],
       totals: chatNotificationTotals(available: true),
       bookmarkList: const [
         Bookmark(
@@ -1009,7 +1028,26 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
-    await pumpShell(tester, const Size(1800, 900));
+    await pumpShell(
+      tester,
+      const Size(1800, 900),
+      api: FakeDiscourseApi(
+        categoryList: [
+          for (final (id, title) in [
+            (1, 'Baking'),
+            (2, 'Plants'),
+            (3, 'Keyboards'),
+            (4, 'Travel'),
+          ])
+            TopicCategory(
+              id: id,
+              name: title,
+              slug: title.toLowerCase(),
+              color: '0088cc',
+            ),
+        ],
+      ),
+    );
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
@@ -1061,7 +1099,20 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
-    await pumpShell(tester, desktop);
+    await pumpShell(
+      tester,
+      desktop,
+      api: FakeDiscourseApi(
+        categoryList: const [
+          TopicCategory(
+            id: 12,
+            name: 'Support',
+            slug: 'support',
+            color: '0088cc',
+          ),
+        ],
+      ),
+    );
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
@@ -1107,6 +1158,13 @@ void main() {
           ChatChannel(
             id: 11,
             title: 'Alex',
+            users: [
+              ChatUser(
+                id: 8,
+                username: 'alex',
+                avatarUrl: 'https://meta.discourse.org/avatar/alex.png',
+              ),
+            ],
             kind: ChatChannelKind.directMessage,
             membership: ChatMembership(following: true),
             tracking: ChatTracking(unreadCount: 3),
@@ -1134,6 +1192,13 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(find.text('Alex'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('start-page-recent-chat-c-11')),
+        matching: find.byType(DAvatar),
+      ),
+      findsOneWidget,
+    );
     expect(startPageText('Chat'), findsOneWidget);
     await tester.tap(find.byTooltip('Comfortable'));
     await tester.pumpAndSettle();
@@ -1191,13 +1256,17 @@ void main() {
     );
     await chat.loadChannels(site, force: true);
     await tester.pumpAndSettle();
-    expect(directCard, findsNothing);
+    expect(directCard, findsOneWidget);
+    expect(
+      find.descendant(of: directCard, matching: find.byType(DBadge)),
+      findsNothing,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('start-page-shortcuts')),
         matching: find.widgetWithText(DButton, 'Chat'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

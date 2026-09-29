@@ -16,6 +16,8 @@ import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import 'topic_filter_controller.dart';
 
+enum AggregateFeedMode { latest, unread }
+
 @immutable
 final class AggregateTopicRef {
   const AggregateTopicRef({required this.siteUrl, required this.topicId});
@@ -151,6 +153,36 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
   AggregateFeedState get state => _activeTab.state;
   String get activeTabId => _activeTabId;
+  bool get showStartPage => _activeTab.showStartPage;
+  AggregateFeedMode get mode => _activeTab.mode;
+
+  Future<void> openFeed(
+    Iterable<DiscourseInstance> instances, {
+    AggregateFeedMode mode = AggregateFeedMode.latest,
+  }) async {
+    if (isDisposed) return;
+    final tab = _activeTab;
+    final changedMode = tab.mode != mode;
+    tab.showStartPage = false;
+    tab.mode = mode;
+    if (changedMode) {
+      tab.invalidate();
+      tab.state = const AggregateFeedState();
+    }
+    notifySafely();
+    unawaited(_persistTabs());
+    await open(instances);
+  }
+
+  Future<void> openStartPage(Iterable<DiscourseInstance> instances) {
+    if (isDisposed) return Future.value();
+    final loading = openFeed(instances);
+    _activeTab.showStartPage = true;
+    notifySafely();
+    unawaited(_persistTabs());
+    return loading;
+  }
+
   List<AggregateFeedTab> get tabs => List.unmodifiable([
     for (final tab in _tabs.values)
       AggregateFeedTab(id: tab.id, name: tab.name),
@@ -202,6 +234,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
     )) {
       final tab = _AggregateTabSession(
         id: saved.id,
+        showStartPage: saved.showStartPage,
+        mode: saved.unread
+            ? AggregateFeedMode.unread
+            : AggregateFeedMode.latest,
         name: saved.name,
         excludedForums: saved.excludedForums.intersection(valid),
         queries: {
@@ -308,6 +344,8 @@ final class AggregateFeedController extends FrameSafeNotifier {
       _closedTabs[index] = _ClosedAggregateTab(
         preferences: AggregateTabPreferences(
           id: saved.id,
+          showStartPage: saved.showStartPage,
+          unread: saved.unread,
           name: saved.name,
           excludedForums: {...saved.excludedForums, siteUrl},
           queries: saved.queries,
@@ -404,6 +442,10 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
       final reopened = _AggregateTabSession(
         id: preferences.id,
+        showStartPage: preferences.showStartPage,
+        mode: preferences.unread
+            ? AggregateFeedMode.unread
+            : AggregateFeedMode.latest,
         name: preferences.name,
         excludedForums: preferences.excludedForums,
         queries: preferences.queries,
@@ -498,7 +540,12 @@ final class AggregateFeedController extends FrameSafeNotifier {
         if (instance.isConnected && !tab.excludedForums.contains(instance.url))
           _ConfiguredAggregateForum(
             instance,
-            _mergeableQuery(tab.queries[instance.url] ?? ''),
+            [
+              _mergeableQuery(tab.queries[instance.url] ?? ''),
+              // The server's new-replies filter uses TopicQuery.unread_filter,
+              // including tracking levels and the reader's last read post.
+              if (tab.mode == AggregateFeedMode.unread) 'in:new-replies',
+            ].where((clause) => clause.isNotEmpty).join(' '),
             lifecycle.capture(instance.url),
           ),
     ];
@@ -922,6 +969,8 @@ final class _ClosedAggregateTab {
 final class _AggregateTabSession {
   _AggregateTabSession({
     required this.id,
+    this.showStartPage = true,
+    this.mode = AggregateFeedMode.latest,
     this.name,
     Set<String> excludedForums = const {},
     Map<String, String> queries = const {},
@@ -929,6 +978,8 @@ final class _AggregateTabSession {
        queries = Map.unmodifiable(queries);
 
   final String id;
+  bool showStartPage;
+  AggregateFeedMode mode;
   final Map<String, ({bool included, String query})> filterDrafts = {};
   String? name;
   Set<String> excludedForums;
@@ -943,6 +994,8 @@ final class _AggregateTabSession {
 
   AggregateTabPreferences get preferences => AggregateTabPreferences(
     id: id,
+    showStartPage: showStartPage,
+    unread: mode == AggregateFeedMode.unread,
     name: name,
     excludedForums: excludedForums,
     queries: queries,

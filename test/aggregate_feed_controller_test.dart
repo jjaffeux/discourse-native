@@ -20,6 +20,87 @@ const _secondUrl = 'https://two.example';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'Unread preserves inclusion and queries and survives reopening',
+    () async {
+      final preferences = AggregatePreferencesStore.memory();
+      const latestPath = '/filter.json?per_page=30&q=status%3Aopen';
+      const unreadPath =
+          '/filter.json?per_page=30&q=status%3Aopen+in%3Anew-replies';
+      final api = _AggregateApi(
+        pages: {
+          '$_firstUrl|$latestPath': [
+            _topic(1, minute: 2),
+            _topic(2, minute: 1, unreadPosts: 1),
+          ],
+          '$_firstUrl|$unreadPath': [_topic(2, minute: 1, unreadPosts: 1)],
+        },
+      );
+      final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
+      final controller = _controller(
+        api,
+        credentials,
+        preferences: preferences,
+      );
+      addTearDown(controller.dispose);
+      final forums = [
+        _connected(_firstUrl, 'One'),
+        _connected(_secondUrl, 'Two'),
+      ];
+      await controller.setForumFilters(
+        allForums: forums,
+        includedConnectedForums: {_firstUrl},
+        queries: {_firstUrl: 'status:open'},
+      );
+      expect(controller.showStartPage, isTrue);
+      await controller.openFeed(forums, mode: AggregateFeedMode.unread);
+      expect(controller.showStartPage, isFalse);
+      expect(controller.state.topics.single.topicId, 2);
+      expect(api.sitePaths, ['$_firstUrl|$unreadPath']);
+      expect(controller.queryFor(_firstUrl), 'status:open');
+      expect(controller.includes(forums.last), isFalse);
+      final unreadTab = controller.activeTabId;
+      final otherTab = controller.createTab()!;
+      expect(controller.showStartPage, isTrue);
+      expect(controller.mode, AggregateFeedMode.latest);
+      controller.closeTab(unreadTab);
+      expect(controller.reopenClosedTab(unreadTab), isTrue);
+      expect(controller.mode, AggregateFeedMode.unread);
+      expect(controller.showStartPage, isFalse);
+      await controller.open(forums);
+      final saved = await preferences.load();
+      expect(saved.activeTab.unread, isTrue);
+      expect(saved.activeTab.showStartPage, isFalse);
+      final restored = _controller(api, credentials, preferences: preferences);
+      addTearDown(restored.dispose);
+      await restored.loadPreferences(forums);
+      expect(restored.mode, AggregateFeedMode.unread);
+      expect(restored.showStartPage, isFalse);
+      await controller.openStartPage(forums);
+      expect(controller.showStartPage, isTrue);
+      expect(controller.mode, AggregateFeedMode.latest);
+      expect(controller.state.topics.map((r) => r.topicId), [1, 2]);
+      expect(controller.queryFor(_firstUrl), 'status:open');
+      controller.selectTab(otherTab);
+      expect(controller.showStartPage, isTrue);
+    },
+  );
+
+  test('switching mode retires an in-flight Latest response', () async {
+    final api = _RefreshRaceApi();
+    final credentials = FakeApiCredentialReader()..keys[_firstUrl] = 'key';
+    final controller = _controller(api, credentials);
+    addTearDown(controller.dispose);
+    final forums = [_connected(_firstUrl, 'One')];
+    final latest = controller.openFeed(forums);
+    await api.firstStarted.future;
+    await controller.openFeed(forums, mode: AggregateFeedMode.unread);
+    api.releaseFirst.complete();
+    await latest;
+    expect(controller.mode, AggregateFeedMode.unread);
+    expect(controller.state.topics.single.topicId, 2);
+  });
+
   group('feed loading and filtering', () {
     test('mixes exact per-forum filter results by bump time', () async {
       final api = _AggregateApi(
