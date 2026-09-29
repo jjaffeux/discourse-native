@@ -86,6 +86,7 @@ class DSheet<T> extends StatelessWidget {
 
   /// Allows touch drags down from a bottom sheet's header or the top of its
   /// scrollable content on mobile. Uses the same close request as [DSheetClose].
+  /// Releasing before 30% of the distance to the viewport bottom restores it.
   final bool dismissOnSwipe;
   final String? _barrierLabel;
   String get barrierLabel => _barrierLabel ?? appL10n.dismissSheet;
@@ -706,8 +707,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     if (!_dragging) return;
     _dragging = false;
     _scrollOrigin = null;
-    if (!cancelled &&
-        (_travel.value >= 72 || (_travel.value >= 18 && velocity >= 700))) {
+    // Require a deliberate pull regardless of release speed. Measure against
+    // the distance off-screen so opening the keyboard does not make the sheet
+    // easier to dismiss; velocity only determines how an accepted exit moves.
+    if (!cancelled && _travel.value >= _swipeExtent * .3) {
       final route = ModalRoute.of(context);
       if (!MediaQuery.disableAnimationsOf(context) &&
           route is DOverlayRoute<dynamic, Object>) {

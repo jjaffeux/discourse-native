@@ -121,11 +121,12 @@ void main() {
     bool dismissOnSwipe = true,
     bool controlled = false,
     bool disableAnimations = false,
+    Size size = const Size(390, 844),
     DSheetSide side = DSheetSide.bottom,
     ScrollController? scroll,
     ValueChanged<DSheetChangeDetails<void>>? onOpenChanged,
   }) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     DSheetContent content() => DSheetContent(
@@ -172,7 +173,7 @@ void main() {
                 ),
         ),
         theme: ThemeData(platform: platform),
-        size: const Size(390, 844),
+        size: size,
         disableAnimations: disableAnimations,
       ),
     );
@@ -180,8 +181,89 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final height in [600.0, 1000.0]) {
+    testWidgets('release threshold scales with a $height viewport', (
+      tester,
+    ) async {
+      await openSwipeSheet(tester, size: Size(390, height));
+      final sheet = find.byType(DSheetContent);
+      final bounds = tester.getRect(sheet);
+      final threshold = (height - bounds.top) * .3;
+      final title = find.text('Swipe sheet');
+      final gesture = await tester.startGesture(tester.getCenter(title));
+      await gesture.moveBy(Offset(0, threshold + 20));
+      await gesture.moveBy(const Offset(0, -21));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(sheet).dy - bounds.top,
+        closeTo(threshold - 1, .01),
+      );
+      // Crossing the threshold does not commit dismissal until release.
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet), bounds);
+      expect(backdropOpacity(tester), 1);
+
+      final dismiss = await tester.startGesture(tester.getCenter(title));
+      await dismiss.moveBy(Offset(0, threshold + 1));
+      await dismiss.up();
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    });
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final origin in ['header', 'scroll', 'helper']) {
+      testWidgets('partial $origin swipe restores the sheet on $platform', (
+        tester,
+      ) async {
+        await openSwipeSheet(
+          tester,
+          platform: platform,
+          imperative: origin == 'helper',
+        );
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        final target = origin == 'scroll'
+            ? find.byType(ListView)
+            : find.text('Swipe sheet');
+        final gesture = await tester.startGesture(tester.getCenter(target));
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 150));
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top + 72));
+        expect(backdropOpacity(tester), inExclusiveRange(0, 1));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(sheet, findsOneWidget);
+        expect(tester.getRect(sheet), bounds);
+        expect(backdropOpacity(tester), 1);
+      });
+    }
+
     for (final reducedMotion in [false, true]) {
+      testWidgets(
+        'short fast flick restores $platform sheet (reduced: $reducedMotion)',
+        (tester) async {
+          await openSwipeSheet(
+            tester,
+            platform: platform,
+            disableAnimations: reducedMotion,
+          );
+          final sheet = find.byType(DSheetContent);
+          final bounds = tester.getRect(sheet);
+          await tester.fling(
+            find.text('Swipe sheet'),
+            const Offset(0, 65),
+            1200,
+          );
+          await tester.pumpAndSettle();
+          expect(sheet, findsOneWidget);
+          expect(tester.getRect(sheet), bounds);
+          expect(backdropOpacity(tester), 1);
+        },
+      );
+
       testWidgets(
         'backdrop follows a cancelled $platform swipe (reduced: $reducedMotion)',
         (tester) async {
@@ -246,7 +328,9 @@ void main() {
           microseconds: (12 / speed * 1e6).round(),
         );
         // Build a real velocity history instead of a drag with zero timestamps.
-        for (var step = 0; step < (origin == 'scroll' ? 24 : 12); step++) {
+        // iOS overscroll resistance needs more finger travel to cross the
+        // same sheet dismissal threshold.
+        for (var step = 0; step < (origin == 'scroll' ? 64 : 24); step++) {
           elapsed += sampleDuration;
           await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
           await tester.pump(sampleDuration);
@@ -297,7 +381,7 @@ void main() {
             platform: platform,
             imperative: imperative,
           );
-          await tester.drag(find.text('Swipe sheet'), const Offset(0, 180));
+          await tester.drag(find.text('Swipe sheet'), const Offset(0, 300));
           await tester.pumpAndSettle();
           expect(find.byType(DSheetContent), findsNothing);
           expect(tester.takeException(), isNull);
@@ -323,7 +407,7 @@ void main() {
         expect(backdropOpacity(tester), 1);
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
-        await tester.drag(find.byType(ListView), const Offset(0, 240));
+        await tester.drag(find.byType(ListView), const Offset(0, 500));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         expect(tester.takeException(), isNull);
@@ -360,7 +444,7 @@ void main() {
         // The same drag can scroll to the top and then pull the sheet down.
         scroll.jumpTo(80);
         await tester.pumpAndSettle();
-        await tester.drag(list, const Offset(0, 300));
+        await tester.drag(list, const Offset(0, 600));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
       },
@@ -392,7 +476,7 @@ void main() {
         await gesture.cancel();
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet), bounds);
-        await tester.fling(title, const Offset(0, 65), 1200);
+        await tester.fling(title, const Offset(0, 300), 1200);
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
       },
@@ -403,7 +487,7 @@ void main() {
     final changes = <DSheetChangeDetails<void>>[];
     await openSwipeSheet(tester, controlled: true, onOpenChanged: changes.add);
     final bounds = tester.getRect(find.byType(DSheetContent));
-    await tester.drag(find.text('Swipe sheet'), const Offset(0, 180));
+    await tester.drag(find.text('Swipe sheet'), const Offset(0, 300));
     await tester.pumpAndSettle();
     expect(changes.single.open, isFalse);
     expect(changes.single.reason, DSheetChangeReason.close);
@@ -424,7 +508,7 @@ void main() {
       final bounds = tester.getRect(find.byType(DSheetContent));
       await tester.drag(
         find.text('Swipe sheet'),
-        const Offset(0, 180),
+        const Offset(0, 300),
         kind: scenario == 'mouse'
             ? PointerDeviceKind.mouse
             : PointerDeviceKind.touch,

@@ -418,7 +418,21 @@ void main() {
         expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
 
-        await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+        final bounds = tester.getRect(sheet);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(DSheetTitle)),
+        );
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 150));
+        await tester.pump();
+        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top + 72));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+
+        await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         expect(tester.takeException(), isNull);

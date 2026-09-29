@@ -705,7 +705,7 @@ void main() {
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
-    await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+    await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);
     await open(tester, const ValueKey('composer-category-action'));
@@ -729,7 +729,7 @@ void main() {
             tester.getCenter(find.byType(DSheetTitle)),
           );
           var elapsed = Duration.zero;
-          for (var sample = 0; sample < 12; sample++) {
+          for (var sample = 0; sample < 24; sample++) {
             elapsed += const Duration(milliseconds: 8);
             await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
             await tester.pump(const Duration(milliseconds: 8));
@@ -778,7 +778,7 @@ void main() {
     expect(find.byType(DComboboxContent), findsOneWidget);
     expect(find.byType(DDrawerContent), findsNothing);
     expect(find.byType(Dialog), findsNothing);
-    await tester.drag(find.byType(DSheetTitle), const Offset(0, 180));
+    await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);
     await open(tester, const ValueKey('composer-add-tag'));
