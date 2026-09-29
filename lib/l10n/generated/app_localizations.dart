@@ -22652,6 +22652,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Threading cannot be changed for this channel.'**
   String get searchThreadingCannotBeChanged;
+
+  /// Title of the in-app About dialog and its profile menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get about;
+
+  /// Accessible name and tooltip of the replayable Discourse mark in About.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay Discourse logo animation'**
+  String get aboutReplayMark;
+
+  /// Link to the Discourse community in the About dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Discourse Meta'**
+  String get aboutDiscourseMeta;
+
+  /// Link to the Discourse documentation in the About dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentation'**
+  String get aboutDocumentation;
+
+  /// Error shown in About when the external browser cannot open a link.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the link. Please try again.'**
+  String get aboutLinkOpenFailed;
+
+  /// Accessible label for an external link in About.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, opens in browser'**
+  String aboutExternalLinkLabel(String label);
 }
 
 class _AppLocalizationsDelegate

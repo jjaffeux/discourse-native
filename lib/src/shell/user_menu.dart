@@ -14,6 +14,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
+import 'about_dialog.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'do_not_disturb_dialog.dart';
@@ -142,7 +143,7 @@ class UserMenuRow {
   bool get isHidePresence => id == 'hide-presence';
 }
 
-enum UserMenuAction { disconnect, pauseNotifications, dismiss }
+enum UserMenuAction { disconnect, pauseNotifications, about, dismiss }
 
 List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
@@ -337,6 +338,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             host: menu.host,
             showHeader: widget.view == UserMenuView.profile,
             onDismiss: widget.onDismiss,
+            onAbout: () => _openAboutAfterMenu(context, widget.onDismiss),
             onPauseNotifications: () {
               if (siteUrl == null) return;
               final dialog = showDoNotDisturbDialog(
@@ -690,6 +692,7 @@ class _SectionBody extends StatelessWidget {
     required this.onDisconnect,
     required this.onDismiss,
     required this.onPauseNotifications,
+    required this.onAbout,
     this.showHeader = true,
   });
 
@@ -698,6 +701,7 @@ class _SectionBody extends StatelessWidget {
   final String? host;
   final VoidCallback onDisconnect;
   final VoidCallback onPauseNotifications;
+  final VoidCallback onAbout;
 
   final VoidCallback onDismiss;
 
@@ -777,6 +781,15 @@ class _SectionBody extends StatelessWidget {
                   : null,
             ),
       if (section.isProfile) ...[
+        DButton(
+          key: const ValueKey('user-menu-row-about'),
+          variant: DButtonVariant.transparentBackground,
+          size: DButtonSize.large,
+          alignment: AlignmentDirectional.centerStart,
+          icon: const DIcon(DIcons.circleInfo),
+          label: Text(context.l10n.about),
+          onPressed: onAbout,
+        ),
         DSeparator(color: theme.shell.divider, space: 17),
         _DisconnectTile(host: host, onTap: onDisconnect),
       ],
@@ -800,6 +813,17 @@ class _SectionBody extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> _openAboutAfterMenu(
+  BuildContext context,
+  VoidCallback dismiss,
+) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  dismiss();
+  await WidgetsBinding.instance.endOfFrame;
+  if (!navigator.mounted) return;
+  await showNativeAboutDialog(navigator.context);
 }
 
 /// Profile actions composed inside the Native dropdown's interaction owner.
@@ -904,6 +928,12 @@ class UserProfileMenuItems extends StatelessWidget {
                 ),
               ],
             if (!statusOnly) ...[
+              DDropdownMenuItem(
+                key: const ValueKey('user-menu-row-about'),
+                leading: const DIcon(DIcons.circleInfo, size: 16),
+                onPressed: () => _openAboutAfterMenu(context, onDismiss),
+                child: Text(context.l10n.about),
+              ),
               const DDropdownMenuSeparator(inset: true),
               DDropdownMenuItem(
                 variant: DDropdownMenuItemVariant.destructive,
@@ -1519,6 +1549,7 @@ Future<void> showUserMenuSheet(
         sectionId: UserMenuSection.profileId,
         siteUrl: instance.url,
         onDismiss: () => Navigator.of(sheetContext).pop(UserMenuAction.dismiss),
+        onAbout: () => Navigator.of(sheetContext).pop(UserMenuAction.about),
         onPauseNotifications: () =>
             Navigator.of(sheetContext).pop(UserMenuAction.pauseNotifications),
         onDisconnect: () =>
@@ -1526,7 +1557,9 @@ Future<void> showUserMenuSheet(
       ),
     );
     if (controller.accountSessionDisposed || !navigator.mounted) return;
-    if (action == UserMenuAction.disconnect) {
+    if (action == UserMenuAction.about && context.mounted) {
+      unawaited(showNativeAboutDialog(context));
+    } else if (action == UserMenuAction.disconnect) {
       controller.disconnectInstance(instance.url).ignore();
     } else if (action == UserMenuAction.pauseNotifications) {
       unawaited(
@@ -1574,6 +1607,7 @@ class _SectionList extends StatelessWidget {
         siteUrl: siteUrl,
         onDismiss: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.dismiss),
+        onAbout: () => Navigator.of(nestedContext).pop(UserMenuAction.about),
         onPauseNotifications: () =>
             Navigator.of(nestedContext).pop(UserMenuAction.pauseNotifications),
         onDisconnect: () =>
@@ -1587,7 +1621,9 @@ class _SectionList extends StatelessWidget {
     final navigator = Navigator.of(context, rootNavigator: true);
     Navigator.of(context).pop();
 
-    if (action == UserMenuAction.disconnect) {
+    if (action == UserMenuAction.about && navigator.mounted) {
+      unawaited(showNativeAboutDialog(navigator.context));
+    } else if (action == UserMenuAction.disconnect) {
       controller.disconnectInstance(siteUrl).ignore();
     } else if (action == UserMenuAction.pauseNotifications) {
       final dialogContext = navigator.context;
@@ -1690,6 +1726,7 @@ class _LiveNestedSectionBody extends StatelessWidget {
     required this.siteUrl,
     required this.onDismiss,
     required this.onPauseNotifications,
+    required this.onAbout,
     required this.onDisconnect,
   });
 
@@ -1697,6 +1734,7 @@ class _LiveNestedSectionBody extends StatelessWidget {
   final String siteUrl;
   final VoidCallback onDismiss;
   final VoidCallback onPauseNotifications;
+  final VoidCallback onAbout;
   final VoidCallback onDisconnect;
 
   @override
@@ -1766,6 +1804,7 @@ class _LiveNestedSectionBody extends StatelessWidget {
             showHeader: false,
             onDismiss: onDismiss,
             onPauseNotifications: onPauseNotifications,
+            onAbout: onAbout,
             onDisconnect: onDisconnect,
           );
         },

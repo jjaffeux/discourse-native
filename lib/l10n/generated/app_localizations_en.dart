@@ -14468,4 +14468,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchThreadingCannotBeChanged =>
       'Threading cannot be changed for this channel.';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get aboutReplayMark => 'Replay Discourse logo animation';
+
+  @override
+  String get aboutDiscourseMeta => 'Discourse Meta';
+
+  @override
+  String get aboutDocumentation => 'Documentation';
+
+  @override
+  String get aboutLinkOpenFailed =>
+      'Could not open the link. Please try again.';
+
+  @override
+  String aboutExternalLinkLabel(String label) {
+    return '$label, opens in browser';
+  }
 }
