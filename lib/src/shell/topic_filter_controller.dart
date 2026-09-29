@@ -680,6 +680,25 @@ List<String> splitTopicFilterQuery(String query) => [
   for (final term in _scanTopicFilterQuery(query).terms) term.value,
 ];
 
+String? topicFilterClauseKey(String clause) =>
+    RegExp(r'^(-=|=-|-|=)?[\w-]+:').stringMatch(clause);
+
+String setTopicFilterShortcut(
+  String query,
+  String shortcut, {
+  required bool selected,
+}) {
+  final key = topicFilterClauseKey(shortcut)?.toLowerCase();
+  final clauses = splitTopicFilterQuery(query)
+    ..removeWhere(
+      (clause) => selected && key != null
+          ? topicFilterClauseKey(clause)?.toLowerCase() == key
+          : clause == shortcut,
+    );
+  if (selected) clauses.add(shortcut);
+  return clauses.join(' ');
+}
+
 /// Whether [query] ends at a clause boundary rather than inside a quoted
 /// value.
 bool topicFilterQueryEndsWithSeparator(String query) {

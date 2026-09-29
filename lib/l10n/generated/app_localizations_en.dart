@@ -7685,6 +7685,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterSuggestions => 'Filter suggestions';
 
   @override
+  String editTopicFilterToken(String label) {
+    return 'Edit filter $label';
+  }
+
+  @override
   String removeTopicfilterinput(String label) {
     return 'Remove $label';
   }

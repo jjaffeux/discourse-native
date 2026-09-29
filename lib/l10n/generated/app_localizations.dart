@@ -13180,6 +13180,12 @@ abstract class AppLocalizations {
   /// **'Filter suggestions'**
   String get filterSuggestions;
 
+  /// Accessible label for reopening a topic filter token to choose a new value.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit filter {label}'**
+  String editTopicFilterToken(String label);
+
   /// English UI message used by shell/topic_filter_input.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
