@@ -640,9 +640,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                           ? .28
                           : .42))
                   .clamp(56.0, 200.0);
-          // Reserve room for category artwork, the privacy lock, and saving.
           final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
-          final compressed = categoryWidth < 140 * scale;
           final tags = TopicHeaderTags(
             key: const ValueKey('topic-header-tags'),
             siteUrl: siteUrl,
@@ -679,7 +677,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                         category: root,
                         subcategory: false,
                         keepTopicListOpen: keepTopicListOpen,
-                        compressed: compressed,
                         showBrowseButton: false,
                       ),
                     ),
@@ -694,7 +691,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                         subcategory: true,
                         parentCategoryId: root?.id,
                         keepTopicListOpen: keepTopicListOpen,
-                        compressed: compressed,
                         showBrowseButton: false,
                       ),
                     ),
@@ -809,7 +805,6 @@ class _TopicCategoryControl extends StatelessWidget {
     required this.category,
     required this.subcategory,
     required this.keepTopicListOpen,
-    required this.compressed,
     this.parentCategoryId,
     this.showBrowseButton = true,
   });
@@ -820,7 +815,6 @@ class _TopicCategoryControl extends StatelessWidget {
   final bool subcategory;
   final int? parentCategoryId;
   final bool keepTopicListOpen;
-  final bool compressed;
   final bool showBrowseButton;
 
   @override
@@ -866,7 +860,6 @@ class _TopicCategoryControl extends StatelessWidget {
           saving: saving,
           focusNode: trigger.focusNode,
           expanded: trigger.open,
-          compact: compressed,
           editLabel: browseOnly
               ? context.l10n.browseTopicinboxheader((value?.name).toString())
               : subcategory
@@ -898,7 +891,6 @@ class _CategoryChip extends StatelessWidget {
     required this.saving,
     required this.focusNode,
     required this.expanded,
-    this.compact = false,
     this.primaryIsLink = false,
   });
   final TopicCategory? category;
@@ -910,7 +902,6 @@ class _CategoryChip extends StatelessWidget {
   final bool saving;
   final FocusNode focusNode;
   final bool expanded;
-  final bool compact;
   final bool primaryIsLink;
 
   @override
@@ -962,7 +953,7 @@ class _CategoryChip extends StatelessWidget {
                         context: context,
                       ),
                     ),
-                    SizedBox(width: compact ? 2 : 6),
+                    const SizedBox(width: DSpacing.controlGap),
                   ],
                   Flexible(
                     child: Text(
