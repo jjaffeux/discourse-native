@@ -14569,4 +14569,10 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get composerIndent => 'Indent';
+
+  @override
+  String get composerOutdent => 'Outdent';
 }

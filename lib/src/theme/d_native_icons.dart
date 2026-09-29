@@ -1,6 +1,24 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  static const DIconData indent = DIconData(
+    'discourse-native-indent',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M3 4h18M11 9h10M11 14h10M3 20h18M3 9l3 3-3 3"/>'
+        '</svg>',
+  );
+
+  static const DIconData outdent = DIconData(
+    'discourse-native-outdent',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M3 4h18M11 9h10M11 14h10M3 20h18M6 9l-3 3 3 3"/>'
+        '</svg>',
+  );
+
   // Font Awesome Free 7.3.1, from the native mockup's FilterPill.
   // Icons: CC BY 4.0, https://fontawesome.com/license/free
   static const DIconData filterChevron = DIconData(

@@ -19510,5 +19510,13 @@
         "type": "int"
       }
     }
+  },
+  "composerIndent": "Indent",
+  "@composerIndent": {
+    "description": "Composer toolbar action to nest the current list or to-do item under the preceding item."
+  },
+  "composerOutdent": "Outdent",
+  "@composerOutdent": {
+    "description": "Composer toolbar action to move the current list or to-do item up one nesting level."
   }
 }
