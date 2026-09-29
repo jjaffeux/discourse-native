@@ -102,7 +102,7 @@ void main() {
       );
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-list-filter')));
+      await tester.tap(find.byKey(const ValueKey('topic-list-filter')).first);
       await tester.pumpAndSettle();
       expect(find.byType(TopicFilterInput), findsOneWidget);
       await tester.tap(find.widgetWithText(DToggle, 'Open topics'));
@@ -110,7 +110,13 @@ void main() {
       await tester.tap(find.widgetWithText(DButton, 'Apply filter'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.topicFilterQuery, 'status:open');
-      expect(find.byType(NewTabPage), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(MainContent).first,
+          matching: find.byType(NewTabPage),
+        ),
+        findsNothing,
+      );
     },
   );
 
@@ -134,10 +140,18 @@ void main() {
     );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('start-page-forum-website')));
+    await tester.tap(
+      find.byKey(const ValueKey('start-page-forum-website')).first,
+    );
     await tester.pumpAndSettle();
     expect(launched, [shell.currentInstance!.url]);
-    expect(find.byType(NewTabPage), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(MainContent).first,
+        matching: find.byType(NewTabPage),
+      ),
+      findsOneWidget,
+    );
   });
 
   testStartPage(
@@ -213,7 +227,7 @@ void main() {
     shell.openListUrl('/c/removed/99', title: 'Removed category');
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    final page = find.byType(NewTabPage);
+    final page = find.byType(NewTabPage).first;
     expect(
       find.descendant(of: page, matching: find.text('Visible category')),
       findsOneWidget,

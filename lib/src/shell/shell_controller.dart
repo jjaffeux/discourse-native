@@ -1920,11 +1920,17 @@ class ShellController extends FrameSafeNotifier
     if (!forumTabsEnabled && workspace.tabs.length > 1) {
       return workspace.copyWith(tabs: [workspace.activeTab]);
     }
-    if (forumTabsEnabled &&
-        workspace.tabsIn(ForumPanel.main).isEmpty &&
-        workspace.tabs.length < ForumWorkspace.maximumTabs) {
-      final tab = _newDefaultTab();
-      return workspace.copyWith(tabs: [...workspace.tabs, tab]);
+    if (forumTabsEnabled) {
+      final limit = desktopPanelsEnabled
+          ? ForumWorkspace.maximumWorkspaceTabs
+          : ForumWorkspace.maximumTabs;
+      for (final panel in ForumPanel.values) {
+        if (panel == ForumPanel.secondary && !desktopPanelsEnabled) continue;
+        if (workspace.tabsIn(panel).isEmpty && workspace.tabs.length < limit) {
+          final tab = _newDefaultTab().copyWith(panel: panel);
+          workspace = workspace.copyWith(tabs: [...workspace.tabs, tab]);
+        }
+      }
     }
     return workspace;
   }
@@ -1939,7 +1945,7 @@ class ShellController extends FrameSafeNotifier
       return existing;
     }
     _forgetPluginPaneTabs(instance.url);
-    final workspace = _newWorkspace(instance);
+    final workspace = _normalizeWorkspace(_newWorkspace(instance));
     _forumWorkspaces[instance.url] = workspace;
     if (persist) _persistWorkspaces();
     return workspace;

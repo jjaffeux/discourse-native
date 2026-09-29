@@ -44,6 +44,88 @@ void main() {
 
     group('creation', () {
       test(
+        'desktop panels seed Start pages without changing active content',
+        () {
+          final main = controller.activeTab!;
+          controller.desktopTopicTabs = true;
+
+          final start = controller.selectedTabIn(ForumPanel.secondary)!;
+          expect(start.currentContent.isNewTab, isTrue);
+          expect(controller.activeTab, main);
+          controller.desktopTopicTabs = false;
+          controller.desktopTopicTabs = true;
+          expect(controller.tabsForCurrentForum, hasLength(2));
+          expect(controller.selectedTabIn(ForumPanel.secondary), start);
+
+          controller.selectInstance(1);
+          expect(controller.activeTab!.panel, ForumPanel.main);
+          expect(controller.currentContent!.isNewTab, isFalse);
+          expect(
+            controller
+                .selectedTabIn(ForumPanel.secondary)
+                ?.currentContent
+                .isNewTab,
+            isTrue,
+          );
+        },
+      );
+
+      for (final panel in ForumPanel.values) {
+        test(
+          'restoring a full $panel workspace fills its empty panel',
+          () async {
+            final tabs = [
+              for (var index = 0; index < ForumWorkspace.maximumTabs; index++)
+                ForumTab(
+                  id: 'restored-$index',
+                  panel: panel,
+                  rootDestinationId: 'latest',
+                  contentStack: [_topic(index + 1, 'Saved topic $index')],
+                ),
+            ];
+            final saved = ForumWorkspace(
+              siteUrl: forums.first.url,
+              accountIdentity: 'anonymous',
+              tabs: tabs,
+              activeTabId: tabs.first.id,
+            );
+            final store = FakeForumTabStore([saved]);
+            final restored = ShellController(
+              instanceStore: FakeInstanceStore(forums),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              forumTabs: store,
+              trackers: FakeSiteTracker.reset(),
+            )..desktopTopicTabs = true;
+            addTearDown(restored.dispose);
+            await restored.load();
+
+            final other = panel == ForumPanel.main
+                ? ForumPanel.secondary
+                : ForumPanel.main;
+            expect(restored.currentWorkspace!.tabsIn(panel), tabs);
+            expect(restored.activeTab, tabs.first);
+            final start = restored.selectedTabIn(other)!;
+            expect(start.currentContent.isNewTab, isTrue);
+            expect(restored.canCreateTab, isFalse);
+            expect(
+              ForumWorkspace.tryFromJson(restored.currentWorkspace!.toJson()),
+              restored.currentWorkspace,
+            );
+            restored.selectTab(start.id);
+            restored.pushContent(_topic(99, 'Opened from Start page'));
+            expect(restored.activeTab!.panel, other);
+            expect(restored.currentContent!.topicId, 99);
+            expect(
+              ForumWorkspace.tryFromJson(restored.currentWorkspace!.toJson()),
+              restored.currentWorkspace,
+            );
+          },
+        );
+      }
+
+      test(
         'Start page visits survive a restart, including background tabs',
         () async {
           final persistence = MemoryRecentDestinationsPersistence();
@@ -702,7 +784,9 @@ void main() {
       test('closing the last tab in a panel opens a Start page there', () {
         controller.desktopTopicTabs = true;
         final mainId = controller.activeTabId!;
-        controller.createTab(panel: ForumPanel.secondary);
+        controller.selectTab(
+          controller.selectedTabIn(ForumPanel.secondary)!.id,
+        );
         final secondaryId = controller.activeTabId!;
 
         controller.closeTab(mainId);
@@ -738,7 +822,9 @@ void main() {
       test('closing other tabs keeps a Start page in the emptied panel', () {
         controller.desktopTopicTabs = true;
         final mainId = controller.activeTabId!;
-        controller.createTab(panel: ForumPanel.secondary);
+        controller.selectTab(
+          controller.selectedTabIn(ForumPanel.secondary)!.id,
+        );
         final secondaryId = controller.activeTabId!;
 
         controller.closeOtherTabs(mainId);
