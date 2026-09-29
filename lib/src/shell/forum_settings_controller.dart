@@ -9,6 +9,7 @@ import '../data/stored_forum_base.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
 import '../models/forum_theme.dart';
+import '../models/forum_theme_library.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
@@ -23,6 +24,8 @@ final class ForumSettingsController extends FrameSafeNotifier {
 
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
   final _themeImports = SerialOperationQueue();
+  final _themeEdits =
+      <String, ({ForumThemePreferences before, ForumThemePreferences after})>{};
   final _themeWrites = <String, _Write<ForumThemePreferences>>{};
   final _previews = <String, _AppearancePreview>{};
 
@@ -32,11 +35,18 @@ final class ForumSettingsController extends FrameSafeNotifier {
   static const _everyForum = '';
   _Write<SharedAppearance>? _sharedWrite;
 
-  ForumThemePreferences themesFor(String siteUrl) =>
-      _themes.peek(requireStoredForumBase(siteUrl)) ??
-      ForumThemePreferences.defaults;
+  ForumThemePreferences themesFor(String siteUrl) {
+    final site = requireStoredForumBase(siteUrl);
+    var library = store.themeLibrary.themes;
+    for (final edit in _themeEdits.values) {
+      library = ForumThemeLibrary.applyEdits(library, edit.before, edit.after);
+    }
+    return (_themes.peek(site) ?? store.themeLibrary.forSite(site)).withLibrary(
+      library,
+    );
+  }
 
-  /// Legacy shared font and effects; custom themes can override the effects.
+  /// Shared fonts and legacy effects; custom themes can override the effects.
   SharedAppearance get shared =>
       _shared.peek(_everyForum) ?? SharedAppearance.defaults;
 
@@ -113,12 +123,13 @@ final class ForumSettingsController extends FrameSafeNotifier {
   Future<void> setThemes(String siteUrl, ForumThemePreferences value) {
     final site = requireStoredForumBase(siteUrl);
     if (isDisposed) return Future.value();
-    if (_themes.peek(site) == value) {
+    if (themesFor(site) == value) {
       return _themeWrites[site]?.completion.future ?? Future.value();
     }
     final existing = _themeWrites[site];
     final write = existing ?? _Write(themesFor(site));
     _themeWrites[site] = write;
+    _themeEdits[site] = (before: write.saved, after: value);
     write.pending = value;
     _themes.remember(site, value);
     notifySafely();
@@ -126,21 +137,29 @@ final class ForumSettingsController extends FrameSafeNotifier {
       unawaited(
         _persist(
           write,
-          (value) => store.writeThemes(site, value),
+          (value) => store.writeThemes(site, value, previous: write.saved),
           revert: (saved) => _themes.remember(site, saved),
-          done: () => _themeWrites.remove(site),
+          done: () {
+            _themeWrites.remove(site);
+            _themeEdits.remove(site);
+            if (!isDisposed) notifySafely();
+          },
         ),
       );
     }
     return write.completion.future;
   }
 
-  /// Loads the font and effects every forum shares. The first load adopts
-  /// what [siteUrls] chose for themselves when those were per forum.
+  /// Loads shared fonts, effects, and every connected forum's saved themes.
+  /// Legacy per-forum documents are migrated without changing selections.
   Future<void> loadShared(Iterable<String> siteUrls) async {
     if (isDisposed) return;
     final sites = [for (final url in siteUrls) requireStoredForumBase(url)];
     await _shared.ensure(_everyForum, () => store.loadAppearance(sites: sites));
+    for (final site in sites) {
+      if (isDisposed) return;
+      await _themes.ensure(site, () => store.loadThemes(site));
+    }
     if (!isDisposed) notifySafely();
   }
 
@@ -197,9 +216,8 @@ final class ForumSettingsController extends FrameSafeNotifier {
     write.completion.complete();
   }
 
-  /// Shows [siteUrl]'s colours in each of [siteUrls] too, each loaded first
-  /// so that its own library is kept. A saved theme joins a library that
-  /// lacks it.
+  /// Shows [siteUrl]'s colours in each of [siteUrls], loading their selections
+  /// first. The shared theme library is unchanged.
   Future<void> useThemesIn(String siteUrl, Iterable<String> siteUrls) {
     final source = requireStoredForumBase(siteUrl);
     final chosen = themesFor(source);
@@ -220,8 +238,8 @@ final class ForumSettingsController extends FrameSafeNotifier {
     ]);
   }
 
-  /// Loads the destination library before importing, preserving its other
-  /// custom themes. Serial imports also retain simultaneous shares.
+  /// Loads the shared library before importing. Serial imports also retain
+  /// simultaneous shares.
   Future<ForumThemePreferences> importTheme(String siteUrl, ForumTheme theme) {
     final site = requireStoredForumBase(siteUrl);
     return _themeImports.run(
@@ -261,6 +279,11 @@ final class ForumSettingsController extends FrameSafeNotifier {
   void forgetSites(ForgottenSites sites) {
     _themeModes.forgetWhere(sites.includes);
     _themes.forgetWhere(sites.includes);
+    unawaited(
+      store.forgetThemes(sites).catchError((Object _) {
+        // Retain the library if persistence is temporarily unavailable.
+      }),
+    );
   }
 
   Future<void> setThemeMode(String siteUrl, AppThemeMode mode) {

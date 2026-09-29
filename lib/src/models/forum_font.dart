@@ -1,6 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 
-/// Bundled reading fonts, available without network access on every platform.
+/// Bundled interface and reading fonts, available offline on every platform.
 enum ForumFont {
   system(null),
   openSans('Open Sans'),

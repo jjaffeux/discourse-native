@@ -44,10 +44,19 @@ void main() {
   test('defines the bounded browser-like text scale', () {
     expect(AppTextScale.values.map((scale) => scale.factor), [
       0.8,
+      0.85,
       0.9,
+      0.95,
       1.0,
+      1.05,
       1.1,
+      1.15,
+      1.2,
       1.25,
+      1.3,
+      1.35,
+      1.4,
+      1.45,
       1.5,
       1.75,
       2.0,
@@ -69,13 +78,13 @@ void main() {
     expect(await store.read(), const AppSettings(disableGifAnimations: true));
   });
 
-  test('legacy alignment does not enable the new content size limit', () async {
+  test('unset width uses Normal and explicit Wide survives', () async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.content_alignment': 'right',
     });
-    expect((await AppSettingsStore().read()).limitContentSize, isFalse);
-    await AppSettingsStore().update(limitContentSize: true);
     expect((await AppSettingsStore().read()).limitContentSize, isTrue);
+    await AppSettingsStore().update(limitContentSize: false);
+    expect((await AppSettingsStore().read()).limitContentSize, isFalse);
   });
 
   test('round-trips the content size limit through one app-wide key', () async {

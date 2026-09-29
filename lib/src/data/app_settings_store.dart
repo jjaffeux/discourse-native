@@ -224,13 +224,15 @@ final class AppSettingsStore {
   );
 
   Future<AppSettings> _read() async {
-    var limitContentSize = false;
+    var limitContentSize = AppSettings.defaults.limitContentSize;
     var disableGifAnimations = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
     var topicListMode = TopicListDisplayMode.card;
     try {
-      limitContentSize = await _persistence.readLimitContentSize() ?? false;
+      limitContentSize =
+          await _persistence.readLimitContentSize() ??
+          AppSettings.defaults.limitContentSize;
     } catch (error, stackTrace) {
       reportStorageFailure(
         error,

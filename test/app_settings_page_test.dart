@@ -98,26 +98,26 @@ void main() {
     var segmented = tester.widget<DSwitchTile>(
       find.byKey(const ValueKey('limit-content-size-switch')),
     );
-    expect(segmented.value, false);
+    expect(segmented.value, true);
 
     expect(find.byKey(const ValueKey('topic-list-mode-toggle')), findsNothing);
 
     await tester.tap(find.text('Limit content size'));
     await tester.pump();
 
-    expect(controller.appSettings.limitContentSize, true);
-    expect(persistence.limitContentSize, true);
+    expect(controller.appSettings.limitContentSize, false);
+    expect(persistence.limitContentSize, false);
     segmented = tester.widget<DSwitchTile>(
       find.byKey(const ValueKey('limit-content-size-switch')),
     );
-    expect(segmented.value, true);
+    expect(segmented.value, false);
 
     await tester.tap(find.byKey(const ValueKey('text-size-increase')));
     await tester.pump();
 
-    expect(controller.appSettings.textScale, AppTextScale.percent110);
-    expect(persistence.textScale, AppTextScale.percent110.name);
-    expect(_textSize('110%'), findsOneWidget);
+    expect(controller.appSettings.textScale, AppTextScale.percent105);
+    expect(persistence.textScale, AppTextScale.percent105.name);
+    expect(_textSize('105%'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('text-size-reset')));
     await tester.pump();
@@ -296,7 +296,14 @@ void main() {
 
       for (final option in ForumFont.values) {
         final row = find.byKey(ValueKey('appearance-font-${option.name}'));
-        expect(tester.widget<DItem>(row).selected, option == ForumFont.system);
+        expect(
+          tester
+              .widget<DToggle>(
+                find.byKey(ValueKey('appearance-font-${option.name}-reading')),
+              )
+              .pressed,
+          option == ForumFont.system,
+        );
         final sample = tester.widget<Text>(
           find.descendant(
             of: row,
@@ -314,7 +321,7 @@ void main() {
         );
       }
 
-      final lato = find.byKey(const ValueKey('appearance-font-lato'));
+      final lato = find.byKey(const ValueKey('appearance-font-lato-reading'));
       await tester.ensureVisible(lato);
       await tester.tap(lato);
       await tester.pumpAndSettle();
@@ -323,11 +330,13 @@ void main() {
         (await controller.forumSettings.store.loadAppearance()).font,
         ForumFont.lato,
       );
-      expect(tester.widget<DItem>(lato).selected, isTrue);
+      expect(tester.widget<DToggle>(lato).pressed, isTrue);
       expect(
         tester
-            .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
-            .selected,
+            .widget<DToggle>(
+              find.byKey(const ValueKey('appearance-font-system-reading')),
+            )
+            .pressed,
         isFalse,
       );
       expect(tester.takeException(), isNull);
@@ -345,14 +354,18 @@ void main() {
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, size: const Size(800, 1200));
 
-    await tester.tap(find.byKey(const ValueKey('appearance-font-lato')));
+    await tester.tap(
+      find.byKey(const ValueKey('appearance-font-lato-reading')),
+    );
     await tester.pumpAndSettle();
 
     expect(controller.forumSettings.shared.font, ForumFont.system);
     expect(
       tester
-          .widget<DItem>(find.byKey(const ValueKey('appearance-font-system')))
-          .selected,
+          .widget<DToggle>(
+            find.byKey(const ValueKey('appearance-font-system-reading')),
+          )
+          .pressed,
       isTrue,
     );
     expect(find.text('Could not save the font.'), findsOneWidget);
@@ -483,16 +496,14 @@ void main() {
         rtl: true,
       );
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Limit content size'));
-      await tester.tap(find.text('Limit content size'));
-      await tester.pumpAndSettle();
+      expect(find.text('Limit content size'), findsNothing);
       expect(controller.appSettings.limitContentSize, true);
       await tester.ensureVisible(
         find.byKey(const ValueKey('text-size-increase')),
       );
       await tester.tap(find.byKey(const ValueKey('text-size-increase')));
       await tester.pumpAndSettle();
-      expect(controller.appSettings.textScale, AppTextScale.percent110);
+      expect(controller.appSettings.textScale, AppTextScale.percent105);
       await tester.ensureVisible(find.text('Disable GIF animations'));
       await tester.tap(find.text('Disable GIF animations'));
       await tester.pumpAndSettle();

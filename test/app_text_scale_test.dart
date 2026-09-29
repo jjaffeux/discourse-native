@@ -102,7 +102,7 @@ void main() {
           ),
           isTrue,
         );
-        expect(controller.textScale, AppTextScale.percent110);
+        expect(controller.textScale, AppTextScale.percent105);
 
         expect(
           await _pressShortcut(
@@ -114,7 +114,7 @@ void main() {
           ),
           isTrue,
         );
-        expect(controller.textScale, AppTextScale.percent125);
+        expect(controller.textScale, AppTextScale.percent110);
 
         expect(
           await _pressShortcut(
@@ -125,7 +125,7 @@ void main() {
           ),
           isTrue,
         );
-        expect(controller.textScale, AppTextScale.percent110);
+        expect(controller.textScale, AppTextScale.percent105);
 
         expect(
           await _pressShortcut(
@@ -147,7 +147,7 @@ void main() {
             ),
             isTrue,
           );
-          expect(controller.textScale, AppTextScale.percent110);
+          expect(controller.textScale, AppTextScale.percent105);
           expect(
             await _pressShortcut(
               tester,
@@ -244,7 +244,7 @@ void main() {
       ),
       isTrue,
     );
-    expect(controller.textScale, AppTextScale.percent110);
+    expect(controller.textScale, AppTextScale.percent105);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 

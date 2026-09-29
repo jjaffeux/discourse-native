@@ -14531,4 +14531,31 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get interfaceFontUse => 'Interface';
+
+  @override
+  String get readingFontUse => 'Reading';
+
+  @override
+  String fontForInterface(String font) {
+    return '$font for interface';
+  }
+
+  @override
+  String fontForReading(String font) {
+    return '$font for reading';
+  }
+
+  @override
+  String get fontAssignmentsDescription =>
+      'Choose fonts for the interface and reading in every forum. System default reading follows the interface font.';
+
+  @override
+  String get confirmThemeEverywhere =>
+      'Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.';
+
+  @override
+  String get confirmUseEverywhere => 'Use everywhere';
 }

@@ -599,8 +599,16 @@ void main() {
       forumSettingsStore: ForumSettingsStore(persistence: persistence),
     );
     final controller = _controller(tester);
-    String? family() => _activeTheme(tester).textTheme.bodyMedium!.fontFamily;
+    String? family() => _activeTheme(tester).textTheme.bodyLarge!.fontFamily;
     expect(controller.currentInstance!.title, 'A');
+    expect(family(), 'Lato');
+    await controller.forumSettings.setShared(
+      controller.forumSettings.shared.copyWith(
+        interfaceFont: ForumFont.openSans,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_activeTheme(tester).textTheme.bodyMedium!.fontFamily, 'Open Sans');
     expect(family(), 'Lato');
     controller.selectInstance(1);
     await tester.pumpAndSettle();

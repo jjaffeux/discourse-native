@@ -315,7 +315,9 @@ class OneboxCard extends StatelessWidget {
         if (data.bodyHtml.isNotEmpty)
           CookedHtml(
             html: data.bodyHtml,
-            textStyle: theme.textTheme.bodyMedium,
+            textStyle: theme.textTheme.bodyLarge?.copyWith(
+              height: theme.textTheme.bodyMedium?.height,
+            ),
             siteUrl: siteUrl,
           ),
       ],

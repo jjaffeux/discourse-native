@@ -129,6 +129,7 @@ class _DiscourseAppState extends State<DiscourseApp>
           Brightness,
           TargetPlatform,
           String?,
+          String?,
           ForumBackground,
         ),
         ThemeData
@@ -138,6 +139,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     SiteAppearance? appearance,
     Brightness brightness,
     String? fontFamily,
+    String? readingFontFamily,
     ForumBackground effects,
   ) {
     final palette = appearance?.paletteForBrightness(brightness);
@@ -146,15 +148,21 @@ class _DiscourseAppState extends State<DiscourseApp>
       brightness,
       defaultTargetPlatform,
       fontFamily,
+      readingFontFamily,
       effects,
     );
     final cached = _themes.read(key);
     if (cached != null) return cached;
     final theme = palette != null
-        ? AppTheme.fromPalette(palette, fontFamily: fontFamily)
+        ? AppTheme.fromPalette(
+            palette,
+            fontFamily: fontFamily,
+            readingFontFamily: readingFontFamily,
+          )
         : AppTheme.forBrightness(
             brightness,
             fontFamily: fontFamily,
+            readingFontFamily: readingFontFamily,
             background: effects,
           );
     _themes.put(key, theme);
@@ -590,18 +598,21 @@ class _DiscourseAppState extends State<DiscourseApp>
                   selection.siteUrl ?? ForumSettingsController.homeSite,
                   selection.appearance,
                 );
-                final fontFamily = _controller.forumSettings.shared.font.family;
+                final fontFamily =
+                    _controller.forumSettings.shared.interfaceFont.family;
                 final effects = _controller.forumSettings.shared.effects;
                 final lightTheme = _themeFor(
                   appearance,
                   Brightness.light,
                   fontFamily,
+                  _controller.forumSettings.shared.readingFamily,
                   effects,
                 );
                 final darkTheme = _themeFor(
                   appearance,
                   Brightness.dark,
                   fontFamily,
+                  _controller.forumSettings.shared.readingFamily,
                   effects,
                 );
                 SurfaceOpeningTrace.mark('forum.theme.end');

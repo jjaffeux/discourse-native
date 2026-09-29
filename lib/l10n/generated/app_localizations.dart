@@ -22754,6 +22754,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 unread topic} other{{count} unread topics}}'**
   String categoryUnreadTopics(int count);
+
+  /// Font assignment for app navigation and controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface'**
+  String get interfaceFontUse;
+
+  /// Font assignment for authored prose and content.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading'**
+  String get readingFontUse;
+
+  /// Accessible label assigning a named font to app controls.
+  ///
+  /// In en, this message translates to:
+  /// **'{font} for interface'**
+  String fontForInterface(String font);
+
+  /// Accessible label assigning a named font to prose.
+  ///
+  /// In en, this message translates to:
+  /// **'{font} for reading'**
+  String fontForReading(String font);
+
+  /// Explanation of the independent shared font assignments.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose fonts for the interface and reading in every forum. System default reading follows the interface font.'**
+  String get fontAssignmentsDescription;
+
+  /// Confirmation before replacing theme selections across forums and Home.
+  ///
+  /// In en, this message translates to:
+  /// **'Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.'**
+  String get confirmThemeEverywhere;
+
+  /// Confirm replacement of theme selections across every forum and Home.
+  ///
+  /// In en, this message translates to:
+  /// **'Use everywhere'**
+  String get confirmUseEverywhere;
 }
 
 class _AppLocalizationsDelegate

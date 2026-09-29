@@ -209,7 +209,7 @@ void main() {
         >[
           (
             'content size limit',
-            (controller) => controller.setLimitContentSize(false),
+            (controller) => controller.setLimitContentSize(true),
             const AppSettings(
               disableGifAnimations: true,
               textScale: AppTextScale.percent175,
@@ -281,7 +281,7 @@ void main() {
         controller.setLimitContentSize(false),
         controller.setDisableGifAnimations(false),
       ];
-      expect(controller.settings, AppSettings.defaults);
+      expect(controller.settings, const AppSettings(limitContentSize: false));
       // A slow hydration read must not delay persistence of explicit choices.
       await Future.wait(saves);
       expect(persistence.limitContentSize, false);
@@ -294,7 +294,10 @@ void main() {
       await _expectSettings(
         controller,
         persistence,
-        const AppSettings(textScale: AppTextScale.percent175),
+        const AppSettings(
+          limitContentSize: false,
+          textScale: AppTextScale.percent175,
+        ),
       );
     },
   );
@@ -402,14 +405,14 @@ void main() {
       const AppSettings(
         limitContentSize: false,
         disableGifAnimations: true,
-        textScale: AppTextScale.percent175,
+        textScale: AppTextScale.percent135,
       ),
     );
     expect(persistence.limitContentSize, false);
     expect(persistence.disableGifAnimations, isTrue);
     expect(persistence.attemptedTextScaleWrites, [
-      AppTextScale.percent150.name,
-      AppTextScale.percent175.name,
+      AppTextScale.percent130.name,
+      AppTextScale.percent135.name,
     ]);
   });
 
@@ -444,7 +447,7 @@ void main() {
         const AppSettings(
           limitContentSize: true,
           disableGifAnimations: true,
-          textScale: AppTextScale.percent175,
+          textScale: AppTextScale.percent135,
         ),
       );
     },
@@ -466,7 +469,7 @@ void main() {
 
       final selection = controller.setTextScale(AppTextScale.percent90);
       final increase = controller.increaseTextScale();
-      expect(controller.textScale, AppTextScale.percent100);
+      expect(controller.textScale, AppTextScale.percent95);
       final decrease = controller.decreaseTextScale();
       expect(controller.textScale, AppTextScale.percent90);
       final reset = controller.resetTextScale();
@@ -522,21 +525,21 @@ void main() {
     final controller = _controller(persistence);
 
     await controller.increaseTextScale();
-    expect(controller.textScale, AppTextScale.percent110);
-    expect(controller.textScaleFactor, 1.1);
+    expect(controller.textScale, AppTextScale.percent105);
+    expect(controller.textScaleFactor, 1.05);
 
     await controller.increaseTextScale();
-    expect(controller.textScale, AppTextScale.percent125);
+    expect(controller.textScale, AppTextScale.percent110);
 
     await controller.decreaseTextScale();
-    expect(controller.textScale, AppTextScale.percent110);
+    expect(controller.textScale, AppTextScale.percent105);
 
     await controller.resetTextScale();
     expect(controller.textScale, AppTextScale.percent100);
     expect(persistence.attemptedTextScaleWrites, [
+      AppTextScale.percent105.name,
       AppTextScale.percent110.name,
-      AppTextScale.percent125.name,
-      AppTextScale.percent110.name,
+      AppTextScale.percent105.name,
       AppTextScale.percent100.name,
     ]);
   });
@@ -555,22 +558,22 @@ void main() {
 
       final saving110 = controller.setTextScale(AppTextScale.percent110);
       await persistence.firstWriteStarted.future;
-      final saving125 = controller.increaseTextScale();
+      final saving115 = controller.increaseTextScale();
 
-      expect(controller.textScale, AppTextScale.percent125);
+      expect(controller.textScale, AppTextScale.percent115);
       expect(notifications, 2);
       expect(persistence.attemptedTextScaleWrites, [
         AppTextScale.percent110.name,
       ]);
 
       firstWriteGate.complete();
-      await Future.wait([saving110, saving125]);
+      await Future.wait([saving110, saving115]);
 
       expect(persistence.attemptedTextScaleWrites, [
         AppTextScale.percent110.name,
-        AppTextScale.percent125.name,
+        AppTextScale.percent115.name,
       ]);
-      expect(persistence.textScale, AppTextScale.percent125.name);
+      expect(persistence.textScale, AppTextScale.percent115.name);
     },
   );
 
@@ -690,7 +693,7 @@ void main() {
     await controller.setLimitContentSize(true);
 
     expect(controller.loaded, isFalse);
-    expect(controller.limitContentSize, false);
+    expect(controller.limitContentSize, true);
     expect(persistence.attemptedWrites, isEmpty);
   });
 

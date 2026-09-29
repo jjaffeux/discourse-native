@@ -258,6 +258,28 @@ void main() {
     expect(
       shell.forumSettings
           .themesFor(ForumSettingsController.homeSite)
+          .presetFor(Brightness.light),
+      isNull,
+    );
+    expect(
+      find.textContaining('replacing their individual selections'),
+      findsOneWidget,
+    );
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('theme-use-everywhere-cancel')),
+    );
+    expect(
+      shell.forumSettings
+          .themesFor(ForumSettingsController.homeSite)
+          .presetFor(Brightness.light),
+      isNull,
+    );
+    await tapVisible(tester, useEverywhere);
+    await tapVisible(tester, find.text('Use everywhere'));
+    expect(
+      shell.forumSettings
+          .themesFor(ForumSettingsController.homeSite)
           .presetFor(Brightness.light)
           ?.id,
       'wcag',
@@ -298,6 +320,8 @@ void main() {
     await tapVisible(tester, find.text('Display'));
 
     final toggle = find.byKey(const ValueKey('settings-content-width'));
+    expect(tester.getRect(toggle).width, 793);
+    await tapVisible(tester, find.text('Wide'));
     final wide = tester.getRect(toggle);
     expect(wide.width, 1168);
 

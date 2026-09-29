@@ -556,7 +556,7 @@ class _CardContent extends StatelessWidget {
           const SizedBox(height: 12),
           CookedHtml(
             html: bio,
-            textStyle: theme.textTheme.bodyMedium?.copyWith(
+            textStyle: theme.textTheme.bodyLarge?.copyWith(
               height: DiscourseTypography.lineHeightCooked,
             ),
             siteUrl: siteUrl,

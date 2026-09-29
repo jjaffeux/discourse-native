@@ -5,13 +5,17 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/app_settings.dart';
-import '../models/forum_font.dart';
 import '../theme/d_icons.dart';
 import 'app_settings_controller.dart';
+import 'forum_font_chooser.dart';
 import 'forum_settings_controller.dart';
 
 /// Shared reading and icon preferences, followed by the content width choice.
 class ForumDisplaySettings extends StatelessWidget {
+  // Rail (53), sidebar (240), and list (420) fit at this window width.
+  // Use the window, since a desktop settings panel may temporarily be narrow.
+  static const wideLayoutMinWidth = 713.0;
+
   const ForumDisplaySettings({
     super.key,
     required this.appSettings,
@@ -20,20 +24,6 @@ class ForumDisplaySettings extends StatelessWidget {
 
   final AppSettingsController appSettings;
   final ForumSettingsController forumSettings;
-
-  Future<void> _setFont(BuildContext context, ForumFont font) async {
-    try {
-      await forumSettings.setShared(forumSettings.shared.copyWith(font: font));
-    } catch (_) {
-      if (context.mounted) {
-        DToast.show(
-          context,
-          appL10n.couldNotSaveTheFont,
-          type: DToastType.error,
-        );
-      }
-    }
-  }
 
   Future<void> _setIconSet(BuildContext context, DIconSet set) async {
     try {
@@ -55,11 +45,7 @@ class ForumDisplaySettings extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([appSettings, forumSettings]),
     builder: (context, _) {
-      final theme = Theme.of(context);
       final tokens = DTokens.of(context);
-      final systemFamily = ThemeData(
-        platform: theme.platform,
-      ).textTheme.bodyLarge!.fontFamily;
       final scale = appSettings.textScale;
       final percentage = (scale.factor * 100).round();
       return SingleChildScrollView(
@@ -138,45 +124,7 @@ class ForumDisplaySettings extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: DSpacing.md),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final font in ForumFont.values) ...[
-                    DItem(
-                      key: ValueKey('display-font-${font.name}'),
-                      selected: forumSettings.shared.font == font,
-                      selectionStyle: DItemSelectionStyle.tinted,
-                      showSelectionIndicator: false,
-                      variant: DItemVariant.outline,
-                      onPressed: () => unawaited(_setFont(context, font)),
-                      children: [
-                        DItemContent(
-                          children: [
-                            Text(
-                              font.label,
-                              style: theme.textTheme.bodySmall!.copyWith(
-                                color: forumSettings.shared.font == font
-                                    ? tokens.foreground
-                                    : tokens.mutedForeground,
-                              ),
-                            ),
-                            Text(
-                              context.l10n.theQuickBrownFoxJumpsOverTheLazyDog,
-                              style: theme.textTheme.bodyLarge!.copyWith(
-                                fontFamily: font.family ?? systemFamily,
-                                fontFamilyFallback:
-                                    forumFontFamilyFallback(font.family) ??
-                                    const [],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: DSpacing.sm),
-                  ],
-                ],
-              ),
+              ForumFontChooser(settings: forumSettings),
               const SizedBox(height: DSpacing.lg),
               Text(context.l10n.icons),
               const SizedBox(height: DSpacing.sm),
@@ -231,30 +179,32 @@ class ForumDisplaySettings extends StatelessWidget {
                 },
               ),
               const SizedBox(height: DSpacing.lg),
-              Text(context.l10n.contentWidth),
-              const SizedBox(height: DSpacing.sm),
-              DToggleGroup<bool>(
-                key: const ValueKey('settings-content-width'),
-                values: [appSettings.limitContentSize],
-                expanded: true,
-                inset: true,
-                allowEmptySelection: false,
-                onChanged: (values) {
-                  if (values.isNotEmpty) {
-                    unawaited(appSettings.setLimitContentSize(values.first));
-                  }
-                },
-                items: [
-                  DToggleGroupItem(
-                    value: true,
-                    child: Text(context.l10n.normal),
-                  ),
-                  DToggleGroupItem(
-                    value: false,
-                    child: Text(context.l10n.wide),
-                  ),
-                ],
-              ),
+              if (MediaQuery.sizeOf(context).width >= wideLayoutMinWidth) ...[
+                Text(context.l10n.contentWidth),
+                const SizedBox(height: DSpacing.sm),
+                DToggleGroup<bool>(
+                  key: const ValueKey('settings-content-width'),
+                  values: [appSettings.limitContentSize],
+                  expanded: true,
+                  inset: true,
+                  allowEmptySelection: false,
+                  onChanged: (values) {
+                    if (values.isNotEmpty) {
+                      unawaited(appSettings.setLimitContentSize(values.first));
+                    }
+                  },
+                  items: [
+                    DToggleGroupItem(
+                      value: true,
+                      child: Text(context.l10n.normal),
+                    ),
+                    DToggleGroupItem(
+                      value: false,
+                      child: Text(context.l10n.wide),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

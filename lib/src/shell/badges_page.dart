@@ -475,7 +475,8 @@ class BadgeRow extends StatelessWidget {
                 html: badge.description,
                 siteUrl: siteUrl,
                 compactParagraphs: true,
-                textStyle: theme.textTheme.bodyMedium?.copyWith(
+                textStyle: theme.textTheme.bodyLarge?.copyWith(
+                  height: theme.textTheme.bodyMedium?.height,
                   color: theme.shell.marker,
                 ),
               ),
