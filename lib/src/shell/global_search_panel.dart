@@ -107,46 +107,61 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                               _GlobalSearchDisplay(controller: controller),
                             ],
                           );
-                          final scopes = DScrollArea(
-                            axes: DScrollAxes.horizontal,
-                            showScrollbar: false,
-                            child: Row(
-                              spacing: DSpacing.controlGap,
-                              children: [
-                                for (final scope in controller.scopes)
-                                  DToggle(
-                                    key: ValueKey(
-                                      'global-search-scope-${scope.keyName}',
-                                    ),
-                                    pressed: controller.scope == scope,
-                                    onPressedChanged: (_) =>
-                                        controller.setScope(scope),
-                                    variant: DToggleVariant.outline,
-                                    size: DToggleSize.small,
-                                    selectedIcon: const DIcon(DIcons.check),
-                                    semanticLabel: context.l10n
-                                        .searchGlobalsearchpanel(
-                                          (scope.label).toString(),
-                                        ),
-                                    child: Text(scope.label),
+                          final scopes = constraints.maxWidth < 530
+                              ? DSelect<GlobalSearchScope>.controlled(
+                                  key: const ValueKey(
+                                    'global-search-scope-select',
                                   ),
-                              ],
-                            ),
-                          );
-                          if (constraints.maxWidth < 530) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                scopes,
-                                Align(
-                                  alignment: AlignmentDirectional.centerEnd,
-                                  child: tools,
-                                ),
-                              ],
-                            );
-                          }
+                                  value: controller.scope,
+                                  onChanged: (scope) {
+                                    if (scope != null) {
+                                      controller.setScope(scope);
+                                    }
+                                  },
+                                  size: DSelectSize.small,
+                                  isExpanded: true,
+                                  semanticLabel: context.l10n
+                                      .searchGlobalsearchpanel(
+                                        controller.scope.label,
+                                      ),
+                                  entries: [
+                                    for (final scope in controller.scopes)
+                                      DSelectItem(
+                                        value: scope,
+                                        textValue: scope.label,
+                                        child: Text(scope.label),
+                                      ),
+                                  ],
+                                )
+                              : DScrollArea(
+                                  axes: DScrollAxes.horizontal,
+                                  showScrollbar: false,
+                                  child: Row(
+                                    spacing: DSpacing.controlGap,
+                                    children: [
+                                      for (final scope in controller.scopes)
+                                        DToggle(
+                                          key: ValueKey(
+                                            'global-search-scope-${scope.keyName}',
+                                          ),
+                                          pressed: controller.scope == scope,
+                                          onPressedChanged: (_) =>
+                                              controller.setScope(scope),
+                                          variant: DToggleVariant.outline,
+                                          size: DToggleSize.small,
+                                          selectedIcon: const DIcon(
+                                            DIcons.check,
+                                          ),
+                                          semanticLabel: context.l10n
+                                              .searchGlobalsearchpanel(
+                                                (scope.label).toString(),
+                                              ),
+                                          child: Text(scope.label),
+                                        ),
+                                    ],
+                                  ),
+                                );
                           return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(child: scopes),
                               const SizedBox(width: 8),

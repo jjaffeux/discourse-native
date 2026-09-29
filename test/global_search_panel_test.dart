@@ -26,6 +26,96 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final width in [320.0, 430.0]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'mobile search tools share one row at $width with $textScale text',
+        (tester) async {
+          final controller = await _pump(
+            tester,
+            width: width,
+            viewport: Size(width, 640),
+            textScale: textScale,
+            platform: TargetPlatform.iOS,
+          );
+          controller.setScope(GlobalSearchScope.forum);
+          await tester.pumpAndSettle();
+
+          final scope = tester.getRect(_key('global-search-scope-select'));
+          final filter = tester.getRect(_key('global-search-filter-trigger'));
+          final display = tester.getRect(_key('global-search-display-trigger'));
+          expect(scope.center.dy, closeTo(filter.center.dy, .5));
+          expect(scope.center.dy, closeTo(display.center.dy, .5));
+          expect(scope.right, lessThan(filter.left));
+          expect(filter.right, lessThan(display.left));
+          expect(scope.left, greaterThanOrEqualTo(0));
+          expect(display.right, lessThanOrEqualTo(width));
+          expect(
+            _key('global-search-filter-trigger').hitTestable(),
+            findsOneWidget,
+          );
+          expect(
+            _key('global-search-display-trigger').hitTestable(),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('mobile scope selector switches core and plugin searches', (
+    tester,
+  ) async {
+    final controller = await _pump(
+      tester,
+      width: 320,
+      viewport: const Size(320, 640),
+      textScale: 2,
+      platform: TargetPlatform.android,
+    );
+    controller.setQuery('design');
+    await tester.pumpAndSettle();
+    final selector = _key('global-search-scope-select');
+    for (final scope in [
+      ...controller.scopes.where((scope) => scope != GlobalSearchScope.all),
+      GlobalSearchScope.all,
+    ]) {
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      final option = find.text(scope.label).last;
+      await tester.ensureVisible(option);
+      await tester.pumpAndSettle();
+      await tester.tap(option);
+      await tester.pumpAndSettle();
+      expect(controller.scope, scope);
+      expect(controller.query, 'design');
+      expect(
+        find.descendant(of: selector, matching: find.text(scope.label)),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    }
+
+    controller.addCondition(
+      const GlobalSearchCondition(
+        filterId: 'postCount',
+        operator: 'gte',
+        value: ['3'],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.scope, GlobalSearchScope.forum);
+    expect(
+      find.descendant(
+        of: selector,
+        matching: find.text(GlobalSearchScope.forum.label),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final query in ['fixed laughing', 'in:first']) {
     testWidgets('result emoji render with query "$query"', (tester) async {
       installTestMediaPipeline(
@@ -750,6 +840,7 @@ Future<GlobalSearchController> _pump(
   Size viewport = const Size(1000, 800),
   double textScale = 1,
   bool dark = true,
+  TargetPlatform platform = TargetPlatform.macOS,
   SiteLifecycle? lifecycle,
   List<TopicCategory> categories = const [],
 }) async {
@@ -793,7 +884,7 @@ Future<GlobalSearchController> _pump(
       controller: shell,
       child: MaterialApp(
         theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-          platform: TargetPlatform.macOS,
+          platform: platform,
         ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
