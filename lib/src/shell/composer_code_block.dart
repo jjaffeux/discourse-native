@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugin_api/composer_syntax.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../ui/foundation/code_editor_theme.dart';
 import 'code_block.dart';
@@ -309,123 +310,110 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
       'nohighlight' => context.l10n.plainText,
       _ => codeLanguageLabel(language),
     };
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final caretMargin =
-            (context
-                    .findAncestorWidgetOfExactType<EditableText>()
-                    ?.cursorWidth ??
-                2) +
-            1;
-        return SizedBox(
-          width: (constraints.maxWidth - caretMargin).clamp(0, double.infinity),
-          child: ComposerEmbeddedEditor(
-            owner: widget.composer,
-            scrollController: widget.composer.text.imageScrollController,
-            semanticLabel: context.l10n.codeBlock,
-            child: Focus(
-              onKeyEvent: (_, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape) {
-                  _finish();
-                  return KeyEventResult.handled;
-                }
-                // Formatting shortcuts belong to prose, not the source editor.
-                if (event is KeyDownEvent &&
-                    (HardwareKeyboard.instance.isMetaPressed ||
-                        HardwareKeyboard.instance.isControlPressed) &&
-                    [
-                      LogicalKeyboardKey.keyB,
-                      LogicalKeyboardKey.keyI,
-                      LogicalKeyboardKey.keyE,
-                      LogicalKeyboardKey.keyL,
-                    ].contains(event.logicalKey)) {
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: DCard(
-                spacing: 0,
-                backgroundColor: codeEditorColors(
-                  Theme.of(context),
-                ).blockBackground,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Padding(
-                        padding: const EdgeInsets.all(DSpacing.xs),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: DSelect<String>(
-                                key: const ValueKey('composer-code-language'),
-                                value: _language,
-                                semanticLabel: context.l10n.language,
-                                size: DSelectSize.small,
-                                triggerBuilder: (context, state, _) => DButton(
-                                  variant: DButtonVariant.transparentBackground,
-                                  size: DButtonSize.small,
-                                  focusNode: state.focusNode,
-                                  hasPopup: true,
-                                  expanded: state.open,
-                                  icon: const DIcon(DIcons.chevronDown),
-                                  iconPosition: DButtonIconPosition.end,
-                                  onPressed: state.enabled
-                                      ? state.toggle
-                                      : null,
-                                  label: Text(label(_language)),
-                                ),
-                                enabled: widget.composer.isEditing,
-                                entries: [
-                                  for (final language in languages)
-                                    DSelectItem(
-                                      value: language,
-                                      textValue: label(language),
-                                      child: Text(label(language)),
-                                    ),
-                                ],
-                                onChanged: (language) {
-                                  if (language != null) {
-                                    _replace(_block.withLanguage(language));
-                                  }
-                                },
+    final theme = Theme.of(context);
+    final codeTheme = AppTheme.forBrightness(
+      Brightness.dark,
+      fontFamily: theme.textTheme.bodyMedium?.fontFamily,
+    ).copyWith(platform: theme.platform);
+    // The shared source projection already reserves the outer caret gap.
+    return SizedBox(
+      width: double.infinity,
+      child: Theme(
+        data: codeTheme,
+        child: ComposerEmbeddedEditor(
+          owner: widget.composer,
+          scrollController: widget.composer.text.imageScrollController,
+          semanticLabel: context.l10n.codeBlock,
+          child: Focus(
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.escape) {
+                _finish();
+                return KeyEventResult.handled;
+              }
+              // Formatting shortcuts belong to prose, not the source editor.
+              if (event is KeyDownEvent &&
+                  (HardwareKeyboard.instance.isMetaPressed ||
+                      HardwareKeyboard.instance.isControlPressed) &&
+                  [
+                    LogicalKeyboardKey.keyB,
+                    LogicalKeyboardKey.keyI,
+                    LogicalKeyboardKey.keyE,
+                    LogicalKeyboardKey.keyL,
+                  ].contains(event.logicalKey)) {
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: DCard(
+              spacing: 0,
+              border: false,
+              backgroundColor: codeEditorColors(codeTheme).blockBackground,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Padding(
+                      padding: const EdgeInsets.all(DSpacing.xs),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: DSelect<String>(
+                              key: const ValueKey('composer-code-language'),
+                              value: _language,
+                              semanticLabel: context.l10n.language,
+                              size: DSelectSize.small,
+                              triggerBuilder: (context, state, _) => DButton(
+                                variant: DButtonVariant.transparentBackground,
+                                size: DButtonSize.small,
+                                focusNode: state.focusNode,
+                                hasPopup: true,
+                                expanded: state.open,
+                                icon: const DIcon(DIcons.chevronDown),
+                                iconPosition: DButtonIconPosition.end,
+                                onPressed: state.enabled ? state.toggle : null,
+                                label: Text(label(_language)),
                               ),
+                              enabled: widget.composer.isEditing,
+                              entries: [
+                                for (final language in languages)
+                                  DSelectItem(
+                                    value: language,
+                                    textValue: label(language),
+                                    child: Text(label(language)),
+                                  ),
+                              ],
+                              onChanged: (language) {
+                                if (language != null) {
+                                  _replace(_block.withLanguage(language));
+                                }
+                              },
                             ),
-                            DButton.iconOnly(
-                              tooltip: context.l10n.done,
-                              icon: const DIcon(DIcons.check),
-                              variant: DButtonVariant.transparentBackground,
-                              size: DButtonSize.small,
-                              onPressed: widget.composer.isEditing
-                                  ? _finish
-                                  : null,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(
-                      height: (24 + _body.split('\n').length * 26.0).clamp(
-                        56,
-                        320,
-                      ),
-                      child: DCodeEditor(
-                        controller: _controller,
-                        focusNode: _focus,
-                        readOnly: !widget.composer.isEditing,
-                        onChanged: (body) => _replace(_block.withBody(body)),
-                      ),
+                  ),
+                  SizedBox(
+                    height: (24 + _body.split('\n').length * 26.0).clamp(
+                      56,
+                      320,
                     ),
-                  ],
-                ),
+                    child: DCodeEditor(
+                      controller: _controller,
+                      focusNode: _focus,
+                      readOnly: !widget.composer.isEditing,
+                      onChanged: (body) => _replace(_block.withBody(body)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

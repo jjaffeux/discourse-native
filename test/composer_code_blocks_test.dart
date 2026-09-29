@@ -29,6 +29,7 @@ Future<ComposerController> _pump(
   double width = 700,
   double scale = 1,
   bool panel = false,
+  ThemeData? theme,
 }) async {
   final composer = ComposerController(_target);
   addTearDown(composer.dispose);
@@ -63,7 +64,7 @@ Future<ComposerController> _pump(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.dark,
+      theme: theme ?? AppTheme.dark,
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -181,12 +182,17 @@ void main() {
         input.controller.selection.extentOffset,
         input.controller.text.length,
       );
-      await tester.tap(find.byTooltip('Done'));
+      expect(find.byTooltip('Done'), findsNothing);
+      final proseInput = find.byWidgetPredicate(
+        (widget) =>
+            widget is EditableText && widget.controller == composer.text,
+      );
+      await tester.tapAt(tester.getTopLeft(proseInput) + const Offset(12, 12));
       await tester.pumpAndSettle();
       expect(composer.focus.hasFocus, isTrue);
       expect(
         composer.text.selection.extentOffset,
-        greaterThan(parseComposerCodeBlocks(composer.raw).single.end),
+        lessThan(parseComposerCodeBlocks(composer.raw).single.start),
       );
       expect(tester.takeException(), isNull);
     },
@@ -280,6 +286,7 @@ void main() {
         'before\n\nselected\n\nafter',
         width: 320,
         scale: 1.5,
+        theme: AppTheme.light,
       );
       composer.text.selection = const TextSelection(
         baseOffset: 8,
@@ -293,6 +300,24 @@ void main() {
       expect(
         tester.getSize(find.byType(ComposerCodeBlockEditor)).width,
         lessThanOrEqualTo(320),
+      );
+      final proseInput = find.byWidgetPredicate(
+        (widget) =>
+            widget is EditableText && widget.controller == composer.text,
+      );
+      final codeBlock = find.byType(ComposerCodeBlockEditor);
+      expect(
+        tester.getTopLeft(codeBlock).dx,
+        closeTo(tester.getTopLeft(proseInput).dx, .01),
+      );
+      // The shared projection reserves the scaled caret gap once.
+      expect(
+        tester.getBottomRight(proseInput).dx -
+            tester.getBottomRight(codeBlock).dx,
+        closeTo(
+          (tester.widget<EditableText>(proseInput).cursorWidth + 1) * 1.5,
+          .01,
+        ),
       );
       expect(composer.raw, startsWith('before\n\n```text\n'));
       expect(composer.raw, endsWith('```\n\nafter'));
