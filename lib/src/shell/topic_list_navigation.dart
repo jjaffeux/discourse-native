@@ -300,6 +300,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     CategoryNotificationLevelButton(
                       siteUrl: state.siteUrl!,
                       categoryId: state.route!.categoryId!,
+                      size: DButtonSize.filter,
                       showChevron: !controller.mobileNavigationEnabled,
                     ),
                   ],
