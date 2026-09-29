@@ -286,6 +286,13 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                   }
                 },
                 child: DSheetViewport(
+                  key: ObjectKey(mobileSheet.composer),
+                  onDismiss: () => unawaited(
+                    closeComposerFromPanel(
+                      context: context,
+                      composer: mobileSheet.composer,
+                    ),
+                  ),
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,

@@ -822,6 +822,166 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final origin in ['header', 'body']) {
+      for (final keyboard in [0.0, 300.0]) {
+        testWidgets(
+          '$platform composer swipes from $origin and saves the draft (keyboard: $keyboard)',
+          (tester) async {
+            final harness = await _Harness.create(
+              tester,
+              mobile: true,
+              platform: platform,
+              size: const Size(390, 800),
+            );
+            tester.view.viewInsets = FakeViewPadding(
+              bottom: keyboard * tester.view.devicePixelRatio,
+            );
+            addTearDown(tester.view.resetViewInsets);
+            final composer = harness.shell.visibleComposer!;
+            composer.title.text = 'Keep my draft';
+            final text = List.generate(
+              60,
+              (i) => 'Draft paragraph $i',
+            ).join('\n');
+            composer.text.value = TextEditingValue(
+              text: text,
+              selection: const TextSelection.collapsed(offset: 0),
+            );
+            await tester.pumpAndSettle();
+            final viewport = find.byKey(
+              const ValueKey('composer-mobile-scroll'),
+            );
+            final scroll = tester
+                .widget<CustomScrollView>(viewport)
+                .controller!;
+            // The pinned header must drag the sheet even far into the draft.
+            scroll.jumpTo(origin == 'header' ? 400 : 0);
+            await tester.pumpAndSettle();
+            final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+            final top = tester.getTopLeft(sheet).dy;
+            final start = origin == 'header'
+                ? tester.getCenter(
+                    find.byKey(const ValueKey('composer-header')),
+                  )
+                : tester.getTopLeft(viewport) + const Offset(80, 180);
+            final gesture = await tester.startGesture(start);
+            await gesture.moveBy(const Offset(0, 30));
+            await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
+            await tester.pump();
+            expect(tester.getTopLeft(sheet).dy, greaterThan(top + 50));
+            if (origin == 'header') expect(scroll.offset, 400);
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(harness.shell.visibleComposer, isNull);
+            expect(sheet, findsNothing);
+            final request =
+                (harness.shell.api.composerPersistence as FakeDiscourseApi)
+                    .draftsSaved
+                    .last;
+            final saved = ComposerDraft.decode(request['data'] as String);
+            expect(saved?.title, 'Keep my draft');
+            expect(saved?.reply, text);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets('composer body scrolls normally until it reaches the top', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.text.text = List.generate(60, (i) => 'Paragraph $i').join('\n');
+    await tester.pumpAndSettle();
+    final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+    final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+    final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+    final bounds = tester.getRect(sheet);
+    scroll.jumpTo(400);
+    await tester.pumpAndSettle();
+    await tester.drag(viewport, const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(scroll.offset, inExclusiveRange(0, 400));
+    expect(tester.getRect(sheet), bounds);
+    expect(harness.shell.visibleComposer, same(composer));
+    scroll.jumpTo(60);
+    await tester.pumpAndSettle();
+    await tester.drag(viewport, const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(harness.shell.visibleComposer, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a cancelled swipe keeps the short composer and selection', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.text.value = const TextEditingValue(
+      text: 'Keep this text',
+      selection: TextSelection.collapsed(offset: 4),
+    );
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+    final bounds = tester.getRect(sheet);
+    final editor = tester.state(find.byType(ComposerEditor));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('composer-mobile-scroll'))),
+    );
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 180));
+    await tester.pump();
+    expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(sheet), bounds);
+    expect(harness.shell.visibleComposer, same(composer));
+    expect(tester.state(find.byType(ComposerEditor)), same(editor));
+    expect(composer.text.selection.extentOffset, 4);
+    expect(composer.raw, 'Keep this text');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a swipe cannot close a composer during submission', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.text.text = 'Keep the pending post';
+    composer.beginSubmit();
+    await tester.pump();
+    final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
+    final bounds = tester.getRect(sheet);
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+      const Offset(0, 300),
+    );
+    // Submission keeps an indeterminate progress indicator animating.
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(harness.shell.visibleComposer, same(composer));
+    expect(tester.getRect(sheet), bounds);
+    expect(composer.raw, 'Keep the pending post');
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   for (final keyboard in [0.0, 300.0]) {
     testWidgets(
       'picker focus and swipe keep the composer fixed (keyboard: $keyboard)',
@@ -905,7 +1065,7 @@ void main() {
         expectStill();
         final gesture = await tester.startGesture(tester.getCenter(picker));
         await gesture.moveBy(const Offset(0, 30));
-        await gesture.moveBy(const Offset(0, 150));
+        await gesture.moveBy(const Offset(0, 300));
         await tester.pump();
         expectStill();
         await gesture.up();
@@ -1118,6 +1278,7 @@ class _Harness {
   static Future<_Harness> create(
     WidgetTester tester, {
     bool mobile = false,
+    TargetPlatform? platform,
     bool includeSidebar = false,
     Size size = const Size(1000, 700),
     TextDirection direction = TextDirection.ltr,
@@ -1158,7 +1319,9 @@ class _Harness {
         controller: shell,
         child: MaterialApp(
           theme: AppTheme.light.copyWith(
-            platform: mobile ? TargetPlatform.iOS : TargetPlatform.linux,
+            platform:
+                platform ??
+                (mobile ? TargetPlatform.iOS : TargetPlatform.linux),
           ),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(

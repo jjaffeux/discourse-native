@@ -670,7 +670,7 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                       pinned: true,
                       delegate: _ComposerPinnedHeader(
                         extent: headerExtent,
-                        child: widget.header,
+                        child: DSheetDragRegion(child: widget.header),
                       ),
                     ),
                     SliverToBoxAdapter(
