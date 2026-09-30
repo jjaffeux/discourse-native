@@ -10,7 +10,6 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'emoji_picker.dart';
 import 'platform.dart';
-import 'shell_sheet.dart';
 import 'site_emoji_image.dart';
 import 'skeleton_fill.dart';
 import 'user_card.dart';
@@ -139,12 +138,20 @@ class _ReactionPillState extends State<ReactionPill> {
 
   Future<void> _openSheet() async {
     _load();
-    await showShellSheet<void>(
+    final title = widget.count == 1
+        ? appL10n.message1Reaction
+        : appL10n.reactionsReactionpresentation((widget.count).toString());
+    await showDSheet<void>(
       context: context,
-      title: widget.count == 1
-          ? appL10n.message1Reaction
-          : appL10n.reactionsReactionpresentation((widget.count).toString()),
-      builder: widget.reactorsBuilder,
+      side: DSheetSide.bottom,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        topBottomMaxHeightFactor: 0.8,
+        children: [
+          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+          DSheetBody(child: Builder(builder: widget.reactorsBuilder)),
+        ],
+      ),
     );
   }
 
