@@ -11,6 +11,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/theme_settings.dart';
 
 void main() {
+  testWidgets('Display exposes raw Markdown on narrow screens', (tester) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(
+      tester,
+      shell,
+      width: 360,
+      panelWidth: 360,
+      scale: 2,
+      direction: TextDirection.rtl,
+    );
+    await tester.tap(find.text('Display'));
+    await tester.pumpAndSettle();
+    final rawMarkdown = find.byKey(
+      const ValueKey('raw-markdown-composers-switch'),
+    );
+    await tester.ensureVisible(rawMarkdown);
+    await tester.pumpAndSettle();
+    expect(rawMarkdown.hitTestable(), findsOneWidget);
+    await tester.tap(rawMarkdown);
+    await tester.pumpAndSettle();
+    expect(shell.appSettings.rawMarkdownComposers, isTrue);
+    expect(tester.widget<DSwitchTile>(rawMarkdown).value, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Display changes the shared font, icons, and text scale', (
     tester,
   ) async {
