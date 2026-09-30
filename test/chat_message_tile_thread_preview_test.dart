@@ -17,6 +17,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
+import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
@@ -779,6 +780,108 @@ void main() {
   });
 
   group('selection, reactions, and links', () {
+    for (final failFirst in [false, true]) {
+      testWidgets(
+        'long pressing a reaction shows its users${failFirst ? ' after retry' : ''}',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 844));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const page = ChatMessageReactors(
+            channelId: 9,
+            messageId: 7,
+            filter: 'clap',
+            reactors: [
+              ChatReactor(
+                id: 3,
+                username: 'sam',
+                name: 'Sam Saffron',
+                reaction: 'clap',
+              ),
+            ],
+            total: 1,
+          );
+          final responses = <String, ChatMessageReactors>{
+            if (!failFirst) ChatMessageReactors.key(9, 7, 'clap'): page,
+          };
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            chatReactorsById: responses,
+            chatReactorGate: gate,
+          );
+          final controller = await _controller(
+            _message(
+              null,
+              reactions: const [ChatReaction(emoji: 'clap', count: 1)],
+            ),
+            api: api,
+            signedIn: true,
+          );
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.light,
+                home: Scaffold(
+                  // Plugin contributions live below the navigator in the app.
+                  body: PluginUiScope.own(
+                    chatPluginId,
+                    const ChatMessageTile(
+                      siteUrl: _siteUrl,
+                      messageId: 7,
+                      chained: false,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.longPress(
+            find.byKey(const ValueKey('chat-reaction-clap')),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(tester.takeException(), isNull);
+          expect(find.text('1 reaction'), findsOneWidget);
+          expect(find.byType(DSheetContent), findsOneWidget);
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+          expect(api.chatReactorsRequested, [
+            (channelId: 9, messageId: 7, filter: 'clap'),
+          ]);
+          expect(api.chatReactionsSet, isEmpty);
+
+          gate.complete();
+          await tester.pumpAndSettle();
+          if (failFirst) {
+            expect(
+              find.byKey(const ValueKey('reactor-list-error')),
+              findsOneWidget,
+            );
+            responses[ChatMessageReactors.key(9, 7, 'clap')] = page;
+            await tester.tap(find.byKey(const ValueKey('reactor-list-retry')));
+            await tester.pumpAndSettle();
+          }
+          expect(tester.takeException(), isNull);
+          expect(find.text('Sam Saffron'), findsOneWidget);
+          expect(find.byType(DSkeletonRegion), findsNothing);
+          expect(
+            find.byKey(const ValueKey('reactor-list-error')),
+            findsNothing,
+          );
+
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+          expect(find.text('Sam Saffron'), findsNothing);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+    }
+
     testWidgets('selects and copies rendered chat message text', (
       tester,
     ) async {

@@ -1669,10 +1669,13 @@ class _Reactions extends StatelessWidget {
             messageId: message.id,
             filter: reaction.emoji,
           ),
-          reactorsBuilder: (_) => _ChatReactorList(
-            siteUrl: siteUrl,
-            message: message,
-            filter: reaction.emoji,
+          reactorsBuilder: (_) => PluginUiScope.own(
+            chatPluginId,
+            _ChatReactorList(
+              siteUrl: siteUrl,
+              message: message,
+              filter: reaction.emoji,
+            ),
           ),
           visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
         ),
