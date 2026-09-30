@@ -106,6 +106,18 @@ class AppSettingsModal extends StatelessWidget {
                       : () => unawaited(appSettings.resetTextScale()),
                 ),
                 const DFieldSeparator(),
+                DSwitchTile(
+                  key: const ValueKey('raw-markdown-composers-switch'),
+                  hoverHighlight: true,
+                  title: DLabel(child: Text(context.l10n.rawMarkdownComposers)),
+                  subtitle: DFieldDescription(
+                    child: Text(context.l10n.rawMarkdownComposersDescription),
+                  ),
+                  value: appSettings.rawMarkdownComposers,
+                  onChanged: (enabled) =>
+                      unawaited(appSettings.setRawMarkdownComposers(enabled)),
+                ),
+                const DFieldSeparator(),
                 _FontSetting(settings: identity.forumSettings),
                 const DFieldSeparator(),
                 _EffectsSetting(settings: identity.forumSettings),

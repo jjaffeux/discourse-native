@@ -80,6 +80,33 @@ class MarkdownEditingController extends TextEditingController {
   final bool enableTodos;
   final bool enableBlockSeparators;
 
+  bool _rawMarkdown = false;
+
+  /// Displays and edits every source character without component projection.
+  bool get rawMarkdown => _rawMarkdown;
+
+  set rawMarkdown(bool enabled) {
+    if (_rawMarkdown == enabled) return;
+    _rawMarkdown = enabled;
+    _cachedSpan = null;
+    _keyboardSelectedProjection = null;
+    _keyboardSelectionDocument = null;
+    _boundaryCaretProjection = null;
+    _boundaryCaretOffset = null;
+    _caretSuppressedSyntax = null;
+    _hoveredSyntaxKey = null;
+    _preserveSyntaxPointerSelection = false;
+    _caretSuppressedImage = null;
+    _caretSuppressedGallery = null;
+    _collapsedSyntaxKeys = const {};
+    _collapsedQuoteStarts = const {};
+    _collapsedImageStarts = const {};
+    _collapsedGalleryStarts = const {};
+    _renderedEmojiDocument = null;
+    _renderedEmojiRanges = const {};
+    notifyListeners();
+  }
+
   /// A list body keeps child blocks beside their surrounding prose without
   /// adding paragraph spacing to a single source newline.
   bool compactListSpacing = false;
@@ -99,12 +126,14 @@ class MarkdownEditingController extends TextEditingController {
 
   /// Structural spacing between blocks, including single-newline boundaries.
   List<TextRange> get blockGaps {
+    if (rawMarkdown) return const [];
     _updateBlockGaps();
     return _blockGaps;
   }
 
   /// Required Markdown paragraph boundaries, excluding additional empty lines.
   List<TextRange> get blockSeparators {
+    if (rawMarkdown) return const [];
     _updateBlockGaps();
     return _separators;
   }
@@ -269,6 +298,10 @@ class MarkdownEditingController extends TextEditingController {
 
   @override
   set value(TextEditingValue newValue) {
+    if (rawMarkdown) {
+      super.value = newValue;
+      return;
+    }
     final current = super.value;
     if (current.text.contains('<')) {
       newValue = normalizeComposerTagEdit(
@@ -618,6 +651,7 @@ class MarkdownEditingController extends TextEditingController {
       keyboardSelectedProjection != null;
 
   void selectPillForKeyboard(Object projection) {
+    if (rawMarkdown) return;
     if (projection is! ComposerImageBlock &&
         projection is! ComposerSyntaxOccurrence &&
         projection is! ComposerQuoteBlock &&
@@ -1204,6 +1238,13 @@ class MarkdownEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
+    if (rawMarkdown) {
+      return super.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: withComposing,
+      );
+    }
     final source = value.text;
     if (source.isEmpty) {
       _renderedEmojiDocument = source;

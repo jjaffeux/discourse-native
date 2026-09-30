@@ -89,6 +89,7 @@ void main() {
     expect(find.text('Topic list'), findsNothing);
     expect(_textSize('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
+    expect(find.text('Raw Markdown in composers'), findsOneWidget);
     expect(
       find.textContaining('reading lane is limited to 825 px'),
       findsNothing,
@@ -133,6 +134,22 @@ void main() {
 
     expect(controller.appSettings.disableGifAnimations, isTrue);
     expect(persistence.disableGifAnimations, isTrue);
+
+    final rawMarkdown = find.byKey(
+      const ValueKey('raw-markdown-composers-switch'),
+    );
+    await tester.ensureVisible(rawMarkdown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DSwitchTile>(rawMarkdown).value, isFalse);
+    await tester.tap(rawMarkdown);
+    await tester.pump();
+    expect(controller.appSettings.rawMarkdownComposers, isTrue);
+    expect(persistence.rawMarkdownComposers, isTrue);
+    expect(tester.widget<DSwitchTile>(rawMarkdown).value, isTrue);
+    await tester.tap(rawMarkdown);
+    await tester.pump();
+    expect(controller.appSettings.rawMarkdownComposers, isFalse);
+    expect(persistence.rawMarkdownComposers, isFalse);
   });
 
   testWidgets(

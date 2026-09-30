@@ -27,6 +27,24 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test(
+    'raw Markdown choice survives fresh stores and unrelated writes',
+    () async {
+      final store = AppSettingsStore();
+      expect((await store.read()).rawMarkdownComposers, isFalse);
+      await store.update(rawMarkdownComposers: true);
+      final reopened = AppSettingsStore();
+      expect((await reopened.read()).rawMarkdownComposers, isTrue);
+      await reopened.update(disableGifAnimations: true);
+      expect((await AppSettingsStore().read()).rawMarkdownComposers, isTrue);
+      await reopened.update(rawMarkdownComposers: false);
+      expect(
+        await AppSettingsStore().read(),
+        const AppSettings(disableGifAnimations: true),
+      );
+    },
+  );
+
   test('defaults missing and unknown enum values', () async {
     final platformStore = AppSettingsStore();
 
@@ -378,6 +396,7 @@ void main() {
       containsAll([
         _isStorageFailure('appSettings.readLimitContentSize', 'StateError'),
         _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
+        _isStorageFailure('appSettings.readRawMarkdownComposers', 'StateError'),
         _isStorageFailure('appSettings.readTextScale', 'StateError'),
         _isStorageFailure('appSettings.readThemeMode', 'StateError'),
         _isStorageFailure('appSettings.writeLimitContentSize', 'StateError'),
@@ -386,6 +405,10 @@ void main() {
           'StateError',
         ),
         _isStorageFailure('appSettings.writeTextScale', 'StateError'),
+        _isStorageFailure(
+          'appSettings.writeRawMarkdownComposers',
+          'StateError',
+        ),
         _isStorageFailure('appSettings.writeThemeMode', 'StateError'),
       ]),
     );
@@ -433,6 +456,7 @@ final class _ControlledAppSettingsPersistence
 
   bool? limitContentSize;
   bool? disableGifAnimations;
+  bool? rawMarkdownComposers;
   String? textScale;
   String? themeMode;
   String? topicListMode;
@@ -459,6 +483,12 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readDisableGifAnimations() async {
     if (failReads) throw StateError('preferences unavailable');
     return disableGifAnimations;
+  }
+
+  @override
+  Future<bool?> readRawMarkdownComposers() async {
+    if (failReads) throw StateError('preferences unavailable');
+    return rawMarkdownComposers;
   }
 
   @override
@@ -494,6 +524,14 @@ final class _ControlledAppSettingsPersistence
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     disableGifAnimations = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeRawMarkdownComposers(bool value) async {
+    if (throwWrites) throw StateError('preferences unavailable');
+    if (!acceptWrites) return false;
+    rawMarkdownComposers = value;
     return true;
   }
 

@@ -14,6 +14,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppSettings get settings => _settings;
   bool get limitContentSize => _settings.limitContentSize;
   bool get disableGifAnimations => _settings.disableGifAnimations;
+  bool get rawMarkdownComposers => _settings.rawMarkdownComposers;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
   TopicListDisplayMode get topicListMode => _settings.topicListMode;
@@ -24,6 +25,7 @@ final class AppSettingsController extends FrameSafeNotifier {
 
   bool? _selectedLimitContentSize;
   bool? _selectedDisableGifAnimations;
+  bool? _selectedRawMarkdownComposers;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
   TopicListDisplayMode? _selectedTopicListMode;
@@ -50,6 +52,7 @@ final class AppSettingsController extends FrameSafeNotifier {
     _settings = loaded.copyWith(
       limitContentSize: _selectedLimitContentSize,
       disableGifAnimations: _selectedDisableGifAnimations,
+      rawMarkdownComposers: _selectedRawMarkdownComposers,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
       topicListMode: _selectedTopicListMode,
@@ -83,6 +86,21 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedDisableGifAnimations = disabled;
     _settings = _settings.copyWith(disableGifAnimations: disabled);
     final saving = store.update(disableGifAnimations: disabled);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setRawMarkdownComposers(bool enabled) {
+    if (isDisposed ||
+        ((_loaded || _selectedRawMarkdownComposers != null) &&
+            enabled == rawMarkdownComposers)) {
+      return Future<void>.value();
+    }
+
+    _selectedRawMarkdownComposers = enabled;
+    _settings = _settings.copyWith(rawMarkdownComposers: enabled);
+    final saving = store.update(rawMarkdownComposers: enabled);
     unawaited(load());
     notifySafely();
     return saving;

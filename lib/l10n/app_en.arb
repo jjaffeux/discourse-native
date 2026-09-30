@@ -6212,6 +6212,14 @@
     "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
   },
   "disableGIFAnimations": "Disable GIF animations",
+  "rawMarkdownComposers": "Raw Markdown in composers",
+  "@rawMarkdownComposers": {
+    "description": "App-wide setting to edit Markdown source in topic and chat composers."
+  },
+  "rawMarkdownComposersDescription": "Show plain Markdown instead of formatted text and widgets when composing posts and chat messages.",
+  "@rawMarkdownComposersDescription": {
+    "description": "Description of the raw Markdown composer setting."
+  },
   "@disableGIFAnimations": {
     "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
   },

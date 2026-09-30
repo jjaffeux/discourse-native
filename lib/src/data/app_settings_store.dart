@@ -11,7 +11,11 @@ abstract interface class AppSettingsPersistence {
 
   Future<bool?> readDisableGifAnimations();
 
+  Future<bool?> readRawMarkdownComposers();
+
   Future<bool> writeDisableGifAnimations(bool value);
+
+  Future<bool> writeRawMarkdownComposers(bool value);
 
   Future<String?> readTextScale();
 
@@ -63,9 +67,22 @@ final class SharedPreferencesAppSettingsPersistence
       );
 
   @override
+  Future<bool?> readRawMarkdownComposers() async =>
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettingsStore.rawMarkdownComposersKey,
+      );
+
+  @override
   Future<bool> writeDisableGifAnimations(bool value) async =>
       (await SharedPreferences.getInstance()).setBool(
         AppSettingsStore.disableGifAnimationsKey,
+        value,
+      );
+
+  @override
+  Future<bool> writeRawMarkdownComposers(bool value) async =>
+      (await SharedPreferences.getInstance()).setBool(
+        AppSettingsStore.rawMarkdownComposersKey,
         value,
       );
 
@@ -100,6 +117,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   MemoryAppSettingsPersistence({
     this.limitContentSize,
     this.disableGifAnimations,
+    this.rawMarkdownComposers,
     this.textScale,
     this.themeMode,
     this.topicListMode,
@@ -107,6 +125,7 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
 
   bool? limitContentSize;
   bool? disableGifAnimations;
+  bool? rawMarkdownComposers;
   String? textScale;
   String? themeMode;
   String? topicListMode;
@@ -133,8 +152,17 @@ final class MemoryAppSettingsPersistence implements AppSettingsPersistence {
   Future<bool?> readDisableGifAnimations() async => disableGifAnimations;
 
   @override
+  Future<bool?> readRawMarkdownComposers() async => rawMarkdownComposers;
+
+  @override
   Future<bool> writeDisableGifAnimations(bool value) async {
     disableGifAnimations = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeRawMarkdownComposers(bool value) async {
+    rawMarkdownComposers = value;
     return true;
   }
 
@@ -165,6 +193,8 @@ final class AppSettingsStore {
       'discourse_native.limit_content_size';
   static const String disableGifAnimationsKey =
       'discourse_native.disable_gif_animations';
+  static const String rawMarkdownComposersKey =
+      'discourse_native.raw_markdown_composers';
   static const String textScaleKey = 'discourse_native.text_scale';
   static const String themeModeKey = 'discourse_native.theme_mode';
   static const String topicListModeKey = 'discourse_native.topic_list_mode';
@@ -177,6 +207,7 @@ final class AppSettingsStore {
   final AppSettingsPersistence _persistence;
   bool? _sessionLimitContentSize;
   bool? _sessionDisableGifAnimations;
+  bool? _sessionRawMarkdownComposers;
   AppTextScale? _sessionTextScale;
   AppThemeMode? _sessionThemeMode;
   TopicListDisplayMode? _sessionTopicListMode;
@@ -185,6 +216,7 @@ final class AppSettingsStore {
   bool get _hasSessionChanges =>
       _sessionLimitContentSize != null ||
       _sessionDisableGifAnimations != null ||
+      _sessionRawMarkdownComposers != null ||
       _sessionTextScale != null ||
       _sessionThemeMode != null ||
       _sessionTopicListMode != null;
@@ -196,6 +228,7 @@ final class AppSettingsStore {
     }
     if (_sessionLimitContentSize != null &&
         _sessionDisableGifAnimations != null &&
+        _sessionRawMarkdownComposers != null &&
         _sessionTextScale != null &&
         _sessionThemeMode != null &&
         _sessionTopicListMode != null) {
@@ -218,6 +251,7 @@ final class AppSettingsStore {
   AppSettings _withSessionSettings(AppSettings settings) => settings.copyWith(
     limitContentSize: _sessionLimitContentSize,
     disableGifAnimations: _sessionDisableGifAnimations,
+    rawMarkdownComposers: _sessionRawMarkdownComposers,
     textScale: _sessionTextScale,
     themeMode: _sessionThemeMode,
     topicListMode: _sessionTopicListMode,
@@ -226,6 +260,7 @@ final class AppSettingsStore {
   Future<AppSettings> _read() async {
     var limitContentSize = AppSettings.defaults.limitContentSize;
     var disableGifAnimations = false;
+    var rawMarkdownComposers = false;
     var textScale = AppTextScale.percent100;
     var themeMode = AppThemeMode.system;
     var topicListMode = TopicListDisplayMode.card;
@@ -248,6 +283,16 @@ final class AppSettingsStore {
         error,
         stackTrace,
         'appSettings.readDisableGifAnimations',
+      );
+    }
+    try {
+      rawMarkdownComposers =
+          await _persistence.readRawMarkdownComposers() ?? false;
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.readRawMarkdownComposers',
       );
     }
     try {
@@ -277,6 +322,7 @@ final class AppSettingsStore {
     return AppSettings(
       limitContentSize: limitContentSize,
       disableGifAnimations: disableGifAnimations,
+      rawMarkdownComposers: rawMarkdownComposers,
       textScale: textScale,
       themeMode: themeMode,
       topicListMode: topicListMode,
@@ -286,6 +332,7 @@ final class AppSettingsStore {
   Future<void> write(AppSettings settings) => update(
     limitContentSize: settings.limitContentSize,
     disableGifAnimations: settings.disableGifAnimations,
+    rawMarkdownComposers: settings.rawMarkdownComposers,
     textScale: settings.textScale,
     themeMode: settings.themeMode,
     topicListMode: settings.topicListMode,
@@ -296,6 +343,7 @@ final class AppSettingsStore {
   Future<void> update({
     bool? limitContentSize,
     bool? disableGifAnimations,
+    bool? rawMarkdownComposers,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
     TopicListDisplayMode? topicListMode,
@@ -303,6 +351,8 @@ final class AppSettingsStore {
     _sessionLimitContentSize = limitContentSize ?? _sessionLimitContentSize;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;
+    _sessionRawMarkdownComposers =
+        rawMarkdownComposers ?? _sessionRawMarkdownComposers;
     _sessionTextScale = textScale ?? _sessionTextScale;
     _sessionThemeMode = themeMode ?? _sessionThemeMode;
     _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
@@ -312,6 +362,7 @@ final class AppSettingsStore {
       operation: () => _persist(
         limitContentSize: limitContentSize,
         disableGifAnimations: disableGifAnimations,
+        rawMarkdownComposers: rawMarkdownComposers,
         textScale: textScale,
         themeMode: themeMode,
         topicListMode: topicListMode,
@@ -322,6 +373,7 @@ final class AppSettingsStore {
   Future<void> _persist({
     bool? limitContentSize,
     bool? disableGifAnimations,
+    bool? rawMarkdownComposers,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
     TopicListDisplayMode? topicListMode,
@@ -348,6 +400,20 @@ final class AppSettingsStore {
         error,
         stackTrace,
         'appSettings.writeDisableGifAnimations',
+      );
+    }
+    try {
+      if (rawMarkdownComposers != null &&
+          !await _persistence.writeRawMarkdownComposers(rawMarkdownComposers)) {
+        throw StateError(
+          'Could not persist the raw Markdown composer preference.',
+        );
+      }
+    } catch (error, stackTrace) {
+      reportStorageFailure(
+        error,
+        stackTrace,
+        'appSettings.writeRawMarkdownComposers',
       );
     }
     try {

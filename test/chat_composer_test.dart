@@ -75,6 +75,38 @@ const _gif = GifResult(
 );
 
 void main() {
+  testWidgets('raw Markdown setting updates chat and preserves sending', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    await tester.pumpWidget(_TestView(shell: fixture.shell));
+    await tester.pumpAndSettle();
+    const source = '**hello** :smile: > Markdown';
+    await tester.enterText(_composerField(), source);
+    await tester.pump();
+    await fixture.shell.appSettings.setRawMarkdownComposers(true);
+    await tester.pumpAndSettle();
+    final editor = tester.widget<ComposerEditor>(find.byType(ComposerEditor));
+    expect(editor.composer.text.rawMarkdown, isTrue);
+    expect(editor.composer.raw, source);
+    final editable = tester.state<EditableTextState>(
+      find.descendant(
+        of: _composerField(),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect((editable.renderEditable.text! as TextSpan).text, source);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(fixture.api.chatMessagesSent.single.message, source);
+    expect(tester.takeException(), isNull);
+  });
+
   group('send shortcut preference', () {
     for (final shortcut in ChatSendShortcut.values) {
       for (final key in [
