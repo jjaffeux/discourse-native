@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../composer_sheet_layout.dart';
 import 'poll_composer_editor.dart';
 import 'poll_composer_parser.dart';
 
@@ -37,6 +38,7 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
 }) {
   final title = draft.isNew ? appL10n.addPoll : appL10n.editPoll;
   Widget editor(BuildContext context) => PollComposerSheet(
+    mobileLayout: context.isTouch,
     draft: draft,
     maximumOptions: maximumOptions,
     isStaff: isStaff,
@@ -53,12 +55,10 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
         semanticLabel: title,
+        showCloseButton: false,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
-        children: [
-          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
-          Expanded(child: SingleChildScrollView(child: editor(context))),
-        ],
+        children: [Expanded(child: editor(context))],
       ),
     );
   }
@@ -135,6 +135,7 @@ class PollComposerSheet extends StatefulWidget {
     required this.isPublished,
     this.voterCount,
     this.isCurrent,
+    this.mobileLayout = false,
   });
 
   final PollComposerDraft draft;
@@ -143,6 +144,7 @@ class PollComposerSheet extends StatefulWidget {
   final bool isPublished;
   final int? voterCount;
   final bool Function()? isCurrent;
+  final bool mobileLayout;
 
   @override
   State<PollComposerSheet> createState() => _PollComposerSheetState();
@@ -200,8 +202,24 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    final error = _error == null
+        ? null
+        : Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(
+              _error!,
+              key: const ValueKey('poll-sheet-error'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          );
+    final fields = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.mobileLayout ? DSpacing.lg : DSpacing.xl,
+        vertical: widget.mobileLayout ? DSpacing.sm : DSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -252,24 +270,22 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
               helperText: context.l10n.iSO8601InThisDeviceSTimeZoneUnlessOneIs,
               keyboardType: TextInputType.datetime,
             ),
-          if (_error case final error?) ...[
-            const SizedBox(height: 16),
-            Semantics(
-              container: true,
-              liveRegion: true,
-              child: Text(
-                error,
-                key: const ValueKey('poll-sheet-error'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
+          if (!widget.mobileLayout && error != null) ...[
+            const SizedBox(height: DSpacing.lg),
+            error,
           ],
-          const SizedBox(height: 24),
-          _actions(),
+          if (!widget.mobileLayout) ...[const SizedBox(height: 24), _actions()],
         ],
       ),
+    );
+    if (!widget.mobileLayout) return fields;
+    return ComposerSheetLayout(
+      title: widget.draft.isNew ? context.l10n.addPoll : context.l10n.editPoll,
+      onApply: _apply,
+      onRemove: widget.draft.isNew ? null : () => unawaited(_remove()),
+      removeLabel: context.l10n.removeLocaldatecomposersheet,
+      error: error,
+      child: fields,
     );
   }
 

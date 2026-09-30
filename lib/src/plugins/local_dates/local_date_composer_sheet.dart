@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../composer_sheet_layout.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';
@@ -35,6 +36,7 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
       ? appL10n.insertDateAndTime
       : appL10n.editDateAndTime;
   Widget editor(BuildContext context) => LocalDateComposerSheet(
+    mobileLayout: context.isTouch,
     draft: draft,
     siteFormats: siteFormats,
     isCurrent: isCurrent,
@@ -48,12 +50,10 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
         semanticLabel: title,
+        showCloseButton: false,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
-        children: [
-          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
-          Expanded(child: SingleChildScrollView(child: editor(context))),
-        ],
+        children: [Expanded(child: editor(context))],
       ),
     );
   }
@@ -110,11 +110,13 @@ class LocalDateComposerSheet extends StatefulWidget {
     required this.draft,
     required this.siteFormats,
     this.isCurrent,
+    this.mobileLayout = false,
   });
 
   final LocalDateComposerDraft draft;
   final List<String> siteFormats;
   final bool Function()? isCurrent;
+  final bool mobileLayout;
 
   @override
   State<LocalDateComposerSheet> createState() => _LocalDateComposerSheetState();
@@ -204,8 +206,24 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    final error = _error == null
+        ? null
+        : Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(
+              _error!,
+              key: const ValueKey('local-date-sheet-error'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          );
+    final fields = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.mobileLayout ? DSpacing.lg : DSpacing.xl,
+        vertical: widget.mobileLayout ? DSpacing.sm : DSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -446,26 +464,29 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               ],
             ),
           ),
-          if (_error case final error?) ...[
-            const SizedBox(height: 12),
-            Semantics(
-              container: true,
-              liveRegion: true,
-              child: Text(
-                error,
-                key: const ValueKey('local-date-sheet-error'),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
+          if (!widget.mobileLayout && error != null) ...[
+            const SizedBox(height: DSpacing.md),
+            error,
           ],
-          const SizedBox(height: 20),
-          DSeparator(color: theme.shell.divider, space: 1),
-          const SizedBox(height: 16),
-          _actions(),
+          if (!widget.mobileLayout) ...[
+            const SizedBox(height: 20),
+            DSeparator(color: theme.shell.divider, space: 1),
+            const SizedBox(height: 16),
+            _actions(),
+          ],
         ],
       ),
+    );
+    if (!widget.mobileLayout) return fields;
+    return ComposerSheetLayout(
+      title: widget.draft.isNew
+          ? context.l10n.insertDateAndTime
+          : context.l10n.editDateAndTime,
+      onApply: _apply,
+      onRemove: widget.draft.isNew ? null : _remove,
+      removeLabel: context.l10n.removeLocaldatecomposersheet,
+      error: error,
+      child: fields,
     );
   }
 
@@ -621,9 +642,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       if (!widget.draft.isNew) ...[
         DButton(
           label: Text(appL10n.removeLocaldatecomposersheet),
-          onPressed: () => Navigator.of(
-            context,
-          ).pop(const LocalDateComposerSheetAction.remove()),
+          onPressed: _remove,
           variant: DButtonVariant.destructive,
         ),
       ],
@@ -638,6 +657,9 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       ),
     ],
   );
+
+  void _remove() =>
+      Navigator.of(context).pop(const LocalDateComposerSheetAction.remove());
 
   LocalDateComposerDraft _draft() => widget.draft.copyWith(
     startDate: _startDate.text.trim(),

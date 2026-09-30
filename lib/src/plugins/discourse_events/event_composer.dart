@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../composer_sheet_layout.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -178,20 +179,10 @@ Future<void> openEventComposer(
           builder: (context, sheet) => DSheetContent(
             side: DSheetSide.bottom,
             semanticLabel: block == null ? appL10n.addEvent : appL10n.editEvent,
+            showCloseButton: false,
             topBottomMaxHeightFactor: 1,
             scrollWholeSheet: false,
-            children: [
-              DSheetHeader(
-                children: [
-                  DSheetTitle(
-                    child: Text(
-                      block == null ? appL10n.addEvent : appL10n.editEvent,
-                    ),
-                  ),
-                ],
-              ),
-              Expanded(child: SingleChildScrollView(child: content(context))),
-            ],
+            children: [Expanded(child: content(context))],
           ),
         )
       : await showDiscourseDialog<String>(context: context, builder: content);
@@ -400,6 +391,10 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
     }
   }
 
+  void _remove() {
+    if (widget.isCurrent()) Navigator.pop(context, '');
+  }
+
   Widget _field(String name) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: DInput(
@@ -573,7 +568,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             ],
           ),
         ),
-        if (_error != null)
+        if (_error != null && !widget.embedded)
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(
@@ -597,21 +592,33 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
         DButton(
           label: Text(context.l10n.removeEvent),
           variant: DButtonVariant.destructive,
-          onPressed: () {
-            if (widget.isCurrent()) Navigator.pop(context, '');
-          },
+          onPressed: _remove,
         ),
     ];
     if (widget.embedded) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            fields,
-            const SizedBox(height: 16),
-            Wrap(spacing: 8, runSpacing: 8, children: actions),
-          ],
+      return ComposerSheetLayout(
+        title: widget.block == null
+            ? context.l10n.addEvent
+            : context.l10n.editEvent,
+        onApply: _apply,
+        onRemove: widget.block == null ? null : _remove,
+        removeLabel: context.l10n.removeEvent,
+        error: _error == null
+            ? null
+            : Semantics(
+                container: true,
+                liveRegion: true,
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: DSpacing.lg,
+            vertical: DSpacing.sm,
+          ),
+          child: fields,
         ),
       );
     }
