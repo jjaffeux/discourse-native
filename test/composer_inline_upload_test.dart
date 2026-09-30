@@ -520,6 +520,44 @@ void main() {
     expect(composer.raw, isEmpty);
   });
 
+  testWidgets('mobile backspace cancels a pending upload as a whole', (
+    tester,
+  ) async {
+    final request = Completer<ComposerUploadResult>();
+    var cancelled = false;
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        unawaited(abortTrigger.then((_) => cancelled = true));
+        return request.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file], 0);
+    await tester.pump();
+    final upload = composer.text.syntaxBlocks.singleWhere(
+      (block) => block.kind.name == 'upload',
+    );
+    final caret = composer.text.componentContentEnd(upload);
+    composer.text.selection = TextSelection.collapsed(offset: caret);
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: composer.text.text.replaceRange(caret - 1, caret, ''),
+        selection: TextSelection.collapsed(offset: caret - 1),
+      ),
+    );
+    await tester.pump();
+    expect(cancelled, isTrue);
+    expect(composer.uploads, isEmpty);
+    expect(composer.raw, isEmpty);
+    request.complete(_result);
+    await tester.pumpAndSettle();
+    expect(composer.raw, isEmpty);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
   testWidgets('cancel targets the clicked row in a batch', (tester) async {
     final aborted = <String>[];
     final composer = ComposerController(

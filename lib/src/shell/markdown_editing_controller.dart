@@ -452,13 +452,13 @@ class MarkdownEditingController extends TextEditingController {
     _ => throw ArgumentError.value(block, 'block'),
   };
 
-  /// Removes the line after a collapsed component and selects it for deletion.
-  bool selectBlockBeforeCaret() {
+  /// The collapsed component separated from the caret by a structural gap.
+  Object? get blockBeforeCaret {
     if (!selection.isValid ||
         !selection.isCollapsed ||
         !value.composing.isCollapsed ||
         keyboardSelectedProjection != null) {
-      return false;
+      return null;
     }
     final caret = selection.extentOffset;
     final candidates = <Object>[
@@ -490,25 +490,41 @@ class MarkdownEditingController extends TextEditingController {
           !(caret == end && gap.trim().isEmpty)) {
         continue;
       }
-      // Selecting the leading boundary resolves the component again after the
-      // edit, so projections whose range includes a newline stay up to date.
-      final lineIsEmpty =
-          caret == text.length || text[caret] == '\n' || text[caret] == '\r';
-      value = TextEditingValue(
-        text: lineIsEmpty && gap.isNotEmpty
-            ? text.replaceRange(
-                isBlockGap
-                    ? contentEnd
-                    : caret - (gap.endsWith('\r\n') ? 2 : 1),
-                caret,
-                '',
-              )
-            : text,
-        selection: TextSelection.collapsed(offset: start),
-      );
-      return true;
+      return block;
     }
-    return false;
+    return null;
+  }
+
+  /// Removes the line after a collapsed component and selects it for deletion.
+  bool selectBlockBeforeCaret() {
+    final block = blockBeforeCaret;
+    if (block == null) return false;
+    final caret = selection.extentOffset;
+    final (start, end) = _blockRange(block);
+    var contentEnd = end;
+    while (contentEnd > start &&
+        (text[contentEnd - 1] == '\n' || text[contentEnd - 1] == '\r')) {
+      contentEnd--;
+    }
+    final gap = text.substring(contentEnd, caret);
+    final isBlockGap = blockGaps.any(
+      (range) => range.start == contentEnd && range.end == caret,
+    );
+    // Selecting the leading boundary resolves the component again after the
+    // edit, so projections whose range includes a newline stay up to date.
+    final lineIsEmpty =
+        caret == text.length || text[caret] == '\n' || text[caret] == '\r';
+    value = TextEditingValue(
+      text: lineIsEmpty && gap.isNotEmpty
+          ? text.replaceRange(
+              isBlockGap ? contentEnd : caret - (gap.endsWith('\r\n') ? 2 : 1),
+              caret,
+              '',
+            )
+          : text,
+      selection: TextSelection.collapsed(offset: start),
+    );
+    return true;
   }
 
   /// A caret explicitly placed beside a component, on its rendered line.
