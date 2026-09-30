@@ -44,17 +44,22 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
     voterCount: voterCount,
     isCurrent: isCurrent,
   );
-  final isTouch = switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
-
-  if (isTouch) {
-    return showShellSheet<PollComposerSheetAction>(
+  if (context.isTouch) {
+    return showDSheet<PollComposerSheetAction>(
       context: context,
-      title: title,
-      padding: EdgeInsets.zero,
-      builder: editor,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [
+          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+          Expanded(child: SingleChildScrollView(child: editor(context))),
+        ],
+      ),
     );
   }
 

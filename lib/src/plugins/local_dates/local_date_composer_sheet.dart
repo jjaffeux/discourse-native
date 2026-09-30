@@ -40,11 +40,21 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
     isCurrent: isCurrent,
   );
   if (context.isTouch) {
-    return showShellSheet<LocalDateComposerSheetAction>(
+    return showDSheet<LocalDateComposerSheetAction>(
       context: context,
-      title: title,
-      padding: EdgeInsets.zero,
-      builder: editor,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [
+          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+          Expanded(child: SingleChildScrollView(child: editor(context))),
+        ],
+      ),
     );
   }
   return showDialog<LocalDateComposerSheetAction>(

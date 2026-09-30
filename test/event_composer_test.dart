@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer_parser.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,6 +43,54 @@ EventSyntaxPolicy policyFor({
 }
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('adds an event from the mobile sheet on $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final editor = _Editor('Introduction', policyFor(createsTopic: true));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: const Scaffold(body: SizedBox()),
+        ),
+      );
+      final editing = openEventComposer(
+        tester.element(find.byType(Scaffold)),
+        editor,
+        editor.policy,
+      );
+      await tester.pumpAndSettle();
+      for (final (label, value) in [
+        ('Name', 'Team call'),
+        ('Starts', '2026-09-30 12:00'),
+      ]) {
+        await tester.enterText(
+          find.byWidgetPredicate(
+            (widget) => widget is DInput && widget.labelText == label,
+          ),
+          value,
+        );
+      }
+      final apply = find.widgetWithText(DButton, 'Apply');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(apply);
+      await tester.pumpAndSettle();
+      expect(apply.hitTestable(), findsOneWidget);
+      await tester.tap(apply);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      await editing;
+      expect(editor.value.text, startsWith('Introduction\n'));
+      final event = parseEventBlocks(editor.value.text).single;
+      expect(event.attribute('name'), 'Team call');
+      expect(event.attribute('start'), '2026-09-30 12:00');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test(
     'unchanged source is lossless; editing a value preserves recurrence anchor and unknown attributes',
     () {
@@ -178,6 +227,7 @@ void main() {
       'Late title',
     );
     editor.editing = false;
+    await tester.ensureVisible(find.text('Apply'));
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(editor.value.text, original);

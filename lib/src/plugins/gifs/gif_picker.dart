@@ -32,22 +32,32 @@ Future<GifResult?> showGifPicker({
   unawaited(controller.loadCategories());
 
   try {
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.iOS || TargetPlatform.android => true,
-      _ => false,
-    };
-    if (touch) {
-      return await showShellSheet<GifResult>(
+    if (context.isTouch) {
+      return await showDSheet<GifResult>(
         context: context,
-        title: appL10n.searchGIFs,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        builder: (sheetContext) => SizedBox(
-          height: _pickerHeight(sheetContext),
-          child: GifPicker(
-            controller: controller,
-            siteUrl: siteUrl,
-            onPicked: Navigator.of(sheetContext).pop,
-          ),
+        side: DSheetSide.bottom,
+        inset: true,
+        fillAvailableHeight: true,
+        builder: (context, sheet) => DSheetContent(
+          side: DSheetSide.bottom,
+          semanticLabel: appL10n.searchGIFs,
+          topBottomMaxHeightFactor: 1,
+          scrollWholeSheet: false,
+          children: [
+            DSheetHeader(
+              children: [DSheetTitle(child: Text(appL10n.searchGIFs))],
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: GifPicker(
+                  controller: controller,
+                  siteUrl: siteUrl,
+                  onPicked: sheet.close,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -507,7 +517,7 @@ class _PickerMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
+    child: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
@@ -132,10 +133,11 @@ void main() {
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
-    final inset = tester.widget<AnimatedPadding>(
-      find.byKey(const ValueKey('shell-sheet-keyboard-inset')),
+    expect(find.byType(DSheetContent), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byType(DSheetContent)).dy,
+      lessThanOrEqualTo(844 - 280),
     );
-    expect(inset.padding, const EdgeInsets.only(bottom: 280));
     expect(tester.takeException(), isNull);
 
     await tester.enterText(search, List.filled(120, 'a').join());

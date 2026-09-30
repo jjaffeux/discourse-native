@@ -151,25 +151,50 @@ Future<void> openEventComposer(
     return;
   }
   final controller = PluginUiScope.maybe(context, eventControllerKey);
-  final result = await showDiscourseDialog<String>(
-    context: context,
-    builder: (_) => EventComposerSheet(
-      block: block,
-      settings:
-          policy.state.siteSettings.get(eventSettingsKey) ??
-          const EventSettings(),
-      timezone:
-          policy.state.accountTimezone ??
-          controller?.zones.readerTimezone() ??
-          'Etc/UTC',
-      controller: controller,
-      isCurrent: () =>
-          editor.isCurrent &&
-          editor.isEditing &&
-          policy.canAuthor &&
-          editor.value.text == expected.text,
-    ),
+  final touch = context.isTouch;
+  Widget content(BuildContext context) => EventComposerSheet(
+    embedded: touch,
+    block: block,
+    settings:
+        policy.state.siteSettings.get(eventSettingsKey) ??
+        const EventSettings(),
+    timezone:
+        policy.state.accountTimezone ??
+        controller?.zones.readerTimezone() ??
+        'Etc/UTC',
+    controller: controller,
+    isCurrent: () =>
+        editor.isCurrent &&
+        editor.isEditing &&
+        policy.canAuthor &&
+        editor.value.text == expected.text,
   );
+  final result = touch
+      ? await showDSheet<String>(
+          context: context,
+          side: DSheetSide.bottom,
+          inset: true,
+          fillAvailableHeight: true,
+          builder: (context, sheet) => DSheetContent(
+            side: DSheetSide.bottom,
+            semanticLabel: block == null ? appL10n.addEvent : appL10n.editEvent,
+            topBottomMaxHeightFactor: 1,
+            scrollWholeSheet: false,
+            children: [
+              DSheetHeader(
+                children: [
+                  DSheetTitle(
+                    child: Text(
+                      block == null ? appL10n.addEvent : appL10n.editEvent,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(child: SingleChildScrollView(child: content(context))),
+            ],
+          ),
+        )
+      : await showDiscourseDialog<String>(context: context, builder: content);
   if (result == null ||
       !context.mounted ||
       !editor.isCurrent ||
@@ -199,11 +224,13 @@ class EventComposerSheet extends StatefulWidget {
     required this.isCurrent,
     this.block,
     this.controller,
+    this.embedded = false,
   });
   final EventBlock? block;
   final EventSettings settings;
   final String timezone;
   final EventController? controller;
+  final bool embedded;
   final bool Function() isCurrent;
   @override
   State<EventComposerSheet> createState() => _EventComposerSheetState();
@@ -427,151 +454,136 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => DiscourseAlertDialog(
-    title: Text(
-      widget.block == null ? context.l10n.addEvent : context.l10n.editEvent,
-    ),
-    content: SizedBox(
-      width: 520,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _field('name'),
-            _field('start'),
-            _field('end'),
-            DCheckbox(
-              contentPadding: EdgeInsets.zero,
-              title: DLabel(child: Text(context.l10n.allDay)),
-              value: _booleans['all-day'],
-              onChanged: (value) =>
-                  setState(() => _booleans['all-day'] = value!),
-            ),
-            if (!_booleans['all-day']!) _field('timezone'),
-            DSelect<String>.controlled(
-              isExpanded: true,
-              value: _recurrence,
-              label: Text(context.l10n.repeats),
-              entries: [
-                for (final value in {
-                  '',
-                  'every_day',
-                  'every_weekday',
-                  'every_week',
-                  'every_two_weeks',
-                  'every_four_weeks',
-                  'every_month',
-                  _recurrence,
-                })
-                  DSelectOption(
-                    value: value,
-                    label:
-                        eventRecurrenceLabel(value) ??
-                        context.l10n.doesNotRepeat,
-                    child: Text(
-                      eventRecurrenceLabel(value) ?? context.l10n.doesNotRepeat,
-                    ),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _recurrence = value!),
-              initialValue: _recurrence,
-            ),
-            if (_recurrence.isNotEmpty) _field('recurrence-until'),
-            DSelect<String>.controlled(
-              isExpanded: true,
-              value: _status,
-              label: Text(context.l10n.participation),
-              entries: [
-                for (final value in {
-                  'public',
-                  'private',
-                  'standalone',
-                  _status,
-                })
-                  DSelectOption(
-                    value: value,
-                    label: switch (value) {
-                      'public' => context.l10n.public,
-                      'private' => context.l10n.privateGroups,
-                      'standalone' => context.l10n.noAttendanceTracking,
-                      _ => value,
-                    },
-                    child: Text(switch (value) {
-                      'public' => context.l10n.public,
-                      'private' => context.l10n.privateGroups,
-                      'standalone' => context.l10n.noAttendanceTracking,
-                      _ => value,
-                    }),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _status = value!),
-              initialValue: _status,
-            ),
-            if (_status == 'private') _field('allowed-groups'),
-            _field('url'),
-            _field('location'),
-            DTextarea(
-              controller: _description,
-              minLines: 3,
-              maxLines: 8,
-              labelText: context.l10n.descriptionMarkdown,
-            ),
-            DCollapsible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DCollapsibleTrigger(
-                    builder: (context, state) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(context.l10n.moreOptions)),
-                          Icon(
-                            state.open ? Icons.expand_less : Icons.expand_more,
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  DCollapsibleContent(
-                    keepMounted: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _field('max-attendees'),
-                        _field('reminders'),
-                        _field('image'),
-                        for (final attribute in _customFields.keys)
-                          _field(attribute),
-                        for (final entry in _booleanFields.entries)
-                          if (entry.key != 'all-day')
-                            DCheckbox(
-                              contentPadding: EdgeInsets.zero,
-                              title: DLabel(child: Text(entry.value)),
-                              value: _booleans[entry.key],
-                              onChanged: (value) =>
-                                  setState(() => _booleans[entry.key] = value!),
-                            ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
+  Widget build(BuildContext context) {
+    final fields = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _field('name'),
+        _field('start'),
+        _field('end'),
+        DCheckbox(
+          contentPadding: EdgeInsets.zero,
+          title: DLabel(child: Text(context.l10n.allDay)),
+          value: _booleans['all-day'],
+          onChanged: (value) => setState(() => _booleans['all-day'] = value!),
+        ),
+        if (!_booleans['all-day']!) _field('timezone'),
+        DSelect<String>.controlled(
+          isExpanded: true,
+          value: _recurrence,
+          label: Text(context.l10n.repeats),
+          entries: [
+            for (final value in {
+              '',
+              'every_day',
+              'every_weekday',
+              'every_week',
+              'every_two_weeks',
+              'every_four_weeks',
+              'every_month',
+              _recurrence,
+            })
+              DSelectOption(
+                value: value,
+                label:
+                    eventRecurrenceLabel(value) ?? context.l10n.doesNotRepeat,
                 child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  eventRecurrenceLabel(value) ?? context.l10n.doesNotRepeat,
                 ),
               ),
           ],
+          onChanged: (value) => setState(() => _recurrence = value!),
+          initialValue: _recurrence,
         ),
-      ),
-    ),
-    actions: [
+        if (_recurrence.isNotEmpty) _field('recurrence-until'),
+        DSelect<String>.controlled(
+          isExpanded: true,
+          value: _status,
+          label: Text(context.l10n.participation),
+          entries: [
+            for (final value in {'public', 'private', 'standalone', _status})
+              DSelectOption(
+                value: value,
+                label: switch (value) {
+                  'public' => context.l10n.public,
+                  'private' => context.l10n.privateGroups,
+                  'standalone' => context.l10n.noAttendanceTracking,
+                  _ => value,
+                },
+                child: Text(switch (value) {
+                  'public' => context.l10n.public,
+                  'private' => context.l10n.privateGroups,
+                  'standalone' => context.l10n.noAttendanceTracking,
+                  _ => value,
+                }),
+              ),
+          ],
+          onChanged: (value) => setState(() => _status = value!),
+          initialValue: _status,
+        ),
+        if (_status == 'private') _field('allowed-groups'),
+        _field('url'),
+        _field('location'),
+        DTextarea(
+          controller: _description,
+          minLines: 3,
+          maxLines: 8,
+          labelText: context.l10n.descriptionMarkdown,
+        ),
+        DCollapsible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DCollapsibleTrigger(
+                builder: (context, state) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(context.l10n.moreOptions)),
+                      Icon(
+                        state.open ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              DCollapsibleContent(
+                keepMounted: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _field('max-attendees'),
+                    _field('reminders'),
+                    _field('image'),
+                    for (final attribute in _customFields.keys)
+                      _field(attribute),
+                    for (final entry in _booleanFields.entries)
+                      if (entry.key != 'all-day')
+                        DCheckbox(
+                          contentPadding: EdgeInsets.zero,
+                          title: DLabel(child: Text(entry.value)),
+                          value: _booleans[entry.key],
+                          onChanged: (value) =>
+                              setState(() => _booleans[entry.key] = value!),
+                        ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+      ],
+    );
+    final actions = <Widget>[
       DButton(
         label: Text(context.l10n.apply),
         onPressed: _apply,
@@ -589,8 +601,31 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
             if (widget.isCurrent()) Navigator.pop(context, '');
           },
         ),
-    ],
-  );
+    ];
+    if (widget.embedded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            fields,
+            const SizedBox(height: 16),
+            Wrap(spacing: 8, runSpacing: 8, children: actions),
+          ],
+        ),
+      );
+    }
+    return DiscourseAlertDialog(
+      title: Text(
+        widget.block == null ? context.l10n.addEvent : context.l10n.editEvent,
+      ),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(child: fields),
+      ),
+      actions: actions,
+    );
+  }
 }
 
 final class EventSubmitPreparer implements PluginComposerSubmitPreparer {
