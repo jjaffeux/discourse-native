@@ -1367,6 +1367,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Rect? _lastImageMenuAnchor;
   (double, double)? _lastGalleryMenuPosition;
   late final TextInputFormatter _selectedPillInputFormatter;
+  late final TextInputFormatter _componentDeletionInputFormatter;
   late final TextInputFormatter _renderedEmojiInputFormatter;
   final _blockquoteInputFormatter = ComposerBlockquoteInputFormatter();
   int? _blockquoteFieldGeneration;
@@ -1427,6 +1428,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
       endingAt: (offset) => widget.composer.text.renderedEmojiEndingAt(offset),
       startingAt: (offset) =>
           widget.composer.text.renderedEmojiStartingAt(offset),
+    );
+    _componentDeletionInputFormatter = TextInputFormatter.withFunction(
+      _formatComponentDeletion,
     );
     _pasteAction = _ComposerPasteAction(_pasteClipboard);
     widget.composer.text.imageScrollController = _scroll;
@@ -1899,6 +1903,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       textCapitalization: TextCapitalization.sentences,
                       inputFormatters: [
                         _selectedPillInputFormatter,
+                        _componentDeletionInputFormatter,
                         _renderedEmojiInputFormatter,
                         const ComposerImageGalleryInputFormatter(),
                         const ComposerQuoteInputFormatter(),
@@ -2861,6 +2866,61 @@ class _ComposerEditorState extends State<ComposerEditor> {
   Object? get _keyboardSelectedPill =>
       widget.composer.text.keyboardSelectedProjection;
 
+  TextEditingValue _formatComponentDeletion(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final selection = oldValue.selection;
+    final removedLength = oldValue.text.length - newValue.text.length;
+    if (removedLength <= 0 ||
+        !selection.isValid ||
+        !selection.isCollapsed ||
+        !newValue.selection.isValid ||
+        !newValue.selection.isCollapsed ||
+        !oldValue.composing.isCollapsed ||
+        !newValue.composing.isCollapsed) {
+      return newValue;
+    }
+
+    final caret = selection.extentOffset;
+    final backward = newValue.selection.extentOffset == caret - removedLength;
+    final start = backward ? caret - removedLength : caret;
+    final end = start + removedLength;
+    if ((!backward && newValue.selection.extentOffset != caret) ||
+        start < 0 ||
+        end > oldValue.text.length ||
+        newValue.text != oldValue.text.replaceRange(start, end, '')) {
+      return newValue;
+    }
+
+    final composer = widget.composer;
+    final component = backward
+        ? _collapsedPillEndingAt(caret) ?? composer.text.blockBeforeCaret
+        : _collapsedPillStartingAt(caret);
+    if (component == null || start < _pillStart(component)) return newValue;
+
+    // Software keyboards send a text replacement instead of a key event.
+    // Reject their edit into hidden source and perform the same component
+    // command as a hardware key, after EditableText finishes its proposal.
+    final afterContent =
+        backward && caret > composer.text.componentContentEnd(component);
+    scheduleMicrotask(() {
+      if (!mounted ||
+          !identical(widget.composer, composer) ||
+          !composer.isEditing ||
+          composer.text.value != oldValue) {
+        return;
+      }
+      if (afterContent) {
+        composer.text.selectBlockBeforeCaret();
+      } else {
+        _clearKeyboardPillSelection();
+        _removePill(component);
+      }
+    });
+    return oldValue;
+  }
+
   void _clearKeyboardPillSelection() {
     _media.clearKeyboardImageSelection();
     _media.dismissGallery(requestFocus: false);
@@ -2893,7 +2953,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
       if (image.end == caret && text.isImageCollapsed(image)) return image;
     }
     for (final syntax in text.syntaxBlocks) {
-      if ((syntax.end == caret || text.syntaxCaretAfter(syntax) == caret) &&
+      if ((syntax.end == caret ||
+              text.componentContentEnd(syntax) == caret ||
+              text.syntaxCaretAfter(syntax) == caret) &&
           text.isSyntaxCollapsed(syntax)) {
         return syntax;
       }

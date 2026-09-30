@@ -4,14 +4,18 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
 import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_list_editor.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 const _target = ComposerTarget(
   siteUrl: 'https://example.test',
@@ -56,6 +60,7 @@ Future<ComposerController> _pump(
   composer = ComposerController(
     _target,
     syntaxPolicies: [
+      LocalDateComposerSyntaxPolicy(environment: LocalDateEnvironment.instance),
       const PollComposerSyntaxPolicy(),
       EventSyntaxPolicy(
         ComposerSyntaxPolicyContext(
@@ -96,6 +101,174 @@ Future<ComposerController> _pump(
 }
 
 void main() {
+  setUpAll(() async {
+    LocalDateEnvironment.instance.ensureDatabase();
+    LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
+    await initializeDateFormatting('en');
+  });
+
+  for (final entry in {
+    ..._blocks,
+    'date': '[date=2026-09-30 timezone=Etc/UTC]',
+    'date range':
+        '[date-range from=2026-09-30T09:00:00 to=2026-09-30T10:00:00 timezone=Etc/UTC]',
+    'code': '```dart\nprint("hello");\n```',
+    'link': '[Discourse](https://discourse.org)',
+  }.entries) {
+    testWidgets(
+      '${entry.key} mobile backspace removes the whole component',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+
+        // Software keyboards send editing values, not hardware key events.
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 1, caret, ''),
+            selection: TextSelection.collapsed(offset: caret - 1),
+          ),
+        );
+        await tester.pump();
+
+        expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+        expect(composer.text.keyboardSelectedProjection, isNull);
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
+
+  for (final entry in _blocks.entries) {
+    for (final gap in ['\n', '\r\n', '\n\n']) {
+      testWidgets(
+        '${entry.key} mobile backspace across ${gap.length} gap characters '
+        'selects before deleting',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}${gap}After';
+          final composer = await _pump(tester, source);
+          final caret = source.indexOf('After');
+          composer.text.selection = TextSelection.collapsed(offset: caret);
+          await tester.pump();
+          tester.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: source.replaceRange(caret - 1, caret, ''),
+              selection: TextSelection.collapsed(offset: caret - 1),
+            ),
+          );
+          await tester.pump();
+          expect(composer.raw, source);
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+
+          final selection = composer.text.selection;
+          tester.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: source.replaceRange(selection.start, selection.end, ''),
+              selection: TextSelection.collapsed(offset: selection.start),
+            ),
+          );
+          await tester.pump();
+          expect(
+            composer.raw,
+            source.replaceRange(selection.start, selection.end, '').trim(),
+          );
+          expect(composer.text.keyboardSelectedProjection, isNull);
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+        }),
+      );
+    }
+  }
+
+  testWidgets(
+    'mobile backspace removes adjacent dates without source fragments',
+    (tester) async {
+      const date = '[date=2026-09-30 timezone=Etc/UTC]';
+      const prefix = 'Before 👩‍💻 ';
+      final composer = await _pump(tester, '$prefix$date$date ');
+      for (final expected in ['$prefix$date$date', '$prefix$date', prefix]) {
+        final value = composer.text.value;
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: value.text.substring(0, value.text.length - 1),
+            selection: TextSelection.collapsed(offset: value.text.length - 1),
+          ),
+        );
+        await tester.pump();
+        expect(composer.text.text, expected);
+        expect(composer.text.selection.extentOffset, expected.length);
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.mobile(),
+  );
+
+  testWidgets('mobile forward delete removes an inline date', (tester) async {
+    const date = '[date=2026-09-30 timezone=Etc/UTC]';
+    const source = 'Before $date after';
+    final composer = await _pump(tester, source);
+    composer.text.selection = const TextSelection.collapsed(offset: 7);
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Before date=2026-09-30 timezone=Etc/UTC] after',
+        selection: TextSelection.collapsed(offset: 7),
+      ),
+    );
+    await tester.pump();
+    expect(composer.text.text, 'Before  after');
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 7));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
+  testWidgets('mobile backspace removes a date inside a list body', (
+    tester,
+  ) async {
+    const date = '[date=2026-09-30 timezone=Etc/UTC]';
+    final composer = await _pump(tester, '- Before $date');
+    final body = tester
+        .widgetList<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
+        .map((widget) => widget.composer)
+        .whereType<ComposerListBodyController>()
+        .single;
+    body.text.selection = TextSelection.collapsed(
+      offset: body.text.text.length,
+    );
+    body.requestFocus();
+    await tester.pump();
+    final value = body.text.value;
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: value.text.substring(0, value.text.length - 1),
+        selection: TextSelection.collapsed(offset: value.text.length - 1),
+      ),
+    );
+    await tester.pump();
+    expect(body.text.text, 'Before ');
+    expect(composer.raw, '- Before');
+    composer.history.undo();
+    await tester.pump();
+    expect(composer.raw, '- Before $date');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
   for (final shift in [false, true]) {
     for (final selection in [
       const TextSelection.collapsed(offset: 5),
