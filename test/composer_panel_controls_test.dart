@@ -1894,8 +1894,10 @@ final class _InteractionTrackingShellController extends ShellController {
   void closeComposer({ComposerController? composer}) => closeCalls++;
 
   @override
-  Future<void> submitComposer({ComposerController? composer}) async =>
-      submitCalls++;
+  Future<void> submitComposer({
+    ComposerController? composer,
+    ValueChanged<String>? onPreparationNotice,
+  }) async => submitCalls++;
 }
 
 const _replyTarget = ComposerTarget(

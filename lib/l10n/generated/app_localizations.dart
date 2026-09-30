@@ -8024,6 +8024,18 @@ abstract class AppLocalizations {
   /// **'Disable GIF animations'**
   String get disableGIFAnimations;
 
+  /// App-wide setting to edit Markdown source in topic and chat composers.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw Markdown in composers'**
+  String get rawMarkdownComposers;
+
+  /// Description of the raw Markdown composer setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Show plain Markdown instead of formatted text and widgets when composing posts and chat messages.'**
+  String get rawMarkdownComposersDescription;
+
   /// English UI message used by shell/app_settings_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

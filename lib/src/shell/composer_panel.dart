@@ -24,6 +24,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
+import 'app_settings_controller.dart';
 import 'composer_autocomplete.dart';
 import 'composer_block_surface.dart';
 import 'composer_blockquote.dart';
@@ -1330,6 +1331,8 @@ class ComposerEditor extends StatefulWidget {
 }
 
 class _ComposerEditorState extends State<ComposerEditor> {
+  AppSettingsController? _appSettings;
+  bool get _rawMarkdown => widget.composer.text.rawMarkdown;
   final _slashMenu = GlobalKey<ComposerSlashMenuState>();
   bool _pickingSlashFiles = false;
   _ComposerEditorState? _parentEditor;
@@ -1440,6 +1443,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final settings = ShellScope.maybeIdentityOf(context)?.appSettings;
+    if (!identical(settings, _appSettings)) {
+      _appSettings?.removeListener(_syncRawMarkdown);
+      _appSettings = settings;
+      settings?.addListener(_syncRawMarkdown);
+      _syncRawMarkdown();
+    }
     _touchSelection = context.isTouch;
     _selectionOverlay.sync();
     final ancestorScroll = widget.expands
@@ -1461,6 +1471,17 @@ class _ComposerEditorState extends State<ComposerEditor> {
   void _ancestorScrolled() {
     _scheduleMediaLayoutRefresh();
     _selectionOverlay.sync();
+  }
+
+  void _syncRawMarkdown() {
+    final enabled = _appSettings?.rawMarkdownComposers ?? false;
+    if (_rawMarkdown == enabled) return;
+    _clearPointerDownPill();
+    _media.dismissImage(requestFocus: false);
+    _media.dismissGallery(requestFocus: false);
+    _blockquoteInputFormatter.reset();
+    widget.composer.text.rawMarkdown = enabled;
+    setState(() {});
   }
 
   @override
@@ -1492,6 +1513,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _media.replaceComposer(widget.composer);
     _selectionOverlay.replaceComposer(widget.composer);
     widget.composer.text.imageScrollController = _scroll;
+    _syncRawMarkdown();
   }
 
   @override
@@ -1505,6 +1527,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   @override
   void dispose() {
+    _appSettings?.removeListener(_syncRawMarkdown);
     _ancestorScroll?.removeListener(_ancestorScrolled);
     _parentEditor?._nestedEditors.remove(this);
     _parentEditor?._scheduleMediaLayoutRefresh();
@@ -1841,14 +1864,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   Widget _textField() => MouseRegion(
-    onHover: (event) => _updateEditorHover(event.position),
-    onExit: (_) => _updateEditorHover(null),
+    onHover: _rawMarkdown
+        ? null
+        : (event) => _updateEditorHover(event.position),
+    onExit: _rawMarkdown ? null : (_) => _updateEditorHover(null),
     child: Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: _onEditorPointerDown,
-      onPointerMove: _onEditorPointerMove,
-      onPointerUp: _onEditorPointerUp,
-      onPointerCancel: (_) => _cancelEditorPointer(),
+      onPointerDown: _rawMarkdown ? null : _onEditorPointerDown,
+      onPointerMove: _rawMarkdown ? null : _onEditorPointerMove,
+      onPointerUp: _rawMarkdown ? null : _onEditorPointerUp,
+      onPointerCancel: _rawMarkdown ? null : (_) => _cancelEditorPointer(),
       child: ComposerSuggestionField(
         composer: widget.composer,
         onAction: widget.onSuggestionAction,
@@ -1859,10 +1884,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
           child: Actions(
             actions: {
               PasteTextIntent: _pasteAction,
-              ExtendSelectionToLineBreakIntent: _quoteLineStartAction,
-              ExpandSelectionToLineBreakIntent: _quoteExpandLineStartAction,
-              ExtendSelectionVerticallyToAdjacentLineIntent:
-                  _verticalArrowAction,
+              if (!_rawMarkdown) ...{
+                ExtendSelectionToLineBreakIntent: _quoteLineStartAction,
+                ExpandSelectionToLineBreakIntent: _quoteExpandLineStartAction,
+                ExtendSelectionVerticallyToAdjacentLineIntent:
+                    _verticalArrowAction,
+              },
             },
             child: ListenableBuilder(
               listenable: Listenable.merge([
@@ -1870,7 +1897,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 widget.composer.focus,
               ]),
               builder: (_, _) => ComposerBlockquoteDecoration(
-                reserveGutter: _parentEditor == null,
+                reserveGutter: !_rawMarkdown && _parentEditor == null,
                 repaint: Listenable.merge([widget.composer.text, _scroll]),
                 child: ClipRect(
                   child: DefaultSelectionStyle.merge(
@@ -1902,32 +1929,35 @@ class _ComposerEditorState extends State<ComposerEditor> {
                       keyboardType: TextInputType.multiline,
                       textCapitalization: TextCapitalization.sentences,
                       inputFormatters: [
-                        _selectedPillInputFormatter,
-                        _componentDeletionInputFormatter,
-                        _renderedEmojiInputFormatter,
-                        const ComposerImageGalleryInputFormatter(),
-                        const ComposerQuoteInputFormatter(),
-                        ...widget.composer.text.syntaxInputFormatters,
-                        _blockquoteInputFormatter,
-                        if (widget.composer.text.enableTodos)
-                          ComposerTodoInputFormatter(
-                            referenceMarkers:
-                                widget.composer.text.todoReferenceMarkers,
-                          ),
-                        if (context.isTouch &&
-                            widget.composer.text.enableBlockSeparators &&
-                            !widget.composer.singleNewlineParagraphs)
-                          _ParagraphInputFormatter(widget.composer),
+                        if (!_rawMarkdown) ...[
+                          _selectedPillInputFormatter,
+                          _componentDeletionInputFormatter,
+                          _renderedEmojiInputFormatter,
+                          const ComposerImageGalleryInputFormatter(),
+                          const ComposerQuoteInputFormatter(),
+                          ...widget.composer.text.syntaxInputFormatters,
+                          _blockquoteInputFormatter,
+                          if (widget.composer.text.enableTodos)
+                            ComposerTodoInputFormatter(
+                              referenceMarkers:
+                                  widget.composer.text.todoReferenceMarkers,
+                            ),
+                          if (context.isTouch &&
+                              widget.composer.text.enableBlockSeparators &&
+                              !widget.composer.singleNewlineParagraphs)
+                            _ParagraphInputFormatter(widget.composer),
+                        ],
                         ...widget.composer.inputFormatters,
                       ],
                       contextMenuBuilder: _contextMenu,
                       showCursor:
                           !widget.composer.text.selectedProjectionHidesCursor,
                       onTapAlwaysCalled: true,
-                      onTap: _activatePointerDownPill,
+                      onTap: _rawMarkdown ? null : _activatePointerDownPill,
                       // TextField owns the deepest cursor region. Changing only the
                       // editor-level hover region leaves its text cursor in front.
-                      mouseCursor: _hoveringMention || _hoveringLink
+                      mouseCursor:
+                          !_rawMarkdown && (_hoveringMention || _hoveringLink)
                           ? SystemMouseCursors.click
                           : null,
                       style: widget.textStyle,
@@ -2527,6 +2557,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       }
       return KeyEventResult.handled;
     }
+    if (_rawMarkdown) return KeyEventResult.ignored;
     if (widget.enableBlockReordering &&
         event is KeyDownEvent &&
         keyboard.isAltPressed &&
@@ -3225,7 +3256,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   Widget build(BuildContext context) => ComposerHistoryScope(
     composer: widget.composer,
-    child: widget.enableBlockReordering && _parentEditor == null
+    child:
+        !_rawMarkdown && widget.enableBlockReordering && _parentEditor == null
         ? ComposerBlockSurface(
             composer: widget.composer,
             expands: widget.expands,
@@ -3494,13 +3526,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
                     ),
                     child: _field(),
                   ),
-                ListenableBuilder(
-                  listenable: Listenable.merge([_media, _mediaDropPosition]),
-                  builder: (context, _) => ValueListenableBuilder<int>(
-                    valueListenable: _mediaLayoutRevision,
-                    builder: (context, _, _) => _mediaOverlays(constraints),
+                if (!_rawMarkdown)
+                  ListenableBuilder(
+                    listenable: Listenable.merge([_media, _mediaDropPosition]),
+                    builder: (context, _) => ValueListenableBuilder<int>(
+                      valueListenable: _mediaLayoutRevision,
+                      builder: (context, _, _) => _mediaOverlays(constraints),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

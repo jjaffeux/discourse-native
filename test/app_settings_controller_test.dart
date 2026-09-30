@@ -6,6 +6,28 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final enabled in [true, false]) {
+    test('raw Markdown choice $enabled wins over late hydration', () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        rawMarkdownComposers: !enabled,
+        textScale: 'percent125',
+        readGate: gate,
+        acceptWrites: false,
+      );
+      final controller = _controller(persistence);
+      final loading = controller.load();
+      await persistence.readStarted.future;
+      await controller.setRawMarkdownComposers(enabled);
+      expect(controller.rawMarkdownComposers, enabled);
+      gate.complete();
+      await loading;
+      expect(controller.rawMarkdownComposers, enabled);
+      expect(controller.textScale, AppTextScale.percent125);
+      expect((await controller.store.read()).rawMarkdownComposers, enabled);
+    });
+  }
+
   for (final mode in TopicListDisplayMode.values) {
     test(
       'topic list choice $mode survives hydration without replacing other settings',
@@ -772,6 +794,7 @@ final class _ControlledAppSettingsPersistence
   _ControlledAppSettingsPersistence({
     this.limitContentSize,
     this.disableGifAnimations,
+    this.rawMarkdownComposers,
     this.textScale,
     this.themeMode,
     this.topicListMode,
@@ -782,6 +805,7 @@ final class _ControlledAppSettingsPersistence
 
   bool? limitContentSize;
   bool? disableGifAnimations;
+  bool? rawMarkdownComposers;
   String? textScale;
   String? themeMode;
   String? topicListMode;
@@ -810,6 +834,9 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readDisableGifAnimations() async => disableGifAnimations;
 
   @override
+  Future<bool?> readRawMarkdownComposers() async => rawMarkdownComposers;
+
+  @override
   Future<String?> readTextScale() async => textScale;
 
   @override
@@ -830,6 +857,14 @@ final class _ControlledAppSettingsPersistence
     await _waitForFirstWrite();
     if (!acceptWrites) return false;
     disableGifAnimations = value;
+    return true;
+  }
+
+  @override
+  Future<bool> writeRawMarkdownComposers(bool value) async {
+    await _waitForFirstWrite();
+    if (!acceptWrites) return false;
+    rawMarkdownComposers = value;
     return true;
   }
 

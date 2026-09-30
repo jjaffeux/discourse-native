@@ -4643,6 +4643,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get disableGIFAnimations => 'Disable GIF animations';
 
   @override
+  String get rawMarkdownComposers => 'Raw Markdown in composers';
+
+  @override
+  String get rawMarkdownComposersDescription =>
+      'Show plain Markdown instead of formatted text and widgets when composing posts and chat messages.';
+
+  @override
   String get pauseGIFsByDefaultInPostsAndChatMessages =>
       'Pause GIFs by default in posts and chat messages.';
 
