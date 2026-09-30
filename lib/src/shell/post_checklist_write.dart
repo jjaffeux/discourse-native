@@ -23,7 +23,7 @@ class PostChecklistWrite {
     List<Map<String, Object?>> toggles,
   )
   save;
-  final String _fingerprint;
+  String _fingerprint;
   Post _confirmed;
   Post _visible;
   final _pending = <int, bool>{};
@@ -85,7 +85,8 @@ class PostChecklistWrite {
       _confirmed = fresh;
       if (!_project()) return null;
       while (_pending.isNotEmpty && isCurrent()) {
-        final targets = PostChecklistDocument(_confirmed.cooked).targets;
+        final document = PostChecklistDocument(_confirmed.cooked);
+        final targets = document.targets;
         for (final entry in _pending.entries.take(50).toList()) {
           _pending.remove(entry.key);
           if (targets[entry.key].checked != entry.value) {
@@ -102,6 +103,11 @@ class PostChecklistWrite {
             response.updatedAt.isBefore(_confirmed.updatedAt!)) {
           throw const WriteException(WriteFailure.conflict);
         }
+        final rawFingerprint = document.rawFingerprint(_confirmed.raw!);
+        final savedDocument = PostChecklistDocument(response.cooked);
+        final contentUnchanged =
+            rawFingerprint != null &&
+            document.rawFingerprint(response.raw) == rawFingerprint;
         _confirmed = _confirmed.copyWith(
           raw: response.raw,
           cooked: response.cooked,
@@ -109,12 +115,15 @@ class PostChecklistWrite {
           version: response.version,
         );
         _inFlight.clear();
-        if (PostChecklistDocument(response.cooked).fingerprint !=
-            _fingerprint) {
+        if (!contentUnchanged ||
+            (_pending.isNotEmpty && !document.hasSameTargets(savedDocument))) {
           _accepting = false;
           _show(_confirmed);
           return appL10n.thePostChangedReviewItsToDosBeforeContinuing;
         }
+        // Core's successful save can refresh icons, oneboxes, images, etc.
+        // Adopt that rendering without treating it as a concurrent text edit.
+        _fingerprint = savedDocument.fingerprint;
         if (!_project()) return null;
       }
       return null;

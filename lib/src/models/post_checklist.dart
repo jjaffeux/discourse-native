@@ -118,6 +118,57 @@ class PostChecklistDocument {
     return copy._document.outerHtml;
   }
 
+  /// Core guards edits with Markdown, since saving recooks the entire post.
+  /// Ignore only mutable checkbox markers at their physical source locations.
+  String? rawFingerprint(String raw) {
+    final mutable = targets.where((target) => !target.permanent);
+    if (mutable.any((target) => target.source == null)) {
+      // Match core's fallback for posts cooked before source hints existed.
+      return raw.replaceAll(RegExp(r'\[(?: |x)?\]'), '[ ]');
+    }
+    final sources = <int, Set<int>>{};
+    for (final target in mutable) {
+      final parts = target.source!.split(':');
+      final line = int.tryParse(parts[0]);
+      final ordinal = int.tryParse(parts[1]);
+      if (line == null || ordinal == null) return null;
+      if (!(sources[line] ??= <int>{}).add(ordinal)) return null;
+    }
+    final lines = raw.split(RegExp(r'\r\n?|\n'));
+    for (final entry in sources.entries) {
+      if (entry.key >= lines.length) return null;
+      final markers = RegExp(
+        r'\[[ xX]?\]',
+      ).allMatches(lines[entry.key]).toList();
+      for (final ordinal in entry.value) {
+        if (ordinal >= markers.length || markers[ordinal][0] == '[X]') {
+          return null;
+        }
+      }
+      var ordinal = 0;
+      lines[entry.key] = lines[entry.key].replaceAllMapped(
+        RegExp(r'\[[ xX]?\]'),
+        (match) => entry.value.contains(ordinal++) ? '[ ]' : match[0]!,
+      );
+    }
+    return lines.join('\n');
+  }
+
+  /// Pending clicks use rendered indexes. A recook may add source hints to
+  /// legacy boxes, but must not move existing sources or change the controls.
+  bool hasSameTargets(PostChecklistDocument other) {
+    if (targets.length != other.targets.length) return false;
+    for (var i = 0; i < targets.length; i++) {
+      final before = targets[i];
+      final after = other.targets[i];
+      if (before.permanent != after.permanent ||
+          (before.source != null && before.source != after.source)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   String get fingerprint {
     final copy = PostChecklistDocument(_document.outerHtml);
     for (final box in copy._boxes) {

@@ -52,6 +52,7 @@ class ChecklistApi extends FakeDiscourseApi {
   WriteException? refusal;
   bool readFails = false;
   int reads = 0;
+  Post Function(Post)? transformSaved;
 
   @override
   Future<List<Post>> posts({
@@ -103,6 +104,7 @@ class ChecklistApi extends FakeDiscourseApi {
       updatedAt: server.updatedAt!.add(const Duration(seconds: 1)),
       version: server.version + 1,
     );
+    server = transformSaved?.call(server) ?? server;
     return PostChecklistUpdate(
       raw: server.raw!,
       cooked: server.cooked,
@@ -396,6 +398,54 @@ void main() {
     }
   });
 
+  test('raw fingerprints ignore only owned mutable source markers', () {
+    final document = PostChecklistDocument(
+      '<p><code>[ ]</code> '
+      '<span class="chcklst-box" data-chk-src="0:1"></span> First<br>'
+      '<span class="chcklst-box checked" data-chk-src="1:0"></span> Second<br>'
+      '<span class="chcklst-box checked permanent"></span> Locked</p>'
+      '<aside class="quote" data-post="1">'
+      '<span class="chcklst-box" data-chk-src="4:0"></span> Quoted</aside>',
+    );
+    const before = '`[ ]` [] First\n[x] Second\n[X] Locked\n\n[ ] Quoted';
+    final fingerprint = document.rawFingerprint(before);
+    expect(fingerprint, isNotNull);
+    expect(
+      document.rawFingerprint(
+        '`[ ]` [x] First\r\n[ ] Second\r\n[X] Locked\r\n\r\n[ ] Quoted',
+      ),
+      fingerprint,
+    );
+    for (final changed in [
+      before.replaceFirst('`[ ]`', '`[x]`'),
+      before.replaceFirst('First', 'Edited'),
+      before.replaceFirst('[X]', '[x]'),
+      before.replaceFirst('[ ] Quoted', '[x] Quoted'),
+    ]) {
+      expect(document.rawFingerprint(changed), isNot(fingerprint));
+    }
+    expect(document.rawFingerprint('Missing targets'), isNull);
+    expect(document.rawFingerprint(before.replaceFirst('[]', '[X]')), isNull);
+  });
+
+  test(
+    'legacy raw fingerprints follow core without changing permanent markers',
+    () {
+      final document = PostChecklistDocument(
+        '<p><span class="chcklst-box"></span> First<br>'
+        '<span class="chcklst-box checked permanent"></span> Locked</p>',
+      );
+      expect(
+        document.rawFingerprint('[] First\n[X] Locked'),
+        '[ ] First\n[X] Locked',
+      );
+      expect(
+        document.rawFingerprint('[x] First\n[X] Locked'),
+        '[ ] First\n[X] Locked',
+      );
+    },
+  );
+
   test(
     'projects before raw loads, then persists while preserving reader fields',
     () async {
@@ -615,6 +665,120 @@ void main() {
       expect(states(shell), [false, false]);
     },
   );
+
+  testWidgets('recooking an older checklist saves without a conflict toast', (
+    tester,
+  ) async {
+    // Core used fa-check-square-o before its Font Awesome rename. Saving an
+    // older post recooks every checkbox, including the ones we did not toggle.
+    final initial = post().copyWith(
+      cooked: cooked(raw)
+          .replaceAll('fa-square-check-o', 'fa-check-square-o')
+          .replaceAll('chcklst-box ', 'chcklst-box fa-fw fa ')
+          .replaceAll(RegExp(r' data-chk-src="\d+:\d+"'), ''),
+    );
+    final api = ChecklistApi()
+      ..server = initial
+      ..writeGates.add(Completer<void>())
+      ..writeGates.add(Completer<void>());
+    final shell = await shellFor(api, initial: initial);
+    addTearDown(shell.dispose);
+    final toasts = DToastController();
+    addTearDown(toasts.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        builder: (context, child) =>
+            DToaster(controller: toasts, child: child!),
+        home: ShellScope(
+          controller: shell,
+          child: ValueListenableBuilder<Post?>(
+            valueListenable: shell.store.ref<Post>(site, 22),
+            builder: (context, post, _) => CookedHtml(
+              html: post!.cooked,
+              post: post,
+              siteUrl: site,
+              containingTopic: const PluginContainingTopic(
+                id: 7,
+                slug: 'topic',
+                archived: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DCheckbox).last);
+    await tester.pumpAndSettle();
+    expect(states(shell), [true, false]);
+    expect((api.calls.single['toggles'] as List).single, {
+      'checkbox_index': 0,
+      'checkbox_count': 2,
+      'checked': true,
+    });
+    api.writeGates.first.complete();
+    await tester.pumpAndSettle();
+    expect(toasts.toasts.map((toast) => toast.options.description), isEmpty);
+    expect(api.calls.length, 2);
+    expect(api.calls.last['raw'], '[x] First\n[x] Second');
+    expect((api.calls.last['toggles'] as List).single, {
+      'checkbox_index': 1,
+      'checkbox_source': '1:0',
+      'checked': false,
+    });
+    api.writeGates.last.complete();
+    await tester.pumpAndSettle();
+    expect(api.server.raw, '[x] First\n[ ] Second');
+    expect(states(shell), [true, false]);
+    expect(toasts.toasts, isEmpty);
+    // The refreshed rendering remains interactive after the queue drains.
+    await tester.tap(find.byType(DCheckbox).first);
+    await tester.pumpAndSettle();
+    expect(api.server.raw, '[ ] First\n[ ] Second');
+    expect(toasts.toasts, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final change in ['text', 'source', 'count', 'permanent']) {
+    test('a save with changed $change stops queued clicks', () async {
+      final api = ChecklistApi()
+        ..writeGates.add(Completer<void>())
+        ..transformSaved = (saved) => switch (change) {
+          // Even a response whose cooked HTML has not caught up with its raw
+          // Markdown must not be used to write over a changed task.
+          'text' => saved.copyWith(
+            raw: saved.raw!.replaceFirst('Second', 'Edited'),
+          ),
+          'source' => saved.copyWith(
+            cooked: saved.cooked.replaceFirst(
+              'data-chk-src="1:0"',
+              'data-chk-src="0:0"',
+            ),
+          ),
+          'count' => saved.copyWith(cooked: cooked('[x] First')),
+          _ => saved.copyWith(
+            cooked: saved.cooked.replaceFirst(
+              'class="chcklst-box checked fa-square-check-o" data-chk-src="1:0"',
+              'class="chcklst-box checked permanent fa-square-check"',
+            ),
+          ),
+        };
+      final shell = await shellFor(api);
+      addTearDown(shell.dispose);
+      final pending = toggle(shell, 0, true);
+      await pumpEventQueue();
+      await toggle(shell, 1, false);
+      api.writeGates.single.complete();
+      expect(await pending, isNotNull);
+      expect(api.calls.length, 1);
+      expect(shell.store.read<Post>(site, 22)!.raw, api.server.raw);
+      expect(shell.store.read<Post>(site, 22)!.cooked, api.server.cooked);
+      expect(shell.postWriteInFlight(22), isFalse);
+    });
+  }
 
   for (final failure in [
     WriteFailure.forbidden,
