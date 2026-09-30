@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../composer_sheet_header.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';
@@ -43,18 +44,30 @@ Future<GifResult?> showGifPicker({
           semanticLabel: appL10n.searchGIFs,
           topBottomMaxHeightFactor: 1,
           scrollWholeSheet: false,
+          showCloseButton: false,
           children: [
-            DSheetHeader(
-              children: [DSheetTitle(child: Text(appL10n.searchGIFs))],
-            ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: GifPicker(
-                  controller: controller,
-                  siteUrl: siteUrl,
-                  onPicked: sheet.close,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ComposerSheetHeader(
+                    title: context.l10n.searchGIFs,
+                    closeButtonKey: const ValueKey('gif-picker-close'),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DSpacing.lg,
+                        vertical: DSpacing.sm,
+                      ),
+                      child: GifPicker(
+                        controller: controller,
+                        siteUrl: siteUrl,
+                        onPicked: sheet.close,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
