@@ -36,7 +36,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'drag',
     name: 'Drag',
-    sections: ['Drag and tap', 'Disabled'],
+    sections: ['Drag and tap', 'Draggable content', 'Disabled'],
   ),
   ComponentReference(
     id: 'history-transition',

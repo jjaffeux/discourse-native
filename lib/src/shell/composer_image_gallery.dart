@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'composer_block_surface.dart';
 import 'composer_galleries.dart';
 import 'composer_images.dart';
 import 'site_image.dart';
@@ -287,32 +288,22 @@ class _ReorderableGalleryTile extends StatelessWidget {
         dropTarget: candidates.isNotEmpty,
       );
       if (onReorder == null) return tile;
-      return Draggable<ComposerImageBlock>(
-        data: item.image,
-        dragAnchorStrategy: pointerDragAnchorStrategy,
-        onDragStarted: () => onReorderStarted?.call(item.image),
-        onDragEnd: (_) => onReorderEnded?.call(item.image),
-        feedback: ExcludeSemantics(
-          child: Material(
-            color: Colors.transparent,
-            elevation: 6,
-            borderRadius: BorderRadius.circular(6),
-            child: Opacity(
-              opacity: 0.9,
-              child: ComposerImageGalleryTile(
-                item: ComposerImageGalleryItem(
-                  image: item.image,
-                  url: item.url,
-                  imageKey: UniqueKey(),
-                  highlighted: false,
-                ),
-                siteUrl: siteUrl,
-              ),
+      return ComposerBlockSurface.ownsLongPress(
+        child: DContentDrag<ComposerImageBlock>(
+          data: item.image,
+          onDragStarted: () => onReorderStarted?.call(item.image),
+          onDragEnd: () => onReorderEnded?.call(item.image),
+          feedback: ComposerImageGalleryTile(
+            item: ComposerImageGalleryItem(
+              image: item.image,
+              url: item.url,
+              imageKey: UniqueKey(),
+              highlighted: false,
             ),
+            siteUrl: siteUrl,
           ),
+          child: tile,
         ),
-        childWhenDragging: Opacity(opacity: 0.35, child: tile),
-        child: MouseRegion(cursor: SystemMouseCursors.grab, child: tile),
       );
     },
   );

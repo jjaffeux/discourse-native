@@ -6,6 +6,223 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final (platform, kind) in [
+    (TargetPlatform.iOS, PointerDeviceKind.touch),
+    (TargetPlatform.macOS, PointerDeviceKind.touch),
+    (TargetPlatform.iOS, PointerDeviceKind.mouse),
+    (TargetPlatform.iOS, PointerDeviceKind.stylus),
+  ]) {
+    testWidgets('content drag follows the pointer on $platform with $kind', (
+      tester,
+    ) async {
+      var starts = 0;
+      var ends = 0;
+      final drops = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Column(
+              children: [
+                DContentDrag<int>(
+                  data: 7,
+                  onDragStarted: () => starts++,
+                  onDragEnd: () => ends++,
+                  feedback: const Text('Moving'),
+                  child: const SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: DCard(child: Text('Source')),
+                  ),
+                ),
+                const SizedBox(height: 60),
+                DDragRegion<int>(
+                  accepts: (data) => data == 7,
+                  onMove: (_, _) {},
+                  onLeave: () {},
+                  onDrop: (data, _) => drops.add(data),
+                  child: const SizedBox(
+                    width: 200,
+                    height: 80,
+                    child: DCard(child: Text('Destination')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final source = find.byType(DContentDrag<int>);
+      expect(tester.getSize(source), const Size(80, 80));
+      final gesture = await tester.startGesture(
+        tester.getCenter(source),
+        kind: kind,
+      );
+      if (kind == PointerDeviceKind.touch) {
+        await gesture.moveBy(const Offset(3, 0));
+        await tester.pump(kLongPressTimeout ~/ 2);
+        expect(starts, 0);
+        await tester.pump(kLongPressTimeout ~/ 2);
+      } else {
+        await gesture.moveBy(const Offset(20, 0));
+      }
+      await tester.pump();
+      expect(starts, 1);
+      expect(find.text('Moving'), findsOneWidget);
+      await gesture.moveTo(tester.getCenter(find.text('Destination')));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(drops, [7]);
+      expect(ends, 1);
+      expect(find.text('Moving'), findsNothing);
+    });
+  }
+
+  for (final cancel in [false, true]) {
+    testWidgets(
+      'content drag ends after its source unmounts (cancel=$cancel)',
+      (tester) async {
+        var ends = 0;
+        var drops = 0;
+        var showSource = true;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) {
+                  rebuild = setState;
+                  return DDragRegion<int>(
+                    accepts: (_) => true,
+                    onMove: (_, _) {},
+                    onLeave: () {},
+                    onDrop: (_, _) => drops++,
+                    child: Center(
+                      child: showSource
+                          ? DContentDrag<int>(
+                              data: 7,
+                              onDragEnd: () => ends++,
+                              feedback: const Text('Moving'),
+                              child: const SizedBox(
+                                width: 80,
+                                height: 80,
+                                child: DCard(child: Text('Source')),
+                              ),
+                            )
+                          : const SizedBox.expand(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(DContentDrag<int>)),
+        );
+        await tester.pump(kLongPressTimeout);
+        rebuild(() => showSource = false);
+        await tester.pump();
+        expect(find.text('Moving'), findsOneWidget);
+        await gesture.moveBy(const Offset(100, 0));
+        await tester.pump();
+        if (cancel) {
+          await gesture.cancel();
+        } else {
+          await gesture.up();
+        }
+        await tester.pumpAndSettle();
+        expect(drops, cancel ? 0 : 1);
+        expect(ends, 1);
+        expect(find.text('Moving'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final axis in Axis.values) {
+    testWidgets('content drag preserves taps and quick $axis swipes', (
+      tester,
+    ) async {
+      var taps = 0;
+      var starts = 0;
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 240,
+              height: 240,
+              child: SingleChildScrollView(
+                controller: scroll,
+                scrollDirection: axis,
+                child: SizedBox(
+                  width: axis == Axis.horizontal ? 1000 : 240,
+                  height: axis == Axis.vertical ? 1000 : 240,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: DContentDrag<int>(
+                      data: 7,
+                      onDragStarted: () => starts++,
+                      feedback: const Text('Moving'),
+                      child: DButton(
+                        label: const Text('Source'),
+                        onPressed: () => taps++,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final source = find.text('Source');
+      await tester.tap(source);
+      expect(taps, 1);
+      await tester.drag(
+        source,
+        axis == Axis.horizontal ? const Offset(-100, 0) : const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(0));
+      expect(starts, 0);
+      expect(taps, 1);
+      expect(find.text('Moving'), findsNothing);
+    });
+  }
+
+  testWidgets('disabled content cannot be dragged', (tester) async {
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DContentDrag<int>(
+            data: 7,
+            enabled: false,
+            onDragStarted: () => starts++,
+            feedback: const Text('Moving'),
+            child: const DCard(child: Text('Source')),
+          ),
+        ),
+      ),
+    );
+    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Source')),
+        kind: kind,
+      );
+      await tester.pump(kLongPressTimeout);
+      await gesture.moveBy(const Offset(100, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+    expect(starts, 0);
+    expect(find.text('Moving'), findsNothing);
+  });
+
   for (final enabled in [false, true]) {
     testWidgets(
       'long-press region preserves child gestures when enabled=$enabled',

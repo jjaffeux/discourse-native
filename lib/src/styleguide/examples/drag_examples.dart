@@ -24,6 +24,15 @@ final dragExamples = ComponentExamples(
       builder: (_) => const _DragExample(),
     ),
     StyleguideExample(
+      title: 'Draggable content',
+      description:
+          'Hold the item to drag on touch, or drag immediately with a mouse. '
+          'Quick swipes remain available for scrolling.',
+      states: const ['Touch', 'Light', 'Dark', 'Keyboard'],
+      code: 'DContentDrag<int>(data: 1, feedback: preview, child: content)',
+      builder: (_) => const _ContentDragExample(),
+    ),
+    StyleguideExample(
       title: 'Long-press content',
       description:
           'On touch, hold the paragraph and move it into the destination. A quick swipe remains available for scrolling.',
@@ -58,6 +67,50 @@ final dragExamples = ComponentExamples(
     ),
   ],
 );
+
+class _ContentDragExample extends StatefulWidget {
+  const _ContentDragExample();
+
+  @override
+  State<_ContentDragExample> createState() => _ContentDragExampleState();
+}
+
+class _ContentDragExampleState extends State<_ContentDragExample> {
+  bool _placed = false;
+  bool _over = false;
+
+  void _place() => setState(() {
+    _placed = true;
+    _over = false;
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const item = DCard(child: Text('Movable item'));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const DContentDrag<int>(data: 1, feedback: item, child: item),
+        const SizedBox(height: DSpacing.md),
+        DDragRegion<int>(
+          accepts: (data) => data == 1,
+          onMove: (_, _) => setState(() => _over = true),
+          onLeave: () => setState(() => _over = false),
+          onDrop: (_, _) => _place(),
+          child: DCard(
+            child: Column(
+              children: [
+                if (_over) const DDropIndicator(),
+                Text(_placed ? 'Item placed' : 'Drop here'),
+              ],
+            ),
+          ),
+        ),
+        DButton(label: const Text('Place item'), onPressed: _place),
+      ],
+    );
+  }
+}
 
 class _DragExample extends StatefulWidget {
   const _DragExample({this.compact = false});

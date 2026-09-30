@@ -8,6 +8,98 @@ import 'package:flutter/rendering.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
+/// Drags visible content after a touch hold, or immediately with a mouse or pen.
+/// Quick touch swipes remain available to an enclosing scroll view. The child
+/// supplies its semantics; provide an accessible action alongside dragging.
+class DContentDrag<T extends Object> extends StatelessWidget {
+  const DContentDrag({
+    super.key,
+    required this.data,
+    required this.feedback,
+    required this.child,
+    this.enabled = true,
+    this.onDragStarted,
+    this.onDragEnd,
+  });
+
+  final T data;
+  final Widget feedback;
+  final Widget child;
+  final bool enabled;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnd;
+
+  @override
+  Widget build(BuildContext context) => _ContentDraggable<T>(
+    data: data,
+    maxSimultaneousDrags: enabled ? 1 : 0,
+    dragAnchorStrategy: pointerDragAnchorStrategy,
+    onDragStarted: onDragStarted,
+    // These callbacks also run when a successful drop unmounts the source.
+    onDragCompleted: onDragEnd,
+    onDraggableCanceled: (_, _) => onDragEnd?.call(),
+    feedback: ExcludeSemantics(
+      child: Material(
+        color: Colors.transparent,
+        elevation: 6,
+        borderRadius: BorderRadius.circular(6),
+        child: Opacity(opacity: 0.9, child: feedback),
+      ),
+    ),
+    childWhenDragging: MouseRegion(
+      cursor: SystemMouseCursors.grabbing,
+      child: Opacity(opacity: 0.35, child: child),
+    ),
+    child: MouseRegion(
+      cursor: enabled ? SystemMouseCursors.grab : MouseCursor.defer,
+      child: child,
+    ),
+  );
+}
+
+class _ContentDraggable<T extends Object> extends Draggable<T> {
+  const _ContentDraggable({
+    required super.data,
+    required super.feedback,
+    required super.child,
+    required super.childWhenDragging,
+    required super.maxSimultaneousDrags,
+    required super.dragAnchorStrategy,
+    required super.onDragStarted,
+    required super.onDragCompleted,
+    required super.onDraggableCanceled,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) => _ContentDragRecognizer()..onStart = onStart;
+}
+
+// Choose per pointer, so touch scrolling also works on desktop and a mouse
+// connected to a phone does not need to wait for the touch hold timeout.
+class _ContentDragRecognizer extends DelayedMultiDragGestureRecognizer {
+  _ContentDragRecognizer()
+    : super(allowedButtonsFilter: (buttons) => buttons == kPrimaryButton);
+
+  final _immediate = ImmediateMultiDragGestureRecognizer();
+
+  @override
+  MultiDragPointerState createNewPointerState(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.touch) {
+      return super.createNewPointerState(event);
+    }
+    _immediate.gestureSettings = gestureSettings;
+    return _immediate.createNewPointerState(event);
+  }
+
+  @override
+  void dispose() {
+    _immediate.dispose();
+    super.dispose();
+  }
+}
+
 /// A draggable action with the same focus and touch targets as Native buttons.
 ///
 /// Only the handle starts a drag; its surrounding content remains selectable

@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -1589,6 +1590,9 @@ void main() {
                   ? ui.PointerDeviceKind.mouse
                   : ui.PointerDeviceKind.touch,
             );
+            if (!before) {
+              await tester.pump(kLongPressTimeout);
+            }
             await gesture.moveBy(const Offset(20, 0));
             await tester.pump();
             await gesture.moveTo(target);
@@ -1667,7 +1671,10 @@ void main() {
       final start = tester.getCenter(
         find.byType(ComposerImageGalleryTile).first,
       );
-      await tester.dragFrom(start, const Offset(600, 400));
+      final gesture = await tester.startGesture(start);
+      await tester.pump(kLongPressTimeout);
+      await gesture.moveBy(const Offset(600, 400));
+      await gesture.up();
       await tester.pumpAndSettle();
       expect(composer.text.text, _source);
       expect(composer.standaloneImages, isEmpty);
@@ -1792,6 +1799,135 @@ void main() {
   });
 
   group('gallery reordering', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      for (final mode in ComposerGalleryMode.values) {
+        testWidgets(
+          'holding a $mode image reorders only that image on $platform',
+          (tester) async {
+            final source = mode == ComposerGalleryMode.carousel
+                ? _source.replaceFirst('[grid]', '[grid mode=carousel]')
+                : _source;
+            final composer = await _pumpMobileGalleryEditor(
+              tester,
+              platform: platform,
+              source: source,
+            );
+            final tiles = find.byType(ComposerImageGalleryTile);
+            final first = tester.getCenter(tiles.first);
+            final last = tester.getCenter(tiles.last);
+            final gesture = await tester.startGesture(first);
+            // Small finger movement while holding must not turn this into a
+            // whole-block selection or prevent the image drag from starting.
+            await gesture.moveBy(const Offset(3, 2));
+            await tester.pump(
+              kLongPressTimeout + const Duration(milliseconds: 50),
+            );
+            await tester.pump();
+            expect(find.byType(DDragHighlight), findsNothing);
+            expect(tiles, findsNWidgets(4)); // Three images and drag feedback.
+            expect(
+              tester
+                  .widget<ComposerImageGalleryPreview>(
+                    find.byType(ComposerImageGalleryPreview),
+                  )
+                  .highlighted,
+              isFalse,
+            );
+            await gesture.moveBy(const Offset(20, 0));
+            await tester.pump();
+            await gesture.moveTo(last);
+            await tester.pump();
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(
+              composer.text.galleryBlocks.single.images.map(
+                (image) => image.url,
+              ),
+              ['upload://second', 'upload://third', 'upload://first'],
+            );
+            expect(composer.text.galleryBlocks.single.mode, mode);
+            expect(composer.text.text, endsWith('[/grid]\nAfter'));
+            composer.history.undo();
+            await tester.pumpAndSettle();
+            expect(composer.text.text, source);
+            expect(composer.history.canUndo, isFalse);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+
+      testWidgets('quick gallery swipe scrolls the carousel on $platform', (
+        tester,
+      ) async {
+        final source = _gallerySource(7, mode: ComposerGalleryMode.carousel);
+        final composer = await _pumpMobileGalleryEditor(
+          tester,
+          platform: platform,
+          source: source,
+        );
+        final tiles = find.byType(ComposerImageGalleryTile);
+        final first = tester.getRect(tiles.first);
+        await tester.drag(tiles.at(1), const Offset(-100, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(tiles.first).left, lessThan(first.left));
+        expect(composer.text.text, source);
+        expect(composer.history.canUndo, isFalse);
+        expect(tiles, findsNWidgets(7));
+        expect(find.byType(DDragHighlight), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+        'cancelled gallery reorder preserves the draft on $platform',
+        (tester) async {
+          final composer = await _pumpMobileGalleryEditor(
+            tester,
+            platform: platform,
+            source: _source,
+          );
+          final tiles = find.byType(ComposerImageGalleryTile);
+          final last = tester.getCenter(tiles.last);
+          final gesture = await tester.startGesture(
+            tester.getCenter(tiles.first),
+          );
+          await tester.pump(kLongPressTimeout);
+          await gesture.moveTo(last);
+          await tester.pump();
+          expect(tiles, findsNWidgets(4));
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+          expect(composer.text.text, _source);
+          expect(composer.history.canUndo, isFalse);
+          expect(tiles, findsNWidgets(3));
+          expect(find.byType(DDragHighlight), findsNothing);
+          expect(find.byType(DDropIndicator), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets('gallery border still allows a block drag on $platform', (
+        tester,
+      ) async {
+        final composer = await _pumpMobileGalleryEditor(
+          tester,
+          platform: platform,
+          source: _source,
+        );
+        final rect = tester.getRect(find.byType(ComposerImageGalleryPreview));
+        final gesture = await tester.startGesture(
+          rect.topRight + const Offset(-2, 2),
+        );
+        await tester.pump(kLongPressTimeout);
+        await tester.pump();
+        expect(find.byType(DDragHighlight), findsOneWidget);
+        expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(composer.text.text, _source);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('requests the dragged image and destination index', (
       tester,
     ) async {
@@ -1826,13 +1962,52 @@ void main() {
       final tiles = find.byType(ComposerImageGalleryTile);
       final first = tester.getCenter(tiles.at(0));
       final last = tester.getCenter(tiles.at(2));
-      await tester.dragFrom(first, last - first);
+      await tester.dragFrom(
+        first,
+        last - first,
+        kind: ui.PointerDeviceKind.mouse,
+      );
       await tester.pumpAndSettle();
 
       expect(moved, same(gallery.images.first));
       expect(destination, 2);
     });
   });
+}
+
+Future<ComposerController> _pumpMobileGalleryEditor(
+  WidgetTester tester, {
+  required TargetPlatform platform,
+  required String source,
+}) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  final composer = ComposerController(
+    _target,
+    resolveUploadUrls: (_) async => const {},
+  );
+  addTearDown(composer.dispose);
+  composer.text.text = source;
+  composer.history.reset();
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light.copyWith(platform: platform),
+      home: Scaffold(
+        body: ComposerEditor(
+          composer: composer,
+          hintText: '',
+          textStyle: const TextStyle(fontSize: 14),
+          hintStyle: const TextStyle(fontSize: 14),
+          autofocus: false,
+          enableDropTarget: false,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return composer;
 }
 
 Future<Rect> _paintedColorBounds(WidgetTester tester, Color color) async {
