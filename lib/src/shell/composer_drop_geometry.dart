@@ -18,6 +18,7 @@ class ComposerDropGeometry {
   ComposerDropTarget? targetAt(
     Offset position, {
     ComposerDropTarget? previousTarget,
+    bool touch = false,
   }) {
     final target = _targetAt(position);
     if (target == null ||
@@ -26,9 +27,39 @@ class ComposerDropGeometry {
       return target;
     }
 
-    // Cross a midpoint deliberately before changing destinations. Scale the
-    // tolerance down for nearby empty lines so each one remains reachable.
-    final tolerance = ((target.y - previousTarget.y).abs() / 5).clamp(0.0, 6.0);
+    // Touch needs a wider dead band than a mouse: crossing a midpoint by a
+    // few pixels should not send the indicator to the other side of a block.
+    // Keep it smaller than half the distance between destinations so every
+    // empty line remains reachable without a delay or a velocity threshold.
+    // Refresh block boundaries first; scrolling must not shrink the dead band
+    // just because the previous target still has its old screen coordinate.
+    final previousY = previousTarget.offset == null
+        ? gapY(previousTarget.gap) ?? previousTarget.y
+        : previousTarget.y;
+    final lineHeight = target.offset == null
+        ? null
+        : emptyLineAt?.call(position)?.rect.height;
+    // A large gap around a short block must not make its outer edge
+    // unreachable, especially at the beginning or end of a mobile editor.
+    final crossedBlock =
+        touch &&
+            target.offset == null &&
+            previousTarget.offset == null &&
+            (target.gap - previousTarget.gap).abs() == 1
+        ? blockRect(
+            blocks[target.gap > previousTarget.gap
+                ? previousTarget.gap
+                : target.gap],
+          )
+        : null;
+    final distance = (lineHeight ?? (target.y - previousY).abs()).clamp(
+      0.0,
+      crossedBlock?.height ?? double.infinity,
+    );
+    final tolerance = (distance * (touch ? .4 : .2)).clamp(
+      0.0,
+      touch ? 14.0 : 6.0,
+    );
     final forward =
         (target.offset ?? offsetAt(target.gap)) >
         (previousTarget.offset ?? offsetAt(previousTarget.gap));

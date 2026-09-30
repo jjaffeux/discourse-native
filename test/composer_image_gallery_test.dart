@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/shell/composer_block_surface.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_galleries.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
@@ -1541,6 +1542,93 @@ void main() {
   });
 
   group('dragging images out of galleries', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('image drop target resists finger jitter on $platform', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(400, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final composer = ComposerController(
+          _target,
+          resolveUploadUrls: (_) async => const {},
+        );
+        addTearDown(composer.dispose);
+        const image = '![Moved](upload://moved)';
+        const source =
+            'Before\n\n[grid]\n$image\n![Other](upload://other)\n[/grid]'
+            '\n\nMiddle\n\nLast\n\nTail';
+        composer.text.text = source;
+        composer.history.reset();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: '',
+                  textStyle: const TextStyle(fontSize: 16, height: 2),
+                  hintStyle: const TextStyle(fontSize: 16, height: 2),
+                  autofocus: false,
+                  expands: false,
+                  enableDropTarget: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final blocks = composer.blocks.index.blocks;
+        final middle = surface.blockRect(blocks[blocks.length - 3])!;
+        final last = surface.blockRect(blocks[blocks.length - 2])!;
+        final tail = surface.blockRect(blocks.last)!;
+        final before = (middle.bottom + last.top) / 2;
+        final after = (last.bottom + tail.top) / 2;
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(ComposerImageGalleryTile).first),
+        );
+        await tester.pump(kLongPressTimeout);
+        await gesture.moveBy(const Offset(20, 0));
+        await tester.pump();
+
+        Future<void> move(double delta, double expected) async {
+          await gesture.moveTo(last.center + Offset(0, delta));
+          await tester.pump();
+          await tester.pump();
+          expect(
+            tester.getCenter(find.byType(DDropIndicator)).dy,
+            closeTo(expected, .01),
+          );
+          expect(composer.text.text, source);
+        }
+
+        await move(-18, before);
+        for (final delta in [-8.0, 8.0, -6.0, 6.0]) {
+          await move(delta, before);
+        }
+        await move(16, after);
+        for (final delta in [8.0, -8.0, 6.0, -6.0]) {
+          await move(delta, after);
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(composer.text.text, contains('Last\n\n$image\n\nTail'));
+        expect(
+          composer.text.galleryBlocks.single.images.single.url,
+          'upload://other',
+        );
+        expect(find.byType(DDropIndicator), findsNothing);
+        composer.history.undo();
+        await tester.pumpAndSettle();
+        expect(composer.text.text, source);
+        expect(composer.history.canUndo, isFalse);
+      });
+    }
+
     for (final before in [false, true]) {
       for (final lastImage in [false, true]) {
         testWidgets(

@@ -236,6 +236,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final candidate = _dropGeometry.targetAt(
       position,
       previousTarget: _dropTarget,
+      touch: context.isTouch,
     );
     if (candidate == null) return null;
     // The drag revision is unchanged, so a previously accepted destination
