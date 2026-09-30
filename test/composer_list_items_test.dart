@@ -991,6 +991,90 @@ void main() {
     }
   }
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final nested in [false, true]) {
+      for (final suffix in ['', 'Second']) {
+        testWidgets('Return never paints a caret below the new task '
+            '($platform, nested $nested, split ${suffix.isNotEmpty})', (
+          tester,
+        ) async {
+          final prefix = nested ? '- [ ] Parent\n  ' : '';
+          final indent = nested ? '  ' : '';
+          final source = '$prefix- [x] First$suffix';
+          final root = await pumpEditor(tester, source, platform: platform);
+          final first = bodies(tester).last;
+          final ancestors = [root, if (nested) bodies(tester).first];
+          first.text.selection = const TextSelection.collapsed(offset: 5);
+          first.requestFocus();
+          await tester.pumpAndSettle();
+
+          if (platform == TargetPlatform.macOS) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          } else {
+            tester.testTextInput.updateEditingValue(
+              TextEditingValue(
+                text: 'First\n$suffix',
+                selection: const TextSelection.collapsed(offset: 6),
+              ),
+            );
+          }
+          Rect? caret;
+          for (var frame = 0; frame < 4; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(find.byType(DCheckbox), findsNWidgets(nested ? 3 : 2));
+            for (final ancestor in ancestors) {
+              expect(
+                tester
+                    .state<EditableTextState>(editable(ancestor))
+                    .renderEditable
+                    .hasFocus,
+                isFalse,
+                reason: 'The parent must not paint its caret in frame $frame',
+              );
+            }
+            if (frame == 0) continue;
+            final second = bodies(tester).last;
+            final render = tester
+                .state<EditableTextState>(editable(second))
+                .renderEditable;
+            expect(render.hasFocus, isTrue);
+            expect(
+              second.text.selection,
+              const TextSelection.collapsed(offset: 0),
+            );
+            final rect = MatrixUtils.transformRect(
+              render.getTransformTo(null),
+              render.getLocalRectForCaret(const TextPosition(offset: 0)),
+            );
+            caret ??= rect;
+            expect(rect, caret, reason: 'The new task caret must stay put');
+          }
+          expect(root.text.text, '$prefix- [x] First\n$indent- [ ] $suffix');
+          expect(
+            find.text('To-do'),
+            suffix.isEmpty ? findsOneWidget : findsNothing,
+          );
+          final second = bodies(tester).last;
+          await tester.enterText(editable(second), 'Next$suffix');
+          await tester.pumpAndSettle();
+          expect(
+            root.text.text,
+            '$prefix- [x] First\n$indent- [ ] Next$suffix',
+          );
+          root.history.undo();
+          root.history.undo();
+          await tester.pumpAndSettle();
+          expect(root.text.text, source);
+          expect(tester.takeException(), isNull);
+        }, variant: TargetPlatformVariant.only(platform));
+      }
+    }
+  }
+
   testWidgets(
     'Return splits tasks and Shift Return stays in their content column',
     (tester) async {
