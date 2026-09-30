@@ -611,6 +611,64 @@ void main() {
     });
   }
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('mobile drop target resists finger jitter on $platform', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        mobile: true,
+        platform: platform,
+        textStyle: const TextStyle(fontSize: 16, height: 2),
+      );
+      final original = composer.text.value;
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final blocks = composer.blocks.index.blocks;
+      final first = surface.blockRect(blocks.first)!;
+      final middle = surface.blockRect(blocks[1])!;
+      final last = surface.blockRect(blocks.last)!;
+      final gap = (middle.bottom + last.top) / 2;
+      final gesture = await tester.startGesture(first.center);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+
+      Future<void> move(double delta, double expected) async {
+        await gesture.moveTo(last.center + Offset(0, delta));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          tester.getCenter(find.byType(DDropIndicator)).dy,
+          closeTo(expected, .01),
+        );
+        expect(composer.text.value, original);
+      }
+
+      await move(-18, gap);
+      for (final delta in [-8.0, 8.0, -6.0, 6.0]) {
+        await move(delta, gap);
+      }
+      await move(15, last.bottom);
+      for (final delta in [8.0, -8.0, 6.0, -6.0]) {
+        await move(delta, last.bottom);
+      }
+      await move(-15, gap);
+      await move(15, last.bottom);
+      await move(-8, last.bottom);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(
+        composer.text.text,
+        '## A heading\n\nLast paragraph\n\nFirst paragraph',
+      );
+      expect(find.byType(DDropIndicator), findsNothing);
+      composer.history.undo();
+      await tester.pumpAndSettle();
+      expect(composer.text.value, original);
+      expect(composer.history.canUndo, isFalse);
+    });
+  }
+
   for (final cancellation in ['pointer', 'outside', 'revision']) {
     testWidgets('mobile block drag cancels on $cancellation', (tester) async {
       await mount(tester, mobile: true);

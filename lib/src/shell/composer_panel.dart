@@ -1365,6 +1365,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
   bool _touchSelection = false;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
   final ValueNotifier<Offset?> _mediaDropPosition = ValueNotifier(null);
+  ComposerDropTarget? _mediaDropTarget;
+  int? _mediaDropRevision;
+  bool _mediaDropTouch = false;
   double? _mediaDropIndicatorTop;
   bool _mediaLayoutRefreshScheduled = false;
   Rect? _lastImageMenuAnchor;
@@ -2168,7 +2171,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _clearMediaDropIndicator();
       return null;
     }
-    return _mediaDropOffset(globalPosition);
+    return _mediaDropOffset(globalPosition, touch: context.isTouch);
   }
 
   ComposerDropGeometry get _dropGeometry => ComposerDropGeometry(
@@ -2177,10 +2180,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     emptyLineAt: _emptyLineAt,
   );
 
-  int? _mediaDropOffset(Offset position) {
-    final target = widget.composer.isEditing
-        ? _dropGeometry.targetAt(position)
-        : null;
+  int? _mediaDropOffset(Offset position, {bool touch = false}) {
+    _mediaDropTouch = touch;
+    final target = _resolveMediaDropTarget(position);
     final offset = target == null
         ? (widget.composer.isEditing && widget.composer.text.text.trim().isEmpty
               ? 0
@@ -2192,6 +2194,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   void _clearMediaDropIndicator() {
+    _mediaDropTarget = null;
+    _mediaDropRevision = null;
+    _mediaDropTouch = false;
     _mediaDropIndicatorTop = null;
     _mediaDropPosition.value = null;
   }
@@ -2200,7 +2205,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final position = _mediaDropPosition.value;
     final stack = _stackKey.currentContext?.findRenderObject();
     if (position == null || stack is! RenderBox || !stack.hasSize) return null;
-    var y = _dropGeometry.targetAt(position)?.y;
+    var y = _resolveMediaDropTarget(position)?.y;
     if (y == null && widget.composer.text.text.trim().isEmpty) {
       final editable = _renderEditable;
       if (editable == null) return null;
@@ -2215,6 +2220,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (y == null) return null;
     final top = stack.globalToLocal(Offset(0, y)).dy;
     return top >= 0 && top <= stack.size.height ? top : null;
+  }
+
+  ComposerDropTarget? _resolveMediaDropTarget(Offset position) {
+    final composer = widget.composer;
+    final revision = composer.blocks.revision;
+    _mediaDropTarget = composer.isEditing
+        ? _dropGeometry.targetAt(
+            position,
+            previousTarget: _mediaDropTouch && _mediaDropRevision == revision
+                ? _mediaDropTarget
+                : null,
+            touch: _mediaDropTouch,
+          )
+        : null;
+    _mediaDropRevision = revision;
+    return _mediaDropTarget;
   }
 
   void _moveImageDropCaret(Offset position) {
