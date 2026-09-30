@@ -91,9 +91,10 @@ void main() {
           expect(apply.hitTestable(), findsOneWidget);
           expect(remove.hitTestable(), findsOneWidget);
           expect(tester.getRect(apply).width, tester.getRect(remove).width);
+          expect(tester.getCenter(apply).dy, tester.getCenter(remove).dy);
           expect(
-            tester.getRect(apply).bottom,
-            lessThan(tester.getRect(remove).top),
+            tester.getRect(remove).right,
+            lessThan(tester.getRect(apply).left),
           );
           expect(tester.getRect(footer).bottom, lessThanOrEqualTo(666));
           final footerBounds = tester.getRect(footer);
@@ -110,6 +111,7 @@ void main() {
           expect(remove.hitTestable(), findsOneWidget);
           expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
           expect(tester.getRect(footer).bottom, lessThanOrEqualTo(420));
+          expect(tester.getCenter(apply).dy, tester.getCenter(remove).dy);
           expect(tester.takeException(), isNull);
           await tester.tap(remove);
           await tester.pumpAndSettle();

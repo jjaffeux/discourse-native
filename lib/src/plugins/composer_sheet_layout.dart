@@ -60,19 +60,29 @@ class ComposerSheetLayout extends StatelessWidget {
       DSheetFooter(
         children: [
           ?error,
-          DButton(
-            label: Text(context.l10n.apply),
-            onPressed: onApply,
-            variant: DButtonVariant.primary,
-            expanded: true,
+          Row(
+            children: [
+              if (onRemove case final remove?) ...[
+                Expanded(
+                  child: DButton(
+                    label: Text(removeLabel!),
+                    onPressed: remove,
+                    variant: DButtonVariant.destructive,
+                    expanded: true,
+                  ),
+                ),
+                const SizedBox(width: DSpacing.controlGap),
+              ],
+              Expanded(
+                child: DButton(
+                  label: Text(context.l10n.apply),
+                  onPressed: onApply,
+                  variant: DButtonVariant.primary,
+                  expanded: true,
+                ),
+              ),
+            ],
           ),
-          if (onRemove case final remove?)
-            DButton(
-              label: Text(removeLabel!),
-              onPressed: remove,
-              variant: DButtonVariant.destructive,
-              expanded: true,
-            ),
         ],
       ),
     ],
