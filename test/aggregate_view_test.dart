@@ -662,6 +662,17 @@ void main() {
       'settings',
     );
 
+    final rawMarkdown = find.byKey(
+      const ValueKey('raw-markdown-composers-switch'),
+    );
+    await tester.ensureVisible(rawMarkdown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DSwitchTile>(rawMarkdown).value, isFalse);
+    await tester.tap(rawMarkdown);
+    await tester.pumpAndSettle();
+    expect(shell.appSettings.rawMarkdownComposers, isTrue);
+    expect((await shell.appSettings.store.read()).rawMarkdownComposers, isTrue);
+
     shell.closeAggregateSettings();
     await tester.pumpAndSettle();
 

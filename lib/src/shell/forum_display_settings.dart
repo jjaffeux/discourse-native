@@ -205,6 +205,18 @@ class ForumDisplaySettings extends StatelessWidget {
                   ],
                 ),
               ],
+              const SizedBox(height: DSpacing.lg),
+              DSwitchTile(
+                key: const ValueKey('raw-markdown-composers-switch'),
+                hoverHighlight: true,
+                title: DLabel(child: Text(context.l10n.rawMarkdownComposers)),
+                subtitle: DFieldDescription(
+                  child: Text(context.l10n.rawMarkdownComposersDescription),
+                ),
+                value: appSettings.rawMarkdownComposers,
+                onChanged: (enabled) =>
+                    unawaited(appSettings.setRawMarkdownComposers(enabled)),
+              ),
             ],
           ),
         ),
