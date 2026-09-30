@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DDropdownMenuCheckboxItem;
+    show DButton, DDropdownMenuCheckboxItem, DToaster;
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -36,6 +36,7 @@ import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 const _readerId = 7;
+const _proofreadingNotice = 'Unable to proofread. Posting as written.';
 
 SiteConfig _configWith({
   bool allowedInPrivateMessages = false,
@@ -98,6 +99,12 @@ const _messageReplyTarget = ComposerTarget(
 );
 
 const _userWithoutAssistant = DiscourseUser(id: _readerId, username: 'reader');
+
+final class _FailingCredentialReader extends FakeApiCredentialReader {
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async =>
+      throw StateError('Credential storage unavailable');
+}
 
 final class _FreshAccountHost implements PluginFreshAccountHost {
   _FreshAccountHost(this.data);
@@ -180,10 +187,10 @@ AiProofreadingController _controller({
   SiteLifecycle? lifecycle,
   _FreshAccountHost? freshAccount,
   PluginUserIdReader? currentUserId,
+  FakeApiCredentialReader? credentials,
   AiProofreadingPreferenceStore preferences =
       const AiProofreadingPreferenceStore(),
 }) {
-  final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'api-key';
   return AiProofreadingController(
     api: AiProofreadingApi(
       api ??
@@ -196,7 +203,9 @@ AiProofreadingController _controller({
           ),
     ),
     requests: FakePluginRequestHost(
-      credentials: credentials,
+      credentials:
+          credentials ??
+          (FakeApiCredentialReader()..keys[_siteUrl] = 'api-key'),
       lifecycle: lifecycle,
     ),
     siteState: PluginSiteStateHost(
@@ -215,10 +224,12 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
     'suggestions': ['This is the polished reply.'],
   },
   WriteException? proofreadingFailure,
+  WriteException? postingFailure,
   SiteConfig? config,
   bool privateMessage = false,
 }) async {
   final api = FakeDiscourseApi(
+    writeFailure: postingFailure,
     user: _allowedUser,
     feeds: const {'/latest.json': <Topic>[]},
     topics: {
@@ -266,21 +277,38 @@ Future<void> _pumpComposer(
   ShellController shell, {
   ComposerController? composer,
   bool minimized = false,
-}) => tester.pumpWidget(
-  MaterialApp(
-    theme: AppTheme.dark,
-    home: ShellScope(
-      controller: shell,
-      child: Scaffold(
-        body: ComposerPanel(
-          composer: composer ?? shell.visibleComposer!,
-          minimized: minimized,
-          height: minimized ? null : 500,
+  bool submissionFeedback = false,
+}) {
+  final panel = ComposerPanel(
+    composer: composer ?? shell.visibleComposer!,
+    minimized: minimized,
+    height: minimized ? null : 500,
+  );
+  if (submissionFeedback) {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  }
+  return tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.dark,
+      builder: submissionFeedback
+          ? (context, child) => DToaster(child: child!)
+          : null,
+      home: ShellScope(
+        controller: shell,
+        child: Scaffold(
+          body: submissionFeedback
+              ? ListenableBuilder(
+                  listenable: shell,
+                  builder: (context, _) => shell.visibleComposer == null
+                      ? const SizedBox.shrink()
+                      : panel,
+                )
+              : panel,
         ),
       ),
     ),
-  ),
-);
+  );
+}
 
 Future<void> _openOptions(WidgetTester tester) async {
   await tester.ensureVisible(find.byKey(const ValueKey('composer-options')));
@@ -629,6 +657,7 @@ void main() {
 
       expect(result.failure, isNull);
       expect(result.changed, isTrue);
+      expect(result.notice, isNull);
       expect(composer.raw, 'A polished reply.');
       expect(api.pluginWrites.single.path, aiProofreadingPath);
       expect(api.pluginWrites.single.body, {
@@ -667,7 +696,50 @@ void main() {
 
     expect(result?.failure, isNull);
     expect(result?.changed, isTrue);
+    expect(result?.notice, isNull);
     expect(composer.raw, 'A polished long reply.');
+  });
+
+  for (final throwsError in [false, true]) {
+    test('proofreading credential ${throwsError ? 'error' : 'failure'} '
+        'continues with a notice', () async {
+      final api = FakeDiscourseApi();
+      final controller = _controller(
+        api: api,
+        credentials: throwsError
+            ? _FailingCredentialReader()
+            : FakeApiCredentialReader(),
+      );
+      final composer = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      composer.text.text = 'The original reply.';
+      controller.setEnabled(composer, true);
+
+      final result = await controller.prepareComposerSubmit(composer);
+
+      expect(result.failure, isNull);
+      expect(result.changed, isFalse);
+      expect(result.notice, _proofreadingNotice);
+      expect(composer.raw, 'The original reply.');
+      expect(api.pluginWrites, isEmpty);
+    });
+  }
+
+  test('a successful proofread with no changes has no warning', () async {
+    final controller = _controller();
+    final composer = ComposerController(_replyTarget);
+    addTearDown(controller.dispose);
+    addTearDown(composer.dispose);
+    composer.text.text = 'A polished reply.';
+    controller.setEnabled(composer, true);
+
+    final result = await controller.prepareComposerSubmit(composer);
+
+    expect(result.failure, isNull);
+    expect(result.changed, isFalse);
+    expect(result.notice, isNull);
+    expect(composer.raw, 'A polished reply.');
   });
 
   testWidgets('a proofread past its deadline posts what was written', (
@@ -695,6 +767,7 @@ void main() {
 
     expect(result?.failure, isNull);
     expect(result?.changed, isFalse);
+    expect(result?.notice, _proofreadingNotice);
     expect(composer.raw, 'a long reply with typo');
     expect(controller.isEnabled(composer), isTrue);
   });
@@ -715,7 +788,9 @@ void main() {
     gate.complete();
     final result = await preparation;
 
-    expect(result.failure?.failure, WriteFailure.conflict);
+    expect(result.failure, isNull);
+    expect(result.changed, isFalse);
+    expect(result.notice, _proofreadingNotice);
     expect(composer.raw, 'The author kept typing.');
   });
 
@@ -772,7 +847,7 @@ void main() {
   });
 
   test(
-    'unavailable proofreading holds the first submit and lets retries post',
+    'unavailable proofreading lets the first submit and retries post',
     () async {
       const store = AiProofreadingPreferenceStore();
       await store.write(siteUrl: _siteUrl, userId: _readerId, enabled: true);
@@ -785,12 +860,15 @@ void main() {
 
       final first = await controller.prepareComposerSubmit(composer);
 
-      expect(first.failure?.failure, WriteFailure.validation);
+      expect(first.failure, isNull);
+      expect(first.changed, isFalse);
+      expect(first.notice, _proofreadingNotice);
       for (var retry = 0; retry < 2; retry++) {
         final result = await controller.prepareComposerSubmit(composer);
 
         expect(result.failure, isNull);
         expect(result.changed, isFalse);
+        expect(result.notice, isNull);
       }
       expect(composer.raw, 'a reply with typo');
       expect(api.pluginWrites, isEmpty);
@@ -798,7 +876,7 @@ void main() {
     },
   );
 
-  test('posting without proofreading is agreed per composer', () async {
+  test('unavailable proofreading is reported per composer', () async {
     await const AiProofreadingPreferenceStore().write(
       siteUrl: _siteUrl,
       userId: _readerId,
@@ -815,9 +893,12 @@ void main() {
     final retry = await controller.prepareComposerSubmit(told);
     final other = await controller.prepareComposerSubmit(next);
 
-    expect(first.failure?.failure, WriteFailure.validation);
+    expect(first.failure, isNull);
+    expect(first.notice, _proofreadingNotice);
     expect(retry.failure, isNull);
-    expect(other.failure?.failure, WriteFailure.validation);
+    expect(retry.notice, isNull);
+    expect(other.failure, isNull);
+    expect(other.notice, _proofreadingNotice);
   });
 
   test(
@@ -848,7 +929,8 @@ void main() {
       account.data = _allowedUser.plugins;
       final retry = await controller.prepareComposerSubmit(composer);
 
-      expect(first.failure?.failure, WriteFailure.validation);
+      expect(first.failure, isNull);
+      expect(first.notice, _proofreadingNotice);
       expect(retry.failure, isNull);
       expect(api.pluginWrites, isEmpty);
       expect(controller.isEnabled(composer), isFalse);
@@ -912,7 +994,7 @@ void main() {
 
     tester.view.physicalSize = const Size(360, 640);
     await tester.pumpAndSettle();
-    await _openOptions(tester);
+    if (control.evaluate().isEmpty) await _openOptions(tester);
     expect(find.text('Proofread'), findsOneWidget);
     expect(tester.getRect(control).right, lessThanOrEqualTo(360));
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -1054,7 +1136,7 @@ void main() {
     expect(fixture.api.created.single['raw'], 'This is the polished reply.');
   });
 
-  testWidgets('a remembered choice the site no longer offers posts on retry', (
+  testWidgets('unavailable proofreading posts immediately with a toast', (
     tester,
   ) async {
     await tester.runAsync(
@@ -1068,18 +1150,53 @@ void main() {
     addTearDown(fixture.shell.dispose);
     final composer = fixture.shell.visibleComposer!;
     composer.text.text = 'this is the original reply';
+    await _pumpComposer(tester, fixture.shell, submissionFeedback: true);
+    await tester.pumpAndSettle();
 
-    await fixture.shell.submitComposer();
+    await tester.tap(find.byKey(const ValueKey('composer-submit')));
+    await tester.pumpAndSettle();
 
-    expect(composer.error?.failure, WriteFailure.validation);
-    expect(fixture.api.created, isEmpty);
-
-    await fixture.shell.submitComposer();
-
+    expect(composer.error, isNull);
     expect(fixture.api.pluginWrites, isEmpty);
     expect(fixture.api.created.single['raw'], 'this is the original reply');
     expect(fixture.shell.visibleComposer, isNull);
-  });
+    expect(find.byType(ComposerPanel), findsNothing);
+    expect(find.text(_proofreadingNotice), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text(_proofreadingNotice), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  test(
+    'a failed post still reports its error after proofreading fails',
+    () async {
+      await const AiProofreadingPreferenceStore().write(
+        siteUrl: _siteUrl,
+        userId: _readerId,
+        enabled: true,
+      );
+      const failure = WriteException(
+        WriteFailure.validation,
+        errors: ['The site rejected this post.'],
+      );
+      final fixture = await _openReply(
+        proofreadingResponse: const {},
+        postingFailure: failure,
+      );
+      addTearDown(fixture.shell.dispose);
+      final composer = fixture.shell.visibleComposer!;
+      composer.text.text = 'this is the original reply';
+      final notices = <String>[];
+
+      await fixture.shell.submitComposer(onPreparationNotice: notices.add);
+
+      expect(fixture.api.created.single['raw'], 'this is the original reply');
+      expect(fixture.shell.visibleComposer, same(composer));
+      expect(composer.error, same(failure));
+      expect(composer.raw, 'this is the original reply');
+      expect(notices, [_proofreadingNotice]);
+    },
+  );
 
   testWidgets(
     'a reply in a message topic hides Proofread and posts as written',
@@ -1143,30 +1260,93 @@ void main() {
       name: 'connection failure',
       failure: const WriteException(WriteFailure.unreachable),
     ),
+    (
+      name: 'HTTP 403',
+      failure: const WriteException(WriteFailure.forbidden, statusCode: 403),
+    ),
     (name: 'invalid response', failure: null),
   ]) {
     testWidgets('proofreading ${scenario.name} posts the original reply', (
       tester,
     ) async {
+      await tester.runAsync(
+        () => const AiProofreadingPreferenceStore().write(
+          siteUrl: _siteUrl,
+          userId: _readerId,
+          enabled: true,
+        ),
+      );
       final fixture = await _openReply(
         proofreadingResponse: const {},
         proofreadingFailure: scenario.failure,
       );
       addTearDown(fixture.shell.dispose);
-      await _pumpComposer(tester, fixture.shell);
-      await tester.pump();
       fixture.shell.visibleComposer!.text.text = 'this is the original reply';
-      await _openOptions(tester);
-      await tester.tap(
-        find.byKey(const ValueKey('composer-proofread-control')),
-      );
-      await tester.pump();
+      await _pumpComposer(tester, fixture.shell, submissionFeedback: true);
+      await tester.pumpAndSettle();
 
-      await fixture.shell.submitComposer();
+      await tester.tap(find.byKey(const ValueKey('composer-submit')));
+      await tester.pumpAndSettle();
 
       expect(fixture.api.pluginWrites, hasLength(1));
       expect(fixture.api.created.single['raw'], 'this is the original reply');
       expect(fixture.shell.visibleComposer, isNull);
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(find.text(_proofreadingNotice), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text(_proofreadingNotice), findsNothing);
     });
+  }
+
+  for (final method in ['mobile button', 'Ctrl+Enter', 'Cmd+Enter']) {
+    testWidgets(
+      'proofreading failure shows a toast using $method',
+      (tester) async {
+        if (method == 'mobile button') {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+        }
+        await tester.runAsync(
+          () => const AiProofreadingPreferenceStore().write(
+            siteUrl: _siteUrl,
+            userId: _readerId,
+            enabled: true,
+          ),
+        );
+        final fixture = await _openReply(proofreadingResponse: const {});
+        addTearDown(fixture.shell.dispose);
+        final composer = fixture.shell.visibleComposer!;
+        composer.text.text = 'this is the original reply';
+        await _pumpComposer(tester, fixture.shell, submissionFeedback: true);
+        await tester.pumpAndSettle();
+
+        if (method == 'mobile button') {
+          await tester.tap(find.byKey(const ValueKey('composer-submit')));
+        } else {
+          composer.focus.requestFocus();
+          await tester.pumpAndSettle();
+          final modifier = method == 'Ctrl+Enter'
+              ? LogicalKeyboardKey.controlLeft
+              : LogicalKeyboardKey.metaLeft;
+          await tester.sendKeyDownEvent(modifier);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.sendKeyUpEvent(modifier);
+        }
+        await tester.pumpAndSettle();
+
+        expect(fixture.api.created.single['raw'], 'this is the original reply');
+        expect(fixture.shell.visibleComposer, isNull);
+        expect(find.byType(ComposerPanel), findsNothing);
+        expect(find.text(_proofreadingNotice), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        expect(find.text(_proofreadingNotice), findsNothing);
+      },
+      variant: TargetPlatformVariant.only(
+        method == 'mobile button' ? TargetPlatform.iOS : TargetPlatform.macOS,
+      ),
+    );
   }
 }

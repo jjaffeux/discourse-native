@@ -45,9 +45,8 @@ final class AiProofreadingController extends FrameSafeNotifier
   /// read started before either cannot commit after it.
   final Map<String, int> _siteRevisions = {};
 
-  /// Composers whose author has been told proofreading could not run, so their
-  /// retries post without it, as that message promises. The account's choice
-  /// stays on: the next composer proofreads once the site offers it again.
+  /// Composers that continue without unavailable proofreading. The account's
+  /// choice stays on: the next composer proofreads once the site offers it again.
   final Expando<bool> _postingWithout = Expando<bool>(
     'ai-proofreading-posting-without',
   );
@@ -150,38 +149,26 @@ final class AiProofreadingController extends FrameSafeNotifier
     if (!_enabledFor(composer)) {
       return const PluginComposerSubmitPreparation.proceed();
     }
-    // Availability that is only unknown so far (the account record refreshes
-    // after launch) is treated like withdrawn availability: an explicit
-    // preference is never skipped silently, and saying so costs one tap.
+    // Unknown or withdrawn availability must not hold up posting.
     if (!isAvailable(composer)) {
       _postingWithout[composer] = true;
       notifySafely();
-      return PluginComposerSubmitPreparation.failed(
-        WriteException(
-          WriteFailure.validation,
-          errors: [
-            appL10n.proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain,
-          ],
-        ),
-      );
+      return _withoutProofreading();
     }
 
     final expectedValue = composer.value;
     final source = expectedValue.text;
     final lease = _requests.capture(composer.siteUrl);
-    final credential = await _requests.writeCredentialFor(composer.siteUrl);
-    if (!lease.isCurrent) {
-      return const PluginComposerSubmitPreparation.failed(
-        WriteException(WriteFailure.conflict),
-      );
-    }
-    if (credential.failure case final failure?) {
-      return PluginComposerSubmitPreparation.failed(failure);
-    }
-
     // Proofreading is optional; keep the original text if the request fails.
-    var suggestion = source;
+    final String suggestion;
     try {
+      final credential = await _requests.writeCredentialFor(composer.siteUrl);
+      if (!lease.isCurrent) {
+        return const PluginComposerSubmitPreparation.failed(
+          WriteException(WriteFailure.conflict),
+        );
+      }
+      if (credential.failure case final failure?) throw failure;
       suggestion = await api.proofread(
         siteUrl: composer.siteUrl,
         apiKey: credential.apiKey!,
@@ -196,6 +183,12 @@ final class AiProofreadingController extends FrameSafeNotifier
         handled: true,
         degraded: true,
       );
+      if (!lease.isCurrent) {
+        return const PluginComposerSubmitPreparation.failed(
+          WriteException(WriteFailure.conflict),
+        );
+      }
+      return _withoutProofreading();
     }
 
     if (!lease.isCurrent) {
@@ -214,17 +207,15 @@ final class AiProofreadingController extends FrameSafeNotifier
       ),
     );
     if (!committed) {
-      return PluginComposerSubmitPreparation.failed(
-        WriteException(
-          WriteFailure.conflict,
-          errors: [
-            appL10n.thePostChangedWhileItWasBeingProofreadNothingWasPosted,
-          ],
-        ),
-      );
+      return _withoutProofreading();
     }
     return const PluginComposerSubmitPreparation.proceed(changed: true);
   }
+
+  PluginComposerSubmitPreparation _withoutProofreading() =>
+      PluginComposerSubmitPreparation.proceed(
+        notice: appL10n.unableToProofreadPostingAsWritten,
+      );
 
   Future<void> _ensurePreferenceLoaded(_Account account) {
     if (_loadedAccounts.contains(account)) return Future<void>.value();

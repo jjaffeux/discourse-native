@@ -197,14 +197,18 @@ abstract interface class PluginCurrentUserObserver
 /// the shell captures the body and sends the post request.
 @immutable
 final class PluginComposerSubmitPreparation {
-  const PluginComposerSubmitPreparation.proceed({this.changed = false})
-    : failure = null;
+  const PluginComposerSubmitPreparation.proceed({
+    this.changed = false,
+    this.notice,
+  }) : failure = null;
 
   const PluginComposerSubmitPreparation.failed(WriteException this.failure)
-    : changed = false;
+    : changed = false,
+      notice = null;
 
   final bool changed;
   final WriteException? failure;
+  final String? notice;
 }
 
 abstract interface class PluginComposerSubmitPreparer

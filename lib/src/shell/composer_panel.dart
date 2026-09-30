@@ -131,6 +131,22 @@ class ComposerPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
     final mobile = context.isTouch;
+    void submit() {
+      final toasts = DToast.maybeOf(context);
+      unawaited(
+        controller.submitComposer(
+          composer: composer,
+          onPreparationNotice: (notice) {
+            if (toasts != null && !toasts.isDisposed) {
+              toasts.add(
+                DToastOptions(description: notice, type: DToastType.warning),
+              );
+            }
+          },
+        ),
+      );
+    }
+
     void openLink() => unawaited(
       showComposerLinkDialog(context: context, composer: composer.activeEditor),
     );
@@ -171,9 +187,7 @@ class ComposerPanel extends StatelessWidget {
           _ when composer.canRecheck => () => controller.recheckComposer(
             composer: composer,
           ),
-          _ when composer.canSubmit => () => controller.submitComposer(
-            composer: composer,
-          ),
+          _ when composer.canSubmit => submit,
           _ => null,
         };
         void discard() => unawaited(
@@ -230,13 +244,10 @@ class ComposerPanel extends StatelessWidget {
           ),
           child: CallbackShortcuts(
             bindings: {
-              const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
-                  controller.submitComposer(composer: composer),
-              const SingleActivator(
-                LogicalKeyboardKey.enter,
-                control: true,
-              ): () =>
-                  controller.submitComposer(composer: composer),
+              const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+                  submit,
+              const SingleActivator(LogicalKeyboardKey.enter, control: true):
+                  submit,
               const SingleActivator(
                 LogicalKeyboardKey.escape,
               ): placement == ComposerPlacement.fullScreen

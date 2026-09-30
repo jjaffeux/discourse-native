@@ -4916,13 +4916,9 @@
   "@regenerate": {
     "description": "English UI message used by plugins/discourse_ai/ai_summary_plugin.dart. Keep placeholders intact."
   },
-  "proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain": "Proofreading isn''t available right now. Nothing was posted. Try again to post without it.",
-  "@proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain": {
-    "description": "English UI message used by plugins/discourse_ai/ai_proofreading_controller.dart. Keep placeholders intact."
-  },
-  "thePostChangedWhileItWasBeingProofreadNothingWasPosted": "The post changed while it was being proofread. Nothing was posted. Review it and try again.",
-  "@thePostChangedWhileItWasBeingProofreadNothingWasPosted": {
-    "description": "English UI message used by plugins/discourse_ai/ai_proofreading_controller.dart. Keep placeholders intact."
+  "unableToProofreadPostingAsWritten": "Unable to proofread. Posting as written.",
+  "@unableToProofreadPostingAsWritten": {
+    "description": "Temporary toast when optional AI proofreading is unavailable or fails and submission continues with the author's text."
   },
   "summaryResponseHadNoSummary": "Summary response had no summary.",
   "@summaryResponseHadNoSummary": {

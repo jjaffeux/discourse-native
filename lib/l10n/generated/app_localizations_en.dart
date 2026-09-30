@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3662,12 +3663,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get regenerate => 'Regenerate';
 
   @override
-  String get proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain =>
-      'Proofreading isn\'t available right now. Nothing was posted. Try again to post without it.';
-
-  @override
-  String get thePostChangedWhileItWasBeingProofreadNothingWasPosted =>
-      'The post changed while it was being proofread. Nothing was posted. Review it and try again.';
+  String get unableToProofreadPostingAsWritten =>
+      'Unable to proofread. Posting as written.';
 
   @override
   String get summaryResponseHadNoSummary => 'Summary response had no summary.';

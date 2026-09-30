@@ -14087,10 +14087,15 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<void> submitComposer({ComposerController? composer}) =>
-      _submitComposer(composer ?? _composer);
+  Future<void> submitComposer({
+    ComposerController? composer,
+    void Function(String)? onPreparationNotice,
+  }) => _submitComposer(composer ?? _composer, onPreparationNotice);
 
-  Future<void> _submitComposer(ComposerController? composer) async {
+  Future<void> _submitComposer(
+    ComposerController? composer,
+    void Function(String)? onPreparationNotice,
+  ) async {
     if (composer == null ||
         !_ownsComposer(composer) ||
         composer.discarding ||
@@ -14157,6 +14162,7 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       preparationChanged |= result.changed;
+      if (result.notice case final notice?) onPreparationNotice?.call(notice);
     }
     if (preparationChanged) await composer.flushDraft();
     await composer.finishDraftSaves();

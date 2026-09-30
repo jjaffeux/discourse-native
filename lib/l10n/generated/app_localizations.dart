@@ -6372,17 +6372,11 @@ abstract class AppLocalizations {
   /// **'Regenerate'**
   String get regenerate;
 
-  /// English UI message used by plugins/discourse_ai/ai_proofreading_controller.dart. Keep placeholders intact.
+  /// Temporary toast when optional AI proofreading is unavailable or fails and submission continues with the author's text.
   ///
   /// In en, this message translates to:
-  /// **'Proofreading isn\'\'t available right now. Nothing was posted. Try again to post without it.'**
-  String get proofreadingIsnTAvailableRightNowNothingWasPostedTryAgain;
-
-  /// English UI message used by plugins/discourse_ai/ai_proofreading_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'The post changed while it was being proofread. Nothing was posted. Review it and try again.'**
-  String get thePostChangedWhileItWasBeingProofreadNothingWasPosted;
+  /// **'Unable to proofread. Posting as written.'**
+  String get unableToProofreadPostingAsWritten;
 
   /// English UI message used by plugins/discourse_ai/ai_summary_api.dart. Keep placeholders intact.
   ///
