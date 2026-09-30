@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
@@ -550,14 +552,19 @@ class ComposerListBodyController extends ComposerController {
   }
 
   void _scheduleCommand(String expected, TextEditingValue next) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Finish the native input proposal, then build the new item before moving
+    // focus. Focusing the parent before the item's editor mounts paints its
+    // caret below the full-width list projection for one frame.
+    scheduleMicrotask(() {
       if (!isEditing || parent.text.text != expected) return;
       history.transact(
         () => parent.commitText(expectedText: expected, value: next),
       );
-      parent.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (parent.isEditing && parent.value == next) parent.requestFocus();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
     });
-    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   bool get _needsParagraphBoundary {
