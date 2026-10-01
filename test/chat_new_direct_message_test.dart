@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
+import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -383,6 +384,10 @@ void main() {
         }
 
         expectUnifiedSurface();
+        expect(find.byType(DKbd), findsNothing);
+        expect(find.text('↵'), findsNothing);
+        expect(find.text('navigate'), findsNothing);
+        expect(find.byType(RelativeTimeText), findsWidgets);
         final input = find.descendant(
           of: search,
           matching: find.byType(EditableText),

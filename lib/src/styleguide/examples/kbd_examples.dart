@@ -10,7 +10,8 @@ final kbdExamples = ComponentExamples(
   notes:
       'DKbd displays a hint; existing controls and Shortcuts own actions. '
       'DKbdGroup wraps and inherits direction. Native labels use Apple modifier '
-      'symbols on macOS/iOS and words on Linux. Spoken labels can be localized. '
+      'symbols on macOS and words on Linux. Shortcut hints are hidden on mobile; '
+      'DKbd remains available for authored keyboard content. Spoken labels can be localized. '
       'Text uses the host sans-serif family with reference 12/16 metrics, grows '
       'with text scale, and uses live site tokens. Highlight feedback is '
       'optional and respects reduced motion. The reference className '
@@ -284,24 +285,32 @@ class _KbdActionSampleState extends State<KbdActionSample> {
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               label: const Text('Accept'),
-              icon: Transform.translate(
-                offset: Offset(nudge, 0),
-                child: const DKbd('⏎'),
-              ),
+              icon: DControlStyle.isTouch(context)
+                  ? null
+                  : Transform.translate(
+                      offset: Offset(nudge, 0),
+                      child: const DKbd('⏎'),
+                    ),
               iconPosition: DButtonIconPosition.end,
-              semanticLabel: 'Accept, Enter',
+              semanticLabel: DControlStyle.isTouch(context)
+                  ? 'Accept'
+                  : 'Accept, Enter',
               onPressed: _accept,
             ),
             DButton(
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               label: const Text('Cancel'),
-              icon: Transform.translate(
-                offset: Offset(nudge, 0),
-                child: const DKbd('Esc'),
-              ),
+              icon: DControlStyle.isTouch(context)
+                  ? null
+                  : Transform.translate(
+                      offset: Offset(nudge, 0),
+                      child: const DKbd('Esc'),
+                    ),
               iconPosition: DButtonIconPosition.end,
-              semanticLabel: 'Cancel, Escape',
+              semanticLabel: DControlStyle.isTouch(context)
+                  ? 'Cancel'
+                  : 'Cancel, Escape',
               onPressed: _cancel,
             ),
           ],
@@ -422,10 +431,11 @@ class _KbdInputSampleState extends State<KbdInputSample> {
                       onChanged: (value) => setState(() => _query = value),
                     ),
                     const DInputGroupAddon(child: Icon(Icons.search)),
-                    DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
-                    ),
+                    if (!DControlStyle.isTouch(context))
+                      DInputGroupAddon(
+                        alignment: DInputGroupAddonAlignment.inlineEnd,
+                        children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
+                      ),
                   ],
                 ),
               ),
@@ -543,24 +553,24 @@ class _KbdActionSampleState extends State<KbdActionSample> {
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               label: const Text('Accept'),
-              icon: Transform.translate(
+              icon: DControlStyle.isTouch(context) ? null : Transform.translate(
                 offset: Offset(nudge, 0),
                 child: const DKbd('⏎'),
               ),
               iconPosition: DButtonIconPosition.end,
-              semanticLabel: 'Accept, Enter',
+              semanticLabel: DControlStyle.isTouch(context) ? 'Accept' : 'Accept, Enter',
               onPressed: _accept,
             ),
             DButton(
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
               label: const Text('Cancel'),
-              icon: Transform.translate(
+              icon: DControlStyle.isTouch(context) ? null : Transform.translate(
                 offset: Offset(nudge, 0),
                 child: const DKbd('Esc'),
               ),
               iconPosition: DButtonIconPosition.end,
-              semanticLabel: 'Cancel, Escape',
+              semanticLabel: DControlStyle.isTouch(context) ? 'Cancel' : 'Cancel, Escape',
               onPressed: _cancel,
             ),
           ],
@@ -680,7 +690,7 @@ class _KbdInputSampleState extends State<KbdInputSample> {
                       onChanged: (value) => setState(() => _query = value),
                     ),
                     const DInputGroupAddon(child: Icon(Icons.search)),
-                    DInputGroupAddon(
+                    if (!DControlStyle.isTouch(context)) DInputGroupAddon(
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
                     ),

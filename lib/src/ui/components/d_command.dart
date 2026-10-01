@@ -1162,11 +1162,13 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
 }
 
 /// Trailing shortcut text with directional placement and selected-state color.
+/// Hidden on mobile; use ordinary text for non-keyboard details.
 class DCommandShortcut extends StatelessWidget {
   const DCommandShortcut(this.child, {super.key});
   final Widget child;
   @override
   Widget build(BuildContext context) {
+    if (DControlStyle.isTouch(context)) return const SizedBox.shrink();
     final tokens = DTokens.of(context);
     final selected =
         _DCommandItemVisualScope.maybeOf(context)?.selected ?? false;

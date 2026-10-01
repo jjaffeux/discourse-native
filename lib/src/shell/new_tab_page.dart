@@ -410,7 +410,8 @@ class _NewTabPageState extends State<NewTabPage> {
                       _densityControl(context),
                     ],
                   ),
-                  if (_dismissed == false &&
+                  if (!DControlStyle.isTouch(context) &&
+                      _dismissed == false &&
                       (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
                           true))
                     _PanelTutorial(onDismiss: _dismiss),
