@@ -641,6 +641,39 @@ class ComposerListBodyController extends ComposerController {
     return true;
   }
 
+  bool setTodo() {
+    if (!isEditing ||
+        !_matches ||
+        !text.selection.isValid ||
+        !text.value.composing.isCollapsed) {
+      return false;
+    }
+    if (_item.isTask) return true;
+
+    // Convert the owning marker, even from a continuation line. Numbered
+    // items first need their descendants reindented for the bullet's width.
+    var value = parent.value.copyWith(
+      selection: TextSelection.collapsed(offset: _item.contentStart),
+    );
+    if (_item.number != null) {
+      value = insertComposerList(value, ordered: false);
+    }
+    value = insertComposerTodo(value);
+    final updated = composerListItems(
+      value.text,
+      referenceMarkers: parent.text.todoReferenceMarkers,
+    ).firstWhere((item) => item.start == _item.start);
+    _scheduleCommand(
+      parent.text.text,
+      value.copyWith(
+        selection: TextSelection.collapsed(
+          offset: updated.body.sourceOffset(text.selection.extentOffset),
+        ),
+      ),
+    );
+    return true;
+  }
+
   bool get _canChangeIndentation =>
       isEditing && isCurrent && !history.composing;
 
