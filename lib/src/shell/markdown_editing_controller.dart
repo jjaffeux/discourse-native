@@ -1020,13 +1020,39 @@ class MarkdownEditingController extends TextEditingController {
       return false;
     });
     final live = {for (final block in blocks) _syntaxKey(block): block};
-    final held = {for (final block in _syntaxBlocks) _syntaxKey(block): block};
-    _syntaxPillKeys.removeWhere(
-      (key, _) =>
-          !_sameProjection(held[key], live[key]) &&
-          !(held[key]?.projection is ComposerInteractiveSyntaxProjection &&
-              live[key]?.projection is ComposerInteractiveSyntaxProjection),
-    );
+    final previous = _syntaxScanned;
+    final delta = previous == null ? 0 : source.length - previous.length;
+    var unchangedTail = 0;
+    if (previous != null && delta != 0) {
+      while (unchangedTail < previous.length &&
+          unchangedTail < source.length &&
+          previous[previous.length - unchangedTail - 1] ==
+              source[source.length - unchangedTail - 1]) {
+        unchangedTail++;
+      }
+    }
+    final tailStart = (previous?.length ?? source.length) - unchangedTail;
+    final retained = <String, GlobalKey>{};
+    for (final held in _syntaxBlocks) {
+      final oldKey = _syntaxKey(held);
+      // A wider task marker must not recreate editors later in the document.
+      // Reuse their keys in the unchanged suffix, including during undo/redo.
+      final key = held.start >= tailStart
+          ? '${held.kind.id}:${held.start + delta}'
+          : oldKey;
+      final next = live[key];
+      if (_sameProjection(held, next) ||
+          (held.projection is ComposerInteractiveSyntaxProjection &&
+              next?.projection is ComposerInteractiveSyntaxProjection &&
+              (key == oldKey || held.source == next?.source))) {
+        if (_syntaxPillKeys[oldKey] case final pillKey?) {
+          retained[key] = pillKey;
+        }
+      }
+    }
+    _syntaxPillKeys
+      ..clear()
+      ..addAll(retained);
     _syntaxScanned = source;
     return _syntaxBlocks = blocks;
   }
@@ -1721,22 +1747,11 @@ class MarkdownEditingController extends TextEditingController {
                           }
                           final markerEnd =
                               source.indexOf(']', todo.markerStart) + 1;
-                          final marker = todo.checked ? '[ ]' : '[x]';
-                          final delta =
-                              marker.length - (markerEnd - todo.markerStart);
-                          int move(int offset) =>
-                              offset >= markerEnd ? offset + delta : offset;
-                          final next = value.copyWith(
-                            text: source.replaceRange(
-                              todo.markerStart,
-                              markerEnd,
-                              marker,
-                            ),
-                            selection: TextSelection(
-                              baseOffset: move(selection.baseOffset),
-                              extentOffset: move(selection.extentOffset),
-                            ),
-                            composing: TextRange.empty,
+                          final next = toggleComposerTodo(
+                            value,
+                            markerStart: todo.markerStart,
+                            markerEnd: markerEnd,
+                            checked: todo.checked,
                           );
                           if (onTodoChanged case final change?) {
                             change(next);

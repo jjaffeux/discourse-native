@@ -582,17 +582,25 @@ class ComposerListBodyController extends ComposerController {
         !_item.isTask) {
       return;
     }
-    final start = _item.taskMarkerStart!;
-    final value = parent.value;
+    var start = _item.taskMarkerStart!;
+    var end = start + _item.taskMarker!.length;
+    var document = parent;
+    // Toggle in document coordinates so a selection outside this subtree is
+    // preserved, too. Body edits otherwise propagate their own local selection.
+    while (document is ComposerListBodyController) {
+      start = document.item.body.sourceOffset(start);
+      end = document.item.body.sourceOffset(end);
+      document = document.parent;
+    }
+    final value = document.value;
     history.transact(
-      () => parent.commitText(
+      () => document.commitText(
         expectedText: value.text,
-        value: value.copyWith(
-          text: value.text.replaceRange(
-            start,
-            start + _item.taskMarker!.length,
-            _item.checked ? '[ ]' : '[x]',
-          ),
+        value: toggleComposerTodo(
+          value,
+          markerStart: start,
+          markerEnd: end,
+          checked: _item.checked,
         ),
       ),
     );
