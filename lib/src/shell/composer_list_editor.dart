@@ -497,7 +497,19 @@ class ComposerListBodyController extends ComposerController {
     final emptyBoundary = before.text.trim().isEmpty && _needsParagraphBoundary
         ? newline
         : '';
-    var next = _item.isTask
+    // Empty tasks and ordinary list items need the same paragraph boundary.
+    var next = before.text.trim().isEmpty
+        ? TextEditingValue(
+            text: value.text.replaceRange(
+              _item.start,
+              _item.end,
+              emptyBoundary,
+            ),
+            selection: TextSelection.collapsed(
+              offset: _item.start + emptyBoundary.length,
+            ),
+          )
+        : _item.isTask
         ? ComposerTodoInputFormatter(
             referenceMarkers: parent.text.todoReferenceMarkers,
           ).formatEditUpdate(
@@ -507,17 +519,6 @@ class ComposerListBodyController extends ComposerController {
               selection: TextSelection.collapsed(
                 offset: offset + newline.length,
               ),
-            ),
-          )
-        : before.text.trim().isEmpty
-        ? TextEditingValue(
-            text: value.text.replaceRange(
-              _item.start,
-              _item.end,
-              emptyBoundary,
-            ),
-            selection: TextSelection.collapsed(
-              offset: _item.start + emptyBoundary.length,
             ),
           )
         : TextEditingValue(
