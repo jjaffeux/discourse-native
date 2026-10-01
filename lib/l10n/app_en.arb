@@ -10488,6 +10488,10 @@
     "description": "English UI message used by shell/composer_panel.dart. Keep placeholders intact."
   },
   "imageDescription": "Image description",
+  "removeImage": "Remove",
+  "@removeImage": {
+    "description": "Remove the selected image from the mobile composer."
+  },
   "@imageDescription": {
     "description": "English UI message used by shell/composer_panel.dart. Keep placeholders intact."
   },

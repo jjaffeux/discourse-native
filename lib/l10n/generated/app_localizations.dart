@@ -13414,6 +13414,12 @@ abstract class AppLocalizations {
   /// **'Image description'**
   String get imageDescription;
 
+  /// Remove the selected image from the mobile composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get removeImage;
+
   /// English UI message used by shell/composer_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
