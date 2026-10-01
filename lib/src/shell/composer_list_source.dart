@@ -1,5 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 
+import 'composer_task_marker.dart';
+
 /// A lossless view of a Markdown list item. Indentation belongs to the source;
 /// the editor presents the item's body in its own content column.
 class ComposerListItem {
@@ -128,7 +130,6 @@ class ComposerListBody {
 }
 
 final _listMarker = RegExp(r'^( *)([-+*]|\d{1,9}[.)])([ \t]+|$)');
-final _taskMarker = RegExp(r'^\[[ xX]?\](?:[ \t]+|$)');
 final _fence = RegExp(r'^ {0,3}(`{3,}|~{3,})(.*)$');
 final _interrupt = RegExp(
   r'^(?: {0,3}(?:>|#{1,6}(?:\s|$)|<|\[[ xX]?\](?:\s|$)))',
@@ -214,9 +215,6 @@ List<ComposerListItem> composerListItems(
     final contentIndent = markerEnd + (gapWidth > 4 ? 1 : gapWidth.clamp(1, 4));
     final contentCharacters = gapWidth > 4 ? markerEnd + 1 : marker.end;
     final remainder = line.text.substring(contentCharacters);
-    final task = _taskMarker.firstMatch(remainder);
-    final isTask =
-        task != null && !references.contains(task[0]!.trim().toLowerCase());
     var last = i;
     var next = i + 1;
     var blank = false;
@@ -267,6 +265,13 @@ List<ComposerListItem> composerListItems(
       blank = false;
       last = next++;
     }
+    final task = composerTaskMarker(
+      source,
+      start: line.start + contentCharacters,
+      end: lines[last].end,
+      referenceMarkers: references,
+    );
+    final isTask = task != null;
     final previous = result.lastOrNull;
     final ordered = int.tryParse(
       marker[2]!.substring(0, marker[2]!.length - 1),
@@ -284,7 +289,7 @@ List<ComposerListItem> composerListItems(
         marker: marker[2]!,
         indent: indent,
         contentIndent: contentIndent,
-        contentStart: line.start + contentCharacters + (isTask ? task.end : 0),
+        contentStart: isTask ? task.end : line.start + contentCharacters,
         firstLineEnd: line.end,
         taskMarker: isTask ? task[0]!.trim() : null,
         taskMarkerStart: isTask ? line.start + contentCharacters : null,
@@ -319,10 +324,12 @@ Map<int, int> _blockClosingLines(
   return blocks;
 }
 
-Set<String> composerTaskReferences(String source) => RegExp(
-  r'^ {0,3}\[([ xX]?)\]:[ \t]*\S',
-  multiLine: true,
-).allMatches(source).map((match) => '[${match[1]!.toLowerCase()}]').toSet();
+Set<String> composerTaskReferences(String source) =>
+    RegExp(r'^ {0,3}\[([^\]\r\n]+)\]:[ \t]*\S', multiLine: true)
+        .allMatches(source)
+        .where((match) => match[1]!.trim().isNotEmpty)
+        .map((match) => composerTaskReferenceLabel(match[1]!))
+        .toSet();
 
 /// Indentation for a new block inserted into the innermost list body at [offset].
 String composerListContinuationAt(String source, int offset) {
