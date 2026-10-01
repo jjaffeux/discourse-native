@@ -310,7 +310,10 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
                                     : null,
                                 trailing: action.hint == null
                                     ? null
-                                    : DCommandShortcut(Text(action.hint!)),
+                                    : DText(
+                                        action.hint!,
+                                        variant: DTextVariant.muted,
+                                      ),
                                 child: Text(action.label),
                               ),
                           ],

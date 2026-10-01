@@ -697,7 +697,7 @@ void main() {
       DefaultTextStyle.of(tester.element(find.text('⌘B'))).style.color,
       tokens.mutedForeground,
     );
-  });
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
   testWidgets('pointer highlighting can be disabled', (tester) async {
     final controller = DCommandController<String>(initialValue: 'Calendar');

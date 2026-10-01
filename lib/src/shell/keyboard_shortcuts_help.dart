@@ -8,6 +8,7 @@ import '../app_shortcuts.dart';
 import 'shell_sheet.dart';
 
 Future<void> showKeyboardShortcuts(BuildContext context) async {
+  if (DControlStyle.isTouch(context)) return;
   await showShellSheet<void>(
     context: context,
     title: appL10n.keyboardShortcuts,

@@ -838,16 +838,17 @@ class _ChatNewDirectMessageDialogState
       ),
       trailing: AnimatedBuilder(
         animation: _command,
-        builder: (context, _) => DCommandShortcut(
-          _command.value == item.identifier && enabled
-              ? Text(_composingGroup ? '+' : '↵')
-              : switch (item) {
-                  ChatDirectMessageChannel(:final channel)
-                      when channel.lastMessageAt != null =>
-                    RelativeTimeText(channel.lastMessageAt!),
-                  _ => const Text(''),
-                },
-        ),
+        builder: (context, _) =>
+            !DControlStyle.isTouch(context) &&
+                _command.value == item.identifier &&
+                enabled
+            ? DCommandShortcut(Text(_composingGroup ? '+' : '↵'))
+            : switch (item) {
+                ChatDirectMessageChannel(:final channel)
+                    when channel.lastMessageAt != null =>
+                  RelativeTimeText(channel.lastMessageAt!),
+                _ => const Text(''),
+              },
       ),
       onSelected: (_) => unawaited(_select(item)),
       child: Padding(

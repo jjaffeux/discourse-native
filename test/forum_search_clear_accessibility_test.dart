@@ -12,6 +12,54 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final width in [390.0, 1100.0]) {
+      testWidgets(
+        'search hides keyboard instructions on $platform at $width px',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore(),
+            api: FakeDiscourseApi(),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            updater: FakeUpdater(),
+            updateStore: FakeUpdateStore(),
+          );
+          controller.search.selectSite(_siteUrl);
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.light.copyWith(platform: platform),
+                home: const Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(width: 600, child: ForumSearch()),
+                  ),
+                ),
+              ),
+            ),
+          );
+          expect(find.byType(DShortcutKeycaps), findsNothing);
+          await tester.tap(find.byKey(ForumSearch.inputKey));
+          await tester.pumpAndSettle();
+          expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('global-search-footer')),
+            findsNothing,
+          );
+          expect(find.byType(DShortcutKeycaps), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets(
     'search hints use keycaps, stay outside input state and fit scaled narrow layouts',
     (tester) async {
@@ -31,7 +79,7 @@ void main() {
           ShellScope(
             controller: controller,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.linux),
               home: Scaffold(
                 body: MediaQuery(
                   data: const MediaQueryData(

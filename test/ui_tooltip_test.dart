@@ -25,7 +25,7 @@ Future<void> _pump(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? AppTheme.light,
+      theme: (theme ?? AppTheme.light).copyWith(platform: TargetPlatform.macOS),
       themeAnimationDuration: Duration.zero,
       home: Scaffold(
         body: MediaQuery(

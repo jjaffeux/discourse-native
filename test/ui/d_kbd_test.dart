@@ -622,7 +622,7 @@ Future<void> _pump(
   double scale = 1,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: AppTheme.light,
+    theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
     home: Scaffold(
       body: MediaQuery(
         data: MediaQueryData(

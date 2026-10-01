@@ -397,7 +397,8 @@ class _ForumSearchState extends State<ForumSearch> {
                     tooltip: appL10n.clearSearch,
                     onPressed: _clear,
                   )
-                else if (!widget.fullScreen &&
+                else if (!DControlStyle.isTouch(context) &&
+                    !widget.fullScreen &&
                     width >=
                         280 * MediaQuery.textScalerOf(context).scale(14) / 14)
                   DShortcutKeycaps(
@@ -539,47 +540,49 @@ class _ForumSearchState extends State<ForumSearch> {
                       onOpen: _openResult,
                     ),
                   ),
-                  const DSeparator(),
-                  Padding(
-                    key: const ValueKey('global-search-footer'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: DefaultTextStyle.merge(
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: DTokens.of(context).mutedForeground,
+                  if (!DControlStyle.isTouch(context)) ...[
+                    const DSeparator(),
+                    Padding(
+                      key: const ValueKey('global-search-footer'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        children: [
-                          for (final contextual in [false, true])
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                DShortcutKeycaps(
-                                  shortcut: DShortcut(
-                                    searchShortcutForPlatform(
-                                      defaultTargetPlatform,
-                                      contextual: contextual,
+                      child: DefaultTextStyle.merge(
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: DTokens.of(context).mutedForeground,
+                        ),
+                        child: Wrap(
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
+                            for (final contextual in [false, true])
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  DShortcutKeycaps(
+                                    shortcut: DShortcut(
+                                      searchShortcutForPlatform(
+                                        defaultTargetPlatform,
+                                        contextual: contextual,
+                                      ),
                                     ),
+                                    listenToKeyboard: false,
                                   ),
-                                  listenToKeyboard: false,
-                                ),
-                                Text(
-                                  contextual
-                                      ? context.l10n.contextualSearch
-                                      : context.l10n.globalSearch,
-                                ),
-                              ],
-                            ),
-                        ],
+                                  Text(
+                                    contextual
+                                        ? context.l10n.contextualSearch
+                                        : context.l10n.globalSearch,
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -868,33 +868,36 @@ class DDropdownMenuSeparator extends StatelessWidget {
   }
 }
 
+/// A keyboard shortcut hint, hidden on mobile platforms.
 class DDropdownMenuShortcut extends StatelessWidget {
   const DDropdownMenuShortcut(this.label, {super.key, this.semanticLabel});
   final String label;
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: semanticLabel ?? label,
-    excludeSemantics: true,
-    child: Padding(
-      padding: const EdgeInsetsDirectional.only(start: 12),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall!.copyWith(
-          // The item supplies muted color at rest and accent foreground while
-          // active, matching the reference's group-focus shortcut selector.
-          color:
-              IconTheme.of(context).color ??
-              DTokens.of(context).mutedForeground,
-          fontSize: DiscourseTypography.xs,
-          height: DiscourseTypography.lineHeightCaption,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 1.2,
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => DControlStyle.isTouch(context)
+      ? const SizedBox.shrink()
+      : Semantics(
+          label: semanticLabel ?? label,
+          excludeSemantics: true,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 12),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                // The item supplies muted color at rest and accent foreground while
+                // active, matching the reference's group-focus shortcut selector.
+                color:
+                    IconTheme.of(context).color ??
+                    DTokens.of(context).mutedForeground,
+                fontSize: DiscourseTypography.xs,
+                height: DiscourseTypography.lineHeightCaption,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        );
 }
 
 class DDropdownMenuItem extends StatelessWidget {

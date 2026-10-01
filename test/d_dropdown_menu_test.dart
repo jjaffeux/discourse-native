@@ -931,7 +931,7 @@ void main() {
       const activeForeground = Color(0xFF006600);
       const restingForeground = Color(0xFF111111);
       const mutedForeground = Color(0xFF666666);
-      final base = ThemeData.light();
+      final base = ThemeData.light().copyWith(platform: TargetPlatform.macOS);
       final colors = base.colorScheme.copyWith(
         onSurface: restingForeground,
         onSurfaceVariant: mutedForeground,

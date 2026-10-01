@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// A keyboard hint, with no tap target, focus node, or shortcut binding.
@@ -248,6 +249,7 @@ class DShortcut {
 /// disabled or disposed. [platform] affects labels only, never key matching.
 /// Key events that leave the painted feedback unchanged, such as typing or
 /// key repeats while a hint is visible, do not rebuild the keycaps.
+/// Hints are hidden on mobile platforms, regardless of label formatting.
 class DShortcutKeycaps extends StatefulWidget {
   const DShortcutKeycaps({
     super.key,
@@ -299,6 +301,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
 
   void _updateListening() {
     final enabled =
+        !DControlStyle.isTouch(context) &&
         widget.listenToKeyboard &&
         _active &&
         _viewFocused &&
@@ -385,6 +388,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
 
   @override
   Widget build(BuildContext context) {
+    if (DControlStyle.isTouch(context)) return const SizedBox.shrink();
     final shortcut = widget.shortcut;
     final platform = widget.platform ?? Theme.of(context).platform;
     _renderedFeedback = _feedback(_completedSteps);

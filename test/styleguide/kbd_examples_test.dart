@@ -59,7 +59,9 @@ void main() {
   testWidgets(
     'small outline buttons carry keycaps at their inline ends and activate by pointer and keyboard',
     (tester) async {
-      final theme = ValueNotifier(AppTheme.light);
+      final theme = ValueNotifier(
+        AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      );
       addTearDown(theme.dispose);
       final semantics = tester.ensureSemantics();
       try {
@@ -120,7 +122,9 @@ void main() {
   testWidgets(
     'button-group tooltips show keycaps with the live tint and run their shortcuts',
     (tester) async {
-      final theme = ValueNotifier(AppTheme.light);
+      final theme = ValueNotifier(
+        AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      );
       addTearDown(theme.dispose);
       final semantics = tester.ensureSemantics();
       try {
@@ -151,7 +155,9 @@ void main() {
           StyleguideTheme.forest,
           StyleguideTheme.plum,
         ]) {
-          theme.value = palette.resolve(AppTheme.light);
+          theme.value = palette
+              .resolve(AppTheme.light)
+              .copyWith(platform: TargetPlatform.macOS);
           await tester.pumpAndSettle();
           expect(find.text('Save Changes'), findsOneWidget);
           final tokens = theme.value.extension<DTokens>()!;
@@ -234,14 +240,15 @@ void main() {
           of: find.byType(DInputGroupAddon).last,
           matching: find.byType(DKbd),
         );
-        expect(addon, findsNWidgets(2));
+        final mobile = platform == TargetPlatform.iOS;
+        expect(addon, mobile ? findsNothing : findsNWidgets(2));
         expect(
           find.descendant(of: addon, matching: find.text(apple ? '⌘' : 'Ctrl')),
-          findsOneWidget,
+          mobile ? findsNothing : findsOneWidget,
         );
         expect(
           find.descendant(of: addon, matching: find.text('K')),
-          findsOneWidget,
+          mobile ? findsNothing : findsOneWidget,
         );
         expect(find.byIcon(Icons.search), findsOneWidget);
         expect(tester.getSize(find.byType(DInputGroup)).width, 320);
@@ -272,10 +279,12 @@ void main() {
               .text,
           'community',
         );
-        expect(
-          Directionality.of(tester.element(find.byType(DKbd).first)),
-          TextDirection.rtl,
-        );
+        if (!mobile) {
+          expect(
+            Directionality.of(tester.element(find.byType(DKbd).first)),
+            TextDirection.rtl,
+          );
+        }
         expect(tester.takeException(), isNull);
       },
     );

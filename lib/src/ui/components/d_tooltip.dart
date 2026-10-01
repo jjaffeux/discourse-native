@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
@@ -268,6 +269,7 @@ class DTooltip extends RawTooltip {
 
   /// Reduces trailing padding to 6px for custom content containing keycaps.
   /// [shortcut] enables this automatically.
+  /// On mobile, [message] replaces custom keycap content.
   final bool containsKeycaps;
   final bool excludeFromSemantics;
 
@@ -368,7 +370,7 @@ class DTooltipState extends State<DTooltip>
 
   String? get _description => widget.excludeFromSemantics || widget.labelTrigger
       ? null
-      : widget.shortcut == null
+      : widget.shortcut == null || DControlStyle.isTouch(context)
       ? widget.message
       : '${widget.message}, ${widget.shortcut!.semanticLabel(Theme.of(context).platform)}';
 
@@ -1007,6 +1009,7 @@ class _TooltipContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showKeycaps = !DControlStyle.isTouch(context);
     final tokens = DTokens.of(context);
     final foreground = tokens.foreground;
     final style = Theme.of(context).textTheme.bodySmall!.copyWith(
@@ -1030,7 +1033,10 @@ class _TooltipContent extends StatelessWidget {
             padding: EdgeInsetsDirectional.fromSTEB(
               12,
               6,
-              tooltip.shortcut != null || tooltip.containsKeycaps ? 6 : 12,
+              showKeycaps &&
+                      (tooltip.shortcut != null || tooltip.containsKeycaps)
+                  ? 6
+                  : 12,
               6,
             ),
             child: Wrap(
@@ -1038,9 +1044,13 @@ class _TooltipContent extends StatelessWidget {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                tooltip.content ?? Text(tooltip.message),
-                if (tooltip.shortcut case final shortcut?)
-                  DShortcutKeycaps(shortcut: shortcut),
+                if (!showKeycaps && tooltip.containsKeycaps)
+                  Text(tooltip.message)
+                else
+                  tooltip.content ?? Text(tooltip.message),
+                if (showKeycaps)
+                  if (tooltip.shortcut case final shortcut?)
+                    DShortcutKeycaps(shortcut: shortcut),
               ],
             ),
           ),

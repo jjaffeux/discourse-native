@@ -919,8 +919,9 @@ class UserProfileMenuItems extends StatelessWidget {
                       : DIcon(row.icon, size: 16),
                   trailing:
                       row.isDrafts && controller.draftCountFor(siteUrl) > 0
-                      ? DDropdownMenuShortcut(
+                      ? DText(
                           '${controller.draftCountFor(siteUrl)}',
+                          variant: DTextVariant.muted,
                         )
                       : null,
                   onPressed: action(row),
@@ -1094,7 +1095,9 @@ class _DoNotDisturbTile extends StatelessWidget {
               active ? DIcons.toggleOn : DIcons.toggleOff,
               size: 16,
             ),
-            trailing: detail == null ? null : DDropdownMenuShortcut(detail),
+            trailing: detail == null
+                ? null
+                : DText(detail, variant: DTextVariant.muted),
             child: Text(context.l10n.pauseNotifications),
           );
         }

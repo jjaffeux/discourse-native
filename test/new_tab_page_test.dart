@@ -372,6 +372,27 @@ void main() {
     }
   });
 
+  testWidgets(
+    'mobile Start page hides panel keyboard instructions',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: NewTabPage(onBrowseTopics: () {})),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Work with two panels'), findsNothing);
+      expect(find.byType(DKbd), findsNothing);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets('panel guide keeps its close action at the top right', (
     tester,
   ) async {
@@ -403,7 +424,7 @@ void main() {
     expect(dismiss.top, lessThan(title.bottom));
     expect(dismiss.right, greaterThan(title.right - 48));
     expect(tester.takeException(), isNull);
-  });
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
   testWidgets('the panel tutorial appears on new tabs until dismissed', (
     tester,
@@ -439,7 +460,7 @@ void main() {
     expect(find.text('Work with two panels'), findsNothing);
     await tester.tap(find.text('Browse latest topics'));
     expect(opened, 1);
-  });
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
   testWidgets('empty recent sections become Everything else shortcuts', (
     tester,
