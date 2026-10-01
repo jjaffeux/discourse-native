@@ -8,6 +8,25 @@ import 'composer_todo_source.dart';
 
 export 'composer_todo_source.dart';
 
+TextEditingValue toggleComposerTodo(
+  TextEditingValue value, {
+  required int markerStart,
+  required int markerEnd,
+  required bool checked,
+}) {
+  final marker = checked ? '[ ]' : '[x]';
+  final delta = marker.length - (markerEnd - markerStart);
+  int move(int offset) => offset >= markerEnd ? offset + delta : offset;
+  return value.copyWith(
+    text: value.text.replaceRange(markerStart, markerEnd, marker),
+    selection: value.selection.copyWith(
+      baseOffset: move(value.selection.baseOffset),
+      extentOffset: move(value.selection.extentOffset),
+    ),
+    composing: TextRange.empty,
+  );
+}
+
 TextSelection composerTodoLineStartSelection(
   TextEditingValue before,
   TextEditingValue after,
