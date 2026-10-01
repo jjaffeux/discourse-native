@@ -163,10 +163,7 @@ Color _railBackground(ThemeData theme) => usesMobileNavigation(theme.platform)
 
 Color _railSurface(BuildContext context) {
   final theme = Theme.of(context);
-  final fallback = _railBackground(theme);
-  return usesMobileNavigation(theme.platform)
-      ? fallback
-      : ForumWindowBackground.chromeColor(context, fallback);
+  return ForumWindowBackground.chromeColor(context, _railBackground(theme));
 }
 
 const double _railListPadding = 8;
