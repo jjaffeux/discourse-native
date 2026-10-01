@@ -116,6 +116,70 @@ void main() {
     'link': '[Discourse](https://discourse.org)',
   }.entries) {
     testWidgets(
+      '${entry.key} mobile backspace with native composing metadata removes the whole component',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 1, caret, ''),
+            selection: TextSelection.collapsed(offset: caret - 1),
+            composing: TextRange(start: 8, end: caret - 1),
+          ),
+        );
+        await tester.pump();
+        expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+        expect(composer.text.value.composing, TextRange.empty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+
+    testWidgets(
+      '${entry.key} mobile backspace deletes a selected component with a collapsed native caret',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pump();
+        if (entry.key == 'gallery') {
+          expect(
+            find.byKey(const ValueKey('composer-gallery-toolbar')),
+            findsOneWidget,
+          );
+        } else {
+          expect(composer.text.keyboardSelectedProjection, isNotNull);
+        }
+        expect(composer.text.selection.isCollapsed, isTrue);
+
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 1, caret, ''),
+            selection: TextSelection.collapsed(offset: caret - 1),
+          ),
+        );
+        await tester.pump();
+
+        expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+        expect(composer.text.keyboardSelectedProjection, isNull);
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
       '${entry.key} mobile backspace removes the whole component',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
@@ -148,6 +212,85 @@ void main() {
         TargetPlatform.android,
         TargetPlatform.iOS,
       }),
+    );
+  }
+
+  testWidgets('mobile backspace deletes a tapped image', (tester) async {
+    final source = 'Before\n\n${_blocks['image']}\n\nAfter';
+    final composer = await _pump(tester, source);
+    final image = composer.text.imageBlocks.single;
+    await tester.tapAt(composer.text.collapsedImageGlobalRect(image)!.center);
+    await tester.pump();
+    expect(composer.text.keyboardSelectedImage, isNotNull);
+    final caret = composer.text.selection.extentOffset;
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: source.replaceRange(caret - 1, caret, ''),
+        selection: TextSelection.collapsed(offset: caret - 1),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+    expect(composer.text.keyboardSelectedImage, isNull);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
+  testWidgets('mobile backspace deletes a tapped gallery', (tester) async {
+    final source = 'Before\n\n${_blocks['gallery']}\n\nAfter';
+    final composer = await _pump(tester, source);
+    final gallery = composer.text.galleryBlocks.single;
+    final rect = composer.text.collapsedGalleryGlobalRect(gallery)!;
+    await tester.tapAt(rect.topCenter + const Offset(0, 2));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsOneWidget,
+    );
+    final caret = composer.text.selection.extentOffset;
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: source.replaceRange(caret - 1, caret, ''),
+        selection: TextSelection.collapsed(offset: caret - 1),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+    expect(
+      find.byKey(const ValueKey('composer-gallery-toolbar')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
+  for (final entry in {
+    for (final name in ['table', 'details', 'gallery']) name: _blocks[name]!,
+    'code': '```dart\nprint("hello");\n```',
+  }.entries) {
+    testWidgets(
+      '${entry.key} mobile backspace at a hidden trailing offset removes the component',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}';
+        final composer = await _pump(tester, source);
+        // RenderEditable can map the visual trailing caret to a hidden source
+        // offset before the component's actual end.
+        final caret = source.length - 1;
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+        expect(composer.text.selection.extentOffset, caret);
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 1, caret, ''),
+            selection: TextSelection.collapsed(offset: caret - 1),
+          ),
+        );
+        await tester.pump();
+        expect(composer.raw, 'Before');
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
     );
   }
 
@@ -268,6 +411,61 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.mobile());
+
+  testWidgets('mobile backspace deletes a tapped image inside a list', (
+    tester,
+  ) async {
+    final source = '- Before ${_blocks['image']}';
+    final composer = await _pump(tester, source);
+    final body = tester
+        .widgetList<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
+        .map((widget) => widget.composer)
+        .whereType<ComposerListBodyController>()
+        .single;
+    final image = body.text.imageBlocks.single;
+    await tester.tapAt(body.text.collapsedImageGlobalRect(image)!.center);
+    await tester.pump();
+    expect(body.text.keyboardSelectedImage, isNotNull);
+    final value = body.text.value;
+    final caret = value.selection.extentOffset;
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: value.text.replaceRange(caret - 1, caret, ''),
+        selection: TextSelection.collapsed(offset: caret - 1),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, '- Before');
+    composer.history.undo();
+    await tester.pump();
+    expect(composer.raw, source);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
+
+  for (final wasComposing in [false, true]) {
+    testWidgets('mobile prose deletion preserves composing ($wasComposing)', (
+      tester,
+    ) async {
+      final composer = await _pump(tester, 'Before word');
+      if (wasComposing) {
+        composer.text.value = composer.text.value.copyWith(
+          composing: const TextRange(start: 7, end: 11),
+        );
+        await tester.pump();
+      }
+      const proposal = TextEditingValue(
+        text: 'Before wor',
+        selection: TextSelection.collapsed(offset: 10),
+        composing: TextRange(start: 7, end: 10),
+      );
+      tester.testTextInput.updateEditingValue(proposal);
+      await tester.pump();
+      expect(composer.text.value, proposal);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.mobile());
+  }
 
   for (final shift in [false, true]) {
     for (final selection in [
