@@ -1,4 +1,5 @@
 import 'composer_list_source.dart';
+import 'composer_task_marker.dart';
 import 'markdown_highlight.dart';
 
 /// A checklist line keeps its original Markdown as the editable source.
@@ -25,10 +26,7 @@ class ComposerTodo {
   bool get isListItem => continuationIndent != null;
 }
 
-final _todoPrefix = RegExp(
-  r'^( {0,3})(\[[ xX]?\])(?:[ \t]+|(?=\r?$))',
-  multiLine: true,
-);
+final _todoPrefix = RegExp(r'^( {0,3})(\[[ xX]?\])[ \t]*', multiLine: true);
 
 List<ComposerTodo> composerTodos(
   String source, {
@@ -68,7 +66,10 @@ List<ComposerTodo> composerTodos(
   }
   if (matches.isEmpty) return structured;
   final code = codeRanges ?? markdownCodeRanges(source);
-  final references = {...referenceMarkers, ...composerTaskReferences(source)};
+  final references = {
+    ...referenceMarkers,
+    ...composerTaskReferences(source, includeLinkLabels: true),
+  };
   return [
     ...structured,
     for (final match in matches)
@@ -76,7 +77,12 @@ List<ComposerTodo> composerTodos(
           !lists.any(
             (item) => match.start >= item.start && match.start < item.end,
           ) &&
-          !references.contains(match[2]!.toLowerCase()))
+          composerTaskMarker(
+                source,
+                start: match.start + match[1]!.length,
+                referenceMarkers: references,
+              ) !=
+              null)
         ComposerTodo(
           start: match.start,
           markerStart: match.start + match[1]!.length,
