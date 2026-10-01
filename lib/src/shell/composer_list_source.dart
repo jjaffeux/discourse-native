@@ -47,7 +47,7 @@ class ComposerListItem {
       document.substring(start, taskMarkerStart ?? contentStart);
 
   late final body = ComposerListBody(this);
-  late final children = composerListItems(
+  late final children = _composerListItems(
     body.text,
     referenceMarkers: referenceMarkers,
   );
@@ -153,8 +153,17 @@ final _blockClosing = RegExp(r'^ {0,3}\[/([a-zA-Z][\w-]*)\][ \t]*$');
 List<ComposerListItem> composerListItems(
   String source, {
   Set<String> referenceMarkers = const {},
+}) => _composerListItems(
+  source,
+  referenceMarkers: {...referenceMarkers, ...composerTaskReferences(source)},
+);
+
+List<ComposerListItem> _composerListItems(
+  String source, {
+  required Set<String> referenceMarkers,
+  bool recognizeTasks = true,
 }) {
-  final references = {...referenceMarkers, ...composerTaskReferences(source)};
+  final references = referenceMarkers;
   final lines = <({int start, int end, String text})>[];
   var start = 0;
   while (start < source.length) {
@@ -216,7 +225,9 @@ List<ComposerListItem> composerListItems(
     final remainder = line.text.substring(contentCharacters);
     final task = _taskMarker.firstMatch(remainder);
     final isTask =
-        task != null && !references.contains(task[0]!.trim().toLowerCase());
+        recognizeTasks &&
+        task != null &&
+        !references.contains(task[0]!.trim().toLowerCase());
     var last = i;
     var next = i + 1;
     var blank = false;
@@ -319,10 +330,74 @@ Map<int, int> _blockClosingLines(
   return blocks;
 }
 
-Set<String> composerTaskReferences(String source) => RegExp(
-  r'^ {0,3}\[([ xX]?)\]:[ \t]*\S',
-  multiLine: true,
-).allMatches(source).map((match) => '[${match[1]!.toLowerCase()}]').toSet();
+final _referenceDefinition = RegExp(r'^ {0,3}\[([^\[\]]+)\]:[ \t]*\S');
+final _referenceHeading = RegExp(
+  r'^ {0,3}(?:#{1,6}(?:[ \t]+|$)|(?:=+|-+)[ \t]*$)',
+);
+
+/// Reference labels are document-wide, but definitions belong to Markdown
+/// blocks. Reuse list boundaries and their deindented bodies so a nested code
+/// fence ends with its container and indented code stays literal at any depth.
+Set<String> composerTaskReferences(String source) {
+  if (!source.contains('[x]:') && !source.contains('[X]:')) {
+    return const {};
+  }
+  final references = <String>{};
+  void collect(String text) {
+    // Checklist markers are inline syntax. Keep them in the body during this
+    // block pass: "- [ ] [x]: url" is a paragraph, not a definition.
+    final items = _composerListItems(
+      text,
+      referenceMarkers: const {},
+      recognizeTasks: false,
+    ).iterator;
+    var hasItem = items.moveNext();
+    var offset = 0;
+    var paragraph = false;
+    String? fence;
+    for (final line in text.split('\n')) {
+      final start = offset;
+      offset += line.length + 1;
+      if (hasItem && start > items.current.end) hasItem = items.moveNext();
+      if (hasItem && start >= items.current.start) {
+        if (start == items.current.start) collect(items.current.body.text);
+        paragraph = false;
+        continue;
+      }
+      final content = line.endsWith('\r')
+          ? line.substring(0, line.length - 1)
+          : line;
+      if (fence != null) {
+        if (_closesFence(content, fence)) fence = null;
+        continue;
+      }
+      final opening = _fence.firstMatch(content);
+      if (opening != null) {
+        fence = opening[1];
+        paragraph = false;
+        continue;
+      }
+      if (content.trim().isEmpty ||
+          _rule.hasMatch(content) ||
+          _referenceHeading.hasMatch(content)) {
+        paragraph = false;
+        continue;
+      }
+      if (!paragraph) {
+        if (_indentWidth(content) >= 4) continue;
+        final reference = _referenceDefinition.firstMatch(content);
+        if (reference != null) {
+          if (reference[1]!.toLowerCase() == 'x') references.add('[x]');
+          continue;
+        }
+      }
+      paragraph = true;
+    }
+  }
+
+  collect(source);
+  return references;
+}
 
 /// Indentation for a new block inserted into the innermost list body at [offset].
 String composerListContinuationAt(String source, int offset) {
