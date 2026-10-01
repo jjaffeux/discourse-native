@@ -183,6 +183,21 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     if (widget.composer.isEditing) widget.composer.focus.requestFocus();
   }
 
+  void _removeEmptyMention() {
+    final composer = widget.composer;
+    final trigger = _popup.trigger;
+    if (!composer.isEditing ||
+        trigger?.kind != ComposerTriggerKind.mention ||
+        trigger!.query.isNotEmpty) {
+      return;
+    }
+    composer.text.value = TextEditingValue(
+      text: composer.text.text.replaceRange(trigger.start, trigger.end, ''),
+      selection: TextSelection.collapsed(offset: trigger.start),
+    );
+    _dismiss();
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -304,6 +319,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
               controller: _command,
               searchFocus: _searchFocus,
               onQueryChanged: _filterMentions,
+              onEmptyBackspace: _removeEmptyMention,
               onDismiss: _dismiss,
               onTap: _activate,
             ),
@@ -324,6 +340,7 @@ class _Suggestions extends StatelessWidget {
     required this.onTap,
     required this.searchFocus,
     required this.onQueryChanged,
+    required this.onEmptyBackspace,
     required this.onDismiss,
   });
 
@@ -332,6 +349,7 @@ class _Suggestions extends StatelessWidget {
   final ValueChanged<ComposerSuggestion> onTap;
   final FocusNode searchFocus;
   final ValueChanged<String> onQueryChanged;
+  final VoidCallback onEmptyBackspace;
   final VoidCallback onDismiss;
 
   @override
@@ -364,6 +382,7 @@ class _Suggestions extends StatelessWidget {
                 if (mention)
                   DCommandInput<ComposerSuggestion>(
                     focusNode: searchFocus,
+                    onEmptyBackspace: onEmptyBackspace,
                     placeholder: context.l10n.mentionSearchHint,
                     semanticLabel: context.l10n.searchUsersOrGroups,
                   ),

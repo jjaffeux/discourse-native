@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_suggestions.dart';
@@ -8,6 +9,84 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final hardwareKeyboard in [true, false]) {
+    testWidgets(
+      '${hardwareKeyboard ? 'hardware' : 'mobile'} Backspace removes an empty mention and closes its menu',
+      (tester) async {
+        final composer = _composer('unused');
+        addTearDown(composer.dispose);
+        composer.text.value = const TextEditingValue(
+          text: 'Hello @s there',
+          selection: TextSelection.collapsed(offset: 8),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: ComposerSuggestionField(
+                composer: composer,
+                field: DInput(
+                  borderless: true,
+                  controller: composer.text,
+                  focusNode: composer.focus,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final search = find.descendant(
+          of: find.byType(DCommandInput<ComposerSuggestion>),
+          matching: find.byType(EditableText),
+        );
+        expect(tester.widget<EditableText>(search).focusNode.hasFocus, isTrue);
+
+        Future<void> backspace() async {
+          if (hardwareKeyboard) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+          } else {
+            final value = TextEditingValue.fromJSON(
+              tester.testTextInput.editingState!,
+            );
+            final caret = value.selection.baseOffset;
+            if (caret > 0) {
+              tester.testTextInput.updateEditingValue(
+                TextEditingValue(
+                  text: value.text.replaceRange(caret - 1, caret, ''),
+                  selection: TextSelection.collapsed(offset: caret - 1),
+                ),
+              );
+            }
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await backspace();
+        expect(composer.text.text, 'Hello @ there');
+        expect(composer.autocomplete.isOpen, isTrue);
+        expect(search, findsOneWidget);
+
+        await backspace();
+        expect(composer.text.text, 'Hello  there');
+        expect(
+          composer.text.selection,
+          const TextSelection.collapsed(offset: 6),
+        );
+        expect(composer.autocomplete.isOpen, isFalse);
+        expect(search, findsNothing);
+        expect(composer.focus.hasFocus, isTrue);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant(
+        hardwareKeyboard
+            ? {TargetPlatform.macOS}
+            : {TargetPlatform.iOS, TargetPlatform.android},
+      ),
+    );
+  }
+
   testWidgets('shows a popup that was open before the field mounted', (
     tester,
   ) async {

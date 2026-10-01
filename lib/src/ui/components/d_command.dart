@@ -501,6 +501,7 @@ class DCommandInput<T> extends StatefulWidget {
     this.focusNode,
     this.autofocus = true,
     this.enabled = true,
+    this.onEmptyBackspace,
     this._semanticLabel,
   });
 
@@ -510,6 +511,9 @@ class DCommandInput<T> extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final bool enabled;
+
+  /// Called when Backspace is pressed in an empty query, including on mobile.
+  final VoidCallback? onEmptyBackspace;
   final String? _semanticLabel;
   String get semanticLabel => _semanticLabel ?? appL10n.searchCommands;
 
@@ -588,6 +592,20 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
     );
   }
 
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (widget.enabled &&
+        widget.onEmptyBackspace != null &&
+        (event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        _editing.text.isEmpty &&
+        _editing.selection.isCollapsed &&
+        !_editing.value.isComposingRangeValid) {
+      widget.onEmptyBackspace!();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = _DCommandScope.of<T>(context);
@@ -603,21 +621,27 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: DSpacing.xs),
-          child: DInput(
-            controller: _editing,
-            focusNode: widget.focusNode,
-            semanticLabel: widget.semanticLabel,
-            hintText: widget.placeholder,
-            autofocus: widget.autofocus,
-            enabled: widget.enabled,
-            autocorrect: false,
-            enableSuggestions: false,
-            textInputAction: TextInputAction.search,
-            suffix: ExcludeSemantics(
-              child: DIcon(
-                DIcons.magnifyingGlass,
-                size: 16,
-                color: DTokens.of(context).mutedForeground,
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _onKey,
+            child: DInput(
+              controller: _editing,
+              focusNode: widget.focusNode,
+              semanticLabel: widget.semanticLabel,
+              hintText: widget.placeholder,
+              autofocus: widget.autofocus,
+              enabled: widget.enabled,
+              onEmptyBackspace: widget.onEmptyBackspace,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.search,
+              suffix: ExcludeSemantics(
+                child: DIcon(
+                  DIcons.magnifyingGlass,
+                  size: 16,
+                  color: DTokens.of(context).mutedForeground,
+                ),
               ),
             ),
           ),

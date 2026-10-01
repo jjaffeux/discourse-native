@@ -31,6 +31,7 @@ Widget _command({
   bool disablePointerSelection = false,
   TextEditingController? editingController,
   FocusNode? inputFocus,
+  VoidCallback? onEmptyBackspace,
   ScrollController? scrollController,
 }) => DCommand<String>(
   controller: controller,
@@ -50,6 +51,7 @@ Widget _command({
       DCommandInput<String>(
         controller: editingController,
         focusNode: inputFocus,
+        onEmptyBackspace: onEmptyBackspace,
       ),
       DCommandList<String>(
         controller: scrollController,
@@ -92,6 +94,68 @@ Widget _command({
 );
 
 void main() {
+  testWidgets(
+    'empty Backspace leaves query state and focus with the caller',
+    (tester) async {
+      final editing = TextEditingController();
+      final focus = FocusNode();
+      final queries = <String>[];
+      var deletes = 0;
+      addTearDown(editing.dispose);
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        _host(
+          _command(
+            editingController: editing,
+            inputFocus: focus,
+            onQueryChanged: queries.add,
+            onEmptyBackspace: () => deletes++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+      expect(deletes, 1);
+      expect(editing.text, isEmpty);
+      expect(queries, isEmpty);
+      expect(focus.hasFocus, isTrue);
+
+      final mobile =
+          Theme.of(tester.element(find.byType(DInput))).platform !=
+          TargetPlatform.macOS;
+      // A soft keyboard deletes DInput's empty boundary through text input.
+      if (mobile) {
+        tester.testTextInput.updateEditingValue(TextEditingValue.empty);
+        await tester.pumpAndSettle();
+        expect(deletes, 2);
+        expect(editing.text, isEmpty);
+        expect(queries, isEmpty);
+        expect(focus.hasFocus, isTrue);
+      }
+
+      final emptyDeletes = deletes;
+      await tester.enterText(find.byType(EditableText), 'x');
+      await tester.pumpAndSettle();
+      if (mobile) {
+        tester.testTextInput.updateEditingValue(TextEditingValue.empty);
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      }
+      await tester.pumpAndSettle();
+      expect(editing.text, isEmpty);
+      expect(queries, ['x', '']);
+      expect(deletes, emptyDeletes);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets(
     'external editor key routing retains focus and respects IME and detach',
     (tester) async {
