@@ -214,12 +214,27 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     _composer.focus.requestFocus();
   }
 
-  void scaleImage(int scale) {
+  /// Commits the mobile description field without moving focus or closing it.
+  void updateImageAlt() {
+    final image = _state.selectedImage;
+    if (image == null || isDisposed || image.alt == imageAlt.text) return;
+    _updateSelectedImage(
+      (image) => _composer.setImageAlt(image, imageAlt.text),
+    );
+  }
+
+  void scaleImage(int scale, {bool requestFocus = true}) {
+    if (_state.selectedImage == null || isDisposed) return;
+    _updateSelectedImage((image) => _composer.setImageScale(image, scale));
+    if (requestFocus) _composer.focus.requestFocus();
+  }
+
+  void _updateSelectedImage(void Function(ComposerImageBlock) update) {
     final image = _state.selectedImage;
     if (image == null || isDisposed) return;
     _composer.text.releaseImagePointerEdit(image);
     _clearSelectedImageState(clearKeyboardSelection: true);
-    _composer.setImageScale(image, scale);
+    update(image);
     final resized = _composer.text.imageBlocks
         .where((candidate) => candidate.start == image.start)
         .firstOrNull;
@@ -228,7 +243,6 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       _composer.text.selectPillForKeyboard(resized);
       showImageMenu(resized, refreshAlt: false);
     }
-    _composer.focus.requestFocus();
   }
 
   void dismissImage({bool requestFocus = true}) {

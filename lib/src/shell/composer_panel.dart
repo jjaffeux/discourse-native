@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
+import '../foundation/frame_safe_notifier.dart';
 import '../models/composer_placement.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
@@ -156,7 +157,7 @@ class ComposerPanel extends StatelessWidget {
       context: (controller, composer.target),
     );
 
-    return ListenableBuilder(
+    final panel = ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
         SurfaceOpeningTrace.mark('composer.build');
@@ -575,7 +576,53 @@ class ComposerPanel extends StatelessWidget {
         );
       },
     );
+    return _ComposerImageToolbarHost(child: panel);
   }
+}
+
+class _ComposerImageToolbarHost extends StatefulWidget {
+  const _ComposerImageToolbarHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ComposerImageToolbarHost> createState() =>
+      _ComposerImageToolbarHostState();
+}
+
+class _ComposerImageToolbarHostState extends State<_ComposerImageToolbarHost> {
+  final selection = FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>(
+    null,
+  );
+
+  @override
+  void dispose() {
+    selection.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _ComposerImageToolbarScope(selection: selection, child: widget.child);
+}
+
+class _ComposerImageToolbarScope extends InheritedWidget {
+  const _ComposerImageToolbarScope({
+    required this.selection,
+    required super.child,
+  });
+
+  final FrameSafeValueNotifier<ComposerMediaEditingCoordinator?> selection;
+
+  static FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>? maybeOf(
+    BuildContext context,
+  ) => context
+      .dependOnInheritedWidgetOfExactType<_ComposerImageToolbarScope>()
+      ?.selection;
+
+  @override
+  bool updateShouldNotify(_ComposerImageToolbarScope oldWidget) =>
+      selection != oldWidget.selection;
 }
 
 /// The mobile title and growing editor share one viewport. The pinned sliver
@@ -1361,6 +1408,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   late final ScrollController _scroll;
   ScrollPosition? _ancestorScroll;
   late final ComposerMediaEditingCoordinator _media;
+  FrameSafeValueNotifier<ComposerMediaEditingCoordinator?>? _imageToolbar;
   late final _ComposerSelectionOverlay _selectionOverlay;
   bool _touchSelection = false;
   final ValueNotifier<int> _mediaLayoutRevision = ValueNotifier(0);
@@ -1454,6 +1502,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _syncRawMarkdown();
     }
     _touchSelection = context.isTouch;
+    _imageToolbar = _ComposerImageToolbarScope.maybeOf(context);
     _selectionOverlay.sync();
     final ancestorScroll = widget.expands
         ? null
@@ -1469,6 +1518,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _parentEditor = parent;
       parent?._nestedEditors.add(this);
     }
+    _scheduleMediaLayoutRefresh();
   }
 
   void _ancestorScrolled() {
@@ -1543,6 +1593,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       widget.composer.text.imageScrollController = null;
     }
     _media.removeListener(_scheduleMediaLayoutRefresh);
+    if (_parentEditor == null) _imageToolbar?.value = null;
     _media.dispose();
     _selectionOverlay.dispose();
     _mediaLayoutRevision.dispose();
@@ -1644,7 +1695,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final hasMedia = descendantHasMedia || _media.value.hasSelectedMedia;
     _parentEditor?._scheduleMediaLayoutRefresh(descendantHasMedia: hasMedia);
     if (_mediaLayoutRefreshScheduled ||
-        (!hasMedia &&
+        (_imageToolbar?.value == null &&
+            !hasMedia &&
             _mediaDropPosition.value == null &&
             _lastImageMenuAnchor == null &&
             _lastGalleryMenuPosition == null)) {
@@ -1654,6 +1706,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mediaLayoutRefreshScheduled = false;
       if (!mounted) return;
+      if (_parentEditor == null) {
+        _imageToolbar?.value = _imageMenuEditor?._media;
+      }
       // Block geometry traverses the editor, so measure after layout, never
       // while the overlay's widget subtree is being built.
       _mediaDropIndicatorTop = _mediaDropTop();
@@ -3154,7 +3209,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final state = _media.value;
     // The enclosing composer owns image menus for all its content, outside
     // the nested editors' clipping and text semantics.
-    final imageEditor = _parentEditor == null ? _imageMenuEditor : null;
+    final imageEditor =
+        _parentEditor == null && !(context.isTouch && _imageToolbar != null)
+        ? _imageMenuEditor
+        : null;
     final imageMenuAnchor = _imageMenuAnchor(imageEditor);
     final galleryMenuPosition = _galleryMenuPosition(
       constraints,
@@ -3843,6 +3901,108 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
   @override
   bool consumesKey(PasteTextIntent intent) =>
       callingAction?.consumesKey(intent) ?? true;
+}
+
+class _MobileComposerImageToolbar extends StatelessWidget {
+  const _MobileComposerImageToolbar({required this.media});
+
+  final ComposerMediaEditingCoordinator media;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = media.value;
+    final image = state.selectedImage!;
+    const scales = [50, 75, 100];
+    final scale = scales.contains(image.scale) ? image.scale! : 100;
+    final index = scales.indexOf(scale);
+    return TextFieldTapRegion(
+      child: DCard(
+        key: const ValueKey('composer-image-toolbar'),
+        spacing: DSpacing.sm,
+        child: DCardContent(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: DSpacing.controlGap,
+            children: [
+              DInput(
+                key: const ValueKey('composer-image-description'),
+                controller: media.imageAlt,
+                semanticLabel: context.l10n.imageDescription,
+                hintText: context.l10n.addImageDescription,
+                prefix: const DIcon(DIcons.pen),
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => media.updateImageAlt(),
+                onSubmitted: (_) => media.dismissImage(),
+              ),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: DSpacing.controlGap,
+                children: [
+                  if (state.selectedImageGallery == null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DButton.iconOnly(
+                          onPressed: index > 0
+                              ? () => media.scaleImage(
+                                  scales[index - 1],
+                                  requestFocus: false,
+                                )
+                              : null,
+                          variant: DButtonVariant.ghost,
+                          tooltip: context.l10n.decreaseImageSize,
+                          icon: const DIcon(DIcons.minus),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: DSpacing.xs,
+                          ),
+                          child: Text('$scale%'),
+                        ),
+                        DButton.iconOnly(
+                          onPressed: index < scales.length - 1
+                              ? () => media.scaleImage(
+                                  scales[index + 1],
+                                  requestFocus: false,
+                                )
+                              : null,
+                          variant: DButtonVariant.ghost,
+                          tooltip: context.l10n.increaseImageSize,
+                          icon: const DIcon(DIcons.plus),
+                        ),
+                      ],
+                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.controlGap,
+                    children: [
+                      DButton(
+                        onPressed: media.deleteSelectedImage,
+                        variant: DButtonVariant.ghost,
+                        foregroundColor: DTokens.of(context).destructive,
+                        tooltip: context.l10n.deleteImage,
+                        semanticLabel: context.l10n.deleteImage,
+                        icon: const DIcon(DIcons.trashCan),
+                        label: Text(context.l10n.removeImage),
+                      ),
+                      DButton.iconOnly(
+                        onPressed: media.dismissImage,
+                        variant: DButtonVariant.ghost,
+                        tooltip: context.l10n.done,
+                        icon: const DIcon(DIcons.check),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ImageComposerMenu extends StatelessWidget {
@@ -4847,15 +5007,34 @@ class _Footer extends StatelessWidget {
       controller.siteConfigFor(composer.target.siteUrl),
       controller.freshCurrentUserFor(composer.target.siteUrl),
     ),
-    builder: (context, _, _) => _buildFooter(context),
+    builder: (context, _, _) => ValueListenableBuilder(
+      valueListenable: _ComposerImageToolbarScope.maybeOf(context)!,
+      builder: (context, media, _) {
+        if (!context.isTouch || media == null || !composer.isEditing) {
+          return _buildFooter(context);
+        }
+        return ListenableBuilder(
+          listenable: media,
+          builder: (context, _) => _buildFooter(
+            context,
+            imageMedia: media.value.selectedImage == null ? null : media,
+          ),
+        );
+      },
+    ),
   );
 
-  Widget _buildFooter(BuildContext context) {
+  Widget _buildFooter(
+    BuildContext context, {
+    ComposerMediaEditingCoordinator? imageMedia,
+  }) {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
-    final pluginControls = registry.composerFooter(context, composer);
+    final pluginControls = imageMedia == null
+        ? registry.composerFooter(context, composer)
+        : <Widget>[];
 
     final status = message == null
         ? const SizedBox.shrink()
@@ -4985,7 +5164,9 @@ class _Footer extends StatelessWidget {
               if (toolbar != null)
                 Flexible(
                   fit: FlexFit.tight,
-                  child: context.isTouch
+                  child: imageMedia != null
+                      ? _MobileComposerImageToolbar(media: imageMedia)
+                      : context.isTouch
                       ? DCard(
                           key: const ValueKey('composer-toolbar-bar'),
                           variant: DCardVariant.capsule,
