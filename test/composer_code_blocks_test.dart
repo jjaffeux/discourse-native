@@ -6,7 +6,9 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -22,6 +24,27 @@ Finder get _codeInput => find.descendant(
   of: find.byType(DCodeEditor),
   matching: find.byType(EditableText),
 );
+
+Future<void> _backspace(
+  WidgetTester tester,
+  ComposerController composer, {
+  required bool softwareKeyboard,
+}) async {
+  if (softwareKeyboard) {
+    final value = composer.value;
+    final selection = value.selection;
+    final start = selection.isCollapsed ? selection.start - 1 : selection.start;
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: value.text.replaceRange(start, selection.end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      ),
+    );
+  } else {
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+  }
+  await tester.pump();
+}
 
 Future<ComposerController> _pump(
   WidgetTester tester,
@@ -80,6 +103,164 @@ Future<ComposerController> _pump(
 }
 
 void main() {
+  for (final before in [true, false]) {
+    testWidgets(
+      'Shift-arrow selects code from the ${before ? 'leading' : 'trailing'} boundary for deletion',
+      (tester) async {
+        const source = 'Before\n\n```dart\nprint(1);\n```\n\nAfter';
+        final composer = await _pump(tester, source);
+        final block = parseComposerCodeBlocks(source).single;
+        composer.text.moveCaretBesideComponent(
+          composer.text.syntaxBlocks.single,
+          before: before,
+        );
+        composer.requestFocus();
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(
+          before ? LogicalKeyboardKey.arrowRight : LogicalKeyboardKey.arrowLeft,
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pump();
+        expect(
+          composer.text.selection,
+          TextSelection(
+            baseOffset: before ? block.start : block.end,
+            extentOffset: before ? block.end : block.start,
+          ),
+        );
+        expect(
+          tester
+              .widgetList<DItem>(find.byType(DItem))
+              .where((item) => item.selected),
+          hasLength(1),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await tester.pump();
+        expect(find.byType(DCodeEditor), findsNothing);
+        expect(composer.raw, 'Before\n\n\n\nAfter');
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
+  testWidgets(
+    'a native caret inside hidden code selects the block for deletion',
+    (tester) async {
+      const source = 'Before\n\n```dart\nprint(1);\n```\n\nAfter';
+      final composer = await _pump(tester, source);
+      final block = parseComposerCodeBlocks(source).single;
+      composer.requestFocus();
+      await tester.pump();
+      tester.testTextInput.updateEditingValue(
+        composer.value.copyWith(
+          selection: TextSelection.collapsed(offset: block.end - 1),
+        ),
+      );
+      await tester.pump();
+      expect(
+        composer.text.selection,
+        TextSelection(baseOffset: block.start, extentOffset: block.end),
+      );
+      expect(composer.text.keyboardSelectedProjection, isNotNull);
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: source.replaceRange(block.start, block.end, ''),
+          selection: TextSelection.collapsed(offset: block.start),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(DCodeEditor), findsNothing);
+      expect(composer.raw, 'Before\n\n\n\nAfter');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.mobile(),
+  );
+
+  for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+    for (final suffix in ['', '\n', '\n\n', '\n\nAfter']) {
+      testWidgets(
+        'backspace after clicking below code removes the block (${suffix.length}, $kind)',
+        (tester) async {
+          const block = '```dart\nprint(1);\n```';
+          final composer = await _pump(tester, '$block$suffix', width: 390);
+          await tester.tap(_codeInput, kind: kind);
+          await tester.pumpAndSettle();
+          final rect = tester.getRect(find.byType(ComposerCodeBlockEditor));
+          await tester.tapAt(
+            Offset(rect.left + 2, rect.bottom + 16),
+            kind: kind,
+          );
+          await tester.pumpAndSettle();
+          expect(composer.focus.hasPrimaryFocus, isTrue);
+          expect(
+            composer.text.selection.extentOffset,
+            greaterThanOrEqualTo(block.length),
+          );
+          for (
+            var i = 0;
+            i < 4 && find.byType(DCodeEditor).evaluate().isNotEmpty;
+            i++
+          ) {
+            await _backspace(
+              tester,
+              composer,
+              softwareKeyboard: kind == PointerDeviceKind.touch,
+            );
+          }
+          expect(find.byType(DCodeEditor), findsNothing);
+          expect(composer.raw, suffix.trim());
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(
+          kind == PointerDeviceKind.mouse
+              ? TargetPlatform.macOS
+              : TargetPlatform.iOS,
+        ),
+      );
+    }
+  }
+
+  for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+    testWidgets(
+      'clicking the code header selects the whole block for deletion ($kind)',
+      (tester) async {
+        const source = 'Before\n\n```dart\nprint(1);\n```\n\nAfter';
+        final composer = await _pump(tester, source);
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        await tester.tap(_codeInput, kind: kind);
+        await tester.pumpAndSettle();
+        final rect = tester.getRect(find.byType(ComposerCodeBlockEditor));
+        await tester.tapAt(Offset(rect.right - 16, rect.top + 16), kind: kind);
+        await tester.pumpAndSettle();
+        expect(composer.text.keyboardSelectedProjection, isNotNull);
+        expect(composer.focus.hasPrimaryFocus, isTrue);
+        final block = parseComposerCodeBlocks(source).single;
+        expect(
+          composer.text.selection,
+          TextSelection(baseOffset: block.start, extentOffset: block.end),
+        );
+        await _backspace(
+          tester,
+          composer,
+          softwareKeyboard: kind == PointerDeviceKind.touch,
+        );
+        expect(find.byType(DCodeEditor), findsNothing);
+        expect(composer.raw, 'Before\n\n\n\nAfter');
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(
+        kind == PointerDeviceKind.mouse
+            ? TargetPlatform.macOS
+            : TargetPlatform.iOS,
+      ),
+    );
+  }
+
   test('closed fences preserve surrounding text, whitespace and CRLF', () {
     const source =
         'Before\r\n\r\n  ~~~~  ruby  \r\n  puts 1\r\n\r\n  ~~~~~ \r\nAfter';

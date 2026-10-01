@@ -26,6 +26,7 @@ const _target = ComposerTarget(
 const _table = '| Name | Cost |\n| --- | --- |\n| Tea | 12 |';
 const _blocks = {
   'table': _table,
+  'code': '```dart\nprint("hello");\n```',
   'event': '[event start="2026-09-22 12:00" name="Meeting"]\nAgenda\n[/event]',
   'mermaid': '```mermaid\nflowchart TD\n  A --> B\n```',
   'details': '[details="Summary"]\nBody\n[/details]',
@@ -112,7 +113,6 @@ void main() {
     'date': '[date=2026-09-30 timezone=Etc/UTC]',
     'date range':
         '[date-range from=2026-09-30T09:00:00 to=2026-09-30T10:00:00 timezone=Etc/UTC]',
-    'code': '```dart\nprint("hello");\n```',
     'link': '[Discourse](https://discourse.org)',
   }.entries) {
     testWidgets(

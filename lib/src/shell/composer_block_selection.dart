@@ -7,13 +7,16 @@ class ComposerBlockSelection extends StatelessWidget {
     super.key,
     required this.selected,
     required this.child,
+    this.onPressed,
   });
 
   final bool selected;
   final Widget child;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) => DItem(
+    onPressed: onPressed,
     selected: selected,
     selectionStyle: DItemSelectionStyle.outline,
     shape: DItemShape.card,
