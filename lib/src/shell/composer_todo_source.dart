@@ -1,3 +1,4 @@
+import 'composer_html_comments.dart';
 import 'composer_list_source.dart';
 import 'composer_task_marker.dart';
 import 'markdown_highlight.dart';
@@ -65,7 +66,10 @@ List<ComposerTodo> composerTodos(
     visit(item, (offset) => offset, null);
   }
   if (matches.isEmpty) return structured;
-  final code = codeRanges ?? markdownCodeRanges(source);
+  final comments = ComposerHtmlComments(source);
+  final code = comments.isEmpty
+      ? codeRanges ?? markdownCodeRanges(source)
+      : markdownCodeRanges(comments.mask(source));
   final references = {
     ...referenceMarkers,
     ...composerTaskReferences(source, includeLinkLabels: true),
@@ -73,7 +77,8 @@ List<ComposerTodo> composerTodos(
   return [
     ...structured,
     for (final match in matches)
-      if (!code.overlaps(match.start, match.end) &&
+      if (!comments.contains(match.start + match[1]!.length) &&
+          !code.overlaps(match.start, match.end) &&
           !lists.any(
             (item) => match.start >= item.start && match.start < item.end,
           ) &&

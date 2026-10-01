@@ -1,5 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 
+import 'composer_html_comments.dart';
 import 'composer_task_marker.dart';
 
 /// A lossless view of a Markdown list item. Indentation belongs to the source;
@@ -181,6 +182,7 @@ List<ComposerListItem> _composerListItems(
   required Set<String> referenceMarkers,
   bool recognizeTasks = true,
 }) {
+  final comments = ComposerHtmlComments(source);
   final references = referenceMarkers;
   final lines = <({int start, int end, String text})>[];
   var start = 0;
@@ -211,6 +213,10 @@ List<ComposerListItem> _composerListItems(
       continue;
     }
     final line = lines[i];
+    if (comments.contains(line.start + _indentCharacters(line.text, 4))) {
+      i++;
+      continue;
+    }
     final fence = _fence.firstMatch(line.text);
     if (outerFence != null) {
       if (_closesFence(line.text, outerFence)) outerFence = null;
@@ -290,7 +296,7 @@ List<ComposerListItem> _composerListItems(
         }
       } else if (itemFence != null) {
         if (_closesFence(relative, itemFence)) itemFence = null;
-      } else {
+      } else if (!comments.contains(following.start + removed)) {
         final nested = _listMarker.firstMatch(relative);
         if (nested != null &&
             nested[1]!.length <= 3 &&
