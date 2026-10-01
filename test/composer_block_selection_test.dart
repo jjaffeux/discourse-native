@@ -276,11 +276,23 @@ void main() {
         final caret = source.length - 1;
         composer.text.selection = TextSelection.collapsed(offset: caret);
         await tester.pump();
-        expect(composer.text.selection.extentOffset, caret);
+        final selection = composer.text.selection;
+        if (entry.key == 'code') {
+          // Code promotes the hidden caret to an explicit block selection.
+          expect(
+            selection,
+            TextSelection(baseOffset: 8, extentOffset: source.length),
+          );
+        } else {
+          expect(selection, TextSelection.collapsed(offset: caret));
+        }
+        final deletionStart = selection.isCollapsed
+            ? caret - 1
+            : selection.start;
         tester.testTextInput.updateEditingValue(
           TextEditingValue(
-            text: source.replaceRange(caret - 1, caret, ''),
-            selection: TextSelection.collapsed(offset: caret - 1),
+            text: source.replaceRange(deletionStart, selection.end, ''),
+            selection: TextSelection.collapsed(offset: deletionStart),
           ),
         );
         await tester.pump();
