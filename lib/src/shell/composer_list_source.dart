@@ -221,6 +221,10 @@ List<ComposerListItem> composerListItems(
     var next = i + 1;
     var blank = false;
     var paragraph = remainder.isNotEmpty;
+    // Lazy lines belong to the innermost paragraph, even when they are not
+    // indented into its list. Keep each nested content column until a block
+    // boundary returns ownership to an ancestor.
+    final continuationIndents = <int>[contentIndent];
     String? itemFence = _fence.firstMatch(remainder)?[1];
     // An enclosing block's closing tag ends its content as the end of the
     // document would.
@@ -237,9 +241,10 @@ List<ComposerListItem> composerListItems(
         next++;
         continue;
       }
-      final removed = _indentCharacters(following.text, contentIndent);
+      final currentIndent = continuationIndents.last;
+      final removed = _indentCharacters(following.text, currentIndent);
       final width = _indentWidth(following.text.substring(0, removed));
-      final belongs = width >= contentIndent;
+      final belongs = width >= currentIndent;
       final relative = following.text.substring(removed);
       if (!belongs) {
         final closing = blocks[next];
@@ -247,22 +252,54 @@ List<ComposerListItem> composerListItems(
             blank ||
             !paragraph ||
             _listMarker.hasMatch(following.text) ||
-            _interrupt.hasMatch(following.text) ||
-            _fence.hasMatch(following.text) ||
-            _rule.hasMatch(following.text) ||
+            _interrupt.hasMatch(relative) ||
+            _fence.hasMatch(relative) ||
+            _rule.hasMatch(relative) ||
             (closing != null && closing < limit)) {
+          if (continuationIndents.length > 1) {
+            continuationIndents.removeLast();
+            itemFence = null;
+            paragraph = false;
+            continue;
+          }
           break;
         }
       } else if (itemFence != null) {
         if (_closesFence(relative, itemFence)) itemFence = null;
       } else {
-        final opened = _fence.firstMatch(relative);
-        if (opened != null) itemFence = opened[1];
-        paragraph =
-            opened == null &&
-            !_listMarker.hasMatch(relative) &&
-            !_interrupt.hasMatch(relative) &&
-            !relative.startsWith('    ');
+        final nested = _listMarker.firstMatch(relative);
+        if (nested != null &&
+            nested[1]!.length <= 3 &&
+            !_rule.hasMatch(relative)) {
+          final markerEnd =
+              currentIndent + nested[1]!.length + nested[2]!.length;
+          final gapWidth = _indentWidth(nested[3]!, markerEnd);
+          continuationIndents.add(
+            markerEnd + (gapWidth > 4 ? 1 : gapWidth.clamp(1, 4)),
+          );
+          final content = relative.substring(
+            gapWidth > 4
+                ? nested[1]!.length + nested[2]!.length + 1
+                : nested.end,
+          );
+          itemFence = _fence.firstMatch(content)?[1];
+          paragraph =
+              content.isNotEmpty &&
+              itemFence == null &&
+              (_taskMarker.hasMatch(content) ||
+                  !_interrupt.hasMatch(content)) &&
+              !_rule.hasMatch(content) &&
+              !content.startsWith('    ');
+        } else {
+          final opened = _fence.firstMatch(relative);
+          if (opened != null) itemFence = opened[1];
+          paragraph =
+              opened == null &&
+              !_listMarker.hasMatch(relative) &&
+              !_interrupt.hasMatch(relative) &&
+              !_rule.hasMatch(relative) &&
+              !relative.startsWith('    ');
+        }
       }
       blank = false;
       last = next++;
