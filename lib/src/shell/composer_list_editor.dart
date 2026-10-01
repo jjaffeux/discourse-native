@@ -463,6 +463,39 @@ class ComposerListBodyController extends ComposerController {
     }
   }
 
+  TextEditingValue _preserveChildBoundary(
+    TextEditingValue before,
+    TextEditingValue after,
+  ) {
+    final removed = before.text.length - after.text.length;
+    if (removed <= 0 ||
+        !after.selection.isValid ||
+        !after.selection.isCollapsed) {
+      return after;
+    }
+    final start = after.selection.start;
+    final end = start + removed;
+    if (end > before.text.length ||
+        (before.selection.isCollapsed
+            ? start != before.selection.start && end != before.selection.start
+            : start != before.selection.start || end != before.selection.end) ||
+        after.text != before.text.replaceRange(start, end, '')) {
+      return after;
+    }
+    // The child's marker is hidden in its own editor. Its leading newline
+    // must survive deletion of surrounding prose, even when that range also
+    // includes the parent's entire first line. Body newlines are normalized.
+    if (_item.children.any((child) => child.start == end) &&
+        before.text[end - 1] == '\n') {
+      if (start == end - 1) return before;
+      return after.copyWith(
+        text: before.text.replaceRange(start, end - 1, ''),
+        composing: TextRange.empty,
+      );
+    }
+    return after;
+  }
+
   TextEditingValue _formatInput(
     TextEditingValue before,
     TextEditingValue after,
@@ -470,8 +503,11 @@ class ComposerListBodyController extends ComposerController {
     if (!isEditing ||
         !_matches ||
         !before.composing.isCollapsed ||
-        !after.composing.isCollapsed ||
         !before.selection.isValid) {
+      return after;
+    }
+    after = _preserveChildBoundary(before, after);
+    if (!after.composing.isCollapsed) {
       return after;
     }
     final selection = before.selection;

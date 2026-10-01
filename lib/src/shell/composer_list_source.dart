@@ -119,9 +119,23 @@ class ComposerListBody {
     final replacement = after
         .substring(from, newEnd)
         .replaceAll('\n', '${item.newline}${item.continuationPrefix}');
+    var sourceStart = sourceOffset(from);
+    var sourceEnd = sourceOffset(oldEnd);
+    if (replacement.isEmpty &&
+        from > 0 &&
+        oldEnd > from &&
+        oldEnd < text.length &&
+        text[from - 1] == '\n' &&
+        text[oldEnd - 1] == '\n') {
+      // A shared leading newline can put a whole-line deletion after the
+      // hidden indentation. Keep the untouched suffix line's own prefix,
+      // rather than consuming it or inheriting the removed line's prefix.
+      sourceStart = item.document.lastIndexOf('\n', sourceStart - 1) + 1;
+      sourceEnd = item.document.lastIndexOf('\n', sourceEnd - 1) + 1;
+    }
     return item.source.replaceRange(
-      sourceOffset(from) - item.start,
-      sourceOffset(oldEnd) - item.start,
+      sourceStart - item.start,
+      sourceEnd - item.start,
       replacement,
     );
   }

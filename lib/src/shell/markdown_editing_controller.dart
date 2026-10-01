@@ -161,7 +161,10 @@ class MarkdownEditingController extends TextEditingController {
         // Embedded components own their projected boundary carets and deletion.
         if (block.kind != ComposerBlockKind.component &&
             (i + 1 == index.blocks.length ||
-                index.blocks[i + 1].kind != ComposerBlockKind.component))
+                (index.blocks[i + 1].kind != ComposerBlockKind.component &&
+                    // Removing an extra blank line before a nested row must
+                    // leave its required leading newline intact.
+                    !(compactListSpacing && _isListRow(index.blocks[i + 1])))))
           ?_paragraphBreakAt(block.end),
     ];
     _blockGaps = [
