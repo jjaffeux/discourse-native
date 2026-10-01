@@ -1831,11 +1831,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
           icon: DIcons.list,
           keywords: const ['todo', 'to-do', 'task', 'checklist', 'checkbox'],
           onInvoke: () {
-            if (composer.isEditing) {
-              composer.history.transact(() {
-                composer.text.value = insertComposerTodo(composer.text.value);
-              });
+            if (!composer.isEditing) return;
+            if (composer is ComposerListBodyController && composer.setTodo()) {
+              return;
             }
+            composer.history.transact(() {
+              composer.text.value = insertComposerTodo(composer.text.value);
+            });
           },
         ),
         ComposerSlashAction(
