@@ -73,7 +73,7 @@ final class ComposerCodePolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class _CodeProjection implements ComposerInteractiveSyntaxProjection {
+final class _CodeProjection implements ComposerAtomicSelectionProjection {
   _CodeProjection(this.composer, this.block);
   final ComposerController composer;
   final ComposerCodeBlock block;
@@ -123,6 +123,7 @@ final class _CodeProjection implements ComposerInteractiveSyntaxProjection {
         style: context.baseStyle,
         child: ComposerBlockSelection(
           selected: context.highlighted,
+          onPressed: composer.isEditing ? select : null,
           child: ComposerCodeBlockEditor(
             key: context.pillKey,
             composer: composer,
@@ -153,6 +154,19 @@ final class _CodeProjection implements ComposerInteractiveSyntaxProjection {
         case final _ComposerCodeBlockEditorState state) {
       state.edit();
     }
+  }
+
+  void select() {
+    if (!composer.isCurrent || !composer.isEditing) return;
+    final text = composer.text;
+    final occurrence = text.syntaxAtOffset(start);
+    if (occurrence == null || occurrence.source != source) return;
+    text.releaseSyntaxPointerEdit(occurrence);
+    composer.autocomplete.dismiss();
+    text.clearKeyboardPillSelection();
+    text.selection = TextSelection(baseOffset: start, extentOffset: end);
+    text.selectPillForKeyboard(occurrence);
+    composer.requestFocus();
   }
 
   @override

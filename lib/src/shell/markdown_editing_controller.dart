@@ -378,6 +378,11 @@ class MarkdownEditingController extends TextEditingController {
     if (_preserveSyntaxPointerSelection && newValue.text == current.text) {
       return;
     }
+    if (newValue.text == current.text &&
+        newValue.selection.isValid &&
+        newValue.composing.isCollapsed) {
+      newValue = _normalizeAtomicSelection(newValue);
+    }
     if (newValue.text != current.text ||
         !newValue.selection.isCollapsed ||
         newValue.selection.extentOffset != _boundaryCaretOffset) {
@@ -444,6 +449,47 @@ class MarkdownEditingController extends TextEditingController {
     }
     super.value = newValue;
   }
+
+  TextEditingValue _normalizeAtomicSelection(TextEditingValue document) {
+    var selection = document.selection;
+    for (final block in _syntaxBlocksFor(document.text)) {
+      if (block.projection is! ComposerAtomicSelectionProjection ||
+          block.projection.needsRawSource(
+            document,
+            suppressCollapsedCaret: false,
+          )) {
+        continue;
+      }
+      bool inside(int offset) => offset > block.start && offset < block.end;
+      // Only the nested editor can edit this source. Native arrows and drag
+      // selection must not strand a caret or a range inside hidden Markdown.
+      if (selection.isCollapsed) {
+        if (inside(selection.extentOffset)) {
+          selection = TextSelection.collapsed(offset: block.start);
+          break;
+        }
+      } else {
+        final forward = selection.baseOffset < selection.extentOffset;
+        selection = selection.copyWith(
+          baseOffset: inside(selection.baseOffset)
+              ? (forward ? block.start : block.end)
+              : selection.baseOffset,
+          extentOffset: inside(selection.extentOffset)
+              ? (forward ? block.end : block.start)
+              : selection.extentOffset,
+        );
+      }
+    }
+    return document.copyWith(selection: selection);
+  }
+
+  bool _isSyntaxHighlighted(ComposerSyntaxOccurrence block) =>
+      isPillSelectedForKeyboard(block) ||
+      (block.projection is ComposerAtomicSelectionProjection &&
+          selection.isValid &&
+          !selection.isCollapsed &&
+          selection.start <= block.start &&
+          selection.end >= block.end);
 
   Object? _blockStartingAt(TextEditingValue document) {
     final offset = document.selection.extentOffset;
@@ -1316,7 +1362,7 @@ class MarkdownEditingController extends TextEditingController {
             block.start,
             block.end,
             block.source,
-            isPillSelectedForKeyboard(block),
+            _isSyntaxHighlighted(block),
             isSyntaxHovered(block),
           ),
         ),
@@ -1753,7 +1799,7 @@ class MarkdownEditingController extends TextEditingController {
                   debugLabel: '${block.kind.id}-pill-${block.start}',
                 ),
               ),
-              highlighted: isPillSelectedForKeyboard(block),
+              highlighted: _isSyntaxHighlighted(block),
               hovered: isSyntaxHovered(block),
               followedByLineBreak: syntaxCaretAfter(block) > block.end,
             ),

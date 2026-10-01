@@ -188,6 +188,11 @@ abstract interface class ComposerParagraphSpacingProjection
 abstract interface class ComposerInteractiveSyntaxProjection
     implements ComposerBlockSyntaxProjection {}
 
+/// An embedded editor whose hidden source is selected only as a whole in the
+/// outer document. Its inner editor owns all caret positions within the block.
+abstract interface class ComposerAtomicSelectionProjection
+    implements ComposerInteractiveSyntaxProjection {}
+
 /// The least authority a plugin needs to inspect and safely edit one composer.
 abstract interface class ComposerEditorHost {
   String get siteUrl;
