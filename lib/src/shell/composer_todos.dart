@@ -86,10 +86,35 @@ class ComposerTodoInputFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     if (!oldValue.selection.isValid ||
-        !oldValue.selection.isCollapsed ||
         !oldValue.composing.isCollapsed ||
         !newValue.composing.isCollapsed) {
       return newValue;
+    }
+    if (!oldValue.selection.isCollapsed) {
+      final selection = oldValue.selection;
+      final newline = oldValue.text.contains('\r\n') ? '\r\n' : '\n';
+      if (newValue.text !=
+              oldValue.text.replaceRange(
+                selection.start,
+                selection.end,
+                newline,
+              ) ||
+          newValue.selection !=
+              TextSelection.collapsed(
+                offset: selection.start + newline.length,
+              ) ||
+          !composerTodos(oldValue.text, referenceMarkers: referenceMarkers).any(
+            (todo) =>
+                selection.start >= todo.contentStart &&
+                selection.end <= (todo.itemEnd ?? todo.end),
+          )) {
+        return newValue;
+      }
+      // Reuse collapsed Return semantics after deleting the selected body.
+      oldValue = oldValue.copyWith(
+        text: oldValue.text.replaceRange(selection.start, selection.end, ''),
+        selection: TextSelection.collapsed(offset: selection.start),
+      );
     }
     final caret = oldValue.selection.extentOffset;
     if (newValue.text == oldValue.text.replaceRange(caret, caret, ']') &&

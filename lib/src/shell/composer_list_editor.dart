@@ -471,45 +471,60 @@ class ComposerListBodyController extends ComposerController {
         !_matches ||
         !before.composing.isCollapsed ||
         !after.composing.isCollapsed ||
-        !before.selection.isValid ||
-        !before.selection.isCollapsed) {
+        !before.selection.isValid) {
       return after;
     }
-    final caret = before.selection.start;
-    if (after.text != before.text.replaceRange(caret, caret, '\n') ||
+    final selection = before.selection;
+    final caret = selection.start;
+    if (after.text != before.text.replaceRange(caret, selection.end, '\n') ||
+        !after.selection.isCollapsed ||
         after.selection.extentOffset != caret + 1) {
       return after;
     }
     if (HardwareKeyboard.instance.isShiftPressed) return after;
-    if (before.text.trim().isEmpty && parent is ComposerListBodyController) {
-      outdent();
-      return before;
-    }
     final code = markdownCodeRanges(before.text);
     if (code.contains(caret) || (caret > 0 && code.contains(caret - 1))) {
       return after;
     }
+    // Apply Return to the body remaining after the selection is removed,
+    // but commit both operations together so a single undo restores the text.
+    final body = before.copyWith(
+      text: before.text.replaceRange(caret, selection.end, ''),
+      selection: TextSelection.collapsed(offset: caret),
+    );
+    if (body.text.trim().isEmpty && parent is ComposerListBodyController) {
+      outdent(bodyValue: body);
+      return before;
+    }
     final offset = _item.body.sourceOffset(caret);
     final value = parent.value.copyWith(
+      text: parent.text.text.replaceRange(
+        offset,
+        _item.body.sourceOffset(selection.end),
+        '',
+      ),
       selection: TextSelection.collapsed(offset: offset),
     );
-    final newline = _item.newline;
-    final emptyBoundary = before.text.trim().isEmpty && _needsParagraphBoundary
+    final item = selection.isCollapsed
+        ? _item
+        : composerListItems(
+            value.text,
+            referenceMarkers: parent.text.todoReferenceMarkers,
+          ).where((item) => item.start == _item.start).firstOrNull;
+    if (item == null) return after;
+    final newline = item.newline;
+    final emptyBoundary = body.text.trim().isEmpty && _needsParagraphBoundary
         ? newline
         : '';
     // Empty tasks and ordinary list items need the same paragraph boundary.
-    var next = before.text.trim().isEmpty
+    var next = body.text.trim().isEmpty
         ? TextEditingValue(
-            text: value.text.replaceRange(
-              _item.start,
-              _item.end,
-              emptyBoundary,
-            ),
+            text: value.text.replaceRange(item.start, item.end, emptyBoundary),
             selection: TextSelection.collapsed(
-              offset: _item.start + emptyBoundary.length,
+              offset: item.start + emptyBoundary.length,
             ),
           )
-        : _item.isTask
+        : item.isTask
         ? ComposerTodoInputFormatter(
             referenceMarkers: parent.text.todoReferenceMarkers,
           ).formatEditUpdate(
@@ -525,22 +540,22 @@ class ComposerListBodyController extends ComposerController {
             text: value.text.replaceRange(
               offset,
               offset,
-              '$newline${_item.nextPrefix}',
+              '$newline${item.nextPrefix}',
             ),
             selection: TextSelection.collapsed(
-              offset: offset + newline.length + _item.nextPrefix.length,
+              offset: offset + newline.length + item.nextPrefix.length,
             ),
           );
     final lineStart = caret == 0
         ? 0
-        : before.text.lastIndexOf('\n', caret - 1) + 1;
-    if (caret == before.text.length &&
+        : body.text.lastIndexOf('\n', caret - 1) + 1;
+    if (caret == body.text.length &&
         lineStart > 0 &&
-        before.text.trim().isNotEmpty &&
-        before.text.substring(lineStart).trim().isEmpty) {
+        body.text.trim().isNotEmpty &&
+        body.text.substring(lineStart).trim().isEmpty) {
       // Uploads leave a continuation line ready for typing. Starting the next
       // item reuses that line instead of leaving an empty row behind.
-      final breakStart = _item.body.sourceOffset(lineStart - 1);
+      final breakStart = item.body.sourceOffset(lineStart - 1);
       next = next.copyWith(
         text: next.text.replaceRange(breakStart, offset, ''),
         selection: TextSelection.collapsed(
@@ -548,7 +563,7 @@ class ComposerListBodyController extends ComposerController {
         ),
       );
     }
-    _scheduleCommand(value.text, next);
+    _scheduleCommand(parent.text.text, next);
     return before;
   }
 
@@ -654,7 +669,7 @@ class ComposerListBodyController extends ComposerController {
 
   bool get canIndent => _indentParent != null;
 
-  void outdent() {
+  void outdent({TextEditingValue? bodyValue}) {
     if (!canOutdent) return;
     final outer = parent;
     if (outer is! ComposerListBodyController) return;
@@ -664,7 +679,10 @@ class ComposerListBodyController extends ComposerController {
     final start = from == 0 ? 0 : value.text.lastIndexOf('\n', from - 1) + 1;
     final end = outer.item.body.sourceOffset(_item.end);
     final prefix = ' ' * outer.item.indent;
-    final promoted = _item.source
+    final source = bodyValue == null
+        ? _item.source
+        : _item.body.replace(bodyValue.text);
+    final promoted = source
         .split(RegExp(r'\r?\n'))
         .map(
           (line) =>
@@ -675,7 +693,8 @@ class ComposerListBodyController extends ComposerController {
       promoted,
       referenceMarkers: parent.text.todoReferenceMarkers,
     ).first;
-    final caret = text.selection.isValid ? text.selection.extentOffset : 0;
+    final selection = bodyValue?.selection ?? text.selection;
+    final caret = selection.isValid ? selection.extentOffset : 0;
     final next = TextEditingValue(
       text: value.text.replaceRange(start, end, promoted),
       selection: TextSelection.collapsed(
