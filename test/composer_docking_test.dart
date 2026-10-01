@@ -823,7 +823,7 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final origin in ['header', 'body']) {
+    for (final origin in ['header', 'body', 'bottom']) {
       for (final keyboard in [0.0, 300.0]) {
         testWidgets(
           '$platform composer swipes from $origin and saves the draft (keyboard: $keyboard)',
@@ -856,7 +856,13 @@ void main() {
                 .widget<CustomScrollView>(viewport)
                 .controller!;
             // The pinned header must drag the sheet even far into the draft.
-            scroll.jumpTo(origin == 'header' ? 400 : 0);
+            scroll.jumpTo(
+              origin == 'bottom'
+                  ? scroll.position.maxScrollExtent
+                  : origin == 'header'
+                  ? 400
+                  : 0,
+            );
             await tester.pumpAndSettle();
             final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
             final top = tester.getTopLeft(sheet).dy;
@@ -864,10 +870,17 @@ void main() {
                 ? tester.getCenter(
                     find.byKey(const ValueKey('composer-header')),
                   )
+                : origin == 'bottom'
+                ? tester.getBottomLeft(viewport) + const Offset(80, -24)
                 : tester.getTopLeft(viewport) + const Offset(80, 180);
+            expect(tester.getRect(viewport).contains(start), isTrue);
+            expect(start.dy, lessThan(800 - keyboard));
             final gesture = await tester.startGesture(start);
-            await gesture.moveBy(const Offset(0, 30));
-            await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
+            final direction = origin == 'bottom' ? -1.0 : 1.0;
+            await gesture.moveBy(Offset(0, direction * 30));
+            await gesture.moveBy(
+              Offset(0, direction * (origin == 'body' ? 600 : 300)),
+            );
             await tester.pump();
             expect(tester.getTopLeft(sheet).dy, greaterThan(top + 50));
             if (origin == 'header') expect(scroll.offset, 400);

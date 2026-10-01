@@ -85,8 +85,9 @@ class DSheet<T> extends StatelessWidget {
   final bool dismissOnBarrier;
   final bool dismissOnEscape;
 
-  /// Allows touch drags down from a bottom sheet's header or the top of its
-  /// scrollable content on mobile. Uses the same close request as [DSheetClose].
+  /// Allows mobile touch drags down from a bottom sheet's header and continued
+  /// scrolling beyond either content edge to pull the sheet down. Uses the
+  /// same close request as [DSheetClose].
   /// Releasing before 30% of the distance to the viewport bottom restores it.
   final bool dismissOnSwipe;
   final String? _barrierLabel;
@@ -663,6 +664,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   int? _pointer;
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
+  double _scrollDragDirection = 1;
   bool _dragging = false;
   bool _exiting = false;
   DOverlayRoute<dynamic, Object>? _route;
@@ -846,28 +848,43 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         (_scrollOrigin != null && _scrollOrigin != notification.context)) {
       return false;
     }
+    final details = switch (notification) {
+      OverscrollNotification(:final dragDetails) => dragDetails,
+      ScrollUpdateNotification(:final dragDetails) => dragDetails,
+      _ => null,
+    };
+    if (details == null) return false;
+    if (_scrollOrigin != null) {
+      // Once scrolling reaches an edge, track the finger like a header drag.
+      // Applying bouncing-scroll resistance here would swallow the handoff.
+      _update(details.delta.dy * _scrollDragDirection);
+      return false;
+    }
+
     double delta = 0;
-    if (notification is OverscrollNotification &&
-        notification.dragDetails != null &&
-        notification.overscroll < 0 &&
-        notification.metrics.pixels <= notification.metrics.minScrollExtent) {
-      delta = -notification.overscroll;
-    } else if (notification is ScrollUpdateNotification &&
-        notification.dragDetails != null) {
-      // Bouncing physics report movement outside the scroll range instead
-      // of OverscrollNotification. Only the part beyond the top drags us.
+    if (notification is OverscrollNotification) {
+      delta = notification.overscroll;
+    } else if (notification is ScrollUpdateNotification) {
+      // Bouncing physics move outside the range instead of reporting an
+      // OverscrollNotification. Transfer only movement beyond the edge.
       final pixels = notification.metrics.pixels;
       final minimum = notification.metrics.minScrollExtent;
+      final maximum = notification.metrics.maxScrollExtent;
       final previous = pixels - (notification.scrollDelta ?? 0);
-      delta = math.max(0, minimum - pixels) - math.max(0, minimum - previous);
-      if (_scrollOrigin != null && delta == 0) {
-        delta = math.min(0, notification.dragDetails!.delta.dy);
-      }
+      delta = pixels > maximum
+          ? math.max(0, pixels - maximum) - math.max(0, previous - maximum)
+          : math.max(0, minimum - previous) - math.max(0, minimum - pixels);
     }
-    if (delta != 0) {
+    final atTop =
+        notification.metrics.pixels <= notification.metrics.minScrollExtent;
+    final atBottom =
+        notification.metrics.pixels >= notification.metrics.maxScrollExtent;
+    if ((atTop && delta < 0 && details.delta.dy > 0) ||
+        (atBottom && delta > 0 && details.delta.dy < 0)) {
       if (!_dragging) _start();
       _scrollOrigin = notification.context;
-      _update(delta);
+      _scrollDragDirection = delta < 0 ? 1 : -1;
+      _update(delta.abs());
     }
     return false;
   }
@@ -917,7 +934,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       onPointerUp: (event) {
         if (event.pointer != _pointer) return;
         if (_scrollOrigin != null) {
-          _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
+          _finish(
+            (_velocity?.getVelocity().pixelsPerSecond.dy ?? 0) *
+                _scrollDragDirection,
+          );
         }
         _pointer = null;
         _velocity = null;

@@ -325,19 +325,29 @@ void main() {
       (1800.0, 'header'),
       (4000.0, 'header'),
       (1800.0, 'scroll'),
+      (1800.0, 'bottom scroll'),
       (1800.0, 'helper'),
       (400.0, 'retained header'),
       (1800.0, 'retained scroll'),
+      (1800.0, 'retained bottom scroll'),
     ]) {
       testWidgets('swipe exit retains $speed px/s from $origin on $platform', (
         tester,
       ) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
         await openSwipeSheet(
           tester,
           platform: platform,
+          scroll: scroll,
           imperative: origin == 'helper',
           retained: origin.startsWith('retained'),
         );
+        final fromBottom = origin.contains('bottom');
+        if (fromBottom) {
+          scroll.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+        }
         final sheet = find.byType(DSheetContent);
         final gesture = await tester.startGesture(
           tester.getCenter(
@@ -351,15 +361,12 @@ void main() {
           microseconds: (12 / speed * 1e6).round(),
         );
         // Build a real velocity history instead of a drag with zero timestamps.
-        // iOS overscroll resistance needs more finger travel to cross the
-        // same sheet dismissal threshold.
-        for (
-          var step = 0;
-          step < (origin.endsWith('scroll') ? 64 : 24);
-          step++
-        ) {
+        for (var step = 0; step < 24; step++) {
           elapsed += sampleDuration;
-          await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
+          await gesture.moveBy(
+            Offset(0, fromBottom ? -12 : 12),
+            timeStamp: elapsed,
+          );
           await tester.pump(sampleDuration);
         }
         final releaseTop = tester.getTopLeft(sheet).dy;
@@ -443,6 +450,110 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final presentation in ['sheet', 'helper', 'retained']) {
+      testWidgets(
+        'bottom overscroll dismisses the $platform $presentation downward',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openSwipeSheet(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            imperative: presentation == 'helper',
+            retained: presentation == 'retained',
+          );
+          final sheet = find.byType(DSheetContent);
+          final bounds = tester.getRect(sheet);
+          final list = find.byType(ListView);
+          final maximum = scroll.position.maxScrollExtent;
+          scroll.jumpTo(maximum - 400);
+          await tester.pumpAndSettle();
+          await tester.drag(list, const Offset(0, -120));
+          await tester.pumpAndSettle();
+          expect(scroll.offset, inExclusiveRange(maximum - 400, maximum));
+          expect(tester.getRect(sheet), bounds);
+
+          // A continuous drag first consumes the remaining content, then
+          // transfers the movement beyond its bottom to sheet dismissal.
+          scroll.jumpTo(maximum - 60);
+          await tester.pumpAndSettle();
+          final gesture = await tester.startGesture(tester.getCenter(list));
+          await gesture.moveBy(const Offset(0, -30));
+          await gesture.moveBy(const Offset(0, -100));
+          await tester.pump();
+          final top = tester.getTopLeft(sheet).dy;
+          expect(top, greaterThan(bounds.top));
+          await gesture.moveBy(const Offset(0, -120));
+          await tester.pump();
+          expect(tester.getTopLeft(sheet).dy, closeTo(top + 120, .01));
+          expect(backdropOpacity(tester), inExclusiveRange(0, 1));
+          await gesture.moveBy(const Offset(0, -160));
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'short, reversed, cancelled and ballistic bottom overscroll keep the $platform sheet open',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openSwipeSheet(tester, platform: platform, scroll: scroll);
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        final list = find.byType(ListView);
+        final maximum = scroll.position.maxScrollExtent;
+
+        scroll.jumpTo(maximum);
+        await tester.pumpAndSettle();
+        await tester.fling(list, const Offset(0, -100), 1800);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), bounds);
+        expect(backdropOpacity(tester), 1);
+
+        for (final cancelled in [false, true]) {
+          scroll.jumpTo(maximum);
+          await tester.pumpAndSettle();
+          final gesture = await tester.startGesture(tester.getCenter(list));
+          await gesture.moveBy(const Offset(0, -30));
+          await gesture.moveBy(const Offset(0, -280));
+          await tester.pump();
+          expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top + 250));
+          if (cancelled) {
+            await gesture.cancel();
+          } else {
+            await gesture.moveBy(const Offset(0, 280));
+            await tester.pump();
+            expect(tester.getTopLeft(sheet).dy, lessThan(bounds.top + 40));
+            await gesture.up();
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), bounds);
+          expect(backdropOpacity(tester), 1);
+        }
+
+        // Momentum reaching the boundary after release is not a dismiss drag.
+        scroll.jumpTo(maximum - 300);
+        await tester.pumpAndSettle();
+        await tester.fling(list, const Offset(0, -150), 1800);
+        await tester.pumpAndSettle();
+        expect(scroll.offset, closeTo(maximum, .01));
+        expect(tester.getRect(sheet), bounds);
+
+        // The next gesture can still dismiss from the opposite edge.
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.drag(list, const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets(
       'cancelled and ballistic overscroll keep the $platform sheet open',
       (tester) async {
@@ -592,8 +703,11 @@ void main() {
 
   for (final scenario in ['disabled', 'desktop', 'side', 'mouse']) {
     testWidgets('$scenario does not swipe-dismiss', (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
       await openSwipeSheet(
         tester,
+        scroll: scroll,
         dismissOnSwipe: scenario != 'disabled',
         platform: scenario == 'desktop'
             ? TargetPlatform.macOS
@@ -604,6 +718,17 @@ void main() {
       await tester.drag(
         find.text('Swipe sheet'),
         const Offset(0, 300),
+        kind: scenario == 'mouse'
+            ? PointerDeviceKind.mouse
+            : PointerDeviceKind.touch,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(DSheetContent)), bounds);
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -350),
         kind: scenario == 'mouse'
             ? PointerDeviceKind.mouse
             : PointerDeviceKind.touch,
