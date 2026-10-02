@@ -25,11 +25,13 @@ class ForumSearch extends StatefulWidget {
   const ForumSearch({
     super.key,
     this.dense = false,
+    this.size = DControlSize.large,
     this.fullScreen = false,
     this.showNavigationControls = true,
   });
 
   final bool dense;
+  final DControlSize size;
   final bool showNavigationControls;
 
   /// Mobile opens the editor and results on a dedicated navigation page.
@@ -361,7 +363,7 @@ class _ForumSearchState extends State<ForumSearch> {
       skipTraversal: true,
       onKeyEvent: _handleKey,
       child: DInputGroup(
-        size: DControlSize.large,
+        size: widget.size,
         borderless: expanded,
         children: [
           DInputGroupInput(

@@ -204,7 +204,7 @@ class _ShellWorkspaceState extends State<ShellWorkspace>
               : null,
           child: Padding(
             padding: EdgeInsetsDirectional.only(
-              top: MediaQuery.paddingOf(context).top,
+              top: MediaQuery.paddingOf(context).top + workspaceEdgeInset,
               end: workspaceEdgeInset,
               bottom: workspaceEdgeInset,
             ),

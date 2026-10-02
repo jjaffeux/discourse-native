@@ -104,7 +104,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop workspace leaves six pixels at the bottom and end', (
+  testWidgets('desktop workspace leaves six pixels at top, bottom and end', (
     tester,
   ) async {
     for (final direction in TextDirection.values) {
@@ -125,6 +125,7 @@ void main() {
       final content = tester.getRect(
         find.byKey(const ValueKey('workspace-content')),
       );
+      expect(content.top - frame.top, 6);
       expect(frame.bottom - content.bottom, 6);
       expect(
         direction == TextDirection.ltr
