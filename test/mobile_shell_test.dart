@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
@@ -2031,6 +2032,39 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('header icons stay on one line with enlarged text', (
+    tester,
+  ) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpMobileShellFixture(tester);
+
+    final controls = [
+      find.byKey(const ValueKey('mobile-menu-button')),
+      find.byKey(const ValueKey('mobile-search-button')),
+      find.byKey(ChatHeaderButton.buttonKey),
+      find.byKey(UserMenuButton.bellKey),
+      find.byKey(UserMenuButton.avatarKey),
+    ];
+    for (final width in [320.0, 390.0, 430.0, 600.0, 1024.0]) {
+      tester.view.physicalSize = Size(width, 844);
+      for (final scale in [1.0, 1.15, 1.3, 2.0]) {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        await tester.pumpAndSettle();
+
+        final header = tester.getRect(_header);
+        final centerY = tester.getCenter(controls.first).dy;
+        for (final control in controls) {
+          final rect = tester.getRect(control);
+          expect(rect.center.dy, closeTo(centerY, .01));
+          expect(rect.left, greaterThanOrEqualTo(header.left));
+          expect(rect.right, lessThanOrEqualTo(header.right));
+          expect(control.hitTestable(), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
 
   _mobileTest('forum identity stays logo-only and inert across mobile widths', (
     tester,
