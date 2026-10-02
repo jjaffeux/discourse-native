@@ -15,6 +15,117 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final (admin, provider, automatic) in [
+    (false, true, false),
+    (true, false, false),
+    (true, true, false),
+  ]) {
+    testWidgets(
+      'associated IDs admin=$admin provider=$provider automatic=$automatic respects serialized capability on save/reload',
+      (tester) async {
+        final server = _GroupServer(
+          staff: admin,
+          admin: admin,
+          provider: provider,
+          automatic: automatic,
+          subsection: GroupRoute.membership,
+        );
+        addTearDown(server.transport.close);
+        await server.pump(tester);
+        final input = tester.widget<DInput>(_field('associated_group_ids'));
+        final allowed = admin && provider;
+        expect(input.enabled, allowed);
+        if (allowed) {
+          await tester.ensureVisible(_field('associated_group_ids'));
+          await tester.enterText(_field('associated_group_ids'), '22');
+          await tester.pumpAndSettle();
+        } else {
+          // Retained/programmatic edits cannot dirty or submit a withheld field.
+          input.controller!.text = '22';
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<DButton>(
+                  find.byKey(const ValueKey('save-group-membership')),
+                )
+                .onPressed,
+            isNull,
+          );
+          await tester.tap(
+            find.widgetWithText(DSwitchTile, 'Members can leave'),
+          );
+          await tester.pumpAndSettle();
+        }
+        await server.save(tester);
+        expect(
+          server.writes.single,
+          allowed
+              ? containsPair('associated_group_ids', [22])
+              : isNot(contains('associated_group_ids')),
+        );
+        expect(server.group['associated_group_ids'], allowed ? [22] : [12]);
+        await server.pump(tester);
+        expect(
+          tester
+              .widget<DInput>(_field('associated_group_ids'))
+              .controller!
+              .text,
+          allowed ? '22' : '',
+        );
+        if (allowed) {
+          await tester.ensureVisible(_field('associated_group_ids'));
+          await tester.enterText(_field('associated_group_ids'), '');
+          await tester.pumpAndSettle();
+          await server.save(tester);
+          expect(server.writes.last['associated_group_ids'], isEmpty);
+          await server.pump(tester);
+          expect(
+            tester
+                .widget<DInput>(_field('associated_group_ids'))
+                .controller!
+                .text,
+            '',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('association provider changes rebind the same membership page', (
+    tester,
+  ) async {
+    final server = _GroupServer(
+      staff: true,
+      admin: true,
+      provider: false,
+      automatic: false,
+      subsection: GroupRoute.membership,
+    );
+    addTearDown(server.transport.close);
+    await server.pump(tester, replacePage: false);
+    final previous = tester.widget<DInput>(_field('associated_group_ids'));
+    expect(previous.enabled, isFalse);
+    server.provider = true;
+    await server.pump(tester, replacePage: false);
+    final enabled = tester.widget<DInput>(_field('associated_group_ids'));
+    expect(enabled.enabled, isTrue);
+    expect(enabled.controller, isNot(same(previous.controller)));
+    expect(enabled.controller!.text, '12');
+    await tester.ensureVisible(_field('associated_group_ids'));
+    await tester.enterText(_field('associated_group_ids'), '22');
+    await tester.pumpAndSettle();
+    await server.save(tester);
+    expect(server.group['associated_group_ids'], [22]);
+    server.provider = false;
+    await server.pump(tester, replacePage: false);
+    expect(
+      tester.widget<DInput>(_field('associated_group_ids')).enabled,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (staff, admin, automatic, smtpEnabled) in [
     (false, false, false, true),
     (true, false, false, true),
@@ -421,6 +532,7 @@ class _GroupServer {
     required this.automatic,
     bool? admin,
     this.smtpEnabled = false,
+    this.provider = false,
     this.subsection = GroupRoute.profile,
   }) : admin = admin ?? staff {
     group = {
@@ -445,6 +557,7 @@ class _GroupServer {
       'email_from_alias': 'Support',
       'allow_unknown_sender_topic_replies': false,
       'default_notification_level': 2,
+      'associated_group_ids': [12],
       'automatic': automatic,
       'can_admin_group': true,
       'is_group_owner': !staff,
@@ -474,6 +587,7 @@ class _GroupServer {
               'public_admission',
               'membership_request_template',
             ],
+            if (this.admin && provider) 'associated_group_ids',
             if (staff) ...['visibility_level', 'members_visibility_level'],
             if (!automatic) 'full_name',
             if (!automatic && staff) ...[
@@ -505,7 +619,11 @@ class _GroupServer {
           expect(request.method, 'GET');
           expect(request.url.path, '/groups/${group['name']}.json');
         }
-        return http.Response(jsonEncode({'group': group}), 200);
+        final wireGroup = Map<String, dynamic>.of(group);
+        if (!(this.admin && provider)) {
+          wireGroup.remove('associated_group_ids');
+        }
+        return http.Response(jsonEncode({'group': wireGroup}), 200);
       }),
     );
     api = GroupsApi(transport, const DiscourseModelCodec.core());
@@ -515,6 +633,7 @@ class _GroupServer {
   final bool admin;
   final bool automatic;
   final bool smtpEnabled;
+  bool provider;
   final String subsection;
   late final DiscourseApi transport;
   late final GroupsApi api;
@@ -522,7 +641,7 @@ class _GroupServer {
   final writes = <Map<String, dynamic>>[];
   var generation = 0;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {bool replacePage = true}) async {
     final detail = await tester.runAsync(
       () => api.detail(
         siteUrl: 'https://forum.example',
@@ -538,7 +657,7 @@ class _GroupServer {
         theme: AppTheme.light,
         home: Scaffold(
           body: GroupPage(
-            key: ValueKey(generation++),
+            key: ValueKey(replacePage ? generation++ : 0),
             siteUrl: 'https://forum.example',
             route: GroupRoute.detail(
               group['name'] as String,

@@ -10,6 +10,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('association capability remains valid on an automatic admin group', () {
+    final group = Group.fromWire(const {
+      'id': 9,
+      'name': 'admins',
+      'automatic': true,
+      'associated_group_ids': [12],
+    }, 'https://forum.example');
+    final controller = GroupManageController(
+      group: group,
+      currentUserAdmin: true,
+      currentUserStaff: true,
+      subsection: GroupRoute.membership,
+    );
+    addTearDown(controller.dispose);
+    expect(controller.canEditField('associated_group_ids'), isTrue);
+    controller.textController('associated_group_ids').text = '22';
+    expect(controller.buildUpdate().values['associated_group_ids'], [22]);
+  });
+
   group('GroupMemberFilterController', () {
     test('refreshing the committed filter preserves pending input', () async {
       final original = <String>[];
@@ -589,10 +608,12 @@ void main() {
           name: 'support',
           allowMembershipRequests: true,
           associatedGroupIds: [3],
+          canAssociateGroups: true,
           mutedCategoryIds: [5],
           watchingTags: [GroupTag(name: 'existing')],
         ),
         subsection: GroupRoute.membership,
+        currentUserAdmin: true,
       );
       addTearDown(controller.dispose);
 
