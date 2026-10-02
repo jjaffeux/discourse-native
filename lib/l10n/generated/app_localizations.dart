@@ -1417,8 +1417,8 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'The channel description cannot exceed 280 characters.'**
-  String get theChannelDescriptionCannotExceed280Characters;
+  /// **'The channel description cannot exceed 500 characters.'**
+  String get theChannelDescriptionCannotExceed500Characters;
 
   /// English UI message used by plugins/chat/chat_controller.dart. Keep placeholders intact.
   ///

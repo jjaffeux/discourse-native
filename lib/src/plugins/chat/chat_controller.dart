@@ -1419,8 +1419,9 @@ class ChatController extends FrameSafeNotifier {
     if (slug != null && (slug.trim().isEmpty || slug.trim().length > 100)) {
       return appL10n.theChannelSlugMustBeBetween1And100Characters;
     }
-    if (description != null && description.length > 280) {
-      return appL10n.theChannelDescriptionCannotExceed280Characters;
+    if (description != null &&
+        description.runes.length > ChatChannel.maxDescriptionLength) {
+      return appL10n.theChannelDescriptionCannotExceed500Characters;
     }
     final nextName = name?.trim();
     final nextSlug = slug?.trim();

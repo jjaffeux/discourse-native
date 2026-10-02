@@ -480,6 +480,9 @@ typedef ChatMessageAccess = ({
 
 @immutable
 class ChatChannel with Storable<ChatChannel> {
+  // The server's String.length bound counts Unicode code points.
+  static const maxDescriptionLength = 500;
+
   const ChatChannel({
     required this.id,
     required this.title,

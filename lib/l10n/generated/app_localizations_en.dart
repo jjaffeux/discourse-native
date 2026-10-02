@@ -730,8 +730,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'The channel slug must be between 1 and 100 characters.';
 
   @override
-  String get theChannelDescriptionCannotExceed280Characters =>
-      'The channel description cannot exceed 280 characters.';
+  String get theChannelDescriptionCannotExceed500Characters =>
+      'The channel description cannot exceed 500 characters.';
 
   @override
   String get reconnectThisSiteToEditTheChannel =>
