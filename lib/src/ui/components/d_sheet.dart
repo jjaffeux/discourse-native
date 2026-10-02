@@ -402,6 +402,15 @@ Widget _sheetLayout(
     DSheetSide.left => const Offset(-40, 0),
     _ => throw StateError('Sheet side was not resolved.'),
   };
+  final content = inset && !extendBehindKeyboard
+      ? Builder(
+          builder: (context) => MediaQuery.removePadding(
+            context: context,
+            removeBottom: true,
+            child: presentation.content,
+          ),
+        )
+      : presentation.content;
   Widget popup = _DSheetSideScope(
     side: side,
     inset: inset,
@@ -412,7 +421,7 @@ Widget _sheetLayout(
             builder: (context) => MediaQuery.removePadding(
               context: context,
               removeTop: true,
-              child: presentation.content,
+              child: content,
             ),
           )
         : fillAvailableHeight
@@ -423,11 +432,11 @@ Widget _sheetLayout(
               builder: (context) => MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
-                child: presentation.content,
+                child: content,
               ),
             ),
           )
-        : presentation.content,
+        : content,
   );
   final mobile = switch (Theme.of(context).platform) {
     TargetPlatform.iOS ||
@@ -469,6 +478,14 @@ Widget _sheetLayout(
         MediaQuery.paddingOf(context).top,
         view.viewPadding.top / view.devicePixelRatio,
       );
+      // Inset surfaces float above the device's bottom corners. The opening
+      // control may already have consumed this padding inside a SafeArea.
+      final safeBottom = inset && !extendBehindKeyboard
+          ? math.max(
+              MediaQuery.viewPaddingOf(context).bottom,
+              view.viewPadding.bottom / view.devicePixelRatio,
+            )
+          : 0.0;
       final pickerTop = math.max(safeTop + DSpacing.xl, bounds.maxHeight * .11);
       final availableWidth = (bounds.maxWidth - margin * 2).clamp(
         0.0,
@@ -503,11 +520,14 @@ Widget _sheetLayout(
         bottom: fillAvailableHeight
             ? (extendBehindKeyboard
                       ? 0.0
-                      : MediaQuery.viewInsetsOf(context).bottom) +
+                      : math.max(
+                          MediaQuery.viewInsetsOf(context).bottom,
+                          safeBottom,
+                        )) +
                   margin
             : side == DSheetSide.top
             ? null
-            : margin,
+            : margin + safeBottom,
         width: horizontal ? panelWidth : null,
         child: popup,
       );
@@ -1038,7 +1058,9 @@ class DSheetContent extends StatelessWidget {
   final double? sidePanelWidth;
 
   /// Floats the surface inside the viewport with shared spacing and rounded
-  /// corners. The default retains the reference's fixed-edge presentation.
+  /// corners, above the bottom safe area. The safe inset is consumed outside
+  /// the surface so its content does not repeat that padding. The default
+  /// retains the reference's fixed-edge presentation.
   final bool inset;
 
   /// Animates changes to the sheet's bounds without replacing its contents.

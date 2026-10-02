@@ -103,7 +103,7 @@ void main() {
       expect(target, findsOneWidget);
       expect(
         tester.getSize(target),
-        Size.square(DToggle.visualDimensionFor(DToggleSize.large)),
+        Size.square(DToggle.visualDimensionFor(DToggleSize.post)),
       );
       expect(
         tester

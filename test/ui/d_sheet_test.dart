@@ -89,6 +89,82 @@ Widget _sheet<T>({
 );
 
 void main() {
+  for (final imperative in [false, true]) {
+    for (final fillHeight in [false, true]) {
+      testWidgets('inset bottom sheet clears consumed safe area and keyboard '
+          '(imperative: $imperative, full height: $fillHeight)', (
+        tester,
+      ) async {
+        const phone = Size(390, 844);
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+        addTearDown(tester.view.reset);
+        DSheetContent content() => DSheetContent(
+          side: DSheetSide.bottom,
+          inset: true,
+          fillAvailableHeight: fillHeight,
+          topBottomMaxHeightFactor: fillHeight ? 1 : null,
+          children: const [DSheetBody(child: Text('Body'))],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              body: SafeArea(
+                child: imperative
+                    ? Builder(
+                        builder: (context) => DButton(
+                          label: const Text('Open'),
+                          onPressed: () => showDSheet<void>(
+                            context: context,
+                            side: DSheetSide.bottom,
+                            inset: true,
+                            fillAvailableHeight: fillHeight,
+                            builder: (_, _) => content(),
+                          ),
+                        ),
+                      )
+                    : DSheet<void>(
+                        trigger: DSheetTrigger(
+                          builder: (_, open) => DButton(
+                            label: const Text('Open'),
+                            onPressed: open,
+                          ),
+                        ),
+                        content: content(),
+                      ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
+        expect(
+          MediaQuery.paddingOf(tester.element(find.text('Body'))).bottom,
+          0,
+        );
+        if (fillHeight) {
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          tester.view.padding = const FakeViewPadding(top: 59);
+          await tester.pumpAndSettle();
+          expect(
+            tester.getRect(sheet).bottom,
+            phone.height - 300 - DSpacing.md,
+          );
+          tester.view.viewInsets = FakeViewPadding.zero;
+          tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   double visibleOpacity(WidgetTester tester, Finder finder) {
     var opacity = 1.0;
     for (final element

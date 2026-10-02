@@ -1,11 +1,15 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -26,12 +30,15 @@ void main() {
     'post likes',
     'post likes tap',
     'reaction pill',
+    'reaction picker',
   ]) {
     testWidgets(
       '$surface use the full mobile sheet and one scrolling body',
       (tester) async {
         tester.view.physicalSize = _phone;
         tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
         addTearDown(tester.view.reset);
         final users = [
           for (var index = 0; index < 40; index++)
@@ -44,6 +51,17 @@ void main() {
         ];
         final page = PostReactors(postId: 1, reactors: users, total: 40);
         final api = FakeDiscourseApi(
+          siteConfigs: {
+            _siteUrl: SiteConfig(
+              plugins: PluginData.none.withValue(
+                reactionsSettingsDataKey,
+                const ReactionsSettings(
+                  mainReaction: 'heart',
+                  offeredReactions: ['heart', 'clap'],
+                ),
+              ),
+            ),
+          },
           reactorsById: {
             '1': page,
             '1:heart': PostReactors(
@@ -72,7 +90,11 @@ void main() {
         );
         final controller = ShellController(
           plugins: installedPlugins,
-          instanceStore: FakeInstanceStore([instance('meta.example')]),
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.example',
+            ).copyWith(user: const DiscourseUser(username: 'reader')),
+          ]),
           api: api,
           authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
           drafts: FakeDraftStore(),
@@ -85,11 +107,13 @@ void main() {
         final reactions = controller.pluginSession.require(
           reactionsControllerService,
         );
+        await reactions.allowsAnyEmoji(_siteUrl);
         final post = Post(
           id: 1,
           postNumber: 1,
           username: 'author',
           cooked: '<p>Post</p>',
+          canLike: true,
           plugins: PluginData.none.withValue(
             reactionsDataKey,
             const Reactions(
@@ -106,6 +130,14 @@ void main() {
             siteUrl: _siteUrl,
             post: post,
             controller: reactions,
+            emoji: controller.pluginSession.require(reactionsEmojiHostService),
+          ),
+          'reaction picker' => Builder(
+            builder: (context) => DButton(
+              label: const Text('React'),
+              onPressed: () =>
+                  showReactionPicker(context, reactions, _siteUrl, post),
+            ),
           ),
           'post likes' || 'post likes tap' => const PostLikes(
             siteUrl: _siteUrl,
@@ -148,6 +180,8 @@ void main() {
           await tester.tap(
             find.byKey(const ValueKey('post-reaction-summary-1')),
           );
+        } else if (surface == 'reaction picker') {
+          await tester.tap(find.text('React'));
         } else if (surface == 'post likes tap') {
           await tester.tap(find.byType(DToggle));
         } else {
@@ -161,6 +195,7 @@ void main() {
         expect(bounds.height, greaterThan(_phone.height * .8));
         expect(bounds.left, greaterThan(0));
         expect(bounds.right, lessThan(_phone.width));
+        expect(bounds.bottom, _phone.height - 34 - DSpacing.md);
         final body = find.byType(DSheetBody);
         final scrolling = find.descendant(
           of: body,
@@ -168,7 +203,61 @@ void main() {
         );
         expect(scrolling, findsOneWidget);
         final close = find.byTooltip('Close');
+        if (surface == 'post reactions' ||
+            surface == 'reaction pill' ||
+            surface == 'reaction picker') {
+          final button = tester.widget<DButton>(
+            find.ancestor(of: close, matching: find.byType(DButton)).first,
+          );
+          expect(button.shape, DButtonShape.pill);
+          expect(button.variant, DButtonVariant.secondary);
+        }
+        if (surface == 'post reactions') {
+          final filter = find.byKey(
+            const ValueKey('post-reaction-filter-heart'),
+          );
+          final react = find.descendant(
+            of: sheet,
+            matching: find.byType(PostReactionButton),
+          );
+          expect(tester.getSize(filter).height, 30);
+          expect(tester.getSize(react).height, tester.getSize(filter).height);
+        }
         final closeBounds = tester.getRect(close);
+        if (surface == 'reaction picker') {
+          expect(find.byType(ReactionGrid), findsOneWidget);
+          final cells = find.descendant(
+            of: find.byType(ReactionGrid),
+            matching: find.byType(DToggle),
+          );
+          expect(cells, findsNWidgets(2));
+          for (final cell in cells.evaluate()) {
+            expect(
+              tester.getSize(find.byWidget(cell.widget)),
+              const Size.square(30),
+            );
+          }
+          expect(tester.takeException(), isNull);
+          await tester.tap(close);
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(api.reacted, isEmpty);
+          await tester.tap(find.text('React'));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.descendant(
+              of: find.byType(ReactionGrid),
+              matching: find.byWidgetPredicate(
+                (widget) => widget is DToggle && widget.semanticLabel == 'clap',
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+          expect(api.liked, isEmpty);
+          return;
+        }
         await tester.scrollUntilVisible(
           find.text('Person 39'),
           400,
