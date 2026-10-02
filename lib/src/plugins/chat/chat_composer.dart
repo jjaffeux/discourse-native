@@ -1577,20 +1577,35 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
-  Widget _sendButton(ComposerController composer) => DButton(
-    key: const ValueKey('chat-composer-send'),
-    label: Text(widget.editingMessage == null ? appL10n.send : appL10n.save),
-    loadingLabel: Text(
-      widget.editingMessage == null ? appL10n.send : appL10n.save,
-    ),
-    onPressed: _canSend(composer) ? () => _send(composer) : null,
-    loading: _sending,
-    icon: const DIcon(DIcons.paperPlane, size: 16),
-    tooltip: widget.editingMessage == null
+  Widget _sendButton(ComposerController composer) {
+    final label = widget.editingMessage == null ? appL10n.send : appL10n.save;
+    final tooltip = widget.editingMessage == null
         ? appL10n.sendMessage
-        : appL10n.saveEdit,
-    variant: DButtonVariant.primary,
-  );
+        : appL10n.saveEdit;
+    final VoidCallback? onPressed = _canSend(composer)
+        ? () => _send(composer)
+        : null;
+    const icon = DIcon(DIcons.paperPlane, size: 16);
+    return context.isTouch
+        ? DButton.iconOnly(
+            key: const ValueKey('chat-composer-send'),
+            icon: icon,
+            tooltip: tooltip,
+            semanticLabel: label,
+            onPressed: onPressed,
+            loading: _sending,
+          )
+        : DButton(
+            key: const ValueKey('chat-composer-send'),
+            label: Text(label),
+            loadingLabel: Text(label),
+            onPressed: onPressed,
+            loading: _sending,
+            icon: icon,
+            tooltip: tooltip,
+            variant: DButtonVariant.primary,
+          );
+  }
 }
 
 /// Core's channel preview card: until the reader follows a category channel,

@@ -467,11 +467,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             _creationLabelFits(context, actionWidth, 0, actionLabel));
     Widget? primaryAction;
     if (pageAction case final action?) {
-      primaryAction = DButton(
+      primaryAction = DButton.iconOnly(
         key: action.key ?? const ValueKey('mobile-page-action'),
         icon: DIcon(action.icon),
-        label: Text(action.label),
-        loadingLabel: Text(action.label),
         loading: action.loading,
         tooltip: action.label,
         shape: DButtonShape.pill,
