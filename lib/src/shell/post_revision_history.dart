@@ -932,31 +932,43 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                   ],
                 );
               }
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              return OverflowBar(
+                alignment: MainAxisAlignment.spaceBetween,
+                spacing: DSpacing.controlGap,
+                overflowSpacing: DSpacing.controlGap,
+                overflowAlignment: OverflowBarAlignment.center,
                 children: [
-                  DButton(
-                    label: Text(context.l10n.first),
-                    onPressed: firstAction,
-                    size: DButtonSize.small,
+                  Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: DSpacing.controlGap,
+                    children: [
+                      DButton(
+                        label: Text(context.l10n.first),
+                        onPressed: firstAction,
+                        size: DButtonSize.small,
+                      ),
+                      DButton(
+                        label: Text(context.l10n.previous),
+                        onPressed: previousAction,
+                        size: DButtonSize.small,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: DSpacing.controlGap),
-                  DButton(
-                    label: Text(context.l10n.previous),
-                    onPressed: previousAction,
-                    size: DButtonSize.small,
-                  ),
-                  const Spacer(),
-                  DButton(
-                    label: Text(context.l10n.next),
-                    onPressed: nextAction,
-                    size: DButtonSize.small,
-                  ),
-                  const SizedBox(width: DSpacing.controlGap),
-                  DButton(
-                    label: Text(context.l10n.latest),
-                    onPressed: latestAction,
-                    size: DButtonSize.small,
+                  Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: DSpacing.controlGap,
+                    children: [
+                      DButton(
+                        label: Text(context.l10n.next),
+                        onPressed: nextAction,
+                        size: DButtonSize.small,
+                      ),
+                      DButton(
+                        label: Text(context.l10n.latest),
+                        onPressed: latestAction,
+                        size: DButtonSize.small,
+                      ),
+                    ],
                   ),
                 ],
               );
