@@ -13,12 +13,23 @@ final collapsibleExamples = ComponentExamples(
       'onOpenChange for controlled state, or defaultOpen for local state. '
       'Keep mounted retains editors and Form fields; hidden content cannot take '
       'focus or expose semantics. Animation is opt-in and respects reduced motion. '
-      'Triggers accept passive children, not nested buttons. Button variants are '
+      'Triggers accept passive children by default; interactiveChildren preserves '
+      'independent links and selection in rich summaries. Button variants are '
       'example composition, not Collapsible props. Settings uses DInput editing '
       'inside accepted DField composition; the File Tree composes its '
       'Explorer/Outline layers with controlled DTabs. DInput remains the sole '
       'editing and Form owner. Official rendered and native review passed.',
   examples: [
+    StyleguideExample(
+      title: 'Rich summary',
+      description:
+          'The summary toggles replies; its source link acts independently.',
+      code: '''DCollapsible(child: Column(children: [
+  DCollapsibleTrigger(interactiveChildren: true, child: summaryWithLink),
+  DCollapsibleContent(child: Text('Replies')),
+]))''',
+      builder: (_) => const _RichSummary(),
+    ),
     StyleguideExample(
       title: 'Order details',
       description:
@@ -88,6 +99,64 @@ final collapsibleExamples = ComponentExamples(
     ),
   ],
 );
+
+class _RichSummary extends StatefulWidget {
+  const _RichSummary();
+
+  @override
+  State<_RichSummary> createState() => _RichSummaryState();
+}
+
+class _RichSummaryState extends State<_RichSummary> {
+  bool visited = false;
+
+  @override
+  Widget build(BuildContext context) => _Frame(
+    width: 384,
+    child: DCard(
+      children: [
+        DCardContent(
+          child: DCollapsible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DCollapsibleTrigger(
+                  interactiveChildren: true,
+                  semanticLabel: 'Project discussion',
+                  builder: (context, state) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          state.open
+                              ? '▾ Project discussion'
+                              : '▸ Project discussion',
+                        ),
+                        const Text('Sam shared a link in the first message.'),
+                        DButton(
+                          variant: DButtonVariant.link,
+                          label: Text(
+                            visited ? 'Source visited' : 'Open source',
+                          ),
+                          onPressed: () => setState(() => visited = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const DCollapsibleContent(
+                  child: Text('Alex: Thanks for sharing!'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 const _orderCode = '''bool open = false; // State owned by a StatefulWidget.
 DCollapsible(open: open, onOpenChange: (value) => setState(() => open = value),
