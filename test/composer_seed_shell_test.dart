@@ -71,7 +71,7 @@ void main() {
   });
 
   test(
-    'Aggregate cancels a pending seed without replacing its composer',
+    'a route change cancels a pending seed without replacing its composer',
     () async {
       final api = _GatedComposerApi();
       final shell = ShellController(
@@ -113,14 +113,10 @@ void main() {
       );
       await api.capabilityStarted.future;
 
-      shell.selectAggregate();
+      shell.pushContent(ContentRoute.newTab());
       api.capabilityGate.complete();
 
       expect(await opening, OpenComposerResult.sourceChanged);
-      expect(shell.visibleComposer, isNull);
-
-      shell.selectInstance(0);
-
       expect(shell.visibleComposer, same(retained));
       expect(shell.visibleComposer?.raw, 'Keep this reply');
     },

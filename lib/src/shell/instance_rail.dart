@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
+import 'app_settings_page.dart';
 import 'avatar_image.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
@@ -87,31 +88,6 @@ class InstanceRail extends StatelessWidget {
                         onPressed: onToggleSidebar,
                       ),
                     ),
-                  if (state.loadStatus == InstanceLoadStatus.ready &&
-                      state.instances.isNotEmpty) ...[
-                    Padding(
-                      padding: EdgeInsets.only(
-                        top: showSidebarToggle ? 0 : 8,
-                        bottom: 4,
-                      ),
-                      child: _AggregateRailButton(
-                        selected: state.rootMode == ShellRootMode.aggregate,
-                        shortcutKey: controller.forumTabsEnabled
-                            ? forumSwitchShortcutKeys.first
-                            : null,
-                        onTap: controller.selectAggregate,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 24,
-                      child: DSeparator(
-                        space: 1,
-                        color: theme.shell.railForeground.withValues(
-                          alpha: 0.18,
-                        ),
-                      ),
-                    ),
-                  ],
                   Expanded(
                     child: switch (state.loadStatus) {
                       InstanceLoadStatus.loading => const SizedBox.shrink(),
@@ -569,8 +545,8 @@ class _InstanceRailListState extends State<_InstanceRailList> {
               badgeCount: widget.controller.railBadgeFor(instance),
               shortcutKey:
                   widget.controller.forumTabsEnabled &&
-                      index + 1 < forumSwitchShortcutKeys.length
-                  ? forumSwitchShortcutKeys[index + 1]
+                      index < forumSwitchShortcutKeys.length
+                  ? forumSwitchShortcutKeys[index]
                   : null,
               onTap: () => widget.controller.selectInstance(index),
               onMoveUp: moveUp,
@@ -865,86 +841,6 @@ class _RailSnapshot {
   );
 }
 
-class _AggregateRailButton extends StatefulWidget {
-  const _AggregateRailButton({
-    required this.selected,
-    required this.shortcutKey,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final LogicalKeyboardKey? shortcutKey;
-  final VoidCallback onTap;
-
-  @override
-  State<_AggregateRailButton> createState() => _AggregateRailButtonState();
-}
-
-class _AggregateRailButtonState extends State<_AggregateRailButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final foreground = theme.shell.railForeground;
-    final markerHeight = widget.selected
-        ? _railSelectedMarkerHeight
-        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
-
-    return Stack(
-      alignment: Alignment.centerLeft,
-      children: [
-        AnimatedContainer(
-          key: const ValueKey('aggregate-rail-marker'),
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: 4,
-          height: markerHeight,
-          decoration: BoxDecoration(
-            color: foreground,
-            borderRadius: const BorderRadius.horizontal(
-              right: Radius.circular(4),
-            ),
-          ),
-        ),
-        Center(
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            // Merged so the selected state lands on the button node a screen
-            // reader announces rather than on an unnamed parent around it.
-            child: MergeSemantics(
-              child: Semantics(
-                selected: widget.selected,
-                child: DButton.iconOnly(
-                  key: const ValueKey('aggregate-rail-button'),
-                  icon: const DIcon(DIcons.circleNodes),
-                  tooltip: context.l10n.allForums,
-                  tooltipSide: DTooltipSide.right,
-                  shortcut: widget.shortcutKey == null
-                      ? null
-                      : DShortcut(
-                          primaryShortcutForPlatform(
-                            theme.platform,
-                            widget.shortcutKey!,
-                          ),
-                        ),
-                  variant: DButtonVariant.transparentBackground,
-                  backgroundColor: Colors.transparent,
-                  interactiveBackgroundColor: Colors.transparent,
-                  size: DButtonSize.large,
-                  foregroundColor: foreground,
-                  onPressed: widget.onTap,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _RailLoadFailure extends StatelessWidget {
   const _RailLoadFailure();
 
@@ -1021,7 +917,14 @@ class _RailFooter extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
             child: _SettingsButton(
-              onTap: () => ShellScope.read(context).openCurrentSettings(),
+              onTap: () {
+                final shell = ShellScope.read(context);
+                if (shell.currentInstance != null) {
+                  shell.openCurrentSettings();
+                } else {
+                  unawaited(showAppSettingsModal(context));
+                }
+              },
             ),
           ),
         ),

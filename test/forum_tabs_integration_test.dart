@@ -158,10 +158,10 @@ void main() {
   );
 
   testWidgets(
-    'number shortcuts map Aggregate and the first eight ordered forums',
+    'number shortcuts map the first nine ordered forums',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       final forums = [
-        for (var index = 1; index <= 8; index++)
+        for (var index = 1; index <= 9; index++)
           instance('forum-$index.example', title: 'Forum $index'),
       ];
       await _pumpShell(tester, instances: forums);
@@ -169,17 +169,10 @@ void main() {
         tester.element(find.byType(MainContent).first),
       );
 
-      expect(controller.instanceIndex, 0);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-      expect(await tester.sendKeyEvent(forumSwitchShortcutKeys.first), isTrue);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      await tester.pumpAndSettle();
-      expect(controller.rootMode, ShellRootMode.aggregate);
-
       for (var index = 0; index < forums.length; index++) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
         expect(
-          await tester.sendKeyEvent(forumSwitchShortcutKeys[index + 1]),
+          await tester.sendKeyEvent(forumSwitchShortcutKeys[index]),
           isTrue,
         );
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
@@ -193,7 +186,7 @@ void main() {
   );
 
   testWidgets(
-    'rail tooltips show the shortcuts for Aggregate and each forum',
+    'rail tooltips show the shortcuts for each forum',
     (tester) => _withPlatform(TargetPlatform.macOS, () async {
       await _pumpShell(
         tester,
@@ -203,18 +196,6 @@ void main() {
         ],
       );
 
-      final aggregateButton = find.byKey(
-        const ValueKey('aggregate-rail-button'),
-      );
-      final aggregateTooltip = tester.widget<DTooltip>(
-        find.descendant(of: aggregateButton, matching: find.byType(DTooltip)),
-      );
-      final aggregateShortcut = aggregateTooltip.shortcut![0];
-      expect(aggregateTooltip.message, 'All forums');
-      expect(aggregateShortcut.trigger, LogicalKeyboardKey.digit1);
-      expect(aggregateShortcut.meta, isTrue);
-      expect(aggregateShortcut.control, isFalse);
-
       final forum = find.byKey(const ValueKey('https://two.example'));
       final rawTooltip = tester.widget<DTooltip>(
         find.descendant(of: forum, matching: find.byType(DTooltip)),
@@ -223,7 +204,6 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
       for (final (key, message) in [
-        ('aggregate-rail-button', 'All forums'),
         ('add-instance-rail-button', 'Add a Discourse site'),
         ('styleguide-rail-button', 'Open component styleguide'),
         ('settings-rail-button', 'Settings'),
@@ -254,7 +234,7 @@ void main() {
         matching: find.byType(DShortcutKeycaps),
       );
       final shortcut = tester.widget<DShortcutKeycaps>(keycaps).shortcut[0];
-      expect(shortcut.trigger, LogicalKeyboardKey.digit3);
+      expect(shortcut.trigger, LogicalKeyboardKey.digit2);
       expect(shortcut.meta, isTrue);
       expect(shortcut.control, isFalse);
       expect(tester.getSize(keycaps).height, 20);
@@ -281,14 +261,14 @@ void main() {
         final activeTabId = controller.activeTabId;
         expect(controller.instanceIndex, 0);
 
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit3), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isFalse);
         expect(controller.instanceIndex, 0);
 
         final modifier = platform == TargetPlatform.macOS
             ? LogicalKeyboardKey.metaLeft
             : LogicalKeyboardKey.controlLeft;
         await tester.sendKeyDownEvent(modifier);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit3), isTrue);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isTrue);
         await tester.sendKeyUpEvent(modifier);
         await tester.pump();
 
@@ -296,19 +276,19 @@ void main() {
         expect(_bar(tester).forumName, 'Two');
 
         await tester.sendKeyDownEvent(modifier);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit4), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit3), isFalse);
         await tester.sendKeyUpEvent(modifier);
         expect(controller.instanceIndex, 1);
 
         await tester.sendKeyDownEvent(modifier);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isFalse);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit1), isFalse);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         await tester.sendKeyUpEvent(modifier);
         expect(controller.instanceIndex, 1);
 
         await tester.sendKeyDownEvent(modifier);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit2), isTrue);
+        expect(await tester.sendKeyEvent(LogicalKeyboardKey.digit1), isTrue);
         await tester.sendKeyUpEvent(modifier);
         await tester.pump();
 
@@ -450,45 +430,10 @@ void main() {
         );
         expect(controller.activeTabId, openedTabId);
         expect(_bar(tester).selectedId, openedTabId);
-
-        controller.selectAggregate();
-        await tester.pumpAndSettle();
-        final originalAggregateTabId = controller.activeAggregateTabId;
-
-        expect(
-          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyT),
-          isTrue,
-        );
-        await tester.pumpAndSettle();
-        final openedAggregateTabId = controller.activeAggregateTabId;
-
-        expect(
-          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
-          isTrue,
-        );
-        await tester.pumpAndSettle();
-        expect(controller.activeAggregateTabId, originalAggregateTabId);
-        expect(binding.exitRequests, isEmpty);
-
-        expect(
-          await _pressShortcut(
-            tester,
-            modifier,
-            LogicalKeyboardKey.keyT,
-            shift: true,
-          ),
-          isTrue,
-        );
-        await tester.pumpAndSettle();
-        expect(controller.activeAggregateTabId, openedAggregateTabId);
-        expect(controller.aggregateTabs.map((tab) => tab.id), [
-          originalAggregateTabId,
-          openedAggregateTabId,
-        ]);
       }),
     );
 
-    for (final rootMode in [ShellRootMode.forum, ShellRootMode.aggregate]) {
+    for (final rootMode in [ShellRootMode.forum]) {
       testWidgets(
         '${platform.name} closing the last ${rootMode.name} tab keeps a usable workspace',
         (tester) => _withPlatform(platform, () async {
@@ -496,10 +441,7 @@ void main() {
           final controller = ShellScope.read(
             tester.element(find.byType(MainContent).first),
           );
-          if (rootMode == ShellRootMode.aggregate) {
-            controller.selectAggregate();
-            await tester.pumpAndSettle();
-          }
+
           final originalTabId = _bar(tester).selectedId;
           final modifier = platform == TargetPlatform.macOS
               ? LogicalKeyboardKey.metaLeft
@@ -511,26 +453,16 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          if (rootMode == ShellRootMode.aggregate) {
-            expect(binding.exitRequests, [
-              (type: AppExitType.cancelable, exitCode: 0),
-            ]);
-            expect(_bar(tester).selectedId, originalTabId);
-            expect(controller.aggregateTabs.map((tab) => tab.id), [
-              originalTabId,
-            ]);
-          } else {
-            expect(binding.exitRequests, isEmpty);
-            expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
-            expect(controller.currentContent!.isNewTab, isTrue);
-            expect(
-              controller
-                  .selectedTabIn(ForumPanel.secondary)!
-                  .currentContent
-                  .isNewTab,
-              isTrue,
-            );
-          }
+          expect(binding.exitRequests, isEmpty);
+          expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
+          expect(controller.currentContent!.isNewTab, isTrue);
+          expect(
+            controller
+                .selectedTabIn(ForumPanel.secondary)!
+                .currentContent
+                .isNewTab,
+            isTrue,
+          );
         }),
       );
     }
@@ -649,7 +581,7 @@ void main() {
     TargetPlatform.windows,
   ]) {
     testWidgets(
-      '${platform.name} cycles forum and Aggregate tabs with arrow shortcuts',
+      '${platform.name} cycles forum tabs with arrow shortcuts',
       (tester) => _withPlatform(platform, () async {
         await _pumpShell(tester);
         final controller = ShellScope.read(
@@ -696,28 +628,6 @@ void main() {
           tester.getSize(find.byType(InstanceSidebar)).width,
           sidebarWidth,
         );
-
-        controller.selectAggregate();
-        await tester.pumpAndSettle();
-        final firstAggregateTabId = controller.activeAggregateTabId;
-        controller.createAggregateTab();
-        controller.createAggregateTab();
-        await tester.pumpAndSettle();
-        final lastAggregateTabId = controller.activeAggregateTabId;
-
-        expect(
-          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowRight),
-          isTrue,
-        );
-        await tester.pumpAndSettle();
-        expect(controller.activeAggregateTabId, firstAggregateTabId);
-
-        expect(
-          await _pressShortcut(tester, modifier, LogicalKeyboardKey.arrowLeft),
-          isTrue,
-        );
-        await tester.pumpAndSettle();
-        expect(controller.activeAggregateTabId, lastAggregateTabId);
 
         controller.selectInstance(0);
         controller.selectTab(firstForumTabId);

@@ -71,7 +71,6 @@ void main() {
         'account',
         'account session',
         'topic round trip',
-        'root mode',
       ]) {
         testWidgets('an open progress route rejects a changed $change', (
           tester,
@@ -100,8 +99,6 @@ void main() {
             case 'topic round trip':
               _openTopic(shell, topicId: 2);
               expect(shell.handleBack(), isTrue);
-            case 'root mode':
-              shell.selectAggregate();
           }
           await tester.pumpAndSettle();
           expect(

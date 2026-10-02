@@ -12,6 +12,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
+  test('restores the selected forum alongside its tabs', () async {
+    final persistence = MemoryForumTabPersistence();
+    final first = ForumTabStore(persistence: persistence);
+    final workspace = _workspace('selected');
+    await first.save([workspace], selectedSiteUrl: workspace.siteUrl);
+
+    final restarted = ForumTabStore(persistence: persistence);
+    expect(await restarted.load(), [workspace]);
+    expect(restarted.selectedSiteUrl, workspace.siteUrl);
+
+    await restarted.save([]);
+    expect(await first.load(), isEmpty);
+    expect(first.selectedSiteUrl, isNull);
+  });
+
+  test('older documents and malformed selection keep their tabs', () async {
+    final persistence = MemoryForumTabPersistence();
+    final workspace = _workspace('older');
+    final store = ForumTabStore(persistence: persistence);
+    for (final selection in [null, 42, '']) {
+      persistence.value = jsonEncode({
+        'version': ForumTabStore.formatVersion,
+        'workspaces': [workspace.toJson()],
+        'selectedSiteUrl': selection,
+      });
+      expect(await store.load(), [workspace]);
+      expect(store.selectedSiteUrl, isNull);
+    }
+  });
+
   test('an unsupported format version falls back to no workspaces', () async {
     for (final version in [0, ForumTabStore.formatVersion + 1]) {
       final persistence = _ControlledPersistence()
@@ -72,10 +102,16 @@ void main() {
     final second = _workspace('second');
     final latest = _workspace('latest');
 
-    final firstSave = store.save([first]);
+    final firstSave = store.save([
+      first,
+    ], selectedSiteUrl: 'https://first.example');
     await persistence.firstWriteStarted.future;
-    final secondSave = store.save([second]);
-    final latestSave = store.save([latest]);
+    final secondSave = store.save([
+      second,
+    ], selectedSiteUrl: 'https://second.example');
+    final latestSave = store.save([
+      latest,
+    ], selectedSiteUrl: 'https://latest.example');
 
     await Future<void>.delayed(Duration.zero);
     expect(persistence.writeCount, 1);
@@ -86,6 +122,7 @@ void main() {
 
     expect(persistence.writeCount, 2);
     expect(await store.load(), [latest]);
+    expect(store.selectedSiteUrl, 'https://latest.example');
   });
 
   test('replacement stores preserve request order', () async {

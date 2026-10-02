@@ -23,7 +23,6 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
-import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_texture.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -47,16 +46,24 @@ void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
 
-  testWidgets('rail Settings opens Home before any forum is connected', (
-    tester,
-  ) async {
-    await _pumpApp(tester, store: FakeInstanceStore(), api: FakeDiscourseApi());
-    await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-    await tester.pumpAndSettle();
-    expect(find.byType(ForumSettingsPage), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  testWidgets(
+    'rail Settings opens app preferences before any forum is connected',
+    (tester) async {
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+      );
+      await tester.tap(find.byTooltip('Close').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('app-settings-modal')), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
-  testWidgets('Home theme texture choices keep the Themes tab open', (
+  testWidgets('forum theme texture choices keep the Themes tab open', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -65,7 +72,13 @@ void main() {
     tester.platformDispatcher.accessibilityFeaturesTestValue =
         const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-    await _pumpApp(tester, store: FakeInstanceStore(), api: FakeDiscourseApi());
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(),
+    );
     await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Themes'));
@@ -580,7 +593,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a font one forum chose before fonts were shared becomes every '
-      'forum\'s and the Aggregate\'s, and is stored once', (tester) async {
+      'forum\'s, and is stored once', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -611,9 +624,6 @@ void main() {
     expect(_activeTheme(tester).textTheme.bodyMedium!.fontFamily, 'Open Sans');
     expect(family(), 'Lato');
     controller.selectInstance(1);
-    await tester.pumpAndSettle();
-    expect(family(), 'Lato');
-    controller.selectAggregate();
     await tester.pumpAndSettle();
     expect(family(), 'Lato');
     expect(
@@ -804,9 +814,9 @@ void main() {
 
       events.clear();
       controller.selectInstance(1);
-      controller.selectAggregate();
+      controller.selectInstance(0);
       await tester.pump();
-      expect(events.where((event) => event == 'forum.frame'), isEmpty);
+      expect(events.where((event) => event == 'forum.frame'), hasLength(1));
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets(
@@ -888,10 +898,8 @@ void main() {
         expect(_activeTheme(tester).brightness, Brightness.light);
         _controller(tester).handleBack(canReturnToSidebar: true);
         await tester.pumpAndSettle();
-        _controller(tester).selectAggregate();
-        await tester.pump();
-        expect(_activeTheme(tester).brightness, Brightness.dark);
-        expect(_materialApp(tester).themeMode, ThemeMode.system);
+        expect(_activeTheme(tester).brightness, Brightness.light);
+        expect(_materialApp(tester).themeMode, ThemeMode.light);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
@@ -984,84 +992,6 @@ void main() {
         _materialApp(tester).theme?.colorScheme.primary,
         forumAppearance.base?.tertiary,
       );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
-    testWidgets('restores app palettes for the aggregate feed', (tester) async {
-      final forumAppearance = siteAppearance(
-        accent: const Color(0xFFAA2200),
-        alternateAccent: const Color(0xFF00AACC),
-        mode: SiteAppearanceMode.alternate,
-      );
-      final store = FakeInstanceStore([
-        const DiscourseInstance(
-          url: siteA,
-          title: 'A',
-        ).copyWith(appearance: forumAppearance),
-      ]);
-
-      await _pumpApp(tester, store: store, api: FakeDiscourseApi());
-      final controller = _controller(tester);
-      expect(_materialApp(tester).themeMode, ThemeMode.system);
-      expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        forumAppearance.base?.tertiary,
-      );
-
-      controller.selectAggregate();
-      await tester.pump();
-
-      expect(_materialApp(tester).themeMode, ThemeMode.system);
-      expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        AppTheme.light.colorScheme.primary,
-      );
-      expect(
-        _materialApp(tester).darkTheme?.colorScheme.primary,
-        AppTheme.dark.colorScheme.primary,
-      );
-
-      controller.selectInstance(0);
-      await tester.pump();
-
-      expect(_materialApp(tester).themeMode, ThemeMode.system);
-      expect(
-        _materialApp(tester).theme?.colorScheme.primary,
-        forumAppearance.base?.tertiary,
-      );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
-    testWidgets('Aggregate Settings themes only Home until shared', (
-      tester,
-    ) async {
-      await _pumpApp(
-        tester,
-        store: FakeInstanceStore([
-          const DiscourseInstance(url: siteA, title: 'A'),
-        ]),
-        api: FakeDiscourseApi(),
-      );
-      final controller = _controller(tester);
-      controller.selectAggregate();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ForumSettingsPage), findsOneWidget);
-      expect(find.byKey(const ValueKey('aggregate-tabs')), findsOneWidget);
-      await tester.tap(find.text('Themes'));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const ValueKey('appearance-mode')),
-          matching: find.text('Dark'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        controller.forumSettings.themeModeFor(ForumSettingsController.homeSite),
-        AppThemeMode.dark,
-      );
-      expect(controller.forumSettings.themeModeFor(siteA), AppThemeMode.system);
-      expect(_materialApp(tester).themeMode, ThemeMode.dark);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('uses the forum dark preference in navigator overlays', (

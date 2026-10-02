@@ -84,29 +84,6 @@ void _registerConnectionSessionTests() {
       expect(signIn.height, 40);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('aggregate hides forum account actions', (tester) async {
-      await pumpShell(tester, desktop);
-
-      expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
-      expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
-
-      final controller = ShellScope.read(
-        tester.element(find.byType(ShellTitleBar)),
-      );
-      controller.selectAggregate();
-      await tester.pump();
-
-      expect(find.byKey(UserMenuButton.signUpKey), findsNothing);
-      expect(find.byKey(UserMenuButton.signInKey), findsNothing);
-      expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
-
-      controller.selectInstance(0);
-      await tester.pump();
-
-      expect(find.byKey(UserMenuButton.signUpKey), findsOneWidget);
-      expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('sign-up opens the selected forum registration page', (
       tester,
     ) async {

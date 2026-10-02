@@ -443,9 +443,9 @@ void main() {
       await tester.tap(settings);
       await tester.pumpAndSettle();
 
-      expect(controller.rootMode, ShellRootMode.aggregate);
-      expect(controller.aggregateSettingsOpen, isTrue);
-      expect(controller.appSettingsModalOpen, isFalse);
+      expect(controller.rootMode, ShellRootMode.forum);
+      expect(controller.currentInstance, isNull);
+      expect(controller.appSettingsModalOpen, isTrue);
     } finally {
       await diagnostics.close();
       semantics.dispose();

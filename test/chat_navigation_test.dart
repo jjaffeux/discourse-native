@@ -807,23 +807,17 @@ void main() {
         expect(shell.chatNavigation.value?.messageId, 44);
       });
 
-      test(
-        'notification leaves Aggregate and reveals its chat thread',
-        () async {
-          shell.selectAggregate();
+      test('notification reveals its chat thread from a forum page', () async {
+        expect(
+          await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
+          isTrue,
+        );
 
-          expect(shell.rootMode, ShellRootMode.aggregate);
-          expect(
-            await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
-            isTrue,
-          );
-
-          expect(shell.rootMode, ShellRootMode.forum);
-          expect(shell.currentInstance?.url, _site);
-          expect(shell.currentContent?.id, 'chat-c-9-t-3');
-          expect(shell.chatNavigation.value?.messageId, 44);
-        },
-      );
+        expect(shell.rootMode, ShellRootMode.forum);
+        expect(shell.currentInstance?.url, _site);
+        expect(shell.currentContent?.id, 'chat-c-9-t-3');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
 
       test(
         'retargets the same route without duplicating its stack entry',

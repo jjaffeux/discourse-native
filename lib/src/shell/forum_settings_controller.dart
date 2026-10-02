@@ -15,7 +15,7 @@ import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 
 final class ForumSettingsController extends FrameSafeNotifier {
-  /// Local appearance identity for the Aggregate home workspace.
+  /// Local appearance identity for the app home workspace.
   static const homeSite = 'https://discourse.native.invalid/home';
   ForumSettingsController({required this.store});
 

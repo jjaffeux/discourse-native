@@ -17,7 +17,6 @@ import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'aggregate_view.dart';
 import 'bookmark_ui.dart';
 import 'composer_panel.dart';
 import 'composer_presentation.dart';
@@ -90,7 +89,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
   late final PanelWidthController _diagnosticsWidth;
   late final PanelWidthController _sidebarWidth;
-  // Aggregate and a forum's gate replace the forum shell while they are
+  // A forum's gate replaces the forum shell while it is
   // shown. The sidebar and panel layouts belong to the window, so they are
   // held here to be found as they were when a forum comes back. Unlike the
   // widths above, they are not persisted.
@@ -278,13 +277,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final shortcutIndex = forumSwitchShortcutKeys.indexOf(event.logicalKey);
     if (shortcutIndex < 0 || !controller.forumTabsEnabled) return false;
 
-    if (shortcutIndex == 0) {
-      if (controller.instances.isEmpty) return false;
-      controller.selectAggregate();
-      return true;
-    }
-
-    final forumIndex = shortcutIndex - 1;
+    final forumIndex = shortcutIndex;
     if (forumIndex >= controller.instances.length) {
       return false;
     }
@@ -345,28 +338,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   bool _openTab(ShellController controller) {
     if (!controller.forumTabsEnabled) return false;
-    switch (controller.rootMode) {
-      case ShellRootMode.aggregate:
-        if (!controller.canCreateAggregateTab) return false;
-        controller.createAggregateTab();
-      case ShellRootMode.forum:
-        if (!controller.canCreateTab) return false;
-        controller.createTab();
-    }
+    if (!controller.canCreateTab) return false;
+    controller.createTab();
     return true;
   }
 
   bool _closeCurrentTab(ShellController controller) {
-    if (controller.rootMode == ShellRootMode.aggregate &&
-        controller.aggregateSettingsOpen) {
-      controller.closeAggregateSettings();
-      return true;
-    }
     if (!controller.forumTabsEnabled) return false;
-    final tabCount = switch (controller.rootMode) {
-      ShellRootMode.aggregate => controller.aggregateTabs.length,
-      ShellRootMode.forum => controller.tabsForCurrentForum.length,
-    };
+    final tabCount = controller.tabsForCurrentForum.length;
     if (tabCount == 1) {
       unawaited(
         ServicesBinding.instance.exitApplication(AppExitType.cancelable),
@@ -374,14 +353,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return true;
     }
 
-    switch (controller.rootMode) {
-      case ShellRootMode.aggregate:
-        controller.closeAggregateTab(controller.activeAggregateTabId);
-      case ShellRootMode.forum:
-        final activeTabId = controller.activeTabId;
-        if (activeTabId == null) return false;
-        controller.closeTab(activeTabId);
-    }
+    final activeTabId = controller.activeTabId;
+    if (activeTabId == null) return false;
+    controller.closeTab(activeTabId);
     return true;
   }
 
@@ -407,39 +381,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   bool _reopenClosedTab(ShellController controller) {
     if (!controller.forumTabsEnabled) return false;
-    return switch (controller.rootMode) {
-      ShellRootMode.aggregate => controller.reopenClosedAggregateTab(),
-      ShellRootMode.forum => controller.reopenClosedTab(),
-    };
+    return controller.reopenClosedTab();
   }
 
   bool _selectAdjacentTab(ShellController controller, int offset) {
     if (!controller.forumTabsEnabled || _formControlHasFocus) return false;
 
-    final (tabs, activeTabId) = switch (controller.rootMode) {
-      ShellRootMode.aggregate => (
-        controller.aggregateTabs.map((tab) => tab.id).toList(),
-        controller.activeAggregateTabId,
-      ),
-      ShellRootMode.forum => (
-        controller.tabsForCurrentForum
-            .where((tab) => tab.panel == controller.activeTab?.panel)
-            .map((tab) => tab.id)
-            .toList(),
-        controller.activeTabId,
-      ),
-    };
+    final tabs = controller.tabsForCurrentForum
+        .where((tab) => tab.panel == controller.activeTab?.panel)
+        .map((tab) => tab.id)
+        .toList();
+    final activeTabId = controller.activeTabId;
     if (tabs.length < 2 || activeTabId == null) return false;
 
     final activeIndex = tabs.indexOf(activeTabId);
     if (activeIndex < 0) return false;
     final targetId = tabs[(activeIndex + offset) % tabs.length];
-    switch (controller.rootMode) {
-      case ShellRootMode.aggregate:
-        controller.selectAggregateTab(targetId);
-      case ShellRootMode.forum:
-        controller.selectTab(targetId);
-    }
+    controller.selectTab(targetId);
     return true;
   }
 
@@ -955,19 +913,10 @@ class _MobileShell extends StatelessWidget {
     child: ForumWindowBackground(
       child: SafeArea(
         child:
-            ShellSelector<
-              ({
-                InstanceLoadStatus loadStatus,
-                bool hasInstances,
-                bool aggregateSettingsOpen,
-                ShellRootMode rootMode,
-              })
-            >(
+            ShellSelector<({InstanceLoadStatus loadStatus, bool hasInstances})>(
               select: (shell) => (
                 loadStatus: shell.loadStatus,
                 hasInstances: shell.hasInstances,
-                aggregateSettingsOpen: shell.aggregateSettingsOpen,
-                rootMode: shell.rootMode,
               ),
               builder: (context, state, _) {
                 Widget homeStatus(Widget child) => Row(
@@ -982,32 +931,15 @@ class _MobileShell extends StatelessWidget {
                 if (state.loadStatus == InstanceLoadStatus.failed) {
                   return homeStatus(const _ShellLoadFailure());
                 }
-                if (!state.hasInstances && !state.aggregateSettingsOpen) {
+                if (!state.hasInstances) {
                   return homeStatus(const EmptyState());
                 }
                 return _PageComposerDock(
                   child: MobileForumRoot(
-                    content: state.rootMode == ShellRootMode.aggregate
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: DButton.iconOnly(
-                                  icon: const DIcon(DIcons.arrowLeft),
-                                  tooltip: context.l10n.back,
-                                  variant: DButtonVariant.ghost,
-                                  onPressed: () =>
-                                      ShellScope.read(context).handleBack(),
-                                ),
-                              ),
-                              const Expanded(child: AggregateView()),
-                            ],
-                          )
-                        : MainContent(
-                            key: ComposerPresentationHost.contentKeyOf(context),
-                            layout: ShellLayout.compact,
-                          ),
+                    content: MainContent(
+                      key: ComposerPresentationHost.contentKeyOf(context),
+                      layout: ShellLayout.compact,
+                    ),
                   ),
                 );
               },
@@ -1107,29 +1039,17 @@ class _WideShellState extends State<_WideShell> {
                 atWindowEdge: widget.atWindowEdge,
                 child:
                     ShellSelector<
-                      ({
-                        InstanceLoadStatus loadStatus,
-                        bool hasInstances,
-                        bool aggregateSettingsOpen,
-                        ShellRootMode rootMode,
-                      })
+                      ({InstanceLoadStatus loadStatus, bool hasInstances})
                     >(
                       select: (controller) => (
                         loadStatus: controller.loadStatus,
                         hasInstances: controller.hasInstances,
-                        aggregateSettingsOpen: controller.aggregateSettingsOpen,
-                        rootMode: controller.rootMode,
                       ),
                       builder: (context, state, _) => switch (state
                           .loadStatus) {
                         InstanceLoadStatus.loading =>
                           const _ShellLoadProgress(),
                         InstanceLoadStatus.failed => const _ShellLoadFailure(),
-                        InstanceLoadStatus.ready
-                            when (state.hasInstances ||
-                                    state.aggregateSettingsOpen) &&
-                                state.rootMode == ShellRootMode.aggregate =>
-                          const AggregateView(),
                         InstanceLoadStatus.ready when state.hasInstances =>
                           DesktopNavigation(
                             compact: !sidebarExpanded,

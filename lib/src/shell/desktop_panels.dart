@@ -23,8 +23,8 @@ enum _WindowResizeEdge { left, right }
 /// The split between the desktop panels and which of them is minimized.
 ///
 /// Both belong to the window rather than to the panels showing them, so they
-/// outlive views that replace the panels for a while, such as Aggregate or a
-/// forum's sign-in gate. Neither is persisted.
+/// outlive views that replace the panels for a while, such as a forum's sign-in
+/// gate. Neither is persisted.
 final class DesktopPanelsLayout {
   final mainWidth = PanelWidthController(
     initialWidth: 400 + workspacePanelGap,

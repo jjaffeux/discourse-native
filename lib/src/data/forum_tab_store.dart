@@ -54,7 +54,7 @@ class ForumTabStore {
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
   final ForumTabPersistence _persistence;
-  late final CoalescingSnapshotWriter<List<ForumWorkspace>> _snapshots =
+  late final CoalescingSnapshotWriter<_ForumTabSnapshot> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
         key: storageKey,
@@ -66,7 +66,11 @@ class ForumTabStore {
   /// later [load] clears it.
   bool _unreadable = false;
 
+  String? _selectedSiteUrl;
+  String? get selectedSiteUrl => _selectedSiteUrl;
+
   Future<List<ForumWorkspace>> load() async {
+    _selectedSiteUrl = null;
     final String? raw;
     try {
       raw = await _snapshots.read(_persistence.read);
@@ -84,6 +88,10 @@ class ForumTabStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['version'] != formatVersion) {
         return const [];
+      }
+      final selected = decoded['selectedSiteUrl'];
+      if (selected is String && selected.isNotEmpty) {
+        _selectedSiteUrl = selected;
       }
       final entries = decoded['workspaces'];
       if (entries is! List) return const [];
@@ -105,20 +113,33 @@ class ForumTabStore {
 
   /// Completes once these workspaces, or newer ones saved before their write
   /// started, are written, or once that write's failure has been reported.
-  Future<void> save(Iterable<ForumWorkspace> workspaces) {
+  Future<void> save(
+    Iterable<ForumWorkspace> workspaces, {
+    String? selectedSiteUrl,
+  }) {
+    _selectedSiteUrl = selectedSiteUrl;
     if (_unreadable) return Future<void>.value();
     // Workspaces are immutable, so copying the list captures the snapshot.
     // It is encoded only when its write starts: navigation and scrolling save
     // far more often than a write completes, and a snapshot superseded before
     // then is never encoded at all.
-    return _snapshots.save(List.unmodifiable(workspaces));
+    return _snapshots.save(
+      _ForumTabSnapshot(List.unmodifiable(workspaces), selectedSiteUrl),
+    );
   }
 
   /// Byte for byte the `jsonEncode` of the versioned document holding each
   /// workspace's `toJson()`, assembled from the encodings its unchanged tabs
   /// and history entries already hold.
-  static String encode(Iterable<ForumWorkspace> workspaces) {
-    final out = StringBuffer('{"version":$formatVersion,"workspaces":[');
+  static String encode(
+    Iterable<ForumWorkspace> workspaces, {
+    String? selectedSiteUrl,
+  }) {
+    final out = StringBuffer('{"version":$formatVersion');
+    if (selectedSiteUrl != null) {
+      out.write(',"selectedSiteUrl":${jsonEncode(selectedSiteUrl)}');
+    }
+    out.write(',"workspaces":[');
     var first = true;
     for (final workspace in workspaces) {
       if (!first) out.write(',');
@@ -129,12 +150,21 @@ class ForumTabStore {
     return out.toString();
   }
 
-  Future<void> _persistSnapshot(List<ForumWorkspace> workspaces) async {
+  Future<void> _persistSnapshot(_ForumTabSnapshot snapshot) async {
     try {
-      final saved = await _persistence.write(encode(workspaces));
+      final saved = await _persistence.write(
+        encode(snapshot.workspaces, selectedSiteUrl: snapshot.selectedSiteUrl),
+      );
       if (!saved) throw StateError('Could not persist forum tabs.');
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'forumTabs.save');
     }
   }
+}
+
+final class _ForumTabSnapshot {
+  const _ForumTabSnapshot(this.workspaces, this.selectedSiteUrl);
+
+  final List<ForumWorkspace> workspaces;
+  final String? selectedSiteUrl;
 }

@@ -19,14 +19,12 @@ import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
-import 'app_settings_page.dart';
 import 'avatar_image.dart';
 import 'external_link.dart';
 import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
-import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
@@ -35,14 +33,9 @@ import 'topic_list_actions.dart';
 
 /// The landing surface for an otherwise empty forum tab.
 class NewTabPage extends StatefulWidget {
-  const NewTabPage({
-    super.key,
-    required this.onBrowseTopics,
-    this.aggregate = false,
-  });
+  const NewTabPage({super.key, required this.onBrowseTopics});
 
   final VoidCallback onBrowseTopics;
-  final bool aggregate;
 
   @override
   State<NewTabPage> createState() => _NewTabPageState();
@@ -65,7 +58,6 @@ class _NewTabPageState extends State<NewTabPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (widget.aggregate) return;
     final instance = ShellScope.maybeOf(context)?.currentInstance;
     if (instance == null || (instance.loginRequired && !instance.isConnected)) {
       _requestedLatestSite = null;
@@ -138,11 +130,6 @@ class _NewTabPageState extends State<NewTabPage> {
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
-        if (widget.aggregate) ...[
-          shell.aggregate,
-          for (final ref in shell.aggregate.state.topics.take(8))
-            shell.topicRef(ref.siteUrl, ref.topicId),
-        ],
         TimezoneEnvironment.instance,
         ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
@@ -151,7 +138,6 @@ class _NewTabPageState extends State<NewTabPage> {
   }
 
   Widget _buildPage(BuildContext context) {
-    if (widget.aggregate) return _buildAggregatePage(context);
     final shell = ShellScope.maybeOf(context);
     final forum = shell?.currentInstance;
     final registry = PluginScope.maybeOf(context)?.registry;
@@ -588,139 +574,6 @@ class _NewTabPageState extends State<NewTabPage> {
     ],
   );
 
-  Widget _buildAggregatePage(BuildContext context) {
-    final shell = ShellScope.of(context);
-    final state = shell.aggregate.state;
-    final entries = [
-      for (final reference in state.topics.take(8))
-        if (shell.store.read<Topic>(reference.siteUrl, reference.topicId)
-            case final topic?)
-          _StartPageEntry(
-            id: 'aggregate-${reference.siteUrl}-${topic.id}',
-            siteUrl: reference.siteUrl,
-            sourceLabel: shell.instanceFor(reference.siteUrl)?.title,
-            title: topic.title,
-            icon: DIcons.layerGroup,
-            description: topic.excerpt,
-            count: topic.unreadCount,
-            activityAt: topic.bumpedAt,
-            prefixBuilder: (context, size) => ForumIcon(
-              forum: shell.instanceFor(reference.siteUrl)!,
-              size: size,
-            ),
-            onPressed: () {
-              final result = shell.openAggregateTopic(
-                reference.siteUrl,
-                topic.id,
-              );
-              if (result == AggregateTopicOpenResult.tabLimitReached) {
-                DToast.show(
-                  context,
-                  context.l10n.thisForumAlreadyHas20TabsCloseOneAndTryAgain,
-                );
-              } else if (result == AggregateTopicOpenResult.unavailable) {
-                DToast.show(context, context.l10n.thatTopicIsNoLongerAvailable);
-              }
-            },
-          ),
-    ];
-    return SingleChildScrollView(
-      key: const ValueKey('aggregate-start-page'),
-      child: DPageReadingLaneBox(
-        child: Padding(
-          padding: const EdgeInsets.all(DSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: DSpacing.lg,
-            children: [
-              Row(
-                spacing: DSpacing.md,
-                children: [
-                  const DAvatar(
-                    size: DAvatarSize.lg,
-                    fallback: DAvatarFallback(child: DIcon(DIcons.layerGroup)),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.allForums,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        Text(
-                          context.l10n.startPageForumCount(
-                            shell.instances.length,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _densityControl(context),
-                ],
-              ),
-              if (state.failures.isNotEmpty)
-                DAlert(
-                  variant: DAlertVariant.destructive,
-                  description: DAlertDescription(
-                    child: Text(
-                      context.l10n.notBeRefreshed(state.failures.length),
-                    ),
-                  ),
-                  action: DAlertAction(
-                    child: DButton(
-                      variant: DButtonVariant.link,
-                      label: Text(context.l10n.retry),
-                      onPressed: () => unawaited(shell.refreshAggregate()),
-                    ),
-                  ),
-                ),
-              if (entries.isNotEmpty)
-                _StartSection(
-                  title: context.l10n.latestTopics,
-                  icon: DIcons.layerGroup,
-                  rows: entries,
-                  compact: _compact,
-                  siteUrl: '',
-                  single: true,
-                  onHeading: widget.onBrowseTopics,
-                ),
-              _StartSection(
-                title: context.l10n.everythingElse,
-                icon: DIcons.ellipsis,
-                rows: const [],
-                compact: _compact,
-                siteUrl: '',
-                content: Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: [
-                    if (entries.isEmpty)
-                      _LinkButton(
-                        label: context.l10n.latestTopics,
-                        icon: DIcons.layerGroup,
-                        onPressed: widget.onBrowseTopics,
-                      ),
-                    _LinkButton(
-                      label: context.l10n.preferences,
-                      icon: DIcons.filter,
-                      onPressed: () => unawaited(showAppSettingsModal(context)),
-                    ),
-                    _LinkButton(
-                      label: context.l10n.settings,
-                      icon: DIcons.gear,
-                      onPressed: shell.openCurrentSettings,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   _StartPageEntry _closedEntry(
     BuildContext context,
     ForumTab tab,
@@ -853,8 +706,6 @@ class _StartPageEntry {
     this.bookmarkUrl,
     this.avatarUrl,
     this.prefixBuilder,
-    this.siteUrl,
-    this.sourceLabel,
   });
 
   factory _StartPageEntry.fromRoute(
@@ -894,8 +745,6 @@ class _StartPageEntry {
   final String? path;
   final String? bookmarkUrl;
   final Bookmark? targetBookmark;
-  final String? siteUrl;
-  final String? sourceLabel;
   final String? avatarUrl;
   final SidebarRowDecorationBuilder? prefixBuilder;
   final VoidCallback? onPressed;
@@ -937,7 +786,6 @@ class _StartSection extends StatelessWidget {
     required this.siteUrl,
     this.onHeading,
     this.fullWidth = false,
-    this.single = false,
     this.content,
   });
 
@@ -948,11 +796,10 @@ class _StartSection extends StatelessWidget {
   final String siteUrl;
   final VoidCallback? onHeading;
   final bool fullWidth;
-  final bool single;
   final Widget? content;
 
   Widget _row(BuildContext context, _StartPageEntry entry) {
-    final siteUrl = entry.siteUrl ?? this.siteUrl;
+    final siteUrl = this.siteUrl;
     final canDrag =
         entry.path != null && ShellScope.of(context).desktopPanelsEnabled;
     if (!compact) return _comfortableRow(context, entry, canDrag: canDrag);
@@ -1012,14 +859,6 @@ class _StartSection extends StatelessWidget {
                 fontWeight: compact ? FontWeight.w500 : FontWeight.w600,
               ),
             ),
-            if (entry.sourceLabel case final source?)
-              DItemDescription(
-                child: Text(
-                  source,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             if (!compact && entry.description?.isNotEmpty == true)
               DItemDescription(
                 child: SiteEmojiText.plain(
@@ -1060,7 +899,7 @@ class _StartSection extends StatelessWidget {
     _StartPageEntry entry, {
     required bool canDrag,
   }) {
-    final siteUrl = entry.siteUrl ?? this.siteUrl;
+    final siteUrl = this.siteUrl;
     final tokens = DTokens.of(context);
     final accent = entry.color ?? tokens.primary;
     final metadata = entry.reminderAt != null
@@ -1149,14 +988,6 @@ class _StartSection extends StatelessWidget {
                 if (metadata != null) ...[const SizedBox(width: 4), metadata],
               ],
             ),
-            if (entry.sourceLabel case final source?)
-              DItemDescription(
-                child: Text(
-                  source,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             if (entry.reminderAt case final reminder?)
               DItemDescription(
                 child: Column(
@@ -1320,7 +1151,7 @@ class _StartSection extends StatelessWidget {
                   ],
                 );
               }
-              final across = single || (compact && !fullWidth)
+              final across = (compact && !fullWidth)
                   ? 1
                   : ((constraints.maxWidth + gap) /
                             ((compact ? 250 : 190) + gap))
@@ -1334,11 +1165,7 @@ class _StartSection extends StatelessWidget {
                 runSpacing: gap,
                 children: [
                   for (final entry in rows.take(
-                    single
-                        ? 8
-                        : compact
-                        ? (fullWidth ? 8 : 4)
-                        : across,
+                    compact ? (fullWidth ? 8 : 4) : across,
                   ))
                     SizedBox(width: columnWidth, child: _row(context, entry)),
                 ],
