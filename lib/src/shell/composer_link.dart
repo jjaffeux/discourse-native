@@ -54,71 +54,21 @@ List<ComposerLinkBlock> parseComposerLinks(
   final links = <ComposerLinkBlock>[];
   final markdownRanges = <TextRange>[];
   var offset = 0;
-  var barrenTo = -1;
-  var lineEnd = -1;
-  var bracket = -1;
+  Map<int, ({int bracket, int end})>? candidates;
 
   while (offset < source.length) {
     final start = source.indexOf('[', offset);
     if (start < 0) break;
-    if (start < barrenTo) {
+    final candidate = (candidates ??= _markdownLinkCandidates(
+      source,
+      code,
+    ))[start];
+    if (candidate == null) {
       offset = start + 1;
       continue;
     }
-    if (start >= lineEnd) {
-      final next = source.indexOf('\n', start + 1);
-      lineEnd = next < 0 ? source.length : next;
-    }
-
-    if (bracket <= start) {
-      bracket = source.indexOf(']', start + 1);
-      while (bracket >= 0 && _isEscaped(source, bracket)) {
-        bracket = source.indexOf(']', bracket + 1);
-      }
-    }
-    if (bracket < 0) break;
-    if (bracket > lineEnd) {
-      barrenTo = lineEnd;
-      offset = start + 1;
-      continue;
-    }
-    if (bracket == start + 1 ||
-        bracket + 2 >= source.length ||
-        source[bracket + 1] != '(' ||
-        _isEscaped(source, start)) {
-      offset = start + 1;
-      continue;
-    }
-
+    final (:bracket, :end) = candidate;
     final urlStart = bracket + 2;
-    var close = urlStart;
-    var nesting = 0;
-    while (close < source.length) {
-      final unit = source.codeUnitAt(close);
-      if (_isWhitespace(unit)) break;
-      if (unit == 0x5C &&
-          close + 1 < source.length &&
-          !_isWhitespace(source.codeUnitAt(close + 1))) {
-        close += 2;
-        continue;
-      }
-      if (unit == 0x28) {
-        nesting += 1;
-        // Match markdown-it's limit and bound rescans of unfinished nesting.
-        if (nesting > 32) break;
-      } else if (unit == 0x29) {
-        if (nesting == 0) break;
-        nesting -= 1;
-      }
-      close += 1;
-    }
-    if (close == urlStart || close >= source.length || source[close] != ')') {
-      // Every opener before this bracket shares the same failed destination.
-      offset = bracket + 1;
-      continue;
-    }
-
-    final end = close + 1;
     offset = end;
     markdownRanges.add(TextRange(start: start, end: end));
     if (code.overlaps(start, end)) continue;
@@ -129,7 +79,7 @@ List<ComposerLinkBlock> parseComposerLinks(
         end: end,
         source: source.substring(start, end),
         anchor: source.substring(start + 1, bracket),
-        url: source.substring(urlStart, close),
+        url: source.substring(urlStart, end - 1),
         kind: ComposerLinkKind.markdown,
       ),
     );
@@ -177,6 +127,75 @@ List<ComposerLinkBlock> parseComposerLinks(
 
   links.sort((a, b) => a.start.compareTo(b.start));
   return List.unmodifiable(links);
+}
+
+Map<int, ({int bracket, int end})> _markdownLinkCandidates(
+  String source,
+  CodeRanges code,
+) {
+  final candidates = <int, ({int bracket, int end})>{};
+  final labels = <({int start, bool nestedLink})>[];
+  // Pair labels once, including unfinished outer labels, rather than rescanning
+  // their suffixes from every opener. Completed destinations are skipped.
+  for (var offset = 0; offset < source.length; offset += 1) {
+    final unit = source.codeUnitAt(offset);
+    if (unit == 0x5C &&
+        offset + 1 < source.length &&
+        source.codeUnitAt(offset + 1) != 0x0A) {
+      offset += 1;
+    } else if (unit == 0x0A) {
+      labels.clear();
+    } else if (unit == 0x5B) {
+      labels.add((start: offset, nestedLink: false));
+    } else if (unit == 0x5D && labels.isNotEmpty) {
+      final label = labels.removeLast();
+      final image = label.start > 0 && source[label.start - 1] == '!';
+      final end =
+          offset > label.start + 1 &&
+              offset + 2 < source.length &&
+              source[offset + 1] == '('
+          ? _markdownLinkDestinationEnd(source, offset + 2)
+          : null;
+      final accepted = end != null && (image || !label.nestedLink);
+      if (accepted) candidates[label.start] = (bracket: offset, end: end);
+      // Markdown allows an image inside a label, but not another actual link.
+      final nestedLink = image && accepted
+          ? false
+          : label.nestedLink || (accepted && !code.overlaps(label.start, end));
+      if (nestedLink && labels.isNotEmpty) {
+        labels.last = (start: labels.last.start, nestedLink: true);
+      }
+      if (accepted) offset = end - 1;
+    }
+  }
+  return candidates;
+}
+
+int? _markdownLinkDestinationEnd(String source, int start) {
+  var close = start;
+  var nesting = 0;
+  while (close < source.length) {
+    final unit = source.codeUnitAt(close);
+    if (_isWhitespace(unit)) break;
+    if (unit == 0x5C &&
+        close + 1 < source.length &&
+        !_isWhitespace(source.codeUnitAt(close + 1))) {
+      close += 2;
+      continue;
+    }
+    if (unit == 0x28) {
+      nesting += 1;
+      // Match markdown-it's limit and bound rescans of unfinished nesting.
+      if (nesting > 32) break;
+    } else if (unit == 0x29) {
+      if (nesting == 0) break;
+      nesting -= 1;
+    }
+    close += 1;
+  }
+  return close > start && close < source.length && source[close] == ')'
+      ? close + 1
+      : null;
 }
 
 String _normalizedTld(String value) {
@@ -514,18 +533,6 @@ final class _LinkifyContext {
     }
     return start == _referenceDestination;
   }
-}
-
-bool _isEscaped(String source, int offset) {
-  var slashes = 0;
-  for (
-    var index = offset - 1;
-    index >= 0 && source.codeUnitAt(index) == 0x5C;
-    index -= 1
-  ) {
-    slashes += 1;
-  }
-  return slashes.isOdd;
 }
 
 bool _isWhitespace(int unit) => unit == 0x20 || (unit >= 0x09 && unit <= 0x0D);

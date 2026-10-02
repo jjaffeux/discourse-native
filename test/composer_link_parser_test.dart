@@ -75,6 +75,53 @@ void main() {
   });
 
   group('composer link parser behavior', () {
+    test('balances label brackets and preserves editable escapes', () {
+      for (final anchor in const [
+        'outer [inner]',
+        'outer [middle [inner]]',
+        r'outer [inner\]]',
+        r'outer [inner\\]',
+      ]) {
+        final markdown = '[$anchor](../target)';
+        _expectLinks('before $markdown after', [
+          _markdown(markdown, anchor, '../target'),
+        ]);
+      }
+    });
+
+    test('keeps nested label images and code out of link projections', () {
+      const kept = '[outer [inner]](https://kept.test)';
+      const source =
+          '![image [alt]](https://image.test) '
+          '`[code [inline]](https://inline.test)`\n'
+          '```\n[fenced [label]](https://fenced.test)\n```\n'
+          '$kept';
+      _expectLinks(source, [
+        _markdown(kept, 'outer [inner]', 'https://kept.test'),
+      ]);
+    });
+
+    test(
+      'recovers valid nested links from unclosed labels and destinations',
+      () {
+        const kept = '[kept [nested]](../ok)';
+        for (final source in [
+          '[unclosed $kept',
+          '[outer [label]](../unfinished($kept',
+          '[outer $kept](../unfinished',
+        ]) {
+          _expectLinks(source, [_markdown(kept, 'kept [nested]', '../ok')]);
+        }
+      },
+    );
+
+    test('keeps an inner actual link instead of linking its outer label', () {
+      const inner = '[inner](../inner)';
+      _expectLinks('[outer $inner](../outer)', [
+        _markdown(inner, 'inner', '../inner'),
+      ]);
+    });
+
     test('keeps escaped label brackets inside the full source range', () {
       for (final anchor in const [r'A\]B', r'the \[guide\]', r'path\\name']) {
         final markdown = '[$anchor](https://example.test)';
@@ -508,6 +555,10 @@ void main() {
       'unfinished nested destinations': (count) => '[link](../part' * count,
       'balanced destination parentheses': (count) =>
           '[link](../${'(part)' * count})',
+      'balanced label brackets': (count) =>
+          '${'[' * count}label${']' * count}(../target)',
+      'unclosed labels before a valid inner link': (count) =>
+          '${'[' * count}[kept [nested]](../target)',
     };
     for (final shape in destinationShapes.entries) {
       test('${shape.key} scale with their length', () {
