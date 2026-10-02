@@ -189,6 +189,7 @@ class _ChatComposerState extends State<ChatComposer> {
   VoidCallback? _composerDraftListener;
   ValueListenable<ChatComposerDraft?>? _retainedDraft;
   VoidCallback? _retainedDraftListener;
+  VoidCallback? _rebindRetainedDraft;
   ChatComposerDraft? _deferredRetainedDraft;
   Set<int>? _completedUploadIdsBeforeDeferral;
   bool _applyingRetainedDraft = false;
@@ -282,6 +283,7 @@ class _ChatComposerState extends State<ChatComposer> {
     _suspendRetiredDraftCooking();
     _retainedDraft = null;
     _retainedDraftListener = null;
+    _rebindRetainedDraft = null;
     _deferredRetainedDraft = null;
     _completedUploadIdsBeforeDeferral = null;
     _applyingRetainedDraft = false;
@@ -319,6 +321,7 @@ class _ChatComposerState extends State<ChatComposer> {
             _applyingRetainedDraft = false;
           }
         }
+        _rebindRetainedDraft?.call();
       }
     }
 
@@ -339,10 +342,7 @@ class _ChatComposerState extends State<ChatComposer> {
     if (composer == null) return;
     final target = _target;
     _draftCooking = (chat: chat, siteUrl: widget.siteUrl, target: target);
-    final retainedDraft = chat.composerDraftListenableFor(
-      widget.siteUrl,
-      target,
-    );
+    var retainedDraft = chat.composerDraftListenableFor(widget.siteUrl, target);
     _retainedDraft = retainedDraft;
 
     void applyRetainedDraft() {
@@ -387,6 +387,18 @@ class _ChatComposerState extends State<ChatComposer> {
 
     _retainedDraftListener = applyRetainedDraft;
     retainedDraft.addListener(applyRetainedDraft);
+    _rebindRetainedDraft = () {
+      // Account cleanup removes the ref from the controller. A retained
+      // composer must observe the replacement ref even when rollback restores
+      // the same user and target.
+      final next = chat.composerDraftListenableFor(cookingSite, target);
+      if (identical(next, retainedDraft)) return;
+      retainedDraft.removeListener(applyRetainedDraft);
+      retainedDraft = next;
+      _retainedDraft = next;
+      next.addListener(applyRetainedDraft);
+      applyRetainedDraft();
+    };
 
     void retainDraft() {
       if (_applyingRetainedDraft) return;
