@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
@@ -9,6 +11,179 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final duringLookup in [false, true]) {
+    for (final activation in ['Enter', 'Numpad Enter', 'Tab', 'tap']) {
+      testWidgets(
+        '$activation does not accept a retained mention ${duringLookup ? 'during lookup' : 'before debounce'}',
+        (tester) async {
+          final pending = Completer<List<ComposerSuggestion>>();
+          final asked = <String>[];
+          const sam = ComposerSuggestion(
+            kind: ComposerTriggerKind.mention,
+            value: 'sam',
+            label: 'sam',
+          );
+          const alice = ComposerSuggestion(
+            kind: ComposerTriggerKind.mention,
+            value: 'alice',
+            label: 'alice',
+          );
+          final composer = ComposerController(
+            const ComposerTarget(
+              siteUrl: 'https://meta.discourse.org',
+              topicId: 1,
+              slug: 'topic',
+              topicTitle: 'Topic',
+            ),
+            search: (
+              users: (query) async {
+                asked.add(query);
+                return query == 'sa' ? [sam] : pending.future;
+              },
+              hashtags: (_) async => const [],
+              emojis: (_) async => const [],
+            ),
+          );
+          addTearDown(composer.dispose);
+          composer.text.value = _typed('@sa');
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: ComposerSuggestionField(
+                  composer: composer,
+                  field: DInput(
+                    controller: composer.text,
+                    focusNode: composer.focus,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pump(ComposerAutocomplete.debounce);
+          await tester.pumpAndSettle();
+          expect(find.text('sam'), findsOneWidget);
+
+          final search = find.descendant(
+            of: find.byType(DCommandInput<ComposerSuggestion>),
+            matching: find.byType(EditableText),
+          );
+          await tester.enterText(search, 'alice');
+          await tester.pump();
+          expect(composer.raw, '@alice');
+          expect(find.text('sam'), findsOneWidget);
+          if (duringLookup) {
+            await tester.pump(ComposerAutocomplete.debounce);
+            expect(asked, ['sa', 'alice']);
+          } else {
+            expect(asked, ['sa']);
+          }
+
+          switch (activation) {
+            case 'tap':
+              await tester.tap(find.text('sam'));
+            case 'Enter':
+              await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            case 'Numpad Enter':
+              await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+            case 'Tab':
+              await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          }
+          await tester.pump();
+          expect(composer.raw, '@alice');
+          expect(composer.autocomplete.isOpen, isTrue);
+          expect(find.text('sam'), findsOneWidget);
+
+          pending.complete([alice]);
+          await tester.pump(ComposerAutocomplete.debounce);
+          await tester.pumpAndSettle();
+          expect(find.text('sam'), findsNothing);
+          expect(
+            find.byWidgetPredicate(
+              (widget) => widget is Text && widget.data == 'alice',
+            ),
+            findsOneWidget,
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(composer.text.text, '@alice ');
+          expect(composer.autocomplete.isOpen, isFalse);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('retained emoji action rows wait for the current query', (
+    tester,
+  ) async {
+    final pending = Completer<List<ComposerSuggestion>>();
+    ComposerSuggestion action(String query) => ComposerSuggestion(
+      kind: ComposerTriggerKind.emoji,
+      value: query,
+      label: 'More emoji',
+      action: ComposerSuggestionAction.openEmojiPicker,
+    );
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+      search: (
+        users: (_) async => const [],
+        hashtags: (_) async => const [],
+        emojis: (query) async =>
+            query == 'sm' ? [action(query)] : pending.future,
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.text.value = _typed(':sm');
+    ComposerSuggestion? opened;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ComposerSuggestionField(
+            composer: composer,
+            onAction:
+                ({
+                  required context,
+                  required composer,
+                  required suggestion,
+                  anchor,
+                }) async => opened = suggestion,
+            field: DInput(controller: composer.text, focusNode: composer.focus),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(ComposerAutocomplete.debounce);
+    await tester.pumpAndSettle();
+    composer.focus.requestFocus();
+    await tester.pump();
+
+    composer.text.value = _typed(':gr');
+    await tester.pump(ComposerAutocomplete.debounce);
+    expect(find.text('More emoji'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.tap(find.text('More emoji'));
+    await tester.pump();
+    expect(opened, isNull);
+    expect(composer.text.text, ':gr');
+    expect(composer.autocomplete.isOpen, isTrue);
+
+    pending.complete([action('gr')]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('More emoji'));
+    await tester.pump();
+    expect(opened?.value, 'gr');
+    expect(composer.text.text, ':gr');
+    expect(composer.autocomplete.isOpen, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final hardwareKeyboard in [true, false]) {
     testWidgets(
       '${hardwareKeyboard ? 'hardware' : 'mobile'} Backspace removes an empty mention and closes its menu',
