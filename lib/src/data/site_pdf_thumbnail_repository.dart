@@ -3,17 +3,12 @@ import 'package:flutter/services.dart';
 
 import 'site_thumbnail_repository.dart';
 
-export 'site_thumbnail_repository.dart' show ThumbnailRequest;
-
-typedef VideoThumbnailRequest = ThumbnailRequest;
-typedef VideoThumbnailGenerator = ThumbnailGenerator;
-
-const _channel = MethodChannel('org.discourse.native/video_thumbnails');
+const _channel = MethodChannel('org.discourse.native/pdf_thumbnails');
 int _nextRequestId = 0;
 
-VideoThumbnailRequest generateNativeVideoThumbnail(Uri source) {
+ThumbnailRequest generateNativePdfThumbnail(Uri source) {
   final id = _nextRequestId++;
-  return VideoThumbnailRequest(
+  return ThumbnailRequest(
     _channel.invokeMethod<Uint8List>('generate', {
       'id': id,
       'url': source.toString(),
@@ -22,11 +17,11 @@ VideoThumbnailRequest generateNativeVideoThumbnail(Uri source) {
   );
 }
 
-final class SiteVideoThumbnailRepository extends SiteThumbnailRepository {
-  SiteVideoThumbnailRepository({
+final class SitePdfThumbnailRepository extends SiteThumbnailRepository {
+  SitePdfThumbnailRepository({
     required super.credentials,
     required super.lifecycle,
-    VideoThumbnailGenerator? generator,
+    ThumbnailGenerator? generator,
     super.clock,
     super.maxConcurrent,
     super.maxPending,
@@ -38,7 +33,13 @@ final class SiteVideoThumbnailRepository extends SiteThumbnailRepository {
              (!kIsWeb &&
                      (defaultTargetPlatform == TargetPlatform.macOS ||
                          defaultTargetPlatform == TargetPlatform.iOS)
-                 ? generateNativeVideoThumbnail
+                 ? generateNativePdfThumbnail
                  : null),
        );
 }
+
+bool isPdfAttachment(String filename, String url) =>
+    Uri.tryParse(url)?.path.toLowerCase().endsWith('.pdf') == true ||
+    // Discourse's upload short URL carries no filename or extension.
+    (url.startsWith('upload://') &&
+        filename.split('|').first.trim().toLowerCase().endsWith('.pdf'));

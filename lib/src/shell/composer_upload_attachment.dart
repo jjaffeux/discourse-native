@@ -2,9 +2,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../data/site_pdf_thumbnail_repository.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_controller.dart';
+import 'pdf_attachment.dart';
 import 'site_image.dart';
 
 class ComposerUploadAttachment extends StatelessWidget {
@@ -22,6 +24,10 @@ class ComposerUploadAttachment extends StatelessWidget {
     final failed = upload.status == ComposerUploadStatus.failed;
     final completed = upload.status == ComposerUploadStatus.completed;
     final thumbnail = completed ? upload.result : null;
+    final isPdf = isPdfAttachment(
+      upload.file.name,
+      thumbnail?.url ?? 'upload://pending',
+    );
     final isImage = SiteConfig.isImageFilename(upload.file.name);
     final retrying = upload.status == ComposerUploadStatus.retrying;
     final processing = upload.status == ComposerUploadStatus.processing;
@@ -50,11 +56,16 @@ class ComposerUploadAttachment extends StatelessWidget {
       children: [
         DAttachmentMedia(
           variant:
-              thumbnail != null && (isImage || thumbnail.thumbnailUrl != null)
+              thumbnail != null &&
+                  (isPdf || isImage || thumbnail.thumbnailUrl != null)
               ? DAttachmentMediaVariant.image
               : DAttachmentMediaVariant.icon,
-          child:
-              thumbnail != null && (isImage || thumbnail.thumbnailUrl != null)
+          child: thumbnail != null && isPdf && thumbnail.thumbnailUrl == null
+              ? PdfThumbnail(
+                  url: thumbnail.url,
+                  siteUrl: composer.target.siteUrl,
+                )
+              : thumbnail != null && (isImage || thumbnail.thumbnailUrl != null)
               ? _ComposerUploadThumbnail(
                   siteUrl: composer.target.siteUrl,
                   filename: upload.file.name,

@@ -882,8 +882,11 @@ class MarkdownEditingController extends TextEditingController {
     artworkArrived();
   }
 
+  String? resolvedUploadUrl(String url) =>
+      url.startsWith('upload://') ? _imageUrls[url] : url;
+
   String? resolvedImageUrl(ComposerImageBlock image) =>
-      image.url.startsWith('upload://') ? _imageUrls[image.url] : image.url;
+      resolvedUploadUrl(image.url);
 
   Size? naturalImageSize(ComposerImageBlock image) =>
       _naturalImageSizes[image.url];
@@ -1875,6 +1878,12 @@ class MarkdownEditingController extends TextEditingController {
           () => block.projection.buildCollapsedSpans(
             ComposerSyntaxRenderContext(
               baseStyle: base,
+              siteUrl: imageSiteUrl,
+              resolveUploadUrl: (url) {
+                final resolved = resolvedUploadUrl(url);
+                if (resolved == null) unresolvedImages.add(url);
+                return resolved;
+              },
               scrollController: _imageScrollController,
               locale: locale,
               pillKey: _syntaxPillKeys.putIfAbsent(

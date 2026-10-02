@@ -4,10 +4,12 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/site_pdf_thumbnail_repository.dart';
 import '../models/site_config.dart';
 import '../plugin_api/composer_syntax.dart';
 import 'composer_quotes.dart';
 import 'markdown_highlight.dart';
+import 'pdf_attachment.dart';
 
 ComposerSyntaxKind get composerLinkSyntaxKind => ComposerSyntaxKind(
   owner: const PluginId('core'),
@@ -618,6 +620,10 @@ final class ComposerLinkSyntaxProjection implements ComposerSyntaxProjection {
           baseStyle: context.baseStyle,
           highlighted: context.highlighted,
           hovered: context.hovered,
+          siteUrl: context.siteUrl,
+          previewUrl: isPdfAttachment(block.anchor, block.url)
+              ? context.resolveUploadUrl?.call(block.url)
+              : null,
         ),
       ),
     ),
@@ -653,6 +659,8 @@ class ComposerLinkPill extends StatelessWidget {
     required this.baseStyle,
     required this.highlighted,
     required this.hovered,
+    this.siteUrl,
+    this.previewUrl,
   });
 
   final String anchor;
@@ -660,9 +668,25 @@ class ComposerLinkPill extends StatelessWidget {
   final TextStyle baseStyle;
   final bool highlighted;
   final bool hovered;
+  final String? siteUrl;
+  final String? previewUrl;
 
   @override
   Widget build(BuildContext context) {
+    if (isPdfAttachment(anchor, url)) {
+      return Semantics(
+        link: true,
+        label: anchor,
+        hint: context.l10n.editLinkTo(url),
+        child: PdfAttachment(
+          filename: anchor.split('|').first,
+          url: previewUrl,
+          siteUrl: siteUrl,
+          size: DAttachmentSize.small,
+          selected: highlighted,
+        ),
+      );
+    }
     final primary = Theme.of(context).colorScheme.primary;
     return Semantics(
       link: true,
