@@ -23018,6 +23018,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filters'**
   String get startPageFilters;
+
+  /// Field validation for a value that exceeds the server's Unicode character limit.
+  ///
+  /// In en, this message translates to:
+  /// **'Use {maximum} characters or fewer.'**
+  String useAtMostCharacters(String maximum);
 }
 
 class _AppLocalizationsDelegate
