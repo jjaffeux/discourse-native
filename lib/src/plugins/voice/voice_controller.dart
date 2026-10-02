@@ -4076,8 +4076,7 @@ final class VoiceController extends ChangeNotifier {
     int roomId,
     String message,
   ) async {
-    final text = message.trim();
-    if (text.isEmpty) return;
+    if (message.trim().isEmpty) return;
     final key = '$siteUrl#$roomId';
     var state = _chats.putIfAbsent(key, _VoiceChatAssociation.new);
     final heldConversation = state.conversation;
@@ -4089,7 +4088,7 @@ final class VoiceController extends ChangeNotifier {
         state.error = null;
         notifyListeners();
       }
-      await heldConversation.send(text);
+      await heldConversation.send(message);
       return;
     }
     final siteSession = _siteSession(siteUrl);
@@ -4121,7 +4120,7 @@ final class VoiceController extends ChangeNotifier {
           siteUrl: siteUrl,
           roomId: roomId,
           apiKey: apiKey,
-          message: text,
+          message: message,
         );
         if (!isCurrent()) return;
         sentFirstMessage = true;
@@ -4141,7 +4140,7 @@ final class VoiceController extends ChangeNotifier {
           if (sentFirstMessage) {
             if (retainConversation) await conversation.refresh(force: true);
           } else {
-            await conversation.send(text);
+            await conversation.send(message);
             final sendError = conversation.value.error;
             if (!retainConversation && sendError != null) {
               state.error = sendError;

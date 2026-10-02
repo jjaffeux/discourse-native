@@ -3391,7 +3391,7 @@ void main() {
         expect(conversation.loadOlderCalls, 1);
 
         await controller.sendChatMessage(firstSite, 7, '  hello room  ');
-        expect(conversation.sentMessages, ['hello room']);
+        expect(conversation.sentMessages, ['  hello room  ']);
       },
     );
 

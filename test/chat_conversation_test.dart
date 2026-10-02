@@ -138,14 +138,25 @@ void main() {
       ]);
     });
 
-    test('trims outgoing text and retains its thread identity', () async {
+    test('preserves outgoing text and retains its thread identity', () async {
       final fixture = _openConversation();
       await fixture.conversation.refresh();
 
       await fixture.conversation.send('  hello room  ');
 
-      expect(fixture.api.chatMessagesSent.single.message, 'hello room');
+      expect(fixture.api.chatMessagesSent.single.message, '  hello room  ');
       expect(fixture.api.chatMessagesSent.single.threadId, 99);
+    });
+
+    test('does not send whitespace-only text', () async {
+      final fixture = _openConversation();
+      await fixture.conversation.refresh();
+
+      await fixture.conversation.send('  \n\t ');
+
+      expect(fixture.api.chatMessagesSent, isEmpty);
+      expect(fixture.conversation.value.sending, isFalse);
+      expect(fixture.conversation.value.error, isNull);
     });
 
     test('closing releases only the conversation view subscription', () async {
