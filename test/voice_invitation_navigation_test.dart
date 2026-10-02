@@ -369,6 +369,9 @@ final class _Harness {
 
 final class _RouteHost implements PluginRouteNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   final sites = [_firstSite, _secondSite];
   String selectedUrl = _firstSite.url;
   void Function()? onSelect;

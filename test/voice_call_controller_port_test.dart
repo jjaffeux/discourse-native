@@ -199,4 +199,7 @@ VoiceCallPortState _state({String roomName = 'Planning'}) => VoiceCallPortState(
   ),
 );
 
-final class _RouteHost extends Fake implements PluginRouteNavigationHost {}
+final class _RouteHost extends Fake implements PluginRouteNavigationHost {
+  @override
+  String? get activeTabId => null;
+}

@@ -372,6 +372,9 @@ Map<String, dynamic> _event(int id) => eventJson(
 
 final class _Routes implements PluginRouteNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   final sites = const [
     PluginRouteSite(url: eventSite, title: 'Forum', isConnected: true),
   ];

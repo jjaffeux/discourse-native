@@ -399,4 +399,7 @@ void main() {
   });
 }
 
-final class _Routes extends Fake implements PluginRouteNavigationHost {}
+final class _Routes extends Fake implements PluginRouteNavigationHost {
+  @override
+  String? get activeTabId => null;
+}

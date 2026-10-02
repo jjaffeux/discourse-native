@@ -4474,6 +4474,9 @@ VoiceShellService _voiceShell(
 );
 
 final class _RouteHost implements PluginRouteNavigationHost {
+  @override
+  String? get activeTabId => null;
+
   _RouteHost(this.currentSite)
     : sites = currentSite == null ? const [] : [currentSite];
 
