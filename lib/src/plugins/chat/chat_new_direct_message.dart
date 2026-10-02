@@ -19,12 +19,14 @@ Future<void> showChatNewDirectMessageDialog({
   required ChatController chat,
   required ChatShellService shell,
 }) {
+  final session = chat.captureSession(siteUrl);
   final searchFocus = FocusNode(debugLabel: 'Start chatting search');
   Widget content(DDialogController<void> dialog, {required bool sheet}) =>
       _ChatNewDirectMessageDialog(
         siteUrl: siteUrl,
         chat: chat,
         shell: shell,
+        session: session,
         dialog: dialog,
         searchFocus: searchFocus,
         sheet: sheet,
@@ -61,6 +63,7 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
     required this.siteUrl,
     required this.chat,
     required this.shell,
+    required this.session,
     required this.dialog,
     required this.searchFocus,
     required this.sheet,
@@ -69,6 +72,7 @@ class _ChatNewDirectMessageDialog extends StatefulWidget {
   final String siteUrl;
   final ChatController chat;
   final ChatShellService shell;
+  final PluginSiteLease session;
   final DDialogController<void> dialog;
 
   /// Owned by this state: the route holds it as its initial focus until the
@@ -96,25 +100,50 @@ class _ChatNewDirectMessageDialogState
   bool _composingGroup = false;
   bool _searching = false;
   bool _opening = false;
+  bool _retired = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _showExistingChannels();
+    widget.chat.addListener(_sessionChanged);
+    _sessionChanged();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocus.requestFocus();
+      if (mounted && _sessionIsCurrent) _searchFocus.requestFocus();
     });
   }
 
   @override
   void dispose() {
+    widget.chat.removeListener(_sessionChanged);
     _debounce?.cancel();
     _searchFocus.dispose();
     _command.dispose();
     _search.dispose();
     _groupName.dispose();
     super.dispose();
+  }
+
+  bool get _sessionIsCurrent => widget.session.isCurrent;
+
+  void _sessionChanged() {
+    if (_sessionIsCurrent || _retired || !mounted) return;
+    _debounce?.cancel();
+    _generation++;
+    setState(() {
+      _retired = true;
+      _searching = false;
+      _opening = false;
+      _error = appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
+    });
+  }
+
+  bool _checkSession() {
+    if (!mounted) return false;
+    if (_sessionIsCurrent) return true;
+    _sessionChanged();
+    return false;
   }
 
   int get _maximumGroupMembers =>
@@ -161,7 +190,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   void _scheduleSearch(String value) {
-    if (_resettingSearch || _opening) return;
+    if (_resettingSearch || !_checkSession() || _opening) return;
     _debounce?.cancel();
     final query = value.trim();
     final generation = ++_generation;
@@ -182,6 +211,7 @@ class _ChatNewDirectMessageDialogState
     if (query.isEmpty) return;
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!_checkSession()) return;
       try {
         final answer = await widget.chat.searchDirectMessages(
           widget.siteUrl,
@@ -190,13 +220,13 @@ class _ChatNewDirectMessageDialogState
           includeDirectMessageChannels: !_composingGroup,
           includeCategoryChannels: !_composingGroup,
         );
-        if (!mounted || generation != _generation) return;
+        if (!mounted || !_sessionIsCurrent || generation != _generation) return;
         setState(() {
           _searching = false;
           _results = answer.items;
         });
       } catch (error) {
-        if (!mounted || generation != _generation) return;
+        if (!mounted || !_sessionIsCurrent || generation != _generation) return;
         setState(() {
           _searching = false;
           _error = _messageFor(error, fallback: appL10n.couldNotSearchChat);
@@ -206,7 +236,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   Future<void> _select(ChatDirectMessageSearchItem item) async {
-    if (_opening || !item.enabled) return;
+    if (!_checkSession() || _opening || !item.enabled) return;
     if (_composingGroup) {
       _addMember(item);
       return;
@@ -237,7 +267,11 @@ class _ChatNewDirectMessageDialogState
         widget.siteUrl,
         user.username,
       );
-      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (!mounted ||
+          !_sessionIsCurrent ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
       if (channel != null && widget.shell.openChannel(channel.id)) {
         widget.dialog.close();
       } else {
@@ -247,7 +281,7 @@ class _ChatNewDirectMessageDialogState
         });
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_sessionIsCurrent) return;
       setState(() {
         _opening = false;
         _error = _messageFor(error, fallback: appL10n.couldNotStartThisChat);
@@ -267,7 +301,7 @@ class _ChatNewDirectMessageDialogState
   void _startGroup([
     List<ChatDirectMessageSearchItem> initialMembers = const [],
   ]) {
-    if (!_canUseGroupChat || _opening) return;
+    if (!_checkSession() || !_canUseGroupChat || _opening) return;
     if (initialMembers.any((member) => !_canAddMember(member))) {
       setState(() {
         _error = appL10n.aGroupChatCanIncludeUpToPeople(
@@ -291,6 +325,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   void _cancelGroup() {
+    if (!_checkSession()) return;
     _debounce?.cancel();
     _generation++;
     _clearSearch();
@@ -316,7 +351,8 @@ class _ChatNewDirectMessageDialogState
       _membersCount + _memberCount(item) <= _maximumGroupMembers;
 
   void _addMember(ChatDirectMessageSearchItem item) {
-    if (item is ChatDirectMessageChannel ||
+    if (!_checkSession() ||
+        item is ChatDirectMessageChannel ||
         _members.any((member) => member.identifier == item.identifier)) {
       return;
     }
@@ -340,6 +376,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   void _removeMember(ChatDirectMessageSearchItem item) {
+    if (!_checkSession()) return;
     setState(() {
       _members.removeWhere((member) => member.identifier == item.identifier);
       _error = null;
@@ -347,7 +384,10 @@ class _ChatNewDirectMessageDialogState
   }
 
   Future<void> _createGroup() async {
-    if (_opening || _members.isEmpty || _membersCount > _maximumGroupMembers) {
+    if (!_checkSession() ||
+        _opening ||
+        _members.isEmpty ||
+        _membersCount > _maximumGroupMembers) {
       return;
     }
     _debounce?.cancel();
@@ -370,7 +410,11 @@ class _ChatNewDirectMessageDialogState
         ],
         name: _groupName.text,
       );
-      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (!mounted ||
+          !_sessionIsCurrent ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
       if (channel != null && widget.shell.openChannel(channel.id)) {
         widget.dialog.close();
       } else {
@@ -380,7 +424,7 @@ class _ChatNewDirectMessageDialogState
         });
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_sessionIsCurrent) return;
       setState(() {
         _opening = false;
         _error = _messageFor(error, fallback: appL10n.couldNotCreateThisGroup);
@@ -550,7 +594,7 @@ class _ChatNewDirectMessageDialogState
         DInput(
           key: const ValueKey('chat-new-group-name'),
           controller: _groupName,
-          enabled: !_opening,
+          enabled: !_opening && _sessionIsCurrent,
           hintText: appL10n.groupNameOptional,
           semanticLabel: appL10n.groupNameOptional,
         ),
@@ -584,7 +628,7 @@ class _ChatNewDirectMessageDialogState
               key: const ValueKey('chat-new-direct-message-search'),
               controller: _search,
               focusNode: _searchFocus,
-              enabled: !_opening,
+              enabled: !_opening && _sessionIsCurrent,
               semanticLabel: appL10n.searchChatRecipients,
               placeholder: _composingGroup
                   ? appL10n.searchUsersOrGroups
@@ -617,14 +661,14 @@ class _ChatNewDirectMessageDialogState
       DButton(
         label: Text(appL10n.back),
         variant: DButtonVariant.outline,
-        onPressed: _opening ? null : _cancelGroup,
+        onPressed: _opening || !_sessionIsCurrent ? null : _cancelGroup,
       ),
       DButton(
         key: const ValueKey('chat-create-group-direct-message'),
         label: Text(appL10n.startGroupChat),
         variant: DButtonVariant.primary,
         loading: _opening,
-        onPressed: _opening || _members.isEmpty
+        onPressed: _opening || !_sessionIsCurrent || _members.isEmpty
             ? null
             : () => unawaited(_createGroup()),
       ),
@@ -674,7 +718,7 @@ class _ChatNewDirectMessageDialogState
                 semanticLabel: appL10n.removeChatnewdirectmessage(
                   (_memberLabel(member)).toString(),
                 ),
-                onPressed: _opening
+                onPressed: _opening || !_sessionIsCurrent
                     ? null
                     : () {
                         _removeMember(member);
@@ -721,7 +765,11 @@ class _ChatNewDirectMessageDialogState
             item,
     ];
     final showNewGroup =
-        !_composingGroup && query.isEmpty && _canUseGroupChat && !_opening;
+        !_composingGroup &&
+        query.isEmpty &&
+        _canUseGroupChat &&
+        !_opening &&
+        _sessionIsCurrent;
     // Keep the server's relevance order, including across result types.
     final groups = <({String heading, List<DCommandItem<String>> items})>[];
     for (final item in results) {
@@ -821,7 +869,9 @@ class _ChatNewDirectMessageDialogState
       ),
     };
     final enabled =
-        !_opening && (_composingGroup ? _canAddMember(item) : item.enabled);
+        !_opening &&
+        _sessionIsCurrent &&
+        (_composingGroup ? _canAddMember(item) : item.enabled);
     return DCommandItem<String>(
       value: item.identifier,
       enabled: enabled,
