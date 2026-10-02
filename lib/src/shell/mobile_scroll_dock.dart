@@ -106,7 +106,6 @@ class _MobileScrollDockState extends State<MobileScrollDock> {
       return false;
     }
     final travel = metrics.maxScrollExtent - metrics.minScrollExtent;
-    if (travel < _minimumTravel) return false;
     final reversed = metrics.axisDirection == AxisDirection.up;
     final top = reversed
         ? metrics.maxScrollExtent - metrics.pixels
@@ -126,6 +125,10 @@ class _MobileScrollDockState extends State<MobileScrollDock> {
       intent.holdAtEnd = false;
       _setHidden(false);
     } else if (down &&
+        // Hiding enlarges the viewport and can take a short page below the
+        // threshold. Only gate hiding: its top, end and upward gestures must
+        // still be able to restore the dock with that smaller scroll range.
+        travel >= _minimumTravel &&
         !intent.holdAtEnd &&
         (top - delta.abs() <= _topFloor || intent.distance > _hideDistance)) {
       _setHidden(true);

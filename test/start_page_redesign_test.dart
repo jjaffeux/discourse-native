@@ -486,6 +486,71 @@ void main() {
     );
   }
 
+  for (final atEnd in [false, true]) {
+    _test('short mobile Start restores its dock after the viewport grows '
+        '(at end: $atEnd)', (tester) async {
+      await _start(tester, phone);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+      final scroll = find
+          .descendant(
+            of: find.byType(NewTabPage).last,
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first;
+      ScrollPosition position() => tester
+          .state<ScrollableState>(
+            find.descendant(of: scroll, matching: find.byType(Scrollable)),
+          )
+          .position;
+      // Keep the real Start content and put its viewport just above the dock's
+      // threshold, so hiding the dock moves the same page below that threshold.
+      tester.view.physicalSize = Size(
+        390,
+        phone.height + position().maxScrollExtent - 130,
+      );
+      await tester.pumpAndSettle();
+      expect(position().maxScrollExtent, closeTo(130, .01));
+      final initialHeight = tester.getSize(scroll).height;
+      final content = find.descendant(
+        of: find.byType(NewTabPage).last,
+        matching: find.byKey(const ValueKey('start-page-content')),
+      );
+      final initialContentTop = tester.getTopLeft(content).dy;
+      await _capture(tester, 'short-start-before-$atEnd');
+      final gesture = await tester.startGesture(tester.getCenter(scroll));
+      await gesture.moveBy(const Offset(0, -40));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, -70));
+      await tester.pumpAndSettle();
+      expect(position().maxScrollExtent, lessThan(120));
+      expect(tester.getSize(scroll).height, greaterThan(initialHeight));
+      expect(
+        tester.getTopLeft(content).dy,
+        closeTo(initialContentTop - position().pixels, .01),
+      );
+      await _capture(tester, 'short-start-hidden-$atEnd');
+      await gesture.moveBy(Offset(0, atEnd ? -60 : 30));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(scroll).height, closeTo(initialHeight, .01));
+      if (atEnd) {
+        await gesture.moveBy(const Offset(0, -80));
+        await tester.pumpAndSettle();
+        expect(tester.getSize(scroll).height, closeTo(initialHeight, .01));
+      }
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(content).dy,
+        closeTo(initialContentTop - position().pixels, .01),
+      );
+      await _capture(tester, 'short-start-restored-$atEnd');
+      expect(tester.takeException(), isNull);
+    }, platform: TargetPlatform.iOS);
+  }
+
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
       _test('Start scroll header keeps mockup spacing in $mode on $platform', (

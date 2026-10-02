@@ -77,3 +77,13 @@ The owned page scroller does not inherit the shell's primary controller;
 otherwise multiple attached iOS scroll positions disable the 14px fade beneath
 the header. Regressions cover both scroll limits, wheel and touch input,
 light/dark renders, content anchoring, and the fade's rendered pixels.
+
+Short mobile pages must still restore their dock after hiding it enlarges the
+viewport. The mockup's shared scroll listener ignores ranges below 120px; that
+guard cannot apply to restoration in Native, since the dock's own animation can
+take a page below the threshold. `MobileScrollDock` now requires 120px only to
+hide. Upward gestures and either scroll limit can restore it at smaller ranges,
+and the existing end hold keeps it visible while scrolling through the space
+it takes back. Touch regressions reproduce the threshold crossing with both a
+bounded list and the full iOS Start page, checking upward/bottom restoration,
+continued scrolling at the bottom, and the content anchor.
