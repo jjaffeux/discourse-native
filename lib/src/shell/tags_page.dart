@@ -12,6 +12,8 @@ import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'shell_scope.dart';
 
+typedef _TagPageSnapshot = (Object, TagDirectoryFeed);
+
 class TagsPage extends StatefulWidget {
   const TagsPage({super.key, required this.siteUrl});
 
@@ -22,7 +24,8 @@ class TagsPage extends StatefulWidget {
 }
 
 class _TagsPageState extends State<TagsPage> {
-  (Object, String)? _requestedIdentity;
+  (Object, String, Object)? _requestedIdentity;
+  bool _requestScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -38,16 +41,34 @@ class _TagsPageState extends State<TagsPage> {
 
   void _request({bool force = false}) {
     final controller = ShellScope.identityOf(context);
-    final identity = (controller as Object, widget.siteUrl);
+    final identity = (
+      controller as Object,
+      widget.siteUrl,
+      controller.lifecycle.capture(widget.siteUrl).session,
+    );
     if (!force && identity == _requestedIdentity) return;
     _requestedIdentity = identity;
     unawaited(controller.loadTags(widget.siteUrl, force: force));
   }
 
+  void _scheduleRequest(Object session) {
+    if (_requestedIdentity?.$3 == session || _requestScheduled) return;
+    _requestScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestScheduled = false;
+      if (mounted) _request();
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => ShellSelector<TagDirectoryFeed>(
-    select: (controller) => controller.tagDirectoryFeedFor(widget.siteUrl),
-    builder: (context, feed, _) {
+  Widget build(BuildContext context) => ShellSelector<_TagPageSnapshot>(
+    select: (controller) => (
+      controller.lifecycle.capture(widget.siteUrl).session,
+      controller.tagDirectoryFeedFor(widget.siteUrl),
+    ),
+    builder: (context, data, _) {
+      final (session, feed) = data;
+      _scheduleRequest(session);
       if (feed.error != null && feed.tags.isEmpty) {
         return _TagPageState(
           icon: DIcons.triangleExclamation,
