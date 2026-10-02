@@ -259,6 +259,89 @@ void main() {
     expect(find.bySemanticsLabel('Tuesday, September 1, 2026'), findsNothing);
   });
 
+  testWidgets('changing fixed weeks updates the mounted month grid', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    var fixedWeeks = false;
+    await pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return DCalendar(
+            initialDisplayedMonth: september,
+            fixedWeeks: fixedWeeks,
+          );
+        },
+      ),
+    );
+
+    final extraWeek = find.bySemanticsLabel('Monday, October 5, 2026');
+    expect(extraWeek, findsNothing);
+    rebuild(() => fixedWeeks = true);
+    await tester.pumpAndSettle();
+    expect(extraWeek, findsOneWidget);
+    expect(find.text('September 2026'), findsOneWidget);
+
+    rebuild(() => fixedWeeks = false);
+    await tester.pumpAndSettle();
+    expect(extraWeek, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('calendar settings preserve the browsed month and selection', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    var firstWeekday = DateTime.monday;
+    var showWeekNumbers = false;
+    var location = tz.UTC;
+    final controller = DCalendarController();
+    addTearDown(controller.dispose);
+    await pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return DCalendar(
+            controller: controller,
+            initialDisplayedMonth: september,
+            firstWeekday: firstWeekday,
+            showWeekNumbers: showWeekNumbers,
+            location: location,
+          );
+        },
+      ),
+    );
+    controller.showMonth(DCalendarDate(2026, 10, 1));
+    await tester.pumpAndSettle();
+    final sunday = find.bySemanticsLabel('Sunday, October 4, 2026');
+    final monday = find.bySemanticsLabel('Monday, October 5, 2026');
+    expect(
+      tester.getCenter(sunday).dx,
+      greaterThan(tester.getCenter(monday).dx),
+    );
+    await tester.tap(monday);
+    await tester.pumpAndSettle();
+
+    rebuild(() {
+      firstWeekday = DateTime.sunday;
+      showWeekNumbers = true;
+      location = tz.getLocation('Pacific/Auckland');
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('October 2026'), findsOneWidget);
+    expect(tester.getCenter(sunday).dx, lessThan(tester.getCenter(monday).dx));
+    expect(find.bySemanticsLabel(RegExp(r'^Week \d+$')), findsWidgets);
+    expect(
+      controller.selection,
+      DCalendarSingleSelection(DCalendarDate(2026, 10, 5)),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('controller clears selection and replacement adopts new state', (
     tester,
   ) async {

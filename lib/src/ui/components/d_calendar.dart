@@ -373,7 +373,7 @@ class DKalenderTheme extends StatelessWidget {
   }
 }
 
-/// A compact base-nova date-selection calendar powered by kalender 0.31.3.
+/// A compact base-nova date-selection calendar powered by kalender 0.33.0.
 ///
 /// Non-null [selection] and [displayedMonth] are controlled. Otherwise initial
 /// values and the owned/borrowed [controller] drive state. Borrowed controllers
@@ -582,7 +582,12 @@ class _DCalendarState extends State<DCalendar> {
 
   void _ensurePages() {
     while (_pageControllers.length < widget.numberOfMonths) {
-      _pageControllers.add(kalender.KalenderController());
+      _pageControllers.add(
+        kalender.KalenderController(
+          viewConfiguration: _pageConfiguration(_pageControllers.length),
+          location: widget.location,
+        ),
+      );
       _eventsControllers.add(kalender.DefaultEventsController());
     }
     while (_pageControllers.length > widget.numberOfMonths) {
@@ -624,6 +629,18 @@ class _DCalendarState extends State<DCalendar> {
     if (widget.displayedMonth != null &&
         widget.displayedMonth != oldWidget.displayedMonth) {
       _setMonth(widget.displayedMonth!, notify: false);
+    }
+    if (oldWidget.firstWeekday != widget.firstWeekday ||
+        oldWidget.showWeekNumbers != widget.showWeekNumbers ||
+        oldWidget.fixedWeeks != widget.fixedWeeks ||
+        oldWidget.startMonth != widget.startMonth ||
+        oldWidget.endMonth != widget.endMonth ||
+        oldWidget.location != widget.location) {
+      for (var pane = 0; pane < _pageControllers.length; pane++) {
+        _pageControllers[pane]
+          ..location = widget.location
+          ..viewConfiguration = _pageConfiguration(pane);
+      }
     }
     if (_focusedDate == null || !_isFocusableAndVisible(_focusedDate!)) {
       _focusedDate = _focusableDateForMonth(_month, _focusedDate?.day);
@@ -1052,22 +1069,24 @@ class _DCalendarState extends State<DCalendar> {
     );
   }
 
+  kalender.MonthViewConfiguration _pageConfiguration(int pane) =>
+      kalender.MonthViewConfiguration(
+        name: 'DCalendar-$pane',
+        initialDateTime: _externalDate(_month.addMonths(pane)),
+        firstDayOfWeek: widget.firstWeekday,
+        showWeekNumbers: widget.showWeekNumbers,
+        pageIndexCalculator: _DMonthIndexCalculator(
+          start: _displayRange.start,
+          end: _displayRange.end,
+          firstDayOfWeek: widget.firstWeekday,
+          fixedWeeks: widget.fixedWeeks,
+        ),
+      );
+
   Widget _monthPane(int pane, double cell, double width) {
     final month = _month.addMonths(pane);
     final rows = widget.fixedWeeks ? 6 : _rowsInMonth(month);
     final laneHeight = cell + 8;
-    final configuration = kalender.MonthViewConfiguration(
-      name: 'DCalendar-$pane',
-      initialDateTime: _externalDate(month),
-      firstDayOfWeek: widget.firstWeekday,
-      showWeekNumbers: widget.showWeekNumbers,
-      pageIndexCalculator: _DMonthIndexCalculator(
-        start: _displayRange.start,
-        end: _displayRange.end,
-        firstDayOfWeek: widget.firstWeekday,
-        fixedWeeks: widget.fixedWeeks,
-      ),
-    );
     return SizedBox(
       width: width,
       child: Column(
@@ -1083,9 +1102,7 @@ class _DCalendarState extends State<DCalendar> {
             child: kalender.KalenderView(
               eventsController: _eventsControllers[pane],
               kalenderController: _pageControllers[pane],
-              viewConfiguration: configuration,
               locale: widget.locale ?? Localizations.localeOf(context),
-              location: widget.location,
               callbacks: kalender.KalenderCallbacks(
                 onPageChanged: (range) => _pageChanged(pane, range),
                 onTapped: (date) => _select(
@@ -1094,11 +1111,15 @@ class _DCalendarState extends State<DCalendar> {
                 ),
               ),
               components: _components(pane, month, cell),
-              header: SizedBox(
-                height: cell,
-                child: const kalender.KalenderHeader(),
-              ),
-              body: kalender.KalenderBody(interaction: _noInteraction),
+              interaction: _noInteraction,
+              views: [
+                kalender.MonthViewParts(
+                  header: SizedBox(
+                    height: cell,
+                    child: const kalender.MonthHeader(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

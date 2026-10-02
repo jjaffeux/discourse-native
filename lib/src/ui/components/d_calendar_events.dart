@@ -64,8 +64,9 @@ class DKalenderCompactMonthBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = kalender.KalenderScope.kalenderControllerOf(context);
-    final view = controller.viewController! as kalender.MonthViewController;
+    final view =
+        kalender.KalenderScope.viewControllerOf(context)
+            as kalender.MonthViewController;
     final events = kalender.KalenderScope.eventsControllerOf(context);
     final location = kalender.KalenderScope.locationOf(context);
     final calculator = view.viewConfiguration.pageIndexCalculator;
@@ -76,7 +77,7 @@ class DKalenderCompactMonthBody extends StatelessWidget {
         itemCount: calculator.numberOfPages(location),
         onPageChanged: (index) {
           final range = calculator.rangeFromIndex(index, location);
-          controller.floatingVisibleRange.value = range;
+          view.floatingVisibleRange.value = range;
           kalender.KalenderScope.callbacksOf(
             context,
           )?.onPageChanged?.call(range.forLocation(location: location));
