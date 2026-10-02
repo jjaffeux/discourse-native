@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugins/chat/chat_browse_skeleton.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -37,6 +39,142 @@ const _channel = ChatChannel(
 );
 
 void main() {
+  testWidgets(
+    'mobile channel Threads shows a skeleton while its first page loads',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final shell = await _pumpMobileThreads(tester, threadGate: gate);
+      final chat = shell.pluginSession.require(chatControllerService);
+      expect(chat.channelThreadsLoading(_site, _channelId), isTrue);
+      final skeleton = find.byType(ChatBrowseSkeleton);
+      expect(skeleton, findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(find.text('Thread 1'), findsNothing);
+      final bounds = tester.getRect(skeleton);
+      final header = tester.getRect(
+        find.byKey(const ValueKey('content-header')),
+      );
+      expect(bounds.top, greaterThanOrEqualTo(header.bottom));
+      expect(bounds.height, greaterThan(300));
+      expect(bounds.width, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatBrowseSkeleton), findsNothing);
+      expect(find.text('Thread 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  for (final more in [false, true]) {
+    testWidgets(
+      'channel Threads keeps rows with a skeleton during ${more ? 'paging' : 'refresh'}',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final firstPage = FakeDiscourseApi.chatChannelThreadPageKey(
+          _channelId,
+          0,
+        );
+        final pages = {
+          firstPage: ChatThreadPage(threads: [_thread(1)], hasMore: true),
+          FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 1):
+              ChatThreadPage(threads: [_thread(2)]),
+        };
+        final api = _GatedThreadsApi(
+          user: _user,
+          chatChannelsBySite: {
+            _site: const ChatChannels(public: [_channel]),
+          },
+          chatChannelThreadPagesByKey: pages,
+        );
+        final shell = await _pump(tester, api);
+        final chat = shell.pluginSession.require(chatControllerService);
+        if (!more) pages[firstPage] = ChatThreadPage(threads: [_thread(2)]);
+        final gate = api.pageGate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final loading = chat.loadChannelThreads(
+          _site,
+          _channelId,
+          more: more,
+          force: !more,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(chat.channelThreadsLoadingMore(_site, _channelId), isTrue);
+        expect(find.text('Thread 1'), findsOneWidget);
+        expect(find.text('Thread 2'), findsNothing);
+        final skeleton = find.byType(ChatBrowseSkeleton);
+        expect(skeleton, findsOneWidget);
+        expect(tester.widget<ChatBrowseSkeleton>(skeleton).rows, 2);
+        expect(
+          tester.getRect(skeleton).top,
+          greaterThan(tester.getRect(find.text('Thread 1')).bottom),
+        );
+        expect(find.byType(DSpinner), findsNothing);
+        expect(tester.takeException(), isNull);
+
+        gate.complete();
+        await loading;
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatBrowseSkeleton), findsNothing);
+        expect(find.text('Thread 1'), more ? findsOneWidget : findsNothing);
+        expect(find.text('Thread 2'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('empty channel refresh shows a skeleton instead of empty state', (
+    tester,
+  ) async {
+    final api = _GatedThreadsApi(
+      user: _user,
+      chatChannelsBySite: {
+        _site: const ChatChannels(public: [_channel]),
+      },
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0):
+            const ChatThreadPage(threads: []),
+      },
+    );
+    final shell = await _pump(tester, api);
+    final chat = shell.pluginSession.require(chatControllerService);
+    final gate = api.pageGate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final loading = chat.loadChannelThreads(_site, _channelId, force: true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(ChatBrowseSkeleton), findsOneWidget);
+    expect(
+      find.text('There are no active threads in this channel.'),
+      findsNothing,
+    );
+    gate.complete();
+    await loading;
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatBrowseSkeleton), findsNothing);
+    expect(
+      find.text('There are no active threads in this channel.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a failed page waits for Try again instead of scrolling', (
     tester,
   ) async {
@@ -258,7 +396,10 @@ ChatThread _thread(int id) => ChatThread(
 );
 
 /// The production mobile shell on a 320x720 phone, on a channel's threads.
-Future<void> _pumpMobileThreads(WidgetTester tester) async {
+Future<ShellController> _pumpMobileThreads(
+  WidgetTester tester, {
+  Completer<void>? threadGate,
+}) async {
   final user = DiscourseUser(
     id: _user.id,
     username: _user.username,
@@ -283,7 +424,7 @@ Future<void> _pumpMobileThreads(WidgetTester tester) async {
       ).copyWith(user: user, config: config),
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
-    api: FakeDiscourseApi(
+    api: _GatedThreadsApi(
       user: user,
       totals: chatNotificationTotals(),
       siteConfigs: {_site: config},
@@ -313,7 +454,7 @@ Future<void> _pumpMobileThreads(WidgetTester tester) async {
         FakeDiscourseApi.chatChannelThreadPageKey(_channelId, 0):
             ChatThreadPage(threads: [_thread(1)]),
       },
-    ),
+    )..pageGate = threadGate,
   );
   final shell = ShellScope.read(tester.element(find.byType(MainContent)));
   await shell.pluginSession.require(chatControllerService).loadChannels(_site);
@@ -324,11 +465,17 @@ Future<void> _pumpMobileThreads(WidgetTester tester) async {
     chat.openChannelThreads(siteUrl: _site, channelId: _channelId),
     isTrue,
   );
-  await tester.pumpAndSettle();
+  if (threadGate == null) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
   expect(
     shell.currentContent?.id,
     ChatPlugin.channelThreadsRouteId(_channelId),
   );
+  return shell;
 }
 
 Future<ShellController> _pump(WidgetTester tester, FakeDiscourseApi api) async {
@@ -383,6 +530,10 @@ Future<void> _mount(
 final class _GatedThreadsApi extends FakeDiscourseApi {
   _GatedThreadsApi({
     super.user,
+    super.totals,
+    super.siteConfigs,
+    super.feeds,
+    super.chatMessagesByKey,
     super.chatChannelsBySite,
     super.chatChannelThreadPagesByKey,
   });

@@ -5,6 +5,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
+import 'chat_browse_skeleton.dart';
 import 'chat_controller.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_services.dart';
@@ -118,8 +120,21 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
     builder: (context, _) {
       final threads = _chat.channelThreads(widget.siteUrl, widget.channelId);
       final error = _chat.channelThreadsError(widget.siteUrl, widget.channelId);
-      if (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId)) {
-        return const SizedBox.shrink();
+      final loadingMore = _chat.channelThreadsLoadingMore(
+        widget.siteUrl,
+        widget.channelId,
+      );
+      if (threads.isEmpty &&
+          (_chat.channelThreadsLoading(widget.siteUrl, widget.channelId) ||
+              loadingMore)) {
+        return ContentReadingLane(
+          basePadding: const EdgeInsets.symmetric(vertical: 8),
+          builder: (context, lane) => ChatBrowseSkeleton(
+            page: ChatBrowsePage.threads,
+            scrollable: true,
+            padding: lane.padding,
+          ),
+        );
       }
       if (threads.isEmpty && error != null) {
         return ChatThreadListMessage(
@@ -144,7 +159,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
       }
 
       final hasFooter =
-          _chat.channelThreadsLoadingMore(widget.siteUrl, widget.channelId) ||
+          loadingMore ||
           error != null ||
           _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId);
       return ContentReadingLane(
@@ -167,11 +182,11 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
                 keyPrefix: 'chat-channel-thread',
               );
             }
-            if (_chat.channelThreadsLoadingMore(
-              widget.siteUrl,
-              widget.channelId,
-            )) {
-              return const SizedBox.shrink();
+            if (loadingMore) {
+              return const ChatBrowseSkeleton(
+                page: ChatBrowsePage.threads,
+                rows: 2,
+              );
             }
             return Padding(
               padding: const EdgeInsets.all(12),
