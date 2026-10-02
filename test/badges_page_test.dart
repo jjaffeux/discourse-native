@@ -349,6 +349,21 @@ void main() {
     expect(find.byType(DSkeletonRegion), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a recipient refresh keeps loaded rows visible', (tester) async {
+    final badge = DiscourseBadge.fromJson(badgeWire, _site);
+    final grants = BadgeGrantPage.fromJson(badgeGrantsWire(), _site).grants;
+    await _pump(
+      tester,
+      BadgesState(badge: badge, grants: grants, loaded: true, loading: true),
+      route: badge.route,
+    );
+    expect(find.byKey(const ValueKey('badge-grant-1')), findsOneWidget);
+    expect(find.text('sam'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('No awards to display.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pump(

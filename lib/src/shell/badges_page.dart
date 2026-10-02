@@ -195,15 +195,21 @@ class BadgesPage extends StatelessWidget {
           ],
         ),
       ),
-      SliverList.builder(
-        itemCount: state.grants.length,
-        itemBuilder: (context, index) => _BadgeRecipient(
-          key: ValueKey('badge-grant-${state.grants[index].id}'),
-          grant: state.grants[index],
-          siteUrl: siteUrl,
-          onOpenUrl: onOpenUrl,
+      if (state.loading && state.grants.isEmpty)
+        const SliverDirectorySkeleton(
+          key: ValueKey('badge-recipients-loading'),
+          kind: DirectorySkeletonKind.badges,
+        )
+      else
+        SliverList.builder(
+          itemCount: state.grants.length,
+          itemBuilder: (context, index) => _BadgeRecipient(
+            key: ValueKey('badge-grant-${state.grants[index].id}'),
+            grant: state.grants[index],
+            siteUrl: siteUrl,
+            onOpenUrl: onOpenUrl,
+          ),
         ),
-      ),
       if (state.recipientsError != null)
         SliverToBoxAdapter(
           child: _BadgeError(
@@ -219,7 +225,13 @@ class BadgesPage extends StatelessWidget {
           ),
         ),
       if (state.loadingMore)
-        const SliverToBoxAdapter(child: SizedBox.shrink())
+        const SliverToBoxAdapter(
+          key: ValueKey('badge-recipients-loading-more'),
+          child: SizedBox(
+            height: 192,
+            child: DirectorySkeleton(kind: DirectorySkeletonKind.badges),
+          ),
+        )
       else if (state.hasMore && state.recipientsError == null)
         SliverToBoxAdapter(
           child: Padding(
