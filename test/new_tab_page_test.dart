@@ -45,7 +45,10 @@ Finder startPageItem(Key key) => find.descendant(
 );
 
 void main() {
-  for (final (platform, size) in [(TargetPlatform.macOS, desktop)]) {
+  for (final (platform, size) in [
+    (TargetPlatform.macOS, desktop),
+    (TargetPlatform.iOS, phone),
+  ]) {
     testWidgets(
       'forum header aligns its logo, title and compact website on $platform',
       (tester) async {
@@ -84,70 +87,6 @@ void main() {
         expect(title.center.dy, closeTo(logo.center.dy, .01));
         expect(websiteRect.center.dy, closeTo(logo.center.dy, .01));
         expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(platform),
-    );
-  }
-
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets(
-      'mobile Start heading contains only a static logo on $platform',
-      (tester) async {
-        SharedPreferences.setMockInitialValues({});
-        await pumpShell(
-          tester,
-          phone,
-          instances: [instance('dev.discourse.org', title: 'Discourse Dev')],
-        );
-        final shell = ShellScope.read(
-          tester.element(find.byType(MainContent).first),
-        );
-        shell.pushContent(ContentRoute.newTab());
-        await tester.pumpAndSettle();
-        final heading = startPageItem(const ValueKey('start-page-heading'));
-        final logo = find.descendant(
-          of: heading,
-          matching: find.byType(ForumIcon),
-        );
-        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-
-        for (final width in [320.0, 390.0, 1024.0]) {
-          tester.view.physicalSize = Size(width, 844);
-          for (final scale in [1.0, 2.0]) {
-            tester.platformDispatcher.textScaleFactorTestValue = scale;
-            await tester.pumpAndSettle();
-            expect(logo, findsOneWidget);
-            expect(tester.getSize(logo), const Size.square(28));
-            expect(
-              find.descendant(of: heading, matching: find.byType(DButton)),
-              findsNothing,
-            );
-            expect(
-              find.descendant(
-                of: heading,
-                matching: find.byType(DDropdownMenu),
-              ),
-              findsNothing,
-            );
-            expect(startPageText('Discourse Dev'), findsNothing);
-            expect(startPageText('dev.discourse.org'), findsNothing);
-            expect(
-              startPageItem(const ValueKey('start-page-forum-options')),
-              findsNothing,
-            );
-            expect(
-              startPageItem(const ValueKey('start-page-forum-website')),
-              findsNothing,
-            );
-            final content = shell.currentContent;
-            await tester.tap(logo);
-            await tester.pumpAndSettle();
-            expect(shell.currentContent, same(content));
-            expect(find.text('Open forum in browser'), findsNothing);
-            expect(find.text('Remove forum'), findsNothing);
-            expect(tester.takeException(), isNull);
-          }
-        }
       },
       variant: TargetPlatformVariant.only(platform),
     );
