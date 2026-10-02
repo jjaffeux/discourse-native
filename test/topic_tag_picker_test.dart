@@ -571,12 +571,14 @@ void main() {
     final createRow = find.byKey(const ValueKey('topic-tag-picker-create'));
     expect(createRow, findsOneWidget);
     final createElement = tester.element(createRow);
+    expect(tester.widget<DButton>(createRow).onPressed, isNull);
 
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(TopicTaxonomyPickerProgress), findsOneWidget);
     expect(createRow, findsOneWidget);
     expect(tester.element(createRow), same(createElement));
+    expect(tester.widget<DButton>(createRow).onPressed, isNull);
 
     pendingSearch.complete(const TopicTagSearch());
     await tester.pumpAndSettle();
@@ -584,5 +586,6 @@ void main() {
     expect(find.byType(TopicTaxonomyPickerProgress), findsNothing);
     expect(createRow, findsOneWidget);
     expect(tester.element(createRow), same(createElement));
+    expect(tester.widget<DButton>(createRow).onPressed, isNotNull);
   });
 }

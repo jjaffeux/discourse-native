@@ -302,6 +302,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   late final LatestWinsQueuedLookupController<String, TopicTagSearch> _lookup;
   TopicTagSearch _result = const TopicTagSearch();
   bool _loading = true;
+  int _searchGeneration = 0;
 
   @override
   void initState() {
@@ -349,6 +350,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   void _changed(String value) {
     _debounce?.cancel();
     _lookup.invalidate();
+    _searchGeneration++;
     setState(() {
       _result = const TopicTagSearch();
       _loading = true;
@@ -357,6 +359,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   void _search(String term) {
+    _searchGeneration++;
     setState(() => _loading = true);
     _lookup.request(term);
   }
@@ -369,8 +372,12 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
     return maximum != null && widget.selectedTags.length >= maximum;
   }
 
-  void _choose(TopicTag tag) {
-    if (tag.disabled) return;
+  void _choose(TopicTag tag, {int? generation}) {
+    if (_loading ||
+        (generation != null && generation != _searchGeneration) ||
+        tag.disabled) {
+      return;
+    }
     final tags = [...widget.selectedTags];
     final index = tags.indexWhere((selected) => _sameTag(selected, tag));
     if (index >= 0) {
@@ -384,7 +391,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   TopicTag? get _newTag {
-    if (_result.isForbidden) return null;
+    if (_result.isForbidden || _result.explanation != null) return null;
     final name = _query.text.trim();
     if (!widget.capabilities.canCreateTagNamed(name) ||
         widget.selectedTags.any(
@@ -400,6 +407,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   void _submitQuery() {
+    if (_loading) return;
     final newTag = _newTag;
     if (newTag != null) {
       _choose(newTag);
@@ -429,6 +437,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   @override
   Widget build(BuildContext context) {
     final newTag = _newTag;
+    final generation = _searchGeneration;
     return TopicTaxonomyPickerContent(
       queryKey: const ValueKey('topic-tag-picker-query'),
       queryController: _query,
@@ -447,7 +456,9 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
               maxLines: 2,
             ),
             variant: DButtonVariant.ghost,
-            onPressed: () => _choose(newTag),
+            onPressed: _loading
+                ? null
+                : () => _choose(newTag, generation: generation),
           ),
         if (_loading)
           const TopicTaxonomyPickerProgress()
@@ -471,7 +482,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                   ),
                   onPressed: tag.disabled || (!_selected(tag) && _atMaximum)
                       ? null
-                      : () => _choose(tag),
+                      : () => _choose(tag, generation: generation),
                   padding: EdgeInsets.zero,
                   children: [
                     DItemContent(
@@ -518,7 +529,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                           onChanged:
                               tag.disabled || (!_selected(tag) && _atMaximum)
                               ? null
-                              : (_) => _choose(tag),
+                              : (_) => _choose(tag, generation: generation),
                         ),
                       ],
                     ),
