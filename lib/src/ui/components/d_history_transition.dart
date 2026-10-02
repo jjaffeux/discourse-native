@@ -39,6 +39,7 @@ class DHistoryTransition extends StatefulWidget {
     this.onForward,
     this.tabIndex,
     this.tabOwner,
+    this.frameBuilder,
   }) : assert(tabIndex == null || tabOwner != null);
 
   final Object history;
@@ -48,6 +49,14 @@ class DHistoryTransition extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onForward;
   final Widget child;
+
+  /// Places the animated page within stationary navigation chrome.
+  ///
+  /// The whole returned frame accepts edge swipes, including its padding and
+  /// chrome. Only the supplied page moves and is captured for history previews.
+  /// Insert it once with bounded width and height. Without a builder it fills the
+  /// gesture surface.
+  final Widget Function(BuildContext context, Widget page)? frameBuilder;
 
   /// A live previous navigation surface, kept ready before the first swipe.
   ///
@@ -89,6 +98,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   Object? _environment;
   Object? _committedEntry;
   Size _size = Size.zero;
+  double _gestureWidth = 0;
   bool _back = false;
   bool _dragging = false;
   bool _settling = false;
@@ -224,12 +234,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _settling ||
         _switchingTab ||
         !_routeIsCurrent ||
-        _size.width <= _edgeWidth * 2) {
+        _size.isEmpty ||
+        _gestureWidth <= _edgeWidth * 2) {
       return false;
     }
     final x = event.localPosition.dx;
-    if (x > _edgeWidth && x < _size.width - _edgeWidth) return false;
-    final back = _rtl ? x >= _size.width - _edgeWidth : x <= _edgeWidth;
+    if (x > _edgeWidth && x < _gestureWidth - _edgeWidth) return false;
+    final back = _rtl ? x >= _gestureWidth - _edgeWidth : x <= _edgeWidth;
     return back
         ? widget.previousEntry != null && widget.onBack != null
         : widget.nextEntry != null && widget.onForward != null;
@@ -239,7 +250,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     if (_pointers.length != 1 || !_routeIsCurrent) return;
     setState(() {
       _back = _rtl
-          ? details.localPosition.dx >= _size.width - _edgeWidth
+          ? details.localPosition.dx >= _gestureWidth - _edgeWidth
           : details.localPosition.dx <= _edgeWidth;
       _dragging = true;
       _distance = 0;
@@ -332,7 +343,43 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      _gestureWidth = constraints.maxWidth;
+      final page = _buildPage(context);
+      return Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          _pointers.add(event.pointer);
+          if (_pointers.length > 1) unawaited(_settle(false));
+        },
+        onPointerUp: (event) => _pointers.remove(event.pointer),
+        onPointerCancel: (event) {
+          _pointers.remove(event.pointer);
+          unawaited(_settle(false));
+        },
+        child: RawGestureDetector(
+          behavior: HitTestBehavior.translucent,
+          gestures: {
+            _HistoryEdgeRecognizer:
+                GestureRecognizerFactoryWithHandlers<_HistoryEdgeRecognizer>(
+                  _HistoryEdgeRecognizer.new,
+                  (recognizer) => recognizer
+                    ..allowsPointer = _allowsPointer
+                    ..dragStartBehavior = DragStartBehavior.down
+                    ..onStart = _start
+                    ..onUpdate = _update
+                    ..onEnd = _end
+                    ..onCancel = () => unawaited(_settle(false)),
+                ),
+          },
+          child: widget.frameBuilder?.call(context, page) ?? page,
+        ),
+      );
+    },
+  );
+
+  Widget _buildPage(BuildContext context) {
     final tokens = DTokens.of(context);
     final background = tokens.background;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
@@ -350,167 +397,132 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             _resetGesture();
           }
         }
-        return Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) {
-            _pointers.add(event.pointer);
-            if (_pointers.length > 1) unawaited(_settle(false));
-          },
-          onPointerUp: (event) => _pointers.remove(event.pointer),
-          onPointerCancel: (event) {
-            _pointers.remove(event.pointer);
-            unawaited(_settle(false));
-          },
-          child: RawGestureDetector(
-            behavior: HitTestBehavior.translucent,
-            gestures: {
-              _HistoryEdgeRecognizer:
-                  GestureRecognizerFactoryWithHandlers<_HistoryEdgeRecognizer>(
-                    _HistoryEdgeRecognizer.new,
-                    (recognizer) => recognizer
-                      ..allowsPointer = _allowsPointer
-                      ..dragStartBehavior = DragStartBehavior.down
-                      ..onStart = _start
-                      ..onUpdate = _update
-                      ..onEnd = _end
-                      ..onCancel = () => unawaited(_settle(false)),
+        return ClipRect(
+          child: AnimatedBuilder(
+            animation: _progress,
+            child: _HistoryBoundary(key: _boundary, child: widget.child),
+            builder: (context, child) {
+              final switching = _switchingTab && !reducedMotion;
+              final p = reducedMotion ? 0.0 : _progress.value;
+              final active = !switching && p > 0;
+              final dim = BoxDecoration(
+                color: tokens.colors.scrim.withValues(
+                  alpha: active ? .06 * (_back ? 1 - p : p) : 0,
+                ),
+              );
+              final elevation = BoxDecoration(
+                boxShadow: active
+                    ? [
+                        BoxShadow(
+                          color: tokens.colors.shadow.withValues(alpha: .12),
+                          blurRadius: 12,
+                          offset: Offset(_rtl ? 3 : -3, 0),
+                        ),
+                      ]
+                    : null,
+              );
+              final preview = ExcludeSemantics(
+                child: IgnorePointer(
+                  child: ColoredBox(
+                    color: background,
+                    child: _preview == null
+                        ? null
+                        : RawImage(
+                            image: _preview,
+                            fit: BoxFit.fitWidth,
+                            alignment: Alignment.topCenter,
+                          ),
                   ),
-            },
-            child: ClipRect(
-              child: AnimatedBuilder(
-                animation: _progress,
-                child: _HistoryBoundary(key: _boundary, child: widget.child),
-                builder: (context, child) {
-                  final switching = _switchingTab && !reducedMotion;
-                  final p = reducedMotion ? 0.0 : _progress.value;
-                  final active = !switching && p > 0;
-                  final dim = BoxDecoration(
-                    color: tokens.colors.scrim.withValues(
-                      alpha: active ? .06 * (_back ? 1 - p : p) : 0,
+                ),
+              );
+              Widget previewLayer(Widget preview, {required bool back}) =>
+                  Offstage(
+                    key: ValueKey(
+                      back
+                          ? 'history-previous-preview'
+                          : 'history-next-preview',
                     ),
-                  );
-                  final elevation = BoxDecoration(
-                    boxShadow: active
-                        ? [
-                            BoxShadow(
-                              color: tokens.colors.shadow.withValues(
-                                alpha: .12,
-                              ),
-                              blurRadius: 12,
-                              offset: Offset(_rtl ? 3 : -3, 0),
-                            ),
-                          ]
-                        : null,
-                  );
-                  final preview = ExcludeSemantics(
-                    child: IgnorePointer(
-                      child: ColoredBox(
-                        color: background,
-                        child: _preview == null
-                            ? null
-                            : RawImage(
-                                image: _preview,
-                                fit: BoxFit.fitWidth,
-                                alignment: Alignment.topCenter,
-                              ),
+                    offstage: !active || _back != back,
+                    child: Transform.translate(
+                      offset: Offset(
+                        back
+                            ? -_sign * _size.width * _parallax * (1 - p)
+                            : -_sign * _size.width * (1 - p),
+                        0,
                       ),
-                    ),
-                  );
-                  Widget previewLayer(Widget preview, {required bool back}) =>
-                      Offstage(
-                        key: ValueKey(
-                          back
-                              ? 'history-previous-preview'
-                              : 'history-next-preview',
-                        ),
-                        offstage: !active || _back != back,
-                        child: Transform.translate(
-                          offset: Offset(
-                            back
-                                ? -_sign * _size.width * _parallax * (1 - p)
-                                : -_sign * _size.width * (1 - p),
-                            0,
-                          ),
-                          child: DecoratedBox(
-                            decoration: back ? dim : elevation,
-                            position: back
-                                ? DecorationPosition.foreground
-                                : DecorationPosition.background,
-                            child: ExcludeSemantics(
-                              child: IgnorePointer(
-                                child: ExcludeFocus(
-                                  child: TickerMode(
-                                    enabled: active && _back == back,
-                                    child: preview,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (widget.previousPreview case final live?)
-                        previewLayer(live, back: true)
-                      else if (active && _back)
-                        previewLayer(preview, back: true),
-                      if (switching)
-                        Transform.translate(
-                          key: const ValueKey('history-outgoing-tab'),
-                          offset: Offset(-_tabSign * _tabTravel * p, 0),
-                          child: ExcludeSemantics(
-                            child: Opacity(
-                              opacity: 1 - p,
-                              child: RawImage(
-                                image: _preview,
-                                fit: BoxFit.fitWidth,
-                                alignment: Alignment.topCenter,
-                              ),
-                            ),
-                          ),
-                        ),
-                      Transform.translate(
-                        key: ValueKey(
-                          switching
-                              ? 'history-incoming-tab'
-                              : 'history-live-page',
-                        ),
-                        offset: Offset(
-                          switching
-                              ? _tabSign * _tabTravel * (1 - p)
-                              : _sign *
-                                    _size.width *
-                                    p *
-                                    (_back ? 1 : _parallax),
-                          0,
-                        ),
-                        // Keep depth effects outside the capture boundary so
-                        // revisiting a page never reuses a darkened snapshot.
-                        child: DecoratedBox(
-                          decoration: _back ? elevation : dim,
-                          position: _back
-                              ? DecorationPosition.background
-                              : DecorationPosition.foreground,
+                      child: DecoratedBox(
+                        decoration: back ? dim : elevation,
+                        position: back
+                            ? DecorationPosition.foreground
+                            : DecorationPosition.background,
+                        child: ExcludeSemantics(
                           child: IgnorePointer(
-                            ignoring: _dragging || _settling || switching,
-                            child: Opacity(
-                              opacity: switching ? p : 1,
-                              child: child,
+                            child: ExcludeFocus(
+                              child: TickerMode(
+                                enabled: active && _back == back,
+                                child: preview,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      if (widget.nextPreview case final live?)
-                        previewLayer(live, back: false)
-                      else if (active && !_back)
-                        previewLayer(preview, back: false),
-                    ],
+                    ),
                   );
-                },
-              ),
-            ),
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (widget.previousPreview case final live?)
+                    previewLayer(live, back: true)
+                  else if (active && _back)
+                    previewLayer(preview, back: true),
+                  if (switching)
+                    Transform.translate(
+                      key: const ValueKey('history-outgoing-tab'),
+                      offset: Offset(-_tabSign * _tabTravel * p, 0),
+                      child: ExcludeSemantics(
+                        child: Opacity(
+                          opacity: 1 - p,
+                          child: RawImage(
+                            image: _preview,
+                            fit: BoxFit.fitWidth,
+                            alignment: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Transform.translate(
+                    key: ValueKey(
+                      switching ? 'history-incoming-tab' : 'history-live-page',
+                    ),
+                    offset: Offset(
+                      switching
+                          ? _tabSign * _tabTravel * (1 - p)
+                          : _sign * _size.width * p * (_back ? 1 : _parallax),
+                      0,
+                    ),
+                    // Keep depth effects outside the capture boundary so
+                    // revisiting a page never reuses a darkened snapshot.
+                    child: DecoratedBox(
+                      decoration: _back ? elevation : dim,
+                      position: _back
+                          ? DecorationPosition.background
+                          : DecorationPosition.foreground,
+                      child: IgnorePointer(
+                        ignoring: _dragging || _settling || switching,
+                        child: Opacity(
+                          opacity: switching ? p : 1,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (widget.nextPreview case final live?)
+                    previewLayer(live, back: false)
+                  else if (active && !_back)
+                    previewLayer(preview, back: false),
+                ],
+              );
+            },
           ),
         );
       },
