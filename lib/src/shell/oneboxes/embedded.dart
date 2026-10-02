@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../foundation/uri_query.dart';
 import '../open_link.dart';
 
 /// Cooked iframe markup has already passed the forum's iframe allowlist.
@@ -54,7 +55,7 @@ class EmbeddedOneboxData {
     if (const {'player.twitch.tv', 'clips.twitch.tv'}.contains(uri.host)) {
       uri = uri.replace(
         queryParameters: {
-          ...uri.queryParametersAll,
+          ...validUriQueryParameters(uri),
           'parent': [uri.host],
           'autoplay': ['false'],
         },

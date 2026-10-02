@@ -7,6 +7,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/uri_path.dart';
+import '../../foundation/uri_query.dart';
 import '../open_link.dart';
 
 const _redditOrigins = {
@@ -32,8 +33,9 @@ class RedditOneboxData {
   final double height;
 
   Uri embedUriFor(Brightness brightness) {
-    final parameters = Map<String, dynamic>.of(embedUri.queryParametersAll)
-      ..remove('theme');
+    final parameters = Map<String, dynamic>.of(
+      validUriQueryParameters(embedUri),
+    )..remove('theme');
     if (brightness == Brightness.dark) parameters['theme'] = 'dark';
     return embedUri.replace(queryParameters: parameters);
   }

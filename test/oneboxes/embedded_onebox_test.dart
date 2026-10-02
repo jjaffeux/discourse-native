@@ -181,4 +181,42 @@ void main() {
     );
     expect(find.byType(EmbeddedOnebox), findsOneWidget);
   });
+
+  for (final host in ['player.twitch.tv', 'clips.twitch.tv']) {
+    testWidgets('malformed query bytes do not break cooked $host rendering', (
+      tester,
+    ) async {
+      final previous = WebViewPlatform.instance;
+      final platform = FakeMediaWebViewPlatform();
+      WebViewPlatform.instance = platform;
+      addTearDown(() {
+        if (previous != null) WebViewPlatform.instance = previous;
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CookedHtml(
+              buildAsync: false,
+              html:
+                  '<iframe src="https://$host/?channel=test&amp;bad=%FF&amp;%FF=bad&amp;tag=one&amp;tag=two&amp;parent=forum.test&amp;autoplay=true"></iframe>',
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(EmbeddedOnebox), findsOneWidget);
+      await tester.tap(find.text('Load embed'));
+      await tester.pump();
+      final embed = tester.widget<DEmbed>(find.byType(DEmbed));
+      expect(embed.uri.queryParameters['channel'], 'test');
+      expect(embed.uri.queryParametersAll['tag'], ['one', 'two']);
+      expect(embed.uri.queryParameters['parent'], host);
+      expect(embed.uri.queryParameters['autoplay'], 'false');
+      expect(embed.uri.queryParameters, isNot(contains('bad')));
+      expect(platform.controllers.single.documents.single.html, contains(host));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+  }
 }
