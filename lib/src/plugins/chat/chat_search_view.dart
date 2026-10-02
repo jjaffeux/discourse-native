@@ -198,14 +198,25 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   }
 
   Future<void> _open(ChatSearchHit hit) async {
+    final siteUrl = widget.siteUrl;
     final chat = PluginUiScope.require(context, chatControllerService);
+    final shell = PluginUiScope.require(context, chatShellService);
+    bool ownsActivation() =>
+        mounted &&
+        widget.siteUrl == siteUrl &&
+        shell.currentSiteUrl == siteUrl &&
+        identical(
+          PluginUiScope.optional(context, chatControllerService),
+          chat,
+        ) &&
+        identical(PluginUiScope.optional(context, chatShellService), shell);
     try {
-      final channel = await chat.ensureChannel(widget.siteUrl, hit.channel.id);
-      if (!mounted || channel == null) throw StateError('Channel unavailable');
-      final shell = PluginUiScope.require(context, chatShellService);
+      final channel = await chat.ensureChannel(siteUrl, hit.channel.id);
+      if (!mounted || !ownsActivation()) return;
+      if (channel == null) throw StateError('Channel unavailable');
       if (hit.message.threadId case final threadId?) {
         shell.openThread(
-          siteUrl: widget.siteUrl,
+          siteUrl: siteUrl,
           channelId: channel.id,
           threadId: threadId,
           messageId: hit.message.id,
@@ -214,7 +225,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         shell.openChannel(channel.id, messageId: hit.message.id);
       }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || !ownsActivation()) return;
       DToast.show(
         context,
         appL10n.couldNotOpenThisChatMessage,

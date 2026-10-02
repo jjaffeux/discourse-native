@@ -527,17 +527,26 @@ class ChatThreadListRow extends StatelessWidget {
   }
 
   Future<void> _open(BuildContext context, ChatController chat) async {
+    final shell = PluginUiScope.require(context, chatShellService);
+    bool ownsActivation() =>
+        context.mounted &&
+        shell.currentSiteUrl == siteUrl &&
+        identical(
+          PluginUiScope.optional(context, chatControllerService),
+          chat,
+        ) &&
+        identical(PluginUiScope.optional(context, chatShellService), shell);
     try {
       final channel = await chat.ensureChannel(siteUrl, thread.channelId);
-      if (!context.mounted) return;
+      if (!context.mounted || !ownsActivation()) return;
       if (channel == null) throw StateError('Channel unavailable');
-      PluginUiScope.require(context, chatShellService).openThread(
+      shell.openThread(
         siteUrl: siteUrl,
         channelId: channel.id,
         threadId: thread.id,
       );
     } catch (_) {
-      if (!context.mounted) return;
+      if (!context.mounted || !ownsActivation()) return;
       DToast.show(
         context,
         appL10n.couldNotOpenThisChatThread,
