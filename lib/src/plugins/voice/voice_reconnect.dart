@@ -14,8 +14,8 @@ typedef VoiceReconnectTimerFactory =
 Timer _defaultReconnectTimer(Duration delay, void Function() callback) =>
     Timer(delay, callback);
 
-/// Failed attempts are deliberately absorbed: exhausting the schedule is a
-/// connection-state transition, not an asynchronous error. Unexpected errors
+/// Failed attempts are deliberately absorbed: exhaustion or a terminal refusal
+/// publishes a failed state with its cause, not an asynchronous error. Errors
 /// from the timer or state callback are still returned to the caller.
 final class VoiceReconnectCoordinator {
   VoiceReconnectCoordinator({
@@ -24,6 +24,7 @@ final class VoiceReconnectCoordinator {
     this.onAttemptStarted,
     this.onAttemptFailed,
     this.onExhausted,
+    this.shouldRetry,
     List<Duration> schedule = const [
       Duration.zero,
       Duration(seconds: 1),
@@ -49,6 +50,9 @@ final class VoiceReconnectCoordinator {
   final VoiceReconnectAttemptStarted? onAttemptStarted;
   final VoiceReconnectAttemptFailed? onAttemptFailed;
   final VoiceReconnectExhausted? onExhausted;
+
+  /// Stops the ladder for a terminal refusal. Other errors use every rung.
+  final bool Function(Object error)? shouldRetry;
   final VoiceReconnectTimerFactory timerFactory;
   final List<Duration> _schedule;
 
@@ -58,9 +62,17 @@ final class VoiceReconnectCoordinator {
   Timer? _backoffTimer;
   Completer<void>? _backoff;
   bool _cancelled = false;
+  Object? _failure;
 
   VoiceMediaConnectionState get connectionState => _connectionState;
   bool get cancelled => _cancelled;
+
+  /// The last attempt's cause, published with the failed state rather than
+  /// thrown from [reconnect]. A new ladder or cancellation clears it.
+  Object? get failure =>
+      !_cancelled && _connectionState == VoiceMediaConnectionState.failed
+      ? _failure
+      : null;
 
   Future<void> reconnect() {
     if (_cancelled) return Future<void>.value();
@@ -75,6 +87,7 @@ final class VoiceReconnectCoordinator {
   void cancel() {
     if (_cancelled) return;
     _cancelled = true;
+    _failure = null;
     _backoffTimer?.cancel();
     _backoffTimer = null;
     final backoff = _backoff;
@@ -91,6 +104,7 @@ final class VoiceReconnectCoordinator {
   }
 
   Future<void> _run() async {
+    _failure = null;
     _setConnectionState(VoiceMediaConnectionState.reconnecting);
     for (var index = 0; index < _schedule.length; index++) {
       final attemptNumber = index + 1;
@@ -102,9 +116,16 @@ final class VoiceReconnectCoordinator {
         await attempt();
       } catch (error, stackTrace) {
         _notifyAttemptFailed(attemptNumber, error, stackTrace);
+        if (_cancelled) return;
+        _failure = error;
+        if (shouldRetry?.call(error) == false) {
+          _setConnectionState(VoiceMediaConnectionState.failed);
+          return;
+        }
         continue;
       }
       if (_cancelled) return;
+      _failure = null;
       _setConnectionState(VoiceMediaConnectionState.connected);
       return;
     }

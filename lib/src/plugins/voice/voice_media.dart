@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
+import '../../data/discourse_api_contracts.dart';
 import 'voice_diagnostics.dart';
 import 'voice_livekit_endpoint.dart';
 import 'voice_models.dart';
@@ -103,6 +105,9 @@ abstract interface class VoiceLiveKitRoomAdapter {
 abstract interface class VoiceMediaSession implements Listenable {
   VoiceTransport get transport;
   VoiceMediaConnectionState get connectionState;
+
+  /// The cause of a failed reconnect, cleared while reconnecting or connected.
+  Object? get connectionFailure;
   Object? get localVideoTrack;
   bool get screenSharing;
   Object? videoTrackFor(int participantId);
@@ -346,6 +351,9 @@ Future<List<rtc.MediaDeviceInfo>> _enumerateDevicesWithDiagnostics({
 abstract base class _VoiceMediaNotifier extends ChangeNotifier
     implements VoiceMediaSession {
   bool _disposed = false;
+
+  @override
+  Object? get connectionFailure => null;
 
   @protected
   bool get disposed => _disposed;
@@ -2367,6 +2375,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     _replaceRoster(join.room.participants);
     _reconnect = VoiceReconnectCoordinator(
       attempt: _reconnectOnce,
+      // Only the token endpoint's 410 means this room instance has ended.
+      // Capacity/validation refusals and transient failures keep the ladder.
+      shouldRetry: (error) =>
+          error is! WriteException || error.statusCode != HttpStatus.gone,
       onStateChanged: (state) {
         _recordDiagnostic(
           diagnostics,
@@ -2491,6 +2503,9 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   VoiceMediaConnectionState get connectionState => _reconnect.connectionState;
+
+  @override
+  Object? get connectionFailure => _reconnect.failure;
 
   @override
   bool get screenSharing =>

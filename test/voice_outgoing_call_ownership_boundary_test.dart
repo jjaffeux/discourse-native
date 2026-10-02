@@ -546,6 +546,8 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   VoiceMediaConnectionState get connectionState =>
       VoiceMediaConnectionState.connected;
   @override
+  Object? get connectionFailure => null;
+  @override
   Object? get localVideoTrack => null;
   @override
   bool get screenSharing => false;
