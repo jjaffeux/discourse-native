@@ -57,6 +57,10 @@ enum DButtonShape { rounded, pill }
 enum DButtonDensity {
   standard,
 
+  /// Text-sized 12px metadata actions and links with no visible insets.
+  /// Pair with the inline variant; targets exactly follow the label bounds.
+  inlineMetadata,
+
   /// Hierarchical back link: 13px medium text, an 11px chevron and no insets.
   /// Pair with [DButtonVariant.inline]; the hit area follows the label.
   backLink,
@@ -641,6 +645,7 @@ class DButton extends StatelessWidget {
     final compactToolbar = density == DButtonDensity.compactToolbar;
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
+    final inlineMetadata = density == DButtonDensity.inlineMetadata;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
         _iconOnly &&
@@ -654,7 +659,9 @@ class DButton extends StatelessWidget {
         : mobileNavigation || mobileDock || mobileDockAction || composerBlock
         ? DButtonSize.regular
         : size;
-    final fontSize = dashedTile
+    final fontSize = inlineMetadata
+        ? 12.0
+        : dashedTile
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
     final spacingUnit = backLink
@@ -682,7 +689,9 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = backLink
+    final visualDimension = inlineMetadata
+        ? MediaQuery.textScalerOf(context).scale(12) * 1.5
+        : backLink
         ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5
         : dashedTile
         ? 50 +
@@ -810,7 +819,7 @@ class DButton extends StatelessWidget {
       padding: WidgetStatePropertyAll(
         (_iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
-            : mobileDock || backLink
+            : mobileDock || backLink || inlineMetadata
             ? EdgeInsets.zero
             : dashedTile
             ? const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8)
@@ -839,7 +848,9 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
-          height: mobileDock
+          height: inlineMetadata
+              ? 1.5
+              : mobileDock
               ? 13 / 11
               : dashedTile
               ? DControlStyle.lineHeight(DButtonSize.large, context: context) /

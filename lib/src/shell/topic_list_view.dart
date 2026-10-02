@@ -34,6 +34,7 @@ import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
+import 'topic_card_taxonomy_layout.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_pointer_predictor.dart';
@@ -43,6 +44,7 @@ import 'topic_title.dart';
 part 'conversation_topic_card.dart';
 part 'topic_list_prefetch.dart';
 part 'topic_row_content.dart';
+part 'topic_card_metadata.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
 typedef _TopicListCursor = ({int topicId, int index, bool keyboard});
@@ -791,33 +793,32 @@ class _TopicListViewState extends State<TopicListView> {
                       // The separated delegate addresses topics and gaps.
                       return index < 0 ? null : index * 2;
                     },
-                    separatorBuilder: (context, index) => lane.width >= 600
-                        ? const DSeparator()
-                        : ValueListenableBuilder<_TopicListCursor?>(
-                            valueListenable: _cursor!,
-                            builder: (context, cursor, _) {
-                              final current = feed.topicIds[index];
-                              final next = index + 1 < feed.topicIds.length
-                                  ? feed.topicIds[index + 1]
-                                  : null;
-                              final keyboardId =
-                                  cursor != null &&
-                                      (cursor.keyboard ||
-                                          readingTopicId == cursor.topicId)
-                                  ? cursor.topicId
-                                  : null;
-                              final selectedId = widget.inbox
-                                  ? readingTopicId
-                                  : null;
-                              return TopicListSeparator(
-                                besideSelection:
-                                    current == keyboardId ||
-                                    next != null && next == keyboardId ||
-                                    current == selectedId ||
-                                    next != null && next == selectedId,
-                              );
-                            },
-                          ),
+                    separatorBuilder: (context, index) =>
+                        ValueListenableBuilder<_TopicListCursor?>(
+                          valueListenable: _cursor!,
+                          builder: (context, cursor, _) {
+                            final current = feed.topicIds[index];
+                            final next = index + 1 < feed.topicIds.length
+                                ? feed.topicIds[index + 1]
+                                : null;
+                            final keyboardId =
+                                cursor != null &&
+                                    (cursor.keyboard ||
+                                        readingTopicId == cursor.topicId)
+                                ? cursor.topicId
+                                : null;
+                            final selectedId = widget.inbox
+                                ? readingTopicId
+                                : null;
+                            return TopicListSeparator(
+                              besideSelection:
+                                  current == keyboardId ||
+                                  next != null && next == keyboardId ||
+                                  current == selectedId ||
+                                  next != null && next == selectedId,
+                            );
+                          },
+                        ),
                     itemBuilder: (context, index) {
                       if (_recording) {
                         _recordScrollEvent('topicList.row.built', {
@@ -880,7 +881,9 @@ class _TopicListViewState extends State<TopicListView> {
   // library's default 100px forces large corrections as they are measured.
   double _estimateExtent(int? index, double crossAxisExtent) {
     if (index == null) return 0;
-    return index.isOdd ? 1 : TopicListRow.minimumHeight;
+    // Most rows include an excerpt and metadata. The minimum is a lower
+    // bound for sparse cards, not a useful estimate for those richer rows.
+    return index.isOdd ? 1 : 110;
   }
 }
 
@@ -972,19 +975,57 @@ class _TopicListSkeletonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DItem(
-      shape: DItemShape.fullWidth,
-      children: [
-        DItemContent(
-          spacing: 8,
-          children: [
-            _SkeletonLine(widthFactor: titleWidth, height: 14),
-            const _SkeletonLine(widthFactor: .94, height: 12),
-            _SkeletonLine(widthFactor: metadataWidth, height: 12),
-            const DSkeleton(width: 160, height: 20),
-          ],
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: DItem(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          DItemContent(
+            spacing: 7,
+            alignment: CrossAxisAlignment.stretch,
+            children: [
+              _SkeletonLine(widthFactor: titleWidth, height: 14),
+              const _SkeletonLine(widthFactor: .94, height: 12),
+              Row(
+                spacing: 14,
+                children: [
+                  const DAvatarGroup(
+                    overlap: 7,
+                    ringWidth: 1.5,
+                    children: [
+                      DAvatar(
+                        dimension: 20,
+                        border: false,
+                        decorative: true,
+                        child: DSkeleton(width: 20, height: 20),
+                      ),
+                      DAvatar(
+                        dimension: 20,
+                        border: false,
+                        decorative: true,
+                        child: DSkeleton(width: 20, height: 20),
+                      ),
+                      DAvatar(
+                        dimension: 20,
+                        border: false,
+                        decorative: true,
+                        child: DSkeleton(width: 20, height: 20),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: _SkeletonLine(
+                      widthFactor: metadataWidth,
+                      height: 12,
+                    ),
+                  ),
+                  const DSkeleton(width: 22, height: 12),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1162,9 +1203,7 @@ class _TopicRowState extends State<_TopicRow> {
               // here means the site was just disconnected and this list is
               // one frame from being torn down.
               ? const SizedBox.shrink()
-              : ShellSelector<
-                  ({TopicCategory? category, TopicCategory? parent})
-                >(
+              : ShellSelector<_TopicCategoryPresentation>(
                   select: (controller) => _topicCategoryPresentation(
                     controller,
                     topic.categoryId,
@@ -1175,7 +1214,7 @@ class _TopicRowState extends State<_TopicRow> {
                     topic: topic,
                     compact: widget.compact,
                     category: categoryPresentation.category,
-                    parentCategory: categoryPresentation.parent,
+                    categoryAncestors: categoryPresentation.ancestors,
                     showCategoryBreadcrumb: true,
                     siteUrl: siteUrl,
                     selected: state.selected,
@@ -1189,7 +1228,7 @@ class _TopicRowState extends State<_TopicRow> {
   }
 }
 
-/// Topic rows share inset rules on narrow panes and flush rules on desktop.
+/// Topic rows share inset rules, hidden beside a raised selection.
 class TopicListSeparator extends StatelessWidget {
   const TopicListSeparator({super.key, this.besideSelection = false});
 
@@ -1198,7 +1237,6 @@ class TopicListSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      if (constraints.maxWidth >= 600) return const DSeparator();
       if (besideSelection) return const SizedBox.shrink();
       return DSeparator(
         indent: 16,
@@ -1227,7 +1265,7 @@ class TopicListRow extends StatelessWidget {
     this.outerPadding,
   }) : assert(forum == null || siteUrl == null);
 
-  static const double minimumHeight = 110;
+  static const double minimumHeight = 67;
 
   final Topic topic;
   final bool showViews;
@@ -1276,7 +1314,7 @@ class TopicListRow extends StatelessWidget {
       return _TopicRowBody(
         topic: topic,
         category: null,
-        parentCategory: null,
+        categoryAncestors: const [],
         showCategoryBreadcrumb: false,
         siteUrl: siteUrl,
         forum: owningForum,
@@ -1291,13 +1329,13 @@ class TopicListRow extends StatelessWidget {
         outerPadding: outerPadding,
       );
     }
-    return ShellSelector<({TopicCategory? category, TopicCategory? parent})>(
+    return ShellSelector<_TopicCategoryPresentation>(
       select: (controller) =>
           _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
       builder: (context, categoryPresentation, _) => _TopicRowBody(
         topic: topic,
         category: categoryPresentation.category,
-        parentCategory: categoryPresentation.parent,
+        categoryAncestors: categoryPresentation.ancestors,
         showCategoryBreadcrumb: showCategoryBreadcrumb,
         siteUrl: siteUrl,
         forum: owningForum,
@@ -1317,21 +1355,46 @@ class TopicListRow extends StatelessWidget {
   }
 }
 
-({TopicCategory? category, TopicCategory? parent}) _topicCategoryPresentation(
+@immutable
+class _TopicCategoryPresentation {
+  const _TopicCategoryPresentation(this.category, this.ancestors);
+  final TopicCategory? category;
+  final List<TopicCategory> ancestors;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _TopicCategoryPresentation &&
+      other.category == category &&
+      listEquals(other.ancestors, ancestors);
+  @override
+  int get hashCode => Object.hash(category, Object.hashAll(ancestors));
+}
+
+_TopicCategoryPresentation _topicCategoryPresentation(
   ShellController controller,
   int? categoryId,
   String siteUrl, {
   int? hiddenCategoryId,
 }) {
   final category = controller.categoryFor(categoryId, siteUrl: siteUrl);
-  if (category?.id == hiddenCategoryId) {
-    return (category: null, parent: null);
+  if (category == null || category.id == hiddenCategoryId) {
+    return const _TopicCategoryPresentation(null, []);
   }
-  return (
-    category: category,
-    parent: category?.parentCategoryId == hiddenCategoryId
-        ? null
-        : controller.categoryFor(category?.parentCategoryId, siteUrl: siteUrl),
+  final ancestors = <TopicCategory>[];
+  final seen = <int>{category.id};
+  var parentId = category.parentCategoryId;
+  while (parentId != null &&
+      parentId != hiddenCategoryId &&
+      ancestors.length < 4 &&
+      seen.add(parentId)) {
+    final parent = controller.categoryFor(parentId, siteUrl: siteUrl);
+    if (parent == null) break;
+    ancestors.add(parent);
+    parentId = parent.parentCategoryId;
+  }
+  return _TopicCategoryPresentation(
+    category,
+    List.unmodifiable(ancestors.reversed),
   );
 }
 
@@ -1360,7 +1423,7 @@ class _TopicRowBody extends StatelessWidget {
   const _TopicRowBody({
     required this.topic,
     required this.category,
-    required this.parentCategory,
+    required this.categoryAncestors,
     required this.showCategoryBreadcrumb,
     required this.siteUrl,
     required this.onTap,
@@ -1386,7 +1449,7 @@ class _TopicRowBody extends StatelessWidget {
   final bool ascending;
   final Topic topic;
   final TopicCategory? category;
-  final TopicCategory? parentCategory;
+  final List<TopicCategory> categoryAncestors;
   final bool showCategoryBreadcrumb;
   final String siteUrl;
   final VoidCallback onTap;
@@ -1409,201 +1472,6 @@ class _TopicRowBody extends StatelessWidget {
   );
 
   Widget _buildBody(BuildContext context) => _ConversationTopicCard(row: this);
-}
-
-class _CategoryBreadcrumb extends StatelessWidget {
-  const _CategoryBreadcrumb({
-    required this.parent,
-    required this.category,
-    required this.siteUrl,
-    required this.onOpen,
-    this.compact = false,
-  });
-
-  final bool compact;
-  final TopicCategory? parent;
-  final TopicCategory category;
-  final String siteUrl;
-  final ValueChanged<TopicCategory> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final parent = this.parent;
-    return DBreadcrumb(
-      semanticLabel: context.l10n.categoryPath,
-      child: DBreadcrumbList(
-        spacing: 1.5,
-        children: [
-          if (parent != null) ...[
-            DBreadcrumbItem(
-              child: LinkTarget(
-                url: resolveSiteRootPath(siteUrl, '/c/${parent.id}'),
-                title: parent.name,
-                siteUrl: siteUrl,
-                child: _CategoryBadge(
-                  key: ValueKey(('topic-row-parent-category', parent.id)),
-                  category: parent,
-                  compact: compact,
-                  siteUrl: siteUrl,
-                  label: parent.name,
-                  semanticLabel: context.l10n.parentCategory(
-                    (parent.name).toString(),
-                  ),
-                  onTap: () => onOpen(parent),
-                ),
-              ),
-            ),
-          ],
-          DBreadcrumbItem(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 1.5,
-              children: [
-                if (parent != null)
-                  DBreadcrumbSeparator(
-                    key: ValueKey((
-                      'topic-row-category-chevron',
-                      parent.id,
-                      category.id,
-                    )),
-                  ),
-                Flexible(
-                  child: LinkTarget(
-                    url: resolveSiteRootPath(siteUrl, '/c/${category.id}'),
-                    title: category.name,
-                    siteUrl: siteUrl,
-                    child: _CategoryBadge(
-                      key: ValueKey(('topic-row-category', category.id)),
-                      category: category,
-                      compact: compact,
-                      siteUrl: siteUrl,
-                      label: category.name,
-                      semanticLabel: context.l10n.categoryTopiclistview(
-                        (category.name).toString(),
-                      ),
-                      onTap: () => onOpen(category),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryBadge extends StatelessWidget {
-  const _CategoryBadge({
-    super.key,
-    required this.category,
-    required this.siteUrl,
-    required this.label,
-    required this.semanticLabel,
-    required this.onTap,
-    this.compact = false,
-  });
-  final bool compact;
-  final TopicCategory category;
-  final String siteUrl;
-  final String label;
-  final String semanticLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => DTooltip(
-    message: label,
-    // [semanticLabel] already names the category.
-    excludeFromSemantics: true,
-    child: DBreadcrumbLink(
-      compact: compact,
-      onPressed: onTap,
-      semanticLabel: semanticLabel,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CategoryIcon(
-            key: ValueKey(('topic-row-category-swatch', category.id)),
-            category: category,
-            siteUrl: siteUrl,
-            size: 13,
-            squareSize: 9,
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _TopicTag extends StatelessWidget {
-  const _TopicTag({
-    required this.tag,
-    required this.onTap,
-    required this.onMiddleClick,
-    this.compact = false,
-  });
-  final bool compact;
-  final TopicTag tag;
-  final VoidCallback onTap;
-  final Future<void> Function() onMiddleClick;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    excludeFromSemantics: true,
-    onTertiaryTapUp: (_) => onMiddleClick(),
-    child: DBadge.link(
-      variant: DBadgeVariant.outline,
-      size: compact ? DBadgeSize.tag : DBadgeSize.compact,
-      backgroundColor: compact ? DTokens.of(context).footerBorder : null,
-      foregroundColor: compact
-          ? Color.lerp(
-              DTokens.of(context).background,
-              DTokens.of(context).foreground,
-              .62,
-            )
-          : DTokens.of(context).mutedForeground,
-      semanticLabel: context.l10n.tag((tag.name).toString()),
-      onPressed: onTap,
-      child: Text(tag.name),
-    ),
-  );
-}
-
-class _TopicTagOverflow extends StatelessWidget {
-  const _TopicTagOverflow({required this.tags, this.compact = false});
-  final List<TopicTag> tags;
-  final bool compact;
-  int get count => tags.length;
-
-  @override
-  Widget build(BuildContext context) => DTooltip(
-    message: tags.map((tag) => '#${tag.name}').join(', '),
-    child: DBadge(
-      key: const ValueKey('topic-row-tag-overflow'),
-      variant: DBadgeVariant.outline,
-      size: compact ? DBadgeSize.tag : DBadgeSize.compact,
-      backgroundColor: compact ? DTokens.of(context).footerBorder : null,
-      foregroundColor: compact
-          ? Color.lerp(
-              DTokens.of(context).background,
-              DTokens.of(context).foreground,
-              .62,
-            )
-          : DTokens.of(context).mutedForeground,
-      semanticLabel: context.l10n.moreTopiclistview(count),
-      child: Text('+$count'),
-    ),
-  );
 }
 
 class _Message extends StatelessWidget {

@@ -7,7 +7,6 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +29,18 @@ const _topics = [
     ],
     lastPosterUsername: 'sam',
     replyCount: 24,
+    likeCount: 19,
+    posters: [
+      TopicPoster(userId: 1, username: 'dave', description: 'Original poster'),
+      TopicPoster(userId: 2, username: 'mia', description: 'Frequent poster'),
+      TopicPoster(userId: 3, username: 'chris', description: 'Frequent poster'),
+      TopicPoster(
+        userId: 4,
+        username: 'sam',
+        description: 'Most recent poster',
+        latest: true,
+      ),
+    ],
   ),
   Topic(
     id: 2,
@@ -66,21 +77,23 @@ void main() {
         .load();
   });
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final width in [320.0, 390.0, 590.0]) {
-      testWidgets('mockup spacing on $platform at $width', (tester) async {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    for (final width in [320.0, 390.0, 590.0, 1200.0]) {
+      testWidgets('mockup card geometry on $platform at $width', (
+        tester,
+      ) async {
         await _pump(tester, width: width, platform: platform);
         final card = find.byKey(const ValueKey('topic-card-1'));
         Finder within(Finder finder) =>
             find.descendant(of: card, matching: finder);
         final title = within(find.byType(TopicTitle));
         final excerpt = within(find.text(_topics[0].excerpt!));
-        final tag = within(
-          find.byWidgetPredicate(
-            (w) => w is DBadge && w.size == DBadgeSize.tag,
-          ),
-        ).first;
         final time = within(find.byKey(const ValueKey('inbox-row-time-1')));
+        final posters = within(find.byType(DAvatarGroup));
         final activity = within(
           find.byKey(const ValueKey('topic-card-activity-1')),
         );
@@ -92,157 +105,287 @@ void main() {
           tester.getTopLeft(excerpt).dy - tester.getBottomLeft(title).dy,
           5,
         );
-        expect(tester.getTopLeft(tag).dy - tester.getBottomLeft(excerpt).dy, 7);
         expect(
-          bounds.bottom -
-              [
-                tester.getBottomLeft(activity).dy,
-                tester.getBottomLeft(tag).dy,
-              ].reduce((a, b) => a > b ? a : b),
-          12,
+          tester.getTopLeft(posters).dy - tester.getBottomLeft(excerpt).dy,
+          7,
         );
-        expect(tester.getRect(time).top, tester.getRect(title).top);
+        expect(
+          tester.getCenter(time).dy,
+          closeTo(tester.getCenter(posters).dy, .01),
+        );
         expect(tester.getRect(time).right, width - 16);
-        expect(tester.getSize(time).height, lessThan(24));
-        expect(tester.getSize(tag).height, lessThan(24));
-        expect(within(find.text('feedback')), findsOneWidget);
+        expect(tester.getSize(posters), const Size(59, 20));
+        expect(tester.getSize(title).width, lessThanOrEqualTo(760));
+        expect(tester.getSize(excerpt).width, lessThanOrEqualTo(760));
         expect(
-          within(find.byKey(const ValueKey('topic-row-tag-overflow'))),
-          findsNothing,
+          tester.getRect(activity).bottom,
+          lessThanOrEqualTo(bounds.bottom - 12),
         );
         expect(
-          within(find.byKey(const ValueKey('topic-sort-activity'))),
-          findsNothing,
+          within(find.byType(DBadge)).evaluate().length,
+          1,
+          reason: 'Only the unread count is a badge.',
         );
-        expect(find.text('Pinned'), findsNothing);
+        final avatarWidgets = tester
+            .widgetList<DAvatar>(within(find.byType(DAvatar)))
+            .toList();
+        expect(avatarWidgets.where((a) => a.ring).length, 1);
+        expect(avatarWidgets.last.ringStyle, DAvatarRingStyle.outside);
+        expect(within(find.text('24')), findsOneWidget);
+        expect(within(find.text('19')), findsOneWidget);
+        expect(within(find.textContaining('Last post by')), findsNothing);
+        final status = within(
+          find.byKey(const ValueKey('topic-card-status-1')),
+        );
+        expect(tester.getRect(status).right, width < 811 ? width - 16 : 795);
         expect(tester.takeException(), isNull);
       });
     }
   }
 
-  testWidgets(
-    'activity shares the footer when it fits and wraps when it does not',
-    (tester) async {
-      for (final width in [320.0, 590.0]) {
-        await _pump(tester, width: width);
-        final card = find.byKey(const ValueKey('topic-card-1'));
-        final tag = find.descendant(of: card, matching: find.text('feedback'));
-        final activity = find.byKey(const ValueKey('topic-card-activity-1'));
-        if (width == 590) {
-          expect(
-            tester.getCenter(activity).dy,
-            closeTo(tester.getCenter(tag).dy, .01),
-          );
-          expect(tester.getRect(activity).right, width - 16);
-        } else {
-          expect(
-            tester.getRect(activity).top,
-            greaterThan(tester.getRect(tag).bottom),
-          );
-          expect(tester.getRect(activity).left, 16);
-        }
-      }
-    },
-  );
-
-  testWidgets('selecting a mobile row keeps its text in place', (tester) async {
-    await _pump(tester);
-    final title = find.text(_topics[1].title);
-    final before = tester.getRect(title);
-    await _pump(tester, selected: 2);
-    expect(tester.getRect(title).left, before.left);
-    expect(tester.getRect(title).width, before.width);
-    expect(tester.getRect(title).height, before.height);
-    final card = find.byKey(const ValueKey('topic-card-2'));
-    expect(tester.getRect(card).left, 4);
-    expect(tester.getRect(card).right, 386);
-    expect(
-      tester.widget<DItem>(card).selectionStyle,
-      DItemSelectionStyle.filled,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  for (final direction in TextDirection.values) {
-    testWidgets('narrow mobile rows grow with large text in $direction', (
-      tester,
-    ) async {
-      await _pump(tester, width: 280, scale: 2, direction: direction);
+  for (final width in [390.0, 1200.0]) {
+    testWidgets('selection preserves text alignment at $width', (tester) async {
+      await _pump(tester, width: width);
+      final title = find.text(_topics[1].title);
+      final before = tester.getRect(title);
+      await _pump(tester, width: width, selected: 2);
+      expect(tester.getRect(title).left, before.left);
+      expect(tester.getRect(title).size, before.size);
+      final card = find.byKey(const ValueKey('topic-card-2'));
+      expect(tester.getRect(card).left, 4);
+      expect(tester.getRect(card).right, width - 4);
+      expect(
+        tester.widget<DItem>(card).selectionStyle,
+        DItemSelectionStyle.filled,
+      );
+      expect(find.byType(DSeparator), findsNothing);
       expect(tester.takeException(), isNull);
-      expect(find.textContaining('1 reply'), findsOneWidget);
-      final title = tester.widget<TopicTitle>(find.byType(TopicTitle).at(1));
-      expect(title.maxLines, isNull);
-      final activity = find.byKey(const ValueKey('topic-card-activity-2'));
-      expect(tester.getRect(activity).left, greaterThanOrEqualTo(16));
-      expect(tester.getRect(activity).right, lessThanOrEqualTo(264));
     });
   }
 
-  testWidgets(
-    'wrapped title lines return to the card edge after status icons',
-    (tester) async {
-      await _pump(tester, width: 320);
-      final title = find.byType(TopicTitle).at(1);
-      final paragraphFinder = find
-          .descendant(of: title, matching: find.byType(RichText))
-          .first;
-      final paragraph = tester.renderObject<RenderParagraph>(paragraphFinder);
-      final boxes = paragraph.getBoxesForSelection(
-        TextSelection(baseOffset: 0, extentOffset: _topics[1].title.length),
-      );
-      final laterLines = boxes.where(
-        (box) => box.top >= 20 && box.right - box.left > 25,
-      );
-      expect(laterLines.length, greaterThanOrEqualTo(2));
-      for (final line in laterLines) {
-        expect(paragraph.localToGlobal(Offset(line.left, line.top)).dx, 16);
-      }
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'narrow cards retain links and counts with large text in $direction',
+      (tester) async {
+        await _pump(tester, width: 280, scale: 2, direction: direction);
+        expect(tester.takeException(), isNull);
+        expect(find.text('24'), findsOneWidget);
+        final title = tester.widget<TopicTitle>(find.byType(TopicTitle).at(1));
+        expect(title.maxLines, isNull);
+        final activity = find.byKey(const ValueKey('topic-card-activity-2'));
+        expect(tester.getRect(activity).left, greaterThanOrEqualTo(16));
+        expect(tester.getRect(activity).right, lessThanOrEqualTo(264));
+      },
+    );
+  }
+
+  testWidgets('unread count stays with the final title word', (tester) async {
+    await _pump(tester, width: 320);
+    final card = find.byKey(const ValueKey('topic-card-1'));
+    final tail = find.descendant(of: card, matching: find.text('community'));
+    final badge = find.byKey(const ValueKey('inbox-row-unread-1'));
+    expect(tester.getCenter(badge).dy, closeTo(tester.getCenter(tail).dy, .01));
+    expect(tester.getRect(badge).left - tester.getRect(tail).right, 6);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('category links name their category once', (tester) async {
     final semantics = tester.ensureSemantics();
-    await _pump(tester);
-    // iOS speaks a node's tooltip after its label.
+    await _pump(tester, width: 590);
     final link = tester
         .getSemantics(find.bySemanticsLabel('Category: Community').first)
         .getSemanticsData();
     expect(link.flagsCollection.isLink, isTrue);
     expect(link.tooltip, isEmpty);
-    expect(find.byTooltip('Community'), findsWidgets);
     semantics.dispose();
   });
 
-  testWidgets('metadata links activate independently of the topic row', (
+  testWidgets('tag expansion and metadata navigation remain independent', (
     tester,
   ) async {
     final shell = await _pump(tester);
-    await tester.tap(find.text('design').first);
+    final card = find.byKey(const ValueKey('topic-card-1'));
+    final overflow = find.descendant(
+      of: card,
+      matching: find.byKey(const ValueKey('topic-row-tag-overflow')),
+    );
+    expect(overflow, findsOneWidget);
+    await tester.tap(overflow);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, isNull);
-    expect(shell.currentFeedId, contains('design'));
-    await tester.tap(find.text('Community').first);
+    expect(
+      find.descendant(of: card, matching: find.text('#feedback')),
+      findsOneWidget,
+    );
+    expect(overflow, findsNothing);
+    await tester.tap(find.text('#feedback'));
     await tester.pumpAndSettle();
+    expect(shell.currentFeedId, contains('feedback'));
     expect(shell.currentContent?.topicId, isNull);
+    await tester.tap(find.bySemanticsLabel('Category: Community').first);
+    await tester.pumpAndSettle();
     expect(shell.currentFeedId, contains('1'));
-    await tester.tap(find.text(_topics.first.title));
+    await tester.tap(find.byType(TopicTitle).first);
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 1);
+    expect(tester.takeException(), isNull);
   });
 
-  for (final dark in [false, true]) {
-    testWidgets('mobile topic mockup in ${dark ? 'dark' : 'light'}', (
-      tester,
-    ) async {
-      await _pump(tester, selected: 2, dark: dark);
-      await expectLater(
-        find.byKey(const ValueKey('mobile-topics')),
-        matchesGoldenFile(
-          'goldens/mobile-topic-cards-${dark ? 'dark' : 'light'}.png',
-        ),
+  testWidgets(
+    'muted topic counts and latest-poster semantics follow server state',
+    (tester) async {
+      const topic = Topic(
+        id: 30,
+        title: 'Muted conversation',
+        slug: 'muted',
+        muted: true,
+        replyCount: 1500,
+        likeCount: 18400,
+        pinned: true,
+        closed: true,
+        bookmarked: true,
+        posters: [
+          TopicPoster(
+            userId: 1,
+            username: 'starter',
+            description: 'Original poster, most recent poster',
+            latest: true,
+          ),
+          TopicPoster(userId: 2, username: 'frequent'),
+        ],
       );
-    });
+      await _pump(tester, width: 590, topics: [topic]);
+      final card = find.byKey(const ValueKey('topic-card-30'));
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(of: card, matching: find.byType(Opacity)).first,
+      );
+      expect(opacity.opacity, .55);
+      expect(find.text('1.5k'), findsOneWidget);
+      expect(find.text('18k'), findsOneWidget);
+      expect(find.byTooltip('Pinned, Closed, Bookmarked'), findsOneWidget);
+      final avatars = tester.widgetList<DAvatar>(find.byType(DAvatar)).toList();
+      expect(avatars.first.ring, isTrue);
+      expect(avatars.last.ring, isFalse);
+      expect(
+        find.byTooltip('starter — Original poster, most recent poster'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'full category paths collapse and clipped links retain their destinations',
+    (tester) async {
+      const categories = [
+        TopicCategory(id: 10, name: 'Poetry', color: 'A787CB'),
+        TopicCategory(
+          id: 11,
+          name: 'Workshop',
+          color: '00AA88',
+          parentCategoryId: 10,
+        ),
+        TopicCategory(
+          id: 12,
+          name: 'translation-recording-equipment',
+          color: '0088CC',
+          parentCategoryId: 11,
+        ),
+      ];
+      const topic = Topic(
+        id: 20,
+        title: 'A taxonomy example',
+        slug: 'taxonomy',
+        categoryId: 12,
+        replyCount: 47,
+        likeCount: 19,
+        tags: [
+          TopicTag(name: 'microphones'),
+          TopicTag(name: 'translation-workshop'),
+          TopicTag(name: 'haiku'),
+        ],
+      );
+      await _pump(tester, width: 1200, topics: [topic], categories: categories);
+      expect(find.text('Poetry'), findsOneWidget);
+      expect(find.text('Workshop'), findsOneWidget);
+      expect(find.text(categories.last.name), findsOneWidget);
+
+      final shell = await _pump(
+        tester,
+        width: 390,
+        topics: [topic],
+        categories: categories,
+      );
+      expect(find.text('Poetry'), findsNothing);
+      expect(find.text('Workshop'), findsNothing);
+      final leaf = find.byKey(const ValueKey(('topic-row-category', 12)));
+      final label = tester
+          .widget<Text>(
+            find.descendant(of: leaf, matching: find.byType(Text)).last,
+          )
+          .data!;
+      expect(label, startsWith('trans'));
+      expect(label, contains('…'));
+      expect(label, endsWith('ment'));
+      expect(find.byTooltip(categories.last.name), findsOneWidget);
+      await tester.tap(leaf);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.categoryId, 12);
+      expect(shell.currentContent?.topicId, isNull);
+
+      var tappedStub = false;
+      for (final width in [350.0, 390.0, 430.0, 470.0, 510.0, 550.0]) {
+        final shell = await _pump(
+          tester,
+          width: width,
+          topics: [topic],
+          categories: categories,
+        );
+        final stub = find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              (widget.data?.startsWith('#') ?? false) &&
+              (widget.data?.endsWith('…') ?? false),
+        );
+        if (stub.evaluate().isEmpty) continue;
+        final button = find
+            .ancestor(of: stub.first, matching: find.byType(DButton))
+            .first;
+        final fullName = tester
+            .widget<DButton>(button)
+            .semanticLabel!
+            .replaceFirst('Tag: ', '');
+        expect(topic.tags.map((tag) => tag.name), contains(fullName));
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.tagName, fullName);
+        expect(shell.currentContent?.topicId, isNull);
+        tappedStub = true;
+        break;
+      }
+      expect(
+        tappedStub,
+        isTrue,
+        reason: 'At least one width exercises the partial-tag link.',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final dark in [false, true]) {
+    for (final width in [390.0, 1200.0]) {
+      testWidgets('topic mockup in ${dark ? 'dark' : 'light'} at $width', (
+        tester,
+      ) async {
+        await _pump(tester, width: width, selected: 2, dark: dark);
+        await expectLater(
+          find.byKey(const ValueKey('mobile-topics')),
+          matchesGoldenFile(
+            'goldens/${width == 390 ? 'mobile' : 'desktop'}-topic-cards-${dark ? 'dark' : 'light'}.png',
+          ),
+        );
+      });
+    }
   }
 }
 
@@ -254,6 +397,10 @@ Future<ShellController> _pump(
   TextDirection direction = TextDirection.ltr,
   int? selected,
   bool dark = false,
+  List<Topic> topics = _topics,
+  List<TopicCategory> categories = const [
+    TopicCategory(id: 1, name: 'Community', color: 'A787CB'),
+  ],
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 720));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -261,10 +408,8 @@ Future<ShellController> _pump(
   final shell = ShellController(
     instanceStore: FakeInstanceStore([site]),
     api: FakeDiscourseApi(
-      feeds: {'/latest.json': _topics},
-      categoryList: const [
-        TopicCategory(id: 1, name: 'Community', color: 'A787CB'),
-      ],
+      feeds: {'/latest.json': topics},
+      categoryList: categories,
     ),
     authenticator: FakeAuthenticator()..keys[site.url] = 'key',
     drafts: FakeDraftStore(),
@@ -296,19 +441,19 @@ Future<ShellController> _pump(
                 body: SingleChildScrollView(
                   child: Column(
                     children: [
-                      for (var i = 0; i < _topics.length; i++) ...[
+                      for (var i = 0; i < topics.length; i++) ...[
                         KeyboardSelection.scope(
-                          selected: _topics[i].id == selected,
+                          selected: topics[i].id == selected,
                           child: TopicListRow(
-                            topic: _topics[i],
+                            topic: topics[i],
                             siteUrl: site.url,
                           ),
                         ),
-                        if (i + 1 < _topics.length)
+                        if (i + 1 < topics.length)
                           TopicListSeparator(
                             besideSelection:
-                                _topics[i].id == selected ||
-                                _topics[i + 1].id == selected,
+                                topics[i].id == selected ||
+                                topics[i + 1].id == selected,
                           ),
                       ],
                     ],

@@ -143,6 +143,41 @@ enum CategoryNotificationLevel {
 int topicReplyCount(int postsCount, {int fallback = 0}) =>
     postsCount > 0 ? postsCount - 1 : fallback;
 
+/// An entry in the server's ordered topic poster summary.
+@immutable
+class TopicPoster {
+  const TopicPoster({
+    required this.userId,
+    this.username,
+    this.avatarUrl,
+    this.description,
+    this.latest = false,
+    this.single = false,
+  });
+
+  final int userId;
+  final String? username;
+  final String? avatarUrl;
+  final String? description;
+  final bool latest;
+  final bool single;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TopicPoster &&
+          other.userId == userId &&
+          other.username == username &&
+          other.avatarUrl == avatarUrl &&
+          other.description == description &&
+          other.latest == latest &&
+          other.single == single;
+
+  @override
+  int get hashCode =>
+      Object.hash(userId, username, avatarUrl, description, latest, single);
+}
+
 @immutable
 class Topic with Storable<Topic> {
   const Topic({
@@ -171,30 +206,45 @@ class Topic with Storable<Topic> {
     this.highestPostNumber = 0,
     this.tags = const [],
     this.posterAvatars = const [],
+    this.posters = const [],
+    this.muted = false,
     this.plugins = PluginData.none,
   }) : _fallbackReplyCount = replyCount;
 
-  static const int maximumPosterAvatars = 3;
+  static const int maximumPosterAvatars = 5;
 
   factory Topic.fromJson(
     Map<String, dynamic> json,
     Map<int, String?> avatarsByUserId,
     String siteUrl, {
     Map<String, String?> avatarsByUsername = const {},
+    Map<int, String> usernamesByUserId = const {},
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
-    final resolvedPosters = <String>[];
+    final posters = <TopicPoster>[];
+    final seenIds = <int>{};
     for (final poster in jsonObjects(json['posters'])) {
-      final id =
-          jsonIntOrNull(poster['user_id']) ??
-          jsonIntOrNull(jsonObject(poster['user'])['id']);
-      final avatar = id == null ? null : avatarsByUserId[id];
-      if (avatar != null) {
-        resolvedPosters.add(avatar);
-        if (resolvedPosters.length == maximumPosterAvatars) break;
-      }
+      final user = jsonObject(poster['user']);
+      final id = jsonIntOrNull(poster['user_id']) ?? jsonIntOrNull(user['id']);
+      if (id == null || !seenIds.add(id)) continue;
+      final username = usernamesByUserId[id] ?? jsonText(user['username']);
+      final avatarUrl =
+          avatarsByUserId[id] ??
+          resolveAvatarUrl(jsonText(user['avatar_template']), siteUrl);
+      if (username == null && avatarUrl == null) continue;
+      final extras = jsonString(poster['extras']).split(' ');
+      posters.add(
+        TopicPoster(
+          userId: id,
+          username: username,
+          avatarUrl: avatarUrl,
+          description: jsonText(poster['description']),
+          latest: extras.contains('latest'),
+          single: extras.contains('single'),
+        ),
+      );
+      if (posters.length == maximumPosterAvatars) break;
     }
-    final posters = List<String>.unmodifiable(resolvedPosters);
 
     return Topic(
       id: jsonInt(json['id']),
@@ -228,7 +278,13 @@ class Topic with Storable<Topic> {
       tags: List.unmodifiable(
         jsonArray(json['tags']).map(TopicTag.parse).whereType<TopicTag>(),
       ),
-      posterAvatars: posters,
+      posterAvatars: List.unmodifiable(
+        posters.map((p) => p.avatarUrl).whereType<String>(),
+      ),
+      posters: List.unmodifiable(posters),
+      muted:
+          json['muted'] == true ||
+          jsonIntOrNull(json['notification_level']) == 0,
       plugins: extensions.readTopic(json, siteUrl),
     );
   }
@@ -240,6 +296,7 @@ class Topic with Storable<Topic> {
   }) {
     final avatars = <int, String?>{};
     final avatarsByUsername = <String, String?>{};
+    final usernamesByUserId = <int, String>{};
     for (final poster in jsonObjects(json['posters'])) {
       final user = jsonObject(poster['user']);
       final id = jsonIntOrNull(user['id']);
@@ -251,6 +308,7 @@ class Topic with Storable<Topic> {
       final username = jsonText(user['username']);
       if (username != null) {
         avatarsByUsername[username.toLowerCase()] = avatars[id];
+        usernamesByUserId[id] = username;
       }
     }
     return Topic.fromJson(
@@ -258,6 +316,7 @@ class Topic with Storable<Topic> {
       avatars,
       siteUrl,
       avatarsByUsername: avatarsByUsername,
+      usernamesByUserId: usernamesByUserId,
       extensions: extensions,
     );
   }
@@ -300,6 +359,8 @@ class Topic with Storable<Topic> {
   final List<TopicTag> tags;
 
   final List<String> posterAvatars;
+  final List<TopicPoster> posters;
+  final bool muted;
 
   final PluginData plugins;
 
@@ -333,9 +394,10 @@ class Topic with Storable<Topic> {
 
   @override
   Topic merge(Topic incoming) {
-    final merged = incoming.posterAvatars.isEmpty
-        ? incoming.copyWith(posterAvatars: posterAvatars)
-        : incoming;
+    final merged = incoming.copyWith(
+      posterAvatars: incoming.posterAvatars.isEmpty ? posterAvatars : null,
+      posters: incoming.posters.isEmpty ? posters : null,
+    );
     return this == merged ? this : merged;
   }
 
@@ -349,6 +411,7 @@ class Topic with Storable<Topic> {
     int? highestPostNumber,
     List<TopicTag>? tags,
     List<String>? posterAvatars,
+    List<TopicPoster>? posters,
     PluginData? plugins,
     bool? bookmarked,
     bool? pinned,
@@ -388,6 +451,8 @@ class Topic with Storable<Topic> {
     posterAvatars: posterAvatars == null
         ? this.posterAvatars
         : List.unmodifiable(posterAvatars),
+    posters: posters == null ? this.posters : List.unmodifiable(posters),
+    muted: muted,
     plugins: plugins ?? this.plugins,
   );
 
@@ -417,6 +482,8 @@ class Topic with Storable<Topic> {
     highestPostNumber: highestPostNumber,
     tags: tags,
     posterAvatars: posterAvatars,
+    posters: posters,
+    muted: muted,
     plugins: next,
   );
 
@@ -449,6 +516,8 @@ class Topic with Storable<Topic> {
           other.highestPostNumber == highestPostNumber &&
           listEquals(other.tags, tags) &&
           listEquals(other.posterAvatars, posterAvatars) &&
+          listEquals(other.posters, posters) &&
+          other.muted == muted &&
           other.plugins == plugins;
 
   @override
@@ -478,6 +547,8 @@ class Topic with Storable<Topic> {
     highestPostNumber,
     Object.hashAll(tags),
     Object.hashAll(posterAvatars),
+    Object.hashAll(posters),
+    muted,
     plugins,
   ]);
 }
@@ -591,6 +662,7 @@ class TopicList {
   }) {
     final avatars = <int, String?>{};
     final avatarsByUsername = <String, String?>{};
+    final usernamesByUserId = <int, String>{};
     for (final value in jsonArray(json['users']).take(maximumUsersPerPage)) {
       if (value is! Map<String, dynamic>) continue;
       final user = value;
@@ -603,6 +675,7 @@ class TopicList {
       final username = jsonText(user['username']);
       if (username != null) {
         avatarsByUsername[username.toLowerCase()] = avatars[id];
+        usernamesByUserId[id] = username;
       }
     }
 
@@ -616,6 +689,7 @@ class TopicList {
               avatars,
               siteUrl,
               avatarsByUsername: avatarsByUsername,
+              usernamesByUserId: usernamesByUserId,
               extensions: extensions,
             ),
       ]),

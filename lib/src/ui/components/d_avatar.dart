@@ -17,6 +17,9 @@ enum DAvatarSize {
   final double dimension;
 }
 
+/// Whether a ring sits inside the image bounds or outside them.
+enum DAvatarRingStyle { inset, outside }
+
 /// A non-interactive identity picture. Compose inside a button or user-card
 /// target to give it an action; that owner retains focus and hit testing.
 class DAvatar extends StatelessWidget {
@@ -30,6 +33,8 @@ class DAvatar extends StatelessWidget {
     this.badge,
     this.border = true,
     this.ring = false,
+    this.ringStyle = DAvatarRingStyle.inset,
+    this.ringColor,
     this.ringSemanticLabel,
     this.semanticLabel,
     this.decorative = false,
@@ -46,6 +51,8 @@ class DAvatar extends StatelessWidget {
     this.badge,
     this.border = true,
     this.ring = false,
+    this.ringStyle = DAvatarRingStyle.inset,
+    this.ringColor,
     this.ringSemanticLabel,
     this.semanticLabel,
     this.decorative = false,
@@ -72,6 +79,11 @@ class DAvatar extends StatelessWidget {
   /// the image. The host supplies both colors through [DTokens].
   final bool ring;
 
+  /// Outside rings preserve the image size, with a 1.5px surface gap and
+  /// a 1px accent edge, for the most recent participant in a topic.
+  final DAvatarRingStyle ringStyle;
+  final Color? ringColor;
+
   /// Accessible meaning of [ring], such as "Online". It is combined with
   /// [semanticLabel], so the state is not communicated by color alone.
   final String? ringSemanticLabel;
@@ -91,12 +103,23 @@ class DAvatar extends StatelessWidget {
       borderRadius: radius,
       child: child ?? image ?? fallback,
     );
-    if (ring) {
+    if (ring && ringStyle == DAvatarRingStyle.outside) {
+      picture = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(color: ringColor ?? tokens.primary, spreadRadius: 2.5),
+            BoxShadow(color: tokens.background, spreadRadius: 1.5),
+          ],
+        ),
+        child: picture,
+      );
+    } else if (ring) {
       picture = DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.background,
           borderRadius: radius,
-          border: Border.all(color: tokens.success),
+          border: Border.all(color: ringColor ?? tokens.success),
         ),
         child: _AvatarRingInset(child: picture),
       );
@@ -493,10 +516,20 @@ class DAvatarGroup extends StatelessWidget {
     required this.children,
     this.size,
     this.overlap = 8,
-  }) : assert(overlap >= 0);
+    this.ringWidth = 2,
+    this.dimension,
+  }) : assert(overlap >= 0),
+       assert(ringWidth >= 0),
+       assert(dimension == null || dimension > 0);
   final List<Widget> children;
   final DAvatarSize? size;
   final double overlap;
+
+  /// Explicit extent for groups whose avatars are wrapped in tooltips or links.
+  final double? dimension;
+
+  /// Surface-colored separation between overlapping pictures.
+  final double ringWidth;
   @override
   Widget build(BuildContext context) {
     final avatars = children.whereType<DAvatar>();
@@ -509,9 +542,10 @@ class DAvatarGroup extends StatelessWidget {
             : DAvatarSize.standard);
     final extents = [
       for (final child in children)
-        child is DAvatar
-            ? child.dimension ?? _scaledExtent(context, size ?? child.size)
-            : _scaledExtent(context, countSize),
+        dimension ??
+            (child is DAvatar
+                ? child.dimension ?? _scaledExtent(context, size ?? child.size)
+                : _scaledExtent(context, countSize)),
     ];
     return _AvatarGroupScope(
       overrideSize: size,
@@ -550,7 +584,7 @@ class DAvatarGroup extends StatelessWidget {
                         boxShadow: [
                           BoxShadow(
                             color: DTokens.of(context).background,
-                            spreadRadius: 2,
+                            spreadRadius: ringWidth,
                           ),
                         ],
                       ),

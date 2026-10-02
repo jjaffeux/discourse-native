@@ -397,7 +397,7 @@ void main() {
       expect(nested.lastUnreadPostNumber, isNull);
     });
 
-    test('topic parsers retain only the first three resolved posters', () {
+    test('topic parsers retain only the first five resolved posters', () {
       final ordinary = Topic.fromJson(
         {
           'id': 7,
@@ -424,11 +424,19 @@ void main() {
         ],
       }, siteUrl);
 
-      expect(ordinary.posterAvatars, ['avatar-1', 'avatar-2', 'avatar-3']);
+      expect(ordinary.posterAvatars, [
+        'avatar-1',
+        'avatar-2',
+        'avatar-3',
+        'avatar-4',
+        'avatar-5',
+      ]);
       expect(recommendation.posterAvatars, [
         '$siteUrl/avatar-1/90.png',
         '$siteUrl/avatar-2/90.png',
         '$siteUrl/avatar-3/90.png',
+        '$siteUrl/avatar-4/90.png',
+        '$siteUrl/avatar-5/90.png',
       ]);
       expect(
         () => ordinary.posterAvatars.add('avatar-4'),

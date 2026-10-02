@@ -22,6 +22,7 @@ class TopicTitle extends StatelessWidget {
     this.textAlign,
     this.leading = const [],
     this.trailing = const [],
+    this.keepTrailingWithLastWord = false,
   });
 
   final String title;
@@ -32,18 +33,53 @@ class TopicTitle extends StatelessWidget {
   final TextAlign? textAlign;
   final List<Widget> leading;
   final List<Widget> trailing;
+  final bool keepTrailingWithLastWord;
 
   @override
-  Widget build(BuildContext context) => SiteEmojiText.plain(
-    title,
-    siteUrl: siteUrl,
-    maxLines: maxLines,
-    overflow: overflow,
-    style: style,
-    textAlign: textAlign,
-    leading: leading,
-    trailing: trailing,
-  );
+  Widget build(BuildContext context) {
+    if (keepTrailingWithLastWord && trailing.isNotEmpty) {
+      final words = title.split(' ');
+      final keep = words.length > 1 && words.last.characters.length <= 2
+          ? 2
+          : 1;
+      final head = words.take(words.length - keep).join(' ');
+      final tail = words.skip(words.length - keep).join(' ');
+      return SiteEmojiText.plain(
+        head.isEmpty ? '' : '$head ',
+        siteUrl: siteUrl,
+        maxLines: maxLines,
+        overflow: overflow,
+        style: style,
+        textAlign: textAlign,
+        leading: leading,
+        trailing: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: SiteEmojiText.plain(
+                  tail,
+                  siteUrl: siteUrl,
+                  style: style,
+                ),
+              ),
+              ...trailing,
+            ],
+          ),
+        ],
+      );
+    }
+    return SiteEmojiText.plain(
+      title,
+      siteUrl: siteUrl,
+      maxLines: maxLines,
+      overflow: overflow,
+      style: style,
+      textAlign: textAlign,
+      leading: leading,
+      trailing: trailing,
+    );
+  }
 }
 
 class InlineTopicTitleEditor extends StatefulWidget {

@@ -2183,7 +2183,7 @@ void main() {
         find.byKey(const ValueKey('topic-list-feed-row')),
       );
       expect(filters.left, greaterThanOrEqualTo(card.left));
-      expect(refinement.right, closeTo(card.right - (width < 600 ? 0 : 16), 1));
+      expect(refinement.right, closeTo(card.right, 1));
       if (width >= 1120) {
         final feed = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-menu')),

@@ -25,10 +25,22 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application control sizes',
       description:
-          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Hit areas follow visible controls.',
+          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Inline metadata uses 12px text and its exact visible bounds, including on touch. Hit areas follow visible controls.',
       code:
           "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
-      builder: (_) => const MockupControlSizesExample(),
+      builder: (_) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 12,
+        children: [
+          const MockupControlSizesExample(),
+          DButton(
+            variant: DButtonVariant.inline,
+            density: DButtonDensity.inlineMetadata,
+            label: const Text('+3'),
+            onPressed: () {},
+          ),
+        ],
+      ),
     ),
     StyleguideExample(
       title: 'Mobile dock destinations',
