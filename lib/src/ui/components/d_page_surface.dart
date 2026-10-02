@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import '../foundation/tokens.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
+import 'd_scroll_behavior.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
 /// header. The width policy aligns the header, body content, and footer while
@@ -329,14 +330,24 @@ class _DPageSurfaceState extends State<DPageSurface>
           }
         },
         child: widget.scrollBody
-            ? SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (widget.header != null)
-                      _HeaderGap(extent: () => headerBox()?.naturalHeight ?? 0),
-                    widget.child,
-                  ],
+            ? DScrollFadeScope(
+                topInset: () => headerBox()?.visibleHeight ?? 0,
+                child: ScrollConfiguration(
+                  behavior: DScrollBehavior(
+                    delegate: ScrollConfiguration.of(context),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.header != null)
+                          _HeaderGap(
+                            extent: () => headerBox()?.naturalHeight ?? 0,
+                          ),
+                        widget.child,
+                      ],
+                    ),
+                  ),
                 ),
               )
             : widget.child,

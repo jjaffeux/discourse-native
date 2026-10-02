@@ -503,67 +503,71 @@ class _InstanceRailListState extends State<_InstanceRailList> {
         onMove: _moveOverViewport,
         onAcceptWithDetails: _acceptDrop,
         onLeave: _leaveViewport,
-        builder: (context, candidates, rejected) => ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: _railListPadding),
-          itemExtent: _railItemExtent,
-          itemCount: widget.state.instances.length + 1,
-          findChildIndexCallback: (key) {
-            if (key is! ValueKey<String>) return null;
-            final index = widget.state.instances.indexWhere(
-              (instance) => instance.url == key.value,
-            );
-            return index < 0 ? null : index;
-          },
-          itemBuilder: (itemContext, index) {
-            if (index == widget.state.instances.length) {
-              return const Center(child: _AddInstanceButton());
-            }
+        builder: (context, candidates, rejected) => DScrollFadeScope(
+          topExtent: 26,
+          bottomExtent: 26,
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: _railListPadding),
+            itemExtent: _railItemExtent,
+            itemCount: widget.state.instances.length + 1,
+            findChildIndexCallback: (key) {
+              if (key is! ValueKey<String>) return null;
+              final index = widget.state.instances.indexWhere(
+                (instance) => instance.url == key.value,
+              );
+              return index < 0 ? null : index;
+            },
+            itemBuilder: (itemContext, index) {
+              if (index == widget.state.instances.length) {
+                return const Center(child: _AddInstanceButton());
+              }
 
-            final instance = widget.state.instances[index];
-            final moveUp = index == 0
-                ? null
-                : () => InstanceRail._moveInstance(
-                    itemContext,
-                    widget.controller,
-                    instance,
-                    index - 1,
-                  );
-            final moveDown = index == widget.state.instances.length - 1
-                ? null
-                : () => InstanceRail._moveInstance(
-                    itemContext,
-                    widget.controller,
-                    instance,
-                    index + 1,
-                  );
-            final item = _RailItem(
-              instance: instance,
-              appearance: widget.state.appearances[index],
-              selected:
-                  widget.state.rootMode == ShellRootMode.forum &&
-                  index == widget.state.selectedIndex,
-              badgeCount: widget.controller.railBadgeFor(instance),
-              shortcutKey:
-                  widget.controller.forumTabsEnabled &&
-                      index < forumSwitchShortcutKeys.length
-                  ? forumSwitchShortcutKeys[index]
-                  : null,
-              onTap: () => widget.controller.selectInstance(index),
-              onMoveUp: moveUp,
-              onMoveDown: moveDown,
-            );
-            return KeyedSubtree(
-              key: ValueKey(instance.url),
-              child: _RailInsertionSlot(
-                before: visibleSlot == index,
-                after:
-                    visibleSlot == widget.state.instances.length &&
-                    index == widget.state.instances.length - 1,
-                color: theme.colorScheme.primary,
-                child: _draggableItem(itemContext, index, instance, item),
-              ),
-            );
-          },
+              final instance = widget.state.instances[index];
+              final moveUp = index == 0
+                  ? null
+                  : () => InstanceRail._moveInstance(
+                      itemContext,
+                      widget.controller,
+                      instance,
+                      index - 1,
+                    );
+              final moveDown = index == widget.state.instances.length - 1
+                  ? null
+                  : () => InstanceRail._moveInstance(
+                      itemContext,
+                      widget.controller,
+                      instance,
+                      index + 1,
+                    );
+              final item = _RailItem(
+                instance: instance,
+                appearance: widget.state.appearances[index],
+                selected:
+                    widget.state.rootMode == ShellRootMode.forum &&
+                    index == widget.state.selectedIndex,
+                badgeCount: widget.controller.railBadgeFor(instance),
+                shortcutKey:
+                    widget.controller.forumTabsEnabled &&
+                        index < forumSwitchShortcutKeys.length
+                    ? forumSwitchShortcutKeys[index]
+                    : null,
+                onTap: () => widget.controller.selectInstance(index),
+                onMoveUp: moveUp,
+                onMoveDown: moveDown,
+              );
+              return KeyedSubtree(
+                key: ValueKey(instance.url),
+                child: _RailInsertionSlot(
+                  before: visibleSlot == index,
+                  after:
+                      visibleSlot == widget.state.instances.length &&
+                      index == widget.state.instances.length - 1,
+                  color: theme.colorScheme.primary,
+                  child: _draggableItem(itemContext, index, instance, item),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

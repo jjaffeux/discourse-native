@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
+import 'd_scroll_behavior.dart';
 
 /// Axes enabled by [DScrollArea]. Each axis has one native scroll position.
 enum DScrollAxes { vertical, horizontal, both }
@@ -49,7 +50,9 @@ class DScrollBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ScrollConfiguration(
-    behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+    behavior: DScrollBehavior(
+      delegate: ScrollConfiguration.of(context),
+    ).copyWith(scrollbars: false),
     // Keep the viewport subtree mounted when the scrollbar is hidden.
     child: _NaturalScrollbar(
       controller: controller,
