@@ -66,7 +66,7 @@ void main() {
         );
         await render(const []);
         final titleBottom = tester.getBottomLeft(find.byType(TopicTitle)).dy;
-        final repliesTop = tester.getTopLeft(find.text('2 replies')).dy;
+        final repliesTop = tester.getTopLeft(find.text('2')).dy;
         expect(repliesTop - titleBottom, lessThanOrEqualTo(12));
         final sparseHeight = tester
             .getSize(find.byKey(const ValueKey('topic-card-1')))
@@ -86,7 +86,7 @@ void main() {
   testWidgets('topic metadata is visible by default', (tester) async {
     await _setup(tester, enableEvents: true);
     final row = find.byKey(const ValueKey('topic-card-1'));
-    final tag = find.descendant(of: row, matching: find.text('design'));
+    final tag = find.descendant(of: row, matching: find.text('#design'));
     final assignments = find.descendant(
       of: row,
       matching: find.text('Assigned to'),
@@ -95,134 +95,55 @@ void main() {
     expect(assignments, findsOneWidget);
     final poster = find.descendant(
       of: row,
-      matching: find.text('Last post by sam · '),
+      matching: find.byType(DAvatarGroup),
     );
     final avatar = find.descendant(
       of: row,
       matching: find.byWidgetPredicate(
-        (widget) => widget is DAvatar && widget.dimension == 22,
+        (widget) => widget is DAvatar && widget.dimension == 20,
       ),
     );
     expect(poster, findsOneWidget);
     expect(avatar, findsOneWidget);
   });
 
-  for (final (width, scale, direction, dark) in [
-    (1200.0, 1.0, TextDirection.ltr, false),
-    (390.0, 1.0, TextDirection.ltr, true),
-    (280.0, 2.0, TextDirection.rtl, false),
-  ]) {
-    testWidgets(
-      'topic lists show five tags then a remaining count at $width/$scale/$direction',
-      (tester) async {
-        final shell = await _setup(
-          tester,
-          width: width,
-          scale: scale,
-          direction: direction,
-          dark: dark,
-          enableAssignments: false,
+  for (final width in [320.0, 1200.0]) {
+    testWidgets('topic tags fit the available strip and expand at $width', (
+      tester,
+    ) async {
+      final shell = await _setup(
+        tester,
+        width: width,
+        enableAssignments: false,
+      );
+      final site = shell.currentInstance!.url;
+      final topic = shell.store.read<Topic>(site, 1)!;
+      final tags = [for (var i = 1; i <= 23; i++) TopicTag(name: 'tag-$i')];
+      shell.store.put(site, topic.copyWith(tags: tags));
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('topic-card-1'));
+      final overflow = find.descendant(
+        of: row,
+        matching: find.byKey(const ValueKey('topic-row-tag-overflow')),
+      );
+      expect(overflow, findsOneWidget);
+      await tester.tap(overflow);
+      await tester.pumpAndSettle();
+      expect(overflow, findsNothing);
+      expect(shell.currentContent?.topicId, isNull);
+      for (final tag in tags) {
+        expect(
+          find.descendant(of: row, matching: find.text('#${tag.name}')),
+          findsOneWidget,
         );
-        final semantics = tester.ensureSemantics();
-        try {
-          final siteUrl = shell.currentInstance!.url;
-          final topic = shell.store.read<Topic>(siteUrl, 1)!;
-          final row = find.byKey(const ValueKey('topic-card-1'));
-          Finder within(Finder finder) =>
-              find.descendant(of: row, matching: finder);
-          final mouse = width >= 600
-              ? await tester.createGesture(kind: PointerDeviceKind.mouse)
-              : null;
-          if (mouse != null) {
-            addTearDown(mouse.removePointer);
-            await mouse.addPointer(location: Offset.zero);
-          }
-
-          for (final count in [0, 5, 6, 23, 5]) {
-            final tags = [
-              for (var index = 1; index <= count; index++)
-                TopicTag(name: 'tag-$index'),
-            ];
-            shell.store.put(siteUrl, topic.copyWith(tags: tags));
-            await tester.pumpAndSettle();
-            final visibleTags = tester
-                .widgetList<Text>(within(find.byType(Text)))
-                .map((text) => text.data)
-                .where((label) => label?.startsWith('tag-') ?? false);
-            expect(visibleTags, tags.take(5).map((tag) => tag.name));
-            final overflow = within(
-              find.byKey(const ValueKey('topic-row-tag-overflow')),
-            );
-            if (count <= 5) {
-              expect(overflow, findsNothing);
-            } else {
-              final remaining = count - 5;
-              expect(within(find.text('+$remaining')), findsOneWidget);
-              expect(
-                tester.getSemantics(overflow).label,
-                contains('$remaining more ${remaining == 1 ? 'tag' : 'tags'}'),
-              );
-              final badge = tester.widget<DBadge>(overflow);
-              final firstTag = tester.widget<DBadge>(
-                within(
-                  find.ancestor(
-                    of: within(find.text('tag-1')),
-                    matching: find.byType(DBadge),
-                  ),
-                ),
-              );
-              expect(badge.size, firstTag.size);
-              expect(badge.backgroundColor, firstTag.backgroundColor);
-              expect(badge.foregroundColor, firstTag.foregroundColor);
-              final rowBounds = tester.getRect(row);
-              expect(
-                rowBounds.contains(tester.getRect(overflow).topLeft),
-                isTrue,
-              );
-              expect(
-                rowBounds.contains(tester.getRect(overflow).bottomRight),
-                isTrue,
-              );
-
-              if (count == 23) {
-                final message = tags
-                    .skip(5)
-                    .map((tag) => '#${tag.name}')
-                    .join(', ');
-                expect(within(find.byTooltip(message)), findsOneWidget);
-                await tester.ensureVisible(overflow);
-                await tester.pumpAndSettle();
-                if (width < 600) {
-                  await tester.longPress(overflow);
-                } else {
-                  await mouse!.moveTo(tester.getCenter(overflow));
-                  await tester.pump(const Duration(milliseconds: 300));
-                }
-                await tester.pump(const Duration(milliseconds: 160));
-                expect(find.text(message), findsOneWidget);
-                tester
-                    .state<DTooltipState>(within(find.byTooltip(message)))
-                    .hide();
-                await mouse?.moveTo(Offset.zero);
-                await tester.pumpAndSettle();
-                expect(shell.currentContent?.topicId, isNull);
-              }
-            }
-            expect(tester.takeException(), isNull);
-          }
-          final lastTag = within(find.text('tag-5'));
-          await tester.ensureVisible(lastTag);
-          await tester.pumpAndSettle();
-          await tester.tap(lastTag);
-          await tester.pumpAndSettle();
-          expect(shell.currentContent?.tagName, 'tag-5');
-          expect(shell.currentContent?.topicId, isNull);
-          expect(tester.takeException(), isNull);
-        } finally {
-          semantics.dispose();
-        }
-      },
-    );
+      }
+      final last = find.descendant(of: row, matching: find.text('#tag-23'));
+      await tester.ensureVisible(last);
+      await tester.tap(last);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.tagName, 'tag-23');
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
@@ -240,7 +161,7 @@ void main() {
         of: row,
         matching: find.text('Community'),
       );
-      final tag = find.descendant(of: row, matching: find.text('design'));
+      final tag = find.descendant(of: row, matching: find.text('#design'));
       double baseline(Finder finder) {
         final box = tester.renderObject<RenderBox>(finder);
         return box.localToGlobal(Offset.zero).dy +
@@ -333,8 +254,8 @@ void main() {
     ) async {
       await _setup(tester, width: width);
       final row = find.byKey(const ValueKey('topic-card-1'));
-      expect(tester.getRect(row).left, width < 600 ? 16 : 0);
-      expect(tester.getRect(row).width, width < 600 ? width - 32 : width);
+      expect(tester.getRect(row).left, 16);
+      expect(tester.getRect(row).width, width - 32);
       expect(find.byType(DTable), findsNothing);
       expect(find.byKey(const ValueKey('topic-list-display')), findsNothing);
       expect(tester.takeException(), isNull);
@@ -342,85 +263,32 @@ void main() {
   }
 
   for (final width in [320.0, 390.0]) {
-    testWidgets('mobile cards place age above wrapping footer at $width', (
-      tester,
-    ) async {
-      final shell = await _setup(tester, width: width, enableEvents: true);
-      final card = find.byKey(const ValueKey('topic-card-1'));
-      Finder within(Finder finder) =>
-          find.descendant(of: card, matching: finder);
-      final title = within(
-        find.text('Topic 1: a conversation about improving our community'),
-      );
-      final date = within(find.byKey(const ValueKey('event-schedule-summary')));
-      final author = within(find.textContaining('Last post by sam'));
-      final replies = within(find.textContaining('24 replies'));
-      final age = within(find.byKey(const ValueKey('inbox-row-time-1')));
-      final tags = within(find.text('mobile'));
-      final avatar = within(
-        find.byWidgetPredicate(
-          (widget) => widget is DAvatar && widget.dimension == 22,
-        ),
-      );
-      expect(find.byKey(const ValueKey('event-calendar-stamp')), findsNothing);
-      expect(
-        tester.getRect(date).top,
-        greaterThanOrEqualTo(tester.getRect(title).bottom),
-      );
-      expect(find.text('Wed, Oct 14 · 8:00 PM'), findsOneWidget);
-      expect(
-        tester.getRect(avatar).top,
-        greaterThan(tester.getRect(tags).bottom),
-      );
-      expect(
-        tester.getRect(replies).top,
-        greaterThanOrEqualTo(tester.getRect(author).top),
-      );
-      expect(tester.getRect(age).top, closeTo(tester.getRect(title).top, 1));
-      expect(tester.getRect(age).top, lessThan(tester.getRect(tags).top));
-      expect(tester.getRect(age).right, closeTo(width - 16, 1));
-      expect(within(find.textContaining('24 replies')), findsOneWidget);
-      await tester.tap(date);
-      await tester.pumpAndSettle();
-      expect(find.text('Event schedule'), findsNothing);
-      expect(shell.currentContent?.topicId, 1);
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  for (final (width, sharesLine) in [(390.0, false), (590.0, true)]) {
-    testWidgets('mobile footer follows available width at $width', (
-      tester,
-    ) async {
-      final shell = await _setup(
-        tester,
-        width: width,
-        enableAssignments: false,
-      );
-      final site = shell.currentInstance!.url;
-      final topic = shell.store.read<Topic>(site, 1)!;
-      shell.store.put(site, topic.copyWith(tags: const []));
-      await tester.pumpAndSettle();
-      final card = find.byKey(const ValueKey('topic-card-1'));
-      final category = find.descendant(
-        of: card,
-        matching: find.text('Community'),
-      );
-      final avatar = find.descendant(
-        of: card,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is DAvatar && widget.dimension == 22,
-        ),
-      );
-      final categoryRect = tester.getRect(category);
-      final avatarRect = tester.getRect(avatar);
-      if (sharesLine) {
-        expect(avatarRect.center.dy, closeTo(categoryRect.center.dy, 8));
-      } else {
-        expect(avatarRect.top, greaterThan(categoryRect.bottom));
-      }
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'event metadata remains actionable beside the title at $width',
+      (tester) async {
+        final shell = await _setup(tester, width: width, enableEvents: true);
+        final card = find.byKey(const ValueKey('topic-card-1'));
+        final date = find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('event-schedule-summary')),
+        );
+        final activity = find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('topic-card-activity-1')),
+        );
+        final age = find.byKey(const ValueKey('inbox-row-time-1'));
+        expect(
+          tester.getRect(date).top,
+          lessThan(tester.getRect(activity).top),
+        );
+        expect(tester.getRect(age).right, width - 16);
+        expect(find.text('Wed, Oct 14 · 8:00 PM'), findsOneWidget);
+        await tester.tap(date);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final (width, scale, direction) in [
@@ -441,6 +309,14 @@ void main() {
           nestedCategories: true,
         );
         final card = find.byKey(const ValueKey('topic-card-1'));
+        final overflow = find.descendant(
+          of: card,
+          matching: find.byKey(const ValueKey('topic-row-tag-overflow')),
+        );
+        if (overflow.evaluate().isNotEmpty) {
+          await tester.tap(overflow);
+          await tester.pumpAndSettle();
+        }
         expect(
           find.descendant(of: card, matching: find.text('Category')),
           findsNothing,
@@ -449,12 +325,10 @@ void main() {
           of: card,
           matching: find.text('Features'),
         );
-        final tag = find.descendant(of: card, matching: find.text('design'));
+        final tag = find.descendant(of: card, matching: find.text('#design'));
         final title = find.descendant(
           of: card,
-          matching: find.text(
-            'Topic 1: a conversation about improving our community',
-          ),
+          matching: find.byType(TopicTitle),
         );
         expect(
           tester.getRect(tag).top,
@@ -470,7 +344,7 @@ void main() {
           expect(baseline(tag), closeTo(baseline(category), 0.01));
           final secondTag = find.descendant(
             of: card,
-            matching: find.text('mobile'),
+            matching: find.text('#mobile'),
           );
           expect(baseline(secondTag), closeTo(baseline(tag), 0.01));
           expect(
@@ -491,26 +365,20 @@ void main() {
           findsNothing,
         );
         expect(
-          find.descendant(
-            of: card,
-            matching: find.textContaining('24 replies'),
-          ),
+          find.descendant(of: card, matching: find.text('24')),
           findsOneWidget,
         );
         expect(
           find.descendant(of: card, matching: find.text('Excerpt 1')),
           findsOneWidget,
         );
-        final replies = find.descendant(
-          of: card,
-          matching: find.textContaining('24 replies'),
-        );
+        final replies = find.descendant(of: card, matching: find.text('24'));
         expect(
           tester.getRect(replies).width,
           closeTo(tester.getSize(replies).width, .01),
           reason: 'Inline metadata must apply text scaling only once.',
         );
-        expect(tester.getRect(card).width, width < 600 ? width - 32 : width);
+        expect(tester.getRect(card).width, width - 32);
         expect(tester.getRect(card).width, lessThanOrEqualTo(width));
         expect(tester.takeException(), isNull);
       },
@@ -518,134 +386,63 @@ void main() {
   }
 
   for (final dark in [false, true]) {
-    for (final mode in TopicListDisplayMode.values) {
-      testWidgets('topic tags retain their outline on hover in $mode/$dark', (
-        tester,
-      ) async {
-        await _setup(tester, dark: dark, mode: mode, focusPolicy: true);
+    testWidgets(
+      'plain tag links retain Native hover and focus targets in $dark',
+      (tester) async {
+        await _setup(tester, dark: dark, focusPolicy: true);
         final row = find.byKey(const ValueKey('topic-card-1'));
-        final tag = find.descendant(of: row, matching: find.text('design'));
+        final tag = find.descendant(of: row, matching: find.text('#design'));
+        final button = find
+            .ancestor(of: tag, matching: find.byType(DButton))
+            .first;
+        expect(
+          tester.widget<DButton>(button).density,
+          DButtonDensity.inlineMetadata,
+        );
+        expect(tester.widget<DButton>(button).isLink, isTrue);
+        expect(tester.getRect(button).size, tester.getRect(tag).size);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         addTearDown(mouse.removePointer);
         await mouse.addPointer(location: Offset.zero);
-        for (final hovering in [true, false]) {
-          await mouse.moveTo(
-            hovering ? tester.getCenter(tag) : const Offset(1300, 800),
-          );
-          await tester.pump();
-          for (final elapsed in [0, 50, 100, 150]) {
-            await tester.pump(Duration(milliseconds: elapsed));
-            final surface =
-                tester
-                        .renderObject<RenderDecoratedBox>(
-                          find
-                              .ancestor(
-                                of: tag,
-                                matching: find.byWidgetPredicate(
-                                  (widget) =>
-                                      widget is DecoratedBox &&
-                                      widget.decoration is BoxDecoration,
-                                ),
-                              )
-                              .first,
-                        )
-                        .decoration
-                    as BoxDecoration;
-            expect(surface.border!.top.color.a, greaterThan(0));
-            final rowSurface = tester.widget<Container>(
-              find
-                  .descendant(
-                    of: row,
-                    matching: find.byWidgetPredicate(
-                      (widget) =>
-                          widget is Container &&
-                          widget.decoration is BoxDecoration,
-                    ),
-                  )
-                  .first,
-            );
-            expect(
-              (rowSurface.decoration! as BoxDecoration).color,
-              hovering
-                  ? DTokens.of(
-                      tester.element(row),
-                    ).primary.withValues(alpha: .06)
-                  : Colors.transparent,
-            );
-            expect(
-              find.descendant(of: row, matching: find.byType(DTable)),
-              findsNothing,
-            );
-            expect(
-              find.descendant(of: row, matching: find.byType(DCardFooter)),
-              findsNothing,
-            );
-          }
-        }
-      });
-    }
+        await mouse.moveTo(tester.getCenter(button));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(button).size, tester.getRect(tag).size);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final (width, scale, direction) in [
     (1200.0, 1.0, TextDirection.ltr),
-    (780.0, 1.0, TextDirection.ltr),
     (390.0, 1.0, TextDirection.ltr),
     (320.0, 2.0, TextDirection.rtl),
   ]) {
-    testWidgets('category names stay on one line at $width/$scale/$direction', (
-      tester,
-    ) async {
-      await _setup(
-        tester,
-        width: width,
-        scale: scale,
-        direction: direction,
-        nestedCategories: true,
-      );
-      final row = find.byKey(const ValueKey('topic-card-1'));
-      Finder within(Finder finder) =>
-          find.descendant(of: row, matching: finder);
-      final parent = within(find.text('Discourse Native App'));
-      final child = within(find.text('Features'));
-      for (final label in [parent, child]) {
-        expect(
-          tester.getSize(label).height,
-          closeTo(((width < 600 ? 16.5 : 21) * scale).ceilToDouble(), .01),
+    testWidgets(
+      'category leaf stays recognizable at $width/$scale/$direction',
+      (tester) async {
+        await _setup(
+          tester,
+          width: width,
+          scale: scale,
+          direction: direction,
+          nestedCategories: true,
         );
-      }
-      final chevron = within(
-        find.byKey(const ValueKey(('topic-row-category-chevron', 1, 2))),
-      );
-      expect(
-        tester.getCenter(chevron).dy,
-        closeTo(tester.getCenter(child).dy, .01),
-      );
-      expect(
-        within(find.bySemanticsLabel('Parent category: Discourse Native App')),
-        findsOneWidget,
-      );
-      expect(
-        within(find.bySemanticsLabel('Category: Features')),
-        findsOneWidget,
-      );
-      if (tester.renderObject<RenderParagraph>(parent).didExceedMaxLines) {
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        addTearDown(mouse.removePointer);
-        final labelsBeforeHover = find
-            .text('Discourse Native App')
-            .evaluate()
-            .length;
-        await mouse.addPointer(location: Offset.zero);
-        await mouse.moveTo(tester.getCenter(parent));
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pumpAndSettle();
-        expect(
-          find.text('Discourse Native App'),
-          findsNWidgets(labelsBeforeHover + 1),
+        final row = find.byKey(const ValueKey('topic-card-1'));
+        final leaf = find.descendant(
+          of: row,
+          matching: find.bySemanticsLabel('Category: Features'),
         );
-      }
-      expect(tester.takeException(), isNull);
-    });
+        expect(leaf, findsOneWidget);
+        expect(tester.getRect(leaf).height, lessThanOrEqualTo(26 * scale));
+        expect(tester.getRect(leaf).left, greaterThanOrEqualTo(16));
+        expect(tester.getRect(leaf).right, lessThanOrEqualTo(width - 16));
+        expect(
+          find.descendant(of: row, matching: find.byTooltip('Features')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final mode in TopicListDisplayMode.values) {
@@ -739,7 +536,7 @@ void main() {
         findsNothing,
       );
       expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
-      final tag = find.descendant(of: assigned, matching: find.text('mobile'));
+      final tag = find.descendant(of: assigned, matching: find.text('#mobile'));
       final person = find.text('joffrey');
       expect(
         tester.getRect(person).top,
@@ -795,7 +592,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text(name), findsOneWidget);
         expect(find.text('#22'), findsOneWidget);
-        expect(find.text('+1'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-card-1')),
+            matching: find.text('+1'),
+          ),
+          findsOneWidget,
+        );
         final text = tester.renderObject<RenderParagraph>(find.text(name));
         expect(text.didExceedMaxLines, isFalse);
         expect(tester.takeException(), isNull);

@@ -424,7 +424,7 @@ void main() {
       expect(find.text('People'), findsNothing);
       expect(find.text('Views'), findsNothing);
       final title = tester.widget<TopicTitle>(find.byType(TopicTitle).first);
-      expect(title.maxLines, 2);
+      expect(title.maxLines, isNull);
     } finally {
       semantics.dispose();
     }
@@ -477,13 +477,13 @@ void main() {
 
     final compactRow = find.byKey(const ValueKey('topic-card-7'));
     final contextualRow = find.byKey(const ValueKey('topic-card-8'));
-    expect(tester.getSize(compactRow).width, 825.0);
+    expect(tester.getSize(compactRow).width, 793.0);
     expect(
       tester.getSize(contextualRow).width,
       tester.getSize(compactRow).width,
     );
-    expect(find.text('design'), findsOneWidget);
-    expect(find.text('582 replies'), findsOneWidget);
+    expect(find.text('#design'), findsOneWidget);
+    expect(find.text('582'), findsOneWidget);
     expect(find.text('13800'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -529,7 +529,7 @@ void main() {
 
     final topicColumn = find.byKey(const ValueKey('topic-card-7'));
     expect(topicColumn, findsOneWidget);
-    expect(find.text('2 replies'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
     expect(tester.getSize(topicColumn).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
@@ -576,7 +576,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('5 replies'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
       expect(find.text('309'), findsNothing);
       expect(tester.takeException(), isNull);
     } finally {

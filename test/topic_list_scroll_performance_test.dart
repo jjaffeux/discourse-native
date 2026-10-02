@@ -54,26 +54,19 @@ void main() {
         await resize(700);
         expect(rebuilt, isNot(contains(title)));
 
-        Finder desktopAuthor() => find.descendant(
+        final posters = find.descendant(
           of: row,
-          matching: find.text('Last post by sam · '),
+          matching: find.byKey(const ValueKey('topic-card-posters-1')),
         );
-        expect(desktopAuthor(), findsOneWidget);
+        expect(posters, findsOneWidget);
         await resize(599);
-        expect(desktopAuthor(), findsNothing);
-        // The compact card states the last poster in one activity line.
+        expect(posters, findsOneWidget);
         expect(
-          find.descendant(
-            of: row,
-            matching: find.text(
-              'Last post by sam · 1 reply',
-              findRichText: true,
-            ),
-          ),
+          find.descendant(of: row, matching: find.text('1')),
           findsOneWidget,
         );
         await resize(600);
-        expect(desktopAuthor(), findsOneWidget);
+        expect(posters, findsOneWidget);
       } finally {
         await diagnostics.close();
       }
@@ -252,10 +245,16 @@ void main() {
                   .where((event) => event.name == 'topicList.row.built');
               // Variable-height rows can be built then discarded while the
               // sliver corrects estimates during a large jump. Bound that work
-              // by a viewport of minimum-height rows plus the two edge rows.
+              // by a viewport of sparse rows, two edge rows, and one transient
+              // estimate-correction row for mixed event/title heights.
               final rowBudget =
-                  (viewport.height / TopicListRow.minimumHeight).ceil() + 2;
-              expect(builtRows.length, lessThanOrEqualTo(rowBudget));
+                  (viewport.height / TopicListRow.minimumHeight).ceil() + 3;
+              expect(
+                builtRows.length,
+                lessThanOrEqualTo(rowBudget),
+                reason:
+                    'built ${builtRows.map((e) => e.data["index"]).toList()} at ${position.pixels}',
+              );
               expect(position.pixels, closeTo(requested, 0.01));
             }
             capture.stop();

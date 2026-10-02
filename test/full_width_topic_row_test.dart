@@ -59,14 +59,8 @@ void main() {
       expect(node.label, label);
       expect(node.flagsCollection.isButton, isTrue);
     }
-    // Separators are visual only; the row names the last poster once.
-    expect(
-      tester
-          .getSemantics(find.byKey(const ValueKey('topic-card-1')))
-          .getSemanticsData()
-          .label,
-      'Welcome to our community\nLast post by sam',
-    );
+    expect(tester.getSemantics(find.byType(DAvatar)).label, contains('sam'));
+    expect(find.text('Welcome to our community'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('topic-sort-posts')));
     expect(sorted, ['posts']);
     semantics.dispose();
@@ -103,8 +97,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(replies), findsOneWidget);
-      expect(find.text(views), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('topic-sort-posts')))
+            .semanticLabel,
+        startsWith('$replies,'),
+      );
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('topic-sort-views')))
+            .semanticLabel,
+        startsWith('$views,'),
+      );
     });
   }
 
@@ -153,7 +157,8 @@ void main() {
                         onTap: () {},
                       ),
                     ),
-                    const DSeparator(),
+                    if (i + 1 < titles.length)
+                      TopicListSeparator(besideSelection: i == 2),
                   ],
                 ],
               ),
@@ -175,7 +180,7 @@ void main() {
       await tester.pump();
       expect(
         tester.getRect(find.byKey(const ValueKey('topic-card-2'))).width,
-        680,
+        648,
       );
       expect(
         tester

@@ -78,7 +78,8 @@ DAvatar(
       description:
           'The online treatment keeps the same outer size while insetting the '
           'image behind a success edge and background gap. Its accessible label '
-          'announces the state instead of relying on green alone.',
+          'announces the state instead of relying on green alone. Outside rings '
+          'mark the latest poster with a 1px accent edge and a 1.5px surface gap.',
       states: const ['Online', 'Success', 'Semantics', 'Live palette'],
       code: '''const DAvatar(
   ring: true,
@@ -91,6 +92,27 @@ DAvatar(
         runSpacing: 16,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          const DAvatarGroup(
+            overlap: 7,
+            ringWidth: 1.5,
+            children: [
+              DAvatar(
+                dimension: 20,
+                border: false,
+                semanticLabel: 'Sam, Original poster',
+                fallback: DAvatarFallback(child: Text('S')),
+              ),
+              DAvatar(
+                dimension: 20,
+                border: false,
+                ring: true,
+                ringStyle: DAvatarRingStyle.outside,
+                ringSemanticLabel: 'Most recent poster',
+                semanticLabel: 'Alex',
+                fallback: DAvatarFallback(child: Text('A')),
+              ),
+            ],
+          ),
           const DAvatar(
             ring: true,
             ringSemanticLabel: 'Online',
