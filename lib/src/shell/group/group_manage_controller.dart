@@ -144,8 +144,13 @@ final class GroupManageController extends ChangeNotifier {
 
   TextEditingController textController(String key) => _text[key]!;
 
-  bool canEditProfileField(String key) => switch (key) {
-    'name' || 'title' => !group.automatic && currentUserStaff,
+  bool canEditField(String key) => switch (key) {
+    'name' ||
+    'title' ||
+    'grant_trust_level' ||
+    'publish_read_state' ||
+    'incoming_email' => !group.automatic && currentUserStaff,
+    'visibility_level' || 'members_visibility_level' => currentUserStaff,
     'full_name' => !group.automatic,
     _ => true,
   };
@@ -238,9 +243,9 @@ final class GroupManageController extends ChangeNotifier {
       !_disposed && generation == _submissionGeneration;
 
   Map<String, String> _validationErrors() => switch (subsection) {
-    GroupRoute.profile
-        when canEditProfileField('name') && _value('name').isEmpty =>
-      {'name': appL10n.enterAGroupName},
+    GroupRoute.profile when canEditField('name') && _value('name').isEmpty => {
+      'name': appL10n.enterAGroupName,
+    },
     _ => const {},
   };
 
@@ -260,10 +265,10 @@ final class GroupManageController extends ChangeNotifier {
   Map<String, Object?> _subsectionValues(String subsection) =>
       switch (subsection) {
         GroupRoute.profile => {
-          if (canEditProfileField('name')) 'name': _value('name'),
-          if (canEditProfileField('full_name')) 'full_name': _value('full_name'),
+          if (canEditField('name')) 'name': _value('name'),
+          if (canEditField('full_name')) 'full_name': _value('full_name'),
           'bio_raw': textController('bio_raw').text,
-          if (canEditProfileField('title')) 'title': _value('title'),
+          if (canEditField('title')) 'title': _value('title'),
           'flair_icon': _value('flair_icon'),
           'flair_bg_color': _value('flair_bg_color'),
           'flair_color': _value('flair_color'),
@@ -272,8 +277,9 @@ final class GroupManageController extends ChangeNotifier {
           'public_admission': _admission == 'free',
           'allow_membership_requests': _admission == 'request',
           'public_exit': _publicExit,
-          'visibility_level': _visibility,
-          'members_visibility_level': _membersVisibility,
+          if (canEditField('visibility_level')) 'visibility_level': _visibility,
+          if (canEditField('members_visibility_level'))
+            'members_visibility_level': _membersVisibility,
           'membership_request_template': textController(
             'membership_request_template',
           ).text,
@@ -281,14 +287,17 @@ final class GroupManageController extends ChangeNotifier {
             'automatic_membership_email_domains',
           ),
           'associated_group_ids': _integerList('associated_group_ids'),
-          'grant_trust_level': _nullableInt('grant_trust_level'),
+          if (canEditField('grant_trust_level'))
+            'grant_trust_level': _nullableInt('grant_trust_level'),
         },
         GroupRoute.interaction => {
           'mentionable_level': _mentionable,
           'messageable_level': _messageable,
-          'publish_read_state': _publishReadState,
+          if (canEditField('publish_read_state'))
+            'publish_read_state': _publishReadState,
           'default_notification_level': _defaultNotification,
-          'incoming_email': _value('incoming_email'),
+          if (canEditField('incoming_email'))
+            'incoming_email': _value('incoming_email'),
         },
         GroupRoute.email => {
           // The controller clears the SMTP settings only for

@@ -225,7 +225,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
 
   Widget _manageFields() => switch (widget.subsection) {
     GroupRoute.profile => _ProfileFields(
-      canEdit: controller.canEditProfileField,
+      canEdit: controller.canEditField,
       controllers: controller.textControllers,
       errors: controller.snapshot.fieldErrors,
     ),
@@ -270,12 +270,16 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         _LevelField(
           label: appL10n.groupVisibility,
           value: controller.visibility,
-          onChanged: controller.setVisibility,
+          onChanged: controller.canEditField('visibility_level')
+              ? controller.setVisibility
+              : null,
         ),
         _LevelField(
           label: appL10n.memberListVisibility,
           value: controller.membersVisibility,
-          onChanged: controller.setMembersVisibility,
+          onChanged: controller.canEditField('members_visibility_level')
+              ? controller.setMembersVisibility
+              : null,
         ),
         _textField(
           'membership_request_template',
@@ -322,7 +326,10 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           title: DLabel(child: Text(appL10n.publishReadState)),
           subtitle: Text(appL10n.letMembersShareMessageReadState),
           value: controller.publishReadState,
-          onChanged: controller.setPublishReadState,
+          enabled: controller.canEditField('publish_read_state'),
+          onChanged: controller.canEditField('publish_read_state')
+              ? controller.setPublishReadState
+              : null,
         ),
         _textField('incoming_email', appL10n.incomingEmailAddress),
       ],
@@ -403,18 +410,18 @@ class _GroupManageFormState extends State<_GroupManageForm> {
             controller: controller.textController(key),
             minLines: lines,
             maxLines: lines,
+            enabled: controller.canEditField(key),
             labelText: label,
             hintText: hint,
           )
-        : TextFormField(
-            style: Theme.of(context).textTheme.bodyMedium,
+        : DInput(
             key: ValueKey('group-field-$key'),
             controller: controller.textController(key),
-            minLines: obscure ? 1 : lines,
-            maxLines: obscure ? 1 : lines,
+            enabled: controller.canEditField(key),
             obscureText: obscure,
             keyboardType: numeric ? TextInputType.number : TextInputType.text,
-            decoration: InputDecoration(labelText: label, hintText: hint),
+            labelText: label,
+            hintText: hint,
           ),
   );
 }
@@ -543,7 +550,7 @@ class _LevelField extends StatelessWidget {
 
   final String label;
   final int value;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<int>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -553,6 +560,7 @@ class _LevelField extends StatelessWidget {
       child: DSelect<int>.controlled(
         isExpanded: true,
         value: value,
+        enabled: onChanged != null,
         label: Text(label),
         entries: [
           for (final option in values)
@@ -563,7 +571,7 @@ class _LevelField extends StatelessWidget {
             ),
         ],
         onChanged: (next) {
-          if (next != null) onChanged(next);
+          if (next != null) onChanged?.call(next);
         },
         initialValue: value,
       ),

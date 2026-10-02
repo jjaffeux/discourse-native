@@ -400,6 +400,79 @@ void main() {
   });
 
   group('GroupManageController', () {
+    for (final staff in [false, true]) {
+      test('membership setting permissions staff=$staff', () {
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          currentUserStaff: staff,
+          subsection: GroupRoute.membership,
+          onSubmit: (_) async => true,
+        );
+        addTearDown(controller.dispose);
+        controller.setVisibility(1);
+        controller.setMembersVisibility(2);
+        controller.textController('grant_trust_level').text = '3';
+        final values = controller.buildUpdate().values;
+        for (final field in [
+          'visibility_level',
+          'members_visibility_level',
+          'grant_trust_level',
+        ]) {
+          expect(values.containsKey(field), staff);
+        }
+        expect(controller.snapshot.dirty, staff);
+        controller.setPublicExit(true);
+        expect(controller.snapshot.canSubmit, isTrue);
+        expect(controller.buildUpdate().values['public_exit'], isTrue);
+      });
+    }
+    for (final (staff, automatic) in [
+      (false, false),
+      (true, false),
+      (true, true),
+    ]) {
+      test(
+        'interaction setting permissions staff=$staff automatic=$automatic',
+        () {
+          final controller = GroupManageController(
+            group: Group(id: 9, name: 'support', automatic: automatic),
+            currentUserStaff: staff,
+            subsection: GroupRoute.interaction,
+            onSubmit: (_) async => true,
+          );
+          addTearDown(controller.dispose);
+          controller.setPublishReadState(true);
+          controller.textController('incoming_email').text = 'new@example.com';
+          final editable = staff && !automatic;
+          expect(
+            controller.buildUpdate().values.containsKey('publish_read_state'),
+            editable,
+          );
+          expect(
+            controller.buildUpdate().values.containsKey('incoming_email'),
+            editable,
+          );
+          expect(controller.snapshot.dirty, editable);
+          controller.setMentionable(1);
+          controller.setMessageable(2);
+          controller.setDefaultNotification(3);
+          expect(controller.snapshot.canSubmit, isTrue);
+          expect(
+            controller.buildUpdate().values,
+            containsPair('mentionable_level', 1),
+          );
+          expect(
+            controller.buildUpdate().values,
+            containsPair('messageable_level', 2),
+          );
+          expect(
+            controller.buildUpdate().values,
+            containsPair('default_notification_level', 3),
+          );
+        },
+      );
+    }
+
     for (final (staff, automatic, editable) in [
       (
         false,
@@ -431,7 +504,7 @@ void main() {
         expect(controller.buildUpdate().values.keys, unorderedEquals(editable));
         for (final key in ['name', 'full_name', 'title']) {
           if (!editable.contains(key)) {
-            expect(controller.canEditProfileField(key), isFalse);
+            expect(controller.canEditField(key), isFalse);
             controller.textController(key).clear();
           }
         }
