@@ -356,24 +356,7 @@ class ChatBrowseThreadRow extends StatelessWidget {
   }
 
   Future<void> _open(BuildContext context, ChatController chat) async {
-    try {
-      final channel = await chat.ensureChannel(siteUrl, thread.channelId);
-      if (!context.mounted) return;
-      if (channel == null) throw StateError('Channel unavailable');
-      PluginUiScope.require(context, chatShellService).openThread(
-        siteUrl: siteUrl,
-        channelId: channel.id,
-        threadId: thread.id,
-      );
-    } catch (_) {
-      if (context.mounted) {
-        DToast.show(
-          context,
-          appL10n.couldNotOpenThisChatThread,
-          type: DToastType.error,
-        );
-      }
-    }
+    await _openThreadRow(context, chat, siteUrl, thread);
   }
 }
 
@@ -443,116 +426,147 @@ class ChatThreadListRow extends StatelessWidget {
       }
     }
 
-    return Semantics(
-      button: true,
-      label: semantics.toString(),
-      child: Material(
-        type: MaterialType.transparency,
-        child: nestedPreview
-            ? _NestedThreadListRow(
-                rowKey: ValueKey<String>('$keyPrefix-${thread.id}'),
-                siteUrl: siteUrl,
-                thread: thread,
-                channelTitle: channel?.title ?? context.l10n.chat,
-                title: title,
-                unread: unread,
-                showChannel: showChannel,
-                keyPrefix: keyPrefix,
-                onTap: () => unawaited(_open(context, chat)),
-              )
-            : ListTile(
-                key: ValueKey<String>('$keyPrefix-${thread.id}'),
-                onTap: () => unawaited(_open(context, chat)),
-                leading: ChatUserAvatar(
-                  siteUrl: siteUrl,
-                  userId: author?.id ?? 0,
-                  url: author?.avatarUrl,
-                  flair: author?.flair,
-                  size: 40,
-                  fallback: _AvatarFallback(name: author?.displayName),
-                ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showChannel)
-                      Text(
-                        channel?.title ?? context.l10n.chat,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
+    if (nestedPreview) {
+      return Semantics(
+        button: true,
+        label: semantics.toString(),
+        child: Material(
+          type: MaterialType.transparency,
+          child: _NestedThreadListRow(
+            rowKey: ValueKey<String>('$keyPrefix-${thread.id}'),
+            siteUrl: siteUrl,
+            thread: thread,
+            channelTitle: channel?.title ?? context.l10n.chat,
+            title: title,
+            unread: unread,
+            showChannel: showChannel,
+            keyPrefix: keyPrefix,
+            onTap: () => unawaited(_open(context, chat)),
+          ),
+        ),
+      );
+    }
+    return DItem(
+      key: ValueKey<String>('$keyPrefix-${thread.id}'),
+      shape: DItemShape.fullWidth,
+      semanticLabel: semantics.toString(),
+      onPressed: () => unawaited(_open(context, chat)),
+      children: [
+        DItemMedia(
+          child: ChatUserAvatar(
+            siteUrl: siteUrl,
+            userId: author?.id ?? 0,
+            url: author?.avatarUrl,
+            flair: author?.flair,
+            size: 40,
+            fallback: _AvatarFallback(name: author?.displayName),
+          ),
+        ),
+        DItemContent(
+          children: [
+            DItemTitle(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showChannel)
                     Text(
-                      title,
+                      channel?.title ?? context.l10n.chat,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: unread
-                          ? const TextStyle(fontWeight: FontWeight.w700)
-                          : null,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                  ],
-                ),
-                subtitle: Row(
-                  children: [
-                    UserStatusMessage(
-                      siteUrl: siteUrl,
-                      userId: preview?.lastReplyUser?.id,
-                      status: preview?.lastReplyUser?.status,
-                      size: 14,
-                    ),
-                    if (preview?.lastReplyUser?.status != null)
-                      const SizedBox(width: 4),
-                    Expanded(
-                      child: switch (preview?.lastReplyAt) {
-                        final at? => RelativeTimeBuilder(
-                          when: at,
-                          builder: (context, time) => latestText(time),
-                        ),
-                        null => latestText(null),
-                      },
-                    ),
-                  ],
-                ),
-                trailing: unread
-                    ? DNotificationDot(
-                        color: _threadIndicatorColor(context, thread),
-                        semanticLabel: context.l10n.unread,
-                        key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
-                      )
-                    : null,
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: unread
+                        ? const TextStyle(fontWeight: FontWeight.w700)
+                        : null,
+                  ),
+                ],
               ),
-      ),
+            ),
+            DItemDescription(
+              child: Row(
+                children: [
+                  UserStatusMessage(
+                    siteUrl: siteUrl,
+                    userId: preview?.lastReplyUser?.id,
+                    status: preview?.lastReplyUser?.status,
+                    size: 14,
+                  ),
+                  if (preview?.lastReplyUser?.status != null)
+                    const SizedBox(width: 4),
+                  Expanded(
+                    child: switch (preview?.lastReplyAt) {
+                      final at? => RelativeTimeBuilder(
+                        when: at,
+                        builder: (context, time) => latestText(time),
+                      ),
+                      null => latestText(null),
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (unread)
+          DItemActions(
+            children: [
+              DNotificationDot(
+                color: _threadIndicatorColor(context, thread),
+                semanticLabel: context.l10n.unread,
+                key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
   Future<void> _open(BuildContext context, ChatController chat) async {
-    final shell = PluginUiScope.require(context, chatShellService);
-    bool ownsActivation() =>
-        context.mounted &&
-        shell.currentSiteUrl == siteUrl &&
-        identical(
-          PluginUiScope.optional(context, chatControllerService),
-          chat,
-        ) &&
-        identical(PluginUiScope.optional(context, chatShellService), shell);
-    try {
-      final channel = await chat.ensureChannel(siteUrl, thread.channelId);
-      if (!context.mounted || !ownsActivation()) return;
-      if (channel == null) throw StateError('Channel unavailable');
-      shell.openThread(
-        siteUrl: siteUrl,
-        channelId: channel.id,
-        threadId: thread.id,
-      );
-    } catch (_) {
-      if (!context.mounted || !ownsActivation()) return;
-      DToast.show(
-        context,
-        appL10n.couldNotOpenThisChatThread,
-        type: DToastType.error,
-      );
-    }
+    await _openThreadRow(context, chat, siteUrl, thread);
+  }
+}
+
+Future<void> _openThreadRow(
+  BuildContext context,
+  ChatController chat,
+  String siteUrl,
+  ChatThread thread,
+) async {
+  final shell = PluginUiScope.require(context, chatShellService);
+  final session = chat.captureSession(siteUrl);
+  final sourceTab = shell.activeTabId;
+  final sourceRoute = shell.currentContent?.id;
+  bool ownsActivation() =>
+      context.mounted &&
+      session.isCurrent &&
+      shell.currentSiteUrl == siteUrl &&
+      shell.activeTabId == sourceTab &&
+      shell.currentContent?.id == sourceRoute &&
+      identical(PluginUiScope.optional(context, chatControllerService), chat) &&
+      identical(PluginUiScope.optional(context, chatShellService), shell);
+  if (!ownsActivation()) return;
+  try {
+    final channel = await chat.ensureChannel(siteUrl, thread.channelId);
+    if (!context.mounted || !ownsActivation()) return;
+    if (channel == null) throw StateError('Channel unavailable');
+    shell.openThread(
+      siteUrl: siteUrl,
+      channelId: channel.id,
+      threadId: thread.id,
+    );
+  } catch (_) {
+    if (!context.mounted || !ownsActivation()) return;
+    DToast.show(
+      context,
+      appL10n.couldNotOpenThisChatThread,
+      type: DToastType.error,
+    );
   }
 }
 
