@@ -329,9 +329,13 @@ class _TopicHeaderTitle extends StatelessWidget {
         siteUrl: siteUrl,
         style: style,
         maxLines: 3,
-        onSave: (value) => ShellScope.read(
-          context,
-        ).saveTopicTitle(siteUrl: siteUrl, topicId: topic.id, title: value),
+        onSave: (value, {required originalTitle}) =>
+            ShellScope.read(context).saveTopicTitle(
+              siteUrl: siteUrl,
+              topicId: topic.id,
+              title: value,
+              originalTitle: originalTitle,
+            ),
       );
     } else {
       final value = known ?? context.l10n.topic;
