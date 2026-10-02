@@ -1972,6 +1972,12 @@ final class PluginRegistry
             plugin.ownsContentChrome(_uiContext(context, plugin), route),
       );
 
+  bool keepsMobileDockVisible(BuildContext context, ContentRoute route) =>
+      plugins.whereType<ContentMobileDockPlugin>().any(
+        (plugin) =>
+            plugin.keepsMobileDockVisible(_uiContext(context, plugin), route),
+      );
+
   bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
       plugins.whereType<ContentPageTitlePlugin>().any(
         (plugin) =>

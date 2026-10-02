@@ -163,6 +163,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             !widget.boundary &&
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
+        final keepDockVisible =
+            !widget.boundary &&
+            !panelRoot &&
+            switch (shell.currentContent) {
+              final route? => registry.keepsMobileDockVisible(context, route),
+              null => false,
+            };
         final dockDestinations = <_DockDestination>[
           (
             tab: MobileTab.start,
@@ -318,6 +325,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     widget.boundary,
                   ),
                   visible: !sidebarOpen,
+                  hideOnScroll: !keepDockVisible,
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
                   dockBuilder: (hidden) => ForumSidebarTheme(

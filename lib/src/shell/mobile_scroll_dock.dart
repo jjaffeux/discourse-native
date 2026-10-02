@@ -11,6 +11,7 @@ class MobileScrollDock extends StatefulWidget {
     required this.dockBuilder,
     required this.identity,
     this.visible = true,
+    this.hideOnScroll = true,
     this.keepActionVisible = false,
   });
 
@@ -20,6 +21,7 @@ class MobileScrollDock extends StatefulWidget {
   final Widget Function(bool hidden) dockBuilder;
   final Object identity;
   final bool visible;
+  final bool hideOnScroll;
 
   /// An active composer must keep its Send/Save action reachable.
   final bool keepActionVisible;
@@ -42,6 +44,7 @@ class _MobileScrollDockState extends State<MobileScrollDock> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.identity != widget.identity ||
         oldWidget.visible != widget.visible ||
+        oldWidget.hideOnScroll != widget.hideOnScroll ||
         oldWidget.keepActionVisible != widget.keepActionVisible) {
       _hidden = false;
       _intents = Expando();
@@ -74,7 +77,7 @@ class _MobileScrollDockState extends State<MobileScrollDock> {
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (!widget.visible) return false;
+    if (!widget.visible || !widget.hideOnScroll) return false;
     final metrics = notification.metrics;
     if (metrics.axis != Axis.vertical || notification.context == null) {
       return false;

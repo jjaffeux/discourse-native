@@ -812,6 +812,11 @@ abstract interface class ContentChromePlugin {
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }
 
+abstract interface class ContentMobileDockPlugin {
+  /// Keeps the full mobile dock visible while this route scrolls.
+  bool keepsMobileDockVisible(BuildContext context, ContentRoute route);
+}
+
 /// Content that supplies its own heading while retaining shell navigation.
 abstract interface class ContentPageTitlePlugin {
   bool ownsContentPageTitle(BuildContext context, ContentRoute route);
