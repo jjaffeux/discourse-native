@@ -56,6 +56,13 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
   final EmojiPickerPersistence _persistence;
   final Map<String, _EmojiPickerPreferences> _preferences = {};
   final Map<String, Future<void>> _loads = {};
+  final Map<String, Object> _siteOwners = {};
+
+  Object _ownerFor(String siteUrl) =>
+      _siteOwners.putIfAbsent(siteUrl, Object.new);
+
+  bool _owns(String siteUrl, Object owner) =>
+      identical(_siteOwners[siteUrl], owner);
 
   Future<void> ensureLoaded({required String siteUrl}) async {
     final canonicalSiteUrl = _canonicalSiteUrl(siteUrl);
@@ -64,12 +71,18 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     final existing = _loads[canonicalSiteUrl];
     if (existing != null) return existing;
 
+    final owner = _ownerFor(canonicalSiteUrl);
     final loading = _operations.run<void>(
       owner: _persistence,
       key: canonicalSiteUrl,
       operation: () async {
-        if (_preferences.containsKey(canonicalSiteUrl)) return;
-        _preferences[canonicalSiteUrl] = await _read(canonicalSiteUrl);
+        if (!_owns(canonicalSiteUrl, owner) ||
+            _preferences.containsKey(canonicalSiteUrl)) {
+          return;
+        }
+        final loaded = await _read(canonicalSiteUrl, owner);
+        if (!_owns(canonicalSiteUrl, owner)) return;
+        _preferences[canonicalSiteUrl] = loaded;
       },
     );
     _loads[canonicalSiteUrl] = loading;
@@ -150,15 +163,18 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     _EmojiPickerPreferences Function(_EmojiPickerPreferences current) change,
   ) async {
     final canonicalSiteUrl = _canonicalSiteUrl(siteUrl);
+    final owner = _ownerFor(canonicalSiteUrl);
     await _operations.run<void>(
       owner: _persistence,
       key: canonicalSiteUrl,
       operation: () async {
+        if (!_owns(canonicalSiteUrl, owner)) return;
         var current = _preferences[canonicalSiteUrl];
         if (current == null || _unreadable.contains(canonicalSiteUrl)) {
           // Either never read, or read into a stand-in after a failure. Ask
           // again rather than mutate something that was never the document.
-          current = await _read(canonicalSiteUrl);
+          current = await _read(canonicalSiteUrl, owner);
+          if (!_owns(canonicalSiteUrl, owner)) return;
           _preferences[canonicalSiteUrl] = current;
         }
         // Still unreadable: drop this change instead of saving over a
@@ -181,20 +197,25 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
   void forgetSites(ForgottenSites sites) {
     bool forgotten(String site) =>
         sites.includes(site, SharedPreferencesEmojiPickerPersistence.keys);
+    // Pending reads and queued picks belong to the removed forum. A later
+    // re-add starts a new owner while keeping the same persistence queue.
+    _siteOwners.removeWhere((site, _) => forgotten(site));
+    _loads.removeWhere((site, _) => forgotten(site));
     _preferences.removeWhere((site, _) => forgotten(site));
     _unreadable.removeWhere(forgotten);
   }
 
-  Future<_EmojiPickerPreferences> _read(String siteUrl) async {
+  Future<_EmojiPickerPreferences> _read(String siteUrl, Object owner) async {
     try {
       final encoded = await _persistence.readPreferences(siteUrl: siteUrl);
+      if (!_owns(siteUrl, owner)) return _EmojiPickerPreferences.empty;
       _unreadable.remove(siteUrl);
       if (encoded == null || encoded.isEmpty) {
         return _EmojiPickerPreferences.empty;
       }
       return _EmojiPickerPreferences.fromEncoded(encoded);
     } catch (error, stackTrace) {
-      _unreadable.add(siteUrl);
+      if (_owns(siteUrl, owner)) _unreadable.add(siteUrl);
       reportStorageFailure(error, stackTrace, 'emojiPicker.read');
       return _EmojiPickerPreferences.empty;
     }

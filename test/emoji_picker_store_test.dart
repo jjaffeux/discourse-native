@@ -532,6 +532,37 @@ void main() {
   });
 
   group('write ordering', () {
+    test('retires a pick while it is reading the forgotten forum', () async {
+      final persistence = _HeldReadPersistence();
+      persistence.values[meta] = jsonEncode({
+        'version': EmojiPickerStore.formatVersion,
+        'tone': 't5',
+        'history': {
+          CoreEmojiUsageContexts.topic.id: ['wave'],
+        },
+      });
+      final store = EmojiPickerStore(persistence: persistence);
+      final oldPick = store.trackEmoji(
+        siteUrl: '$meta/',
+        context: CoreEmojiUsageContexts.topic,
+        emoji: 'smile',
+      );
+      await persistence.readStarted.future;
+      persistence.values.remove(meta);
+      store.forgetSites(ForgottenSites.removed(meta, keeping: const []));
+      final freshPick = store.trackEmoji(
+        siteUrl: meta,
+        context: CoreEmojiUsageContexts.topic,
+        emoji: 'heart',
+      );
+      persistence.gate.complete();
+      await Future.wait([oldPick, freshPick]);
+
+      expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.neutral);
+      expect(_topicHistory(persistence.values[meta]!), ['heart']);
+      expect(persistence.writeCount, 1);
+    });
+
     test('serializes rapid writes and preserves every event', () async {
       final gate = Completer<void>();
       final persistence = _ControlledPersistence(firstWriteGate: gate);
@@ -673,6 +704,33 @@ final class _ControlledPersistence extends _MemoryPersistence {
       firstWriteStarted.complete();
       await firstWriteGate.future;
     }
+    return super.writePreferences(siteUrl: siteUrl, encoded: encoded);
+  }
+}
+
+final class _HeldReadPersistence extends _MemoryPersistence {
+  final gate = Completer<void>();
+  final readStarted = Completer<void>();
+  int writeCount = 0;
+  bool _held = false;
+
+  @override
+  Future<String?> readPreferences({required String siteUrl}) async {
+    final value = values[siteUrl];
+    if (!_held) {
+      _held = true;
+      readStarted.complete();
+      await gate.future;
+    }
+    return value;
+  }
+
+  @override
+  Future<bool> writePreferences({
+    required String siteUrl,
+    required String encoded,
+  }) {
+    writeCount++;
     return super.writePreferences(siteUrl: siteUrl, encoded: encoded);
   }
 }
