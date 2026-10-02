@@ -1,3 +1,5 @@
+// ignore_for_file: experimental_member_use
+
 import 'dart:async';
 import 'dart:io';
 
@@ -5,6 +7,8 @@ import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:livekit_client/livekit_client.dart' as livekit;
 
 typedef _RecordedDiagnostic = ({
   String event,
@@ -306,6 +310,144 @@ void main() {
     expect(state.owner, 'new');
     expect(state.mode, 'external');
   });
+
+  group('LiveKit audio preparation', () {
+    const webRtcChannel = MethodChannel('FlutterWebRTC.Method');
+    const liveKitChannel = MethodChannel('livekit_client');
+    const callKitChannel = MethodChannel('org.discourse.native/voice_callkit');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late List<String> calls;
+    late List<Object?> availability;
+    late bool audioDeviceAvailable;
+    Completer<void>? initializationGate;
+    PlatformException? initializationError;
+
+    setUp(() {
+      rtc.WebRTC.initialized = false;
+      livekit.AudioManager.instance.resetForTest();
+      calls = [];
+      availability = [];
+      audioDeviceAvailable = false;
+      initializationGate = null;
+      initializationError = null;
+      messenger.setMockMethodCallHandler(webRtcChannel, (call) async {
+        if (call.method != 'initialize') {
+          throw UnsupportedError('Unexpected WebRTC call: ${call.method}');
+        }
+        calls.add(call.method);
+        await initializationGate?.future;
+        if (initializationError case final error?) throw error;
+        audioDeviceAvailable = true;
+        return null;
+      });
+      messenger.setMockMethodCallHandler(liveKitChannel, (call) async {
+        if (call.method == 'setEngineAvailability') {
+          calls.add(call.method);
+          availability.add(call.arguments);
+          if (!audioDeviceAvailable) {
+            throw PlatformException(
+              code: 'setEngineAvailability',
+              message: 'audio device module is unavailable',
+            );
+          }
+        }
+        return true;
+      });
+      messenger.setMockMethodCallHandler(callKitChannel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+    });
+
+    tearDown(() {
+      rtc.WebRTC.initialized = false;
+      livekit.AudioManager.instance.resetForTest();
+      messenger.setMockMethodCallHandler(webRtcChannel, null);
+      messenger.setMockMethodCallHandler(liveKitChannel, null);
+      messenger.setMockMethodCallHandler(callKitChannel, null);
+    });
+
+    NativeVoiceSystemCall createSystemCall() {
+      final systemCall = NativeVoiceSystemCall(
+        invokeNativeCommandsForTesting: true,
+      );
+      addTearDown(systemCall.dispose);
+      return systemCall;
+    }
+
+    test('initializes the audio device before the first call', () async {
+      final systemCall = createSystemCall();
+
+      await systemCall.start(roomName: 'Room', siteName: 'Forum');
+
+      expect(calls, ['initialize', 'setEngineAvailability', 'start']);
+      expect(availability, [
+        {'isInputAvailable': false, 'isOutputAvailable': false},
+      ]);
+      expect(
+        livekit.AudioManager.instance.managementMode,
+        livekit.AudioSessionManagementMode.externalCallSystem,
+      );
+
+      await systemCall.handleNativeMethodCall(
+        const MethodCall('audioActivated'),
+      );
+      await systemCall.handleNativeMethodCall(
+        const MethodCall('audioDeactivated'),
+      );
+      await systemCall.dispose();
+
+      expect(availability, [
+        {'isInputAvailable': false, 'isOutputAvailable': false},
+        {'isInputAvailable': true, 'isOutputAvailable': true},
+        {'isInputAvailable': false, 'isOutputAvailable': false},
+        {'isInputAvailable': false, 'isOutputAvailable': false},
+      ]);
+      expect(
+        livekit.AudioManager.instance.managementMode,
+        livekit.AudioSessionManagementMode.automatic,
+      );
+
+      calls.clear();
+      final nextCall = createSystemCall();
+      await nextCall.start(roomName: 'Next room', siteName: 'Forum');
+      expect(calls, ['setEngineAvailability', 'start']);
+    });
+
+    test('waits for initialization before gating audio and starting', () async {
+      final gate = initializationGate = Completer<void>();
+      final systemCall = createSystemCall();
+      final started = systemCall.start(roomName: 'Room', siteName: 'Forum');
+      try {
+        await pumpEventQueue();
+        expect(calls, ['initialize']);
+        expect(audioDeviceAvailable, isFalse);
+      } finally {
+        gate.complete();
+        await started;
+      }
+      expect(calls, ['initialize', 'setEngineAvailability', 'start']);
+    });
+
+    test('preserves initialization errors without starting a call', () async {
+      initializationError = PlatformException(code: 'initialize_failed');
+      final systemCall = createSystemCall();
+
+      await expectLater(
+        systemCall.start(roomName: 'Room', siteName: 'Forum'),
+        throwsA(
+          isA<PlatformException>().having(
+            (error) => error.code,
+            'code',
+            'initialize_failed',
+          ),
+        ),
+      );
+      expect(calls, ['initialize']);
+      expect(rtc.WebRTC.initialized, isFalse);
+    });
+  }, skip: !Platform.isIOS && !Platform.isMacOS);
 
   group('native commands', () {
     const channel = MethodChannel('org.discourse.native/voice_callkit');

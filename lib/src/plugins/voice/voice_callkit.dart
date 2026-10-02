@@ -80,6 +80,9 @@ final class _LiveKitVoiceAudioSession implements VoiceAudioSession {
     await audioManager.setAudioSessionOptions(
       const AudioSessionOptions.communication(),
     );
+    // The engine gate requires WebRTC's native audio device, but does not
+    // trigger its lazy initialization. Create it before the first call.
+    await LiveKitClient.initialize();
     await audioManager.setEngineAvailability(AudioEngineAvailability.none);
   }
 
@@ -114,7 +117,10 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
            invokeNativeCommandsForTesting,
        _invokesNativeCommands =
            Platform.isIOS || invokeNativeCommandsForTesting,
-       _managesAudioSession = Platform.isIOS || audioSessionForTesting != null,
+       _managesAudioSession =
+           Platform.isIOS ||
+           invokeNativeCommandsForTesting ||
+           audioSessionForTesting != null,
        _audioSession =
            audioSessionForTesting ?? const _LiveKitVoiceAudioSession() {
     _record(
