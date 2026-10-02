@@ -909,7 +909,13 @@ class ForumIdentityHeader extends StatelessWidget {
         fallback: ColoredBox(
           color: accentColor,
           child: Center(
-            child: Text(monogram, style: TextStyle(color: fallbackForeground)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                monogram,
+                style: TextStyle(color: fallbackForeground),
+              ),
+            ),
           ),
         ),
       ),

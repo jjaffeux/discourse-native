@@ -8,8 +8,8 @@ The live reference was inspected at mobile width and in a narrow desktop panel.
 | Area | Previous app | Redesigned mockup / implementation target |
 | --- | --- | --- |
 | Layout choice | Comfortable cards and compact rows, with a saved density toggle | One row layout on every platform; remove the toggle and ignore the old preference |
-| Forum heading | 46px logo and title above the website | 28px logo, 22px title, menu chevron, and muted website on one line |
-| Forum title action | Passive title | Native menu with Open forum in browser and Remove forum |
+| Forum heading | 46px logo and title above the website | Mobile: a static 28px logo only. Desktop: 28px logo, 22px title, menu chevron, and muted website on one line |
+| Forum title action | Passive title | Desktop: Native menu with Open forum in browser and Remove forum. Mobile: no title button or menu |
 | Header actions | Filters beside title and density | Filters and navigation shortcuts on their own bar below the title |
 | Filters action | Large icon-only filter trigger | Compact Native button with the Filters label |
 | Header button styling | Filled shortcuts beside outlined Filters and More | One raised chip treatment for Filters, shortcuts, and More: 10% foreground fill, Native 1px palette border, matching radius and height |
@@ -32,6 +32,9 @@ The live reference was inspected at mobile width and in a narrow desktop panel.
 | Search on Start | Server search popup | Desktop chrome field filters cached Start contents in place and shows result / no-match text; queries belong to their tabs and matches are selected before trimming bookmark previews |
 | Header scrolling | Entire page header scrolls with the body | Retract the title on deliberate scroll while keeping the control bar visible |
 | First visit | Panel tutorial ahead of sections | Same launcher surface as subsequent visits; no tutorial card |
+
+The mobile logo-only Start heading follows the requested mobile treatment;
+the mockup's shared named heading remains the desktop reference.
 
 The reference declares Drafts, Messages, Groups, Badges, Upcoming events, and
 Users preview renderers, but its active `homeFull` selection contains only
