@@ -1,6 +1,8 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'd_page_surface.dart';
+
 /// Refreshes sticky children after a sliver's layout and scroll corrections.
 ///
 /// Wrap the list containing [DSticky] slots. If several slivers can change
@@ -32,7 +34,8 @@ class _RenderStickySliver extends RenderProxySliver {
 /// The parent supplies a finite width and height, usually with a positioned
 /// gutter beside scrolling content. The child starts at the slot's top and
 /// stops at its bottom. [topOffset] is relative to the enclosing viewport, so
-/// headers outside that viewport need no extra compensation.
+/// headers outside that viewport need no extra compensation. Floating Native
+/// page headers are accounted for automatically as they hide and reveal.
 ///
 /// Wrap the enclosing sliver in [DStickySliver] so layout changes elsewhere in
 /// the list also update the position, including retained and recycled rows.
@@ -51,21 +54,28 @@ class DSticky extends SingleChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) => _RenderSticky(
     Scrollable.maybeOf(context, axis: Axis.vertical)?.position,
     topOffset,
+    DPageSurface.headerGeometryOf(context, insideViewport: true),
   );
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) {
     (renderObject as _RenderSticky)
       ..position = Scrollable.maybeOf(context, axis: Axis.vertical)?.position
-      ..topOffset = topOffset;
+      ..topOffset = topOffset
+      ..pageHeader = DPageSurface.headerGeometryOf(
+        context,
+        insideViewport: true,
+      );
   }
 }
 
 class _RenderSticky extends RenderShiftedBox {
-  _RenderSticky(this._position, this._topOffset) : super(null);
+  _RenderSticky(this._position, this._topOffset, this._pageHeader)
+    : super(null);
 
   ScrollPosition? _position;
   double _topOffset;
+  DPageHeaderGeometry? _pageHeader;
   _RenderStickySliver? _sliver;
 
   set position(ScrollPosition? value) {
@@ -79,6 +89,14 @@ class _RenderSticky extends RenderShiftedBox {
   set topOffset(double value) {
     if (_topOffset == value) return;
     _topOffset = value;
+    _scrollChanged();
+  }
+
+  set pageHeader(DPageHeaderGeometry? value) {
+    if (identical(_pageHeader, value)) return;
+    if (attached) _pageHeader?.removeListener(_scrollChanged);
+    _pageHeader = value;
+    if (attached) _pageHeader?.addListener(_scrollChanged);
     _scrollChanged();
   }
 
@@ -98,6 +116,7 @@ class _RenderSticky extends RenderShiftedBox {
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _position?.addListener(_scrollChanged);
+    _pageHeader?.addListener(_scrollChanged);
     for (var ancestor = parent; ancestor != null; ancestor = ancestor.parent) {
       if (ancestor is _RenderStickySliver) {
         _sliver = ancestor;
@@ -110,6 +129,7 @@ class _RenderSticky extends RenderShiftedBox {
   @override
   void detach() {
     _position?.removeListener(_scrollChanged);
+    _pageHeader?.removeListener(_scrollChanged);
     _sliver?._stickies.remove(this);
     _sliver = null;
     super.detach();
@@ -157,7 +177,10 @@ class _RenderSticky extends RenderShiftedBox {
         : localToGlobal(Offset.zero, ancestor: viewport).dy;
     final offset = _position == null || viewport == null
         ? 0.0
-        : (_topOffset - top).clamp(0.0, size.height - child.size.height);
+        : (_topOffset + (_pageHeader?.visibleExtent ?? 0) - top).clamp(
+            0.0,
+            size.height - child.size.height,
+          );
     (child.parentData! as BoxParentData).offset = Offset(0, offset);
   }
 

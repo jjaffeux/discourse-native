@@ -31,7 +31,29 @@ class DPageSurface extends StatefulWidget {
     this.limitContentSize,
     required this.child,
     this.identity,
-  });
+  }) : assert(child != null),
+       bodyBuilder = null;
+
+  /// Floats the header over an existing scrollable. Insert [DPageHeaderGeometry.spacer]
+  /// at the start of its scroll content, or wrap it in a SliverToBoxAdapter.
+  /// The viewport and spacer keep their sizes throughout header animations.
+  const DPageSurface.scrollable({
+    super.key,
+    this.header,
+    this.headerControls,
+    this.tabs,
+    this.footer,
+    this.framed = true,
+    this.border = true,
+    this.backgroundColor,
+    this.borderRadius,
+    this.hideHeaderOnScroll = false,
+    this.limitContentSize,
+    this.identity,
+    required this.bodyBuilder,
+  }) : assert(bodyBuilder != null),
+       child = null,
+       scrollBody = false;
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
@@ -73,8 +95,34 @@ class DPageSurface extends StatefulWidget {
   /// Tabs, the outer surface, and the scroll viewport remain full width. Null
   /// inherits the enclosing page policy; the default is full width.
   final bool? limitContentSize;
-  final Widget child;
+  final Widget? child;
+  final Widget Function(BuildContext context, DPageHeaderGeometry header)?
+  bodyBuilder;
   final Object? identity;
+
+  /// Reads the overlay geometry without rebuilding when the header moves.
+  /// Geometry listeners run during layout and must not rebuild widgets.
+  /// Set [insideViewport] when reading from a scrolling row. Nested viewports
+  /// have their own edges and do not inherit the page header's obstruction.
+  static DPageHeaderGeometry? headerGeometryOf(
+    BuildContext context, {
+    bool insideViewport = false,
+  }) {
+    final scope = context.getInheritedWidgetOfExactType<_PageHeaderScope>();
+    if (scope == null) return null;
+    var parent = Scrollable.maybeOf(context, axis: Axis.vertical);
+    if (insideViewport && parent != null) {
+      parent = Scrollable.maybeOf(parent.context, axis: Axis.vertical);
+    }
+    if (parent != null &&
+        identical(
+          parent.context.getInheritedWidgetOfExactType<_PageHeaderScope>(),
+          scope,
+        )) {
+      return null;
+    }
+    return scope.geometry;
+  }
 
   @override
   State<DPageSurface> createState() => _DPageSurfaceState();
@@ -89,6 +137,8 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   final _headerFocus = FocusNode(canRequestFocus: false);
   final _headerKey = GlobalKey();
+  final _headerGeometry = DPageHeaderGeometry._();
+  Widget? _builtBody;
   late final AnimationController _headerAnimation;
   bool _headerHidden = false;
   bool _userScrolling = false;
@@ -109,6 +159,8 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void didUpdateWidget(DPageSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _builtBody = null;
+    if (widget.header == null) _headerGeometry._update(0, 0);
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         (oldWidget.header != null && widget.header == null)) {
@@ -266,6 +318,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   void dispose() {
     _headerAnimation.dispose();
     _headerFocus.dispose();
+    _headerGeometry.dispose();
     super.dispose();
   }
 
@@ -317,6 +370,10 @@ class _DPageSurfaceState extends State<DPageSurface>
     _RenderScrollHeaderExtent? headerBox() =>
         _headerKey.currentContext?.findRenderObject()
             as _RenderScrollHeaderExtent?;
+    final floating = widget.scrollBody || widget.bodyBuilder != null;
+    Widget scrollableBody() => _builtBody ??= Builder(
+      builder: (context) => widget.bodyBuilder!(context, _headerGeometry),
+    );
     final body = NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: Listener(
@@ -329,49 +386,53 @@ class _DPageSurfaceState extends State<DPageSurface>
                 : event.timeStamp;
           }
         },
-        child: widget.scrollBody
+        child: floating
             ? DScrollFadeScope(
-                topInset: () => headerBox()?.visibleHeight ?? 0,
+                topInset: _headerGeometry._readVisibleExtent,
+                repaint: _headerGeometry,
                 child: ScrollConfiguration(
                   behavior: DScrollBehavior(
                     delegate: ScrollConfiguration.of(context),
                   ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (widget.header != null)
-                          _HeaderGap(
-                            extent: () => headerBox()?.naturalHeight ?? 0,
+                  child: widget.bodyBuilder != null
+                      ? scrollableBody()
+                      : SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (widget.header != null) _headerGeometry.spacer,
+                              widget.child!,
+                            ],
                           ),
-                        widget.child,
-                      ],
-                    ),
-                  ),
+                        ),
                 ),
               )
-            : widget.child,
+            : widget.child!,
       ),
     );
     final page = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ?widget.tabs,
-        if (!widget.scrollBody || widget.header == null) ?header,
+        if (!floating || widget.header == null) ?header,
         Expanded(
-          child: widget.scrollBody && widget.header != null
-              ? Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ClipRect(
-                        clipper: _HeaderBodyClipper(
-                          () => headerBox()?.visibleHeight ?? 0,
-                        ),
+          child: floating && widget.header != null
+              ? ClipRect(
+                  child: _PageOverlay(
+                    geometry: _headerGeometry,
+                    extents: () => (
+                      headerBox()?.naturalHeight ?? 0,
+                      headerBox()?.visibleHeight ?? 0,
+                    ),
+                    header: header!,
+                    body: ClipRect(
+                      clipper: _HeaderBodyClipper(_headerGeometry),
+                      child: _PageHeaderScope(
+                        geometry: _headerGeometry,
                         child: body,
                       ),
                     ),
-                    header!,
-                  ],
+                  ),
                 )
               : body,
         ),
@@ -500,37 +561,204 @@ class _RenderScrollHeaderExtent extends RenderBox
       defaultHitTestChildren(result, position: position);
 }
 
-class _HeaderGap extends LeafRenderObjectWidget {
-  const _HeaderGap({required this.extent});
-  final ValueGetter<double> extent;
+/// Measured header space for a page with an overlaid header.
+/// Extents update during layout, before the body is laid out. Listeners may
+/// invalidate render geometry or schedule work after the frame, but must not
+/// rebuild widgets synchronously.
+class DPageHeaderGeometry extends ChangeNotifier {
+  DPageHeaderGeometry._();
+
+  double _naturalExtent = 0;
+  double _visibleExtent = 0;
+  double get naturalExtent => _naturalExtent;
+  double get visibleExtent => _visibleExtent;
+  double _readVisibleExtent() => _visibleExtent;
+
+  void _update(double natural, double visible) {
+    if (natural == _naturalExtent && visible == _visibleExtent) return;
+    _naturalExtent = natural;
+    _visibleExtent = visible;
+    notifyListeners();
+  }
+
+  /// Stable leading space inside the scroll content.
+  Widget get spacer => inset(const SizedBox.shrink(), fullExtent: true);
+
+  /// Places an overlay below the visible header, or reserves the full header
+  /// for a loading body. This changes layout without rebuilding [child].
+  Widget inset(Widget child, {bool fullExtent = false}) =>
+      _HeaderInset(geometry: this, fullExtent: fullExtent, child: child);
+}
+
+class _PageHeaderScope extends InheritedWidget {
+  const _PageHeaderScope({required this.geometry, required super.child});
+  final DPageHeaderGeometry geometry;
+
+  @override
+  bool updateShouldNotify(_PageHeaderScope oldWidget) =>
+      geometry != oldWidget.geometry;
+}
+
+class _HeaderInset extends SingleChildRenderObjectWidget {
+  const _HeaderInset({
+    required this.geometry,
+    required this.fullExtent,
+    required super.child,
+  });
+  final DPageHeaderGeometry geometry;
+  final bool fullExtent;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderHeaderGap(extent);
+      _RenderHeaderInset(geometry, fullExtent);
 
   @override
-  void updateRenderObject(BuildContext context, _RenderHeaderGap renderObject) {
-    renderObject.extent = extent;
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHeaderInset renderObject,
+  ) {
+    renderObject.update(geometry, fullExtent);
+  }
+}
+
+class _RenderHeaderInset extends RenderShiftedBox {
+  _RenderHeaderInset(this._geometry, this._fullExtent) : super(null);
+
+  DPageHeaderGeometry _geometry;
+  bool _fullExtent;
+  double _laidOutExtent = 0;
+
+  double get _extent =>
+      _fullExtent ? _geometry.naturalExtent : _geometry.visibleExtent;
+
+  void _headerChanged() {
+    if (_laidOutExtent != _extent) markNeedsLayout();
+  }
+
+  void update(DPageHeaderGeometry geometry, bool fullExtent) {
+    if (_geometry != geometry) {
+      if (attached) _geometry.removeListener(_headerChanged);
+      _geometry = geometry;
+      if (attached) _geometry.addListener(_headerChanged);
+    }
+    _fullExtent = fullExtent;
+    markNeedsLayout();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _geometry.addListener(_headerChanged);
+  }
+
+  @override
+  void detach() {
+    _geometry.removeListener(_headerChanged);
+    super.detach();
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final childSize = child!.getDryLayout(
+      constraints.deflate(EdgeInsets.only(top: _extent)),
+    );
+    return constraints.constrain(
+      Size(childSize.width, childSize.height + _extent),
+    );
+  }
+
+  @override
+  void performLayout() {
+    _laidOutExtent = _extent;
+    child!.layout(
+      constraints.deflate(EdgeInsets.only(top: _laidOutExtent)),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(
+      Size(child!.size.width, child!.size.height + _laidOutExtent),
+    );
+    (child!.parentData! as BoxParentData).offset = Offset(0, _laidOutExtent);
+  }
+}
+
+// Measure the header before updating any body geometry. The layout callback
+// permits the dependent spacer and overlays to invalidate inside this subtree,
+// so both are correct in the same frame, including the very first layout.
+class _PageOverlay extends MultiChildRenderObjectWidget {
+  _PageOverlay({
+    required this.geometry,
+    required this.extents,
+    required Widget header,
+    required Widget body,
+  }) : super(children: [body, header]);
+
+  final DPageHeaderGeometry geometry;
+  final ValueGetter<(double, double)> extents;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPageOverlay(geometry, extents);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderPageOverlay renderObject,
+  ) {
+    renderObject.extents = extents;
     renderObject.markNeedsLayout();
   }
 }
 
-class _RenderHeaderGap extends RenderBox {
-  _RenderHeaderGap(this.extent);
-  ValueGetter<double> extent;
+class _RenderPageOverlay extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _HeaderParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
+  _RenderPageOverlay(this.geometry, this.extents);
+  final DPageHeaderGeometry geometry;
+  ValueGetter<(double, double)> extents;
 
   @override
-  void performLayout() => size = constraints.constrain(Size(0, extent()));
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _HeaderParentData) {
+      child.parentData = _HeaderParentData();
+    }
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
+
+  @override
+  void performLayout() {
+    size = constraints.biggest;
+    lastChild!.layout(
+      BoxConstraints.tightFor(width: size.width),
+      parentUsesSize: true,
+    );
+    invokeLayoutCallback<BoxConstraints>((_) {
+      final (natural, visible) = extents();
+      geometry._update(natural, visible);
+    });
+    firstChild!.layout(BoxConstraints.tight(size));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 class _HeaderBodyClipper extends CustomClipper<Rect> {
-  _HeaderBodyClipper(this.extent);
-  final ValueGetter<double> extent;
+  _HeaderBodyClipper(this.geometry) : super(reclip: geometry);
+  final DPageHeaderGeometry geometry;
 
   @override
   Rect getClip(Size size) =>
-      Rect.fromLTRB(0, extent(), size.width, size.height);
+      Rect.fromLTRB(0, geometry.visibleExtent, size.width, size.height);
 
   @override
-  bool shouldReclip(_HeaderBodyClipper oldClipper) => true;
+  bool shouldReclip(_HeaderBodyClipper oldClipper) =>
+      oldClipper.geometry != geometry;
 }

@@ -220,6 +220,50 @@ void main() {
   );
 
   testWidgets(
+    'virtualized page fade follows the header without replacing its position',
+    (tester) async {
+      final key = GlobalKey();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          key,
+          DPageSurface.scrollable(
+            framed: false,
+            hideHeaderOnScroll: true,
+            header: const SizedBox(height: 40),
+            headerControls: const SizedBox(height: 20),
+            bodyBuilder: (_, header) => CustomScrollView(
+              controller: scroll,
+              slivers: [
+                SliverToBoxAdapter(child: header.spacer),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 1000, child: ColoredBox(color: _ink)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final position = scroll.position;
+      position.jumpTo(200);
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 60), .5 / 14);
+      _expectInk(await _pixel(tester, key, 67), 7.5 / 14);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 20), .5 / 14);
+      _expectInk(await _pixel(tester, key, 27), 7.5 / 14);
+      expect(scroll.position, same(position));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 20));
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 60), .5 / 14);
+      expect(scroll.position, same(position));
+    },
+  );
+
+  testWidgets(
     'nested vertical lists use their own edges and ignore header insets',
     (tester) async {
       final key = GlobalKey();

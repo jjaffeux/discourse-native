@@ -28,6 +28,118 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  for (final reducedMotion in [false, true]) {
+    testWidgets('existing sliver viewport stays fixed while its header moves '
+        '(reduced motion: $reducedMotion)', (tester) async {
+      final scroll = ScrollController(initialScrollOffset: 600);
+      addTearDown(scroll.dispose);
+      late DPageHeaderGeometry geometry;
+      var bodyBuilds = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: reducedMotion),
+            child: DPageSurface.scrollable(
+              framed: false,
+              hideHeaderOnScroll: true,
+              header: const SizedBox(key: _header, height: 80),
+              footer: const SizedBox(key: _footer, height: 40),
+              bodyBuilder: (context, header) {
+                geometry = header;
+                bodyBuilds++;
+                return CustomScrollView(
+                  key: _viewport,
+                  controller: scroll,
+                  slivers: [
+                    SliverToBoxAdapter(child: header.spacer),
+                    SliverFixedExtentList.builder(
+                      itemExtent: 50,
+                      itemCount: 100,
+                      itemBuilder: (_, index) => Text('Row $index'),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      final viewport = find.byKey(_viewport);
+      final rect = tester.getRect(viewport);
+      final position = scroll.position;
+      final maxExtent = position.maxScrollExtent;
+      final row = find.text('Row 14');
+      final before = tester.getTopLeft(row).dy;
+      expect(geometry.naturalExtent, 80);
+      expect(geometry.visibleExtent, 80);
+      expect(rect.top, 0);
+      expect(rect.bottom, tester.getTopLeft(find.byKey(_footer)).dy);
+
+      Future<void> move(double delta) async {
+        final rowBefore = tester.getTopLeft(row).dy;
+        final offsetBefore = scroll.offset;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(viewport),
+            scrollDelta: Offset(0, delta),
+          ),
+        );
+        await tester.pump();
+        for (var frame = 0; frame < 10; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.getRect(viewport), rect);
+          expect(scroll.position, same(position));
+          expect(position.maxScrollExtent, maxExtent);
+          expect(scroll.offset, offsetBefore + delta);
+          expect(tester.getTopLeft(row).dy, rowBefore - delta);
+          expect(geometry.naturalExtent, 80);
+        }
+      }
+
+      await move(8);
+      expect(geometry.visibleExtent, 0);
+      await move(-8);
+      expect(geometry.visibleExtent, 80);
+      expect(tester.getTopLeft(row).dy, before);
+      expect(bodyBuilds, 1);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('scrollable page measures a resized header in the same frame', (
+    tester,
+  ) async {
+    late StateSetter resize;
+    var height = 80.0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (_, setState) {
+            resize = setState;
+            return DPageSurface.scrollable(
+              framed: false,
+              header: SizedBox(height: height),
+              bodyBuilder: (_, header) => CustomScrollView(
+                key: _viewport,
+                slivers: [
+                  SliverToBoxAdapter(child: header.spacer),
+                  const SliverToBoxAdapter(child: Text('First post')),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    expect(tester.getTopLeft(find.text('First post')).dy, 80);
+    final rect = tester.getRect(find.byKey(_viewport));
+    resize(() => height = 120);
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('First post')).dy, 120);
+    expect(tester.getRect(find.byKey(_viewport)), rect);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'floating header releases space for scrolling rows without changing their anchor',
     (tester) async {
@@ -385,9 +497,7 @@ void main() {
           home: MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(2)),
             child: Scaffold(
-              body: Builder(
-                builder: pageSurfaceExamples.examples.first.builder,
-              ),
+              body: Builder(builder: pageSurfaceExamples.examples.last.builder),
             ),
           ),
         ),

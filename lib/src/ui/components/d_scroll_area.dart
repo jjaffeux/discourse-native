@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
+import 'd_page_surface.dart';
 import 'd_scroll_behavior.dart';
 
 /// Axes enabled by [DScrollArea]. Each axis has one native scroll position.
@@ -55,6 +56,9 @@ class DScrollBar extends StatelessWidget {
     ).copyWith(scrollbars: false),
     // Keep the viewport subtree mounted when the scrollbar is hidden.
     child: _NaturalScrollbar(
+      pageHeader: axis == Axis.vertical
+          ? DPageSurface.headerGeometryOf(context)
+          : null,
       controller: controller,
       thumbVisibility: showScrollbar && thumbVisibility,
       interactive: showScrollbar,
@@ -487,13 +491,17 @@ class _NaturalScrollbar extends RawScrollbar {
     super.fadeDuration,
     super.notificationPredicate,
     super.scrollbarOrientation,
+    this.pageHeader,
   });
 
+  final DPageHeaderGeometry? pageHeader;
+
   @override
-  RawScrollbarState<RawScrollbar> createState() => _NaturalScrollbarState();
+  RawScrollbarState<_NaturalScrollbar> createState() =>
+      _NaturalScrollbarState();
 }
 
-class _NaturalScrollbarState extends RawScrollbarState<RawScrollbar> {
+class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   late final ScrollbarPainter _naturalPainter;
 
   @override
@@ -508,6 +516,34 @@ class _NaturalScrollbarState extends RawScrollbarState<RawScrollbar> {
       fadeoutOpacityAnimation: original.fadeoutOpacityAnimation,
     );
     original.dispose();
+    widget.pageHeader?.addListener(_updateHeaderInset);
+  }
+
+  void _updateHeaderInset() {
+    scrollbarPainter.padding = (widget.padding ?? EdgeInsets.zero).add(
+      EdgeInsets.only(top: widget.pageHeader?.visibleExtent ?? 0),
+    );
+  }
+
+  @override
+  void updateScrollbarPainter() {
+    super.updateScrollbarPainter();
+    _updateHeaderInset();
+  }
+
+  @override
+  void didUpdateWidget(_NaturalScrollbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pageHeader != widget.pageHeader) {
+      oldWidget.pageHeader?.removeListener(_updateHeaderInset);
+      widget.pageHeader?.addListener(_updateHeaderInset);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.pageHeader?.removeListener(_updateHeaderInset);
+    super.dispose();
   }
 }
 

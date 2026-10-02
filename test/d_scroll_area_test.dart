@@ -14,6 +14,74 @@ void main() {
       body: Center(child: SizedBox(width: 200, height: 180, child: child)),
     ),
   );
+  testWidgets('page scrollbar clears its header while nested bars stay local', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    final nestedScroll = ScrollController();
+    addTearDown(scroll.dispose);
+    addTearDown(nestedScroll.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DPageSurface.scrollable(
+          framed: false,
+          hideHeaderOnScroll: true,
+          header: const SizedBox(height: 80),
+          bodyBuilder: (_, header) => DScrollBar(
+            controller: scroll,
+            child: CustomScrollView(
+              controller: scroll,
+              slivers: [
+                SliverToBoxAdapter(child: header.spacer),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 200,
+                    child: DScrollArea(
+                      controller: nestedScroll,
+                      child: const SizedBox(height: 1000),
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final painters = tester
+        .widgetList<CustomPaint>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is CustomPaint &&
+                widget.foregroundPainter is ScrollbarPainter,
+          ),
+        )
+        .map((widget) => widget.foregroundPainter! as ScrollbarPainter)
+        .toList();
+    expect(painters, hasLength(2));
+    expect(painters.first.padding.resolve(TextDirection.ltr).top, 80);
+    expect(painters.last.padding.resolve(TextDirection.ltr).top, 0);
+    expect(
+      painters.first.hitTestOnlyThumbInteractive(
+        const Offset(796, 88),
+        PointerDeviceKind.mouse,
+      ),
+      isTrue,
+    );
+    await tester.sendEventToBinding(
+      const PointerScrollEvent(
+        position: Offset(400, 400),
+        scrollDelta: Offset(0, 8),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(painters.first.padding.resolve(TextDirection.ltr).top, 0);
+    expect(painters.last.padding.resolve(TextDirection.ltr).top, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('touch scrollbar gestures stay inside the painted track', (
     tester,
   ) async {

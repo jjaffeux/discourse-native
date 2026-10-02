@@ -7,6 +7,7 @@ Future<void> expectPageEdgeScrolling(
   WidgetTester tester, {
   required Finder viewport,
   required double right,
+  ValueGetter<double>? topInset,
 }) async {
   final bounds = tester.getRect(viewport);
   expect(bounds.right, closeTo(right, 0.001));
@@ -20,7 +21,7 @@ Future<void> expectPageEdgeScrolling(
 
   await tester.sendEventToBinding(
     PointerScrollEvent(
-      position: Offset(right - 20, bounds.top + 80),
+      position: Offset(right - 20, bounds.top + (topInset?.call() ?? 0) + 80),
       scrollDelta: const Offset(0, 40),
     ),
   );
@@ -30,7 +31,7 @@ Future<void> expectPageEdgeScrolling(
   position.jumpTo(0);
   await tester.pump(const Duration(milliseconds: 50));
   await tester.dragFrom(
-    Offset(right - 3, bounds.top + 8),
+    Offset(right - 3, bounds.top + (topInset?.call() ?? 0) + 8),
     const Offset(0, 120),
     kind: PointerDeviceKind.mouse,
   );
