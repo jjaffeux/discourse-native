@@ -104,8 +104,27 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   }) : _persistence = persistence ?? const _SharedPreferencesVoicePersistence();
 
   static final SerialOperationQueue _operations = SerialOperationQueue();
+  static final Expando<Map<String, Object>> _siteOwners = Expando();
 
   final VoicePreferencesPersistence _persistence;
+
+  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+
+  Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
+
+  bool _owns(String siteUrl, Object owner) =>
+      identical(_owners[siteUrl], owner);
+
+  static void _forgetSharedSites(ForgottenSites sites) =>
+      const SharedPreferencesVoicePreferences().forgetSites(sites);
+
+  /// Retires pending forum choices and reads when durable removal drops their
+  /// keys. Device preferences and account changes retain their operations.
+  void forgetSites(ForgottenSites sites) => _owners.removeWhere(
+    (site, _) =>
+        sites.includes(site, cameraEnabledKeys) ||
+        sites.includes(site, volumeKeys),
+  );
 
   static const _audioInputKey = 'voice.device.audio-input';
   static const _audioOutputKey = 'voice.device.audio-output';
@@ -118,12 +137,14 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   static const cameraEnabledKeys = SitePreferenceKey(
     'voice.camera-enabled',
     tail: SitePreferenceTail.id,
+    onForget: _forgetSharedSites,
   );
 
   /// Participant volumes, per room and then per participant on a forum.
   static const volumeKeys = SitePreferenceKey(
     'voice.volume',
     tail: SitePreferenceTail.idPair,
+    onForget: _forgetSharedSites,
   );
 
   @override
@@ -169,8 +190,15 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
   );
 
   @override
-  Future<bool> readCameraEnabled(String siteUrl, int userId) async =>
-      await _readBool(_cameraEnabledKey(siteUrl, userId)) ?? false;
+  Future<bool> readCameraEnabled(String siteUrl, int userId) async {
+    final key = _cameraEnabledKey(siteUrl, userId);
+    return await _readSiteValue(
+          siteUrl,
+          key,
+          () => _persistence.readBool(key),
+        ) ??
+        false;
+  }
 
   @override
   Future<void> writeCameraEnabled(String siteUrl, int userId, bool enabled) {
@@ -179,6 +207,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
       key,
       () => _persistence.writeBool(key, enabled),
       appL10n.cameraPreference,
+      siteUrl: siteUrl,
     );
   }
 
@@ -218,23 +247,39 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     operation: () => _persistence.readBool(key),
   );
 
-  Future<double?> _readDouble(String key) => _operations.run<double?>(
-    owner: _persistence,
-    key: key,
-    operation: () => _persistence.readDouble(key),
-  );
+  Future<T?> _readSiteValue<T>(
+    String siteUrl,
+    String key,
+    Future<T?> Function() read,
+  ) {
+    final owner = _owner(siteUrl);
+    return _operations.run<T?>(
+      owner: _persistence,
+      key: key,
+      operation: () async {
+        if (!_owns(siteUrl, owner)) return null;
+        final value = await read();
+        return _owns(siteUrl, owner) ? value : null;
+      },
+    );
+  }
 
   Future<void> _write(
     String key,
     Future<bool> Function() persist,
-    String description,
-  ) => _operations.run<void>(
-    owner: _persistence,
-    key: key,
-    operation: () async {
-      _requireSaved(await persist(), description);
-    },
-  );
+    String description, {
+    String? siteUrl,
+  }) {
+    final owner = siteUrl == null ? null : _owner(siteUrl);
+    return _operations.run<void>(
+      owner: _persistence,
+      key: key,
+      operation: () async {
+        if (owner != null && !_owns(siteUrl!, owner)) return;
+        _requireSaved(await persist(), description);
+      },
+    );
+  }
 
   @override
   Future<double?> readParticipantVolume(
@@ -243,7 +288,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     int userId,
   ) {
     final key = _volumeKey(siteUrl, roomId, userId);
-    return _readDouble(key);
+    return _readSiteValue(siteUrl, key, () => _persistence.readDouble(key));
   }
 
   @override
@@ -258,6 +303,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
       key,
       () => _persistence.writeDouble(key, volume),
       appL10n.participantVolume,
+      siteUrl: siteUrl,
     );
   }
 

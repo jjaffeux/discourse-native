@@ -4876,6 +4876,7 @@ final class VoiceController extends ChangeNotifier {
   }
 
   void forget(String siteUrl) {
+    _cameraPreferences.removeWhere((account, _) => account.$1 == siteUrl);
     if (_call?.siteUrl == siteUrl) {
       _observe(
         () => _leave(
