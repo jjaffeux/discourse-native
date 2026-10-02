@@ -294,6 +294,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
   /// one added again loads as new. Their stored themes go with the rest of
   /// their preferences; see [forgetSitePreferences].
   void forgetSites(ForgottenSites sites) {
+    store.forgetThemeModes(sites);
     _themeModes.forgetWhere(sites.includes);
     _themes.forgetWhere(sites.includes);
     _themeWrites.removeWhere((site, write) {

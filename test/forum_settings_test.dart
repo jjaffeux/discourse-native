@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
@@ -176,6 +177,62 @@ void main() {
     await settings.setThemeMode(siteA, AppThemeMode.dark);
     await settings.load(siteA);
     expect(settings.themeModeFor(siteA), AppThemeMode.dark);
+  });
+
+  test(
+    'mode retirement is shared by stores and preserves fresh writes',
+    () async {
+      final persistence = _ControlledPersistence()
+        ..writeGate = Completer<void>();
+      final oldStore = ForumSettingsStore(persistence: persistence);
+      final replacement = ForumSettingsStore(persistence: persistence);
+      final admitted = oldStore.writeThemeMode('$siteA/', AppThemeMode.dark);
+      await persistence.writeStarted.future;
+      final queued = oldStore.writeThemeMode(siteA, AppThemeMode.light);
+      final staleRead = oldStore.loadThemeMode(
+        siteA,
+        initialMode: AppThemeMode.light,
+      );
+      await replacement.writeThemeMode(siteB, AppThemeMode.dark);
+      replacement.forgetThemeModes(
+        ForgottenSites.removed(siteA, keeping: [siteB]),
+      );
+      final fresh = replacement.writeThemeMode(siteA, AppThemeMode.system);
+      persistence.writeGate!.complete();
+      await Future.wait([admitted, queued, fresh]);
+      expect(await staleRead, AppThemeMode.light);
+      expect(
+        persistence.writes
+            .where(
+              (entry) => entry.$1 == ForumSettingsStore.themeModeKey(siteA),
+            )
+            .map((entry) => entry.$2),
+        ['dark', 'system'],
+      );
+      expect(await replacement.loadThemeMode(siteA), AppThemeMode.system);
+      expect(await replacement.loadThemeMode(siteB), AppThemeMode.dark);
+    },
+  );
+
+  test('retired absent mode reads do not seed removed preferences', () async {
+    final persistence = _ControlledPersistence()..readGate = Completer<void>();
+    final oldStore = ForumSettingsStore(persistence: persistence);
+    final replacement = ForumSettingsStore(persistence: persistence);
+    final loading = oldStore.loadThemeMode(
+      '$siteA/',
+      initialMode: AppThemeMode.dark,
+    );
+    await persistence.readStarted.future;
+    replacement.forgetThemeModes(
+      ForgottenSites.removed(siteA, keeping: [siteB]),
+    );
+    persistence.readGate!.complete();
+    expect(await loading, AppThemeMode.dark);
+    expect(persistence.writes, isEmpty);
+    expect(await replacement.loadThemeMode(siteA), AppThemeMode.system);
+    expect(persistence.writes, [
+      (ForumSettingsStore.themeModeKey(siteA), 'system'),
+    ]);
   });
 
   test(

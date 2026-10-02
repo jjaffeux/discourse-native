@@ -22,6 +22,14 @@ final class ForumSettingsStore {
 
   final ScalarPreferencePersistence<String> _persistence;
   static final _operations = SerialOperationQueue();
+  static final Expando<Map<String, Object>> _themeModeOwners = Expando();
+
+  Map<String, Object> get _modeOwners => _themeModeOwners[_persistence] ??= {};
+
+  Object _modeOwner(String site) => _modeOwners.putIfAbsent(site, Object.new);
+
+  bool _ownsMode(String site, Object owner) =>
+      identical(_modeOwners[site], owner);
 
   static const themeModeKeys = SitePreferenceKey(
     'discourse_native.forum_theme_mode',
@@ -255,13 +263,17 @@ final class ForumSettingsStore {
     String siteUrl, {
     AppThemeMode initialMode = AppThemeMode.system,
   }) {
-    final key = themeModeKey(siteUrl);
+    final site = requireStoredForumBase(siteUrl);
+    final key = themeModeKey(site);
+    final modeOwner = _modeOwner(site);
     return _operations.run(
       owner: _persistence,
       key: key,
       operation: () async {
+        if (!_ownsMode(site, modeOwner)) return initialMode;
         try {
           final stored = await _persistence.read(key);
+          if (!_ownsMode(site, modeOwner)) return initialMode;
           if (stored == null) {
             await _persist(key, initialMode);
             return initialMode;
@@ -283,13 +295,23 @@ final class ForumSettingsStore {
   }
 
   Future<void> writeThemeMode(String siteUrl, AppThemeMode mode) {
-    final key = themeModeKey(siteUrl);
+    final site = requireStoredForumBase(siteUrl);
+    final key = themeModeKey(site);
+    final modeOwner = _modeOwner(site);
     return _operations.run<void>(
       owner: _persistence,
       key: key,
-      operation: () => _persist(key, mode),
+      operation: () async {
+        if (!_ownsMode(site, modeOwner)) return;
+        await _persist(key, mode);
+      },
     );
   }
+
+  /// Retires pending mode reads and choices when a forum's preferences leave.
+  /// Re-adding the forum uses a new owner in the same persistence queue.
+  void forgetThemeModes(ForgottenSites sites) =>
+      _modeOwners.removeWhere((site, _) => sites.includes(site, themeModeKeys));
 
   Future<void> _persist(String key, AppThemeMode mode) async {
     try {
