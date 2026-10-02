@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
@@ -43,6 +44,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
+import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -101,6 +103,7 @@ Future<ShellController> pumpMobileShellFixture(
   ChatChannels? conversations,
   List<Topic>? topics,
   List<ChatMessage>? chatMessages,
+  ChatThread? chatThread,
 }) async {
   final config = SiteConfig(
     userStatusEnabled: true,
@@ -192,6 +195,17 @@ Future<ShellController> pumpMobileShellFixture(
           canLoadMoreFuture: false,
           targetMessageId: null,
         ),
+        if (chatThread != null)
+          'thread-10-${chatThread.id}': (
+            messages: chatMessages ?? const [],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+      },
+      chatThreadsByKey: {
+        for (final thread in [?chatThread])
+          FakeDiscourseApi.chatThreadKey(10, thread.id): thread,
       },
       chatChannelsBySite: {
         _site:
@@ -471,7 +485,7 @@ void main() {
     },
   );
 
-  _mobileTest('chat scrolling hides destinations while keeping Send in place', (
+  _mobileTest('channel scrolling keeps destinations and Send in place', (
     tester,
   ) async {
     await pumpMobileShellFixture(
@@ -504,7 +518,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(messages, const Offset(0, -160));
     await tester.pumpAndSettle();
-    expect(start.hitTestable(), findsNothing);
+    expect(start.hitTestable(), findsOneWidget);
     expect(send.hitTestable(), findsOneWidget);
     expect(tester.getRect(send), originalSend);
     expect(tester.getRect(_bar), originalBar);
@@ -516,7 +530,7 @@ void main() {
       'Send remains available',
     );
     await tester.pumpAndSettle();
-    expect(start.hitTestable(), findsNothing);
+    expect(start.hitTestable(), findsOneWidget);
     expect(tester.widget<DButton>(send).onPressed, isNotNull);
     await tester.tap(send);
     await tester.pumpAndSettle();
@@ -533,6 +547,91 @@ void main() {
     expect(start.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final thread in [false, true]) {
+    for (final readOnly in [false, true]) {
+      _mobileTest(
+        '${thread ? 'thread' : 'public channel'} scrolling keeps the tab bar '
+        'visible (read only: $readOnly)',
+        (tester) async {
+          final shell = await pumpMobileShellFixture(
+            tester,
+            conversations: ChatChannels(
+              public: [
+                ChatChannel(
+                  id: 10,
+                  title: 'Support',
+                  kind: ChatChannelKind.category,
+                  status: readOnly
+                      ? ChatChannelStatus.readOnly
+                      : ChatChannelStatus.open,
+                  membership: const ChatMembership(following: true),
+                  threadingEnabled: true,
+                ),
+              ],
+              direct: const [],
+            ),
+            chatThread: thread
+                ? const ChatThread(
+                    id: 3,
+                    channelId: 10,
+                    title: 'Support thread',
+                    status: 'open',
+                    replyCount: 49,
+                  )
+                : null,
+            chatMessages: [
+              for (var id = 1; id <= 50; id++)
+                ChatMessage(
+                  id: id,
+                  channelId: 10,
+                  threadId: thread ? 3 : null,
+                  cooked: '<p>Scrollable message $id</p>',
+                  author: ChatMessageAuthor(
+                    id: id % 2 + 1,
+                    username: 'reader${id % 2}',
+                  ),
+                  createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
+                ),
+            ],
+          );
+          await _tapDockTab(tester, 'panel/chat');
+          if (thread) {
+            shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+          } else {
+            shell.openChatChannel(10);
+          }
+          await tester.pumpAndSettle();
+          final messages = find.byType(DMessageScrollerViewport);
+          expect(messages, findsOneWidget);
+          final scroll = tester
+              .widget<DMessageScrollerViewport>(messages)
+              .scrollController!;
+          final start = find.byKey(const ValueKey('mobile-mode-start'));
+          final panel = find.byKey(const ValueKey('mobile-content-panel'));
+          final originalBar = tester.getRect(_bar);
+          final originalPanel = tester.getRect(panel);
+          final send = find.byKey(const ValueKey('chat-composer-send'));
+          expect(send, readOnly ? findsNothing : findsOneWidget);
+
+          // Start at the newest messages, read back, then scroll down again.
+          for (final delta in [320.0, -160.0, 80.0]) {
+            final offset = scroll.offset;
+            await tester.drag(messages, Offset(0, delta));
+            await tester.pumpAndSettle();
+            expect(scroll.offset, isNot(offset));
+            expect(start.hitTestable(), findsOneWidget);
+            expect(tester.getRect(_bar), originalBar);
+            expect(tester.getRect(panel), originalPanel);
+          }
+          await tester.tap(start);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.isNewTab, isTrue);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   _mobileTest('Voice keeps the redesigned Chat inbox and its filters', (
     tester,

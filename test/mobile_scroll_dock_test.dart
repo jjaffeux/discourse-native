@@ -28,6 +28,7 @@ Future<void> _mount(
   bool reverse = false,
   bool reducedMotion = false,
   bool visible = true,
+  bool hideOnScroll = true,
   bool keepVisible = false,
   Object identity = 'topics',
   int count = 100,
@@ -41,6 +42,7 @@ Future<void> _mount(
           body: MobileScrollDock(
             identity: identity,
             visible: visible,
+            hideOnScroll: hideOnScroll,
             keepActionVisible: keepVisible,
             body:
                 body ??
@@ -72,6 +74,30 @@ Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
 }
 
 void main() {
+  testWidgets('disabling scroll hiding restores and keeps the full dock', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 200);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller);
+    await _wheel(tester, 40);
+    expect(find.byKey(_dock), findsNothing);
+
+    await _mount(tester, controller: controller, hideOnScroll: false);
+    final dockRect = tester.getRect(find.byKey(_dock));
+    for (final delta in [100.0, -40.0]) {
+      final offset = controller.offset;
+      await _wheel(tester, delta);
+      expect(controller.offset, offset + delta);
+      expect(find.byKey(_dock).hitTestable(), findsOneWidget);
+      expect(tester.getRect(find.byKey(_dock)), dockRect);
+    }
+
+    await _mount(tester, controller: controller);
+    await _wheel(tester, 40);
+    expect(find.byKey(_dock), findsNothing);
+  });
+
   testWidgets('down hides and a deliberate upward nudge restores the dock', (
     tester,
   ) async {
