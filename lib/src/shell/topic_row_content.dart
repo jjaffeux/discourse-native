@@ -19,9 +19,10 @@ List<Widget> _topicRowTags(
   _TopicRowBody row, {
   bool compact = false,
 }) {
+  const maxVisibleTags = 5;
   final controller = ShellScope.maybeRead(context);
   return [
-    for (final tag in compact ? row.topic.tags : row.topic.tags.take(2))
+    for (final tag in row.topic.tags.take(maxVisibleTags))
       _TopicTag(
         tag: tag,
         compact: compact,
@@ -37,8 +38,11 @@ List<Widget> _topicRowTags(
           newTab: true,
         ),
       ),
-    if (!compact && row.topic.tags.length > 2)
-      _TopicTagOverflow(tags: row.topic.tags.skip(2).toList()),
+    if (row.topic.tags.length > maxVisibleTags)
+      _TopicTagOverflow(
+        tags: row.topic.tags.skip(maxVisibleTags).toList(),
+        compact: compact,
+      ),
   ];
 }
 

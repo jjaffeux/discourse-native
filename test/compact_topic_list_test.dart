@@ -107,6 +107,124 @@ void main() {
     expect(avatar, findsOneWidget);
   });
 
+  for (final (width, scale, direction, dark) in [
+    (1200.0, 1.0, TextDirection.ltr, false),
+    (390.0, 1.0, TextDirection.ltr, true),
+    (280.0, 2.0, TextDirection.rtl, false),
+  ]) {
+    testWidgets(
+      'topic lists show five tags then a remaining count at $width/$scale/$direction',
+      (tester) async {
+        final shell = await _setup(
+          tester,
+          width: width,
+          scale: scale,
+          direction: direction,
+          dark: dark,
+          enableAssignments: false,
+        );
+        final semantics = tester.ensureSemantics();
+        try {
+          final siteUrl = shell.currentInstance!.url;
+          final topic = shell.store.read<Topic>(siteUrl, 1)!;
+          final row = find.byKey(const ValueKey('topic-card-1'));
+          Finder within(Finder finder) =>
+              find.descendant(of: row, matching: finder);
+          final mouse = width >= 600
+              ? await tester.createGesture(kind: PointerDeviceKind.mouse)
+              : null;
+          if (mouse != null) {
+            addTearDown(mouse.removePointer);
+            await mouse.addPointer(location: Offset.zero);
+          }
+
+          for (final count in [0, 5, 6, 23, 5]) {
+            final tags = [
+              for (var index = 1; index <= count; index++)
+                TopicTag(name: 'tag-$index'),
+            ];
+            shell.store.put(siteUrl, topic.copyWith(tags: tags));
+            await tester.pumpAndSettle();
+            final visibleTags = tester
+                .widgetList<Text>(within(find.byType(Text)))
+                .map((text) => text.data)
+                .where((label) => label?.startsWith('tag-') ?? false);
+            expect(visibleTags, tags.take(5).map((tag) => tag.name));
+            final overflow = within(
+              find.byKey(const ValueKey('topic-row-tag-overflow')),
+            );
+            if (count <= 5) {
+              expect(overflow, findsNothing);
+            } else {
+              final remaining = count - 5;
+              expect(within(find.text('+$remaining')), findsOneWidget);
+              expect(
+                tester.getSemantics(overflow).label,
+                contains('$remaining more ${remaining == 1 ? 'tag' : 'tags'}'),
+              );
+              final badge = tester.widget<DBadge>(overflow);
+              final firstTag = tester.widget<DBadge>(
+                within(
+                  find.ancestor(
+                    of: within(find.text('tag-1')),
+                    matching: find.byType(DBadge),
+                  ),
+                ),
+              );
+              expect(badge.size, firstTag.size);
+              expect(badge.backgroundColor, firstTag.backgroundColor);
+              expect(badge.foregroundColor, firstTag.foregroundColor);
+              final rowBounds = tester.getRect(row);
+              expect(
+                rowBounds.contains(tester.getRect(overflow).topLeft),
+                isTrue,
+              );
+              expect(
+                rowBounds.contains(tester.getRect(overflow).bottomRight),
+                isTrue,
+              );
+
+              if (count == 23) {
+                final message = tags
+                    .skip(5)
+                    .map((tag) => '#${tag.name}')
+                    .join(', ');
+                expect(within(find.byTooltip(message)), findsOneWidget);
+                await tester.ensureVisible(overflow);
+                await tester.pumpAndSettle();
+                if (width < 600) {
+                  await tester.longPress(overflow);
+                } else {
+                  await mouse!.moveTo(tester.getCenter(overflow));
+                  await tester.pump(const Duration(milliseconds: 300));
+                }
+                await tester.pump(const Duration(milliseconds: 160));
+                expect(find.text(message), findsOneWidget);
+                tester
+                    .state<DTooltipState>(within(find.byTooltip(message)))
+                    .hide();
+                await mouse?.moveTo(Offset.zero);
+                await tester.pumpAndSettle();
+                expect(shell.currentContent?.topicId, isNull);
+              }
+            }
+            expect(tester.takeException(), isNull);
+          }
+          final lastTag = within(find.text('tag-5'));
+          await tester.ensureVisible(lastTag);
+          await tester.pumpAndSettle();
+          await tester.tap(lastTag);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.tagName, 'tag-5');
+          expect(shell.currentContent?.topicId, isNull);
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+
   for (final (width, scale) in [(780.0, 1.0), (1200.0, 1.0), (1200.0, 2.0)]) {
     testWidgets('topic category and tags share a baseline at $width/$scale', (
       tester,
