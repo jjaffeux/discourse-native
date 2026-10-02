@@ -11,6 +11,7 @@ import '../plugin_api/shell_extensions.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
+import 'account_activity_paging_skeleton.dart';
 import 'directory_skeleton.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
@@ -385,10 +386,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               )
             else if (feed.loading)
               SliverToBoxAdapter(
-                child: Semantics(
-                  liveRegion: true,
-                  label: context.l10n.loadingMoreBookmarks,
-                  child: const SizedBox.shrink(),
+                child: AccountActivityPagingSkeleton(
+                  semanticsLabel: context.l10n.loadingMoreBookmarks,
                 ),
               ),
           ],

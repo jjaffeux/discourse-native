@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
+import 'account_activity_paging_skeleton.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -184,10 +185,8 @@ class _ActivityList extends StatelessWidget {
                     unawaited(feed.retryFromStart ? onRefresh() : onLoadMore()),
               );
             }
-            return Semantics(
-              liveRegion: true,
-              label: context.l10n.loadingMoreActivity,
-              child: const SizedBox.shrink(),
+            return AccountActivityPagingSkeleton(
+              semanticsLabel: context.l10n.loadingMoreActivity,
             );
           },
         ),
