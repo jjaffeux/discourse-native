@@ -196,6 +196,11 @@ class LocalDateComposerDraft {
     if (isRange && (recurring != null || countdown)) {
       errors.add(appL10n.rangesCannotRecurOrUseCountdownMode);
     }
+    try {
+      serialize();
+    } on ArgumentError {
+      errors.add(appL10n.removeLineBreaksOrOneQuotationMarkTypeFromTheFormat);
+    }
     if (errors.isNotEmpty) {
       return LocalDateComposerValidation(List.unmodifiable(errors));
     }
@@ -545,8 +550,5 @@ bool _validTime(String value) {
 }
 
 String _render(String value) {
-  if (value.isNotEmpty && !value.contains(RegExp(r'[\s\]]'))) return value;
-  if (!value.contains('"')) return '"$value"';
-  if (!value.contains("'")) return "'$value'";
-  throw ArgumentError.value(value, 'value', 'cannot be represented safely');
+  return renderLocalDateMarkupValue(value);
 }
