@@ -95,22 +95,26 @@ void main() {
       expect(triggerIn('@a|𐐀'), '-');
     });
 
-    test('Unicode runs retain the existing UTF-16 length bounds', () {
+    test('mentions count scalars while other query bounds stay unchanged', () {
       final maximum = ComposerTriggerKind.mention.maximum;
       expect(triggerIn('@${'é' * maximum}|'), '@${'é' * maximum}');
       expect(triggerIn('@${'é' * (maximum + 1)}|'), '-');
+      expect(triggerIn('@${'𐐀' * maximum}|'), '@${'𐐀' * maximum}');
+      expect(triggerIn('@${'𐐀' * (maximum + 1)}|'), '-');
       expect(
-        triggerIn('@${'𐐀' * (maximum ~/ 2)}|'),
-        '@${'𐐀' * (maximum ~/ 2)}',
+        triggerIn('@${'a\u0301' * (maximum ~/ 2)}|'),
+        '@${'a\u0301' * (maximum ~/ 2)}',
       );
-      expect(triggerIn('@${'𐐀' * (maximum ~/ 2 + 1)}|'), '-');
+      expect(triggerIn('@${'a\u0301' * (maximum ~/ 2 + 1)}|'), '-');
       final hashtagMaximum = ComposerTriggerKind.hashtag.maximum;
       expect(
         triggerIn('#${'中' * hashtagMaximum}|'),
         '#${'中' * hashtagMaximum}',
       );
       expect(triggerIn('#${'中' * (hashtagMaximum + 1)}|'), '-');
+      expect(triggerIn('#${'𐐀' * (hashtagMaximum ~/ 2 + 1)}|'), '-');
       expect(triggerIn('#${'𐐀' * runMaximum}|'), '-');
+      expect(triggerIn('@${'𐐀' * runMaximum}|'), '-');
     });
 
     test('opens on the first character of an emoji', () {

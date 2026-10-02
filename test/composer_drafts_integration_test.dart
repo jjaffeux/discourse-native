@@ -1222,7 +1222,14 @@ void _registerComposerAndDraftTests() {
     TextField field(WidgetTester tester) =>
         tester.widget<TextField>(_composerField);
 
-    for (final username in ['josé', '中文', 'jose\u0301', '𐐀name']) {
+    for (final username in [
+      'josé',
+      '中文',
+      'jose\u0301',
+      '𐐀name',
+      '𐐀' * 16,
+      '𐐀' * 20,
+    ]) {
       testWidgets('Unicode mention $username reaches search and inserts', (
         tester,
       ) async {
@@ -1241,6 +1248,10 @@ void _registerComposerAndDraftTests() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(field(tester).controller!.text, '🧵 hello @$username ');
+        expect(
+          field(tester).controller!.selection.baseOffset,
+          field(tester).controller!.text.length,
+        );
         expect(tester.takeException(), isNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }

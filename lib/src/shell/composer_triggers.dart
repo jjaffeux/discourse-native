@@ -140,7 +140,10 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
     if (!kind.accepts(String.fromCharCode(rune))) return null;
   }
 
-  if (query.length < kind.minimum || query.length > kind.maximum) return null;
+  final queryLength = kind == ComposerTriggerKind.mention
+      ? query.runes.length
+      : query.length;
+  if (queryLength < kind.minimum || queryLength > kind.maximum) return null;
 
   return ComposerTrigger(kind: kind, query: query, start: sigil, end: caret);
 }
