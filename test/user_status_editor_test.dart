@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -17,6 +18,8 @@ import 'package:discourse_native/src/shell/user_status_editor.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import 'support/fakes.dart';
@@ -33,6 +36,47 @@ const _user = DiscourseUser(
 );
 
 void main() {
+  for (final (width, platform) in [
+    (390.0, TargetPlatform.iOS),
+    (1000.0, TargetPlatform.macOS),
+  ]) {
+    testWidgets('status editor saves 51 emoji through HTTP at $width', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(Size(width, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final sent = <http.Request>[];
+      final writer = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('', 200);
+        }),
+      );
+      addTearDown(writer.close);
+      final api = _HttpStatusApi(writer);
+      await _open(tester, api: api, platform: platform);
+      final description = '🧵' * 51;
+      await tester.enterText(find.byType(TextField), description);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        description,
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(sent, hasLength(1));
+      expect(sent.single.method, 'PUT');
+      expect(sent.single.url.toString(), '$_site/user-status.json');
+      expect(sent.single.headers['User-Api-Key'], 'key');
+      expect(jsonDecode(sent.single.body), {
+        'description': description,
+        'emoji': 'house',
+      });
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final action in ['Save', 'Clear status']) {
     testWidgets(
       '$action rejects a replaced shell while the dialog stays open',
@@ -413,6 +457,7 @@ Future<FakeDiscourseApi> _open(
   DateTime? endsAt,
   String? timezone,
   FakeDiscourseApi? api,
+  TargetPlatform platform = TargetPlatform.macOS,
 }) async {
   final user = DiscourseUser(
     id: 7,
@@ -426,7 +471,7 @@ Future<FakeDiscourseApi> _open(
     siteConfigs: const {_site: SiteConfig(userStatusEnabled: true)},
   );
   final shell = await _loadShell(api, user: user);
-  await _pump(tester, shell);
+  await _pump(tester, shell, platform: platform);
   await tester.tap(find.text('Edit status'));
   await tester.pumpAndSettle();
   return api;
@@ -452,23 +497,26 @@ Future<ShellController> _loadShell(
   return shell;
 }
 
-Future<void> _pump(WidgetTester tester, ShellController shell) =>
-    tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showUserStatusEditor(context, siteUrl: _site),
-                child: const Text('Edit status'),
-              ),
-            ),
+Future<void> _pump(
+  WidgetTester tester,
+  ShellController shell, {
+  TargetPlatform platform = TargetPlatform.macOS,
+}) => tester.pumpWidget(
+  ShellScope(
+    controller: shell,
+    child: MaterialApp(
+      theme: AppTheme.light.copyWith(platform: platform),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showUserStatusEditor(context, siteUrl: _site),
+            child: const Text('Edit status'),
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
 
 DButton _button(WidgetTester tester, String label) => tester.widget<DButton>(
   find.byWidgetPredicate(
@@ -538,4 +586,32 @@ class _StatusApi extends FakeDiscourseApi {
       clientId: clientId,
     );
   }
+}
+
+final class _HttpStatusApi extends FakeDiscourseApi {
+  _HttpStatusApi(this.writer)
+    : super(
+        user: _user,
+        feeds: const {'/latest.json': <Topic>[]},
+        siteConfigs: const {_site: SiteConfig(userStatusEnabled: true)},
+      );
+
+  final DiscourseApi writer;
+
+  @override
+  Future<void> setUserStatus({
+    required String siteUrl,
+    required String apiKey,
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+    String? clientId,
+  }) => writer.setUserStatus(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    description: description,
+    emoji: emoji,
+    endsAt: endsAt,
+    clientId: clientId,
+  );
 }

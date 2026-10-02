@@ -520,7 +520,8 @@ final class DiscourseAccountApi {
         .trim()
         .replaceFirst(RegExp(r'^:'), '')
         .replaceFirst(RegExp(r':$'), '');
-    if (normalizedDescription.isEmpty || normalizedDescription.length > 100) {
+    if (normalizedDescription.isEmpty ||
+        normalizedDescription.runes.length > 100) {
       throw ArgumentError.value(
         description,
         'description',
