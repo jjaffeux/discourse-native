@@ -28,6 +28,7 @@ final class GroupManageSnapshot {
 final class GroupManageController extends ChangeNotifier {
   GroupManageController({
     required this.group,
+    this.currentUserStaff = false,
     this.subsection = GroupRoute.profile,
     this.onSubmit,
     this.errorMapper = _defaultErrorMessage,
@@ -95,6 +96,7 @@ final class GroupManageController extends ChangeNotifier {
   }
 
   final Group group;
+  final bool currentUserStaff;
   final String subsection;
   final GroupManageSubmit? onSubmit;
   final GroupManageErrorMapper errorMapper;
@@ -141,6 +143,12 @@ final class GroupManageController extends ChangeNotifier {
   }
 
   TextEditingController textController(String key) => _text[key]!;
+
+  bool canEditProfileField(String key) => switch (key) {
+    'name' || 'title' => !group.automatic && currentUserStaff,
+    'full_name' => !group.automatic,
+    _ => true,
+  };
 
   void setAdmission(String value) => _set(() => _admission = value);
   void setPublicExit(bool value) => _set(() => _publicExit = value);
@@ -230,9 +238,9 @@ final class GroupManageController extends ChangeNotifier {
       !_disposed && generation == _submissionGeneration;
 
   Map<String, String> _validationErrors() => switch (subsection) {
-    GroupRoute.profile when _value('name').isEmpty => {
-      'name': appL10n.enterAGroupName,
-    },
+    GroupRoute.profile
+        when canEditProfileField('name') && _value('name').isEmpty =>
+      {'name': appL10n.enterAGroupName},
     _ => const {},
   };
 
@@ -252,10 +260,10 @@ final class GroupManageController extends ChangeNotifier {
   Map<String, Object?> _subsectionValues(String subsection) =>
       switch (subsection) {
         GroupRoute.profile => {
-          'name': _value('name'),
-          'full_name': _value('full_name'),
+          if (canEditProfileField('name')) 'name': _value('name'),
+          if (canEditProfileField('full_name')) 'full_name': _value('full_name'),
           'bio_raw': textController('bio_raw').text,
-          'title': _value('title'),
+          if (canEditProfileField('title')) 'title': _value('title'),
           'flair_icon': _value('flair_icon'),
           'flair_bg_color': _value('flair_bg_color'),
           'flair_color': _value('flair_color'),

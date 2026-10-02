@@ -1193,7 +1193,7 @@ void main() {
     expect(find.text('Tags'), findsNothing);
     expect(
       tester
-          .widget<TextFormField>(find.byKey(const ValueKey('group-field-name')))
+          .widget<DInput>(find.byKey(const ValueKey('group-field-name')))
           .enabled,
       isFalse,
     );
@@ -1220,7 +1220,11 @@ void main() {
           ),
           registry: PluginRegistry.empty,
           onOpenMember: _ignoreMember,
-          data: const GroupPageData(detail: _detail, loaded: true),
+          data: const GroupPageData(
+            detail: _detail,
+            loaded: true,
+            currentUserStaff: true,
+          ),
           onSaveManage: (_) async {
             submissions += 1;
             return true;
@@ -1277,7 +1281,11 @@ void main() {
         ),
         registry: PluginRegistry.empty,
         onOpenMember: _ignoreMember,
-        data: const GroupPageData(detail: _detail, loaded: true),
+        data: const GroupPageData(
+          detail: _detail,
+          loaded: true,
+          currentUserStaff: true,
+        ),
         onSaveManage: (_) async => true,
       ),
     );

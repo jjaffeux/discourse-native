@@ -400,6 +400,49 @@ void main() {
   });
 
   group('GroupManageController', () {
+    for (final (staff, automatic, editable) in [
+      (
+        false,
+        false,
+        {'full_name', 'bio_raw', 'flair_icon', 'flair_bg_color', 'flair_color'},
+      ),
+      (
+        true,
+        false,
+        {
+          'name',
+          'full_name',
+          'title',
+          'bio_raw',
+          'flair_icon',
+          'flair_bg_color',
+          'flair_color',
+        },
+      ),
+      (true, true, {'bio_raw', 'flair_icon', 'flair_bg_color', 'flair_color'}),
+    ]) {
+      test('profile permissions staff=$staff automatic=$automatic', () {
+        final controller = GroupManageController(
+          group: Group(id: 9, name: 'support', automatic: automatic),
+          currentUserStaff: staff,
+          onSubmit: (_) async => true,
+        );
+        addTearDown(controller.dispose);
+        expect(controller.buildUpdate().values.keys, unorderedEquals(editable));
+        for (final key in ['name', 'full_name', 'title']) {
+          if (!editable.contains(key)) {
+            expect(controller.canEditProfileField(key), isFalse);
+            controller.textController(key).clear();
+          }
+        }
+        expect(controller.validate(), isTrue);
+        expect(controller.snapshot.dirty, isFalse);
+        expect(controller.snapshot.canSubmit, isFalse);
+        controller.textController('bio_raw').text = 'Updated biography';
+        expect(controller.snapshot.dirty, isTrue);
+      });
+    }
+
     test(
       'SMTP passwords preserve whitespace while address fields trim',
       () async {
@@ -581,6 +624,7 @@ void main() {
       var submissions = 0;
       final controller = GroupManageController(
         group: const Group(id: 9, name: 'support'),
+        currentUserStaff: true,
         onSubmit: (_) async {
           submissions += 1;
           return true;
