@@ -26,6 +26,8 @@ import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
+import 'forum_about_host.dart';
+import 'forum_about_page.dart';
 import 'forum_search.dart';
 import 'forum_settings_page.dart';
 import 'forum_theme_surfaces.dart';
@@ -76,19 +78,28 @@ class MainContent extends StatefulWidget {
 }
 
 class _MainContentState extends State<MainContent> {
+  final _aboutPageKey = GlobalKey<ForumAboutPageState>();
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
   VoidCallback? _unregisterRefresher;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  String? _refresherTabId;
+  ShellController? _refresherController;
+
+  void _bindRefresher(ShellController shell, String? tabId) {
+    if (identical(shell, _refresherController) && tabId == _refresherTabId) {
+      return;
+    }
     _unregisterRefresher?.call();
-    _unregisterRefresher = ShellScope.identityOf(context)
-        .registerContentRefresher(
-          () => _groupPages.page.isOwned
+    _refresherController = shell;
+    _refresherTabId = tabId;
+    _unregisterRefresher = shell.registerContentRefresher(
+      () =>
+          _aboutPageKey.currentState?.refresh() ??
+          (_groupPages.page.isOwned
               ? _groupPages.requestLoad(refresh: true)
-              : null,
-        );
+              : null),
+      tabId: tabId,
+    );
   }
 
   @override
@@ -97,6 +108,7 @@ class _MainContentState extends State<MainContent> {
       select: (shell) => _MainContentSnapshot.from(shell),
       builder: (context, state, _) {
         final shell = ShellScope.read(context);
+        _bindRefresher(shell, state.activeTabId);
         final port = ShellGroupPagesPort(shell, tabId: state.activeTabId);
         final route = state.route;
         _groupPages.bind(
@@ -122,6 +134,7 @@ class _MainContentState extends State<MainContent> {
               PluginRegistry.empty,
           groupPages: _groupPages,
           groupPagesPort: port,
+          aboutPageKey: _aboutPageKey,
         );
       },
     );
@@ -148,6 +161,7 @@ class _MainContentBody extends StatelessWidget {
     required this.registry,
     required this.groupPages,
     required this.groupPagesPort,
+    required this.aboutPageKey,
   });
 
   final ShellLayout layout;
@@ -155,6 +169,7 @@ class _MainContentBody extends StatelessWidget {
   final PluginRegistry registry;
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
+  final GlobalKey<ForumAboutPageState> aboutPageKey;
 
   @override
   Widget build(BuildContext context) =>
@@ -226,7 +241,8 @@ class _MainContentBody extends StatelessWidget {
         state.siteUrl != null &&
         (pluginContent != null
             ? registry.ownsContentPageTitle(context, route)
-            : route.isAppearance ||
+            : route.isForumAbout ||
+                  route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
@@ -343,6 +359,7 @@ class _MainContentBody extends StatelessWidget {
               categoryFeed: state.categoryFeed,
               groupPages: groupPages,
               groupPagesPort: groupPagesPort,
+              aboutPageKey: aboutPageKey,
               topicListActions: topicListActions,
             ),
           ),
@@ -786,6 +803,7 @@ class _ContentViewport extends StatelessWidget {
     required this.categoryFeed,
     required this.groupPages,
     required this.groupPagesPort,
+    required this.aboutPageKey,
     this.topicListActions,
   });
 
@@ -801,6 +819,7 @@ class _ContentViewport extends StatelessWidget {
   final CategoryFeed? categoryFeed;
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
+  final GlobalKey<ForumAboutPageState> aboutPageKey;
   final Widget? topicListActions;
 
   @override
@@ -819,6 +838,9 @@ class _ContentViewport extends StatelessWidget {
     }
     if (route.isAppearance && siteUrl != null) {
       return ForumSettingsPage(siteUrl: siteUrl!);
+    }
+    if (route.isForumAbout && siteUrl != null) {
+      return ForumAboutHost(siteUrl: siteUrl!, pageKey: aboutPageKey);
     }
     if (route.isPreferences && siteUrl != null) {
       return PreferencesPage(siteUrl: siteUrl!);
@@ -1209,6 +1231,7 @@ class _ContentHeader extends StatelessWidget {
                 ),
               if (!route.isTopic &&
                   route.id != 'activity' &&
+                  !route.isForumAbout &&
                   !route.isUsers &&
                   !route.isBadges &&
                   showCreateTopicAction)

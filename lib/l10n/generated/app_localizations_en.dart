@@ -14598,4 +14598,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get composerOutdent => 'Outdent';
+
+  @override
+  String get forumAboutTitle => 'About this forum';
+
+  @override
+  String get forumAboutActivity => 'Forum activity';
+
+  @override
+  String get forumAboutLastSevenDays => 'Last 7 days';
+
+  @override
+  String get forumAboutOpenFullPage => 'Open full About page';
+
+  @override
+  String get forumAboutLoading => 'Loading forum information';
+
+  @override
+  String get forumAboutLoadFailed =>
+      'Couldn’t load information about this forum.';
+
+  @override
+  String get forumAboutLoginRequired =>
+      'Sign in to view information about this forum.';
+
+  @override
+  String forumAboutCreated(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String forumAboutMembers(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount members',
+      one: '$formattedCount member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutTopics(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount topics',
+      one: '$formattedCount topic',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutPosts(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount posts',
+      one: '$formattedCount post',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutActiveUsers(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount active users',
+      one: '$formattedCount active user',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutSignUps(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount new members',
+      one: '$formattedCount new member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutLikes(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount likes',
+      one: '$formattedCount like',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String forumAboutVoiceParticipants(int count, String formattedCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$formattedCount voice participants',
+      one: '$formattedCount voice participant',
+    );
+    return '$_temp0';
+  }
 }

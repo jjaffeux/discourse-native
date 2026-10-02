@@ -19547,5 +19547,126 @@
   "composerOutdent": "Outdent",
   "@composerOutdent": {
     "description": "Composer toolbar action to move the current list or to-do item up one nesting level."
+  },
+  "forumAboutTitle": "About this forum",
+  "@forumAboutTitle": {
+    "description": "Forum About page: Title."
+  },
+  "forumAboutActivity": "Forum activity",
+  "@forumAboutActivity": {
+    "description": "Forum About page: Activity."
+  },
+  "forumAboutLastSevenDays": "Last 7 days",
+  "@forumAboutLastSevenDays": {
+    "description": "Forum About page: LastSevenDays."
+  },
+  "forumAboutOpenFullPage": "Open full About page",
+  "@forumAboutOpenFullPage": {
+    "description": "Forum About page: OpenFullPage."
+  },
+  "forumAboutLoading": "Loading forum information",
+  "@forumAboutLoading": {
+    "description": "Forum About page: Loading."
+  },
+  "forumAboutLoadFailed": "Couldn’t load information about this forum.",
+  "@forumAboutLoadFailed": {
+    "description": "Forum About page: LoadFailed."
+  },
+  "forumAboutLoginRequired": "Sign in to view information about this forum.",
+  "@forumAboutLoginRequired": {
+    "description": "Forum About page: LoginRequired."
+  },
+  "forumAboutCreated": "Created {date}",
+  "@forumAboutCreated": {
+    "description": "Forum About page: Created.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutMembers": "{count, plural, one {{formattedCount} member} other {{formattedCount} members}}",
+  "@forumAboutMembers": {
+    "description": "Forum About page: Members.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutTopics": "{count, plural, one {{formattedCount} topic} other {{formattedCount} topics}}",
+  "@forumAboutTopics": {
+    "description": "Forum About page: Topics.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutPosts": "{count, plural, one {{formattedCount} post} other {{formattedCount} posts}}",
+  "@forumAboutPosts": {
+    "description": "Forum About page: Posts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutActiveUsers": "{count, plural, one {{formattedCount} active user} other {{formattedCount} active users}}",
+  "@forumAboutActiveUsers": {
+    "description": "Forum About page: ActiveUsers.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutSignUps": "{count, plural, one {{formattedCount} new member} other {{formattedCount} new members}}",
+  "@forumAboutSignUps": {
+    "description": "Forum About page: SignUps.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutLikes": "{count, plural, one {{formattedCount} like} other {{formattedCount} likes}}",
+  "@forumAboutLikes": {
+    "description": "Forum About page: Likes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
+  },
+  "forumAboutVoiceParticipants": "{count, plural, one {{formattedCount} voice participant} other {{formattedCount} voice participants}}",
+  "@forumAboutVoiceParticipants": {
+    "description": "Forum About page: VoiceParticipants.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "formattedCount": {
+        "type": "String"
+      }
+    }
   }
 }

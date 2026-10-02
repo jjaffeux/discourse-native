@@ -22856,6 +22856,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Outdent'**
   String get composerOutdent;
+
+  /// Forum About page: Title.
+  ///
+  /// In en, this message translates to:
+  /// **'About this forum'**
+  String get forumAboutTitle;
+
+  /// Forum About page: Activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Forum activity'**
+  String get forumAboutActivity;
+
+  /// Forum About page: LastSevenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get forumAboutLastSevenDays;
+
+  /// Forum About page: OpenFullPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open full About page'**
+  String get forumAboutOpenFullPage;
+
+  /// Forum About page: Loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading forum information'**
+  String get forumAboutLoading;
+
+  /// Forum About page: LoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t load information about this forum.'**
+  String get forumAboutLoadFailed;
+
+  /// Forum About page: LoginRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view information about this forum.'**
+  String get forumAboutLoginRequired;
+
+  /// Forum About page: Created.
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String forumAboutCreated(String date);
+
+  /// Forum About page: Members.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} member} other {{formattedCount} members}}'**
+  String forumAboutMembers(int count, String formattedCount);
+
+  /// Forum About page: Topics.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} topic} other {{formattedCount} topics}}'**
+  String forumAboutTopics(int count, String formattedCount);
+
+  /// Forum About page: Posts.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} post} other {{formattedCount} posts}}'**
+  String forumAboutPosts(int count, String formattedCount);
+
+  /// Forum About page: ActiveUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} active user} other {{formattedCount} active users}}'**
+  String forumAboutActiveUsers(int count, String formattedCount);
+
+  /// Forum About page: SignUps.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} new member} other {{formattedCount} new members}}'**
+  String forumAboutSignUps(int count, String formattedCount);
+
+  /// Forum About page: Likes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} like} other {{formattedCount} likes}}'**
+  String forumAboutLikes(int count, String formattedCount);
+
+  /// Forum About page: VoiceParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {{formattedCount} voice participant} other {{formattedCount} voice participants}}'**
+  String forumAboutVoiceParticipants(int count, String formattedCount);
 }
 
 class _AppLocalizationsDelegate
