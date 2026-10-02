@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import 'skeleton_fill.dart';
 
-enum DirectorySkeletonKind { bookmarks, badges, groups, users }
+enum DirectorySkeletonKind { bookmarks, badges, categories, groups, users }
 
 /// Page placeholders composed from the Native skeletons, sized to the viewport.
 class DirectorySkeleton extends StatelessWidget {
@@ -17,6 +17,7 @@ class DirectorySkeleton extends StatelessWidget {
   double get _rowHeight => switch (kind) {
     DirectorySkeletonKind.bookmarks => 80,
     DirectorySkeletonKind.badges => 96,
+    DirectorySkeletonKind.categories => 80,
     DirectorySkeletonKind.groups => 144,
     DirectorySkeletonKind.users => 48,
   };
@@ -66,7 +67,14 @@ class DirectorySkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              DSkeleton.circle(diameter: users ? 24 : 40),
+              if (kind == DirectorySkeletonKind.categories)
+                DSkeleton(
+                  width: 40,
+                  height: 40,
+                  borderRadius: BorderRadius.circular(DRadius.popover),
+                )
+              else
+                DSkeleton.circle(diameter: users ? 24 : 40),
               SizedBox(width: users ? DSpacing.sm : DSpacing.lg),
               Expanded(
                 child: Column(

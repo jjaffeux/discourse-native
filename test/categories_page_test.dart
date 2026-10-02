@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/category_directory.dart';
+import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -22,12 +24,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/skeleton_expectations.dart';
 
 const Size _viewport = Size(1200, 900);
 
 Future<ShellController> _loadCategories(
   FakeDiscourseApi api, {
   bool connected = false,
+  bool waitForCategories = true,
 }) async {
   final site = instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
     user: connected ? const DiscourseUser(id: 7, username: 'joffreyj') : null,
@@ -47,20 +51,25 @@ Future<ShellController> _loadCategories(
   addTearDown(controller.dispose);
 
   await controller.load();
-  await controller.loadCategories(site.url);
-  for (
-    var attempt = 0;
-    attempt < 20 && !controller.categoryFeedFor(site.url).loaded;
-    attempt++
-  ) {
-    await Future<void>.delayed(Duration.zero);
+  if (waitForCategories) {
+    await controller.loadCategories(site.url);
+    for (
+      var attempt = 0;
+      attempt < 20 && !controller.categoryFeedFor(site.url).loaded;
+      attempt++
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(controller.categoryFeedFor(site.url).loaded, isTrue);
+  } else {
+    unawaited(controller.loadCategories(site.url));
   }
-  expect(controller.categoryFeedFor(site.url).loaded, isTrue);
 
-  final categories = controller.categorySidebarSectionFor(site.url);
-  expect(categories, isNotNull);
+  final categories =
+      controller.categorySidebarSectionFor(site.url) ??
+      buildCategorySidebarSection(categories: const [], connected: connected);
   controller.selectDestination(
-    categories!.destinations.singleWhere(
+    categories.destinations.singleWhere(
       (destination) => destination.id == 'all-categories',
     ),
   );
@@ -71,8 +80,11 @@ Future<void> _pumpPage(
   WidgetTester tester,
   ShellController controller, {
   double width = 1100,
+  Size size = _viewport,
+  ShellLayout layout = ShellLayout.expanded,
+  bool settle = true,
 }) async {
-  tester.view.physicalSize = _viewport;
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -92,8 +104,8 @@ Future<void> _pumpPage(
               alignment: Alignment.topLeft,
               child: SizedBox(
                 width: width,
-                height: _viewport.height,
-                child: const MainContent(layout: ShellLayout.expanded),
+                height: size.height,
+                child: MainContent(layout: layout),
               ),
             ),
           ),
@@ -101,7 +113,33 @@ Future<void> _pumpPage(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+}
+
+class _PendingCategoriesApi extends FakeDiscourseApi {
+  _PendingCategoriesApi() : super(feeds: const {'/latest.json': []});
+
+  Completer<CategoryLoadResult> categoriesGate =
+      Completer<CategoryLoadResult>();
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) => page == 1
+      ? categoriesGate.future
+      : super.loadCategories(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          page: page,
+        );
 }
 
 Finder _row(int categoryId) => find.byKey(ValueKey('category-row-$categoryId'));
@@ -117,6 +155,150 @@ Future<void> _selectScope(WidgetTester tester, String label) async {
 }
 
 void main() {
+  group('loading', () {
+    for (final (size, platform, layout) in [
+      (const Size(390, 844), TargetPlatform.iOS, ShellLayout.compact),
+      (const Size(1440, 1200), TargetPlatform.macOS, ShellLayout.expanded),
+    ]) {
+      testWidgets('category skeleton fills the page at $size on $platform', (
+        tester,
+      ) async {
+        final previousPlatform = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = platform;
+        final semantics = tester.ensureSemantics();
+        try {
+          final api = _PendingCategoriesApi();
+          final controller = await _loadCategories(
+            api,
+            waitForCategories: false,
+          );
+          await controller.appSettings.setLimitContentSize(true);
+
+          await _pumpPage(
+            tester,
+            controller,
+            size: size,
+            width: size.width,
+            layout: layout,
+            settle: false,
+          );
+
+          expect(
+            controller.categoryFeedFor(controller.currentInstance!.url).loading,
+            isTrue,
+          );
+          expectSkeletonFillsViewport(
+            tester,
+            label: 'Loading categories',
+            bottom: size.height - 24,
+          );
+          expect(find.bySemanticsLabel('Loading categories'), findsOneWidget);
+          final region = tester.getRect(find.byType(DSkeletonRegion));
+          if (platform == TargetPlatform.macOS) {
+            expect(
+              region.width,
+              lessThanOrEqualTo(ContentReadingLane.maxWidth),
+            );
+            expect(region.center.dx, closeTo(size.width / 2, 1));
+          }
+
+          api.categoriesGate.complete(
+            CategoryLoadResult(const [
+              TopicCategory(id: 30, name: 'Support', color: '0088CC'),
+            ]),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DSkeletonRegion), findsNothing);
+          expect(_row(30), findsOneWidget);
+
+          api.categoriesGate = Completer<CategoryLoadResult>();
+          final refresh = controller.loadCategories(
+            controller.currentInstance!.url,
+            force: true,
+          );
+          await tester.pump();
+          expect(find.byType(DSkeletonRegion), findsNothing);
+          expect(_row(30), findsOneWidget);
+
+          api.categoriesGate.complete(
+            CategoryLoadResult(const [
+              TopicCategory(id: 30, name: 'Support', color: '0088CC'),
+            ]),
+          );
+          await refresh;
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        } finally {
+          semantics.dispose();
+          debugDefaultTargetPlatformOverride = previousPlatform;
+        }
+      });
+    }
+
+    testWidgets(
+      'category skeleton becomes the empty state and returns on refresh',
+      (tester) async {
+        final api = _PendingCategoriesApi();
+        final controller = await _loadCategories(api, waitForCategories: false);
+        await _pumpPage(tester, controller, settle: false);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+
+        api.categoriesGate.complete(CategoryLoadResult(const []));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(find.text('No categories yet'), findsOneWidget);
+
+        api.categoriesGate = Completer<CategoryLoadResult>();
+        final refresh = controller.loadCategories(
+          controller.currentInstance!.url,
+          force: true,
+        );
+        await tester.pump();
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.text('No categories yet'), findsNothing);
+
+        api.categoriesGate.complete(CategoryLoadResult(const []));
+        await refresh;
+        await tester.pumpAndSettle();
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(find.text('No categories yet'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'category skeleton becomes the error state and returns on retry',
+      (tester) async {
+        final api = _PendingCategoriesApi();
+        final controller = await _loadCategories(api, waitForCategories: false);
+        await _pumpPage(tester, controller, settle: false);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+
+        api.categoriesGate.completeError(StateError('Offline'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(find.text('Try again'), findsOneWidget);
+
+        api.categoriesGate = Completer<CategoryLoadResult>();
+        await tester.tap(find.text('Try again'));
+        await tester.pump();
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.text('Try again'), findsNothing);
+
+        api.categoriesGate.complete(
+          CategoryLoadResult(const [
+            TopicCategory(id: 30, name: 'Support', color: '0088CC'),
+          ]),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(_row(30), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   group('category directory', () {
     testWidgets(
       'shows full-width activity rows in server order and keeps private and muted categories',
