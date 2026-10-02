@@ -153,9 +153,16 @@ void main() {
       'disconnect rollback',
       'cancelled reconnect',
     ]) {
-      for (final middle in [false, true]) {
+      for (final activation in [
+        'click',
+        'middle-click',
+        'held-click',
+        'held-middle-click',
+      ]) {
+        final middle = activation.contains('middle');
+        final held = activation.startsWith('held');
         testWidgets(
-          'Native $section ${middle ? 'middle-click' : 'click'} row keeps its rendered account after $transition',
+          'Native $section $activation row keeps its rendered account after $transition',
           (tester) async {
             final sent = <http.Request>[];
             final client = MockClient((request) async {
@@ -187,8 +194,18 @@ void main() {
             final row = find.byKey(const ValueKey('notification-row-31'));
             expect(tester.widget(row), isA<DItem>());
             final source = tester.element(row);
+            final sourceState = tester.state(row);
             final shell = ShellScope.read(tester.element(menu));
             final lease = shell.lifecycle.capture(_site);
+            TestGesture? gesture;
+            if (held) {
+              gesture = await tester.startGesture(
+                tester.getCenter(row),
+                kind: PointerDeviceKind.mouse,
+                buttons: middle ? kMiddleMouseButton : kPrimaryMouseButton,
+              );
+              await tester.pump();
+            }
             if (transition == 'disconnect rollback') {
               instances.rejectSignedOut = true;
               expect(await shell.disconnectInstance(_site), isFalse);
@@ -210,14 +227,31 @@ void main() {
             );
             expect(tester.element(row), same(source));
             expect(_read(shell, section), isFalse);
+            if (held) {
+              await tester.pumpAndSettle();
+              if (retired) {
+                expect(sourceState.mounted, isFalse);
+                expect(tester.state(row), isNot(same(sourceState)));
+              } else {
+                expect(tester.state(row), same(sourceState));
+              }
+            }
             final destination = shell.currentContent;
             final tabId = shell.activeTabId;
             final tabCount = shell.tabsForCurrentForum.length;
-            Future<void> activate() => tester.tap(
-              row,
-              kind: PointerDeviceKind.mouse,
-              buttons: middle ? kMiddleMouseButton : kPrimaryMouseButton,
-            );
+            Future<void> activate() async {
+              if (gesture case final heldGesture?) {
+                gesture = null;
+                await heldGesture.up();
+              } else {
+                await tester.tap(
+                  row,
+                  kind: PointerDeviceKind.mouse,
+                  buttons: middle ? kMiddleMouseButton : kPrimaryMouseButton,
+                );
+              }
+            }
+
             await activate();
             await tester.pumpAndSettle();
             if (retired) {

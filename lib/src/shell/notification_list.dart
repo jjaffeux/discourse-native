@@ -695,12 +695,17 @@ class NotificationRow extends StatelessWidget {
       child: row,
     );
     final path = linkPath;
-    return path == null
-        ? interactive
-        : LinkTarget(
-            url: resolveSiteRootPath(siteUrl, path),
-            siteUrl: siteUrl,
-            child: interactive,
-          );
+    // Retire pending gestures with the account instead of letting them
+    // adopt a repainted callback when the pointer is released.
+    return KeyedSubtree(
+      key: ValueKey((controller, siteUrl, lease?.session, notification.id)),
+      child: path == null
+          ? interactive
+          : LinkTarget(
+              url: resolveSiteRootPath(siteUrl, path),
+              siteUrl: siteUrl,
+              child: interactive,
+            ),
+    );
   }
 }
