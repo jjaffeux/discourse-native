@@ -15,6 +15,111 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final (staff, admin, automatic, smtpEnabled) in [
+    (false, false, false, true),
+    (true, false, false, true),
+    (true, true, true, true),
+    (true, true, false, false),
+  ]) {
+    testWidgets('SMTP settings unavailable staff=$staff admin=$admin '
+        'automatic=$automatic siteSMTP=$smtpEnabled', (tester) async {
+      final server = _GroupServer(
+        staff: staff,
+        admin: admin,
+        automatic: automatic,
+        smtpEnabled: smtpEnabled,
+        subsection: GroupRoute.email,
+      );
+      addTearDown(server.transport.close);
+      await server.pump(tester);
+      expect(find.text('Email'), findsNothing);
+      expect(_field('smtp_server'), findsNothing);
+      expect(find.byKey(const ValueKey('save-group-email')), findsNothing);
+      await tester.enterText(_field('bio_raw'), 'Still permitted biography');
+      await tester.pump();
+      await server.save(tester, subsection: GroupRoute.profile);
+      expect(server.writes.single, isNot(contains('smtp_server')));
+      expect(server.writes.single, isNot(contains('email_password')));
+      expect(server.group['smtp_server'], 'smtp.original.example');
+      expect(server.group['bio_raw'], 'Still permitted biography');
+      await server.pump(tester);
+      expect(_field('smtp_server'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('admin custom SMTP settings save and reload', (tester) async {
+    final server = _GroupServer(
+      staff: true,
+      admin: true,
+      automatic: false,
+      smtpEnabled: true,
+      subsection: GroupRoute.email,
+    );
+    addTearDown(server.transport.close);
+    await server.pump(tester);
+    expect(find.text('Email'), findsNWidgets(2));
+    const syntheticPassword = ' synthetic mailbox password ';
+    await tester.enterText(_field('smtp_server'), ' smtp.changed.example ');
+    await tester.enterText(_field('smtp_port'), '465');
+    await tester.enterText(_field('smtp_ssl_mode'), '1');
+    await tester.enterText(_field('email_username'), ' changed-user ');
+    await tester.enterText(_field('email_password'), syntheticPassword);
+    await tester.enterText(_field('email_from_alias'), '');
+    final unknown = find.widgetWithText(
+      DSwitchTile,
+      'Allow replies from unknown senders',
+    );
+    await tester.ensureVisible(unknown);
+    await tester.tap(unknown);
+    await tester.pump();
+    await server.save(tester);
+    expect(
+      server.writes.single,
+      containsPair('smtp_server', 'smtp.changed.example'),
+    );
+    expect(server.writes.single, containsPair('smtp_port', 465));
+    expect(server.writes.single, containsPair('smtp_ssl_mode', 1));
+    expect(
+      server.writes.single,
+      containsPair('email_username', 'changed-user'),
+    );
+    expect(
+      server.writes.single,
+      containsPair('email_password', syntheticPassword),
+    );
+    expect(server.writes.single, containsPair('email_from_alias', ''));
+    expect(
+      server.writes.single,
+      containsPair('allow_unknown_sender_topic_replies', true),
+    );
+    await server.pump(tester);
+    expect(
+      tester.widget<DInput>(_field('smtp_server')).controller!.text,
+      'smtp.changed.example',
+    );
+    expect(tester.widget<DInput>(_field('smtp_port')).controller!.text, '465');
+    expect(
+      tester.widget<DInput>(_field('email_password')).controller!.text,
+      '',
+    );
+    expect(
+      tester.widget<DInput>(_field('email_from_alias')).controller!.text,
+      '',
+    );
+    expect(tester.widget<DSwitchTile>(unknown).value, isTrue);
+    final enabled = find.widgetWithText(DSwitchTile, 'Enable SMTP');
+    await tester.ensureVisible(enabled);
+    await tester.tap(enabled);
+    await tester.pump();
+    await server.save(tester);
+    expect(server.writes.last['smtp_enabled'], 'false');
+    expect(server.writes.last, isNot(contains('email_password')));
+    await server.pump(tester);
+    expect(tester.widget<DSwitchTile>(enabled).value, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (staff, automatic, field) in [
     (false, false, 'name'),
     (false, false, 'title'),
@@ -314,8 +419,10 @@ class _GroupServer {
   _GroupServer({
     required this.staff,
     required this.automatic,
+    bool? admin,
+    this.smtpEnabled = false,
     this.subsection = GroupRoute.profile,
-  }) {
+  }) : admin = admin ?? staff {
     group = {
       'id': 9,
       'name': 'support',
@@ -330,6 +437,13 @@ class _GroupServer {
       'grant_trust_level': 1,
       'publish_read_state': false,
       'incoming_email': 'old@example.com',
+      'smtp_server': 'smtp.original.example',
+      'smtp_port': 587,
+      'smtp_ssl_mode': 2,
+      'smtp_enabled': true,
+      'email_username': 'mailbox-user',
+      'email_from_alias': 'Support',
+      'allow_unknown_sender_topic_replies': false,
       'default_notification_level': 2,
       'automatic': automatic,
       'can_admin_group': true,
@@ -369,9 +483,23 @@ class _GroupServer {
               'publish_read_state',
               'incoming_email',
             ],
+            if (!automatic && this.admin) ...[
+              'smtp_server',
+              'smtp_port',
+              'smtp_ssl_mode',
+              'smtp_enabled',
+              'email_username',
+              'email_password',
+              'email_from_alias',
+              'allow_unknown_sender_topic_replies',
+            ],
           };
           for (final entry in values.entries) {
-            if (permitted.contains(entry.key)) group[entry.key] = entry.value;
+            if (permitted.contains(entry.key)) {
+              group[entry.key] = entry.key == 'smtp_enabled'
+                  ? entry.value == 'true'
+                  : entry.value;
+            }
           }
         } else {
           expect(request.method, 'GET');
@@ -384,7 +512,9 @@ class _GroupServer {
   }
 
   final bool staff;
+  final bool admin;
   final bool automatic;
+  final bool smtpEnabled;
   final String subsection;
   late final DiscourseApi transport;
   late final GroupsApi api;
@@ -420,7 +550,8 @@ class _GroupServer {
               detail: detail,
               loaded: true,
               currentUserStaff: staff,
-              isAdmin: staff,
+              isAdmin: admin,
+              smtpEnabled: smtpEnabled,
             ),
             onOpenMember: (_, _) {},
             onSaveManage: (update) async {
@@ -439,8 +570,10 @@ class _GroupServer {
     await tester.pumpAndSettle();
   }
 
-  Future<void> save(WidgetTester tester) async {
-    final save = find.byKey(ValueKey('save-group-$subsection'));
+  Future<void> save(WidgetTester tester, {String? subsection}) async {
+    final save = find.byKey(
+      ValueKey('save-group-${subsection ?? this.subsection}'),
+    );
     await tester.ensureVisible(save);
     await tester.runAsync(() async {
       await tester.tap(save);

@@ -1035,6 +1035,7 @@ void main() {
           detail: _detail,
           smtpEnabled: true,
           taggingEnabled: true,
+          isAdmin: true,
           loaded: true,
         ),
         onSaveManage: (update) async {

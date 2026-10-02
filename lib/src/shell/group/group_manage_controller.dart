@@ -29,6 +29,7 @@ final class GroupManageController extends ChangeNotifier {
   GroupManageController({
     required this.group,
     this.currentUserStaff = false,
+    this.currentUserAdmin = false,
     this.subsection = GroupRoute.profile,
     this.onSubmit,
     this.errorMapper = _defaultErrorMessage,
@@ -97,6 +98,7 @@ final class GroupManageController extends ChangeNotifier {
 
   final Group group;
   final bool currentUserStaff;
+  final bool currentUserAdmin;
   final String subsection;
   final GroupManageSubmit? onSubmit;
   final GroupManageErrorMapper errorMapper;
@@ -152,6 +154,15 @@ final class GroupManageController extends ChangeNotifier {
     'incoming_email' => !group.automatic && currentUserStaff,
     'visibility_level' || 'members_visibility_level' => currentUserStaff,
     'full_name' => !group.automatic,
+    'smtp_server' ||
+    'smtp_port' ||
+    'smtp_ssl_mode' ||
+    'smtp_enabled' ||
+    'email_username' ||
+    'email_password' ||
+    'email_from_alias' ||
+    'allow_unknown_sender_topic_replies' =>
+      !group.automatic && currentUserAdmin,
     _ => true,
   };
 
@@ -299,6 +310,7 @@ final class GroupManageController extends ChangeNotifier {
           if (canEditField('incoming_email'))
             'incoming_email': _value('incoming_email'),
         },
+        GroupRoute.email when !canEditField('smtp_enabled') => const {},
         GroupRoute.email => {
           // The controller clears the SMTP settings only for
           // `smtp_enabled == "false"`, and the group re-enables SMTP while

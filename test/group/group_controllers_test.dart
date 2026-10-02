@@ -523,6 +523,7 @@ void main() {
         final controller = GroupManageController(
           group: const Group(id: 9, name: 'support'),
           subsection: GroupRoute.email,
+          currentUserAdmin: true,
           onSubmit: (update) async {
             submitted = update.values;
             return true;
@@ -547,6 +548,7 @@ void main() {
       final controller = GroupManageController(
         group: const Group(id: 9, name: 'support'),
         subsection: GroupRoute.email,
+        currentUserAdmin: true,
       );
       addTearDown(controller.dispose);
       expect(
@@ -678,6 +680,7 @@ void main() {
           emailUsername: 'support@example.com',
         ),
         subsection: GroupRoute.email,
+        currentUserAdmin: true,
       );
       addTearDown(controller.dispose);
 
@@ -692,6 +695,51 @@ void main() {
       expect(controller.snapshot.dirty, isTrue);
       expect(disabled.values['smtp_enabled'], 'false');
     });
+
+    for (final (staff, admin, automatic) in [
+      (false, false, false),
+      (true, false, false),
+      (true, true, true),
+    ]) {
+      test('SMTP ignores forbidden edits staff=$staff admin=$admin '
+          'automatic=$automatic', () async {
+        Map<String, Object?>? submitted;
+        final controller = GroupManageController(
+          group: Group(id: 9, name: 'support', automatic: automatic),
+          subsection: GroupRoute.email,
+          currentUserStaff: staff,
+          currentUserAdmin: admin,
+          onSubmit: (update) async {
+            submitted = update.values;
+            return true;
+          },
+        );
+        addTearDown(controller.dispose);
+        for (final key in [
+          'smtp_server',
+          'smtp_port',
+          'smtp_ssl_mode',
+          'email_username',
+          'email_password',
+          'email_from_alias',
+        ]) {
+          expect(controller.canEditField(key), isFalse);
+          controller.textController(key).text = 'changed';
+        }
+        expect(controller.canEditField('smtp_enabled'), isFalse);
+        expect(
+          controller.canEditField('allow_unknown_sender_topic_replies'),
+          isFalse,
+        );
+        controller.setSmtpEnabled(true);
+        controller.setAllowUnknownSenderReplies(true);
+        expect(controller.snapshot.dirty, isFalse);
+        expect(controller.snapshot.canSubmit, isFalse);
+        expect(controller.buildUpdate().values, isEmpty);
+        expect(await controller.submit(), isTrue);
+        expect(submitted, isEmpty);
+      });
+    }
 
     test('validation rejects an empty group name before submission', () async {
       var submissions = 0;
