@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +15,71 @@ import 'support/topic_scroll_fixture.dart';
 
 void main() {
   for (final inbox in [false, true]) {
+    testWidgets('short topics keep the header visible (inbox: $inbox)', (
+      tester,
+    ) async {
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([instance('scroll.example')]),
+        api: FakeDiscourseApi(
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'Short discussion',
+              posts: [
+                Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'reader',
+                  cooked: List.filled(
+                    12,
+                    '<p>A paragraph in a short topic.</p>',
+                  ).join(),
+                ),
+              ],
+            ),
+          },
+        ),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'short',
+          title: 'Short discussion',
+        ),
+      );
+      await controller.loadTopic(7, 'short');
+      await tester.pumpWidget(
+        TopicScrollFixture(controller: controller, inbox: inbox),
+      );
+      await tester.pumpAndSettle();
+      final viewport = topicPostListFinder();
+      final position = topicPostList(tester).controller!.position;
+      final header = DPageSurface.headerGeometryOf(tester.element(viewport))!;
+      final range = position.maxScrollExtent - position.minScrollExtent;
+      expect(range, greaterThan(100));
+      expect(range, lessThan(position.viewportDimension));
+      for (final delta in [80.0, 80.0, -80.0]) {
+        final before = position.pixels;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: topicReadingViewportRect(tester).center,
+            scrollDelta: Offset(0, delta),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(position.pixels, isNot(before));
+        expect(header.visibleExtent, header.naturalExtent);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.all());
+
     for (final revealing in [false, true]) {
       testWidgets(
         'paging during header motion retains the physical post anchor '

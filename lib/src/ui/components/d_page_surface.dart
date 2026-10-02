@@ -72,7 +72,8 @@ class DPageSurface extends StatefulWidget {
   final bool scrollBody;
 
   /// Animate after a small vertical movement, requiring speed to retract, or
-  /// reveal completely when scrolling reaches the top.
+  /// reveal completely when scrolling reaches the top. Content shorter than
+  /// twice the viewport height keeps the header visible.
   final bool hideHeaderOnScroll;
 
   /// Whether reaching the physical bottom also reveals the retracting header.
@@ -221,13 +222,13 @@ class _DPageSurfaceState extends State<DPageSurface>
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  bool _isPageScroll(ScrollNotification notification) {
-    if (notification.depth == 0) return true;
+  bool _isPageScroll(int depth, BuildContext? context) {
+    if (depth == 0) return true;
     // A table may put its main vertical list inside a horizontal viewport.
     // Ignore that horizontal boundary, but never react to an embedded vertical
     // scroller (for example a code block inside a post).
     var nestedVertical = false;
-    notification.context?.visitAncestorElements((element) {
+    context?.visitAncestorElements((element) {
       if (identical(element.widget, widget)) return false;
       final axis = switch (element.widget) {
         Viewport(:final axisDirection) => axisDirectionToAxis(axisDirection),
@@ -245,9 +246,43 @@ class _DPageSurfaceState extends State<DPageSurface>
     return !nestedVertical;
   }
 
+  bool _keepHeaderVisibleForShortContent(ScrollMetrics metrics) {
+    var viewport = metrics.viewportDimension;
+    if (!widget.scrollBody && widget.bodyBuilder == null) {
+      final header =
+          _headerKey.currentContext?.findRenderObject()
+              as _RenderScrollHeaderExtent?;
+      // Column pages grow their viewport as the header retracts. Compare with
+      // its fully shown size so the animation cannot cross its own cutoff.
+      if (header != null) {
+        viewport -= header.naturalHeight - header.size.height;
+      }
+    }
+    final contentHeight =
+        metrics.maxScrollExtent -
+        metrics.minScrollExtent +
+        metrics.viewportDimension;
+    if (viewport > 0 && contentHeight >= 2 * viewport) return false;
+    _headerHeldAtEnd = false;
+    _directionDistance = 0;
+    _lastScrollTime = null;
+    _animateHeader(hidden: false);
+    return true;
+  }
+
+  bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (widget.header != null &&
+        widget.hideHeaderOnScroll &&
+        notification.metrics.axis == Axis.vertical &&
+        _isPageScroll(notification.depth, notification.context)) {
+      _keepHeaderVisibleForShortContent(notification.metrics);
+    }
+    return false;
+  }
+
   bool _onScroll(ScrollNotification notification) {
     if (widget.header == null || !widget.hideHeaderOnScroll) return false;
-    if (!_isPageScroll(notification) ||
+    if (!_isPageScroll(notification.depth, notification.context) ||
         notification.metrics.axis != Axis.vertical) {
       return false;
     }
@@ -270,6 +305,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         _directionDistance = 0;
       }
     }
+    if (_keepHeaderVisibleForShortContent(notification.metrics)) return false;
     if (notification is ScrollUpdateNotification && _userScrolling) {
       final metrics = notification.metrics;
       final reversed = metrics.axisDirection == AxisDirection.up;
@@ -404,43 +440,47 @@ class _DPageSurfaceState extends State<DPageSurface>
     Widget scrollableBody() => _builtBody ??= Builder(
       builder: (context) => widget.bodyBuilder!(context, _headerGeometry),
     );
-    final body = NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
-      child: Listener(
-        onPointerDown: (event) => _gestureStartTime = event.timeStamp,
-        onPointerPanZoomStart: (event) => _gestureStartTime = event.timeStamp,
-        onPointerSignal: (event) {
-          if (event is PointerScrollEvent) {
-            _pointerScrollTime = event.timeStamp == Duration.zero
-                ? null
-                : event.timeStamp;
-          }
-        },
-        child: floating
-            ? DScrollFadeScope(
-                topInset: _headerGeometry._readVisibleExtent,
-                repaint: _headerGeometry,
-                child: ScrollConfiguration(
-                  behavior: DScrollBehavior(
-                    delegate: ScrollConfiguration.of(context),
-                  ),
-                  child: widget.bodyBuilder != null
-                      ? scrollableBody()
-                      : SingleChildScrollView(
-                          // A page owns this viewport. Sharing the shell's primary
-                          // controller with another page disables its edge fade.
-                          primary: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (widget.header != null) _headerGeometry.spacer,
-                              widget.child!,
-                            ],
+    final body = NotificationListener<ScrollMetricsNotification>(
+      onNotification: _onScrollMetrics,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: Listener(
+          onPointerDown: (event) => _gestureStartTime = event.timeStamp,
+          onPointerPanZoomStart: (event) => _gestureStartTime = event.timeStamp,
+          onPointerSignal: (event) {
+            if (event is PointerScrollEvent) {
+              _pointerScrollTime = event.timeStamp == Duration.zero
+                  ? null
+                  : event.timeStamp;
+            }
+          },
+          child: floating
+              ? DScrollFadeScope(
+                  topInset: _headerGeometry._readVisibleExtent,
+                  repaint: _headerGeometry,
+                  child: ScrollConfiguration(
+                    behavior: DScrollBehavior(
+                      delegate: ScrollConfiguration.of(context),
+                    ),
+                    child: widget.bodyBuilder != null
+                        ? scrollableBody()
+                        : SingleChildScrollView(
+                            // A page owns this viewport. Sharing the shell's primary
+                            // controller with another page disables its edge fade.
+                            primary: false,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (widget.header != null)
+                                  _headerGeometry.spacer,
+                                widget.child!,
+                              ],
+                            ),
                           ),
-                        ),
-                ),
-              )
-            : widget.child!,
+                  ),
+                )
+              : widget.child!,
+        ),
       ),
     );
     final page = Column(

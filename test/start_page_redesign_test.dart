@@ -553,7 +553,7 @@ void main() {
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-      _test('Start scroll header keeps mockup spacing in $mode on $platform', (
+      _test('short Start keeps header spacing in $mode on $platform', (
         tester,
       ) async {
         final shell = await _start(tester, const Size(390, 600));
@@ -599,17 +599,16 @@ void main() {
         final initialContentTop = tester.getTopLeft(content).dy;
         final extent = position().maxScrollExtent;
         expect(extent, greaterThan(120));
+        expect(extent, lessThan(position().viewportDimension));
 
         await scrollBy(100);
         await _capture(tester, 'scroll-${platform.name}-${mode.name}');
-        expect(
-          tester.getRect(filter).top - tester.getRect(scroll).top,
-          closeTo(16, .01),
-        );
+        expect(tester.getRect(heading), initialHeading);
+        expect(tester.getRect(filter), initialFilter);
         expect(
           tester.getTopLeft(content).dy,
           closeTo(initialContentTop - position().pixels, .01),
-          reason: 'Retracting the title must not shift the content anchor',
+          reason: 'Scrolling must retain the content anchor',
         );
         // The phone dock can release more viewport space while scrolling.
         expect(position().maxScrollExtent, lessThanOrEqualTo(extent));

@@ -10,6 +10,7 @@ final pageSurfaceExamples = ComponentExamples(
       'DPageSurface owns the Card border and clipping, persistent tabs and footer, '
       'and the retracting header. A few pixels animate the header down or up; '
       'hiding requires scroll speed, so slow reads keep the controls visible. '
+      'Pages shorter than twice the viewport keep the header visible. '
       'This also works in reversed chat lists. Reaching the top reveals it. '
       'revealHeaderAtEnd also reveals it at the physical bottom and keeps it '
       'visible through viewport changes until scrolling back up. '
