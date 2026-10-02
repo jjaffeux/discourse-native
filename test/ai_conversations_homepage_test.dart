@@ -60,6 +60,94 @@ Map<String, dynamic> _page({
 };
 
 void main() {
+  for (final disconnect in [false, true]) {
+    testWidgets(
+      'the production AI route reloads after a failed '
+      '${disconnect ? 'disconnect' : 'reconnect'} restores the same account',
+      (tester) async {
+        final store = _FailingAccountStore();
+        final api = _HeldConversationsApi();
+        final setup = await _shell(store: store, conversationApi: api);
+        addTearDown(setup.shell.dispose);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: setup.shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: const Scaffold(
+                body: MainContent(layout: ShellLayout.expanded),
+              ),
+            ),
+          ),
+        );
+        await _pumpProduction(tester);
+        expect(find.byType(AiConversationsPage), findsOneWidget);
+        final state = tester.state(find.byType(AiConversationsPage));
+        final lease = setup.shell.lifecycle.capture(_site);
+        expect(api.conversationReads, 1);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+
+        store.failSignedOut = true;
+        if (disconnect) {
+          expect(
+            await tester.runAsync(() => setup.shell.disconnectInstance(_site)),
+            isFalse,
+          );
+        } else {
+          await tester.runAsync(setup.shell.connectCurrentInstance);
+        }
+        expect(setup.shell.currentInstance?.user?.id, _user.id);
+        expect(setup.shell.currentContent?.id, 'ai-conversations');
+        expect(lease.isCurrent, isFalse);
+        await _pumpProduction(tester);
+        expect(tester.state(find.byType(AiConversationsPage)), same(state));
+
+        api.first.complete(_page(ids: [42]));
+        await _pumpProduction(tester);
+        expect(api.conversationReads, 2);
+        expect(find.text('Conversation 42'), findsNothing);
+        expect(find.text('Conversation 99'), findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('the production AI route keeps its rows for count-only updates', (
+    tester,
+  ) async {
+    final setup = await _shell();
+    addTearDown(setup.shell.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: setup.shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MainContent(layout: ShellLayout.expanded)),
+        ),
+      ),
+    );
+    await _pumpProduction(tester);
+    final state = tester.state(find.byType(AiConversationsPage));
+    final lease = setup.shell.lifecycle.capture(_site);
+    FakeSiteTracker.built.last.deliverNotification(const {
+      'all_unread_notifications_count': 4,
+    });
+    await _pumpProduction(tester);
+    expect(tester.state(find.byType(AiConversationsPage)), same(state));
+    expect(lease.isCurrent, isTrue);
+    expect(
+      setup.shell.currentInstance!.notificationTotals!.unreadNotifications,
+      4,
+    );
+    expect(find.text('Conversation 43'), findsOneWidget);
+    expect(
+      setup.api.pluginReadPaths.where((path) => path == _path),
+      hasLength(1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test(
     'uses the registered key for eligible connected users and round trips',
     () {
@@ -555,6 +643,8 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
   Completer<void>? configGate,
   bool mobile = false,
   bool voice = false,
+  FakeInstanceStore? store,
+  FakeDiscourseApi? conversationApi,
 }) async {
   final plugins = PluginInstaller.install(
     PluginManifest([
@@ -569,33 +659,35 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
     config: configGate == null ? _config : const SiteConfig.unknown(),
   );
   final authenticator = FakeAuthenticator()..keys[_site] = 'api-key';
-  final api = FakeDiscourseApi(
-    user: _user,
-    siteConfigs: {_site: _config},
-    siteConfigGate: configGate,
-    pluginResponses: {'GET $_path': _page()},
-    feeds: {'/latest.json': [], '/top.json?period=yearly': []},
-    topics: {
-      42: (
-        detail: const TopicDetail(
-          id: 42,
-          title: 'Conversation 42',
-          stream: [420],
-          privateMessage: true,
-        ),
-        posts: [
-          const Post(
-            id: 420,
-            postNumber: 1,
-            username: 'bot',
-            cooked: '<p>A useful answer.</p>',
+  final api =
+      conversationApi ??
+      FakeDiscourseApi(
+        user: _user,
+        siteConfigs: {_site: _config},
+        siteConfigGate: configGate,
+        pluginResponses: {'GET $_path': _page()},
+        feeds: {'/latest.json': [], '/top.json?period=yearly': []},
+        topics: {
+          42: (
+            detail: const TopicDetail(
+              id: 42,
+              title: 'Conversation 42',
+              stream: [420],
+              privateMessage: true,
+            ),
+            posts: [
+              const Post(
+                id: 420,
+                postNumber: 1,
+                username: 'bot',
+                cooked: '<p>A useful answer.</p>',
+              ),
+            ],
           ),
-        ],
-      ),
-    },
-  );
+        },
+      );
   final shell = ShellController(
-    instanceStore: FakeInstanceStore([site]),
+    instanceStore: store ?? FakeInstanceStore([site]),
     api: api,
     authenticator: authenticator,
     plugins: plugins,
@@ -610,4 +702,59 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
   );
   await shell.load();
   return (shell: shell, api: api);
+}
+
+Future<void> _pumpProduction(WidgetTester tester) async {
+  // The intentionally held initial request leaves an animated skeleton visible.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.pump(const Duration(milliseconds: 200));
+}
+
+class _FailingAccountStore extends FakeInstanceStore {
+  _FailingAccountStore()
+    : super([instance('example.com').copyWith(user: _user, config: _config)]);
+
+  bool failSignedOut = false;
+
+  @override
+  Future<void> save(List<DiscourseInstance> instances) {
+    if (failSignedOut && instances.any((site) => site.user == null)) {
+      return Future.error(StateError('Account snapshot storage unavailable'));
+    }
+    return super.save(instances);
+  }
+}
+
+class _HeldConversationsApi extends FakeDiscourseApi {
+  _HeldConversationsApi()
+    : super(
+        user: _user,
+        siteConfigs: {_site: _config},
+        feeds: {'/latest.json': [], '/top.json?period=yearly': []},
+      );
+
+  final first = Completer<Map<String, dynamic>>();
+  int conversationReads = 0;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) {
+    if (path == _path) {
+      pluginReadPaths.add(path);
+      return ++conversationReads == 1
+          ? first.future
+          : Future.value(_page(ids: [99]));
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 }
