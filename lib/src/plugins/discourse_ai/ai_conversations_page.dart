@@ -28,15 +28,35 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
   bool _retryMore = false;
   int _page = -1;
   Object? _request;
+  late PluginSiteLease _account;
 
   @override
   void initState() {
     super.initState();
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(AiConversationsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        !identical(oldWidget.service, widget.service) ||
+        !_account.isCurrent) {
+      _bind();
+    }
+  }
+
+  void _bind() {
+    _account = widget.service.requests.capture(widget.siteUrl);
+    _conversations = [];
+    _page = -1;
+    _hasMore = false;
     unawaited(_load());
   }
 
   Future<void> _load({bool more = false}) async {
     final request = Object();
+    final account = _account;
     _request = request;
     setState(() {
       _loading = true;
@@ -49,7 +69,12 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
         widget.siteUrl,
         page: more ? _page + 1 : 0,
       );
-      if (!mounted || _request != request || result == null) return;
+      if (!mounted ||
+          _request != request ||
+          !account.isCurrent ||
+          result == null) {
+        return;
+      }
       setState(() {
         final rows = more
             ? [..._conversations, ...result.conversations]
@@ -61,7 +86,7 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
         _loading = false;
       });
     } catch (error) {
-      if (!mounted || _request != request) return;
+      if (!mounted || _request != request || !account.isCurrent) return;
       setState(() {
         _loading = false;
         _error = true;
