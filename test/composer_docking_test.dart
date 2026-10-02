@@ -61,6 +61,10 @@ void main() {
     ]) {
       harness.presentation.dock(placement);
       await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('composer-header'))).height,
+        placement.isSide ? 56 : 44,
+      );
       expect(hasCorner(readerCard()), placement == ComposerPlacement.left);
       expect(hasCorner(composerCard()), placement != ComposerPlacement.left);
     }

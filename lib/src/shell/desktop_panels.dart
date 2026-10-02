@@ -362,6 +362,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                         ? context.l10n.minimizePanel
                         : context.l10n.openATabInTheOtherPanelFirst,
                     variant: DButtonVariant.transparentBackground,
+                    size: DButtonSize.tabAction,
                     onPressed: minimizable ? () => _minimize(target) : null,
                   ),
           );

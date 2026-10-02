@@ -423,13 +423,9 @@ class ComposerHeader extends StatelessWidget {
         !minimized && !context.isTouch && placement != ComposerPlacement.bottom;
     return SizedBox(
       key: const ValueKey('composer-header'),
-      height: alignWithTabs
-          ? workspaceTabStripHeightFor(context) + workspaceTabsPadding.vertical
-          : height,
+      height: alignWithTabs ? workspaceTabStripHeightFor(context) : height,
       child: Padding(
-        padding: alignWithTabs
-            ? workspaceTabsPadding
-            : const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: LayoutBuilder(
           builder: (context, headerConstraints) => Row(
             children: [

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -961,6 +962,61 @@ void main() {
             findsNWidgets(panelCount),
           );
           expect(_bar(tester).items.single.title, 'Latest');
+          for (final header in find.byType(TopicPanelTabs).evaluate()) {
+            final headerFinder = find.byWidget(header.widget);
+            final headerRect = tester.getRect(headerFinder);
+            final bar = find.descendant(
+              of: headerFinder,
+              matching: find.byType(ForumTabsBar),
+            );
+            final barRect = tester.getRect(bar);
+            final switcher = tester.getRect(
+              find.descendant(
+                of: bar,
+                matching: find.byKey(const ValueKey('forum-tabs-switcher')),
+              ),
+            );
+            final tab = tester.getRect(
+              find.descendant(of: bar, matching: find.byType(DDocumentTab)),
+            );
+
+            // The mockup's 56px header owns all of its spacing. No outer
+            // padding may shift its controls away from the panel edges.
+            expect(headerRect.height, 56);
+            expect(barRect.topLeft, headerRect.topLeft);
+            expect(switcher.left - headerRect.left, 10);
+            expect(tab.left - headerRect.left, 48);
+            expect(switcher.center.dy, headerRect.center.dy);
+            expect(tab.center.dy, headerRect.center.dy);
+            if (size != _compact) {
+              final target = (header.widget as TopicPanelTabs).panel!;
+              final panelRect = tester.getRect(
+                find.byKey(ValueKey('desktop-panel-${target.name}')),
+              );
+              expect(headerRect.topLeft, panelRect.topLeft);
+              final minimize = tester.getRect(
+                find.byKey(ValueKey('minimize-panel-${target.name}')),
+              );
+              expect(minimize.size, const Size.square(30));
+              expect(panelRect.right - minimize.right, 10);
+              expect(minimize.center.dy, headerRect.center.dy);
+            }
+          }
+          if (size == _expanded) {
+            final controller = ShellScope.read(
+              tester.element(find.byType(MainContent).first),
+            );
+            controller.moveTabToPanel(
+              controller.selectedTabIn(ForumPanel.secondary)!.id,
+              ForumPanel.main,
+            );
+            await tester.pumpAndSettle();
+            final emptyHeader = find.descendant(
+              of: find.byKey(const ValueKey('desktop-panel-secondary')),
+              matching: find.byType(TopicPanelTabs),
+            );
+            expect(tester.getSize(emptyHeader).height, 56);
+          }
         }
       }),
     );
