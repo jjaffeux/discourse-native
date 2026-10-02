@@ -40,6 +40,46 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('a malformed participant avatar keeps the roster usable', (
+    tester,
+  ) async {
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    ports
+            .transport
+            .responders['GET /discourse-post-event/events/42/invitees.json?filter'] =
+        (_) => {
+          'invitees': [
+            {
+              ...watching(),
+              'user': {
+                'id': 2,
+                'username': 'lee',
+                'avatar_template': 'https://[broken',
+              },
+            },
+            {
+              'id': 84,
+              'status': 'going',
+              'user': {'id': 3, 'username': 'mia'},
+            },
+          ],
+        };
+    await pump(tester, (context) => showEventParticipants(context, handle));
+    expect(tester.takeException(), isNull);
+    expect(find.text('@lee'), findsOneWidget);
+    expect(find.text('@mia'), findsOneWidget);
+    expect(find.text('L'), findsOneWidget);
+    expect(find.text('M'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('@lee'), findsNothing);
+  });
+
   testWidgets(
     'participant sheet clears a private roster and ignores a pending search when access changes',
     (tester) async {
