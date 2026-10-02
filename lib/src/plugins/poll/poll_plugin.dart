@@ -496,13 +496,19 @@ class _PostPollCard extends StatelessWidget {
 
   Widget _buildCard(BuildContext context, PollController? controller) {
     final topic = this.topic;
+    final session = controller?.captureSiteSession(siteUrl);
     final freshUser = controller?.freshCurrentUserFor(siteUrl);
     final postUrl = topic == null
         ? null
         : '$siteUrl/t/${_slug(topic.slug)}/${topic.id}/${post.postNumber}';
 
     Future<void> vote(Poll target, List<String> options) async {
-      if (controller == null || topic == null) return;
+      if (controller == null ||
+          topic == null ||
+          !context.mounted ||
+          !session!.isCurrent) {
+        return;
+      }
       final result = await controller.castVote(
         siteUrl: siteUrl,
         topicId: topic.id,
@@ -518,7 +524,12 @@ class _PostPollCard extends StatelessWidget {
     }
 
     Future<void> remove(Poll target) async {
-      if (controller == null || topic == null) return;
+      if (controller == null ||
+          topic == null ||
+          !context.mounted ||
+          !session!.isCurrent) {
+        return;
+      }
       final result = await controller.removeVote(
         siteUrl: siteUrl,
         topicId: topic.id,
@@ -542,7 +553,7 @@ class _PostPollCard extends StatelessWidget {
       onVote: controller == null || topic == null ? null : vote,
       onRemoveVote: controller == null || topic == null ? null : remove,
       onVoteError: (error) {
-        if (!context.mounted) return;
+        if (!context.mounted || session?.isCurrent != true) return;
         final text = switch (error) {
           _PollVoteReconciled() => null,
           final _PollWriteRefused refusal => refusal.message,

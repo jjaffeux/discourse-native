@@ -57,6 +57,10 @@ class PollController extends FrameSafeNotifier
 
   bool isConnected(String siteUrl) => _accounts.isConnected(siteUrl);
 
+  /// Binds a displayed ballot's actions to the account that rendered it.
+  PluginSiteLease captureSiteSession(String siteUrl) =>
+      _requests.capture(siteUrl);
+
   Future<String?> connect(String siteUrl) => _accounts.connect(siteUrl);
 
   Post? post(String siteUrl, int postId) => _posts.readPost(siteUrl, postId);
