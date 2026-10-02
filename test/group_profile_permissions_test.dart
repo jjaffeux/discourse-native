@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/shell/group_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -158,6 +159,75 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'malformed SMTP port stays local and cannot disable the mailbox',
+    (tester) async {
+      final server = _GroupServer(
+        staff: true,
+        admin: true,
+        automatic: false,
+        smtpEnabled: true,
+        subsection: GroupRoute.email,
+      );
+      addTearDown(server.transport.close);
+      await server.pump(tester, size: const Size(390, 844));
+      expect(server.group['smtp_port'], 587);
+      expect(server.group['smtp_enabled'], isTrue);
+      final field = _field('smtp_port');
+      await tester.ensureVisible(field);
+      await tester.enterText(field, '587x');
+      await tester.pumpAndSettle();
+      final save = find.byKey(const ValueKey('save-group-email'));
+      await tester.ensureVisible(save);
+      await tester.runAsync(() async {
+        await tester.tap(save);
+        await pumpEventQueue();
+      });
+      await tester.pumpAndSettle();
+      expect(server.writes, isEmpty);
+      expect(server.group['smtp_port'], 587);
+      expect(server.group['smtp_enabled'], isTrue);
+      expect(tester.widget<DInput>(field).controller!.text, '587x');
+      expect(
+        tester.widget<DInput>(field).errorText,
+        'Enter a valid whole number.',
+      );
+      await tester.ensureVisible(field);
+      expect(find.text('Enter a valid whole number.'), findsOneWidget);
+
+      await tester.enterText(field, '465');
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a valid whole number.'), findsNothing);
+      await server.save(tester);
+      expect(server.writes.single['smtp_port'], 465);
+      await server.pump(tester, size: const Size(390, 844));
+      expect(tester.widget<DInput>(field).controller!.text, '465');
+      expect(server.group['smtp_enabled'], isTrue);
+
+      // Disable is deliberate: core resets its settings before recomputing the
+      // enabled state, so invalid discarded fields must not block that action.
+      await tester.ensureVisible(field);
+      await tester.enterText(field, '587x');
+      final enabled = find.widgetWithText(DSwitchTile, 'Enable SMTP');
+      await tester.ensureVisible(enabled);
+      await tester.pumpAndSettle();
+      await tester.tap(enabled);
+      await tester.pumpAndSettle();
+      await server.save(tester);
+      expect(server.writes.last['smtp_enabled'], 'false');
+      await server.pump(tester, size: const Size(390, 844));
+      expect(tester.widget<DSwitchTile>(enabled).value, isFalse);
+      expect(tester.widget<DInput>(field).controller!.text, isEmpty);
+      expect(server.group['smtp_port'], isNull);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    }),
+  );
 
   testWidgets('admin custom SMTP settings save and reload', (tester) async {
     final server = _GroupServer(
@@ -615,6 +685,25 @@ class _GroupServer {
                   : entry.value;
             }
           }
+          if (values['smtp_enabled'] == 'false' && !automatic && this.admin) {
+            // GroupsController#reset_group_email_settings_if_disabled! clears
+            // these before update; Group#record_email_setting_changes! then
+            // recomputes enabled from the retained connection fields.
+            for (final key in ['smtp_server', 'smtp_port', 'email_username']) {
+              group[key] = null;
+            }
+            group['smtp_ssl_mode'] = 0;
+            _storedPassword = null;
+          } else if (values.containsKey('email_password') &&
+              !automatic &&
+              this.admin) {
+            _storedPassword = values['email_password'] as String?;
+          }
+          group['smtp_enabled'] =
+              group['smtp_port'] != null &&
+              (group['smtp_server'] as String?)?.isNotEmpty == true &&
+              (group['email_username'] as String?)?.isNotEmpty == true &&
+              _storedPassword?.isNotEmpty == true;
         } else {
           expect(request.method, 'GET');
           expect(request.url.path, '/groups/${group['name']}.json');
@@ -640,8 +729,13 @@ class _GroupServer {
   late final Map<String, dynamic> group;
   final writes = <Map<String, dynamic>>[];
   var generation = 0;
+  String? _storedPassword = 'stored-mailbox-password';
 
-  Future<void> pump(WidgetTester tester, {bool replacePage = true}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool replacePage = true,
+    Size size = const Size(1000, 1300),
+  }) async {
     final detail = await tester.runAsync(
       () => api.detail(
         siteUrl: 'https://forum.example',
@@ -649,12 +743,12 @@ class _GroupServer {
         groupName: group['name'] as String,
       ),
     );
-    tester.view.physicalSize = const Size(1000, 1300);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
         home: Scaffold(
           body: GroupPage(
             key: ValueKey(replacePage ? generation++ : 0),
