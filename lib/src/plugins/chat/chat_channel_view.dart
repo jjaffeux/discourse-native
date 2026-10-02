@@ -2139,67 +2139,79 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
       widget.messageIds,
     );
     final busy = _copying || _deleting || _moving || _quoting;
-    return Material(
+    return DCard(
       key: const ValueKey('chat-message-selection-bar'),
-      color: Theme.of(context).colorScheme.surfaceContainer,
+      spacing: 0,
+      border: false,
+      borderRadius: BorderRadius.zero,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          child: OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            spacing: DSpacing.controlGap,
+            overflowSpacing: DSpacing.controlGap,
             children: [
-              Expanded(
-                child: Text(
-                  context.l10n.selectedChatchannelview(count),
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
+              Text(
+                context.l10n.selectedChatchannelview(count),
+                style: Theme.of(context).textTheme.labelLarge,
               ),
-              DButton.iconOnly(
-                key: const ValueKey('chat-quote-selection'),
-                onPressed: count == 0 || busy ? null : _quote,
-                variant: DButtonVariant.ghost,
-                tooltip: context.l10n.quoteSelectedMessages,
-                loading: _quoting,
-                icon: const DIcon(DIcons.quoteLeft),
-              ),
-              DButton(
-                key: const ValueKey('chat-copy-selection'),
-                onPressed: count == 0 || busy ? null : _copy,
-                variant: DButtonVariant.primary,
-                loading: _copying,
-                icon: const DIcon(DIcons.copy),
-                label: Text(context.l10n.copy),
-              ),
-              const SizedBox(width: DSpacing.controlGap),
-              if (offersMove)
-                DButton.iconOnly(
-                  key: const ValueKey('chat-move-selection'),
-                  onPressed: canMove && !busy
-                      ? () => _move(moveDestinations)
-                      : null,
-                  variant: DButtonVariant.ghost,
-                  tooltip: context.l10n.moveSelectedMessagesToAnotherChannel,
-                  loading: _moving,
-                  icon: const DIcon(DIcons.rightFromBracket),
-                ),
-              DButton.iconOnly(
-                key: const ValueKey('chat-delete-selection'),
-                onPressed: canDelete && !busy ? _delete : null,
-                variant: DButtonVariant.ghost,
-                tooltip: count > ChatController.maximumBulkDeleteMessages
-                    ? context.l10n.selectNoMoreThanMessages(
-                        (ChatController.maximumBulkDeleteMessages).toString(),
-                      )
-                    : context.l10n.deleteSelectedMessagesChatchannelview,
-                loading: _deleting,
-                icon: const DIcon(DIcons.trashCan),
-              ),
-              DButton.iconOnly(
-                key: const ValueKey('chat-cancel-selection'),
-                onPressed: busy ? null : widget.onCancel,
-                variant: DButtonVariant.ghost,
-                tooltip: context.l10n.cancelSelection,
-                icon: const DIcon(DIcons.xmark),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: DSpacing.controlGap,
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('chat-quote-selection'),
+                    onPressed: count == 0 || busy ? null : _quote,
+                    variant: DButtonVariant.ghost,
+                    tooltip: context.l10n.quoteSelectedMessages,
+                    loading: _quoting,
+                    icon: const DIcon(DIcons.quoteLeft),
+                  ),
+                  DButton(
+                    key: const ValueKey('chat-copy-selection'),
+                    onPressed: count == 0 || busy ? null : _copy,
+                    variant: DButtonVariant.primary,
+                    loading: _copying,
+                    icon: const DIcon(DIcons.copy),
+                    label: Text(context.l10n.copy),
+                  ),
+                  const SizedBox(width: DSpacing.controlGap),
+                  if (offersMove)
+                    DButton.iconOnly(
+                      key: const ValueKey('chat-move-selection'),
+                      onPressed: canMove && !busy
+                          ? () => _move(moveDestinations)
+                          : null,
+                      variant: DButtonVariant.ghost,
+                      tooltip:
+                          context.l10n.moveSelectedMessagesToAnotherChannel,
+                      loading: _moving,
+                      icon: const DIcon(DIcons.rightFromBracket),
+                    ),
+                  DButton.iconOnly(
+                    key: const ValueKey('chat-delete-selection'),
+                    onPressed: canDelete && !busy ? _delete : null,
+                    variant: DButtonVariant.ghost,
+                    tooltip: count > ChatController.maximumBulkDeleteMessages
+                        ? context.l10n.selectNoMoreThanMessages(
+                            (ChatController.maximumBulkDeleteMessages)
+                                .toString(),
+                          )
+                        : context.l10n.deleteSelectedMessagesChatchannelview,
+                    loading: _deleting,
+                    icon: const DIcon(DIcons.trashCan),
+                  ),
+                  DButton.iconOnly(
+                    key: const ValueKey('chat-cancel-selection'),
+                    onPressed: busy ? null : widget.onCancel,
+                    variant: DButtonVariant.ghost,
+                    tooltip: context.l10n.cancelSelection,
+                    icon: const DIcon(DIcons.xmark),
+                  ),
+                ],
               ),
             ],
           ),

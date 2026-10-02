@@ -992,6 +992,114 @@ void main() {
     expect(find.byKey(const ValueKey('chat-move-selection')), findsNothing);
   });
 
+  for (final width in [320.0, 1000.0]) {
+    testWidgets(
+      'moderator selection actions fit a ${width}px thread at 200% text',
+      (tester) async {
+        final fixture = await _fixture(
+          channels: const [
+            ChatChannel(
+              id: _channelId,
+              title: _channelTitle,
+              kind: ChatChannelKind.category,
+              canModerate: true,
+              membership: ChatMembership(following: true),
+              threadingEnabled: true,
+            ),
+            ChatChannel(
+              id: 10,
+              title: 'Bugs',
+              kind: ChatChannelKind.category,
+              membership: ChatMembership(following: true),
+            ),
+          ],
+          threadPage: (
+            messages: [
+              _threadOriginal,
+              ChatMessage(
+                id: 51,
+                channelId: _channelId,
+                cooked: '<p>A reply inside the thread</p>',
+                author: const ChatMessageAuthor(id: 2, username: 'sam'),
+                createdAt: DateTime.utc(2026, 8, 11, 10),
+                threadId: _threadId,
+              ),
+            ],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        );
+        addTearDown(fixture.shell.dispose);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pumpWorkspace(
+          tester,
+          fixture.shell,
+          width: width,
+          platform: defaultTargetPlatform,
+        );
+        final threadView = find.byType(ChatThreadView);
+        final reply = find.descendant(
+          of: threadView,
+          matching: find.byKey(const ValueKey('chat-message-51')),
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(reply));
+        await tester.pump();
+        final more = find.byKey(const ValueKey('chat-message-more-actions-51'));
+        if (more.evaluate().isNotEmpty) {
+          await tester.tap(more);
+        } else {
+          await tester.longPress(
+            find.text('A reply inside the thread', findRichText: true),
+          );
+        }
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Select'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Select'));
+        await tester.pumpAndSettle();
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const ValueKey('chat-move-selection')), findsNothing);
+        final bar = tester.getRect(
+          find.byKey(const ValueKey('chat-message-selection-bar')),
+        );
+        expect(bar.height, lessThan(220));
+        final selected = tester.getRect(find.text('1 message selected'));
+        final quote = tester.getRect(
+          find.byKey(const ValueKey('chat-quote-selection')),
+        );
+        if (width == 320) {
+          expect(selected.bottom, lessThanOrEqualTo(quote.top));
+        } else {
+          expect(selected.center.dy, closeTo(quote.center.dy, 1));
+        }
+        for (final action in ['quote', 'copy', 'delete', 'cancel']) {
+          final button = find.byKey(ValueKey('chat-$action-selection'));
+          final rect = tester.getRect(button);
+          expect(rect.left, greaterThanOrEqualTo(bar.left));
+          expect(rect.right, lessThanOrEqualTo(bar.right));
+          expect(button.hitTestable(), findsOneWidget);
+        }
+        await tester.tap(find.byKey(const ValueKey('chat-cancel-selection')));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('chat-message-selection-bar')),
+          findsNothing,
+        );
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
+
   testWidgets('Arrow Up edits the last current-user message in a thread', (
     tester,
   ) async {

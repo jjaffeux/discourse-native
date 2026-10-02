@@ -53,6 +53,103 @@ void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
+  for (final width in [320.0, 1000.0]) {
+    testWidgets(
+      'moderator selection actions fit a ${width}px channel at 200% text',
+      (tester) async {
+        const user = DiscourseUser(id: 7, username: 'moderator', staff: true);
+        const source = ChatChannel(
+          id: 9,
+          title: 'Bugs',
+          kind: ChatChannelKind.category,
+          canModerate: true,
+          membership: ChatMembership(following: true),
+        );
+        const destination = ChatChannel(
+          id: 10,
+          title: 'Support',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+        );
+        final api = _ChatApi(
+          user: user,
+          chatChannelsBySite: const {
+            firstSite: ChatChannels(public: [source, destination], direct: []),
+          },
+          openPages: {
+            firstSite: [_messagesPage(1, 2)],
+          },
+        );
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          user: user,
+        );
+        addTearDown(controller.dispose);
+        await controller.chat.loadChannels(firstSite);
+        expect(controller.openChatChannel(9), isTrue);
+        await tester.binding.setSurfaceSize(Size(width, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpWidget(
+          _TestView(
+            controller: controller,
+            theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (defaultTargetPlatform == TargetPlatform.macOS) {
+          await _startSelectingNewestMessage(tester);
+        } else {
+          await tester.longPress(find.text('Message 2', findRichText: true));
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.text('Select'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Select'));
+          await tester.pumpAndSettle();
+        }
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-move-selection')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        final bar = tester.getRect(
+          find.byKey(const ValueKey('chat-message-selection-bar')),
+        );
+        expect(bar.height, lessThan(220));
+        final selected = tester.getRect(find.text('1 message selected'));
+        final quote = tester.getRect(
+          find.byKey(const ValueKey('chat-quote-selection')),
+        );
+        if (width == 320) {
+          expect(selected.bottom, lessThanOrEqualTo(quote.top));
+        } else {
+          expect(selected.center.dy, closeTo(quote.center.dy, 1));
+        }
+        for (final action in ['quote', 'copy', 'move', 'delete', 'cancel']) {
+          final button = find.byKey(ValueKey('chat-$action-selection'));
+          final rect = tester.getRect(button);
+          expect(rect.left, greaterThanOrEqualTo(bar.left));
+          expect(rect.right, lessThanOrEqualTo(bar.right));
+          expect(button.hitTestable(), findsOneWidget);
+        }
+        await tester.tap(find.byKey(const ValueKey('chat-cancel-selection')));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('chat-message-selection-bar')),
+          findsNothing,
+        );
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
