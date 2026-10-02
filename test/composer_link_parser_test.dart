@@ -27,7 +27,10 @@ void main() {
         ' https://example.com/a(b) ',
       );
       expect(next!.text, r'[the \[guide\]](https://example.com/a%28b%29)');
-      expect(parseComposerLinks(next.text), hasLength(1));
+      final link = parseComposerLinks(next.text).single;
+      expect(link.kind, ComposerLinkKind.markdown);
+      expect(link.source, next.text);
+      expect(link.anchor, r'the \[guide\]');
     });
 
     for (final clipboard in [
@@ -72,6 +75,15 @@ void main() {
   });
 
   group('composer link parser behavior', () {
+    test('keeps escaped label brackets inside the full source range', () {
+      for (final anchor in const [r'A\]B', r'the \[guide\]', r'path\\name']) {
+        final markdown = '[$anchor](https://example.test)';
+        _expectLinks(markdown, [
+          _markdown(markdown, anchor, 'https://example.test'),
+        ]);
+      }
+    });
+
     test('preserves ordering, UTF-16 offsets, and normalized destinations', () {
       const source =
           '😀 See https://example.test/路径 and [café 🐱](../relative) '
