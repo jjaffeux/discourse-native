@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/ui/foundation/embed_document.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
@@ -131,6 +133,62 @@ void main() {
       expect(controller.channels, isEmpty);
       expect(controller.documents.last.html, isNot(contains('<iframe')));
     },
+  );
+
+  testWidgets(
+    'preserves provider pixels at all four corners after loading and resizing',
+    (tester) async {
+      const surfaceColor = Color(0xFFFF0000);
+      platform.view = const ColoredBox(color: surfaceColor);
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundaryKey,
+          child: host(presentation: DEmbedPresentation.provider),
+        ),
+      );
+      await tester.pump();
+      send('loaded');
+      await tester.pumpAndSettle();
+
+      for (final height in [300, 420]) {
+        send('{"height":$height}');
+        await tester.pumpAndSettle();
+        final bounds = tester.getRect(find.byType(WebViewWidget));
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(boundaryKey),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final pixels = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            for (final point in [
+              bounds.topLeft + const Offset(1, 1),
+              bounds.topRight + const Offset(-2, 1),
+              bounds.bottomLeft + const Offset(1, -2),
+              bounds.bottomRight + const Offset(-2, -2),
+            ]) {
+              final offset =
+                  (point.dy.toInt() * image.width + point.dx.toInt()) * 4;
+              expect(
+                pixels.buffer.asUint8List(offset, 4),
+                [255, 0, 0, 255],
+                reason: 'Provider content must retain its own corner at $point',
+              );
+            }
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
   );
 
   testWidgets(

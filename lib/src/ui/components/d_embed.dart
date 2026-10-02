@@ -463,7 +463,9 @@ class _EmbedViewportState extends State<_EmbedViewport> {
                   ),
                 ),
               )
-            : BorderRadius.circular(radius),
+            // Provider cards own their outline and corners. A second rounded
+            // clip can cut through that outline when the radii differ.
+            : BorderRadius.zero,
         child: widget.child,
       ),
     );
