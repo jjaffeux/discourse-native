@@ -152,7 +152,10 @@ class Post with Storable<Post> {
         for (final link in linkCountJson) ?PostInboundLink.fromJson(link),
       ]),
       postActions: _postActionSummaries(json['actions_summary']),
-      raw: jsonText(json['raw']),
+      raw: switch (json['raw']) {
+        final String raw => raw,
+        _ => null,
+      },
       isLocalized: json['is_localized'] == true,
       bookmark: Bookmark.fromPostJson(json),
       plugins: extensions.readPost(json, siteUrl),
