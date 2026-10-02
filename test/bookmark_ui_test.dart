@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +42,98 @@ void main() {
   TimezoneEnvironment.instance.ensureDatabase();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final width in [320.0, 1000.0]) {
+    testWidgets(
+      'production bookmark relative reminder fits ${width}px at 200% text',
+      (tester) async {
+        final (controller, api) = await _controller();
+        addTearDown(controller.dispose);
+        await tester.binding.setSurfaceSize(Size(width, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpWidget(
+          _postActionsHost(
+            controller,
+            platform: defaultTargetPlatform,
+            post: _post,
+            height: 200,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Bookmark'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('More options'));
+        await tester.pumpAndSettle();
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final amount = find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.keyboardType == TextInputType.number,
+        );
+        await tester.ensureVisible(amount);
+        await tester.pumpAndSettle();
+        final unit = find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == 'DSelect<_RelativeUnit>',
+        );
+        final set = find.widgetWithText(DButton, 'Set');
+        final bounds = tester.getRect(find.byType(Form));
+        for (final control in [amount, unit, set]) {
+          final rect = tester.getRect(control);
+          expect(rect.left, greaterThanOrEqualTo(bounds.left));
+          expect(rect.right, lessThanOrEqualTo(bounds.right));
+          expect(control.hitTestable(), findsOneWidget);
+        }
+        if (width == 1000) {
+          expect(
+            tester.getRect(amount).right,
+            lessThan(tester.getRect(unit).left),
+          );
+          expect(
+            tester.getRect(unit).right,
+            lessThan(tester.getRect(set).left),
+          );
+          expect(
+            tester.getRect(amount).bottom,
+            closeTo(tester.getRect(unit).bottom, 1),
+          );
+        }
+        await tester.enterText(amount, '3');
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(unit);
+        await tester.pumpAndSettle();
+        await tester.tap(unit);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('hours').last);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(set);
+        await tester.pumpAndSettle();
+        final earliest = DateTime.now().toUtc().add(const Duration(hours: 3));
+        await tester.tap(set);
+        await tester.pumpAndSettle();
+        final latest = DateTime.now().toUtc().add(const Duration(hours: 3));
+        await _scrollEditorToEnd(tester, 'Save');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+        expect(api.updatedBookmarks, hasLength(1));
+        final reminder = api.updatedBookmarks.single.reminderAt!;
+        expect(reminder.isBefore(earliest), isFalse);
+        expect(reminder.isAfter(latest), isFalse);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
 
   testWidgets(
     'footer bookmark opens quick-create and saves editor changes once',
@@ -674,13 +767,14 @@ Widget _postActionsHost(
   ShellController controller, {
   required TargetPlatform platform,
   required Post post,
+  double height = 120,
 }) => _host(
   controller,
   platform,
   SizedBox(
     width: 240,
     // Accommodate the final Button touch targets in both action rows.
-    height: 120,
+    height: height,
     child: PostActions(
       siteUrl: _site,
       post: post,
