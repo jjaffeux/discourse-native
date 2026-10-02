@@ -8,6 +8,17 @@ void main() {
   const siteUrl = 'https://forum.example';
   final extensions = PluginRegistry.validated(const [AssignPlugin()]);
 
+  test(
+    'group raw bio preserves Markdown whitespace from the detail payload',
+    () {
+      const raw = '    indented code\n\nA hard break  \n\n';
+      final detail = GroupDetail.fromWire(const {
+        'group': {'id': 9, 'name': 'support', 'bio_raw': raw},
+      }, siteUrl);
+      expect(detail.group.bioRaw, raw);
+    },
+  );
+
   for (final kind in ['members', 'requesters']) {
     for (final scenario in [
       (
