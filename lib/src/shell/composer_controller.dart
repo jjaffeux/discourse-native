@@ -2565,7 +2565,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Duration get typingDuration => _typing.elapsed;
   Duration get openDuration => _now().difference(_openedAt);
 
-  String get raw => _uploadPlaceholders.strip(text.text).trim();
+  /// New posts keep leading Markdown indentation, as PostCreator does.
+  String get raw => _uploadPlaceholders.strip(text.text).trimRight();
 
   /// The body an edit sends. The site stores a revision right-stripped but
   /// keeps its start, so trimming it would unindent a leading code block.
