@@ -830,9 +830,11 @@ class _ChatComposerState extends State<ChatComposer> {
     required bool photos,
   }) async {
     final host = _host;
+    final chat = _chat;
     final composer = _composer;
     final sourceKey = _sourceKey;
     if (host == null ||
+        chat == null ||
         composer == null ||
         sourceKey == null ||
         composer.imageUploader == null ||
@@ -840,10 +842,15 @@ class _ChatComposerState extends State<ChatComposer> {
         _pickingFiles ||
         _pickingEmoji ||
         _savingEdit ||
-        !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
+        !chat.canSendMessageTo(widget.siteUrl, _target)) {
       return;
     }
 
+    final lease = chat.captureSession(widget.siteUrl);
+    bool ownsPicker() =>
+        _ownsComposer(host, composer, sourceKey) &&
+        identical(_chat, chat) &&
+        lease.isCurrent;
     final selection = composer.text.selection;
     final offset = selection.isValid
         ? selection.extentOffset
@@ -851,7 +858,7 @@ class _ChatComposerState extends State<ChatComposer> {
     setState(() => _pickingFiles = true);
     try {
       final files = await picker();
-      if (!_ownsComposer(host, composer, sourceKey)) return;
+      if (!ownsPicker()) return;
       composer.addFiles(files, offset);
     } catch (error, stackTrace) {
       _diagnostics!.reportError(
@@ -865,7 +872,7 @@ class _ChatComposerState extends State<ChatComposer> {
         handled: true,
         degraded: true,
       );
-      if (_ownsComposer(host, composer, sourceKey)) {
+      if (ownsPicker()) {
         composer.showNotice(
           photos
               ? appL10n.couldnTOpenThePhotoLibrary
@@ -874,7 +881,11 @@ class _ChatComposerState extends State<ChatComposer> {
       }
     } finally {
       if (mounted) setState(() => _pickingFiles = false);
-      _refocus(host, composer, sourceKey);
+      if (ownsPicker()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (ownsPicker()) composer.focus.requestFocus();
+        });
+      }
     }
   }
 
