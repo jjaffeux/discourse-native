@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,11 @@ void main() {
     testWidgets(
       'shared scale reaches titles, reading, controls and overlays in $brightness',
       (tester) async {
+        final baseline = switch (defaultTargetPlatform) {
+          TargetPlatform.iOS || TargetPlatform.android => 17.0,
+          _ => 14.0,
+        };
+        final baselineScale = baseline / 14;
         tester.view.physicalSize = const Size(320, 900);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -90,7 +96,10 @@ void main() {
           expect(page.text.style!.height! * 22, 27.5);
           expect(title.text.style!.fontSize, 14.5);
           expect(title.text.style!.height! * 14.5, closeTo(19.575, .001));
-          expect(native.textScaler.scale(14), closeTo(14 * zoom.factor, .001));
+          expect(
+            native.textScaler.scale(14),
+            closeTo(baseline * zoom.factor, .001),
+          );
           expect(
             cooked.textScaler.scale(cooked.text.style!.fontSize!),
             closeTo(native.textScaler.scale(14), .001),
@@ -104,7 +113,7 @@ void main() {
             expect(label.text.style!.fontSize, base);
             expect(
               label.textScaler.scale(base.toDouble()),
-              closeTo(base * zoom.factor, .001),
+              closeTo(base * baselineScale * zoom.factor, .001),
             );
             expect(label.didExceedMaxLines, isFalse);
           }
@@ -115,13 +124,17 @@ void main() {
         await tester.pumpAndSettle();
         final option = _paragraph(tester, 'New');
         expect(option.text.style!.fontSize, 13);
-        expect(option.textScaler.scale(13), closeTo(26, .001));
+        expect(option.textScaler.scale(13), closeTo(26 * baselineScale, .001));
         expect(option.didExceedMaxLines, isFalse);
         await tester.tap(find.text('New').last);
         await tester.pumpAndSettle();
         await settings.resetTextScale();
         await tester.pumpAndSettle();
-        expect(_paragraph(tester, 'Native reading').textScaler.scale(14), 14);
+        expect(
+          _paragraph(tester, 'Native reading').textScaler.scale(14),
+          baseline,
+        );
+        expect(settings.textScale, AppTextScale.percent100);
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({
@@ -131,6 +144,53 @@ void main() {
       }),
     );
   }
+
+  testWidgets(
+    'mobile baseline respects minimum and larger system text sizes',
+    (tester) async {
+      final settings = AppSettingsController(
+        store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+      );
+      addTearDown(settings.dispose);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      for (final (systemScale, expectedSize) in [
+        (14 / 17, 14.0),
+        (1.0, 17.0),
+        (2.0, 34.0),
+      ]) {
+        tester.platformDispatcher.textScaleFactorTestValue = systemScale;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            builder: (context, child) =>
+                AppTextScaleRegion(controller: settings, child: child!),
+            home: const Column(
+              children: [
+                DText('Native reading'),
+                CookedHtml(html: '<p>Cooked reading</p>'),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final label in ['Native reading', 'Cooked reading']) {
+          final paragraph = _paragraph(tester, label);
+          expect(
+            paragraph.textScaler.scale(paragraph.text.style!.fontSize!),
+            closeTo(expectedSize, .001),
+            reason: '$label at $systemScale',
+          );
+        }
+        expect(settings.textScale, AppTextScale.percent100);
+        expect(tester.takeException(), isNull);
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 }
 
 RenderParagraph _paragraph(WidgetTester tester, String text) =>
