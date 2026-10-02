@@ -82,6 +82,8 @@ export 'src/models/user_status.dart'
 export 'src/plugin_api/background_retention.dart';
 export 'src/plugin_api/bookmark_host.dart';
 export 'src/plugin_api/composer_component.dart';
+export 'src/plugin_api/composer_sheet_header.dart';
+export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/composer_syntax.dart';
 export 'src/plugin_api/cooking_plugin.dart';
 export 'src/plugin_api/core_plugin_host.dart';

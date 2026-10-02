@@ -75,18 +75,15 @@ void main() {
             );
           }
           expect(bounds.width, lessThanOrEqualTo(scenario.width));
-          final touch =
-              Theme.of(tester.element(button)).platform ==
-              TargetPlatform.android;
-          expect(
-            bounds.height,
-            touch
-                ? 48
-                : DControlStyle.scaledHeight(
-                    DControlSize.regular,
-                    TextScaler.linear(scenario.scale),
-                  ),
+          final surface = find.descendant(
+            of: button,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is AnimatedContainer &&
+                  widget.decoration is DButtonDecoration,
+            ),
           );
+          expect(bounds, tester.getRect(surface));
           expect(
             tester.widget<DButton>(button).variant,
             DButtonVariant.transparentBackground,

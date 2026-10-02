@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/src/shell/categories_page.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,7 +51,10 @@ void main() {
       for (final rect in geometry.values) {
         expect(rect[0], first[0]);
         expect(rect[1], first[1]);
-        expect(rect[1], greaterThan(width * .8));
+        expect(
+          rect[1],
+          greaterThan(math.min(width, ContentReadingLane.maxWidth) * .8),
+        );
         expect(rect[0] + rect[1], lessThanOrEqualTo(width));
         expect(rect[2], greaterThan(0));
       }

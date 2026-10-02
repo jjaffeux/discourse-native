@@ -1965,6 +1965,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       child: ComposerSuggestionField(
         composer: widget.composer,
         onAction: widget.onSuggestionAction,
+        onModifiedEnter: _onSuggestionModifiedEnter,
         renderEditable: () => _renderEditable,
         scroll: Listenable.merge([_scroll, _ancestorScroll]),
         field: Focus(
@@ -2631,6 +2632,28 @@ class _ComposerEditorState extends State<ComposerEditor> {
         builder: (context) => _ExistingGalleryImagesDialog(images: images),
       ),
     );
+  }
+
+  KeyEventResult _onSuggestionModifiedEnter(KeyEvent event) {
+    final result = _onEditorKeyEvent(widget.composer.focus, event);
+    if (result != KeyEventResult.ignored) return result;
+    final value = widget.composer.text.value;
+    final selection = value.selection;
+    final editable = _editableTextState;
+    if (!widget.composer.isEditing || !selection.isValid || editable == null) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
+    final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
+    editable.userUpdateTextEditingValue(
+      TextEditingValue(
+        text: value.text.replaceRange(selection.start, selection.end, newline),
+        selection: TextSelection.collapsed(
+          offset: selection.start + newline.length,
+        ),
+      ),
+      SelectionChangedCause.keyboard,
+    );
+    return KeyEventResult.handled;
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
@@ -3596,8 +3619,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
       );
     }
     // Empty lines use the caret's line box. Include the same leading for a
-    // populated block so typing its first character does not move the controls.
-    rect = rect.expandToInclude(_lineRect(editable, block.start));
+    // populated text block so typing its first character does not move controls.
+    // To-do selection boxes already describe their embedded control bounds;
+    // the outer caret line would extend them into the next item.
+    if (block.kind != ComposerBlockKind.todo) {
+      rect = rect.expandToInclude(_lineRect(editable, block.start));
+    }
     return rect.shift(editable.localToGlobal(Offset.zero));
   }
 

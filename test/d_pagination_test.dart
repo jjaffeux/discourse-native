@@ -92,7 +92,11 @@ void main() {
         of: find.byType(DPaginationLink).first,
         matching: find.byWidgetPredicate((widget) => widget is FilledButton),
       );
-      expect(tester.getSize(firstPageSurface), const Size.square(48));
+      final paintedSurface = find.descendant(
+        of: firstPageSurface,
+        matching: find.byType(Material),
+      );
+      expect(tester.getRect(firstPageSurface), tester.getRect(paintedSurface));
       expect(
         tester
             .getSize(

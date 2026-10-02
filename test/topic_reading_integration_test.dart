@@ -27,7 +27,6 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
@@ -105,8 +104,8 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       expect(api.feedPaths, ['/latest.json']);
-      expect(find.text('Welcome to the forum'), findsOneWidget);
-      expect(find.text('Something unread'), findsOneWidget);
+      expect(contentText('Welcome to the forum'), findsOneWidget);
+      expect(topicListTitle('Something unread'), findsOneWidget);
       expect(find.text('Replace with deeper view'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -166,9 +165,7 @@ void _registerTopicReadingTests() {
 
       await tester.tap(find.byKey(TopicCreateButton.buttonKey));
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).visibleComposer,
+        ShellScope.read(tester.element(primaryMainContent)).visibleComposer,
         isNotNull,
       );
       await tester.pumpAndSettle();
@@ -187,7 +184,7 @@ void _registerTopicReadingTests() {
       await tester.enterText(fields.at(1), 'Created from the docked composer.');
       await tester.pump();
       final composer = ShellScope.read(
-        tester.element(find.byType(MainContent)),
+        tester.element(primaryMainContent),
       ).visibleComposer!;
       expect(composer.title.text, 'A native topic');
       expect(composer.raw, 'Created from the docked composer.');
@@ -244,9 +241,7 @@ void _registerTopicReadingTests() {
           api: api,
           authenticator: authenticator,
         );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         controller.openCategory(category);
         await tester.pumpAndSettle();
 
@@ -301,9 +296,7 @@ void _registerTopicReadingTests() {
           api: api,
           authenticator: authenticator,
         );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         expect(
           controller.openListUrl('/c/discourse-native-app/features/5'),
           isTrue,
@@ -346,9 +339,7 @@ void _registerTopicReadingTests() {
           api: api,
           authenticator: authenticator,
         );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         expect(
           controller.openListUrl(
             '/c/discourse-native-app/features/5',
@@ -419,9 +410,7 @@ void _registerTopicReadingTests() {
             api: api,
             authenticator: authenticator,
           );
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           shell.selectTopicListCategory(category);
           await tester.pumpAndSettle();
           if (openReader) {
@@ -520,7 +509,7 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
         expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         for (final position in [
           tester.getCenter(
             find.descendant(
@@ -584,7 +573,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.currentContent?.isMessages, isTrue);
       expect(shell.visibleComposer?.target.isNewTopic, isTrue);
 
@@ -616,7 +605,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.topicComposerCategories('https://meta.discourse.org'), [
         _FailingNewTopicMetadataApi.category,
       ]);
@@ -699,9 +688,7 @@ void _registerTopicReadingTests() {
             find.byKey(const ValueKey('composer-add-tag')),
             failedMetadata == 'settings' ? findsNothing : findsOneWidget,
           );
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           expect(
             shell.topicComposerCategories('https://meta.discourse.org'),
             failedMetadata == 'categories'
@@ -755,7 +742,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       shell.openPreferences('https://meta.discourse.org');
       await tester.pumpAndSettle();
 
@@ -899,9 +886,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('team'));
       await tester.pumpAndSettle();
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(api.feedPaths, contains(teamInbox));
       expect(find.text('Team escalation'), findsOneWidget);
       expect(find.text('A private message'), findsNothing);
@@ -972,12 +957,12 @@ void _registerTopicReadingTests() {
         forumTabs: forumTabs,
       );
 
-      expect(api.feedPaths, [groupInbox]);
+      expect(api.feedPaths, [groupInbox, '/latest.json']);
       expect(find.text('tech-advocates'), findsOneWidget);
       expect(find.text('Restored group message'), findsOneWidget);
       expect(
         ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(primaryMainContent),
         ).currentContent?.messageGroupName,
         'tech-advocates',
       );
@@ -1148,7 +1133,7 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.text('3'), findsOneWidget);
+      expect(contentText('3'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('closed topics carry a lock before the title', (tester) async {
@@ -1217,7 +1202,7 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.text('3'), findsOneWidget);
+      expect(contentText('3'), findsOneWidget);
       expect(find.text('6'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1247,17 +1232,17 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final context = tester.element(find.text('Caught up'));
+      final context = tester.element(contentText('Caught up'));
       final theme = Theme.of(context);
       final tokens = DTokens.of(context);
       // The list lane is narrow, so caught-up titles take the compact card's
       // softened foreground rather than the wide row's whisper.
       expect(
-        tester.widget<Text>(find.text('Caught up')).style?.color,
+        tester.widget<Text>(contentText('Caught up')).style?.color,
         Color.lerp(tokens.background, tokens.foreground, .9),
       );
       expect(
-        tester.widget<Text>(find.text('Not caught up')).style?.color,
+        tester.widget<Text>(contentText('Not caught up')).style?.color,
         theme.colorScheme.onSurface,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1396,7 +1381,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       final titleRect = tester.getRect(find.text(title));
-      final count = tester.getRect(find.text('3'));
+      final count = tester.getRect(contentText('3'));
       expect(titleRect.height, inInclusiveRange(36, 44));
       expect(
         tester.getRect(find.byKey(const ValueKey('inbox-row-unread-9'))).left -
@@ -1442,7 +1427,7 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-      expect(find.text('5'), findsNothing);
+      expect(contentText('5'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('category badges render once categories arrive', (
@@ -1568,9 +1553,7 @@ void _registerTopicReadingTests() {
       expect(chevron, findsOneWidget);
       expect(api.categoryIdsRequested, isEmpty);
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       await tester.tap(parentLink);
       await tester.pumpAndSettle();
 
@@ -1661,9 +1644,7 @@ void _registerTopicReadingTests() {
         lessThan(tester.getTopLeft(firstTag).dx),
       );
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       await tester.tap(category);
       await tester.pumpAndSettle();
 
@@ -1730,9 +1711,7 @@ void _registerTopicReadingTests() {
       await tester.tap(tagLinks.first);
       await tester.pumpAndSettle();
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(controller.currentContent?.id, 'tag-8');
       expect(
         controller.currentContent?.feedPath,
@@ -1794,9 +1773,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text(tag.name));
       await tester.pumpAndSettle();
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(api.hashtagSearchesRequested, ['2024']);
       expect(controller.currentContent?.id, 'tag-77');
       expect(controller.currentContent?.feedPath, '/tag/2024/77.json');
@@ -1846,9 +1823,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, phone, api: api);
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       // The Topics root has nothing to pop on a phone, so Back needs a page
       // above it.
       await tester.tap(find.text('Feature'));
@@ -2040,9 +2015,7 @@ void _registerTopicReadingTests() {
       final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
 
       await pumpShell(tester, desktop, api: api);
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       controller.selectDestination(
         const SidebarDestination(
           id: 'messages',
@@ -2230,8 +2203,8 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, contains('/latest.json?topic_ids=99'));
-      expect(find.text('Just posted'), findsOneWidget);
-      expect(find.text('Welcome to the forum'), findsOneWidget);
+      expect(contentText('Just posted'), findsOneWidget);
+      expect(contentText('Welcome to the forum'), findsOneWidget);
       expect(find.textContaining('See '), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2251,7 +2224,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('See 1 new or updated topic'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Something else'), findsOneWidget);
+      expect(contentText('Something else'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     group('on a category list', () {
@@ -2294,9 +2267,7 @@ void _registerTopicReadingTests() {
       );
 
       Future<ShellController> openFeature(WidgetTester tester) async {
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         controller.openCategory(feature);
         await tester.pumpAndSettle();
         expect(controller.currentFeedId, 'category-5');
@@ -2325,7 +2296,7 @@ void _registerTopicReadingTests() {
         expect(api.feedPaths, contains('$categoryPath?topic_ids=99,101'));
         expect(find.text('Asked in Feature'), findsOneWidget);
         expect(find.text('Asked in Ideas'), findsOneWidget);
-        expect(find.text('Welcome to the forum'), findsOneWidget);
+        expect(contentText('Welcome to the forum'), findsOneWidget);
         expect(find.textContaining('See '), findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2411,9 +2382,7 @@ void _registerTopicReadingTests() {
         },
       );
       await pumpWithFeeds(tester, api);
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(controller.openListUrl('/tag/ux'), isTrue);
       await tester.pumpAndSettle();
 
@@ -2785,7 +2754,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      expect(find.text('Topic 1'), findsOneWidget);
+      expect(contentText('Topic 1'), findsOneWidget);
       expect(api.feedPaths, ['/latest.json']);
 
       // Advance by viewport-sized steps so header height changes cannot skip
@@ -3008,7 +2977,7 @@ void _registerTopicReadingTests() {
           },
         );
         await pumpShell(tester, desktop, api: api);
-        await tester.tap(find.text(row.title));
+        await tester.tap(topicListTitle(row.title));
         await tester.pump();
         expect(topicPostListFinder(), findsNothing);
 
@@ -3044,7 +3013,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -3090,7 +3059,7 @@ void _registerTopicReadingTests() {
           api: api,
           authenticator: authenticator,
         );
-        await tester.tap(contentText('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         final editor = find.byType(InlineTopicTitleEditor);
@@ -3163,7 +3132,7 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, desktop, api: api);
-        await tester.tap(find.text('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         final scrollbar = find.descendant(
@@ -3213,7 +3182,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('Share topic'), findsNothing);
@@ -3274,7 +3243,7 @@ void _registerTopicReadingTests() {
             api: api,
             authenticator: authenticator,
           );
-          await tester.tap(contentText('A real topic'));
+          await tester.tap(topicListTitle('A real topic'));
           await tester.pumpAndSettle();
           final action = find.byKey(
             const ValueKey('topic-header-bookmark-button'),
@@ -3325,7 +3294,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-share-button')), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -3364,7 +3333,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
@@ -3382,7 +3351,7 @@ void _registerTopicReadingTests() {
       );
       await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.visibleComposer, isNotNull);
       expect(
         shell.visibleComposer?.raw,
@@ -3425,7 +3394,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
@@ -3482,7 +3451,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('topic-map')), findsOneWidget);
@@ -3530,7 +3499,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('Source 1'), findsOneWidget);
@@ -3593,7 +3562,7 @@ void _registerTopicReadingTests() {
         MockClient((_) async => http.Response.bytes(emojiPng, 200)),
       );
 
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final emoji = tester.widget<SiteEmojiImage>(find.byType(SiteEmojiImage));
@@ -3626,7 +3595,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       expect(renderedText('Ordinary reply'), findsOneWidget);
 
@@ -3676,7 +3645,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final action = find.byKey(const ValueKey('ai-topic-summary-button'));
@@ -3733,7 +3702,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final trigger = find.byKey(
@@ -3791,7 +3760,7 @@ void _registerTopicReadingTests() {
       ]);
       expect(
         ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(primaryMainContent),
         ).currentTopic?.notificationLevel,
         TopicNotificationLevel.muted,
       );
@@ -3823,7 +3792,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('topic-header-notification-button')),
@@ -3840,7 +3809,7 @@ void _registerTopicReadingTests() {
 
       expect(
         ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(primaryMainContent),
         ).currentTopic?.notificationLevel,
         TopicNotificationLevel.tracking,
       );
@@ -3877,7 +3846,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(508, 700);
       await tester.pumpAndSettle();
@@ -3943,7 +3912,7 @@ void _registerTopicReadingTests() {
           api: api,
           authenticator: authenticator,
         );
-        await tester.tap(contentText('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         Future<void> choose(String label) async {
@@ -3956,21 +3925,21 @@ void _registerTopicReadingTests() {
         await choose('Close topic');
         expect(
           ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           ).currentTopic?.closed,
           isTrue,
         );
         await choose('Archive topic');
         expect(
           ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           ).currentTopic?.archived,
           isTrue,
         );
         await choose('Make topic unlisted');
         expect(
           ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           ).currentTopic?.visible,
           isFalse,
         );
@@ -4018,7 +3987,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('More topic actions'));
@@ -4028,7 +3997,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('topic-delete-confirm')));
       await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(api.topicsDeleted, [7]);
       expect(shell.currentTopic?.deletedAt, isNotNull);
       expect(shell.currentTopic?.canRecoverTopic, isTrue);
@@ -4052,7 +4021,7 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, desktop, api: api);
-        await tester.tap(contentText('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         expect(find.byKey(const ValueKey('topic-share-button')), findsNothing);
@@ -4109,7 +4078,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Unpin topic'));
       await tester.pumpAndSettle();
 
-      var shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      var shell = ShellScope.read(tester.element(primaryMainContent));
       expect(api.topicPinPreferencesUpdated, const [
         (topicId: 7, pinned: false),
       ]);
@@ -4125,7 +4094,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Pin topic'));
       await tester.pumpAndSettle();
 
-      shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      shell = ShellScope.read(tester.element(primaryMainContent));
       expect(api.topicPinPreferencesUpdated, const [
         (topicId: 7, pinned: false),
         (topicId: 7, pinned: true),
@@ -4174,7 +4143,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Unpin topic'));
       await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.currentTopic?.pinned, isTrue);
       expect(shell.currentTopic?.unpinned, isFalse);
       expect(
@@ -4201,7 +4170,7 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: FakeAuthenticator.signedIn(instances, site: api),
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('More topic actions'));
@@ -4219,7 +4188,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(
@@ -4247,7 +4216,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
       final semantics = tester.ensureSemantics();
       try {
-        await tester.tap(find.text('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pump();
 
         expect(
@@ -4320,7 +4289,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.topicPostNumbersOpened, [6]);
@@ -4419,7 +4388,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
@@ -4444,15 +4413,15 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      expect(find.text('3'), findsOneWidget);
+      expect(contentText('3'), findsOneWidget);
 
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 600));
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
-      expect(find.text('3'), findsNothing);
+      expect(contentText('3'), findsNothing);
 
       final controller = ShellScope.of(
         tester.element(find.byType(InstanceRail)),
@@ -4486,7 +4455,7 @@ void _registerTopicReadingTests() {
       final row = find.text('Topic 40');
       await tester.scrollUntilVisible(row, 400, scrollable: list);
       await tester.pumpAndSettle();
-      expect(find.text('Topic 1'), findsNothing);
+      expect(contentText('Topic 1'), findsNothing);
 
       await tester.tap(
         find.ancestor(of: row, matching: find.byType(DItem)).first,
@@ -4496,7 +4465,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Topic 40'), findsOneWidget);
-      expect(find.text('Topic 1'), findsNothing);
+      expect(contentText('Topic 1'), findsNothing);
       expect(
         tester.state<ScrollableState>(list).position.pixels,
         greaterThan(0),
@@ -4518,7 +4487,7 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, size, api: api);
-        await tester.tap(find.text('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         expect(find.textContaining("Couldn't load this topic"), findsOneWidget);
@@ -4549,15 +4518,13 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       final retry = tester
           .widget<DButton>(find.byKey(const ValueKey('topic-load-retry')))
           .onPressed!;
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       api.topics[7] = detail();
       final opened = api.topicsOpened.length;
       controller.openTopicFromList(
@@ -4587,7 +4554,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.postFetches, [
@@ -4623,7 +4590,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('VIEW 2 HIDDEN REPLIES'), findsOneWidget);
@@ -4678,9 +4645,7 @@ void _registerTopicReadingTests() {
               label: 'Nearby',
               icon: DIcons.globe,
             ),
-            topics: [
-              Topic(id: 10, title: 'A nearby topic', slug: 'nearby'),
-            ],
+            topics: [Topic(id: 10, title: 'A nearby topic', slug: 'nearby')],
           ),
         ],
       );
@@ -4709,7 +4674,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(
@@ -4864,7 +4829,7 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, desktop, api: api);
-        await tester.tap(find.text('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
 
         expect(
@@ -4920,7 +4885,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       expect(find.text('A suggested topic'), findsOneWidget);
 
@@ -4947,7 +4912,7 @@ void _registerTopicReadingTests() {
         api: api,
         key: const ValueKey('restored-topics-tab'),
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('An AI related topic'), findsOneWidget);
@@ -4972,7 +4937,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('Only suggestion'), findsOneWidget);
@@ -5004,7 +4969,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.postFetches, [
@@ -5021,11 +4986,11 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -5038,7 +5003,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(_postBackground(tester), Colors.transparent);
@@ -5076,7 +5041,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.farEyeSlash), findsOneWidget);

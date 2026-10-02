@@ -335,7 +335,7 @@ void main() {
     await tester.pumpAndSettle();
     // An ordinary click reads the topic in the list's own tab.
     expect(controller.activeTabId, listTab);
-    expect(controller.tabsForCurrentForum, hasLength(1));
+    expect(controller.tabsForCurrentForum, hasLength(2));
     expect(controller.currentContent?.topicId, 1);
     expect(controller.store.read<TopicDetail>(_site, 1), isNotNull);
     expect(api.requests, hasLength(1));

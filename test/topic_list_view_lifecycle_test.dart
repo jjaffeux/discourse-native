@@ -15,7 +15,6 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_list_layout.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -478,10 +477,7 @@ void main() {
 
     final compactRow = find.byKey(const ValueKey('topic-card-7'));
     final contextualRow = find.byKey(const ValueKey('topic-card-8'));
-    expect(
-      tester.getSize(compactRow).width,
-      900 - 2 * topicListHorizontalPadding,
-    );
+    expect(tester.getSize(compactRow).width, 825.0);
     expect(
       tester.getSize(contextualRow).width,
       tester.getSize(compactRow).width,
@@ -835,6 +831,7 @@ void main() {
       );
       addTearDown(controller.dispose);
       await controller.load();
+      await controller.appSettings.setLimitContentSize(false);
       controller.store.putAll(sites.first.url, topics);
       final feed = TopicFeed(
         topicIds: [for (final topic in topics) topic.id],

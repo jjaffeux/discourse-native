@@ -47,7 +47,7 @@ void main() {
       {
         // Mobile navigation uses the requested independent circular buttons
         // and pill contextual actions, through Native's existing shape API.
-        'lib/src/shell/mobile_shell.dart': {'shape': 4},
+        'lib/src/shell/mobile_shell.dart': {'shape': 5},
         'lib/src/shell/message_create_button.dart': {'shape': 2},
         // Composer gutter actions retain the documented transparent surface.
         'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
@@ -109,10 +109,11 @@ void main() {
           'borderColor': 1,
         },
         // Composer tools use the mockup's muted tool foreground; discarding a
-        // draft uses a destructive tint rather than the solid kit fill.
+        // draft uses a destructive tint rather than the solid kit fill. Image
+        // and gallery actions use the same pill shape as the discard control.
         'lib/src/shell/composer_panel.dart': {
-          'foregroundColor': 8,
-          'shape': 1,
+          'foregroundColor': 12,
+          'shape': 3,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
@@ -128,14 +129,13 @@ void main() {
         },
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
-        // The events calendar's view pickers and Today/previous/next chips
-        // share the mockup's tinted fill (background mixed 10% toward
-        // foreground), which no kit variant provides; the picker foreground
-        // stays muted except for the lead view selector.
-        'lib/src/plugins/discourse_events/event_calendar.dart': {
-          'backgroundColor': 3,
-          'foregroundColor': 3,
-        },
+        // The chat jump-to-latest control uses the same floating capsule as
+        // the topic progress control; filter tokens are editable pill chips.
+        'lib/src/plugins/chat/chat_channel_view.dart': {'shape': 1},
+        'lib/src/shell/topic_filter_input.dart': {'shape': 1},
+        // Composer and sheet close actions share the existing pill shape.
+        'lib/src/shell/composer_header.dart': {'shape': 1},
+        'lib/src/plugin_api/composer_sheet_header.dart': {'shape': 1},
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,

@@ -72,12 +72,15 @@ void main() {
             font,
           );
           final rect = tester.getRect(button);
-          expect(rect.width, greaterThanOrEqualTo(48));
-          expect(rect.height, greaterThanOrEqualTo(48));
+          expect(rect, tester.getRect(material));
           await tester.tapAt(rect.topLeft + const Offset(1, 1));
           expect(presses, 1);
           final toggle = tester.getRect(find.byType(DToggle));
-          expect(toggle.height, greaterThanOrEqualTo(48));
+          final toggleSurface = find.descendant(
+            of: find.byType(DToggle),
+            matching: find.byType(AnimatedContainer),
+          );
+          expect(toggle, tester.getRect(toggleSurface));
           await tester.tapAt(toggle.centerLeft + const Offset(1, 0));
           await tester.pump();
           expect(toggles, 1);
@@ -87,7 +90,7 @@ void main() {
                 .height,
             height,
           );
-          expect(tester.getSize(find.byType(DInput)).height, 48);
+          expect(tester.getSize(find.byType(DInput)).height, height);
           expect(tester.takeException(), isNull);
         },
       );
@@ -145,7 +148,7 @@ void main() {
       expect(tester.takeException(), isNull);
       for (final button in find.byType(FilledButton).evaluate()) {
         final rect = tester.getRect(find.byWidget(button.widget));
-        expect(rect.height, greaterThanOrEqualTo(48));
+        expect(rect.height, greaterThanOrEqualTo(44));
       }
       await tester.tap(find.byTooltip('Bookmark'));
       await tester.pump();

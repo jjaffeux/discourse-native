@@ -6,10 +6,10 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_change_owner.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -463,9 +463,14 @@ Future<ShellController> _openDialog(
       ..keys[_siteA] = 'a-key'
       ..keys[_siteB] = 'b-key',
   );
-  await tester.tap(find.text('A real topic'));
+  await tester.tap(
+    find.descendant(
+      of: find.byType(TopicListView),
+      matching: find.text('A real topic'),
+    ),
+  );
   await tester.pumpAndSettle();
-  final controller = ShellScope.read(tester.element(find.byType(MainContent)));
+  final controller = ShellScope.read(tester.element(primaryMainContent));
   if (selected) {
     _selectPosts(controller);
     await tester.pumpAndSettle();

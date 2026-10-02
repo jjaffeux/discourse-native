@@ -73,7 +73,7 @@ void main() {
       expect(tester.getSize(target).height, 30);
       expect(tester.getSize(target).width, greaterThanOrEqualTo(30));
       expect(
-        tester.getSemantics(target),
+        tester.getSemantics(find.bySemanticsLabel('1 like, from someone else')),
         isSemantics(
           label: '1 like, from someone else',
           hint: 'like this post',
@@ -87,7 +87,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(
-        tester.getSemantics(target),
+        tester.getSemantics(find.bySemanticsLabel('1 like, from someone else')),
         isSemantics(isFocusable: true, isFocused: true),
       );
 

@@ -942,6 +942,9 @@ class DTooltipState extends State<DTooltip>
       ),
     );
     child = Semantics(
+      // An excluded description must keep the portal's traversal anchor apart
+      // from its trigger. Merging it can detach an overlay node during updates.
+      container: widget.excludeFromSemantics,
       label: widget.labelTrigger ? widget.message : null,
       tooltip: _description,
       child: child,

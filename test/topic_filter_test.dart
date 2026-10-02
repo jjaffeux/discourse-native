@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' show primaryMainContent;
 
 const _siteUrl = 'https://meta.discourse.org';
 const _tagOption = TopicFilterOption(
@@ -574,7 +575,13 @@ void main() {
     );
     await _openFilter(tester);
 
-    expect(find.byType(TopicListFilterMenu), findsOneWidget);
+    expect(
+      find.descendant(
+        of: primaryMainContent,
+        matching: find.byType(TopicListFilterMenu),
+      ),
+      findsOneWidget,
+    );
     expect(api.feedPaths, contains('/filter.json'));
 
     final field = find.descendant(
@@ -834,7 +841,12 @@ void main() {
     await _pump(tester, api);
     await _openFilter(tester);
     final shell = ShellScope.read(
-      tester.element(find.byType(TopicListFilterMenu)),
+      tester.element(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byType(TopicListFilterMenu),
+        ),
+      ),
     );
     final apply = tester
         .widget<DButton>(
@@ -1401,7 +1413,12 @@ Future<void> _pump(
 }
 
 Future<void> _openFilter(WidgetTester tester, {bool settle = true}) async {
-  await tester.tap(find.byKey(const ValueKey('topic-list-filter')));
+  await tester.tap(
+    find.descendant(
+      of: primaryMainContent,
+      matching: find.byKey(const ValueKey('topic-list-filter')),
+    ),
+  );
   if (settle) {
     await tester.pumpAndSettle();
   } else {

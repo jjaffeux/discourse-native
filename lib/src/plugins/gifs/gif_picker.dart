@@ -6,7 +6,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../composer_sheet_header.dart';
 import 'gif.dart';
 import 'gif_picker_controller.dart';
 import 'gifs_api.dart';

@@ -202,7 +202,7 @@ void main() {
       tester,
     ) async {
       final setup = await _setup(tester, size: size);
-      await tester.tap(find.text('Keyboard topic 1'));
+      await tester.tap(topicListTitle('Keyboard topic 1'));
       await tester.pumpAndSettle();
       expect(setup.shell.currentContent?.topicId, 1);
 
@@ -499,7 +499,7 @@ void main() {
     tester,
   ) async {
     final setup = await _setup(tester);
-    await _openBeside(tester, find.text('Keyboard topic 1'));
+    await _openBeside(tester, topicListTitle('Keyboard topic 1'));
     final list = _scrollable(tester, find.byType(TopicListView));
     list.controller!.jumpTo(200);
     await tester.pumpAndSettle();
@@ -689,7 +689,7 @@ void main() {
     'opening a topic with the mouse retains its selection as the cursor moves',
     (tester) async {
       final setup = await _setup(tester);
-      await _openBeside(tester, find.text('Keyboard topic 1'));
+      await _openBeside(tester, topicListTitle('Keyboard topic 1'));
       expect(setup.shell.currentContent?.topicId, 1);
       expect(_topicItem(tester, 1).selected, isTrue);
 

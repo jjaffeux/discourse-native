@@ -12,7 +12,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/diagnostics_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -26,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' show primaryMainContent;
 import 'support/topic_post_list.dart';
 import 'support/topic_scroll_capture.dart';
 
@@ -990,7 +990,7 @@ void main() {
 
       final rail = tester.element(find.byType(InstanceRail));
       final sidebar = tester.element(find.byType(InstanceSidebar));
-      final content = tester.element(find.byType(MainContent));
+      final content = tester.element(primaryMainContent);
       final panelListener = tester.element(
         find.byKey(const ValueKey('diagnostics-events-listener')),
       );

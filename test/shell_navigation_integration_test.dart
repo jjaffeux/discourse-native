@@ -24,7 +24,6 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -226,7 +225,7 @@ void _registerShellNavigationTests() {
           site: api,
         ),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.tap(find.byKey(ForumSearch.inputKey));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
@@ -259,9 +258,7 @@ void _registerShellNavigationTests() {
               site: api,
             ),
           );
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           final route = shell.currentContent;
           await tester.tap(find.byKey(ForumSearch.inputKey));
           await tester.pumpAndSettle();
@@ -303,9 +300,7 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, laptop);
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
 
       controller.globalSearch.setQuery('matches');
       controller.search.requestFocus();
@@ -315,7 +310,7 @@ void _registerShellNavigationTests() {
       expect(controller.search.panelOpen, isTrue);
       expect(searchInput.hasFocus, isTrue);
 
-      final content = tester.getRect(find.byType(MainContent));
+      final content = tester.getRect(primaryMainContent);
       await tester.tapAt(content.bottomCenter - const Offset(0, 20));
       await tester.pumpAndSettle();
 
@@ -330,7 +325,7 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, phone);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
       await tester.pumpAndSettle();
@@ -339,7 +334,7 @@ void _registerShellNavigationTests() {
       await _systemBack(tester);
       await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsNothing);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
     });
 
     testWidgets('tab destinations keep header and navigation visible', (
@@ -350,7 +345,7 @@ void _registerShellNavigationTests() {
       expect(tester.getSize(button).height, 46);
       await tester.tap(button);
       await tester.pumpAndSettle();
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byKey(const ValueKey('mobile-bottom-bar')), findsOneWidget);
       expect(userMenu, findsOneWidget);
@@ -360,9 +355,7 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, phone);
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       controller.pushContent(
         const ContentRoute(
           id: 'topic-placeholder',
@@ -376,7 +369,7 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
       expect(controller.currentContent?.id, 'latest');
       expect(controller.canPopContent, isFalse);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
     });
 
     testWidgets(
@@ -398,7 +391,7 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, phone);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       shell.pushContent(
         const ContentRoute(
           id: 'compact-mouse-history',
@@ -408,14 +401,14 @@ void _registerShellNavigationTests() {
       );
       await tester.pumpAndSettle();
       await tester.tap(
-        find.byType(MainContent),
+        primaryMainContent,
         buttons: kBackMouseButton,
         kind: PointerDeviceKind.mouse,
       );
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'latest');
       await tester.tap(
-        find.byType(MainContent),
+        primaryMainContent,
         buttons: kForwardMouseButton,
         kind: PointerDeviceKind.mouse,
       );
@@ -432,7 +425,7 @@ void _registerShellNavigationTests() {
       await tester.pumpAndSettle();
       expect(tester.getRect(userMenu), initial);
       expect(
-        find.descendant(of: find.byType(MainContent), matching: userMenu),
+        find.descendant(of: primaryMainContent, matching: userMenu),
         findsNothing,
       );
     });
@@ -448,7 +441,7 @@ void _registerShellNavigationTests() {
 
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
@@ -458,14 +451,14 @@ void _registerShellNavigationTests() {
 
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
       'mouse side buttons navigate content history and respect overlays',
       (tester) async {
         await pumpShell(tester, desktop);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         shell.pushContent(
           const ContentRoute(
             id: 'mouse-history',
@@ -497,7 +490,7 @@ void _registerShellNavigationTests() {
 
         unawaited(
           showDialog<void>(
-            context: tester.element(find.byType(MainContent)),
+            context: tester.element(primaryMainContent),
             builder: (context) =>
                 const AlertDialog(title: Text('Mouse navigation dialog')),
           ),
@@ -526,7 +519,7 @@ void _registerShellNavigationTests() {
 
     testWidgets('mouse Back closes the Settings tab', (tester) async {
       await pumpShell(tester, desktop);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
@@ -534,7 +527,7 @@ void _registerShellNavigationTests() {
       expect(shell.currentContent?.isAppearance, isTrue);
 
       await tester.tap(
-        find.byType(MainContent),
+        primaryMainContent,
         buttons: kBackMouseButton,
         kind: PointerDeviceKind.mouse,
       );
@@ -542,7 +535,7 @@ void _registerShellNavigationTests() {
 
       expect(shell.rootMode, ShellRootMode.forum);
       expect(shell.currentContent?.isAppearance, isNot(true));
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the avatar sits in the top right corner', (tester) async {
@@ -550,7 +543,7 @@ void _registerShellNavigationTests() {
 
       expect(userMenu, findsOneWidget);
 
-      final content = tester.getRect(find.byType(MainContent));
+      final content = tester.getRect(primaryMainContent);
       final avatar = tester.getRect(userMenu);
 
       expect(content.right - avatar.right, lessThan(16));
@@ -569,12 +562,24 @@ void _registerShellNavigationTests() {
   testWidgets('switching instance swaps the sidebar contents', (tester) async {
     await pumpShell(tester, desktop);
 
-    expect(find.text('Discourse Meta'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Discourse Meta'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('DT'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Discourse Team'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(InstanceSidebar),
+        matching: find.text('Discourse Team'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Discourse Meta'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -715,9 +720,7 @@ void _registerShellNavigationTests() {
           'https://forum.example/discuss/about',
         ]);
 
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         if (connected) {
           api.customSidebarSectionsBySite[site.url] = const [
             SidebarSection(
@@ -767,9 +770,7 @@ void _registerShellNavigationTests() {
   ) async {
     await pumpShell(tester, desktop);
 
-    final controller = ShellScope.read(
-      tester.element(find.byType(MainContent)),
-    );
+    final controller = ShellScope.read(tester.element(primaryMainContent));
     controller.pushContent(
       ContentRoute.group(
         GroupRoute.detail(
@@ -1330,9 +1331,7 @@ void _registerShellNavigationTests() {
     await tester.tap(sidebarDestination('Child'));
     await tester.pumpAndSettle();
 
-    final controller = ShellScope.read(
-      tester.element(find.byType(MainContent)),
-    );
+    final controller = ShellScope.read(tester.element(primaryMainContent));
     expect(controller.currentUserFor(site.url)?.sidebarCategoryIds, [2]);
     expect(api.feedPaths.last, '/c/parent/child/2.json');
     expect(controller.destinationId, 'category-2');
@@ -1588,9 +1587,7 @@ void _registerShellNavigationTests() {
     await tester.tap(sidebarDestination('All categories'));
     await tester.pumpAndSettle();
 
-    final controller = ShellScope.read(
-      tester.element(find.byType(MainContent)),
-    );
+    final controller = ShellScope.read(tester.element(primaryMainContent));
     expect(controller.destinationId, 'all-categories');
     expect(controller.currentContent?.id, 'all-categories');
     expect(find.byType(CategoriesPage), findsOneWidget);
@@ -1652,9 +1649,7 @@ void _registerShellNavigationTests() {
     );
 
     await pumpShell(tester, desktop, instances: [site], api: api);
-    final controller = ShellScope.read(
-      tester.element(find.byType(MainContent)),
-    );
+    final controller = ShellScope.read(tester.element(primaryMainContent));
 
     controller.openCategory(parent);
     await tester.pumpAndSettle();
@@ -2174,7 +2169,13 @@ void _registerShellNavigationTests() {
       expect(api.lookups, ['meta.discourse.org']);
       expect(find.byType(EmptyState), findsNothing);
       expect(find.byType(InstanceSidebar), findsOneWidget);
-      expect(find.text('Discourse Meta'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Discourse Meta'),
+        ),
+        findsOneWidget,
+      );
       expect(store.saveCount, 1);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2219,7 +2220,7 @@ void _registerShellNavigationTests() {
         findsOneWidget,
       );
       expect(find.dIcon(DIcons.lock), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      expect(primaryMainContent, findsNothing);
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byType(ForumTabsBar), findsNothing);
@@ -2273,9 +2274,9 @@ void _registerShellNavigationTests() {
 
       expect(authenticator.connected, ['https://meetup.discourse.org']);
       expect(api.feedPaths, ['/latest.json']);
-      expect(find.text('Welcome inside'), findsOneWidget);
+      expect(topicListTitle('Welcome inside'), findsOneWidget);
       expect(find.text('Sign in to continue'), findsNothing);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
       expect(controller.search.siteUrl, 'https://meetup.discourse.org');
@@ -2499,7 +2500,13 @@ void _registerShellNavigationTests() {
           tester.getTopLeft(team).dy,
           lessThan(tester.getTopLeft(meta).dy),
         );
-        expect(find.text('Discourse Team'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text('Discourse Team'),
+          ),
+          findsOneWidget,
+        );
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
@@ -3301,7 +3308,7 @@ void _registerShellNavigationTests() {
       );
 
       await pumpShell(tester, desktop, api: api, revealMobileNavigation: true);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tester.longPress(railItem('team.discourse.org'));

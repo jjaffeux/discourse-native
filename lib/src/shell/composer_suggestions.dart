@@ -30,6 +30,7 @@ class ComposerSuggestionField extends StatefulWidget {
     required this.composer,
     required this.field,
     this.onAction,
+    this.onModifiedEnter,
     this.renderEditable,
     this.scroll,
   });
@@ -39,6 +40,7 @@ class ComposerSuggestionField extends StatefulWidget {
   final Widget field;
 
   final ComposerSuggestionActionHandler? onAction;
+  final KeyEventResult Function(KeyEvent)? onModifiedEnter;
   final RenderEditable? Function()? renderEditable;
   final Listenable? scroll;
 
@@ -61,6 +63,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   @override
   void initState() {
     super.initState();
+    _searchFocus.onKeyEvent = _onSearchKey;
     _popup = widget.composer.autocomplete;
     _popup.addListener(_onPopupChanged);
     widget.scroll?.addListener(_onPopupChanged);
@@ -198,6 +201,28 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     _dismiss();
   }
 
+  KeyEventResult _onSearchKey(FocusNode node, KeyEvent event) {
+    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+      final keyboard = HardwareKeyboard.instance;
+      if (keyboard.isMetaPressed || keyboard.isControlPressed) {
+        // The mention input lives in an overlay. Forward send shortcuts to
+        // the editor's handlers before the command list accepts a person.
+        for (final ancestor in widget.composer.focus.ancestors) {
+          final result = ancestor.onKeyEvent?.call(ancestor, event);
+          if (result != null && result != KeyEventResult.ignored) return result;
+        }
+        return KeyEventResult.skipRemainingHandlers;
+      } else if (keyboard.isShiftPressed) {
+        _dismiss();
+        FocusManager.instance.applyFocusChangesIfNeeded();
+        return widget.onModifiedEnter?.call(event) ?? KeyEventResult.ignored;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -220,10 +245,11 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
       case LogicalKeyboardKey.tab:
-        // Cmd+Enter is the send shortcut and stays the send shortcut. An open
-        // list must not be what decides when a reply is posted.
+        // Modified Enter belongs to the editor's send and newline shortcuts.
+        // An open list must not turn either shortcut into choosing an item.
         if (HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) {
+            HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isShiftPressed) {
           return KeyEventResult.ignored;
         }
         if (_popup.selected == null ||

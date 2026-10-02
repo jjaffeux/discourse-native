@@ -5,7 +5,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_flag_editor.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -257,9 +256,9 @@ Future<ShellController> _loadShell(
       ).copyWith(user: _openingUser, config: _config),
     ],
   );
-  await tester.tap(find.text('Opening topic'));
+  await tester.tap(topicListTitle('Opening topic'));
   await tester.pumpAndSettle();
-  return ShellScope.read(tester.element(find.byType(MainContent)));
+  return ShellScope.read(tester.element(primaryMainContent));
 }
 
 bool _focusWithin(Finder finder) {

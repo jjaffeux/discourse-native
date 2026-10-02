@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:flutter/material.dart';
@@ -53,15 +52,12 @@ void main() {
     await tester.tap(sidebarDestination('Users'));
     await tester.pumpAndSettle();
 
-    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    final shell = ShellScope.read(tester.element(primaryMainContent));
     expect(shell.currentContent?.id, 'users');
     expect(find.byType(UsersPage), findsOneWidget);
     // The page names itself; its desktop panel tab carries the other label.
     expect(
-      find.descendant(
-        of: find.byType(MainContent),
-        matching: find.text('Users'),
-      ),
+      find.descendant(of: primaryMainContent, matching: find.text('Users')),
       findsOneWidget,
     );
     expect(

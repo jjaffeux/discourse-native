@@ -399,13 +399,25 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('user-menu-tab-bookmarks')));
         await tester.pumpAndSettle();
         expect(api.bookmarkSites, [_metaUrl]);
-        expect(find.textContaining('Meta chat message'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(BookmarkSection),
+            matching: find.textContaining('Meta chat message'),
+          ),
+          findsOneWidget,
+        );
 
         shell.selectInstance(1);
         await tester.pumpAndSettle();
 
         expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
-        expect(find.textContaining('Team chat message'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(BookmarkSection),
+            matching: find.textContaining('Team chat message'),
+          ),
+          findsOneWidget,
+        );
       }),
     );
 
@@ -468,10 +480,21 @@ void main() {
         shell.selectInstance(1);
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('Team chat message'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(BookmarkSection),
+            matching: find.textContaining('Team chat message'),
+          ),
+          findsOneWidget,
+        );
         expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
 
-        await tester.tap(find.textContaining('Team chat message'));
+        await tester.tap(
+          find.descendant(
+            of: find.byType(BookmarkSection),
+            matching: find.textContaining('Team chat message'),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(launched, ['$_teamUrl/chat/c/team/2/32']);

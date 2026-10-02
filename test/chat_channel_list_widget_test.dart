@@ -11,7 +11,6 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -110,7 +109,7 @@ void main() {
   ) async {
     await _pump(tester);
     tester.view.physicalSize = const Size(2000, 900);
-    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    final shell = ShellScope.read(tester.element(primaryMainContent));
     shell.pushContent(
       const ContentRoute(
         id: ChatPlugin.channelsRouteId,
@@ -151,7 +150,7 @@ void main() {
     'channel list saves are isolated and leave the sidebar inbox alone',
     (tester) async {
       final api = await _pump(tester);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       final chat = shell.pluginSession.require(chatControllerService);
       final navigation = shell.pluginSession.require(chatShellService);
 
@@ -225,7 +224,7 @@ void main() {
     'active channels stay listed through filtering and starring without changing navigation',
     (tester) async {
       await _pump(tester);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       final chat = shell.pluginSession.require(chatControllerService);
       final navigation = shell.pluginSession.require(chatShellService);
       expect(navigation.openChannel(1), isTrue);
@@ -283,7 +282,7 @@ void main() {
     'older servers expose no options and retain the direct-message action',
     (tester) async {
       final api = await _pump(tester, supported: false);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(
         find.byKey(const ValueKey('chat-sidebar-start-message')),
         findsNothing,
@@ -310,7 +309,7 @@ void main() {
     'Native menus and bypass controls fit compact layouts and large text',
     (tester) async {
       await _pump(tester);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       final controller = shell.pluginSession
           .require(chatControllerService)
           .channelListPreferences;

@@ -882,6 +882,20 @@ class ComposerListBodyController extends ComposerController {
       indent();
       return KeyEventResult.handled;
     }
+    if (selection.isValid &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+      final before = text.value;
+      final next = _formatInput(
+        before,
+        TextEditingValue(
+          text: before.text.replaceRange(selection.start, selection.end, '\n'),
+          selection: TextSelection.collapsed(offset: selection.start + 1),
+        ),
+      );
+      if (next != before) text.value = next;
+      return KeyEventResult.handled;
+    }
     if (selection.isCollapsed &&
         selection.start == 0 &&
         event.logicalKey == LogicalKeyboardKey.backspace) {

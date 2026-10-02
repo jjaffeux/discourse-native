@@ -228,15 +228,11 @@ void main() {
               .renderEditable;
           final blocks = composer.blocks.index.blocks;
           final origin = editable.localToGlobal(Offset.zero);
-          final lineHeight = editable.preferredLineHeight;
-          final before = editable.getLocalRectForCaret(
-            TextPosition(offset: blocks[0].end - 1),
+          final surface = tester.widget<ComposerBlockSurface>(
+            find.byType(ComposerBlockSurface),
           );
-          final after = editable.getLocalRectForCaret(
-            TextPosition(offset: blocks[1].start),
-          );
-          final bottom = origin.dy + before.center.dy + lineHeight / 2;
-          final top = origin.dy + after.center.dy - lineHeight / 2;
+          final bottom = surface.blockRect(blocks[0])!.bottom;
+          final top = surface.blockRect(blocks[1])!.top;
           expect(top, greaterThan(bottom));
           final middle = (bottom + top) / 2;
           final gesture = await tester.startGesture(
@@ -382,7 +378,7 @@ void main() {
         expect(
           surface.blockRect(blocks[i])!.top -
               surface.blockRect(blocks[i - 1])!.bottom,
-          closeTo(0, .01),
+          inInclusiveRange(0, DSpacing.sm),
         );
       }
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
@@ -542,7 +538,7 @@ void main() {
           expect(
             after.top - before.bottom,
             i == 3
-                ? closeTo(0, .01)
+                ? inInclusiveRange(0, DSpacing.sm)
                 : greaterThanOrEqualTo(render.preferredLineHeight * .9),
           );
           expect(

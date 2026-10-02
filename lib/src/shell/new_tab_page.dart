@@ -1240,7 +1240,6 @@ class _StartSection extends StatelessWidget {
     );
     final heading = onHeading == null
         ? SizedBox(
-            height: 24,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               spacing: 9,
@@ -1251,7 +1250,13 @@ class _StartSection extends StatelessWidget {
                     child: DIcon(icon, size: 12, color: tokens.mutedForeground),
                   ),
                 ),
-                Text(title, style: headingStyle),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: headingStyle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           )
@@ -1269,7 +1274,13 @@ class _StartSection extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               spacing: 9,
               children: [
-                Text(title, style: headingStyle),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: headingStyle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 DIcon(
                   DIcons.chevronRight,
                   size: 11,
@@ -1532,6 +1543,8 @@ class _PanelPreview extends StatelessWidget {
               ),
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: tokens.foreground,
                   fontWeight: FontWeight.w600,

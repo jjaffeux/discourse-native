@@ -9,8 +9,11 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 import 'support/native_drop.dart';
 import 'support/shell_test_harness.dart';
 
@@ -111,6 +114,7 @@ void main() {
         tester.getCenter(find.byType(ComposerEditor)),
         [nativeDropFile('shot.png')],
       );
+      await _settleUpload(tester, hidden);
       await tester.pumpAndSettle();
 
       expect(hidden.raw, contains('(upload://shot.png)'));
@@ -148,6 +152,7 @@ void main() {
         tester.getCenter(find.byType(ComposerEditor)),
         [nativeDropFile('shot.png')],
       );
+      await _settleUpload(tester, composer);
       await tester.pumpAndSettle();
 
       expect(composer.raw, contains('(upload://shot.png)'));
@@ -170,6 +175,9 @@ Future<ShellController> _pumpApp(
   WidgetTester tester, {
   required FakeDiscourseApi api,
 }) async {
+  installTestMediaPipeline(
+    client: MockClient((_) async => http.Response('', 404)),
+  );
   const reader = DiscourseUser(id: 1, username: 'reader');
   await pumpShell(
     tester,
@@ -198,4 +206,19 @@ Future<ComposerController> _openReply(ShellController shell) async {
   final composer = shell.visibleComposer!;
   await shell.finishComposerDraftRestore(composer);
   return composer;
+}
+
+Future<void> _settleUpload(
+  WidgetTester tester,
+  ComposerController composer,
+) async {
+  // Native file IO runs outside fake async; preparation also schedules timers
+  // inside the widget test's clock. Advance both until the upload completes.
+  for (var attempt = 0; attempt < 100 && composer.hasActiveUploads; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump(const Duration(milliseconds: 20));
+  }
+  expect(composer.hasActiveUploads, isFalse);
 }

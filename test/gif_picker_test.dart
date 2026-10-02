@@ -223,9 +223,17 @@ void main() {
       expect(categoryAction, findsOneWidget);
       expect(
         tester.getSemantics(categoryAction),
+        isSemantics(label: 'Search Cats GIFs', isButton: true),
+      );
+      final categoryTarget = find.descendant(
+        of: find.byKey(const ValueKey('gif-category-0')),
+        matching: find.byType(InkWell),
+      );
+      expect(categoryTarget, findsOneWidget);
+      expect(
+        tester.getSemantics(categoryTarget),
         isSemantics(
-          label: 'Search Cats GIFs\nCats',
-          isButton: true,
+          label: 'Cats',
           isFocusable: true,
           hasTapAction: true,
           hasFocusAction: true,
@@ -263,9 +271,16 @@ void main() {
       expect(resultAction, findsOneWidget);
       expect(
         tester.getSemantics(resultAction),
+        isSemantics(label: 'Choose Cat dance GIF', isButton: true),
+      );
+      final resultTarget = find.descendant(
+        of: find.byKey(const ValueKey('gif-result-0')),
+        matching: find.byType(InkWell),
+      );
+      expect(resultTarget, findsOneWidget);
+      expect(
+        tester.getSemantics(resultTarget),
         isSemantics(
-          label: 'Choose Cat dance GIF',
-          isButton: true,
           isFocusable: true,
           hasTapAction: true,
           hasFocusAction: true,

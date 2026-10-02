@@ -1,11 +1,14 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/discover_sites.dart';
+import 'support/fakes.dart';
 
 void main() {
   Future<void> openAddSite(
@@ -15,15 +18,26 @@ void main() {
   }) async {
     final source = emptyDiscoverSites();
     addTearDown(source.dispose);
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore(),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(shell.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: (theme ?? AppTheme.dark).copyWith(platform: platform),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => FilledButton(
-              onPressed: () =>
-                  showAddInstanceSheet(context, discoverSites: source),
-              child: const Text('Open'),
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: (theme ?? AppTheme.dark).copyWith(platform: platform),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => FilledButton(
+                onPressed: () =>
+                    showAddInstanceSheet(context, discoverSites: source),
+                child: const Text('Open'),
+              ),
             ),
           ),
         ),

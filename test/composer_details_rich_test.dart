@@ -118,7 +118,7 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
   }
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.dark,
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),

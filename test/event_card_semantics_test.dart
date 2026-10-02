@@ -9,8 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/event_fixtures.dart';
 
-// Replay the traversal tree sent to the native accessibility bridge. Widget
-// finders can still see an overlay whose serialized nodes have become orphaned.
+// Replay both trees sent to the native accessibility bridge. Overlay portals
+// can attach to different parents for traversal and hit testing. Widget finders
+// can still see an overlay whose serialized nodes have become orphaned.
 class _NativeSemanticsBinding extends AutomatedTestWidgetsFlutterBinding {
   @override
   ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
@@ -47,10 +48,14 @@ class _NativeSemanticsUpdateBuilder extends Fake
     final visited = <int>{};
     void visit(int id) {
       if (!visited.add(id)) return;
-      for (final child
-          in (nodes[id]?[#childrenInTraversalOrder] as Iterable<int>?) ??
-              <int>[]) {
-        visit(child);
+      for (final childrenKey in [
+        #childrenInTraversalOrder,
+        #childrenInHitTestOrder,
+      ]) {
+        for (final child
+            in (nodes[id]?[childrenKey] as Iterable<int>?) ?? <int>[]) {
+          visit(child);
+        }
       }
     }
 
@@ -60,6 +65,7 @@ class _NativeSemanticsUpdateBuilder extends Fake
         'id=$id label=${nodes[id]?[#label]} traversalParent=${nodes[id]?[#traversalParent]}',
       );
     }
+    nodes.removeWhere((id, _) => !visited.contains(id));
     return delegate.build();
   }
 }

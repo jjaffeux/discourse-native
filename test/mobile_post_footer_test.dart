@@ -44,7 +44,11 @@ void main() {
         final y = tester.getCenter(summary).dy;
         for (final control in [react, reply, more]) {
           expect(tester.getCenter(control).dy, closeTo(y, .1));
-          expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
+          final surface = find.descendant(
+            of: control,
+            matching: find.byType(AnimatedContainer),
+          );
+          expect(tester.getRect(control), tester.getRect(surface));
         }
         final replySurface = find.descendant(
           of: reply,

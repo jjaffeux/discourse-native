@@ -234,10 +234,17 @@ void main() {
         findsNothing,
       );
       expect(
-        find.descendant(of: reply, matching: find.text('Reply')),
+        find.descendant(
+          of: reply,
+          matching: find.byTooltip('Reply to this topic'),
+        ),
         findsOneWidget,
       );
-      expect(tester.getRect(reply).right, tester.getRect(bar).right);
+      expect(
+        tester.getRect(reply).right,
+        lessThanOrEqualTo(tester.getRect(bar).right),
+      );
+      expect(reply.hitTestable(), findsOneWidget);
       for (final key in [
         'topic-header-bookmark-button',
         'topic-header-notification-button',

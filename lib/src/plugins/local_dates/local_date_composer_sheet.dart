@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../composer_sheet_layout.dart';
 import 'local_date.dart';
 import 'local_date_composer_editor.dart';
 import 'local_date_environment.dart';

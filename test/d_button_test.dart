@@ -999,7 +999,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.dark,
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
         home: const Scaffold(
           body: Center(
             child: DTooltip(

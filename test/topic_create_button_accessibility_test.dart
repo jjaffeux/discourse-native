@@ -45,7 +45,11 @@ void main() {
           expect(divider.top, surface.top);
           expect(divider.bottom, surface.bottom);
           for (final button in [create, drafts]) {
-            expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+            final painted = find.descendant(
+              of: button,
+              matching: find.byType(Material),
+            );
+            expect(tester.getRect(button), tester.getRect(painted));
           }
           await tester.tap(drafts);
           await tester.pumpAndSettle();

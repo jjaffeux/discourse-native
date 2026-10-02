@@ -27,7 +27,6 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
@@ -205,7 +204,7 @@ void _registerConnectionSessionTests() {
       expect(api.customEmojisRequired, isEmpty);
       expect(api.categoryRequests, isEmpty);
 
-      expect(find.byType(MainContent), findsNothing);
+      expect(primaryMainContent, findsNothing);
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byType(ForumTabsBar), findsNothing);
@@ -217,13 +216,13 @@ void _registerConnectionSessionTests() {
 
       await tester.tap(find.byKey(ValueKey(publicSite.url)));
       await tester.pumpAndSettle();
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceSidebar), findsOneWidget);
 
       await tester.tap(find.byKey(ValueKey(privateSite.url)));
       await tester.pumpAndSettle();
       expect(find.text('Sign in to continue'), findsOneWidget);
-      expect(find.byType(MainContent), findsNothing);
+      expect(primaryMainContent, findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('private-forum-sign-in')));
       await tester.pumpAndSettle();
@@ -884,7 +883,7 @@ void _registerConnectionSessionTests() {
         );
         expect(
           avatar.bottom,
-          lessThanOrEqualTo(tester.getRect(find.byType(MainContent)).top),
+          lessThanOrEqualTo(tester.getRect(primaryMainContent).top),
         );
         expect(desktop.width - avatar.right, lessThan(16));
       } finally {
@@ -1422,14 +1421,19 @@ void _registerConnectionSessionTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('Joffrey'), findsNothing);
-      expect(find.byType(MainContent), findsOneWidget);
+      expect(primaryMainContent, findsOneWidget);
       expect(find.text('A private message'), findsOneWidget);
     });
 
     testWidgets('the avatar opens the account actions directly', (
       tester,
     ) async {
-      await pumpShell(tester, phone, instances: connected);
+      await pumpShell(
+        tester,
+        phone,
+        instances: connected,
+        authenticator: signedIn(),
+      );
       await _openProfileSection(tester);
 
       expect(find.text('Preferences'), findsOneWidget);
@@ -1473,9 +1477,7 @@ void _registerConnectionSessionTests() {
       expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
       expect(find.byKey(TopicCreateButton.draftsButtonKey), findsNothing);
       expect(
-        ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        ).canCreateTopicHere,
+        ShellScope.read(tester.element(primaryMainContent)).canCreateTopicHere,
         isFalse,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1490,6 +1492,8 @@ void _registerConnectionSessionTests() {
             title: 'Discourse Meta',
           ).copyWith(user: me.withHidePresence(false)),
         ],
+        api: FakeDiscourseApi(user: me.withHidePresence(false)),
+        authenticator: signedIn(),
       );
       await _openProfileSection(tester);
 
@@ -1891,9 +1895,7 @@ void _registerConnectionSessionTests() {
       await tester.tap(find.textContaining('You earned the Nice Reply badge'));
       await tester.pumpAndSettle();
 
-      final controller = ShellScope.read(
-        tester.element(find.byType(MainContent)),
-      );
+      final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(controller.currentContent!.badgeRoute?.badgeId, 24);
       expect(find.text('Recently awarded'), findsOneWidget);
       expect(launched, isEmpty);
@@ -2455,7 +2457,7 @@ void _registerConnectionSessionTests() {
 
     Future<void> openTopic(WidgetTester tester, FakeDiscourseApi api) async {
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
     }
 
@@ -2559,7 +2561,7 @@ void _registerConnectionSessionTests() {
       );
       await tester.tap(find.text('Topics'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Joffrey'));
       await tester.pumpAndSettle();

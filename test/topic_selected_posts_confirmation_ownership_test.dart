@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -218,9 +217,9 @@ _openTopic(WidgetTester tester) async {
     instances: [instance('meta.discourse.org').copyWith(user: _moderator)],
     authenticator: auth,
   );
-  await tester.tap(find.text('Source topic'));
+  await tester.tap(topicListTitle('Source topic'));
   await tester.pumpAndSettle();
-  final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+  final shell = ShellScope.read(tester.element(primaryMainContent));
   await tester.tap(find.byKey(const ValueKey('topic-status-button')));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('topic-select-posts')));
