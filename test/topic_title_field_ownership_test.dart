@@ -200,6 +200,73 @@ void main() {
     expect(shell.visibleComposer, isNull);
   });
 
+  testWidgets('pending category response preserves a completed header rename', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final server = _TopicServer(categoryResponseGate: gate);
+    final shell = await _fixture(server);
+    tester.view.physicalSize = const Size(1100, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: MainContent(
+              layout: ShellLayout.expanded,
+              registry: PluginRegistry.empty,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final savingCategory = shell.saveTopicCategory(
+      siteUrl: _siteUrl,
+      topicId: _row.id,
+      categoryId: _categoryB.id,
+    );
+    await tester.runAsync(pumpEventQueue);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(server.requests, hasLength(1));
+    expect(
+      jsonDecode(server.requests.single.body),
+      containsPair('category_id', _categoryB.id),
+    );
+    expect(server.topic['category_id'], _categoryB.id);
+    expect(shell.currentTopic?.categoryId, _categoryA.id);
+    expect(gate.isCompleted, isFalse);
+
+    final field = find.byKey(const ValueKey('topic-header-title-field'));
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, _renamed);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(server.requests, hasLength(2));
+    expect(server.topic['title'], _renamed);
+    expect(shell.currentTopic?.title, _renamed);
+    expect(shell.currentContent?.title, _renamed);
+
+    gate.complete();
+    expect(await tester.runAsync(() => savingCategory), isNull);
+    await tester.pumpAndSettle();
+
+    expect(shell.currentTopic?.title, _renamed);
+    expect(shell.currentTopic?.categoryId, _categoryB.id);
+    final row = shell.store.read<Topic>(_siteUrl, _row.id)!;
+    expect((row.title, row.categoryId), (_renamed, _categoryB.id));
+    expect(
+      (shell.currentContent?.title, shell.currentContent?.color),
+      (_renamed, Color(_categoryB.colorValue)),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final removeTag in [false, true]) {
     testWidgets(
       'pending header rename preserves the completed category change with tag removal $removeTag',
@@ -360,8 +427,9 @@ Future<ShellController> _fixture(_TopicServer server, {_TopicApi? api}) async {
   addTearDown(() {
     shell.dispose();
     topics.writes.close();
-    final gate = server.renameGate;
-    if (gate != null && !gate.isCompleted) gate.complete();
+    for (final gate in [server.renameGate, server.categoryResponseGate]) {
+      if (gate != null && !gate.isCompleted) gate.complete();
+    }
   });
   await shell.load();
   await shell.loadFeed('latest');
@@ -481,9 +549,10 @@ final class _TopicApi extends FakeDiscourseApi {
 }
 
 final class _TopicServer {
-  _TopicServer({this.renameGate, this.cleanTitle});
+  _TopicServer({this.renameGate, this.categoryResponseGate, this.cleanTitle});
 
   final Completer<void>? renameGate;
+  final Completer<void>? categoryResponseGate;
 
   /// `TextCleaner.clean_title`, which the site applies as it stores a title.
   final String Function(String title)? cleanTitle;
@@ -525,7 +594,7 @@ final class _TopicServer {
     }
     // TopicsController#update answers with the stored topic, and with its
     // tags when the request carried tags.
-    return http.Response(
+    final response = http.Response(
       jsonEncode({
         'basic_topic': {
           'id': _row.id,
@@ -538,6 +607,10 @@ final class _TopicServer {
       }),
       200,
     );
+    // Apply the category before a later title request, but deliver its answer
+    // afterward. The captured response still carries the original title.
+    if (body.containsKey('category_id')) await categoryResponseGate?.future;
+    return response;
   }
 
   List<int> _tagIds(Object? value) => [
