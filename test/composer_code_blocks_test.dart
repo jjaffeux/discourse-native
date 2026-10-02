@@ -103,6 +103,104 @@ Future<ComposerController> _pump(
 }
 
 void main() {
+  for (final scale in [1.0, 1.5]) {
+    testWidgets(
+      'mobile code fills the composer width at scale $scale',
+      (tester) async {
+        await _pump(
+          tester,
+          'Before\n\n```text\n1\n```\n\nAfter',
+          width: 390,
+          scale: scale,
+        );
+        final editor = find.byType(ComposerEditor);
+        final code = find.byType(ComposerCodeBlockEditor);
+        final prose = find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText &&
+              widget.controller is! DCodeEditingController,
+        );
+        final caretMargin =
+            (tester.widget<EditableText>(prose).cursorWidth + 1) * scale;
+        expect(tester.getTopLeft(code).dx, tester.getTopLeft(editor).dx);
+        expect(
+          tester.getBottomRight(editor).dx - tester.getBottomRight(code).dx,
+          closeTo(caretMargin, .01),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets(
+      'mobile code range selection uses only the card border in ${theme.brightness.name}',
+      (tester) async {
+        const source = 'Before\n\n```text\n1\n```\n\nAfter';
+        final composer = await _pump(tester, source, width: 390, theme: theme);
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        composer.requestFocus();
+        await tester.pump();
+        final prose = find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText && widget.controller == composer.text,
+        );
+        final render = tester.state<EditableTextState>(prose).renderEditable;
+        final normalSelectionColor = render.selectionColor;
+        final block = parseComposerCodeBlocks(source).single;
+        tester.testTextInput.updateEditingValue(
+          composer.value.copyWith(
+            selection: TextSelection(
+              baseOffset: block.start,
+              extentOffset: block.end,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(render.selectionColor?.a, 0);
+        final outline = find.byWidgetPredicate(
+          (widget) =>
+              widget is DItem &&
+              widget.selected &&
+              widget.selectionStyle == DItemSelectionStyle.outline,
+        );
+        final card = find.descendant(
+          of: find.byType(ComposerCodeBlockEditor),
+          matching: find.byType(DCard),
+        );
+        expect(tester.getRect(outline), tester.getRect(card));
+
+        await tester.showKeyboard(_codeInput);
+        final code = tester.state<EditableTextState>(_codeInput);
+        code.widget.controller.selection = const TextSelection(
+          baseOffset: 0,
+          extentOffset: 1,
+        );
+        await tester.pump();
+        expect(code.renderEditable.selectionColor?.a, greaterThan(0));
+
+        composer.text.clearKeyboardPillSelection();
+        composer.text.selection = const TextSelection(
+          baseOffset: 0,
+          extentOffset: 6,
+        );
+        composer.requestFocus();
+        await tester.pump();
+        expect(render.selectionColor, normalSelectionColor);
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   for (final before in [true, false]) {
     testWidgets(
       'Shift-arrow selects code from the ${before ? 'leading' : 'trailing'} boundary for deletion',

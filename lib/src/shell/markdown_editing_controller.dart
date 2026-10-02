@@ -694,6 +694,20 @@ class MarkdownEditingController extends TextEditingController {
   Object? get keyboardSelectedProjection =>
       _keyboardSelectionDocument == text ? _keyboardSelectedProjection : null;
 
+  /// A whole component uses its own border instead of the document range fill.
+  bool get selectionHasComponentOutline =>
+      keyboardSelectedProjection != null ||
+      (!rawMarkdown &&
+          selection.isValid &&
+          !selection.isCollapsed &&
+          syntaxBlocks.any(
+            (block) =>
+                block.projection is ComposerAtomicSelectionProjection &&
+                isSyntaxCollapsed(block) &&
+                selection.start == block.start &&
+                selection.end == block.end,
+          ));
+
   bool get selectedProjectionHidesCursor =>
       _caretSuppressedImage != null ||
       _caretSuppressedGallery != null ||

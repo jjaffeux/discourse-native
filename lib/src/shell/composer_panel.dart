@@ -1944,7 +1944,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     return DScrollBar(
       controller: _scroll,
       child: Padding(
-        padding: const EdgeInsetsDirectional.only(end: 2),
+        padding: EdgeInsetsDirectional.only(end: context.isTouch ? 0 : 2),
         child: field,
       ),
     );
@@ -1984,14 +1984,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 widget.composer.focus,
               ]),
               builder: (_, _) => ComposerBlockquoteDecoration(
-                reserveGutter: !_rawMarkdown && _parentEditor == null,
+                reserveGutter:
+                    !_rawMarkdown && _parentEditor == null && !context.isTouch,
                 repaint: Listenable.merge([widget.composer.text, _scroll]),
                 child: ClipRect(
                   child: DefaultSelectionStyle.merge(
                     // Components paint their own outline. The native range
                     // includes hidden Markdown and would tint extra lines.
                     selectionColor:
-                        widget.composer.text.keyboardSelectedProjection != null
+                        widget.composer.text.selectionHasComponentOutline
                         ? Colors.transparent
                         : null,
                     child: DInput(
