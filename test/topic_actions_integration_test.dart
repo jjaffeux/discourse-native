@@ -1083,7 +1083,7 @@ void _registerTopicModerationTests() {
       await tester.pumpAndSettle();
 
       expect(api.postNoticeUpdates, const [
-        (postId: 1, notice: 'Please read this carefully.'),
+        (postId: 1, notice: '  Please read this carefully.  '),
       ]);
       expect(find.byKey(const ValueKey('post-notice-1')), findsOneWidget);
       expect(renderedText('Please read this carefully.'), findsOneWidget);
@@ -1105,7 +1105,7 @@ void _registerTopicModerationTests() {
       await tester.pumpAndSettle();
 
       expect(api.postNoticeUpdates, const [
-        (postId: 1, notice: 'Please read this carefully.'),
+        (postId: 1, notice: '  Please read this carefully.  '),
         (postId: 1, notice: null),
       ]);
       expect(find.byKey(const ValueKey('post-notice-1')), findsNothing);

@@ -19,7 +19,7 @@ class PostNotice {
     if (type == null) return null;
     return PostNotice(
       type: type,
-      raw: jsonText(json['raw']),
+      raw: json['raw'] is String ? json['raw'] as String : null,
       cooked: jsonText(json['cooked']),
     );
   }

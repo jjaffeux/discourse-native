@@ -2,6 +2,17 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final raw in [
+    '    code\n\n',
+    '\tcode\n',
+    'line with a hard break  \n',
+    '',
+  ]) {
+    test('preserves exact raw notice Markdown ${raw.codeUnits}', () {
+      expect(PostNotice.fromJson({'type': 'custom', 'raw': raw})?.raw, raw);
+    });
+  }
+
   test('reads and preserves a server-rendered custom post notice', () {
     final post = Post.fromJson(const {
       'id': 42,
