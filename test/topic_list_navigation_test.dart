@@ -309,6 +309,74 @@ void main() {
     }
   }
 
+  for (final limit in [2, 3]) {
+    testWidgets(
+      'forum category nesting $limit controls the active category path',
+      (tester) async {
+        const parent = TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '0088CC',
+        );
+        const child = TopicCategory(
+          id: 43,
+          name: 'Installation',
+          slug: 'installation',
+          color: 'CC8800',
+          parentCategoryId: 42,
+        );
+        const grandchild = TopicCategory(
+          id: 44,
+          name: 'Mobile',
+          slug: 'mobile',
+          color: '663399',
+          parentCategoryId: 43,
+        );
+        final setup = await _controller(
+          remoteConfig: SiteConfig.fromSettings({
+            'max_category_nesting': limit,
+          }),
+          categoryList: const [parent, child, grandchild],
+        );
+        final shell = setup.controller;
+        addTearDown(shell.dispose);
+        await shell.loadCategories(shell.currentInstance!.url);
+        shell.selectTopicListCategory(child);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              home: const Scaffold(
+                body: TopicListNavigation(child: SizedBox()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final thirdLevel = find.byKey(
+          const ValueKey('topic-list-subcategory-2-filter'),
+        );
+        expect(shell.currentSiteConfig.maxCategoryNesting, limit);
+        expect(thirdLevel, limit == 3 ? findsOneWidget : findsNothing);
+        expect(find.byType(DComboboxContent), findsNothing);
+        expect(shell.topicListContent?.categoryId, child.id);
+        if (limit == 3) {
+          await tester.tap(thirdLevel);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey(('topic-list-subcategory-2-option', 44))),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.topicListContent?.categoryId, grandchild.id);
+          expect(find.text('Subcategory'), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   test(
     'fresh settings select the first feed before requesting topics',
     () async {
@@ -604,7 +672,8 @@ void main() {
         );
         expect(parentRect.top, greaterThanOrEqualTo(feedRect.top));
         expect(parentRect.overlaps(feedRect), isFalse);
-        expect(childRect.top, greaterThanOrEqualTo(parentRect.bottom));
+        expect(childRect.top, parentRect.top);
+        expect(childRect.left, greaterThan(parentRect.right));
         expect(tagRect.overlaps(parentRect), isFalse);
         expect(tagRect.overlaps(childRect), isFalse);
         expect(tagRect.overlaps(feedRect), isFalse);
@@ -673,7 +742,7 @@ void main() {
           find.byKey(const ValueKey('topic-list-subcategory-filter')),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('All subcategories').last);
+        await tester.tap(find.text('All of Support').last);
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.categoryId, 42);
         expect(shell.topicListContent?.tagNames, ['approved', 'release']);

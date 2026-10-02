@@ -51,6 +51,7 @@ class SiteConfig {
     this.usePgHeadlinesForExcerpt = false,
     this.showTimeGapDays = defaultShowTimeGapDays,
     this.fixedCategoryPositions = false,
+    this.maxCategoryNesting = defaultMaxCategoryNesting,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
     this.defaultHomepage = '',
@@ -140,6 +141,7 @@ class SiteConfig {
   };
 
   static const int defaultMaxTagSearchResults = 5;
+  static const int defaultMaxCategoryNesting = 2;
 
   factory SiteConfig.fromSettings(
     Map<String, dynamic> json, {
@@ -216,6 +218,7 @@ class SiteConfig {
       usePgHeadlinesForExcerpt: json['use_pg_headlines_for_excerpt'] == true,
       showTimeGapDays: _showTimeGapDays(json['show_time_gap_days']),
       fixedCategoryPositions: json['fixed_category_positions'] == true,
+      maxCategoryNesting: _categoryNesting(json['max_category_nesting']),
       allowUncategorizedTopics: json['allow_uncategorized_topics'] == true,
       defaultNavigationMenuCategoryIds: _categoryIds(
         json['default_navigation_menu_categories'],
@@ -327,6 +330,7 @@ class SiteConfig {
     usePgHeadlinesForExcerpt: json['usePgHeadlinesForExcerpt'] == true,
     showTimeGapDays: _showTimeGapDays(json['showTimeGapDays']),
     fixedCategoryPositions: json['fixedCategoryPositions'] == true,
+    maxCategoryNesting: _categoryNesting(json['maxCategoryNesting']),
     allowUncategorizedTopics: json['allowUncategorizedTopics'] == true,
     defaultNavigationMenuCategoryIds: _categoryIds(
       json['defaultNavigationMenuCategoryIds'],
@@ -412,6 +416,7 @@ class SiteConfig {
       'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
       'showTimeGapDays': showTimeGapDays,
       'fixedCategoryPositions': fixedCategoryPositions,
+      'maxCategoryNesting': maxCategoryNesting,
       'allowUncategorizedTopics': allowUncategorizedTopics,
       'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
       'defaultHomepage': defaultHomepage,
@@ -521,6 +526,9 @@ class SiteConfig {
   final int showTimeGapDays;
 
   final bool fixedCategoryPositions;
+
+  /// Maximum category path depth, including the root (core supports 2 or 3).
+  final int maxCategoryNesting;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
   final String defaultHomepage;
@@ -691,6 +699,7 @@ class SiteConfig {
         usePgHeadlinesForExcerpt: usePgHeadlinesForExcerpt,
         showTimeGapDays: showTimeGapDays,
         fixedCategoryPositions: fixedCategoryPositions,
+        maxCategoryNesting: maxCategoryNesting,
         allowUncategorizedTopics: allowUncategorizedTopics,
         defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
         defaultHomepage: defaultHomepage,
@@ -761,6 +770,7 @@ class SiteConfig {
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
       other.showTimeGapDays == showTimeGapDays &&
       other.fixedCategoryPositions == fixedCategoryPositions &&
+      other.maxCategoryNesting == maxCategoryNesting &&
       other.allowUncategorizedTopics == allowUncategorizedTopics &&
       listEquals(
         other.defaultNavigationMenuCategoryIds,
@@ -829,6 +839,7 @@ class SiteConfig {
     usePgHeadlinesForExcerpt,
     showTimeGapDays,
     fixedCategoryPositions,
+    maxCategoryNesting,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
     defaultHomepage,
@@ -948,6 +959,12 @@ class SiteConfig {
       maximumSimultaneousUploads,
     final value? when value > 0 => value,
     _ => defaultSimultaneousUploads,
+  };
+
+  static int _categoryNesting(Object? raw) => switch (jsonIntOrNull(raw)) {
+    2 => 2,
+    3 => 3,
+    _ => defaultMaxCategoryNesting,
   };
 
   static int _showTimeGapDays(Object? raw) => switch (jsonIntOrNull(raw)) {

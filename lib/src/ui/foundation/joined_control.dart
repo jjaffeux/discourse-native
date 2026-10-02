@@ -11,6 +11,7 @@ class DJoinedControlScope extends InheritedWidget {
     required this.axis,
     required this.first,
     required this.last,
+    this.sharedOutline = false,
     required super.child,
   }) : _boundary = false;
 
@@ -19,11 +20,13 @@ class DJoinedControlScope extends InheritedWidget {
     : axis = Axis.horizontal,
       first = true,
       last = true,
+      sharedOutline = false,
       _boundary = true;
 
   final Axis axis;
   final bool first;
   final bool last;
+  final bool sharedOutline;
   final bool _boundary;
 
   bool get omitsLeadingBorder => !first;
@@ -64,6 +67,7 @@ class DJoinedControlScope extends InheritedWidget {
       axis != oldWidget.axis ||
       first != oldWidget.first ||
       last != oldWidget.last ||
+      sharedOutline != oldWidget.sharedOutline ||
       _boundary != oldWidget._boundary;
 }
 

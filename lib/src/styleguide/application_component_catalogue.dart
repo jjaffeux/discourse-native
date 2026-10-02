@@ -125,6 +125,7 @@ const applicationComponentCatalogue = <ComponentReference>[
       'Composer categories',
       'Category removal',
       'Disabled',
+      'Nested category path',
     ],
   ),
   ComponentReference(

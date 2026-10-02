@@ -32,8 +32,11 @@ final categorySelectorExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'A category button with its searchable selection dropdown.',
   notes:
-      'TopicCategorySelector is the complete component used by the topics list '
-      'and composer, as well as topic header and sidebar editing. It composes the '
+      'TopicCategoryPathSelector joins one TopicCategorySelector per level for '
+      'topic filters, up to the site\'s max_category_nesting setting. Each segment opens its '
+      'siblings; All of the parent removes deeper selections. '
+      'TopicCategorySelector is also used by the composer, topic header and '
+      'sidebar editing. It composes the '
       'Native Combobox, Button, and category artwork. '
       'Filtering can include All categories; authoring accepts a permission-filtered '
       'asynchronous search and parent-path labels. The composer pairs the parent '
@@ -100,8 +103,60 @@ final categorySelectorExamples = ComponentExamples(
 )''',
       builder: (_) => const _CategoryExample(disabled: true),
     ),
+    StyleguideExample(
+      title: 'Nested category path',
+      description:
+          'A shared outline joins independently editable levels. Choose siblings, '
+          'return to a parent, or continue through Subcategory.',
+      states: const [
+        'Three levels',
+        'Search',
+        'Parent selection',
+        'Scrollable',
+      ],
+      code: '''TopicCategoryPathSelector(
+  siteUrl: siteUrl, categories: categories, selectedCategoryId: selectedId,
+  maxCategoryNesting: siteConfig.maxCategoryNesting,
+  onSelected: (value) => setState(() => selectedId = value?.id),
+)''',
+      builder: (_) => const _CategoryPathExample(),
+    ),
   ],
 );
+
+class _CategoryPathExample extends StatefulWidget {
+  const _CategoryPathExample();
+
+  @override
+  State<_CategoryPathExample> createState() => _CategoryPathExampleState();
+}
+
+class _CategoryPathExampleState extends State<_CategoryPathExample> {
+  int? _selected = 4;
+
+  @override
+  Widget build(BuildContext context) => TopicCategoryPathSelector(
+    siteUrl: 'https://styleguide.invalid',
+    maxCategoryNesting: 3,
+    categories: const [
+      ..._categories,
+      TopicCategory(
+        id: 4,
+        name: 'Mobile',
+        color: '0088CC',
+        parentCategoryId: 3,
+      ),
+      TopicCategory(
+        id: 5,
+        name: 'Desktop',
+        color: '3BBF7B',
+        parentCategoryId: 3,
+      ),
+    ],
+    selectedCategoryId: _selected,
+    onSelected: (category) => setState(() => _selected = category?.id),
+  );
+}
 
 final tagSelectorExamples = ComponentExamples(
   status: ComponentStatus.implemented,

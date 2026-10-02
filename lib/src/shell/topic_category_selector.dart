@@ -36,6 +36,7 @@ class TopicCategorySelector extends StatefulWidget {
     this.valueKey,
     this.sheetOnMobile = false,
     this.triggerBuilder,
+    this.hasChildren,
   });
 
   final String siteUrl;
@@ -56,6 +57,9 @@ class TopicCategorySelector extends StatefulWidget {
 
   /// Reuses the selector popup with a caller's Native trigger composition.
   final DComboboxTriggerBuilder<int>? triggerBuilder;
+
+  /// Marks categories that offer another level in a category path.
+  final bool Function(TopicCategory category)? hasChildren;
 
   @override
   State<TopicCategorySelector> createState() => _TopicCategorySelectorState();
@@ -299,7 +303,23 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
                     squareSize: 10,
                   ),
                 const SizedBox(width: 8),
-                Expanded(child: Text(option.label)),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(child: Text(option.label)),
+                      if (option.value != 0 &&
+                          widget.hasChildren?.call(
+                                matches.firstWhere(
+                                  (category) => category.id == option.value,
+                                ),
+                              ) ==
+                              true) ...[
+                        const SizedBox(width: 6),
+                        const DBreadcrumbSeparator(),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

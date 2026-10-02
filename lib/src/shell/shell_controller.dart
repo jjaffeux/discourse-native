@@ -3891,8 +3891,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   String topicCategoryPathLabel(TopicCategory category, {String? siteUrl}) {
-    final parent = categoryFor(category.parentCategoryId, siteUrl: siteUrl);
-    return category_path.topicCategoryPathLabel(category, parent: parent);
+    return category_path.topicCategoryPathLabel(
+      category,
+      categoryFor: (id) => categoryFor(id, siteUrl: siteUrl),
+    );
   }
 
   Ref<Topic> topicRef(String siteUrl, int topicId) =>

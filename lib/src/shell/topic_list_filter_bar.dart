@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/sidebar_tag.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
@@ -31,6 +32,7 @@ class TopicListFilterBar extends StatelessWidget {
     this.selectedTagNames,
     this.onTagsSelected,
     this.leading,
+    this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
   });
 
   final String siteUrl;
@@ -48,29 +50,10 @@ class TopicListFilterBar extends StatelessWidget {
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
   final Widget? leading;
+  final int maxCategoryNesting;
 
   @override
   Widget build(BuildContext context) {
-    final byId = <int, TopicCategory>{
-      for (final category in categories) category.id: category,
-    };
-    final selectedCategory = byId[selectedCategoryId];
-    final rootCategory = switch (selectedCategory) {
-      null => null,
-      final category when category.parentCategoryId == null => category,
-      final category => byId[category.parentCategoryId],
-    };
-    final rootCategories =
-        categories
-            .where((category) => category.parentCategoryId == null)
-            .toList(growable: false)
-          ..sort(_compareCategories);
-    final subcategories = rootCategory == null
-        ? const <TopicCategory>[]
-        : (categories
-              .where((category) => category.parentCategoryId == rootCategory.id)
-              .toList(growable: false)
-            ..sort(_compareCategories));
     final theme = Theme.of(context);
     final selectedTags = [
       for (final value in selectedTagNames ?? [?selectedTagName])
@@ -78,37 +61,15 @@ class TopicListFilterBar extends StatelessWidget {
     ];
 
     final controlChildren = <Widget>[
-      TopicCategorySelector(
-        key: const ValueKey('topic-list-category-filter'),
-        keyPrefix: 'topic-list-category',
-        includeAll: true,
-        sheetOnMobile: true,
-        size: DButtonSize.filter,
+      TopicCategoryPathSelector(
+        keyPrefix: 'topic-list',
         siteUrl: siteUrl,
-        categories: rootCategories,
-        selected: rootCategory,
+        categories: categories,
+        selectedCategoryId: selectedCategoryId,
         onSelected: onCategorySelected,
+        sheetOnMobile: true,
+        maxCategoryNesting: maxCategoryNesting,
       ),
-      if (subcategories.isNotEmpty)
-        KeyedSubtree(
-          key: ValueKey(rootCategory!.id),
-          child: TopicCategorySelector(
-            key: const ValueKey('topic-list-subcategory-filter'),
-            keyPrefix: 'topic-list-subcategory',
-            includeAll: true,
-            sheetOnMobile: true,
-            size: DButtonSize.filter,
-            placeholder: context.l10n.subcategories,
-            siteUrl: siteUrl,
-            parent: rootCategory,
-            categories: subcategories,
-            selected: selectedCategory?.parentCategoryId == null
-                ? null
-                : selectedCategory,
-            onSelected: (category) =>
-                onCategorySelected(category ?? rootCategory),
-          ),
-        ),
       if (taggingEnabled)
         TopicTagSelector(
           key: const ValueKey('topic-list-tag-filter'),
@@ -227,19 +188,6 @@ SidebarTag? _selectedKnownTag(List<SidebarTag> tags, String? selected) {
     }
   }
   return null;
-}
-
-int _compareCategories(TopicCategory left, TopicCategory right) {
-  final leftPosition = left.position;
-  final rightPosition = right.position;
-  if (leftPosition != null || rightPosition != null) {
-    if (leftPosition == null) return 1;
-    if (rightPosition == null) return -1;
-    final positioned = leftPosition.compareTo(rightPosition);
-    if (positioned != 0) return positioned;
-  }
-  final folded = left.name.toLowerCase().compareTo(right.name.toLowerCase());
-  return folded != 0 ? folded : left.id.compareTo(right.id);
 }
 
 TopicTag _selectedTag(List<SidebarTag> knownTags, String value) {

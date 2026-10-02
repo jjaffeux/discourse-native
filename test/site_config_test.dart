@@ -123,6 +123,42 @@ Map<String, dynamic> settings({
 };
 
 void main() {
+  test(
+    'category nesting survives settings, storage, and plugin replacement',
+    () {
+      final config = SiteConfig.fromSettings(const {'max_category_nesting': 3});
+      expect(config.maxCategoryNesting, 3);
+      final restored = SiteConfig.fromJson(config.toJson());
+      expect(restored, config);
+      expect(restored.hashCode, config.hashCode);
+      expect(restored.withPlugins(restored.plugins), config);
+      expect(config, isNot(const SiteConfig.unknown()));
+      expect(
+        SiteConfig.fromSettings(const {'max_category_nesting': '3'}),
+        config,
+      );
+    },
+  );
+
+  test(
+    'unknown and invalid category nesting settings use the core default',
+    () {
+      expect(const SiteConfig.unknown().maxCategoryNesting, 2);
+      for (final value in [null, 0, 1, -1, 4, 'invalid']) {
+        expect(
+          SiteConfig.fromSettings({
+            'max_category_nesting': value,
+          }).maxCategoryNesting,
+          2,
+        );
+        expect(
+          SiteConfig.fromJson({'maxCategoryNesting': value}).maxCategoryNesting,
+          2,
+        );
+      }
+    },
+  );
+
   test('incoming mute policy survives storage and plugin replacement', () {
     for (final policy in ['always', 'only_muted', 'never']) {
       final config = SiteConfig.fromSettings({
