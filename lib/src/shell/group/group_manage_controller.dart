@@ -266,7 +266,9 @@ final class GroupManageController extends ChangeNotifier {
           'public_exit': _publicExit,
           'visibility_level': _visibility,
           'members_visibility_level': _membersVisibility,
-          'membership_request_template': _value('membership_request_template'),
+          'membership_request_template': textController(
+            'membership_request_template',
+          ).text,
           'automatic_membership_email_domains': _value(
             'automatic_membership_email_domains',
           ),

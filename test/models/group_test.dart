@@ -8,6 +8,14 @@ void main() {
   const siteUrl = 'https://forum.example';
   final extensions = PluginRegistry.validated(const [AssignPlugin()]);
 
+  test('group request template preserves its raw Markdown from detail', () {
+    const raw = '    indented code\n\nA hard break  \n\n';
+    final detail = GroupDetail.fromWire(const {
+      'group': {'id': 9, 'name': 'support', 'membership_request_template': raw},
+    }, siteUrl);
+    expect(detail.group.membershipRequestTemplate, raw);
+  });
+
   test(
     'group raw bio preserves Markdown whitespace from the detail payload',
     () {
