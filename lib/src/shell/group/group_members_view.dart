@@ -171,7 +171,12 @@ class _MembersSectionState extends State<_MembersSection> {
           title: widget.error!,
         );
       }
-      return const SizedBox.shrink();
+      return _GroupSectionLoadingSkeleton(
+        semanticsLabel: context.l10n.loadingDembed(
+          context.l10n.membersChatchannelinfoview,
+        ),
+        showAvatar: true,
+      );
     }
     if (page.members.isEmpty && !widget.loading) {
       return _GroupState(
