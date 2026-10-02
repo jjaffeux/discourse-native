@@ -86,7 +86,7 @@ class DSheet<T> extends StatelessWidget {
   final bool dismissOnEscape;
 
   /// Allows mobile touch drags down from a bottom sheet's header and continued
-  /// scrolling beyond either content edge to pull the sheet down. Uses the
+  /// scrolling beyond the top content edge to pull the sheet down. Uses the
   /// same close request as [DSheetClose].
   /// Releasing before 30% of the distance to the viewport bottom restores it.
   final bool dismissOnSwipe;
@@ -664,7 +664,6 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   int? _pointer;
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
-  double _scrollDragDirection = 1;
   bool _dragging = false;
   bool _exiting = false;
   DOverlayRoute<dynamic, Object>? _route;
@@ -857,7 +856,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     if (_scrollOrigin != null) {
       // Once scrolling reaches an edge, track the finger like a header drag.
       // Applying bouncing-scroll resistance here would swallow the handoff.
-      _update(details.delta.dy * _scrollDragDirection);
+      _update(details.delta.dy);
       return false;
     }
 
@@ -869,21 +868,14 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       // OverscrollNotification. Transfer only movement beyond the edge.
       final pixels = notification.metrics.pixels;
       final minimum = notification.metrics.minScrollExtent;
-      final maximum = notification.metrics.maxScrollExtent;
       final previous = pixels - (notification.scrollDelta ?? 0);
-      delta = pixels > maximum
-          ? math.max(0, pixels - maximum) - math.max(0, previous - maximum)
-          : math.max(0, minimum - previous) - math.max(0, minimum - pixels);
+      delta = math.max(0, minimum - previous) - math.max(0, minimum - pixels);
     }
     final atTop =
         notification.metrics.pixels <= notification.metrics.minScrollExtent;
-    final atBottom =
-        notification.metrics.pixels >= notification.metrics.maxScrollExtent;
-    if ((atTop && delta < 0 && details.delta.dy > 0) ||
-        (atBottom && delta > 0 && details.delta.dy < 0)) {
+    if (atTop && delta < 0 && details.delta.dy > 0) {
       if (!_dragging) _start();
       _scrollOrigin = notification.context;
-      _scrollDragDirection = delta < 0 ? 1 : -1;
       _update(delta.abs());
     }
     return false;
@@ -934,10 +926,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       onPointerUp: (event) {
         if (event.pointer != _pointer) return;
         if (_scrollOrigin != null) {
-          _finish(
-            (_velocity?.getVelocity().pixelsPerSecond.dy ?? 0) *
-                _scrollDragDirection,
-          );
+          _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
         }
         _pointer = null;
         _velocity = null;

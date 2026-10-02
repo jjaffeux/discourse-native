@@ -325,11 +325,9 @@ void main() {
       (1800.0, 'header'),
       (4000.0, 'header'),
       (1800.0, 'scroll'),
-      (1800.0, 'bottom scroll'),
       (1800.0, 'helper'),
       (400.0, 'retained header'),
       (1800.0, 'retained scroll'),
-      (1800.0, 'retained bottom scroll'),
     ]) {
       testWidgets('swipe exit retains $speed px/s from $origin on $platform', (
         tester,
@@ -343,11 +341,6 @@ void main() {
           imperative: origin == 'helper',
           retained: origin.startsWith('retained'),
         );
-        final fromBottom = origin.contains('bottom');
-        if (fromBottom) {
-          scroll.jumpTo(scroll.position.maxScrollExtent);
-          await tester.pumpAndSettle();
-        }
         final sheet = find.byType(DSheetContent);
         final gesture = await tester.startGesture(
           tester.getCenter(
@@ -363,10 +356,7 @@ void main() {
         // Build a real velocity history instead of a drag with zero timestamps.
         for (var step = 0; step < 24; step++) {
           elapsed += sampleDuration;
-          await gesture.moveBy(
-            Offset(0, fromBottom ? -12 : 12),
-            timeStamp: elapsed,
-          );
+          await gesture.moveBy(const Offset(0, 12), timeStamp: elapsed);
           await tester.pump(sampleDuration);
         }
         final releaseTop = tester.getTopLeft(sheet).dy;
@@ -452,7 +442,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final presentation in ['sheet', 'helper', 'retained']) {
       testWidgets(
-        'bottom overscroll dismisses the $platform $presentation downward',
+        'upward bottom overscroll keeps the $platform $presentation open',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -467,6 +457,11 @@ void main() {
           final bounds = tester.getRect(sheet);
           final list = find.byType(ListView);
           final maximum = scroll.position.maxScrollExtent;
+          await tester.drag(find.text('Swipe sheet'), const Offset(0, -300));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), bounds);
+          expect(backdropOpacity(tester), 1);
+
           scroll.jumpTo(maximum - 400);
           await tester.pumpAndSettle();
           await tester.drag(list, const Offset(0, -120));
@@ -475,7 +470,7 @@ void main() {
           expect(tester.getRect(sheet), bounds);
 
           // A continuous drag first consumes the remaining content, then
-          // transfers the movement beyond its bottom to sheet dismissal.
+          // keeps the sheet stationary beyond the bottom edge.
           scroll.jumpTo(maximum - 60);
           await tester.pumpAndSettle();
           final gesture = await tester.startGesture(tester.getCenter(list));
@@ -483,15 +478,16 @@ void main() {
           await gesture.moveBy(const Offset(0, -100));
           await tester.pump();
           final top = tester.getTopLeft(sheet).dy;
-          expect(top, greaterThan(bounds.top));
+          expect(top, bounds.top);
           await gesture.moveBy(const Offset(0, -120));
           await tester.pump();
-          expect(tester.getTopLeft(sheet).dy, closeTo(top + 120, .01));
-          expect(backdropOpacity(tester), inExclusiveRange(0, 1));
+          expect(tester.getTopLeft(sheet).dy, top);
+          expect(backdropOpacity(tester), 1);
           await gesture.moveBy(const Offset(0, -160));
           await gesture.up();
           await tester.pumpAndSettle();
-          expect(sheet, findsNothing);
+          expect(tester.getRect(sheet), bounds);
+          expect(backdropOpacity(tester), 1);
           expect(tester.takeException(), isNull);
         },
       );
@@ -522,7 +518,7 @@ void main() {
           await gesture.moveBy(const Offset(0, -30));
           await gesture.moveBy(const Offset(0, -280));
           await tester.pump();
-          expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top + 250));
+          expect(tester.getTopLeft(sheet).dy, bounds.top);
           if (cancelled) {
             await gesture.cancel();
           } else {
