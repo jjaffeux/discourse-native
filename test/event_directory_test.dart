@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
 
 import 'support/event_fixtures.dart';
+import 'support/skeleton_expectations.dart';
 
 void main() {
   const read =
@@ -80,6 +81,13 @@ void main() {
         expect(find.byType(DSkeletonRegion), findsOneWidget);
         expect(find.byType(DProgress), findsNothing);
         expect(find.text('No events in this period.'), findsNothing);
+        if (view == EventCalendarView.schedule) {
+          expectSkeletonFillsViewport(
+            tester,
+            label: 'Loading events',
+            bottom: 844 - 16,
+          );
+        }
         final calendar = tester.state(
           find.byType(kalender.KalenderView, skipOffstage: false),
         );
@@ -112,6 +120,13 @@ void main() {
         expect(find.textContaining('Engineering Managers Call'), findsNothing);
         expect(find.byType(DProgress), findsNothing);
         expect(find.byTooltip('Next month').hitTestable(), findsOneWidget);
+        if (view == EventCalendarView.schedule) {
+          expectSkeletonFillsViewport(
+            tester,
+            label: 'Loading events',
+            bottom: 844 - 16,
+          );
+        }
 
         refresh.complete({
           'events': [current],
