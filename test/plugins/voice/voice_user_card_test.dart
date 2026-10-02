@@ -336,6 +336,9 @@ final class _CallModule implements PluginModule {
 final class _CallLifecycle extends PluginSessionLifecycle {}
 
 final class _RouteHost implements PluginRouteNavigationHost {
+  @override
+  String? get activeTabId => null;
+
   final List<ContentRoute> opened = [];
 
   @override

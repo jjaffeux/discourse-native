@@ -140,6 +140,9 @@ BoxDecoration _surfaceDecoration(WidgetTester tester, Finder surface) =>
 
 final class _RecordingRouteHost implements PluginRouteNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   final List<PluginRouteSite> sites = const [
     PluginRouteSite(
       url: 'https://meta.example',

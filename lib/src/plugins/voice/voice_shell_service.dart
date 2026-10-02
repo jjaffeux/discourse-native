@@ -185,10 +185,12 @@ final class VoiceShellService
       _host.selectInstance(index);
     }
     final content = _host.currentContent;
+    final tabId = _host.activeTabId;
     bool isCurrent() {
       final selected = _host.currentSite;
       return identical(_linkNavigation, navigation) &&
           sessionIsCurrent() &&
+          _host.activeTabId == tabId &&
           selected?.url == instance.url &&
           selected?.isConnected == true &&
           _host.sites.any(

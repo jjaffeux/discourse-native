@@ -1119,6 +1119,9 @@ final class _SummaryFixture {
 final class _SummaryNavigation
     implements PluginRouteNavigationHost, PluginTopicListNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   List<PluginRouteSite> get sites => const [];
   @override
   PluginRouteSite? get currentSite => null;

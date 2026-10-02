@@ -18452,6 +18452,9 @@ final class _ShellPluginRouteNavigationHost
   final ShellController _shell;
 
   @override
+  String? get activeTabId => _shell.activeTabId;
+
+  @override
   List<PluginRouteSite> get sites => List.unmodifiable([
     for (final instance in _shell.instances)
       PluginRouteSite(

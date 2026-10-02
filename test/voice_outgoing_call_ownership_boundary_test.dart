@@ -416,6 +416,9 @@ final class _Requests implements PluginRequestHost {
 
 final class _RouteHost implements PluginRouteNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   final sites = const [_site];
   @override
   PluginRouteSite? currentSite = _site;

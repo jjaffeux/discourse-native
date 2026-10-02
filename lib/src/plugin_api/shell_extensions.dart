@@ -44,6 +44,11 @@ final class PluginRouteSite {
 abstract interface class PluginRouteNavigationHost {
   List<PluginRouteSite> get sites;
   PluginRouteSite? get currentSite;
+
+  /// Stable identity of the selected reader tab, including tabs that share
+  /// the same content route. Null when the host has no reader tab.
+  String? get activeTabId;
+
   ContentRoute? get currentContent;
 
   void selectInstance(int index);

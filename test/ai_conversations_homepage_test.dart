@@ -612,6 +612,9 @@ _service(RecordingPluginTransport transport) {
 class _Navigation
     implements PluginRouteNavigationHost, PluginTopicListNavigationHost {
   @override
+  String? get activeTabId => null;
+
+  @override
   List<PluginRouteSite> get sites => [currentSite];
   @override
   PluginRouteSite get currentSite =>
