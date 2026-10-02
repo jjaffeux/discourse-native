@@ -1416,8 +1416,8 @@ void main() {
         expect(bar.hitTestable(), findsNothing);
         final hiddenBottom = tester.getBottomLeft(bar).dy;
         await wheel(-20);
-        expect(tester.getBottomLeft(bar).dy, closeTo(hiddenBottom + 20, 1));
-        expect(bar.hitTestable(), findsNothing);
+        expect(tester.getBottomLeft(bar).dy, greaterThan(hiddenBottom + 20));
+        expect(bar.hitTestable(), findsOneWidget);
         final headerHeight = tester
             .getSize(find.byKey(const ValueKey('chat-channel-header')))
             .height;

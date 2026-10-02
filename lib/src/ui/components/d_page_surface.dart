@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/tokens.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 
@@ -10,7 +12,8 @@ import 'd_page_reading_lane.dart';
 /// leaving the scrolling viewport at the pane edge. DPageReadingLane constrains
 /// content inside that viewport. Only deliberate
 /// scrolling in the body retracts the header; restoration and nested scrolls
-/// leave it alone. The header follows scroll distance without a timed animation.
+/// leave it alone. A few pixels trigger a short reveal or retraction animation;
+/// retraction also requires enough scroll speed to avoid hiding during slow reads.
 class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
@@ -30,8 +33,8 @@ class DPageSurface extends StatefulWidget {
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
 
-  /// Retract and reveal pixel-for-pixel with vertical scrolling, or reveal
-  /// completely when scrolling reaches the top.
+  /// Animate after a small vertical movement, requiring speed to retract, or
+  /// reveal completely when scrolling reaches the top.
   final bool hideHeaderOnScroll;
 
   /// Persistent tabs above the retracting header.
@@ -63,33 +66,69 @@ class DPageSurface extends StatefulWidget {
   State<DPageSurface> createState() => _DPageSurfaceState();
 }
 
-class _DPageSurfaceState extends State<DPageSurface> {
+class _DPageSurfaceState extends State<DPageSurface>
+    with SingleTickerProviderStateMixin {
+  static const _triggerDistance = 6.0;
+  static const _hideVelocity = 180.0;
+  static const _sampleInterval = Duration(microseconds: 16667);
+  static const _scrollPause = Duration(milliseconds: 200);
+
   final _headerFocus = FocusNode(canRequestFocus: false);
-  double _hiddenExtent = 0;
+  late final AnimationController _headerAnimation;
+  bool _headerHidden = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
+  double _directionDistance = 0;
+  Duration? _lastScrollTime;
+  Duration? _pointerScrollTime;
+  Duration? _gestureStartTime;
   bool _updateScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerAnimation = AnimationController(vsync: this)
+      ..addListener(_updateHeader);
+  }
 
   @override
   void didUpdateWidget(DPageSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.identity != widget.identity ||
-        oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll) {
-      _hiddenExtent = 0;
+        oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
+        (oldWidget.header != null && widget.header == null)) {
+      _headerHidden = false;
+      _headerAnimation.value = 0;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
+      _directionDistance = 0;
+      _lastScrollTime = null;
+      _pointerScrollTime = null;
+      _gestureStartTime = null;
     }
   }
 
-  void _setHiddenExtent(double extent) {
-    if (_hiddenExtent == extent ||
-        (extent > _hiddenExtent && _headerFocus.hasFocus)) {
-      return;
+  void _animateHeader({required bool hidden}) {
+    if (_headerHidden == hidden || (hidden && _headerFocus.hasFocus)) return;
+    _headerHidden = hidden;
+    final duration = DMotion.duration(
+      context,
+      hidden ? DMotion.exit : DMotion.enter,
+    );
+    if (duration == Duration.zero) {
+      _headerAnimation.value = hidden ? 1 : 0;
+    } else {
+      _headerAnimation.animateTo(
+        hidden ? 1 : 0,
+        duration: duration,
+        curve: Curves.easeOutCubic,
+      );
     }
-    _hiddenExtent = extent;
-    // Pointer input and ballistic ticks arrive before build. Update in that
-    // frame so the header stays in step with the content, including reversals.
-    // Only notifications raised during build/layout need to wait for a frame.
+  }
+
+  void _updateHeader() {
+    // Reduced-motion changes can be raised during layout; animation ticks and
+    // ordinary pointer input can update immediately.
     if (SchedulerBinding.instance.schedulerPhase !=
         SchedulerPhase.persistentCallbacks) {
       setState(() {});
@@ -134,10 +173,18 @@ class _DPageSurfaceState extends State<DPageSurface> {
         notification.metrics.axis != Axis.vertical) {
       return false;
     }
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _directionDistance = 0;
+      _lastScrollTime =
+          _gestureStartTime ?? notification.dragDetails?.sourceTimeStamp;
+      _gestureStartTime = null;
+    }
     if (notification is UserScrollNotification) {
       _userScrolling = notification.direction != ScrollDirection.idle;
       if (_userScrolling && _direction != notification.direction) {
         _direction = notification.direction;
+        _directionDistance = 0;
       }
     }
     if (notification is ScrollUpdateNotification && _userScrolling) {
@@ -147,7 +194,8 @@ class _DPageSurfaceState extends State<DPageSurface> {
           ? metrics.pixels >= metrics.maxScrollExtent
           : metrics.pixels <= metrics.minScrollExtent;
       if (atTop) {
-        _setHiddenExtent(0);
+        _directionDistance = 0;
+        _animateHeader(hidden: false);
       } else if (!metrics.outOfRange) {
         final delta = notification.scrollDelta ?? 0;
         // Ignore extent corrections and elastic rebound against the user's
@@ -159,15 +207,39 @@ class _DPageSurfaceState extends State<DPageSurface> {
               : _direction == ScrollDirection.forward;
           final headerHeight = _headerFocus.context?.size?.height ?? 0;
           final canRetract =
-              _hiddenExtent > 0 ||
+              _headerHidden ||
               metrics.maxScrollExtent - metrics.minScrollExtent > headerHeight;
           if (revealing || canRetract) {
-            _setHiddenExtent(
-              (_hiddenExtent + (revealing ? -delta.abs() : delta.abs())).clamp(
-                0.0,
-                headerHeight,
-              ),
-            );
+            final time =
+                notification.dragDetails?.sourceTimeStamp ??
+                _pointerScrollTime ??
+                SchedulerBinding.instance.currentSystemFrameTimeStamp;
+            var elapsed = _lastScrollTime == null
+                ? _sampleInterval
+                : time - _lastScrollTime!;
+            _lastScrollTime = time;
+            _pointerScrollTime = null;
+            // A wheel packet after a pause starts a fresh burst. The idle gap
+            // is not its velocity; touch drags retain their actual event timing.
+            if (notification.dragDetails == null && elapsed > _scrollPause) {
+              _directionDistance = 0;
+              elapsed = _sampleInterval;
+            }
+            // Wheel packets and synthetic input can share a timestamp. Treat
+            // them as one frame rather than dividing by zero.
+            final micros = elapsed.inMicroseconds > 0
+                ? elapsed.inMicroseconds
+                : _sampleInterval.inMicroseconds;
+            final velocity =
+                delta.abs() * Duration.microsecondsPerSecond / micros;
+            if (!revealing && velocity < _hideVelocity) {
+              _directionDistance = 0;
+            } else {
+              _directionDistance += delta.abs();
+              if (_directionDistance >= _triggerDistance) {
+                _animateHeader(hidden: !revealing);
+              }
+            }
           }
         }
       }
@@ -177,6 +249,7 @@ class _DPageSurfaceState extends State<DPageSurface> {
 
   @override
   void dispose() {
+    _headerAnimation.dispose();
     _headerFocus.dispose();
     super.dispose();
   }
@@ -202,14 +275,16 @@ class _DPageSurfaceState extends State<DPageSurface> {
           fixedContent(
             ClipRect(
               child: _ScrollHeaderExtent(
-                hiddenExtent: widget.hideHeaderOnScroll ? _hiddenExtent : 0,
+                hiddenFraction: widget.hideHeaderOnScroll
+                    ? _headerAnimation.value
+                    : 0,
                 child: ExcludeSemantics(
-                  excluding: _hiddenExtent > 0,
+                  excluding: _headerAnimation.value > 0,
                   child: ExcludeFocus(
-                    excluding: _hiddenExtent > 0,
+                    excluding: _headerAnimation.value > 0,
                     // The extent and clip restrict hits to the visible slice.
                     child: TickerMode(
-                      enabled: _hiddenExtent == 0,
+                      enabled: _headerAnimation.value == 0,
                       child: SizedBox(
                         width: double.infinity,
                         child: Focus(
@@ -226,7 +301,19 @@ class _DPageSurfaceState extends State<DPageSurface> {
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: _onScroll,
-            child: widget.child,
+            child: Listener(
+              onPointerDown: (event) => _gestureStartTime = event.timeStamp,
+              onPointerPanZoomStart: (event) =>
+                  _gestureStartTime = event.timeStamp,
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent) {
+                  _pointerScrollTime = event.timeStamp == Duration.zero
+                      ? null
+                      : event.timeStamp;
+                }
+              },
+              child: widget.child,
+            ),
           ),
         ),
         if (widget.footer case final footer?) fixedContent(footer),
@@ -247,34 +334,37 @@ class _DPageSurfaceState extends State<DPageSurface> {
   }
 }
 
-// Keep the header at its natural height while removing exactly the scrolled
-// distance from the page layout. Measuring here also handles header size changes.
+// Keep the header at its natural height while animating the visible fraction.
+// Measuring here also handles header size changes during the transition.
 class _ScrollHeaderExtent extends SingleChildRenderObjectWidget {
-  const _ScrollHeaderExtent({required this.hiddenExtent, required super.child});
+  const _ScrollHeaderExtent({
+    required this.hiddenFraction,
+    required super.child,
+  });
 
-  final double hiddenExtent;
+  final double hiddenFraction;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderScrollHeaderExtent(hiddenExtent);
+      _RenderScrollHeaderExtent(hiddenFraction);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderScrollHeaderExtent renderObject,
   ) {
-    renderObject.hiddenExtent = hiddenExtent;
+    renderObject.hiddenFraction = hiddenFraction;
   }
 }
 
 class _RenderScrollHeaderExtent extends RenderShiftedBox {
-  _RenderScrollHeaderExtent(this._hiddenExtent) : super(null);
+  _RenderScrollHeaderExtent(this._hiddenFraction) : super(null);
 
-  double _hiddenExtent;
+  double _hiddenFraction;
 
-  set hiddenExtent(double value) {
-    if (_hiddenExtent == value) return;
-    _hiddenExtent = value;
+  set hiddenFraction(double value) {
+    if (_hiddenFraction == value) return;
+    _hiddenFraction = value;
     markNeedsLayout();
   }
 
@@ -282,17 +372,14 @@ class _RenderScrollHeaderExtent extends RenderShiftedBox {
   Size computeDryLayout(BoxConstraints constraints) {
     final childSize = child!.getDryLayout(constraints);
     return constraints.constrain(
-      Size(
-        childSize.width,
-        (childSize.height - _hiddenExtent).clamp(0.0, childSize.height),
-      ),
+      Size(childSize.width, childSize.height * (1 - _hiddenFraction)),
     );
   }
 
   @override
   void performLayout() {
     child!.layout(constraints, parentUsesSize: true);
-    final hidden = _hiddenExtent.clamp(0.0, child!.size.height);
+    final hidden = _hiddenFraction * child!.size.height;
     size = constraints.constrain(
       Size(child!.size.width, child!.size.height - hidden),
     );
