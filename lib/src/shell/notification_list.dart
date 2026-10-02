@@ -325,16 +325,28 @@ class _PluginNotificationsSectionState
   }
 
   Future<void> _openLink(String path, {bool newTab = false}) async {
-    final url = widget.host.pluginAbsoluteUrl(path, siteUrl: widget.siteUrl);
+    final host = widget.host;
+    final siteUrl = widget.siteUrl;
+    final source = widget.source.id;
+    final revision = _dismissRevision;
+    bool current() =>
+        mounted &&
+        revision == _dismissRevision &&
+        identical(widget.host, host) &&
+        widget.siteUrl == siteUrl &&
+        widget.source.id == source;
+    final url = host.pluginAbsoluteUrl(path, siteUrl: siteUrl);
     if (newTab) {
       await openLink(context, url, newTab: true);
       return;
     }
-    if (await widget.host.openPluginNotificationUrl(url)) {
-      if (mounted) widget.onOpened();
+    if (await host.openPluginNotificationUrl(url)) {
+      if (current()) widget.onOpened();
       return;
     }
-    if (mounted && await openExternalLink(url) && mounted) widget.onOpened();
+    if (current() && await openExternalLink(url) && current()) {
+      widget.onOpened();
+    }
   }
 
   Future<void> _open(
@@ -430,21 +442,31 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
     bool newTab = false,
   }) async {
     final controller = widget.controller;
-    controller.readNotification(widget.siteUrl, notification);
+    final siteUrl = widget.siteUrl;
+    final kind = widget.kind;
+    final lease = controller.lifecycle.capture(siteUrl);
+    bool current() =>
+        mounted &&
+        lease.isCurrent &&
+        identical(widget.controller, controller) &&
+        widget.siteUrl == siteUrl &&
+        widget.kind == kind &&
+        controller.currentInstance?.url == siteUrl;
+    controller.readNotification(siteUrl, notification);
 
     if (path == null) return;
 
-    final url = controller.siteLink(path, siteUrl: widget.siteUrl);
+    final url = controller.siteLink(path, siteUrl: siteUrl);
     if (newTab) {
       await openLink(context, url, newTab: true);
       return;
     }
     if (await controller.openNotificationUrl(url)) {
-      if (mounted) widget.onOpened();
+      if (current()) widget.onOpened();
       return;
     }
-    if (!mounted) return;
-    if (await openExternalLink(url) && mounted) widget.onOpened();
+    if (!current()) return;
+    if (await openExternalLink(url) && current()) widget.onOpened();
   }
 
   @override
