@@ -15,6 +15,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
+import 'directory_skeleton.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -118,8 +119,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
   @override
   Widget build(BuildContext context) {
     final feed = widget.feed;
-    if (!feed.loaded && feed.categoryIds.isEmpty) {
-      return const SizedBox.shrink();
+    if (feed.categoryIds.isEmpty && (!feed.loaded || feed.loading)) {
+      return ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        builder: (context, lane) => Padding(
+          padding: lane.padding,
+          child: const DirectorySkeleton(
+            kind: DirectorySkeletonKind.categories,
+          ),
+        ),
+      );
     }
     if (feed.error != null && feed.categoryIds.isEmpty) {
       return _CategoryPageState(
