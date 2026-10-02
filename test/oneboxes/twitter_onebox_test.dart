@@ -143,6 +143,84 @@ void main() {
     );
   });
 
+  test('malformed UTF-8 post destinations do not receive X actions', () {
+    for (final url in [
+      'https://x.com/%FF/status/123',
+      'https://twitter.com/%C3%28/status/123',
+    ]) {
+      final data = _parse(
+        _markup.replaceAll(_url, url).replaceAll(_quotedUrl, url),
+      );
+      expect(data.url, isNull);
+      expect(data.statusId, isNull);
+      expect(data.quote!.url, isNull);
+      expect(data.quote!.statusId, isNull);
+    }
+  });
+
+  test('public onebox data safely reads only valid provider status IDs', () {
+    for (final url in [
+      null,
+      'https://[invalid',
+      'https://x.com/user',
+      'https://x.com/user/status/not-a-number',
+      'https://example.com/user/status/123',
+      'https://x.com/%FF/status/123',
+    ]) {
+      final data = TwitterOneboxData(
+        name: 'Author',
+        bodyHtml: 'Post',
+        url: url,
+      );
+      expect(data.statusId, isNull, reason: 'Invalid destination: $url');
+    }
+    for (final url in [
+      _url,
+      'https://x.com/%72ezoundous/status/2101937724252967330/?s=20#post',
+    ]) {
+      final data = TwitterOneboxData(
+        name: 'Author',
+        bodyHtml: 'Post',
+        url: url,
+      );
+      expect(data.statusId, '2101937724252967330');
+      expect(
+        _parse(_markup.replaceAll(_url, url)).url,
+        Uri.parse(url).toString(),
+      );
+    }
+  });
+
+  testWidgets('cooked Twitter posts tolerate malformed encoded usernames', (
+    tester,
+  ) async {
+    for (final url in [
+      'https://x.com/%FF/status/123',
+      'https://twitter.com/%C3%28/status/123',
+    ]) {
+      await tester.pumpWidget(
+        _host(
+          markup: _markup.replaceAll(_url, url).replaceAll(_quotedUrl, url),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(TwitterOnebox), findsOneWidget);
+      expect(find.text('Tyler'), findsOneWidget);
+      expect(
+        find.textContaining('Read the prompt', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text('12K'), findsOneWidget);
+      expect(find.text('Read replies'), findsNothing);
+      expect(find.text('Reply'), findsNothing);
+      final likes = tester.widget<DButton>(
+        find.ancestor(of: find.text('12K'), matching: find.byType(DButton)),
+      );
+      expect(likes.onPressed, isNull);
+    }
+  });
+
   testWidgets(
     'cooked posts render full-width text and a separate quoted card',
     (tester) async {
