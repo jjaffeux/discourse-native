@@ -104,7 +104,7 @@ void main() {
           find.byKey(ContentNavigationControls.refreshKey),
         );
         final separatorRect = tester.getRect(separator);
-        // One continuous surface with no gaps between the button targets.
+        // The separator owns its spacing; circular button targets stay intact.
         expect(backRect.right, forwardRect.left);
         expect(forwardRect.right, separatorRect.left);
         expect(separatorRect.right, refreshRect.left);
@@ -114,6 +114,14 @@ void main() {
         expect(refreshRect.size, backRect.size);
         final rule = tester.widget<DSeparator>(separator);
         expect(rule.orientation, Axis.vertical);
+        expect(
+          separatorRect.center.dx - rule.thickness / 2 - forwardRect.right,
+          DSpacing.controlGap,
+        );
+        expect(
+          refreshRect.left - separatorRect.center.dx - rule.thickness / 2,
+          DSpacing.controlGap,
+        );
         expect(rule.indent, greaterThan(0));
         expect(rule.endIndent, rule.indent);
         expect(rule.indent + rule.endIndent, lessThan(backRect.height));

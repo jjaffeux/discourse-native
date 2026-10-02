@@ -90,6 +90,7 @@ class ContentNavigationControls extends StatelessWidget {
                     ),
                     DSeparator(
                       orientation: Axis.vertical,
+                      space: 1 + DSpacing.controlGap * 2,
                       length: DControlStyle.scaledHeight(
                         DControlSize.toolbar,
                         MediaQuery.textScalerOf(context),
