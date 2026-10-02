@@ -154,6 +154,7 @@ void main() {
         ShellGroupPagesPort(shell).messageGroup((
           siteUrl: _siteUrl,
           accountIdentity: shell.currentAccountIdentity!,
+          sessionIdentity: shell.lifecycle.capture(_siteUrl).session,
           tabId: shell.activeTabId,
         ), group);
 

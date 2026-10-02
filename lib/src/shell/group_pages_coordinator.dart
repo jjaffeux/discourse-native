@@ -3,6 +3,7 @@ import '../models/group_route.dart';
 typedef GroupPagesOwner = ({
   String siteUrl,
   String accountIdentity,
+  Object sessionIdentity,
   String? tabId,
 });
 
