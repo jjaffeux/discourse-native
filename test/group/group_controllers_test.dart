@@ -419,6 +419,62 @@ void main() {
   });
 
   group('GroupManageController', () {
+    for (final invalid in ['587x', '58.7', '', '9223372036854775808']) {
+      test('SMTP port $invalid cannot submit null while enabled', () async {
+        var writes = 0;
+        final controller = GroupManageController(
+          group: const Group(
+            id: 9,
+            name: 'support',
+            smtpEnabled: true,
+            smtpPort: 587,
+          ),
+          currentUserAdmin: true,
+          currentUserStaff: true,
+          subsection: GroupRoute.email,
+          onSubmit: (_) async {
+            writes++;
+            return true;
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.textController('smtp_port').text = invalid;
+        expect(await controller.submit(), isFalse);
+        expect(writes, 0);
+        expect(controller.textController('smtp_port').text, invalid);
+        expect(
+          controller.snapshot.fieldErrors['smtp_port'],
+          'Enter a valid whole number.',
+        );
+        controller.textController('smtp_port').text = ' 465 ';
+        expect(controller.snapshot.fieldErrors, isEmpty);
+        expect(await controller.submit(), isTrue);
+        expect(writes, 1);
+        expect(controller.buildUpdate().values['smtp_port'], 465);
+      });
+    }
+
+    test('deliberate SMTP disable discards a malformed port', () async {
+      final controller = GroupManageController(
+        group: const Group(
+          id: 9,
+          name: 'support',
+          smtpEnabled: true,
+          smtpPort: 587,
+        ),
+        currentUserAdmin: true,
+        subsection: GroupRoute.email,
+        onSubmit: (_) async => true,
+      );
+      addTearDown(controller.dispose);
+      controller.textController('smtp_port').text = '587x';
+      expect(controller.validate(), isFalse);
+      controller.setSmtpEnabled(false);
+      expect(controller.snapshot.fieldErrors, isEmpty);
+      expect(await controller.submit(), isTrue);
+      expect(controller.buildUpdate().values['smtp_enabled'], 'false');
+    });
+
     for (final staff in [false, true]) {
       test('membership setting permissions staff=$staff', () {
         final controller = GroupManageController(

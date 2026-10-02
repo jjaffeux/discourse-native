@@ -258,6 +258,11 @@ final class GroupManageController extends ChangeNotifier {
     GroupRoute.profile when canEditField('name') && _value('name').isEmpty => {
       'name': appL10n.enterAGroupName,
     },
+    GroupRoute.email
+        when canEditField('smtp_port') &&
+            _smtpEnabled &&
+            _nullableInt('smtp_port') == null =>
+      {'smtp_port': appL10n.enterAValidWholeNumber},
     _ => const {},
   };
 

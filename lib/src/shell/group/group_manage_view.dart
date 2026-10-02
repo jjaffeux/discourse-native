@@ -427,6 +427,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
             enabled: controller.canEditField(key),
             labelText: label,
             hintText: hint,
+            errorText: controller.snapshot.fieldErrors[key],
           )
         : DInput(
             key: ValueKey('group-field-$key'),
@@ -436,6 +437,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
             keyboardType: numeric ? TextInputType.number : TextInputType.text,
             labelText: label,
             hintText: hint,
+            errorText: controller.snapshot.fieldErrors[key],
           ),
   );
 }
