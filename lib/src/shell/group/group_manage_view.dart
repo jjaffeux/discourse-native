@@ -31,7 +31,7 @@ class _ManageSection extends StatelessWidget {
       if (!group.automatic)
         _Subtab(GroupRoute.membership, context.l10n.membership),
       _Subtab(GroupRoute.interaction, context.l10n.interaction),
-      if (!group.automatic && data.smtpEnabled)
+      if (!group.automatic && data.isAdmin && data.smtpEnabled)
         _Subtab(GroupRoute.email, context.l10n.email),
       _Subtab(GroupRoute.categories, context.l10n.categories),
       if (data.taggingEnabled) _Subtab(GroupRoute.tags, context.l10n.tags),
@@ -62,10 +62,11 @@ class _ManageSection extends StatelessWidget {
             child: _GroupManageForm(
               key: ValueKey(
                 'group-manage-form-${group.id}-$selected-'
-                '${group.automatic}-${data.currentUserStaff}',
+                '${group.automatic}-${data.currentUserStaff}-${data.isAdmin}',
               ),
               group: group,
               currentUserStaff: data.currentUserStaff,
+              currentUserAdmin: data.isAdmin,
               subsection: selected,
               onSave: onSave,
             ),
@@ -141,12 +142,14 @@ class _GroupManageForm extends StatefulWidget {
     super.key,
     required this.group,
     required this.currentUserStaff,
+    required this.currentUserAdmin,
     required this.subsection,
     required this.onSave,
   });
 
   final Group group;
   final bool currentUserStaff;
+  final bool currentUserAdmin;
   final String subsection;
   final GroupManageSubmit? onSave;
 
@@ -163,6 +166,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     controller = GroupManageController(
       group: widget.group,
       currentUserStaff: widget.currentUserStaff,
+      currentUserAdmin: widget.currentUserAdmin,
       subsection: widget.subsection,
       onSubmit: widget.onSave,
     );
@@ -345,7 +349,10 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: DLabel(child: Text(appL10n.enableSMTP)),
           value: controller.smtpEnabled,
-          onChanged: controller.setSmtpEnabled,
+          enabled: controller.canEditField('smtp_enabled'),
+          onChanged: controller.canEditField('smtp_enabled')
+              ? controller.setSmtpEnabled
+              : null,
         ),
         _textField('smtp_server', appL10n.sMTPServer),
         Row(
@@ -376,7 +383,13 @@ class _GroupManageFormState extends State<_GroupManageForm> {
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           title: DLabel(child: Text(appL10n.allowRepliesFromUnknownSenders)),
           value: controller.allowUnknownSenderReplies,
-          onChanged: controller.setAllowUnknownSenderReplies,
+          enabled: controller.canEditField(
+            'allow_unknown_sender_topic_replies',
+          ),
+          onChanged:
+              controller.canEditField('allow_unknown_sender_topic_replies')
+              ? controller.setAllowUnknownSenderReplies
+              : null,
         ),
       ],
     ),
