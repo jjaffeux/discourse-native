@@ -55,6 +55,7 @@ final class SidebarSectionStore {
 
   final SidebarSectionPersistence _persistence;
   final _snapshots = PreferenceSnapshots<(String, String), bool>();
+  final Map<String, Object> _siteOwners = {};
   static final SerialOperationQueue _operations = SerialOperationQueue();
 
   bool? collapsedFor({required String siteUrl, required String sectionId}) =>
@@ -69,8 +70,10 @@ final class SidebarSectionStore {
   /// Drops what was read or chosen for forums that left the rail for good.
   /// Their stored sections go with the rest of their preferences; see
   /// [forgetSitePreferences].
-  void forgetSites(ForgottenSites sites) =>
-      _snapshots.forgetWhere((key) => sites.includes(key.$1));
+  void forgetSites(ForgottenSites sites) {
+    _snapshots.forgetWhere((key) => sites.includes(key.$1));
+    _siteOwners.removeWhere((site, _) => sites.includes(site));
+  }
 
   Future<bool> read({required String siteUrl, required String sectionId}) =>
       _operations.run(
@@ -101,14 +104,20 @@ final class SidebarSectionStore {
     required bool collapsed,
   }) async {
     _snapshots.remember((siteUrl, sectionId), collapsed);
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
     await _operations.run<void>(
       owner: _persistence,
       key: (siteUrl, sectionId),
-      operation: () => _persist(
-        siteUrl: siteUrl,
-        sectionId: sectionId,
-        collapsed: collapsed,
-      ),
+      operation: () async {
+        // Removal retires choices still queued behind an earlier save. A
+        // re-added forum keeps the same queue, with a new owner for its edits.
+        if (!identical(_siteOwners[siteUrl], owner)) return;
+        await _persist(
+          siteUrl: siteUrl,
+          sectionId: sectionId,
+          collapsed: collapsed,
+        );
+      },
     );
   }
 
