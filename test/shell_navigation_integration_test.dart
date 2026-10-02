@@ -155,7 +155,7 @@ void _registerShellNavigationTests() {
       await pumpShell(tester, phone);
 
       final title = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-button')),
+        find.byKey(const ValueKey('forum-identity-logo')),
       );
       final searchTarget = find.byKey(const ValueKey('mobile-search-button'));
       final button = tester.getRect(searchTarget);

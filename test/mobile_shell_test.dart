@@ -881,7 +881,7 @@ void main() {
       for (final key in [
         UserMenuButton.bellKey,
         UserMenuButton.avatarKey,
-        const ValueKey('forum-identity-button'),
+        const ValueKey('forum-identity-logo'),
         const ValueKey('mobile-search-button'),
       ]) {
         expect(
@@ -893,7 +893,7 @@ void main() {
         find.byKey(const ValueKey('mobile-menu-button')),
       );
       final identity = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-button')),
+        find.byKey(const ValueKey('forum-identity-logo')),
       );
       final search = tester.getRect(
         find.byKey(const ValueKey('mobile-search-button')),
@@ -911,12 +911,8 @@ void main() {
       );
       expect(menuIcon.center.dx, menu.center.dx);
       expect(
-        tester
-            .widget<DButton>(
-              find.byKey(const ValueKey('forum-identity-button')),
-            )
-            .size,
-        DButtonSize.regular,
+        tester.getSize(find.byKey(const ValueKey('forum-identity-logo'))),
+        const Size.square(32),
       );
       expect(
         tester.widget<DButton>(find.byKey(UserMenuButton.avatarKey)).size,
@@ -1945,7 +1941,7 @@ void main() {
   );
 
   _mobileTest(
-    'header retains bell and logo actions; search is a dedicated page',
+    'header retains account actions and a static logo; search is a dedicated page',
     (tester) async {
       await pumpMobileShellFixture(tester);
       expect(_bar, findsOneWidget);
@@ -1963,12 +1959,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
+      await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
-      expect(find.text('Open forum in browser'), findsOneWidget);
-      expect(find.text('Remove forum'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
+      expect(find.text('Open forum in browser'), findsNothing);
+      expect(find.text('Remove forum'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
@@ -2009,39 +2003,80 @@ void main() {
     },
   );
 
-  _mobileTest('leaving home removes a forum menu that is still fading out', (
+  _mobileTest('forum identity stays logo-only and inert across mobile widths', (
     tester,
   ) async {
-    final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Open forum in browser'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    try {
+      final shell = await pumpMobileShellFixture(tester);
+      final identity = find.byType(ForumIdentityHeader);
+      final logo = find.byKey(const ValueKey('forum-identity-logo'));
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 75));
-    shell.pushContent(
-      ContentRoute.topic(
-        topicId: 7,
-        slug: 'shared',
-        title: 'Shared topic card',
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-    _expectPage();
-    expect(
-      find.text('Open forum in browser', skipOffstage: false),
-      findsNothing,
-    );
-    expect(find.text('Remove forum', skipOffstage: false), findsNothing);
+      void expectStaticLogo() {
+        expect(
+          find.descendant(of: _header, matching: identity),
+          findsOneWidget,
+        );
+        expect(tester.getSize(logo), const Size.square(32));
+        expect(
+          find.descendant(of: identity, matching: find.text('Meta')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: identity, matching: find.byType(DButton)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: identity, matching: find.byType(DDropdownMenu)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: identity, matching: find.byType(Tooltip)),
+          findsNothing,
+        );
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Meta')),
+          matchesSemantics(label: 'Meta', isImage: true),
+        );
+      }
 
-    shell.handleBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('forum-identity-button')));
-    await tester.pumpAndSettle();
-    expect(find.text('Open forum in browser'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+      for (final size in [const Size(320, 720), phone, const Size(1024, 768)]) {
+        tester.view.physicalSize = size;
+        for (final scale in [1.0, 2.0]) {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          await tester.pumpAndSettle();
+          expectStaticLogo();
+          final content = shell.currentContent;
+          await tester.tap(logo);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent, same(content));
+          expect(shell.mobileNavigation.sidebarOpen, isFalse);
+          expect(find.text('Open forum in browser'), findsNothing);
+          expect(find.text('Remove forum'), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
+      }
+
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'shared',
+          title: 'Shared topic card',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expectStaticLogo();
+      await tester.tap(logo);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
+      expect(shell.handleBack(), isTrue);
+      await tester.pumpAndSettle();
+      expectStaticLogo();
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   _mobileTest(
@@ -2500,10 +2535,10 @@ void main() {
     );
     expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
+    await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('forum-identity-settings')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
+    await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.panelOwner, 'chat');
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));

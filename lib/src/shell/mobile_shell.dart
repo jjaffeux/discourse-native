@@ -258,41 +258,36 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               child: Padding(
                 key: const ValueKey('mobile-header'),
                 padding: const EdgeInsets.all(DSpacing.xs),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    spacing: DSpacing.controlGap,
-                    children: [
-                      DButton.iconOnly(
-                        key: const ValueKey('mobile-menu-button'),
-                        icon: const Icon(Icons.menu, size: 20),
-                        tooltip: sidebarOpen
-                            ? context.l10n.closeNavigation
-                            : context.l10n.openNavigation,
-                        variant: DButtonVariant.ghost,
-                        expanded: sidebarOpen,
-                        onPressed: () {
-                          FocusManager.instance.primaryFocus?.unfocus();
-                          shell.toggleMobileSidebar();
-                        },
-                      ),
-                      Expanded(
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: ForumIdentityHeader(
-                            siteUrl: instance.url,
-                            name: instance.title,
-                            iconUrl: instance.iconUrl,
-                            monogram: instance.monogram,
-                            accentColor: instance.accentColor,
-                            compact: true,
-                            showName: constraints.maxWidth >= 350,
-                          ),
+                child: Row(
+                  spacing: DSpacing.controlGap,
+                  children: [
+                    DButton.iconOnly(
+                      key: const ValueKey('mobile-menu-button'),
+                      icon: const Icon(Icons.menu, size: 20),
+                      tooltip: sidebarOpen
+                          ? context.l10n.closeNavigation
+                          : context.l10n.openNavigation,
+                      variant: DButtonVariant.ghost,
+                      expanded: sidebarOpen,
+                      onPressed: () {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        shell.toggleMobileSidebar();
+                      },
+                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: ForumIdentityHeader(
+                          name: instance.title,
+                          iconUrl: instance.iconUrl,
+                          monogram: instance.monogram,
+                          accentColor: instance.accentColor,
                         ),
                       ),
-                      const ForumSearch(fullScreen: true),
-                      const UserMenuButton(compact: true),
-                    ],
-                  ),
+                    ),
+                    const ForumSearch(fullScreen: true),
+                    const UserMenuButton(compact: true),
+                  ],
                 ),
               ),
             ),
