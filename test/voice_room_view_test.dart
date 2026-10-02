@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart'
     show
         PluginDescriptor,
@@ -21,6 +22,7 @@ import 'package:discourse_native/discourse_plugin_test.dart'
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart'
     show WriteException, WriteFailure;
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
@@ -28,8 +30,13 @@ import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
+import 'package:discourse_native/src/plugins/chat/chat_conversation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
@@ -1307,6 +1314,80 @@ void main() {
   });
 
   group('room Chat', () {
+    for (final firstMessage in [true, false]) {
+      testWidgets(
+        '${firstMessage ? 'first' : 'existing-thread'} room Chat sends exact Markdown source',
+        (tester) async {
+          const raw = '    code\n\nParagraph hard break  \nnext line  \n';
+          final transport = RecordingPluginTransport(
+            responses: {
+              'GET /voice/rooms/7/chat_session.json': {
+                'channel_id': 42,
+                if (!firstMessage) 'thread_id': 99,
+              },
+              'POST /voice/rooms/7/chat_message.json': const {
+                'channel_id': 42,
+                'thread_id': 99,
+              },
+              'POST $_siteUrl/chat/42.json': const {'message_id': 101},
+            },
+          );
+          final chat = ChatController(
+            api: _RoomChatApi(ChatApiClient(transport)),
+            requests: FakePluginRequestHost(
+              credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            ),
+            store: Store(),
+            currentUserFor: (_) => const DiscourseUser(id: 1, username: 'sam'),
+            minimumWindowRefreshInterval: Duration.zero,
+          );
+          addTearDown(chat.dispose);
+          final harness = _Harness(
+            discourseApi: transport,
+            chatConversations: ChatControllerConversationCapability(chat),
+          );
+          addTearDown(harness.dispose);
+          await _openRoomChat(tester, harness);
+          final composer = find.widgetWithText(TextField, 'Message the room');
+          await tester.enterText(composer, raw);
+          await tester.tap(find.byTooltip('Send message'));
+          await tester.pumpAndSettle();
+
+          final write = transport.writes.single;
+          expect(write.body['message'], raw);
+          expect(write.apiKey, 'key');
+          expect(
+            write.path,
+            firstMessage
+                ? '/voice/rooms/7/chat_message.json'
+                : '$_siteUrl/chat/42.json',
+          );
+          if (!firstMessage) expect(write.body['thread_id'], 99);
+          expect(tester.widget<TextField>(composer).controller?.text, isEmpty);
+
+          await tester.runAsync(() async {
+            final service = OfflineCookingService();
+            try {
+              final cooked = await service.cook(
+                CookingRequest(
+                  raw: write.body['message']! as String,
+                  snapshot: CookingSnapshot(siteId: _siteUrl, accountId: '1'),
+                ),
+              );
+              expect(cooked.failure, isNull);
+              expect(cooked.html, contains('<pre><code>code\n</code></pre>'));
+              expect(cooked.html, contains('Paragraph hard break<br>'));
+            } finally {
+              await service.dispose();
+            }
+          });
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('stays quiet while an empty conversation loads', (
       tester,
     ) async {
@@ -1349,7 +1430,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('loads older messages and sends trimmed composer text', (
+    testWidgets('loads older messages and preserves composer text', (
       tester,
     ) async {
       final transport = RecordingPluginTransport(
@@ -1421,7 +1502,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<TextField>(composer).controller?.text, isEmpty);
-      expect(conversation.sentMessages, ['hello room']);
+      expect(conversation.sentMessages, ['  hello room  ']);
 
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
@@ -4239,6 +4320,68 @@ RecordingPluginTransport _roomChatTransport() => RecordingPluginTransport(
   },
 );
 
+final class _RoomChatApi extends FakeDiscourseApi {
+  _RoomChatApi(this.writes)
+    : super(
+        chatChannelsById: const {
+          42: ChatChannel(
+            id: 42,
+            title: 'Room chat',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+            threadingEnabled: true,
+          ),
+        },
+        chatThreadsByKey: const {
+          '42~99': ChatThread(
+            id: 99,
+            channelId: 42,
+            status: 'open',
+            replyCount: 0,
+          ),
+        },
+        chatMessagesByKey: const {
+          'thread-42-99': (
+            messages: <ChatMessage>[],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+        },
+      );
+
+  final ChatApiClient writes;
+
+  @override
+  Future<int?> sendChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required String message,
+    List<int> uploadIds = const [],
+    int? threadId,
+    int? inReplyToId,
+    String? stagedId,
+    DateTime? clientCreatedAt,
+    int? contextTopicId,
+    List<int> contextPostIds = const [],
+    String? clientId,
+  }) => writes.sendChatMessage(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    channelId: channelId,
+    message: message,
+    uploadIds: uploadIds,
+    threadId: threadId,
+    inReplyToId: inReplyToId,
+    stagedId: stagedId,
+    clientCreatedAt: clientCreatedAt,
+    contextTopicId: contextTopicId,
+    contextPostIds: contextPostIds,
+    clientId: clientId,
+  );
+}
+
 Future<void> _openRoomChat(WidgetTester tester, _Harness harness) async {
   final room = _room(
     chatAvailable: true,
@@ -4458,7 +4601,7 @@ final class _Harness {
     PluginRequestHost? requests,
     _Preferences? preferences,
     VoicePreferences? persistentPreferences,
-    FakeChatConversationCapability? chatConversations,
+    ChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
     VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
@@ -4516,7 +4659,7 @@ final class _Harness {
   final RecordingPluginTransport transport;
   final _MediaFactory media;
   final _Preferences preferences;
-  final FakeChatConversationCapability chatConversations;
+  final ChatConversationCapability chatConversations;
   late final VoiceController controller;
 
   void dispose() => controller.dispose();

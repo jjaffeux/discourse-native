@@ -118,8 +118,7 @@ final class _ControllerChatConversation extends ChangeNotifier
 
   @override
   Future<void> send(String message) async {
-    final text = message.trim();
-    if (_closed || _sending || text.isEmpty) return;
+    if (_closed || _sending || message.trim().isEmpty) return;
     _sending = true;
     _operationError = null;
     notifyListeners();
@@ -127,7 +126,7 @@ final class _ControllerChatConversation extends ChangeNotifier
       final handle = _chat.sendMessageTo(
         siteUrl,
         _target,
-        OutgoingChatMessage.text(text),
+        OutgoingChatMessage.text(message),
       );
       if (handle == null) {
         _operationError = appL10n.messageNotSent;
