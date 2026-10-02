@@ -12904,6 +12904,12 @@ abstract class AppLocalizations {
   /// **'Enter a valid whole number.'**
   String get enterAValidWholeNumber;
 
+  /// Validation error for category and associated group ID lists in group settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter positive numeric IDs, separated by commas.'**
+  String get enterPositiveNumericIDsSeparatedByCommas;
+
   /// English UI message used by shell/global_search_filters.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

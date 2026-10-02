@@ -7518,6 +7518,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enterAValidWholeNumber => 'Enter a valid whole number.';
 
   @override
+  String get enterPositiveNumericIDsSeparatedByCommas =>
+      'Enter positive numeric IDs, separated by commas.';
+
+  @override
   String get chooseAValidDate => 'Choose a valid date.';
 
   @override

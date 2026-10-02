@@ -263,6 +263,18 @@ final class GroupManageController extends ChangeNotifier {
             _smtpEnabled &&
             _nullableInt('smtp_port') == null =>
       {'smtp_port': appL10n.enterAValidWholeNumber},
+    GroupRoute.membership
+        when canEditField('associated_group_ids') &&
+            !_validIntegerList('associated_group_ids') =>
+      {
+        'associated_group_ids':
+            appL10n.enterPositiveNumericIDsSeparatedByCommas,
+      },
+    GroupRoute.categories => {
+      for (final key in groupCategoryKeys)
+        if (!_validIntegerList(key))
+          key: appL10n.enterPositiveNumericIDsSeparatedByCommas,
+    },
     _ => const {},
   };
 
@@ -343,6 +355,15 @@ final class GroupManageController extends ChangeNotifier {
 
   String _value(String key) => textController(key).text.trim();
   int? _nullableInt(String key) => int.tryParse(_value(key));
+
+  bool _validIntegerList(String key) {
+    final value = _value(key);
+    if (value.isEmpty) return true;
+    return value.split(',').every((part) {
+      final number = int.tryParse(part.trim());
+      return number != null && number > 0;
+    });
+  }
 
   List<int> _integerList(String key) => [
     for (final value in _value(key).split(','))
