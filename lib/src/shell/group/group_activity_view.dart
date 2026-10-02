@@ -164,7 +164,11 @@ class _ActivityRows extends StatelessWidget {
       if (error != null) {
         return _GroupState(icon: DIcons.triangleExclamation, title: error!);
       }
-      return const SizedBox.shrink();
+      return _GroupSectionLoadingSkeleton(
+        semanticsLabel: context.l10n.loadingDembed(
+          kind == 'mentions' ? context.l10n.mentions : context.l10n.posts,
+        ),
+      );
     }
     if (page!.posts.isEmpty && !loading) {
       return _GroupState(
@@ -267,7 +271,9 @@ class _RequestsSection extends StatelessWidget {
       if (error != null) {
         return _GroupState(icon: DIcons.triangleExclamation, title: error!);
       }
-      return const SizedBox.shrink();
+      return _GroupSectionLoadingSkeleton(
+        semanticsLabel: context.l10n.loadingDembed(context.l10n.requests),
+      );
     }
     if (page!.requesters.isEmpty && !loading) {
       return _GroupState(
@@ -471,7 +477,9 @@ class _PermissionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (permissions.isEmpty && loading) {
-      return const SizedBox.shrink();
+      return _GroupSectionLoadingSkeleton(
+        semanticsLabel: context.l10n.loadingDembed(context.l10n.permissions),
+      );
     }
     if (permissions.isEmpty && error != null) {
       return _GroupState(icon: DIcons.triangleExclamation, title: error!);

@@ -1,5 +1,61 @@
 part of '../group_page.dart';
 
+class _GroupSectionLoadingSkeleton extends StatelessWidget {
+  const _GroupSectionLoadingSkeleton({
+    required this.semanticsLabel,
+    this.showAvatar = false,
+  });
+
+  final String semanticsLabel;
+  final bool showAvatar;
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: semanticsLabel,
+    color: skeletonFill(context),
+    expand: true,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final count = math.max(1, (constraints.maxHeight / 40).ceil());
+        return ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            minHeight: 0,
+            maxHeight: double.infinity,
+            child: ContentReadingLaneBox(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var row = 0; row < count; row++) ...[
+                    if (row > 0) const DSeparator(space: 1),
+                    DItem(
+                      shape: DItemShape.fullWidth,
+                      children: [
+                        if (showAvatar)
+                          const DItemMedia(
+                            child: DSkeleton.circle(diameter: 40),
+                          ),
+                        const DItemContent(
+                          spacing: DSpacing.sm,
+                          children: [
+                            DSkeleton(width: 150, height: 14),
+                            DSkeleton(width: 100, height: 12),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
 @immutable
 final class _Subtab {
   const _Subtab(this.value, this.label);

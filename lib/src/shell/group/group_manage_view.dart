@@ -656,7 +656,9 @@ class _GroupLogs extends StatelessWidget {
     if (page == null) {
       body = error != null
           ? _GroupState(icon: DIcons.triangleExclamation, title: error!)
-          : const SizedBox.shrink();
+          : _GroupSectionLoadingSkeleton(
+              semanticsLabel: context.l10n.loadingDembed(context.l10n.logs),
+            );
     } else if (page!.logs.isEmpty && !loading) {
       body = _GroupState(
         icon: DIcons.farClock,
