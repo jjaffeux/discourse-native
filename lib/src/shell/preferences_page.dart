@@ -131,6 +131,26 @@ class _PreferencesPageState extends State<PreferencesPage> {
       return _LoadingPreferences(host: instance.host);
     }
 
+    final siteUrl = widget.siteUrl;
+    final session = shell.lifecycle.capture(siteUrl);
+    final accountIdentity = state!.accountIdentity;
+    bool ownsView() =>
+        mounted &&
+        identical(_shell, shell) &&
+        widget.siteUrl == siteUrl &&
+        session.isCurrent &&
+        shell.preferences.stateFor(siteUrl)?.accountIdentity == accountIdentity;
+    void edit(
+      PreferenceSection section,
+      UserPreferences Function(UserPreferences) change,
+    ) {
+      if (ownsView()) shell.preferences.edit(siteUrl, section, change);
+    }
+
+    void useDeviceTimezone() {
+      if (ownsView()) _useDeviceTimezone(edit);
+    }
+
     final editable = draft.canEdit;
     final pluginSections = instance?.user == null
         ? const <PluginUserPreferenceSection>[]
@@ -143,17 +163,21 @@ class _PreferencesPageState extends State<PreferencesPage> {
               currentUserData: instance.user!.plugins,
               currentUserIsAdmin: instance.user!.admin,
               editable: editable,
-              onEdit: (section, change) =>
-                  shell.preferences.edit(widget.siteUrl, section, change),
+              onEdit: edit,
             ),
           );
     final sections = _sectionsFor(draft, pluginSections);
-    final dirty = sections.any(state!.dirty);
+    final dirty = sections.any(state.dirty);
     final canSave =
         instance?.isConnected == true && editable && dirty && !state.saving;
 
     return _SectionScroller(
-      key: ValueKey(state.accountIdentity),
+      key: ValueKey((
+        shell.preferences,
+        siteUrl,
+        session.session,
+        accountIdentity,
+      )),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
       child: FocusTraversalGroup(
         policy: ReadingOrderTraversalPolicy(),
@@ -191,7 +215,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
                 icon: _sectionIcon(section, pluginSections),
               ),
               const SizedBox(height: 9),
-              _buildSection(shell, draft, section, editable, pluginSections),
+              _buildSection(
+                draft,
+                section,
+                editable,
+                pluginSections,
+                edit,
+                useDeviceTimezone,
+              ),
               const SizedBox(height: 22),
             ],
             Align(
@@ -203,7 +234,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     ? context.l10n.savingPreferences
                     : context.l10n.savePreferences,
                 onPressed: canSave
-                    ? () => _saveAll(shell, instance!, sections)
+                    ? () {
+                        if (ownsView()) {
+                          unawaited(_saveAll(shell, instance!, sections));
+                        }
+                      }
                     : null,
                 loading: state.saving,
                 loadingLabel: Text(context.l10n.savingChanges),
@@ -218,11 +253,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
   }
 
   Widget _buildSection(
-    ShellController shell,
     UserPreferences draft,
     PreferenceSection section,
     bool editable,
     List<PluginUserPreferenceSection> pluginSections,
+    PluginUserPreferenceEdit onEdit,
+    VoidCallback onUseDeviceTimezone,
   ) => switch (section) {
     PreferenceSection.profile => _ProfileForm(
       timezone: _timezone,
@@ -232,36 +268,26 @@ class _PreferencesPageState extends State<PreferencesPage> {
       timezoneEntries: _timezoneEntries,
       deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
       enabled: editable,
-      onTimezoneChanged: (timezone) => shell.preferences.edit(
-        widget.siteUrl,
+      onTimezoneChanged: (timezone) => onEdit(
         PreferenceSection.profile,
         (current) => current.copyWith(timezone: timezone),
       ),
-      onUseDeviceTimezone: _useDeviceTimezone,
+      onUseDeviceTimezone: onUseDeviceTimezone,
     ),
     PreferenceSection.notifications => _NotificationsForm(
       preferences: draft,
       enabled: editable,
-      onChanged: (change) => shell.preferences.edit(
-        widget.siteUrl,
-        PreferenceSection.notifications,
-        change,
-      ),
+      onChanged: (change) => onEdit(PreferenceSection.notifications, change),
     ),
     PreferenceSection.tracking => _TrackingForm(
       preferences: draft,
       enabled: editable && draft.canChangeTrackingPreferences,
-      onChanged: (change) => shell.preferences.edit(
-        widget.siteUrl,
-        PreferenceSection.tracking,
-        change,
-      ),
+      onChanged: (change) => onEdit(PreferenceSection.tracking, change),
     ),
     PreferenceSection.interface => _InterfaceForm(
       preferences: draft,
       enabled: editable,
-      onBookmarkChanged: (preference) => shell.preferences.edit(
-        widget.siteUrl,
+      onBookmarkChanged: (preference) => onEdit(
         PreferenceSection.interface,
         (current) => current.copyWith(bookmarkAutoDeletePreference: preference),
       ),
@@ -284,17 +310,14 @@ class _PreferencesPageState extends State<PreferencesPage> {
     }
   }
 
-  void _useDeviceTimezone() {
+  void _useDeviceTimezone(PluginUserPreferenceEdit onEdit) {
     final zone = TimezoneEnvironment.instance.deviceTimezone;
     if (zone == null) return;
     _timezone.value = TextEditingValue(
       text: zone,
       selection: TextSelection.collapsed(offset: zone.length),
     );
-    final shell = _shell;
-    if (shell == null) return;
-    shell.preferences.edit(
-      widget.siteUrl,
+    onEdit(
       PreferenceSection.profile,
       (current) => current.copyWith(timezone: zone),
     );
