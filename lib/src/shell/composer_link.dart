@@ -56,6 +56,7 @@ List<ComposerLinkBlock> parseComposerLinks(
   var offset = 0;
   var barrenTo = -1;
   var lineEnd = -1;
+  var bracket = -1;
 
   while (offset < source.length) {
     final start = source.indexOf('[', offset);
@@ -69,7 +70,12 @@ List<ComposerLinkBlock> parseComposerLinks(
       lineEnd = next < 0 ? source.length : next;
     }
 
-    final bracket = source.indexOf(']', start + 1);
+    if (bracket <= start) {
+      bracket = source.indexOf(']', start + 1);
+      while (bracket >= 0 && _isEscaped(source, bracket)) {
+        bracket = source.indexOf(']', bracket + 1);
+      }
+    }
     if (bracket < 0) break;
     if (bracket > lineEnd) {
       barrenTo = lineEnd;
@@ -79,8 +85,7 @@ List<ComposerLinkBlock> parseComposerLinks(
     if (bracket == start + 1 ||
         bracket + 2 >= source.length ||
         source[bracket + 1] != '(' ||
-        _isEscaped(source, start) ||
-        _isEscaped(source, bracket)) {
+        _isEscaped(source, start)) {
       offset = start + 1;
       continue;
     }
@@ -748,15 +753,35 @@ TextEditingValue? composerPastedLinkValue(
     current: current,
     expectedText: current.text,
     selection: selection,
-    url: url.replaceAllMapped(
-      RegExp(r'[()<>\\]'),
-      (match) => '%${match[0]!.codeUnitAt(0).toRadixString(16).toUpperCase()}',
-    ),
-    anchor: anchor.replaceAllMapped(
-      RegExp(r'[\[\]\\]'),
-      (match) => '\\${match[0]}',
-    ),
+    url: url,
+    anchor: anchor,
   );
+}
+
+final _linkAnchorDelimiters = RegExp(r'[\[\]\\]');
+final _linkUrlDelimiters = RegExp(r'[()<>\\]');
+final _linkSourceAnchorDelimiters = RegExp(r'\\[!-/:-@\[-`{-~]|[\[\]\\]');
+final _linkSourceUrlDelimiters = RegExp(r'\\[!-/:-@\[-`{-~]|[()<>\\]');
+
+String _serializedComposerLinkPart(
+  String value, {
+  required bool destination,
+  required bool preserveMarkdownEscapes,
+}) {
+  final pattern = destination
+      ? (preserveMarkdownEscapes
+            ? _linkSourceUrlDelimiters
+            : _linkUrlDelimiters)
+      : (preserveMarkdownEscapes
+            ? _linkSourceAnchorDelimiters
+            : _linkAnchorDelimiters);
+  return value.replaceAllMapped(pattern, (match) {
+    final delimiter = match[0]!;
+    if (preserveMarkdownEscapes && delimiter.length == 2) return delimiter;
+    return destination
+        ? '%${delimiter.codeUnitAt(0).toRadixString(16).toUpperCase()}'
+        : '\\$delimiter';
+  });
 }
 
 TextEditingValue? composerLinkValue({
@@ -765,6 +790,7 @@ TextEditingValue? composerLinkValue({
   required TextSelection selection,
   required String url,
   required String anchor,
+  ComposerLinkBlock? existingLink,
 }) {
   if (current.text != expectedText ||
       !selection.isValid ||
@@ -779,7 +805,24 @@ TextEditingValue? composerLinkValue({
   final normalizedUrl = url.trim();
   if (normalizedUrl.isEmpty) return null;
   final linkText = anchor.isEmpty ? normalizedUrl : anchor;
-  final insertion = '[$linkText]($normalizedUrl)';
+  // Existing Markdown fields contain editable source escapes. Keep those
+  // escapes, and leave unchanged fields verbatim, while escaping new input.
+  final preserveSource = existingLink?.kind == ComposerLinkKind.markdown;
+  final sourceAnchor = preserveSource && linkText == existingLink!.anchor
+      ? linkText
+      : _serializedComposerLinkPart(
+          linkText,
+          destination: false,
+          preserveMarkdownEscapes: preserveSource,
+        );
+  final sourceUrl = preserveSource && normalizedUrl == existingLink!.url
+      ? normalizedUrl
+      : _serializedComposerLinkPart(
+          normalizedUrl,
+          destination: true,
+          preserveMarkdownEscapes: preserveSource,
+        );
+  final insertion = '[$sourceAnchor]($sourceUrl)';
   return current.copyWith(
     text: current.text.replaceRange(selection.start, selection.end, insertion),
     selection: TextSelection.collapsed(
@@ -832,6 +875,7 @@ Future<void> showComposerLinkDialog({
     selection: capturedSelection,
     url: draft.url,
     anchor: draft.anchor,
+    existingLink: link,
   );
   if (next == null ||
       !composer.commitText(expectedText: expectedValue.text, value: next)) {
