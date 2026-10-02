@@ -2426,15 +2426,27 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
-  List<InlineSpan> _placeholder(MarkdownRun run, TextStyle base, Widget pill) =>
-      [
-        TextSpan(text: text.substring(run.start, run.end - 1), style: _hidden),
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          style: base,
-          child: IgnorePointer(child: pill),
-        ),
-      ];
+  List<InlineSpan> _placeholder(MarkdownRun run, TextStyle base, Widget pill) {
+    final hiddenEnd = run.end - 1;
+    var hiddenText = text.substring(run.start, hiddenEnd);
+    if (hiddenEnd > run.start &&
+        text.codeUnitAt(hiddenEnd - 1) >= 0xD800 &&
+        text.codeUnitAt(hiddenEnd - 1) <= 0xDBFF &&
+        text.codeUnitAt(hiddenEnd) >= 0xDC00 &&
+        text.codeUnitAt(hiddenEnd) <= 0xDFFF) {
+      // The WidgetSpan replaces one UTF-16 unit. Keep the preceding hidden
+      // unit for offset mapping without handing TextSpan a lone surrogate.
+      hiddenText = '${text.substring(run.start, hiddenEnd - 1)}\u200b';
+    }
+    return [
+      TextSpan(text: hiddenText, style: _hidden),
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        style: base,
+        child: IgnorePointer(child: pill),
+      ),
+    ];
+  }
 
   static int _revealedPill(List<MarkdownRun> runs, TextSelection selection) {
     if (!selection.isValid || !selection.isCollapsed) return -1;
