@@ -913,6 +913,70 @@ void main() {
         },
       );
 
+      for (final stage in ['snapshot', 'channel detail', 'thread']) {
+        test(
+          'a late $stage check does not navigate another tab with the same route',
+          () async {
+            final gate = Completer<void>();
+            final (gated, gatedApi) = await gatedShell(
+              channelGate: stage == 'snapshot' ? gate : null,
+              channelDetailGate: stage == 'channel detail' ? gate : null,
+              threadGate: stage == 'thread' ? gate : null,
+            );
+            gated.desktopTopicTabs = true;
+            final sourceTab = gated.activeTabId!;
+            final topicReader = stage != 'snapshot';
+            if (topicReader) {
+              expect(gated.openTopicUrl('$_site/t/better-images/77/4'), isTrue);
+            }
+            final sourceRoute = gated.currentContent!.id;
+            gated.createTab();
+            final otherTab = gated.activeTabId!;
+            if (topicReader) {
+              expect(gated.openTopicUrl('$_site/t/better-images/77/4'), isTrue);
+            } else {
+              gated.selectDestination(
+                gated.currentInstance!.defaultDestination,
+              );
+            }
+            expect(gated.currentContent?.id, sourceRoute);
+            gated.selectTab(sourceTab);
+            final url = switch (stage) {
+              'channel detail' => '$_site/chat/c/-/21/44',
+              'thread' => '$_site/chat/c/-/9/t/3/44',
+              _ => '$_site/chat/c/-/9/44',
+            };
+
+            final routesBefore = gated.tabsForCurrentForum
+                .map((tab) => (tab.id, tab.currentContent.id))
+                .toList();
+            final chatTap = gated.openNotificationUrl(url);
+            await pumpEventQueue();
+            if (stage == 'channel detail') {
+              expect(gatedApi.heldChannelDetails, [21]);
+            } else if (stage == 'thread') {
+              expect(gatedApi.chatThreadsRequested, [
+                (channelId: 9, threadId: 3),
+              ]);
+            }
+            gated.selectTab(otherTab);
+            expect(gated.currentContent?.id, sourceRoute);
+            gate.complete();
+
+            expect(await chatTap, isTrue);
+            expect(gated.activeTabId, otherTab);
+            expect(gated.currentContent?.id, sourceRoute);
+            expect(
+              gated.tabsForCurrentForum.map(
+                (tab) => (tab.id, tab.currentContent.id),
+              ),
+              routesBefore,
+            );
+            expect(gated.chatNavigation.value, isNull);
+          },
+        );
+      }
+
       test(
         'a late channel check does not pull back a site selected meanwhile',
         () async {
@@ -952,6 +1016,40 @@ void main() {
           expect(await chatTap, isTrue);
           expect(gated.currentInstance?.url, _site);
           expect(gated.currentContent?.id, 'chat-c-9-t-3');
+          expect(gated.chatNavigation.value?.messageId, 44);
+        },
+      );
+
+      test(
+        'a delayed foreground open still lands in its unchanged desktop tab',
+        () async {
+          final channelGate = Completer<void>();
+          final threadGate = Completer<void>();
+          final (gated, gatedApi) = await gatedShell(
+            channelGate: channelGate,
+            threadGate: threadGate,
+          );
+          gated.desktopTopicTabs = true;
+          final sourceTab = gated.activeTabId!;
+          gated.createTab();
+          gated.selectDestination(gated.currentInstance!.defaultDestination);
+          final otherTab = gated.activeTabId!;
+          gated.selectTab(sourceTab);
+
+          final chatTap = gated.openNotificationUrl('$_site/chat/c/-/9/t/3/44');
+          await pumpEventQueue();
+          channelGate.complete();
+          await pumpEventQueue();
+          expect(gatedApi.chatThreadsRequested, [(channelId: 9, threadId: 3)]);
+          threadGate.complete();
+
+          expect(await chatTap, isTrue);
+          expect(gated.activeTabId, sourceTab);
+          expect(gated.currentContent?.id, 'chat-c-9-t-3');
+          expect(
+            gated.currentWorkspace!.tabById(otherTab)!.currentContent.id,
+            'latest',
+          );
           expect(gated.chatNavigation.value?.messageId, 44);
         },
       );

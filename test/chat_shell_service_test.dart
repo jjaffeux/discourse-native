@@ -228,6 +228,9 @@ final class _NavigationHost implements PluginNavigationHost {
   bool get isDisposed => _disposed;
 
   @override
+  String? get activeTabId => null;
+
+  @override
   ContentRoute? get currentContent => _contentStack.lastOrNull;
 
   @override

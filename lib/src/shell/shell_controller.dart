@@ -1627,6 +1627,7 @@ class ShellController extends FrameSafeNotifier
   ForumTab? get activeTab => _snapshotTabId == null
       ? currentWorkspace?.activeTab
       : currentWorkspace?.tabById(_snapshotTabId!);
+  @override
   String? get activeTabId => activeTab?.id;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
   List<ForumTab> get recentlyClosedTabsForCurrentForum {
@@ -18394,6 +18395,9 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 
   @override
   bool get isDisposed => _isDisposed();
+
+  @override
+  String? get activeTabId => _shell.activeTabId;
 
   @override
   ContentRoute? get currentContent => _shell.currentContent;

@@ -93,6 +93,11 @@ abstract interface class PluginNavigationHost {
   bool get forumActive;
   bool get desktopPanelsEnabled;
   bool get isDisposed;
+
+  /// Stable identity of the selected reader tab, including tabs that share
+  /// the same content route. Null when the host has no reader tab.
+  String? get activeTabId;
+
   ContentRoute? get currentContent;
   List<ContentRoute> get contentStack;
   NotificationTotals? get currentTotals;
