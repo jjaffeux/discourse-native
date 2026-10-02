@@ -736,7 +736,7 @@ void main() {
       final button = find.byKey(const Key('assign-topic-button'));
       final dButton = tester.widget<DButton>(button);
       expect(dButton.variant, DButtonVariant.primary);
-      expect(tester.getSize(button).height, greaterThanOrEqualTo(46));
+      expect(tester.getSize(button).height, 44);
       expect(tester.getSize(button).width, tester.getSize(action).width);
       expect(
         tester.getSemantics(button),

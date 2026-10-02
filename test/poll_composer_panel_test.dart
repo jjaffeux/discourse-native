@@ -252,7 +252,7 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
-            theme: AppTheme.dark,
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
             home: ShellScope(
               controller: shell,
               child: Scaffold(

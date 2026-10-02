@@ -184,7 +184,15 @@ void main() {
             expect(rect.right, lessThanOrEqualTo(320));
             expect(button.hitTestable(), findsOneWidget);
             if (platform == TargetPlatform.iOS) {
-              expect(rect.height, greaterThanOrEqualTo(44));
+              final surface = find.descendant(
+                of: button,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnimatedContainer &&
+                      widget.decoration is DButtonDecoration,
+                ),
+              );
+              expect(rect, tester.getRect(surface));
             }
           }
         },

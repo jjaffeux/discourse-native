@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -22,7 +23,6 @@ import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -183,12 +183,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('A real topic'), findsOneWidget);
+    expect(_realTopicTitle, findsOneWidget);
 
     final rail = tester.element(find.byType(InstanceRail));
-    final content = tester.element(find.byType(MainContent));
+    final content = tester.element(primaryMainContent);
     final list = tester.element(find.byType(TopicListView));
-    final rowTitle = tester.element(find.text('A real topic'));
+    final rowTitle = tester.element(_realTopicTitle);
     final railSelector = _onlyChild(rail);
     final contentSelector = _onlyChild(content);
     final listSelector = _onlyChild(list);
@@ -279,9 +279,9 @@ void main() {
 
       final rail = tester.element(find.byType(InstanceRail));
       final sidebar = tester.element(find.byType(InstanceSidebar));
-      final content = tester.element(find.byType(MainContent));
+      final content = tester.element(primaryMainContent);
       final contentSelector = _onlyChild(content);
-      final tabBar = tester.element(find.byType(ForumTabsBar));
+      final tabBar = tester.element(_forumTabsBar);
       final createAction = tester.element(find.byType(TopicCreateButton));
       final list = tester.element(find.byType(TopicListView));
       final rebuilds = <Element, int>{};
@@ -396,7 +396,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('A real topic'), findsOneWidget);
+    expect(_realTopicTitle, findsOneWidget);
 
     var shellNotifications = 0;
     void countShellNotification() => shellNotifications++;
@@ -475,7 +475,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('A real topic'), findsOneWidget);
+    expect(_realTopicTitle, findsOneWidget);
     final tracker = FakeSiteTracker.built.single;
     expect(tracker.pluginChannelCallbacks['/user-status'], hasLength(1));
 
@@ -719,17 +719,14 @@ void main() {
       final activeTabId = controller.activeTabId!;
       expect(activeTabId, isNot(inactiveTabId));
       expect(
-        tester
-            .widget<ForumTabsBar>(find.byType(ForumTabsBar))
-            .items
-            .map((item) => item.id),
+        tester.widget<ForumTabsBar>(_forumTabsBar).items.map((item) => item.id),
         [inactiveTabId, activeTabId],
       );
 
-      final bar = tester.element(find.byType(ForumTabsBar));
+      final bar = tester.element(_forumTabsBar);
       final viewport = tester.element(find.byType(TopicListView));
       final viewportSelector = _onlyChild(viewport);
-      final rowTitle = tester.element(find.text('A real topic'));
+      final rowTitle = tester.element(_realTopicTitle);
       final rebuilt = <Element>{};
       final previousRebuildCallback = debugOnRebuildDirtyWidget;
       debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -745,10 +742,7 @@ void main() {
 
       expect(controller.activeTabId, activeTabId);
       expect(
-        tester
-            .widget<ForumTabsBar>(find.byType(ForumTabsBar))
-            .items
-            .map((item) => item.id),
+        tester.widget<ForumTabsBar>(_forumTabsBar).items.map((item) => item.id),
         [activeTabId],
       );
       expect(find.byKey(ValueKey('forum-tab-$inactiveTabId')), findsNothing);
@@ -1036,3 +1030,16 @@ List<Topic> _topics(int first, int count) => [
   for (var id = first; id < first + count; id++)
     Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
 ];
+
+Finder get _realTopicTitle => find.descendant(
+  of: find.byType(TopicListView),
+  matching: find.text('A real topic'),
+);
+
+Finder get _forumTabsBar => find.descendant(
+  of: find.byWidgetPredicate(
+    (widget) =>
+        widget is CurrentForumTabsBar && widget.panel != ForumPanel.secondary,
+  ),
+  matching: find.byType(ForumTabsBar),
+);

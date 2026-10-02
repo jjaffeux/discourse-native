@@ -7,6 +7,8 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/shell/invite_editor.dart';
 import 'package:discourse_native/src/shell/invites_controller.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/styleguide/examples/input_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
 import 'support/invite_fixtures.dart';
 
 const _captureKey = ValueKey('reference-render');
@@ -39,19 +42,32 @@ Future<void> _export(WidgetTester tester, String name) async {
   });
 }
 
-Widget _app(Widget child, {bool dark = true}) => RepaintBoundary(
-  key: _captureKey,
-  child: MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-      platform: TargetPlatform.macOS,
-      textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-        fontFamily: 'InputReferenceFont',
+Widget _app(Widget child, {bool dark = true}) {
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+  );
+  addTearDown(shell.dispose);
+  return ShellScope(
+    controller: shell,
+    child: RepaintBoundary(
+      key: _captureKey,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+          textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+            fontFamily: 'InputReferenceFont',
+          ),
+        ),
+        home: Scaffold(body: child),
       ),
     ),
-    home: Scaffold(body: child),
-  ),
-);
+  );
+}
 
 void main() {
   setUpAll(() async {

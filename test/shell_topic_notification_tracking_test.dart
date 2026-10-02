@@ -9,7 +9,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;
@@ -76,7 +75,7 @@ void main() {
           api: api,
           authenticator: FakeAuthenticator()..keys[_site] = 'reader-key',
         );
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
         await tester.pumpAndSettle();
         expect(renderedText('First post of an unread topic'), findsOneWidget);

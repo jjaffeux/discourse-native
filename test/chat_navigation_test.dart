@@ -333,7 +333,7 @@ void main() {
         expect(shell.activeTab?.panel, ForumPanel.main);
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(readerId, channel.id);
-        expect(shell.tabsForCurrentForum, hasLength(1));
+        expect(shell.tabsForCurrentForum, hasLength(2));
 
         shell.createTab(panel: ForumPanel.secondary);
         final other = shell.activeTab;
@@ -343,7 +343,7 @@ void main() {
         expect(shell.currentContent?.id, 'chat-c-9-t-4');
         expect(shell.selectedTabIn(ForumPanel.main)?.id, channel.id);
         expect(shell.currentWorkspace?.tabById(other!.id), other);
-        expect(shell.tabsForCurrentForum, hasLength(2));
+        expect(shell.tabsForCurrentForum, hasLength(3));
         expect(shell.handleBack(canReturnToSidebar: false), isTrue);
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(shell.handleForward(), isTrue);
@@ -352,7 +352,7 @@ void main() {
         expect(shell.openChatChannel(9), isTrue);
         expect(shell.activeTabId, readerId);
         expect(shell.currentContent?.id, 'chat-c-9');
-        expect(shell.tabsForCurrentForum, hasLength(2));
+        expect(shell.tabsForCurrentForum, hasLength(3));
       });
 
       test(
@@ -374,7 +374,7 @@ void main() {
           expect(shell.currentContent?.id, 'chat-c-9');
           expect(shell.selectedTabIn(ForumPanel.main)?.id, original.id);
           expect(shell.activeTabId, reader.id);
-          expect(shell.tabsForCurrentForum, hasLength(2));
+          expect(shell.tabsForCurrentForum, hasLength(3));
         },
       );
 
@@ -386,7 +386,7 @@ void main() {
 
         expect(shell.activeTabId, originalId);
         expect(shell.currentContent?.id, 'latest');
-        expect(shell.tabsForCurrentForum, hasLength(1));
+        expect(shell.tabsForCurrentForum, hasLength(2));
         expect(shell.handleBack(canReturnToSidebar: false), isTrue);
         expect(shell.currentContent?.id, 'chat-c-9');
       });
@@ -399,7 +399,7 @@ void main() {
           service.openChannelThreads(siteUrl: _site, channelId: 9),
           isTrue,
         );
-        expect(shell.tabsForCurrentForum, hasLength(1));
+        expect(shell.tabsForCurrentForum, hasLength(2));
         expect(shell.activeTab?.panel, ForumPanel.main);
         expect(shell.activeTabId, channel!.id);
         expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));

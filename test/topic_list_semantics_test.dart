@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -59,23 +60,36 @@ void main() {
         await tester.pumpAndSettle();
         expect(binding.errors, isEmpty);
       }
-      // Opening a schedule replaces the background route's accessibility tree.
-      // Closing it must restore every table node, including its cached children.
-      await tester.tap(
-        find.byKey(const ValueKey('event-schedule-trigger')).first,
+      // A modal replaces the background route's accessibility tree. Closing it
+      // must restore every table node, including its cached children.
+      unawaited(
+        showDDialog<void>(
+          context: tester.element(find.byType(SuperListView)),
+          builder: (_, _) => const DDialogContent(
+            children: [Text('Accessibility tree replacement')],
+          ),
+        ),
       );
       await tester.pumpAndSettle();
       expect(binding.errors, isEmpty);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(binding.errors, isEmpty);
+      // A focused close button can open its tooltip; Escape dismisses that
+      // hint before the dialog receives a second Escape.
+      if (find.byType(DDialogContent).evaluate().isNotEmpty) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(binding.errors, isEmpty);
+      }
+      expect(find.byType(DDialogContent), findsNothing);
       final position = tester
           .widget<SuperListView>(find.byType(SuperListView))
           .controller!
           .position;
       for (var step = 0; step < 10; step++) {
         final schedule = find
-            .byKey(const ValueKey('event-schedule-trigger'))
+            .byKey(const ValueKey('event-schedule-summary'))
             .first;
         await mouse.moveTo(tester.getCenter(schedule));
         await tester.pump(const Duration(milliseconds: 300));
@@ -120,8 +134,11 @@ void main() {
 
 // Checking the final framework tree misses updates sent for nodes that have
 // already left it. Apply the incremental updates as the native bridge does.
+// Overlay portals can have different traversal and hit-test parents, so a
+// node remains attached while either native tree can reach it.
 class _SemanticsBinding extends AutomatedTestWidgetsFlutterBinding {
   final tree = <int, List<int>>{};
+  final hitTestTree = <int, List<int>>{};
   final errors = <String>[];
   var batches = 0;
 
@@ -129,8 +146,21 @@ class _SemanticsBinding extends AutomatedTestWidgetsFlutterBinding {
   ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
       _UpdateBuilder(checkUpdate);
 
-  void checkUpdate(Map<int, List<int>> update) {
+  void checkUpdate(
+    Map<int, List<int>> update,
+    Map<int, List<int>> hitTestUpdate,
+  ) {
     batches++;
+    final reachable = applyUpdate(tree, update);
+    final hitTestReachable = applyUpdate(hitTestTree, hitTestUpdate);
+    for (final id in update.keys) {
+      if (!reachable.contains(id) && !hitTestReachable.contains(id)) {
+        errors.add('Update for detached node $id');
+      }
+    }
+  }
+
+  Set<int> applyUpdate(Map<int, List<int>> tree, Map<int, List<int>> update) {
     // The native AX tree moves nodes by removing their old subtree first,
     // then applying the update that attaches them to the new parent.
     final parents = <int, int>{
@@ -170,17 +200,16 @@ class _SemanticsBinding extends AutomatedTestWidgetsFlutterBinding {
     }
 
     visit(0);
-    for (final id in update.keys) {
-      if (!reachable.contains(id)) errors.add('Update for detached node $id');
-    }
     tree.removeWhere((id, _) => !reachable.contains(id));
+    return reachable;
   }
 }
 
 class _UpdateBuilder extends Fake implements ui.SemanticsUpdateBuilder {
   _UpdateBuilder(this.checkUpdate);
-  final void Function(Map<int, List<int>>) checkUpdate;
+  final void Function(Map<int, List<int>>, Map<int, List<int>>) checkUpdate;
   final update = <int, List<int>>{};
+  final hitTestUpdate = <int, List<int>>{};
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -188,6 +217,9 @@ class _UpdateBuilder extends Fake implements ui.SemanticsUpdateBuilder {
       final args = invocation.namedArguments;
       update[args[#id]! as int] = List<int>.of(
         args[#childrenInTraversalOrder]! as List<int>,
+      );
+      hitTestUpdate[args[#id]! as int] = List<int>.of(
+        args[#childrenInHitTestOrder]! as List<int>,
       );
       return null;
     }
@@ -197,7 +229,7 @@ class _UpdateBuilder extends Fake implements ui.SemanticsUpdateBuilder {
 
   @override
   ui.SemanticsUpdate build() {
-    checkUpdate(update);
+    checkUpdate(update, hitTestUpdate);
     return ui.SemanticsUpdateBuilder().build();
   }
 }

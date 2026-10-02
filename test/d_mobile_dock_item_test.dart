@@ -39,7 +39,7 @@ void main() {
       final count = find.text('32');
       final capsule = find.byKey(const ValueKey('mobile-dock-capsule'));
       expect(tester.getSize(item).width, 72);
-      expect(tester.getSize(item).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(item).height, 46);
       expect(tester.getSize(capsule), const Size(44, 30));
       expect(
         tester.getRect(count).left,

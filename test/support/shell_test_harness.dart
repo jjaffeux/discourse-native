@@ -6,11 +6,15 @@ import 'package:discourse_native/discourse_ui.dart'
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -173,12 +177,14 @@ Finder contentText(String label) => find.byElementPredicate((element) {
 
   var inMainContent = false;
   var inForumTabs = false;
+  var inStartPage = false;
   element.visitAncestorElements((ancestor) {
     inMainContent |= ancestor.widget is MainContent;
     inForumTabs |= ancestor.widget is ForumTabsBar;
+    inStartPage |= ancestor.widget is NewTabPage;
     return true;
   });
-  return inMainContent && !inForumTabs;
+  return inMainContent && !inForumTabs && !inStartPage;
 }, description: 'content text labelled "$label"');
 
 Future<TestGesture> hoverPost(
@@ -234,3 +240,15 @@ final Uint8List emojiPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
   'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
+
+/// The forum's primary viewport; desktop also mounts a secondary Start panel.
+Finder get primaryMainContent => find.byElementPredicate(
+  (element) =>
+      element.widget is MainContent &&
+      element.getInheritedWidgetOfExactType<ForumTabScope>()?.panel !=
+          ForumPanel.secondary,
+  description: 'primary forum content',
+);
+
+Finder topicListTitle(String title) =>
+    find.descendant(of: find.byType(TopicListView), matching: find.text(title));

@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -36,7 +35,10 @@ void main() {
 
       expect(shell.tabsForCurrentForum.last.currentContent.isNewTab, isTrue);
       expect(shell.currentContent?.isNewTab, isTrue);
-      final startPage = find.byType(NewTabPage);
+      final startPage = find.descendant(
+        of: primaryMainContent,
+        matching: find.byType(NewTabPage),
+      );
       expect(startPage, findsOneWidget);
       expect(
         find.descendant(
@@ -153,8 +155,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, 'navigation-test');
         await tester.tapAt(
-          tester.getBottomRight(find.byType(MainContent)) -
-              const Offset(20, 20),
+          tester.getBottomRight(primaryMainContent) - const Offset(20, 20),
           kind: PointerDeviceKind.mouse,
           buttons: kBackMouseButton,
         );
@@ -201,7 +202,7 @@ void main() {
         await tester.tap(find.byKey(ContentNavigationControls.refreshKey));
         await tester.pumpAndSettle();
         expect(api.feedPaths, ['/latest.json']);
-        expect(find.text('Updated feed'), findsOneWidget);
+        expect(topicListTitle('Updated feed'), findsOneWidget);
 
         final gate = Completer<void>();
         gates['/latest.json'] = gate;
@@ -224,7 +225,7 @@ void main() {
         shell.search.closePanel();
         unawaited(
           showDialog<void>(
-            context: tester.element(find.byType(MainContent)),
+            context: tester.element(primaryMainContent),
             builder: (_) => const AlertDialog(title: Text('Navigation dialog')),
           ),
         );
@@ -478,7 +479,7 @@ void _testOnPlatform(
 }
 
 ShellController _shell(WidgetTester tester) =>
-    ShellScope.read(tester.element(find.byType(MainContent)));
+    ShellScope.read(tester.element(primaryMainContent));
 
 DButton _button(WidgetTester tester, Key key) =>
     tester.widget<DButton>(find.byKey(key));

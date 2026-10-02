@@ -10,7 +10,6 @@ import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
@@ -23,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' show primaryMainContent;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -41,7 +41,7 @@ void main() {
     await _pumpShell(tester, controller, const Size(1200, 800));
     final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
     final sidebarWidth = tester.getSize(find.byType(InstanceSidebar)).width;
-    final content = tester.element(find.byType(MainContent));
+    final content = tester.element(primaryMainContent);
     // The main panel keeps its own width beside the secondary panel, so the
     // space the sidebar gives up is measured across the whole panel area.
     final panelsWidth = tester.getSize(find.byType(DesktopPanels)).width;
@@ -67,7 +67,7 @@ void main() {
       tester.getSize(find.byType(DesktopPanels)).width,
       greaterThan(panelsWidth),
     );
-    expect(tester.element(find.byType(MainContent)), same(content));
+    expect(tester.element(primaryMainContent), same(content));
     expect(tester.widget<DButton>(toggle).tooltip, 'Expand sidebar');
     expect(
       tester.widget<DButton>(toggle).foregroundColor!.a,
@@ -77,7 +77,7 @@ void main() {
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byType(InstanceSidebar)).width, sidebarWidth);
-    expect(tester.element(find.byType(MainContent)), same(content));
+    expect(tester.element(primaryMainContent), same(content));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a sidebar closed from the rail stays closed past a forum gate', (
@@ -522,7 +522,7 @@ void main() {
     final shell = tester.element(find.byType(AdaptiveShell));
     final rail = tester.element(find.byType(InstanceRail));
     final sidebar = tester.element(find.byType(InstanceSidebar));
-    final content = tester.element(find.byType(MainContent));
+    final content = tester.element(primaryMainContent);
     final rebuilt = <Element>{};
     final previousRebuildCallback = debugOnRebuildDirtyWidget;
     debugOnRebuildDirtyWidget = (element, builtOnce) {

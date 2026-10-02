@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;
@@ -340,7 +339,7 @@ Future<ShellController> _openShell(
     instances: [instance('meta.discourse.org').copyWith(user: api.user)],
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
   );
-  return ShellScope.read(tester.element(find.byType(MainContent)));
+  return ShellScope.read(tester.element(primaryMainContent));
 }
 
 Future<ShellController> _visitTopic(

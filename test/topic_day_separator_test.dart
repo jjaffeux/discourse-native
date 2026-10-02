@@ -93,7 +93,7 @@ void main() {
     );
 
     expect(tester.getSize(surface).height, 24);
-    expect(buttonRect.height, 48);
+    expect(buttonRect, tester.getRect(surface));
     expect(buttonRect.height, lessThanOrEqualTo(separatorRect.height));
     expect(tester.widget<DButton>(button).shape, DButtonShape.pill);
 

@@ -49,7 +49,11 @@ Future<ComposerController> pumpEditor(
     text: source,
     selection: TextSelection.collapsed(offset: source.length),
   );
-  addTearDown(composer.dispose);
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    composer.dispose();
+  });
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light.copyWith(platform: platform),

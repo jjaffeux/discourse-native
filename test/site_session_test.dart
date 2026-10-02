@@ -2251,8 +2251,8 @@ void main() {
         await _keepSitePreferences(shell, _siteUrl);
         await _keepSitePreferences(shell, otherSite);
         final kept = await _storedPreferencesOf(otherSite);
-        expect(await _storedPreferencesOf(_siteUrl), hasLength(12));
-        expect(kept, hasLength(12));
+        expect(await _storedPreferencesOf(_siteUrl), hasLength(11));
+        expect(kept, hasLength(11));
 
         expect(
           await shell.removeInstance(shell.instanceFor(_siteUrl)!),

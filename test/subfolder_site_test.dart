@@ -411,7 +411,7 @@ void main() {
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Open in secondary panel'));
+        await tester.tap(find.text('Open in secondary panel').first);
         await tester.pumpAndSettle();
 
         expect(menu.launched, isEmpty);

@@ -20,7 +20,6 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -113,7 +112,7 @@ void _registerTopicReplyTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
     }
 
@@ -161,7 +160,7 @@ void _registerTopicReplyTests() {
             instances: connectedSites(),
             authenticator: signedIn(),
           );
-          await tester.tap(contentText('A real topic'));
+          await tester.tap(topicListTitle('A real topic'));
           await tester.pump();
           await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
           expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
@@ -194,14 +193,12 @@ void _registerTopicReplyTests() {
         instances: connectedSites(),
         authenticator: signedIn(),
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
+      final shell = ShellScope.read(tester.element(primaryMainContent.first));
       shell.handleBack();
       await tester.pump();
       gate.complete();
@@ -231,7 +228,7 @@ void _registerTopicReplyTests() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       expect(find.byType(ComposerPanel), findsNothing);
 
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
@@ -988,7 +985,7 @@ void _registerTopicReplyTests() {
         api: api,
         instances: [instance('meta.discourse.org', title: 'Discourse Meta')],
       );
-      await tester.tap(contentText('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await hoverPost(tester);
 
@@ -1086,7 +1083,7 @@ void _registerComposerAndDraftTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
@@ -1216,7 +1213,7 @@ void _registerComposerAndDraftTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
@@ -1573,7 +1570,7 @@ void _registerComposerAndDraftTests() {
         authenticator: authenticator ?? signedIn(),
         drafts: drafts,
       );
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
@@ -1650,9 +1647,7 @@ void _registerComposerAndDraftTests() {
             draftDeleteGate: empty ? gate : null,
           );
           await openComposer(tester, api, drafts: drafts);
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           final composer = shell.visibleComposer!;
           if (!empty) {
             await tester.enterText(_composerField, 'Keep my reply safe');
@@ -1703,7 +1698,7 @@ void _registerComposerAndDraftTests() {
           draftGate: gate,
         );
         await openComposer(tester, api);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         final closing = shell.visibleComposer!;
         await tester.enterText(_composerField, 'The earlier reply');
         await _saveAndClose(tester);
@@ -1741,7 +1736,7 @@ void _registerComposerAndDraftTests() {
         draftFailure: const WriteException(WriteFailure.unreachable),
       );
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       final composer = shell.visibleComposer!;
       await tester.enterText(_composerField, 'Keep the exact editor');
       final editor = tester.state(find.byType(ComposerEditor));
@@ -1860,7 +1855,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
       await _saveAndClose(tester);
@@ -1893,7 +1888,7 @@ void _registerComposerAndDraftTests() {
 
       await openComposer(tester, api, drafts: drafts);
       expect(tester.takeException(), isNull);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.visibleComposer?.text.text, isEmpty);
 
       await _saveAndClose(tester);
@@ -1956,7 +1951,7 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
       await shell.resumeDraft(
         'https://meta.discourse.org',
@@ -2019,7 +2014,7 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
       shell.openPrivateMessage(
         siteUrl: 'https://meta.discourse.org',
@@ -2076,7 +2071,7 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       shell.openPrivateMessage(
         siteUrl: 'https://meta.discourse.org',
         targetRecipients: 'tech-leads',
@@ -2139,7 +2134,7 @@ void _registerComposerAndDraftTests() {
           authenticator: signedIn(),
           drafts: drafts,
         );
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         shell.openPrivateMessage(
           siteUrl: 'https://meta.discourse.org',
           targetRecipients: 'tech-leads',
@@ -2223,7 +2218,7 @@ void _registerComposerAndDraftTests() {
           authenticator: signedIn(),
           drafts: drafts,
         );
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         shell.openPrivateMessage(
           siteUrl: 'https://meta.discourse.org',
           targetRecipients: 'tech-leads',
@@ -2295,7 +2290,7 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
       await shell.resumeDraft(
         'https://meta.discourse.org',
@@ -2368,7 +2363,7 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
       await shell.resumeDraft(
         'https://meta.discourse.org',
@@ -2521,10 +2516,10 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await shell.draftList.load(shell.currentInstance!, refresh: true);
 
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();
@@ -2565,9 +2560,9 @@ void _registerComposerAndDraftTests() {
         ],
         authenticator: signedIn(),
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
 
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       for (var attempt = 0; attempt < 2; attempt++) {
         await tester.tap(find.byTooltip('Reply to this topic'));
@@ -2590,7 +2585,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       final composer = shell.visibleComposer!;
       await tester.enterText(_composerField, 'First revision');
       await settleDraft(tester);
@@ -2651,7 +2646,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.enterText(_composerField, 'Save still in flight');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -2702,7 +2697,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.enterText(_composerField, 'Posted once');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -2750,7 +2745,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.enterText(_composerField, 'Old first revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -2803,7 +2798,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.enterText(_composerField, 'Remote-only revision');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -2836,7 +2831,7 @@ void _registerComposerAndDraftTests() {
       );
 
       await openComposer(tester, api, drafts: drafts, authenticator: auth);
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       await tester.enterText(_composerField, 'Account A first');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -2850,7 +2845,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(auth.keys['https://meta.discourse.org'], 'api-key');
 
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Reply to this topic'));
       await tester.pumpAndSettle();

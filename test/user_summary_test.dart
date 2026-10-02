@@ -439,7 +439,13 @@ void main() {
       await _selectSummaryTab(tester, 'Reading');
       expect(find.text('No links yet.'), findsOneWidget);
       expect(find.text('recent read time'), findsNothing);
-      expect(find.text('Bookmarks'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(UserSummaryView),
+          matching: find.text('Bookmarks'),
+        ),
+        findsNothing,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('keeps contribution lists when account stats are unavailable', (

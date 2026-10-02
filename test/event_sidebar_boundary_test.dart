@@ -15,7 +15,6 @@ import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,9 +67,7 @@ void main() {
           ),
           pluginManifest: _manifest,
         );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         for (final id in ['events-upcoming', 'events-mine/month/2026/9/27']) {
           controller.pushContent(
             ContentRoute(id: id, title: 'Events', icon: EventIcons.calendar),
@@ -156,11 +153,10 @@ void main() {
           size,
           instances: [site],
           api: api,
+          authenticator: FakeAuthenticator.signedIn([site], site: api),
           pluginManifest: _manifest,
         );
-        final controller = ShellScope.read(
-          tester.element(find.byType(MainContent)),
-        );
+        final controller = ShellScope.read(tester.element(primaryMainContent));
         final mobile = controller.mobileNavigationEnabled;
         if (!mobile) {
           // The main panel is a list column beside the secondary one, where
@@ -209,7 +205,7 @@ void main() {
         if (user != null) {
           await tester.tap(find.byType(DSelect<bool>));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('My events'));
+          await tester.tap(find.text('My events').last);
           await tester.pumpAndSettle();
 
           expect(

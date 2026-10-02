@@ -590,6 +590,7 @@ void main() {
   ) async {
     final controller = await _pumpLink(tester, desktopPanels: true);
     final original = controller.activeTabId;
+    final secondary = controller.selectedTabIn(ForumPanel.secondary);
 
     await tester.tap(
       find.text('Open link'),
@@ -600,7 +601,7 @@ void main() {
 
     expect(controller.activeTabId, original);
     expect(controller.tabsForCurrentForum.last.panel, ForumPanel.main);
-    expect(controller.selectedTabIn(ForumPanel.secondary), isNull);
+    expect(controller.selectedTabIn(ForumPanel.secondary), same(secondary));
     expect(controller.tabsForCurrentForum.last.currentContent.topicId, 42);
   });
 
@@ -631,7 +632,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.activeTab?.panel, ForumPanel.main);
-    expect(controller.tabsForCurrentForum, hasLength(2));
+    expect(controller.tabsForCurrentForum, hasLength(3));
     expect(controller.tabsForCurrentForum.last.panel, ForumPanel.secondary);
     expect(controller.tabsForCurrentForum.last.currentContent.topicId, 42);
   });

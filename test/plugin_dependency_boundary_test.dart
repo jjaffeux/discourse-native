@@ -287,6 +287,7 @@ void main() {
           if (!const {
             'lib/discourse_plugin_sdk.dart',
             'lib/discourse_ui.dart',
+            'lib/l10n/strings.dart',
           }.contains(directive.target)) {
             violations.add(
               '${_workspacePath(file)}:${directive.line} reaches ${directive.target}',
@@ -307,9 +308,10 @@ void main() {
             violations.add('$path:${directive.line} imports ${directive.uri}');
           }
         }
+        // Owner boundaries are public SDK composition, needed by plugin
+        // content rebuilt inside host-owned overlays. Shell recovery stays forbidden.
         for (final dispatcher in const [
           'PluginUiScope.contextFor(',
-          'PluginUiScope.own(',
           'PluginScope.of(',
           'PluginScope.maybeOf(',
           'PluginRegistryScope.maybeOf(',

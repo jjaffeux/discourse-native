@@ -7,7 +7,6 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_move_posts.dart';
@@ -564,9 +563,9 @@ Future<ShellController> _openDialog(
       ..keys[_siteA] = 'a-key'
       ..keys[_siteB] = 'b-key',
   );
-  await tester.tap(find.text('Source topic'));
+  await tester.tap(topicListTitle('Source topic'));
   await tester.pumpAndSettle();
-  final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+  final shell = ShellScope.read(tester.element(primaryMainContent));
   // Each forum workspace builds its own content, so the shell is the caller.
   final context = tester.element(find.byType(AdaptiveShell));
   _select(shell, _siteA, 7, selected);

@@ -3638,7 +3638,9 @@ void main() {
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
       );
       addTearDown(fixture.shell.dispose);
-      await tester.pumpWidget(_TestView(shell: fixture.shell));
+      await tester.pumpWidget(
+        _TestView(shell: fixture.shell, platform: TargetPlatform.macOS),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('Bold'), findsNothing);
@@ -3878,15 +3880,18 @@ Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.shell, this.dark = false});
+  const _TestView({required this.shell, this.dark = false, this.platform});
 
   final ShellController shell;
   final bool dark;
+  final TargetPlatform? platform;
 
   @override
   Widget build(BuildContext context) {
     final app = MaterialApp(
-      theme: dark ? AppTheme.dark : AppTheme.light,
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+      ),
       builder: (context, child) => DToaster(
         child: AppTextScaleRegion(controller: shell.appSettings, child: child!),
       ),

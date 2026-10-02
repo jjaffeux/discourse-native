@@ -280,74 +280,67 @@ void main() {
     },
   );
 
-  testWidgets(
-    'AggregateView aligns constrained cards while its toolbar stays full width',
-    (tester) async {
-      await _withDesktop(tester, const Size(1400, 800), () async {
-        const user = DiscourseUser(username: 'sam');
-        final one = instance('one.example', title: 'One').copyWith(user: user);
-        final two = instance('two.example', title: 'Two').copyWith(user: user);
-        const topic = Topic(
-          id: 42,
-          title: 'Aggregate topic',
-          slug: 'aggregate',
-        );
-        final controller = await _shell(
-          one,
-          FakeDiscourseApi(
-            feeds: {
-              '/latest.json': const [],
-              '/filter.json?per_page=15': [topic],
-            },
-          ),
-          extraSites: [two],
-        );
-        addTearDown(controller.dispose);
-        await controller.refreshAggregate();
+  testWidgets('AggregateView aligns constrained cards and its feed header', (
+    tester,
+  ) async {
+    await _withDesktop(tester, const Size(1400, 800), () async {
+      const user = DiscourseUser(username: 'sam');
+      final one = instance('one.example', title: 'One').copyWith(user: user);
+      final two = instance('two.example', title: 'Two').copyWith(user: user);
+      const topic = Topic(id: 42, title: 'Aggregate topic', slug: 'aggregate');
+      final controller = await _shell(
+        one,
+        FakeDiscourseApi(
+          feeds: {
+            '/latest.json': const [],
+            '/filter.json?per_page=15': [topic],
+          },
+        ),
+        extraSites: [two],
+      );
+      addTearDown(controller.dispose);
+      await controller.aggregate.openFeed(controller.instances);
 
-        await tester.pumpWidget(
-          _shellSurface(controller, const AggregateView()),
+      await tester.pumpWidget(_shellSurface(controller, const AggregateView()));
+      await tester.pumpAndSettle();
+      final viewport = find.byType(CustomScrollView);
+      final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
+      final toolbar = find.byKey(const ValueKey('aggregate-page-header'));
+      expect(tester.getSize(viewport).width, 1400);
+      expect(tester.getSize(card).width, closeTo(1400, 0.001));
+      expect(tester.getTopLeft(card).dx, closeTo(0, 0.001));
+      expect(tester.getSize(toolbar).width, 1400);
+
+      for (final alignment in [false, true]) {
+        await controller.appSettings.setLimitContentSize(alignment);
+        await tester.pump();
+        expect(
+          tester.getSize(card).width,
+          closeTo(alignment ? 825 : 1400, 0.001),
         );
-        await tester.pumpAndSettle();
-        final viewport = find.byType(CustomScrollView);
-        final card = find.byKey(ValueKey('aggregate-topic-card-${one.url}-42'));
-        final toolbar = find.byKey(const ValueKey('aggregate-tabs'));
-        expect(tester.getSize(viewport).width, 1400);
-        expect(tester.getSize(card).width, closeTo(1400, 0.001));
-        expect(tester.getTopLeft(card).dx, closeTo(0, 0.001));
-        expect(tester.getSize(toolbar).width, 1400);
+        expect(
+          tester.getTopLeft(card).dx,
+          closeTo(_laneLeft(1400, alignment), 0.001),
+        );
+        expect(tester.getSize(toolbar).width, alignment ? 825 : 1400);
+      }
 
-        for (final alignment in [false, true]) {
-          await controller.appSettings.setLimitContentSize(alignment);
-          await tester.pump();
-          expect(
-            tester.getSize(card).width,
-            closeTo(alignment ? 825 : 1400, 0.001),
-          );
-          expect(
-            tester.getTopLeft(card).dx,
-            closeTo(_laneLeft(1400, alignment), 0.001),
-          );
-          expect(tester.getSize(toolbar).width, 1400);
-        }
-
-        final scroll = tester.widget<CustomScrollView>(viewport).controller!;
-        await tester.drag(viewport, const Offset(0, -300));
-        await tester.pumpAndSettle();
-        final offset = scroll.offset;
-        for (final alignment in [false, true]) {
-          await controller.appSettings.setLimitContentSize(alignment);
-          await tester.pump();
-          expect(tester.getSize(toolbar).width, 1400);
-          expect(
-            tester.widget<CustomScrollView>(viewport).controller,
-            same(scroll),
-          );
-          expect(scroll.offset, closeTo(offset, 0.001));
-        }
-      });
-    },
-  );
+      final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+      await tester.drag(viewport, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final offset = scroll.offset;
+      for (final alignment in [false, true]) {
+        await controller.appSettings.setLimitContentSize(alignment);
+        await tester.pump();
+        expect(tester.getSize(toolbar).width, alignment ? 825 : 1400);
+        expect(
+          tester.widget<CustomScrollView>(viewport).controller,
+          same(scroll),
+        );
+        expect(scroll.offset, closeTo(offset, 0.001));
+      }
+    });
+  });
 
   testWidgets(
     'ChatMessageStream uses the lane inside a split-pane-sized viewport',
@@ -448,6 +441,7 @@ Future<ShellController> _shell(
     plugins: plugins,
   );
   await controller.load();
+  await controller.appSettings.setLimitContentSize(false);
   return controller;
 }
 

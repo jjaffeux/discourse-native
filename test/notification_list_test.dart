@@ -291,7 +291,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(controller.activeTabId, originalTabId);
-        expect(controller.tabsForCurrentForum, hasLength(2));
+        expect(controller.tabsForCurrentForum, hasLength(3));
         final opened = controller.tabsForCurrentForum.last.currentContent;
         expect(opened.topicId, 42);
         expect(opened.postNumber, 7);
@@ -312,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.activeTabId, originalId);
-    expect(controller.tabsForCurrentForum, hasLength(1));
+    expect(controller.tabsForCurrentForum, hasLength(2));
     expect(controller.currentContent?.topicId, 42);
     expect(controller.currentContent?.postNumber, 7);
     expect(api.markedRead, [1]);
@@ -364,7 +364,7 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Open in secondary panel'));
+    await tester.tap(find.text('Open in secondary panel').first);
     await tester.pumpAndSettle();
 
     expect(controller.currentContent?.topicId, 42);
@@ -395,7 +395,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.activeTab, original);
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(controller.tabsForCurrentForum, hasLength(2));
       expect(api.markedRead, isEmpty);
       expect(find.byType(UserMenuPanel), findsOneWidget);
     },

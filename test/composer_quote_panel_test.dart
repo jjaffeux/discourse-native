@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
+import 'package:discourse_native/src/shell/composer_code_block.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
@@ -245,7 +246,6 @@ void main() {
 
         for (final (source, caret, expected) in [
           ('Before\nPlain words', 18, 7),
-          ('```\n> literal\n```', 13, 4),
         ]) {
           await tester.enterText(field, source);
           composer.text.selection = TextSelection.collapsed(offset: caret);
@@ -257,6 +257,22 @@ void main() {
           expect(composer.text.selection.extentOffset, expected);
           expect(composer.text.text, source);
         }
+        const codeSource = '```\n> literal\n```';
+        await tester.enterText(field, codeSource);
+        await tester.pumpAndSettle();
+        final codeField = find.descendant(
+          of: find.byType(ComposerCodeBlockEditor),
+          matching: find.byType(EditableText),
+        );
+        await tester.showKeyboard(codeField);
+        final code = tester.widget<EditableText>(codeField).controller;
+        code.selection = TextSelection.collapsed(offset: code.text.length);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(code.selection.extentOffset, 0);
+        expect(composer.text.text, codeSource);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );

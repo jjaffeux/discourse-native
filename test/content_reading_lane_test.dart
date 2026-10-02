@@ -139,27 +139,26 @@ void main() {
     });
   }
 
-  testWidgets(
-    'fills the panel by default and centers the enabled content limit',
-    (tester) async {
-      await _withPlatform(TargetPlatform.macOS, () async {
-        await _setViewport(tester, const Size(1200, 600));
-        final controller = _controller();
+  testWidgets('limits content by default and can expand to fill the panel', (
+    tester,
+  ) async {
+    await _withPlatform(TargetPlatform.macOS, () async {
+      await _setViewport(tester, const Size(1200, 600));
+      final controller = _controller();
 
-        await tester.pumpWidget(_harness(controller));
+      await tester.pumpWidget(_harness(controller));
 
-        expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
-        _expectLane(tester, left: 10, width: 1170);
-        await controller.setLimitContentSize(true);
-        await tester.pump();
-        expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
-        _expectLane(tester, left: 182.5, width: 825);
-        await controller.setLimitContentSize(false);
-        await tester.pump();
-        _expectLane(tester, left: 10, width: 1170);
-      });
-    },
-  );
+      expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
+      _expectLane(tester, left: 182.5, width: 825);
+      await controller.setLimitContentSize(true);
+      await tester.pump();
+      expect(tester.getSize(find.byKey(_viewportKey)).width, 1200);
+      _expectLane(tester, left: 182.5, width: 825);
+      await controller.setLimitContentSize(false);
+      await tester.pump();
+      _expectLane(tester, left: 10, width: 1170);
+    });
+  });
 
   testWidgets('does not widen a narrow desktop lane', (tester) async {
     await _withPlatform(TargetPlatform.macOS, () async {
@@ -260,6 +259,7 @@ void main() {
       final controller = _controller();
       late double breakpointWidth;
       await controller.setTextScale(AppTextScale.percent200);
+      await controller.setLimitContentSize(false);
 
       await tester.pumpWidget(
         _harness(

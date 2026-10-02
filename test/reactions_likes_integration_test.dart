@@ -112,7 +112,7 @@ void _registerReactionAndLikeTests() {
         await tester.tap(find.bySemanticsLabel('Topics'));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       return api;
     }
@@ -567,7 +567,7 @@ void _registerReactionAndLikeTests() {
           await tester.tap(find.bySemanticsLabel('Topics'));
           await tester.pumpAndSettle();
         }
-        await tester.tap(find.text('A real topic'));
+        await tester.tap(topicListTitle('A real topic'));
         await tester.pumpAndSettle();
       }
       return api;

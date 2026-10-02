@@ -5,7 +5,6 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
@@ -296,9 +295,9 @@ Future<ShellController> _openShell(
     instances: [instance('meta.discourse.org').copyWith(user: api.reader)],
     authenticator: FakeAuthenticator()..keys[_site] = 'original-key',
   );
-  await tester.tap(contentText('A real topic'));
+  await tester.tap(topicListTitle('A real topic'));
   await tester.pumpAndSettle();
-  return ShellScope.read(tester.element(find.byType(MainContent)));
+  return ShellScope.read(tester.element(primaryMainContent));
 }
 
 Future<ShellController> _fixture(

@@ -665,7 +665,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     (block != null || _emptyLine != null) &&
                     handleRect != null &&
                     (handleRect.top >= 0 ||
-                        (_emptyLine != null && handleRect.bottom > 0)))
+                        ((_emptyLine != null || (_actionCenter ?? -1) >= 0) &&
+                            handleRect.bottom > 0)))
                   PositionedDirectional(
                     key: _blockActionsKey,
                     start: 0,

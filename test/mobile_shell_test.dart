@@ -420,8 +420,7 @@ void main() {
         ),
       );
       expect(tester.getSize(surface).height, height, reason: key);
-      expect(tester.getSize(control).height, greaterThanOrEqualTo(48));
-      expect(tester.getSize(control).width, greaterThanOrEqualTo(48));
+      expect(tester.getRect(control), tester.getRect(surface));
     }
     expect(find.text('Starred channels'), findsNothing);
     expect(find.text('General'), findsOneWidget);

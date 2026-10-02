@@ -43,7 +43,6 @@ import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -488,9 +487,7 @@ void _registerChatShellTests() {
                 },
               );
               await pumpChat(tester, api: api, config: config);
-              final shell = ShellScope.read(
-                tester.element(find.byType(MainContent)),
-              );
+              final shell = ShellScope.read(tester.element(primaryMainContent));
               final chatShell = shell.pluginSession.require(chatShellService);
 
               final underlying = shell.currentContent;
@@ -624,7 +621,7 @@ void _registerChatShellTests() {
           public: [channel(9)],
           messages: {key(9): page(const [])},
         );
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         await shell.pluginSession.require(chatShellService).openShortcut();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, ChatRoute.channel(9).routeId);
@@ -910,9 +907,7 @@ void _registerChatShellTests() {
             await tester.tap(find.byKey(chatSwitch));
             await tester.pumpAndSettle();
 
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
             expect(shell.currentContent?.id, 'latest');
             expect(sidebarDestination('Topics'), findsNothing);
             expect(sidebarDestination('Bugs'), findsOneWidget);
@@ -938,9 +933,7 @@ void _registerChatShellTests() {
               chatMessagesByKey: {key(9): page(const [])},
             );
             await pumpChat(tester, api: api, user: user);
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
 
             expect(
               find.byKey(const ValueKey('sidebar-panel-switch-chat')),
@@ -994,9 +987,7 @@ void _registerChatShellTests() {
                 user: null,
                 config: chatConfig(separateSidebarMode: scenario.mode),
               );
-              final shell = ShellScope.read(
-                tester.element(find.byType(MainContent)),
-              );
+              final shell = ShellScope.read(tester.element(primaryMainContent));
               await shell.chat.loadChannels(site);
               await tester.pumpAndSettle();
 
@@ -1051,9 +1042,7 @@ void _registerChatShellTests() {
                   separateSidebarMode: ChatSeparateSidebarMode.never,
                 ),
               );
-              final shell = ShellScope.read(
-                tester.element(find.byType(MainContent)),
-              );
+              final shell = ShellScope.read(tester.element(primaryMainContent));
               shell.pushContent(
                 const ContentRoute(
                   id: 'forum-detail',
@@ -1078,7 +1067,7 @@ void _registerChatShellTests() {
               expect(sidebarDestination('Search'), findsNothing);
 
               ShellScope.read(
-                tester.element(find.byType(MainContent)),
+                tester.element(primaryMainContent),
               ).pluginSession.require(chatShellService).openSearch();
               await tester.pumpAndSettle();
               expect(shell.activeTabId, tabId);
@@ -1120,9 +1109,7 @@ void _registerChatShellTests() {
               messages: {key(9): page(const [])},
               config: chatConfig(searchEnabled: true),
             );
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
             final forum = shell.activeTab!;
             shell.pluginSession.require(chatShellService).openSearch();
             await tester.pumpAndSettle();
@@ -1139,7 +1126,7 @@ void _registerChatShellTests() {
             await tester.pumpAndSettle();
             expect(shell.activeTabId, forum.id);
             expect(shell.currentContent?.id, 'latest');
-            expect(shell.tabsForCurrentForum, hasLength(1));
+            expect(shell.tabsForCurrentForum, hasLength(2));
             expect(shell.handleBack(canReturnToSidebar: false), isTrue);
             await tester.pumpAndSettle();
             expect(shell.activeTabId, forum.id);
@@ -1271,9 +1258,7 @@ void _registerChatShellTests() {
                 _PanePolicyModule('beta'),
               ]),
             );
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
 
             expect(shell.currentContent?.id, 'alpha-root');
             expect(
@@ -1340,9 +1325,7 @@ void _registerChatShellTests() {
               config: chatConfig(searchEnabled: true),
               forumTabs: forumTabs,
             );
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
 
             expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
             expect(sidebarDestination('Topics'), findsNothing);
@@ -1369,7 +1352,7 @@ void _registerChatShellTests() {
             );
 
             expect(shell.activeTabId, 'restored-chat');
-            expect(shell.tabsForCurrentForum, hasLength(1));
+            expect(shell.tabsForCurrentForum, hasLength(2));
 
             expect(shell.handleBack(canReturnToSidebar: false), isTrue);
             await tester.pumpAndSettle();
@@ -1482,7 +1465,7 @@ void _registerChatShellTests() {
           expect(sidebarDestination('Search'), findsNothing);
 
           ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           ).pluginSession.require(chatShellService).openSearch();
           await tester.pumpAndSettle();
           expect(
@@ -1502,7 +1485,7 @@ void _registerChatShellTests() {
           await pumpChat(tester, config: chatConfig(searchEnabled: true));
 
           ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           ).pluginSession.require(chatShellService).openSearch();
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-search-sort')));
@@ -1545,7 +1528,7 @@ void _registerChatShellTests() {
         await pumpChat(tester, config: chatConfig(searchEnabled: true));
 
         ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(primaryMainContent),
         ).pluginSession.require(chatShellService).openSearch();
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-search-field')));
@@ -1579,9 +1562,7 @@ void _registerChatShellTests() {
           await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
           await tester.pumpAndSettle();
 
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           final searchField = tester
               .widget<EditableText>(
                 find.descendant(
@@ -1670,7 +1651,7 @@ void _registerChatShellTests() {
         await pumpChat(tester, api: api, config: config);
 
         ShellScope.read(
-          tester.element(find.byType(MainContent)),
+          tester.element(primaryMainContent),
         ).pluginSession.require(chatShellService).openSearch();
         await tester.pumpAndSettle();
         await tester.enterText(
@@ -1687,7 +1668,7 @@ void _registerChatShellTests() {
         );
         await tester.pumpAndSettle();
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.currentContent?.id, 'chat-c-9');
         expect(api.chatMessagesRequested.last.targetMessageId, 40);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -2173,9 +2154,7 @@ void _registerChatShellTests() {
             ]);
             expect(sidebarDestination('hawk'), findsNothing);
             expect(sidebarDestination('Bugs'), findsOneWidget);
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent)),
-            );
+            final shell = ShellScope.read(tester.element(primaryMainContent));
             expect(shell.currentContent?.id, ChatChannel.routeId(9));
           } finally {
             debugDefaultTargetPlatformOverride = previous;
@@ -2279,9 +2258,7 @@ void _registerChatShellTests() {
             },
           );
           await pumpChat(tester, api: api);
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           shell.openChatChannel(9);
           await tester.pumpAndSettle();
           final editor = find.descendant(
@@ -2339,7 +2316,7 @@ void _registerChatShellTests() {
         );
         await tester.pump(const Duration(milliseconds: 350));
         await tester.pumpAndSettle();
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         api.chatBrowseRequested.clear();
         api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
           filter: 'sup',
@@ -2398,7 +2375,7 @@ void _registerChatShellTests() {
 
         expect(
           find.descendant(
-            of: find.byType(MainContent),
+            of: primaryMainContent,
             matching: find.text('Browse channels'),
           ),
           findsOneWidget,
@@ -2652,7 +2629,12 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
 
           ForumTabItem item() => tester
-              .widget<ForumTabsBar>(find.byType(ForumTabsBar))
+              .widget<ForumTabsBar>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('desktop-panel-main')),
+                  matching: find.byType(ForumTabsBar),
+                ),
+              )
               .items
               .singleWhere((item) => item.title == 'Bugs');
 
@@ -2668,7 +2650,7 @@ void _registerChatShellTests() {
             direct: const [],
           );
           final controller = ShellScope.read(
-            tester.element(find.byType(MainContent)),
+            tester.element(primaryMainContent),
           );
           await controller.chat.loadChannels(site, force: true);
           await tester.pump();
@@ -2695,7 +2677,10 @@ void _registerChatShellTests() {
           await tester.tap(sidebarDestination('hawk'));
           await tester.pumpAndSettle();
 
-          final tab = find.byType(ForumTabsBar);
+          final tab = find.descendant(
+            of: find.byKey(const ValueKey('desktop-panel-main')),
+            matching: find.byType(ForumTabsBar),
+          );
           final item = tester
               .widget<ForumTabsBar>(tab)
               .items
@@ -2760,7 +2745,7 @@ void _registerChatShellTests() {
         final pageSurface = find
             .ancestor(of: separator, matching: find.byType(DPageSurface))
             .first;
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
 
         for (final limited in [false, true]) {
           await shell.appSettings.setLimitContentSize(limited);
@@ -2894,7 +2879,7 @@ void _registerChatShellTests() {
         );
         await tester.pumpAndSettle();
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.currentContent?.id, 'chat-c-9-info-settings');
         expect(
           shell.contentStack.map((route) => route.id),
@@ -2937,7 +2922,7 @@ void _registerChatShellTests() {
         await pumpChat(tester, api: api, user: staff, size: phone);
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(
           shell.pluginSession
               .require(chatShellService)
@@ -3119,7 +3104,7 @@ void _registerChatShellTests() {
         expect(find.text('Members (2)'), findsOneWidget);
         expect(find.text('Sam'), findsNothing);
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         final tabs = find.byKey(const ValueKey('chat-channel-info-tabs'));
         final settingsLane = find.byKey(
           const ValueKey('chat-channel-settings-lane-content'),
@@ -3128,7 +3113,7 @@ void _registerChatShellTests() {
         final settingsWidth = tester.getSize(settingsLane).width;
         final tabsRect = tester.getRect(tabs);
         expect(tester.getSize(settingsLane).width, lessThanOrEqualTo(760));
-        expect(tabsRect.width, tester.getSize(find.byType(MainContent)).width);
+        expect(tabsRect.width, tester.getSize(primaryMainContent).width);
 
         await shell.appSettings.setLimitContentSize(false);
         await tester.pump();
@@ -3306,7 +3291,7 @@ void _registerChatShellTests() {
             description: null,
           ),
         ]);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.chat.channel(site, 9)?.title, 'Bug reports');
         expect(sidebarDestination('Bug reports'), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -3363,7 +3348,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(api.chatChannelMetadataUpdates.single.description, '');
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.chat.channel(site, 9)?.description, isNull);
         expect(
           find.text('Tell people what this channel is about.'),
@@ -3431,7 +3416,7 @@ void _registerChatShellTests() {
         expect(api.chatChannelThreadingUpdates, const [
           (channelId: 9, enabled: true),
         ]);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.chat.channel(site, 9)?.threadingEnabled, isTrue);
         expect(tester.widget<DSwitch>(threadingSwitch).value, isTrue);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -3502,7 +3487,7 @@ void _registerChatShellTests() {
         expect(api.chatChannelStatusesUpdated, const [
           (channelId: 9, status: ChatChannelStatus.closed),
         ]);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(shell.chat.channel(site, 9)?.status, ChatChannelStatus.closed);
         expect(find.text('Open channel'), findsOneWidget);
         expect(
@@ -3561,7 +3546,7 @@ void _registerChatShellTests() {
             notificationLevel: ChatChannelNotificationLevel.always,
           ),
         ]);
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(
           shell.chat.channel(site, 9)?.membership.notificationLevel,
           ChatChannelNotificationLevel.always,
@@ -3601,7 +3586,7 @@ void _registerChatShellTests() {
         await tester.tap(leaveButton);
         await tester.pumpAndSettle();
 
-        final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+        final shell = ShellScope.read(tester.element(primaryMainContent));
         expect(api.chatChannelFollowsUpdated, const [
           (channelId: 9, following: false),
         ]);
@@ -3767,9 +3752,7 @@ void _registerChatShellTests() {
           expect(activityIndicators, findsNothing);
           expect(tester.takeException(), isNull);
 
-          final shell = ShellScope.read(
-            tester.element(find.byType(MainContent)),
-          );
+          final shell = ShellScope.read(tester.element(primaryMainContent));
           var shellNotifications = 0;
           void countShellNotification() => shellNotifications += 1;
           shell.addListener(countShellNotification);
@@ -4499,7 +4482,7 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('unavailable-forum-gate')),
           findsOneWidget,
         );
-        expect(find.byType(MainContent), findsNothing);
+        expect(primaryMainContent, findsNothing);
         expect(find.byType(InstanceRail), findsOneWidget);
         expect(find.byType(InstanceSidebar), findsNothing);
         expect(find.byKey(const ValueKey('forum-tabs-bar')), findsNothing);

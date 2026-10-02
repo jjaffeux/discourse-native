@@ -35,7 +35,7 @@ void main() {
       authenticator: auth,
       instances: [instance('meta.example')],
     );
-    await tester.tap(find.text('Public topic'));
+    await tester.tap(topicListTitle('Public topic'));
     await tester.pumpAndSettle();
     final controller = ShellScope.read(
       tester.element(find.byType(UserMenuButton)),
@@ -224,7 +224,7 @@ Future<ShellController> _openCardDuringSignIn(
     authenticator: auth,
     instances: [instance('meta.example')],
   );
-  await tester.tap(find.text('Public topic'));
+  await tester.tap(topicListTitle('Public topic'));
   await tester.pumpAndSettle();
   final controller = ShellScope.read(
     tester.element(find.byType(UserMenuButton)),

@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -1148,7 +1149,12 @@ void main() {
         ],
         authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
       );
-      await tester.tap(find.text(listed.title));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(TopicListView),
+          matching: find.text(listed.title),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(PostActionsFooter), findsNWidgets(4));
       expect(find.byType(AssignmentDetailRow), findsOneWidget);

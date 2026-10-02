@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -201,9 +200,9 @@ Future<ShellController> _openEditor(
       ..keys[_siteA] = 'a-key'
       ..keys[_siteB] = 'b-key',
   );
-  await tester.tap(find.text('A real topic'));
+  await tester.tap(topicListTitle('A real topic'));
   await tester.pumpAndSettle();
-  final controller = ShellScope.read(tester.element(find.byType(MainContent)));
+  final controller = ShellScope.read(tester.element(primaryMainContent));
   await hoverPost(tester, body: 'Noticeable body');
   await tapPostAction(tester, 'Change or remove the staff notice');
   await tester.pumpAndSettle();

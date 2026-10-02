@@ -32,14 +32,20 @@ Future<ComposerController> _pump(
       topicTitle: 'Topic',
     ),
   );
-  addTearDown(composer.dispose);
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    composer.dispose();
+  });
   composer.text.value = TextEditingValue(
     text: source,
     selection: TextSelection.collapsed(offset: source.length),
   );
   await tester.pumpWidget(
     MaterialApp(
-      theme: narrow ? AppTheme.dark : AppTheme.light,
+      theme: (narrow ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: TargetPlatform.macOS,
+      ),
       home: Scaffold(
         body: Center(
           child: SizedBox(
@@ -248,7 +254,7 @@ void main() {
     await shell.load();
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
         home: ShellScope(
           controller: shell,
           child: Scaffold(body: ComposerPanel(composer: composer, height: 550)),

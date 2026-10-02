@@ -6,7 +6,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../composer_sheet_layout.dart';
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';

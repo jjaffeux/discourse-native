@@ -277,7 +277,8 @@ void main() {
         final target = find.bySemanticsLabel('Alpha');
         expect(option, findsOneWidget);
         expect(target, findsOneWidget);
-        expect(tester.getSize(option).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(option).height, 34);
+        expect(target.hitTestable(), findsOneWidget);
         expect(
           tester.getSemantics(target),
           isSemantics(

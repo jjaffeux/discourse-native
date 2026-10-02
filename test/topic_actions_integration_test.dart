@@ -12,7 +12,7 @@ import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -24,7 +24,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
-
 import 'support/shell_test_harness.dart';
 
 void main() {
@@ -79,7 +78,7 @@ void _registerTopicLinkTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       return launched;
     }
@@ -121,19 +120,37 @@ void _registerTopicLinkTests() {
       );
 
       final launched = await openPostLinking(tester, api);
-      expect(find.text('Discourse Meta'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Discourse Meta'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tapOnText(find.textRange.ofSubstring('over on team'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Discourse Team'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Discourse Team'),
+        ),
+        findsOneWidget,
+      );
       expect(renderedText('Other topic body'), findsOneWidget);
       expect(launched, isEmpty);
 
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
       expect(find.byType(TopicListView), findsOneWidget);
-      expect(find.text('Discourse Team'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.text('Discourse Team'),
+        ),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic on a site not in the rail goes to the browser', (
@@ -454,7 +471,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       return api;
     }
@@ -803,7 +820,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Lockable body');
@@ -886,7 +903,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.text('hidden'), findsOneWidget);
@@ -955,7 +972,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Official body');
@@ -1051,7 +1068,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       final gesture = await hoverPost(tester, body: 'Noticeable body');
@@ -1155,7 +1172,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Owned body');
@@ -1236,7 +1253,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tapPostAction(
@@ -1302,7 +1319,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tapPostAction(
@@ -1365,7 +1382,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await hoverPost(tester, body: 'Deleted opening body');
@@ -1381,7 +1398,7 @@ void _registerTopicModerationTests() {
       );
       await tester.pumpAndSettle();
 
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(api.permanentDeletionChecks, [1]);
       expect(api.topicsPermanentlyDeleted, [7]);
       expect(shell.currentContent?.topicId, isNull);
@@ -1450,7 +1467,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
@@ -1588,7 +1605,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
       await tester.pumpAndSettle();
@@ -1709,12 +1726,12 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('Destination topic'));
+      await tester.tap(topicListTitle('Destination topic'));
       await tester.pumpAndSettle();
       expect(renderedText('Destination body'), findsOneWidget);
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
       await tester.pumpAndSettle();
@@ -1838,7 +1855,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-status-button')));
       await tester.pumpAndSettle();
@@ -2243,7 +2260,7 @@ void _registerTopicModerationTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('A real topic'));
+      await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byType(PostFooter), findsOneWidget);

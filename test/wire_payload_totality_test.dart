@@ -2317,6 +2317,7 @@ void main() {
       'ForumBackground',
       'ForumTheme',
       'ForumThemePreferences',
+      'ForumThemeLibrary',
       'SharedAppearance',
       'ResolvedSitePalette',
       'ComposerLayoutPreference',

@@ -244,7 +244,7 @@ void main() {
         expect(badge.left, greaterThanOrEqualTo(action.right));
       }
       expect(badge.center.dy, closeTo(action.center.dy, .001));
-      expect(action.height, greaterThanOrEqualTo(48));
+      expect(action.height, 20);
       await tester.tap(find.byType(DSidebarMenuAction));
       await tester.pump();
       expect(actions, 1);

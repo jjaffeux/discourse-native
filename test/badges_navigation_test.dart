@@ -4,7 +4,6 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/badges_page.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart';
@@ -44,7 +43,14 @@ void main() {
       findsOneWidget,
     );
     final header = tester
-        .widget<DPageSurface>(find.byType(DPageSurface).first)
+        .widget<DPageSurface>(
+          find
+              .ancestor(
+                of: find.byType(BadgesPage),
+                matching: find.byType(DPageSurface),
+              )
+              .first,
+        )
         .header!;
     expect(
       find.descendant(of: find.byWidget(header), matching: find.text('Badges')),
@@ -57,7 +63,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    final shell = ShellScope.read(tester.element(primaryMainContent));
     expect(shell.currentContent!.badgeRoute, const BadgeRoute.directory());
     await tester.tap(find.text('Autobiographer'));
     await tester.pumpAndSettle();
@@ -90,7 +96,7 @@ void main() {
         api: api,
         authenticator: FakeAuthenticator()..keys[site.url] = 'test-key',
       );
-      final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+      final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(
         await shell.openNotificationUrl(
           '${site.url}/badges/1/autobiographer?username=sam',
@@ -142,7 +148,7 @@ void main() {
       ],
       authenticator: FakeAuthenticator()..keys[site.url] = 'test-key',
     );
-    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    final shell = ShellScope.read(tester.element(primaryMainContent));
     shell.openBadgeUrl('${site.url}/badges');
     await tester.pumpAndSettle();
     expect(find.text('3 badges · 2 earned'), findsOneWidget);
@@ -174,10 +180,16 @@ void main() {
         site.copyWith(config: const SiteConfig(badgesEnabled: false)),
       ],
     );
-    final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+    final shell = ShellScope.read(tester.element(primaryMainContent));
     expect(shell.openBadgeUrl('${site.url}/badges'), isFalse);
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
-    expect(find.text('Badges'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(DDropdownMenuContent),
+        matching: find.text('Badges'),
+      ),
+      findsNothing,
+    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

@@ -10,7 +10,6 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
-import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
@@ -86,7 +85,7 @@ Future<ShellController> _openCategory(
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
   );
-  final shell = ShellScope.read(tester.element(find.byType(MainContent)));
+  final shell = ShellScope.read(tester.element(primaryMainContent));
   expect(shell.openListUrl('/c/parent/1'), isTrue);
   await tester.pumpAndSettle();
   return shell;

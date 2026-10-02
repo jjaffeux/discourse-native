@@ -16,7 +16,7 @@ Future<void> focusLast(WidgetTester tester) async {
 
 void main() {
   testWidgets(
-    'nested and mixed rows add no spacing beyond text or control height',
+    'nested and mixed rows preserve compact spacing and task padding',
     (tester) async {
       await pumpEditor(tester, '- Parent\n  - Child\n- [ ] Task\n- Sibling');
       final items = bodies(tester);
@@ -26,7 +26,7 @@ void main() {
           .toList();
       for (var i = 1; i < tops.length; i++) {
         final height = i == 3
-            ? tester.getSize(find.byType(DCheckbox)).height
+            ? tester.getSize(find.byType(DCheckbox)).height + DSpacing.sm
             : 24.0;
         expect(tops[i] - tops[i - 1], closeTo(height, 1));
       }
@@ -300,7 +300,12 @@ void main() {
       '```md\n- Literal\n1. Literal\n```\n\n    - Code',
     );
     expect(bodies(tester), isEmpty);
-    await tester.enterText(editable(root), '');
+    // Clear the document before addressing its native field: the fenced code
+    // editor is itself an EditableText descendant of the document field.
+    root.text.clear();
+    root.requestFocus();
+    await tester.pumpAndSettle();
+    await tester.showKeyboard(editable(root));
     tester.testTextInput.updateEditingValue(
       const TextEditingValue(
         text: '- ',

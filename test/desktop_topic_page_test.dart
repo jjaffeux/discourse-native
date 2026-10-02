@@ -44,14 +44,20 @@ void main() {
     'panel tabs and layout actions sit above a continuous page header',
     (tester) async {
       final h = await _setup(tester, size: const Size(1800, 1000));
-      final tabs = find.byKey(const ValueKey('forum-tabs-bar'));
+      final tabs = find.descendant(
+        of: find.byKey(const ValueKey('desktop-panel-main')),
+        matching: find.byKey(const ValueKey('forum-tabs-bar')),
+      );
       final options = find.byKey(const ValueKey('minimize-panel-main'));
       final title = find.byKey(const ValueKey('topic-list-title'));
       final filters = find.byKey(const ValueKey('topic-list-feed-row'));
       final separator = find.byKey(
         const ValueKey('topic-list-heading-separator'),
       );
-      final filterAction = find.byKey(const ValueKey('topic-list-filter'));
+      final filterAction = find.descendant(
+        of: find.byKey(const ValueKey('desktop-panel-main')),
+        matching: find.byKey(const ValueKey('topic-list-filter')),
+      );
       expect(find.byKey(const ValueKey('topic-list-display')), findsNothing);
       expect(tester.widget<Text>(title).data, 'Latest topics');
       expect(
@@ -110,7 +116,7 @@ void main() {
         SidebarDestination(id: id, label: id, icon: DIcons.folder),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('forum-tabs-bar')), findsOneWidget);
+      expect(find.byKey(const ValueKey('forum-tabs-bar')), findsNWidgets(2));
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
       for (final panel in ForumPanel.values) {
         expect(
@@ -465,7 +471,7 @@ void main() {
 
     expect(h.shell.activeTabId, readerId);
     expect(h.shell.activeTab?.panel, ForumPanel.secondary);
-    expect(h.shell.tabsForCurrentForum, hasLength(2));
+    expect(h.shell.tabsForCurrentForum, hasLength(3));
     expect(h.shell.currentContent?.topicId, isNull);
     expect(h.shell.topicListContent?.categoryId, 5);
     expect(h.api.feedPaths, contains(h.shell.topicListContent!.feedPath));

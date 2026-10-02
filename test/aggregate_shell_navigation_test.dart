@@ -208,6 +208,9 @@ void main() {
       await controller.load();
       controller.desktopTopicTabs = true;
       final mainId = controller.activeTabId;
+      final initialTabIds = controller.tabsForCurrentForum
+          .map((tab) => tab.id)
+          .toList();
       const first = Topic(id: 42, title: 'First', slug: 'first');
       const second = Topic(id: 43, title: 'Second', slug: 'second');
       store.put(_site.url, first);
@@ -222,7 +225,10 @@ void main() {
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.activeTab?.panel, ForumPanel.main);
       expect(controller.selectedTabIn(ForumPanel.main)?.id, mainId);
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(
+        controller.tabsForCurrentForum.map((tab) => tab.id),
+        initialTabIds,
+      );
 
       controller.selectAggregate();
       expect(
@@ -232,7 +238,10 @@ void main() {
       expect(controller.rootMode, ShellRootMode.forum);
       expect(controller.activeTabId, readerId);
       expect(controller.currentContent?.topicId, second.id);
-      expect(controller.tabsForCurrentForum, hasLength(1));
+      expect(
+        controller.tabsForCurrentForum.map((tab) => tab.id),
+        initialTabIds,
+      );
     },
   );
 

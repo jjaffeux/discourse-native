@@ -1217,7 +1217,10 @@ void main() {
         TextSelection.collapsed(offset: image.end + 1),
       );
       expect(composer.text.keyboardSelectedImage, isNull);
-      expect(find.byTooltip('Save alt text'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsNothing,
+      );
       expect(
         tester
             .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
@@ -1249,8 +1252,14 @@ void main() {
       expect(_composerEditable(tester).showCursor, isFalse);
       expect(find.byTooltip('Decrease image size'), findsOneWidget);
       expect(find.byTooltip('Increase image size'), findsOneWidget);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
-      expect(find.byTooltip('Save alt text').hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-image-description')).hitTestable(),
+        findsOneWidget,
+      );
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
@@ -1299,13 +1308,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
 
       expect(composer.text.keyboardSelectedImage, isNull);
-      expect(find.byTooltip('Save alt text'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsNothing,
+      );
       expect(find.byKey(const ValueKey('composer-frame')), findsOneWidget);
       expect(shell.closeCalls, 0);
 
@@ -1373,7 +1388,10 @@ void main() {
       expect(find.byTooltip('Decrease image size'), findsOneWidget);
       expect(find.byTooltip('Increase image size'), findsOneWidget);
       expect(find.byTooltip('Delete image'), findsOneWidget);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
       composer.text.selection = TextSelection.collapsed(offset: image.end - 1);
       await tester.pump();
       expect(find.byType(ComposerImagePreview), findsOneWidget);
@@ -1387,7 +1405,7 @@ void main() {
       await tester.tap(find.byTooltip('Decrease image size'));
       await tester.pump();
       await tester.pump();
-      expect(composer.text.text, '![old|640x480, 75%](upload://photo)');
+      expect(composer.text.text, '![draft alt|640x480, 75%](upload://photo)');
       expect(composer.text.keyboardSelectedImage, isNotNull);
       expect(
         tester
@@ -1395,21 +1413,32 @@ void main() {
             .highlighted,
         isTrue,
       );
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
       expect(tester.widget<TextField>(altField).controller!.text, 'draft alt');
 
       await tester.tap(find.byTooltip('Decrease image size'));
       await tester.pump();
       await tester.pump();
-      expect(composer.text.text, '![old|640x480, 50%](upload://photo)');
+      expect(composer.text.text, '![draft alt|640x480, 50%](upload://photo)');
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
 
+      composer.focus.requestFocus();
+      await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.keyboardSelectedImage, isNull);
       expect(_composerEditable(tester).showCursor, isTrue);
-      expect(find.byTooltip('Save alt text'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsNothing,
+      );
 
       final resizedImage = composer.text.imageBlocks.single;
       composer.text.selection = TextSelection.collapsed(
@@ -1420,12 +1449,18 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(composer.text.selection.extentOffset, resizedImage.end);
       expect(composer.text.keyboardSelectedImage, isNull);
-      expect(find.byTooltip('Save alt text'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsNothing,
+      );
       expect(
         tester
             .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
@@ -1435,7 +1470,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
       expect(composer.text.keyboardSelectedImage, isNotNull);
-      expect(find.byTooltip('Save alt text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-image-description')),
+        findsOneWidget,
+      );
       await tester.enterText(
         find.byWidgetPredicate(
           (widget) =>
@@ -1444,7 +1482,9 @@ void main() {
         ),
         'new [alt]',
       );
-      await tester.tap(find.byTooltip('Save alt text'));
+      await tester.tap(
+        find.byKey(const ValueKey('composer-image-description')),
+      );
       await tester.pump();
       expect(
         composer.text.text,
@@ -1673,7 +1713,12 @@ void main() {
         ),
       );
       final dropPosition = Offset(editorRect.left + 8, editorRect.bottom - 4);
-      await tester.dragFrom(dragStart, dropPosition - dragStart);
+      final drag = await tester.startGesture(
+        dragStart,
+        kind: PointerDeviceKind.mouse,
+      );
+      await drag.moveTo(dropPosition);
+      await drag.up();
       await tester.pumpAndSettle();
       final gallery = parseComposerImageGalleries(composer.text.text).single;
       expect(gallery.images.single.url, 'upload://two');
@@ -1733,7 +1778,7 @@ void main() {
         final toolbar = find.byKey(const ValueKey('composer-gallery-toolbar'));
         expect(toolbar, findsOneWidget);
         final toolbarRect = tester.getRect(toolbar);
-        expect(toolbarRect.size, const Size(48 * 4, 48));
+        expect(toolbarRect.size, const Size(44 * 4, 44));
         final viewport = Rect.fromLTWH(
           0,
           0,
@@ -1762,8 +1807,8 @@ void main() {
         expect(modeToggles, findsNWidgets(2));
         for (final button in modeToggles.evaluate()) {
           final size = tester.getSize(find.byWidget(button.widget));
-          expect(size.width, greaterThanOrEqualTo(48));
-          expect(size.height, greaterThanOrEqualTo(48));
+          expect(size.width, 44);
+          expect(size.height, 44);
         }
 
         Finder modeButton(String tooltip) => find.bySemanticsLabel(tooltip);
@@ -2597,6 +2642,8 @@ final class _InteractionTrackingShellController extends ShellController {
       true;
 
   @override
-  Future<void> submitComposer({ComposerController? composer}) async =>
-      submitCalls++;
+  Future<void> submitComposer({
+    ComposerController? composer,
+    void Function(String)? onPreparationNotice,
+  }) async => submitCalls++;
 }
