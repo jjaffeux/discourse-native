@@ -191,6 +191,124 @@ void main() {
     expect(setup.api.feedPaths.length, requests);
   });
 
+  for (final multiple in [false, true]) {
+    for (final withCategory in [false, true]) {
+      test(
+        'numeric tag names survive ${multiple ? 'multiple' : 'single'} selection '
+        '${withCategory ? 'with' : 'without'} a category',
+        () async {
+          const category = TopicCategory(
+            id: 42,
+            name: 'Support',
+            slug: 'support',
+            color: '3188CC',
+          );
+          const numericTag = SidebarTag(id: 456, name: '123', slug: '123');
+          const otherTag = SidebarTag(id: 123, name: 'Other', slug: 'other');
+          const selectedTopic = Topic(
+            id: 456,
+            title: 'Numeric tag topic',
+            slug: 'numeric-tag-topic',
+            categoryId: 42,
+            tags: [TopicTag(id: 456, name: '123', slug: '123')],
+          );
+          const otherTopic = Topic(
+            id: 123,
+            title: 'Other tag topic',
+            slug: 'other-tag-topic',
+            tags: [TopicTag(id: 123, name: 'Other', slug: 'other')],
+          );
+          final setup = await _controller(
+            categoryList: const [category],
+            categorySiteTopTags: const [numericTag, otherTag],
+            extraFeeds: {
+              // Discourse resolves the numeric path as an ID before a name.
+              '/tag/123.json': [otherTopic],
+              '/c/support/42.json': [_latestTopic],
+              for (final mode in [TopicListMode.latest, TopicListMode.unread])
+                for (final categoryId in [null, category.id])
+                  ContentRoute.filteredTopicList(
+                    mode,
+                    categoryId: categoryId,
+                    tags: [numericTag.name],
+                  ).feedPath!: [
+                    selectedTopic,
+                  ],
+            },
+          );
+          final controller = setup.controller;
+          addTearDown(controller.dispose);
+          await controller.loadCategories(controller.currentInstance!.url);
+          if (withCategory) {
+            controller.selectTopicListCategory(category);
+            await controller.loadFeed(controller.topicListContent!.id);
+          }
+          if (multiple) {
+            controller.selectTopicListTags([numericTag.name]);
+          } else {
+            controller.selectTopicListTag(numericTag.name);
+          }
+          await controller.loadFeed(controller.currentContent!.id);
+
+          void expectSelection(TopicListMode mode, int? categoryId) {
+            final route = controller.currentContent!;
+            expect(controller.currentFeed?.topicIds, [selectedTopic.id]);
+            expect(route.tagNames, [numericTag.name]);
+            expect(route.tagId, isNull);
+            expect(route.categoryId, categoryId);
+            expect(
+              route.feedPath,
+              ContentRoute.filteredTopicList(
+                mode,
+                categoryId: categoryId,
+                tags: [numericTag.name],
+              ).feedPath,
+            );
+          }
+
+          final selectedCategoryId = withCategory ? category.id : null;
+          expectSelection(TopicListMode.latest, selectedCategoryId);
+          expect(
+            setup.api.feedPaths.last,
+            controller.topicListContent!.feedPath,
+          );
+          await controller.selectTopicListMode(TopicListMode.unread);
+          expectSelection(TopicListMode.unread, selectedCategoryId);
+          await controller.selectTopicListMode(TopicListMode.latest);
+          expectSelection(TopicListMode.latest, selectedCategoryId);
+
+          controller.selectTopicListCategory(withCategory ? null : category);
+          await controller.loadFeed(controller.topicListContent!.id);
+          expectSelection(
+            TopicListMode.latest,
+            withCategory ? null : category.id,
+          );
+
+          if (multiple) {
+            controller.selectTopicListTags(const []);
+          } else {
+            controller.selectTopicListTag(null);
+          }
+          await controller.loadFeed(controller.topicListContent!.id);
+          expect(controller.topicListContent?.tagNames, isEmpty);
+          expect(
+            controller.topicListContent?.categoryId,
+            withCategory ? null : category.id,
+          );
+          expect(
+            controller.topicListContent!.feedPath ?? '/latest.json',
+            withCategory ? '/latest.json' : '/c/support/42.json',
+          );
+          controller.clearTopicListFilters();
+          await controller.loadFeed(controller.topicListContent!.id);
+          expect(controller.topicListContent?.categoryId, isNull);
+          expect(controller.topicListContent?.tagNames, isEmpty);
+          expect(controller.currentFeed?.topicIds, [_latestTopic.id]);
+        },
+      );
+    }
+  }
+
   test(
     'fresh settings select the first feed before requesting topics',
     () async {

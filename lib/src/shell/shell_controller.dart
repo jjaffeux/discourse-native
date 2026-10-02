@@ -16887,7 +16887,14 @@ class ShellController extends FrameSafeNotifier
             .toSet()
             .toList()
           ..sort();
-    if (mode != TopicListMode.latest || selectedTags.length > 1) {
+    // Core interprets numeric tag path segments as IDs, including in category
+    // routes. Query filters preserve the selected tag name without ambiguity.
+    final numericTagName =
+        selectedTags.length == 1 &&
+        RegExp(r'^\d+$').hasMatch(selectedTags.single);
+    if (mode != TopicListMode.latest ||
+        selectedTags.length > 1 ||
+        numericTagName) {
       return ContentRoute.filteredTopicList(
         mode,
         categoryId: category?.id,
