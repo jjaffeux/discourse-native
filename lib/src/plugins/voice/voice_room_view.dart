@@ -1468,37 +1468,60 @@ Future<void> _showParticipantVolume(
 ) async {
   final call = controller.call;
   if (call == null) return;
+  final ownsAccount = controller.captureSiteSession(call.siteUrl);
+  bool ownsCall() =>
+      ownsAccount() &&
+      controller.call?.siteUrl == call.siteUrl &&
+      controller.call?.room.id == call.room.id;
   var volume = await controller.participantVolume(
     call.siteUrl,
     call.room.id,
     participantId,
   );
-  if (!context.mounted) return;
-  await showDialog<void>(
+  if (!context.mounted || !ownsCall()) return;
+  await showDDialog<void>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(appL10n.participantVolumeVoiceroomview),
-        content: VoiceParticipantVolumeSlider(
-          value: volume,
-          onChanged: (value) {
-            setState(() => volume = value);
-            unawaited(
-              controller.setParticipantVolume(
-                call.siteUrl,
-                call.room.id,
-                participantId,
-                value,
-              ),
-            );
-          },
+    builder: (context, dialog) => StatefulBuilder(
+      builder: (context, setState) => ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) => DDialogContent(
+          showCloseButton: false,
+          semanticLabel: context.l10n.participantVolumeVoiceroomview,
+          children: [
+            DDialogHeader(
+              children: [
+                DDialogTitle(
+                  child: Text(context.l10n.participantVolumeVoiceroomview),
+                ),
+              ],
+            ),
+            VoiceParticipantVolumeSlider(
+              value: volume,
+              onChanged: ownsCall()
+                  ? (value) {
+                      if (!ownsCall()) return;
+                      setState(() => volume = value);
+                      unawaited(
+                        controller.setParticipantVolume(
+                          call.siteUrl,
+                          call.room.id,
+                          participantId,
+                          value,
+                        ),
+                      );
+                    }
+                  : null,
+            ),
+            DDialogFooter(
+              children: [
+                DButton(
+                  onPressed: dialog.close,
+                  label: Text(context.l10n.done),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          DButton(
-            onPressed: () => Navigator.pop(context),
-            label: Text(appL10n.done),
-          ),
-        ],
       ),
     ),
   );

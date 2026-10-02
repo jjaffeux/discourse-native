@@ -3184,7 +3184,10 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     if (_disposed) return;
     final normalized = volume.clamp(0, 1).toDouble();
-    final media = _call?.media;
+    final call = _call;
+    final media = call?.siteUrl == siteUrl && call?.room.id == roomId
+        ? call?.media
+        : null;
     if (media != null) {
       (_participantVolumeRevisions[media] ??= {})[userId] = Object();
     }
