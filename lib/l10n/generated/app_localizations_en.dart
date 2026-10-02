@@ -9442,6 +9442,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String allOfCategory(String categoryName) {
+    return 'All of $categoryName';
+  }
+
+  @override
+  String categoryPathSegment(String path) {
+    return 'Category: $path';
+  }
+
+  @override
   String get subcategoryTopiccategoryselector => 'Subcategory';
 
   @override

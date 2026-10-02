@@ -5,6 +5,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
 import 'd_separator.dart';
 
 /// Layout direction for a [DButtonGroup].
@@ -23,6 +24,7 @@ class DButtonGroup extends StatefulWidget {
     this.orientation = DButtonGroupOrientation.horizontal,
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
+    this.sharedOutline = false,
   }) : spacedSize = null,
        assert(semanticLabel == null || semanticLabel != '');
 
@@ -36,6 +38,7 @@ class DButtonGroup extends StatefulWidget {
     this.semanticLabel,
   }) : orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
+       sharedOutline = false,
        spacedSize = size,
        assert(semanticLabel == null || semanticLabel != '');
 
@@ -46,6 +49,12 @@ class DButtonGroup extends StatefulWidget {
   final String? semanticLabel;
   final MainAxisSize mainAxisSize;
   final DControlSize? spacedSize;
+
+  /// Paints one outline around buttons and passive text, without internal rules.
+  ///
+  /// Compose with outlined [DButton] controls. Each child keeps its own hover,
+  /// focus, and hit area; passive separators never activate adjacent buttons.
+  final bool sharedOutline;
 
   @override
   State<DButtonGroup> createState() => _DButtonGroupState();
@@ -104,6 +113,7 @@ class _DButtonGroupState extends State<DButtonGroup> {
       axis: axis,
       first: index == 0,
       last: index == children.length - 1,
+      sharedOutline: widget.sharedOutline,
       child: Focus(
         canRequestFocus: false,
         skipTraversal: true,
@@ -129,17 +139,37 @@ class _DButtonGroupState extends State<DButtonGroup> {
                 : children[index],
           ),
     ];
+    Widget content = _ButtonGroupFlex(
+      direction: axis,
+      mainAxisSize: widget.mainAxisSize,
+      spacing: containsNestedGroup ? DSpacing.sm : 0,
+      focusedIndex: _focusedIndex,
+      children: scoped,
+    );
+    if (widget.sharedOutline) {
+      final theme = DTokens.of(context).buttonTheme;
+      content = DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.outline.background,
+          borderRadius: BorderRadius.circular(DRadius.control),
+        ),
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: DControlDecoration(
+            color: Colors.transparent,
+            borderColor: theme.outline.border,
+            borderRadius: BorderRadius.circular(DRadius.control),
+            strokeWidth: 1,
+          ),
+          child: content,
+        ),
+      );
+    }
     return Semantics(
       container: true,
       explicitChildNodes: true,
       label: widget.semanticLabel,
-      child: _ButtonGroupFlex(
-        direction: axis,
-        mainAxisSize: widget.mainAxisSize,
-        spacing: containsNestedGroup ? DSpacing.sm : 0,
-        focusedIndex: _focusedIndex,
-        children: scoped,
-      ),
+      child: content,
     );
   }
 }
@@ -245,7 +275,9 @@ class DButtonGroupText extends StatelessWidget {
           decoration: DControlDecoration(
             strokeWidth: 1,
             color: tokens.buttonTheme.outline.background,
-            borderColor: tokens.buttonTheme.outline.border,
+            borderColor: joined?.sharedOutline == true
+                ? Colors.transparent
+                : tokens.buttonTheme.outline.border,
             borderRadius: joined?.resolveRadius(radius, direction) ?? radius,
             joinedAxis: joined?.omitsLeadingBorder ?? false
                 ? joined!.axis

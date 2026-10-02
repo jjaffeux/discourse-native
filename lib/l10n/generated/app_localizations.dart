@@ -16201,6 +16201,18 @@ abstract class AppLocalizations {
   /// **'Choose subcategory of {parentName}'**
   String chooseSubcategoryOf(String parentName);
 
+  /// Category path menu option that returns to its parent category and includes all its descendants.
+  ///
+  /// In en, this message translates to:
+  /// **'All of {categoryName}'**
+  String allOfCategory(String categoryName);
+
+  /// Accessible label for an editable segment in the category filter path, including its ancestors.
+  ///
+  /// In en, this message translates to:
+  /// **'Category: {path}'**
+  String categoryPathSegment(String path);
+
   /// English UI message used by shell/topic_category_selector.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

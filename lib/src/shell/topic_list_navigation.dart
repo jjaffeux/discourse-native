@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../foundation/count_label.dart';
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
@@ -32,6 +33,7 @@ typedef _TopicListNavigationSnapshot = ({
   List<TopicCategory> categories,
   List<SidebarTag> tags,
   bool taggingEnabled,
+  int maxCategoryNesting,
   _TopicListFilterOwner filterOwner,
 });
 
@@ -115,6 +117,9 @@ class TopicListNavigation extends StatelessWidget {
             showsFilters &&
             siteUrl != null &&
             controller.siteConfigFor(siteUrl).taggingEnabled,
+        maxCategoryNesting: siteUrl == null
+            ? SiteConfig.defaultMaxCategoryNesting
+            : controller.siteConfigFor(siteUrl).maxCategoryNesting,
       );
     },
     builder: (context, state, _) {
@@ -213,6 +218,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             selectedTagName: state.route!.tagName,
             selectedTagNames: state.route!.tagNames,
             taggingEnabled: state.taggingEnabled,
+            maxCategoryNesting: state.maxCategoryNesting,
             searchTags: (query) async {
               if (!ownsFeed()) return const [];
               final result = await controller.searchFilterTags(

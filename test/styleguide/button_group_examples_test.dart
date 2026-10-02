@@ -23,6 +23,7 @@ void main() {
       'Popover composition',
       'RTL',
       'Reference demo',
+      'Shared outline',
     ]);
     expect(
       buttonGroupExamples.examples.every(

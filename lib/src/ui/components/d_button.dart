@@ -906,6 +906,8 @@ class DButton extends StatelessWidget {
         final border = state.border;
         final resolvedBorderColor = invalid
             ? _alpha(tokens.destructive, dark ? .5 : 1)
+            : joined?.sharedOutline == true
+            ? Colors.transparent
             : borderColor ??
                   (border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent

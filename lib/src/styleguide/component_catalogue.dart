@@ -279,6 +279,7 @@ const componentCatalogue = <ComponentReference>[
       "Composition",
       "Accessibility",
       "ButtonGroup vs ToggleGroup",
+      "Shared outline",
       "Orientation",
       "Size",
       "Nested",

@@ -21,7 +21,9 @@ final buttonGroupExamples = ComponentExamples(
       'DButtonGroupExpanded is the explicit Flutter flex adaptation for a field '
       'inside a finite-width group. Field, Input Group, Dropdown Menu, Select, '
       'and Popover use their public component APIs. Group scoping applies only '
-      'to composed controls and never themes detached overlay descendants.',
+      'to composed controls and never themes detached overlay descendants. '
+      'sharedOutline joins buttons and passive text under one outline without '
+      'internal rules; the separators retain passive hit areas.',
   examples: [
     StyleguideExample(
       title: 'Composition and independent actions',
@@ -322,6 +324,39 @@ DButtonGroup(children: [
   ]),
 ])''',
       builder: (_) => const _ButtonGroupReferenceDemo(),
+    ),
+    StyleguideExample(
+      title: 'Shared outline',
+      description:
+          'Independent category segments share one outline with passive chevrons.',
+      states: const ['Shared outline', 'Independent targets', 'Keyboard'],
+      code: '''DButtonGroup(
+  sharedOutline: true,
+  children: [
+    DButton(variant: DButtonVariant.outline, label: Text('Support'), onPressed: openRoot),
+    DButtonGroupText(child: DBreadcrumbSeparator()),
+    DButton(variant: DButtonVariant.outline, label: Text('Bugs'), onPressed: openChild),
+  ],
+)''',
+      builder: (_) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DButtonGroup(
+          sharedOutline: true,
+          children: [
+            DButton(
+              variant: DButtonVariant.outline,
+              label: const Text('Support'),
+              onPressed: () {},
+            ),
+            const DButtonGroupText(child: DBreadcrumbSeparator()),
+            DButton(
+              variant: DButtonVariant.outline,
+              label: const Text('Bugs'),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
     ),
   ],
 );
