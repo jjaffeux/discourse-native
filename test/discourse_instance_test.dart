@@ -249,6 +249,10 @@ void main() {
             'Documentation',
           ],
         );
+        expect(
+          sections.first.moreDestinations.first.url,
+          'https://example.com/forum/about',
+        );
         final groups = sections.first.moreDestinations[1];
         expect(groups.id, 'groups');
         expect(groups.url, isNull);
@@ -256,10 +260,7 @@ void main() {
         final badges = sections.first.moreDestinations[3];
         expect(badges.id, 'badges');
         expect(badges.url, isNull);
-        expect(
-          sections.first.moreDestinations.first.url,
-          'https://example.com/forum/about',
-        );
+        expect(sections.first.moreDestinations.first.id, 'forum-about');
         expect(
           sections.first.moreDestinations[2].url,
           'https://example.com/forum/faq',

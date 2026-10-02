@@ -219,6 +219,20 @@ final class DiscourseSiteApi {
     );
   }
 
+  Future<ForumAbout> forumAbout({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/about.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return ForumAbout.fromJson(body);
+  }
+
   Future<SiteConfig> siteConfig({
     required String siteUrl,
     String? apiKey,

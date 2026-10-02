@@ -6,6 +6,14 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('forum About is distinct from application About and persists', () {
+    final route = ContentRoute.forumAbout();
+    expect(route.isForumAbout, isTrue);
+    expect(route.tabTitle, 'About this forum');
+    expect(ContentRoute.fromJson(route.toJson()).isForumAbout, isTrue);
+    expect(ContentRoute.appearance().isForumAbout, isFalse);
+  });
+
   test('start page uses house and upgrades saved new tabs', () {
     final route = ContentRoute.newTab();
     expect(route.tabTitle, 'Start page');

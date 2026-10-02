@@ -677,12 +677,10 @@ void _registerShellNavigationTests() {
         await showShortcuts();
         await tester.tap(sidebarDestination('About this forum'));
         await tester.pumpAndSettle();
-        expect(launched, [
-          'https://docs.example.com/handbook',
-          'https://forum.example/discuss/about',
-        ]);
+        expect(launched, ['https://docs.example.com/handbook']);
 
         final controller = ShellScope.read(tester.element(primaryMainContent));
+        expect(controller.currentContent?.isForumAbout, isTrue);
         if (connected) {
           api.customSidebarSectionsBySite[site.url] = const [
             SidebarSection(

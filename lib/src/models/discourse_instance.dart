@@ -342,7 +342,17 @@ class DiscourseInstance {
     final destinations = <SidebarDestination>[];
     for (final destination in configured) {
       final value = destination.url;
-      if (nativePaths[value] case final nativeId?) {
+      if (value == '/about') {
+        if (!seen.add('forum-about')) continue;
+        destinations.add(
+          SidebarDestination(
+            id: 'forum-about',
+            label: destination.label,
+            icon: destination.icon,
+            url: '$url/about',
+          ),
+        );
+      } else if (nativePaths[value] case final nativeId?) {
         // A native primary row already exposes this link, and a missing native
         // row can be hidden by the account's permissions or site settings.
         if (!nativeMore.contains(nativeId) || !seen.add(nativeId)) continue;

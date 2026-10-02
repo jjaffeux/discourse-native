@@ -6,6 +6,7 @@ import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
+import '../models/forum_about.dart';
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
@@ -300,6 +301,12 @@ abstract interface class SiteLookupApi {
 }
 
 abstract interface class ShellSiteApi {
+  Future<ForumAbout> forumAbout({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  });
+
   Future<SiteMessageBusBootstrap?> messageBusBootstrap({
     required String siteUrl,
     required String apiKey,

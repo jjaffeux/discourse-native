@@ -60,6 +60,7 @@ import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
+import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
@@ -1261,6 +1262,36 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  Future<ForumAbout> loadForumAbout(String siteUrl) async {
+    final instance = instanceFor(siteUrl);
+    final lease = lifecycle.capture(siteUrl);
+    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    final credential = await _readSessionValue(
+      lease,
+      () async =>
+          instance.isConnected ? await credentials.apiKeyFor(siteUrl) : null,
+    );
+    if (credential == null ||
+        (instance.isConnected && credential.value == null)) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    final client = await _readClientIdFor(lease, credential.value);
+    if (client == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    final about = await api.site.forumAbout(
+      siteUrl: siteUrl,
+      apiKey: credential.value,
+      clientId: client.value,
+    );
+    if (isDisposed || !lease.isCurrent) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return about;
+  }
+
   Future<SiteConfig> _loadSiteConfig({
     required String siteUrl,
     String? apiKey,
@@ -1690,7 +1721,7 @@ class ShellController extends FrameSafeNotifier
       ? mobileNavigation.canGoForward
       : activeTab?.canGoForward ?? false;
 
-  Future<void>? Function()? _contentRefresher;
+  final _contentRefreshers = <String?, Future<void>? Function()>{};
   final _refreshingTabs = <(ShellRootMode, String?, String?, String?)>{};
 
   (ShellRootMode, String?, String?, String?) get _currentRefreshKey =>
@@ -1706,10 +1737,16 @@ class ShellController extends FrameSafeNotifier
       (!currentInstance!.loginRequired || currentInstance!.isConnected);
 
   /// Returning null lets the shell use the route's standard loader.
-  VoidCallback registerContentRefresher(Future<void>? Function() refresh) {
-    _contentRefresher = refresh;
+  VoidCallback registerContentRefresher(
+    Future<void>? Function() refresh, {
+    String? tabId,
+  }) {
+    final owner = tabId ?? activeTabId;
+    _contentRefreshers[owner] = refresh;
     return () {
-      if (identical(_contentRefresher, refresh)) _contentRefresher = null;
+      if (identical(_contentRefreshers[owner], refresh)) {
+        _contentRefreshers.remove(owner);
+      }
     };
   }
 
@@ -1719,7 +1756,8 @@ class ShellController extends FrameSafeNotifier
     if (!_refreshingTabs.add(key)) return;
     _notify();
     try {
-      await (_contentRefresher?.call() ?? _refreshCurrentContent());
+      await (_contentRefreshers[activeTabId]?.call() ??
+          _refreshCurrentContent());
     } catch (error, stackTrace) {
       _reportOperationalError(error, stackTrace, 'tab.refresh');
     } finally {
@@ -7174,6 +7212,10 @@ class ShellController extends FrameSafeNotifier
       route = _homepageFor(instance);
     } else if (_ownMessagesRoute(instance, target) case final messages?) {
       route = messages;
+    } else if (instance.pathWithin(target) == '/about' &&
+        !target.hasQuery &&
+        !target.hasFragment) {
+      route = ContentRoute.forumAbout();
     } else if (instance.pathWithin(target) == '/u' &&
         !target.hasQuery &&
         !target.hasFragment) {
@@ -7787,7 +7829,12 @@ class ShellController extends FrameSafeNotifier
     if (TopicListMode.fromRoute(route) == null &&
         _registeredHomepage(route.id) == null &&
         !route.isMessages &&
-        !const {'users', 'all-categories', 'all-tags'}.contains(route.id)) {
+        !const {
+          'users',
+          'all-categories',
+          'all-tags',
+          'forum-about',
+        }.contains(route.id)) {
       return false;
     }
     final index = _instances.indexWhere(
@@ -7808,7 +7855,7 @@ class ShellController extends FrameSafeNotifier
       unawaited(loadCategories(destination.siteUrl));
     } else if (route.id == 'all-tags') {
       unawaited(loadTags(destination.siteUrl));
-    } else {
+    } else if (!route.isForumAbout) {
       unawaited(loadFeed(route.id));
     }
     return true;
@@ -16670,7 +16717,9 @@ class ShellController extends FrameSafeNotifier
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
-    } else if (!content.isNewTab && _registeredHomepage(content.id) == null) {
+    } else if (!content.isNewTab &&
+        !content.isForumAbout &&
+        _registeredHomepage(content.id) == null) {
       if (content.id == 'all-categories') {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
+import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
@@ -2290,6 +2291,13 @@ class FakeDiscourseApi
     topicTagSearchLimits.add(limit);
     return topicTagSearches[term] ?? const TopicTagSearch();
   }
+
+  @override
+  Future<ForumAbout> forumAbout({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async => ForumAbout(title: Uri.parse(siteUrl).host);
 
   @override
   Future<SiteConfig> siteConfig({

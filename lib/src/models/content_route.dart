@@ -241,6 +241,14 @@ class ContentRoute {
         badgeRoute: route,
       );
 
+  factory ContentRoute.forumAbout() => ContentRoute(
+    id: 'forum-about',
+    title: appL10n.forumAboutTitle,
+    icon: DIcons.circleInfo,
+  );
+
+  bool get isForumAbout => !isTopic && id == 'forum-about';
+
   factory ContentRoute.preferences() => ContentRoute(
     id: 'preferences',
     title: appL10n.preferences,
