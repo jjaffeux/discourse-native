@@ -45,6 +45,10 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   bool isCurrent(GroupPagesOwner owner) =>
       _shell.currentInstance?.url == owner.siteUrl &&
       _shell.currentAccountIdentity == owner.accountIdentity &&
+      identical(
+        _shell.lifecycle.capture(owner.siteUrl).session,
+        owner.sessionIdentity,
+      ) &&
       (tabId ?? _shell.activeTabId) == owner.tabId &&
       _shell.currentWorkspace?.tabById(owner.tabId ?? '') != null;
 

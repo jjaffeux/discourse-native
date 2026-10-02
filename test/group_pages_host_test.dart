@@ -741,18 +741,21 @@ final class _DeleteHost {
         port.owner = (
           siteUrl: port.owner.siteUrl,
           accountIdentity: port.owner.accountIdentity,
+          sessionIdentity: port.owner.sessionIdentity,
           tabId: 'tab-2',
         );
       case _DeleteDestination.account:
         port.owner = (
           siteUrl: port.owner.siteUrl,
           accountIdentity: 'user:alex',
+          sessionIdentity: port.owner.sessionIdentity,
           tabId: port.owner.tabId,
         );
       case _DeleteDestination.site:
         port.owner = (
           siteUrl: 'https://other.example',
           accountIdentity: port.owner.accountIdentity,
+          sessionIdentity: port.owner.sessionIdentity,
           tabId: port.owner.tabId,
         );
       case _DeleteDestination.controller:
@@ -812,6 +815,7 @@ final class _Port implements GroupPagesPort {
   GroupPagesOwner owner = (
     siteUrl: 'https://meta.example',
     accountIdentity: 'user:sam',
+    sessionIdentity: Object(),
     tabId: 'tab-1',
   );
   int directoryLoads = 0;

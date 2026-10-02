@@ -269,6 +269,7 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
   final GroupPagesOwner owner = (
     siteUrl: 'https://meta.example',
     accountIdentity: 'user:manager',
+    sessionIdentity: Object(),
     tabId: 'tab-1',
   );
   Group group = _group;

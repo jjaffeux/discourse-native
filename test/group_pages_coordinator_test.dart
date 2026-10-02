@@ -24,6 +24,7 @@ void main() {
       const owner = (
         siteUrl: 'https://one.example',
         accountIdentity: 'user:one',
+        sessionIdentity: Object(),
         tabId: 'tab-1',
       );
 
@@ -131,6 +132,7 @@ void main() {
         port.owner = (
           siteUrl: port.owner.siteUrl,
           accountIdentity: 'user:two',
+          sessionIdentity: Object(),
           tabId: port.owner.tabId,
         );
         subject.bind(port, _groupSnapshot(port.owner, route));
@@ -143,6 +145,7 @@ void main() {
         port.owner = (
           siteUrl: 'https://two.example',
           accountIdentity: 'user:two',
+          sessionIdentity: Object(),
           tabId: 'tab-2',
         );
         subject.bind(port, _groupSnapshot(port.owner, route));
@@ -183,6 +186,7 @@ void main() {
       port.owner = (
         siteUrl: port.owner.siteUrl,
         accountIdentity: 'user:rotated',
+        sessionIdentity: Object(),
         tabId: port.owner.tabId,
       );
       subject.bind(port, _groupSnapshot(port.owner, route));
@@ -292,6 +296,7 @@ void main() {
       port.owner = (
         siteUrl: port.owner.siteUrl,
         accountIdentity: 'user:two',
+        sessionIdentity: Object(),
         tabId: port.owner.tabId,
       );
 
@@ -407,6 +412,7 @@ final class _Port implements GroupPagesCoordinatorPort {
   GroupPagesOwner owner = (
     siteUrl: 'https://one.example',
     accountIdentity: 'user:one',
+    sessionIdentity: const Object(),
     tabId: 'tab-1',
   );
   Completer<void>? detailGate;

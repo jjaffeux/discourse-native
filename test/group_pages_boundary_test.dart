@@ -57,6 +57,9 @@ void main() {
     final owner = (
       siteUrl: shell.currentInstance.url,
       accountIdentity: shell.currentAccountIdentity,
+      sessionIdentity: shell.lifecycle
+          .capture(shell.currentInstance.url)
+          .session,
       tabId: shell.activeTabId,
     );
 
@@ -64,6 +67,7 @@ void main() {
     port.openMembershipRequest((
       siteUrl: owner.siteUrl,
       accountIdentity: 'user:two',
+      sessionIdentity: owner.sessionIdentity,
       tabId: owner.tabId,
     ), '/t/membership-request/43');
 
@@ -86,6 +90,9 @@ void main() {
             owner: (
               siteUrl: shell.currentInstance.url,
               accountIdentity: shell.currentAccountIdentity,
+              sessionIdentity: shell.lifecycle
+                  .capture(shell.currentInstance.url)
+                  .session,
               tabId: shell.activeTabId,
             ),
             routeId: shell.content.id,

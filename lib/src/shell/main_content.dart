@@ -117,6 +117,7 @@ class _MainContentState extends State<MainContent> {
             owner: (
               siteUrl: state.siteUrl ?? '',
               accountIdentity: state.groupAccountIdentity ?? 'signed-out',
+              sessionIdentity: state.groupSessionIdentity,
               tabId: state.activeTabId,
             ),
             routeId: route?.id ?? '',
@@ -1719,6 +1720,7 @@ class _MainContentSnapshot {
     required this.filterCategories,
     required this.categoryFeed,
     required this.groupAccountIdentity,
+    required this.groupSessionIdentity,
   });
 
   factory _MainContentSnapshot.from(ShellController controller) {
@@ -1756,6 +1758,9 @@ class _MainContentSnapshot {
       groupAccountIdentity: _isGroupNamespace(route)
           ? controller.currentAccountIdentity
           : null,
+      groupSessionIdentity: controller.lifecycle
+          .capture(controller.currentInstance?.url ?? '')
+          .session,
     );
   }
 
@@ -1770,6 +1775,7 @@ class _MainContentSnapshot {
   final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
   final String? groupAccountIdentity;
+  final Object groupSessionIdentity;
 
   @override
   bool operator ==(Object other) =>
@@ -1784,7 +1790,8 @@ class _MainContentSnapshot {
       isConnected == other.isConnected &&
       identical(filterCategories, other.filterCategories) &&
       identical(categoryFeed, other.categoryFeed) &&
-      groupAccountIdentity == other.groupAccountIdentity;
+      groupAccountIdentity == other.groupAccountIdentity &&
+      identical(groupSessionIdentity, other.groupSessionIdentity);
 
   @override
   int get hashCode => Object.hash(
@@ -1799,5 +1806,6 @@ class _MainContentSnapshot {
     identityHashCode(filterCategories),
     identityHashCode(categoryFeed),
     groupAccountIdentity,
+    identityHashCode(groupSessionIdentity),
   );
 }
