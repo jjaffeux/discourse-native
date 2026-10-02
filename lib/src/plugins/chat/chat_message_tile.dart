@@ -347,6 +347,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   // Run after dismissal so focus restoration cannot steal focus from a picker
   // or the composer opened by the action.
   VoidCallback? _pendingSheetAction;
+  // Rebuilding a retained row must not transfer its open menu to a new session.
+  PluginSiteLease? _menuSession;
   bool _focused = false;
   bool _hovered = false;
   bool _hoverSuppressed = false;
@@ -668,6 +670,15 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     required List<PostFlagType> flagTypes,
   }) {
     final chat = PluginUiScope.require(context, chatControllerService);
+    final siteUrl = widget.siteUrl;
+    final messageId = widget.message.id;
+    final session = chat.captureSession(siteUrl);
+    bool ownsMessage() =>
+        mounted &&
+        session.isCurrent &&
+        widget.siteUrl == siteUrl &&
+        widget.message.id == messageId &&
+        identical(PluginUiScope.require(context, chatControllerService), chat);
     final canReply =
         widget.onReply != null &&
         chat.canReplyToMessage(widget.siteUrl, widget.message);
@@ -680,6 +691,25 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       bool busy = false,
       bool destructive = false,
     }) {
+      void select() {
+        final openingSession = _menuSession;
+        if (!ownsMessage() ||
+            openingSession == null ||
+            !openingSession.isCurrent) {
+          return;
+        }
+        void run() {
+          if (ownsMessage() && openingSession.isCurrent) action();
+        }
+
+        if (context.isTouch) {
+          _pendingSheetAction = run;
+          _sheet.close();
+        } else {
+          _runDropdownAction(run);
+        }
+      }
+
       if (context.isTouch) {
         return DButton(
           key: ValueKey('chat-message-$name-${widget.message.id}'),
@@ -689,19 +719,14 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           variant: destructive
               ? DButtonVariant.destructive
               : DButtonVariant.transparentBackground,
-          onPressed: busy
-              ? null
-              : () {
-                  _pendingSheetAction = action;
-                  _sheet.close();
-                },
+          onPressed: busy ? null : select,
           label: Text(label),
         );
       }
       return DDropdownMenuItem(
         key: ValueKey('chat-message-$name-${widget.message.id}'),
         leading: busy ? const DSpinner() : DIcon(icon, size: 16),
-        onPressed: busy ? null : () => _runDropdownAction(action),
+        onPressed: busy ? null : select,
         closeOnSelect: false,
         variant: destructive
             ? DDropdownMenuItemVariant.destructive
@@ -813,6 +838,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       return DSheet<void>(
         controller: _sheet,
         onOpenChanged: (details) {
+          if (details.open) _menuSession = session;
           _sheetOpen = details.open;
           _refreshInteraction();
         },
@@ -844,6 +870,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     return DDropdownMenu(
       controller: _dropdown,
       onOpenChange: (open, _) {
+        if (open) _menuSession = session;
         _moreActionsOpen = open;
         if (!open && !_pointerInside) _hovered = false;
         _refreshInteraction();
