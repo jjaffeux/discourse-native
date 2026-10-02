@@ -1080,6 +1080,64 @@ void main() {
     expect(find.text('Deploy plan'), findsOneWidget);
   });
 
+  for (final (width, platform) in [
+    (390.0, TargetPlatform.iOS),
+    (1000.0, TargetPlatform.macOS),
+  ]) {
+    testWidgets('thread settings saves a 51-emoji title at $width', (
+      tester,
+    ) async {
+      final fixture = await _fixture(editableThread: true);
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(
+        tester,
+        fixture.shell,
+        width: width,
+        platform: platform,
+      );
+      await tester.tap(find.byTooltip('Thread settings'));
+      await tester.pumpAndSettle();
+
+      final title = '🧵' * 51;
+      final field = find.byKey(const ValueKey('chat-thread-title-field'));
+      await tester.enterText(field, title);
+      expect(tester.widget<DInput>(field).controller!.text, title);
+      await tester.tap(find.byKey(const ValueKey('chat-thread-title-save')));
+      await tester.pumpAndSettle();
+
+      expect(fixture.api.chatThreadTitlesUpdated, [
+        (channelId: _channelId, threadId: _threadId, title: title),
+      ]);
+      expect(fixture.shell.chat.thread(_siteUrl, _threadId)?.title, title);
+      expect(find.text('Thread settings'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('thread settings rejects titles over 100 Unicode scalars', (
+    tester,
+  ) async {
+    final fixture = await _fixture(editableThread: true);
+    addTearDown(fixture.shell.dispose);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await tester.tap(find.byTooltip('Thread settings'));
+    await tester.pumpAndSettle();
+    final title = 'e\u0301' * 51;
+    final field = find.byKey(const ValueKey('chat-thread-title-field'));
+    await tester.enterText(field, title);
+    expect(tester.widget<DInput>(field).controller!.text, title);
+    await tester.tap(find.byKey(const ValueKey('chat-thread-title-save')));
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.chatThreadTitlesUpdated, isEmpty);
+    expect(
+      find.text('Could not save the thread title. Try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Thread settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('thread notification choices use the Native dropdown on touch', (
     tester,
   ) async {

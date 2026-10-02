@@ -1445,6 +1445,44 @@ void main() {
   );
 
   group('thread title permissions', () {
+    for (final (label, title, valid) in [
+      ('empty', '', true),
+      ('100 ASCII', 'a' * 100, true),
+      ('100 emoji', '🧵' * 100, true),
+      ('100 combining scalars', 'e\u0301' * 50, true),
+      ('101 ASCII', 'a' * 101, false),
+      ('101 emoji', '🧵' * 101, false),
+      ('102 combining scalars', 'e\u0301' * 51, false),
+    ]) {
+      test('$label title follows the server character limit', () async {
+        final detail = threadDetail(originalAuthorId: currentUser.id!);
+        final api = _AdversarialThreadApi(detail: detail);
+        final store = Store()..put(site, detail);
+        final subject = _controllerFor(api, store: store);
+
+        expect(
+          await subject.chat.updateThreadTitle(site, target, title),
+          valid,
+        );
+        expect(
+          api.chatThreadTitlesUpdated,
+          valid
+              ? [
+                  (
+                    channelId: target.channelId,
+                    threadId: target.threadId,
+                    title: title,
+                  ),
+                ]
+              : isEmpty,
+        );
+        expect(
+          subject.chat.thread(site, target.threadId)?.title,
+          valid ? title : null,
+        );
+      });
+    }
+
     for (final kind in ChatChannelKind.values) {
       for (final staff in [false, true]) {
         test(

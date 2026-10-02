@@ -6022,7 +6022,7 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed ||
         target.channelId <= 0 ||
         target.threadId <= 0 ||
-        title.length > 100) {
+        title.runes.length > 100) {
       return false;
     }
     final held = thread(siteUrl, target.threadId);
