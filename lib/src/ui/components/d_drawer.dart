@@ -4,6 +4,7 @@ import 'dart:ui' show ImageFilter, PointerDeviceKind;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
@@ -705,6 +706,8 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   bool _measured = false;
   bool _dragging = false;
   bool _overscrollDragging = false;
+  int? _scrollPointer;
+  VelocityTracker? _scrollVelocity;
   bool _openCompletionSent = false;
   bool _hadFocus = false;
   bool _settlingAfterDrag = false;
@@ -918,13 +921,18 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     _finishDrag(_signedPrimaryVelocity(details.velocity));
   }
 
-  void _dragCancelGesture() => _finishDrag(0);
+  void _dragCancelGesture() => _finishDrag(0, cancelled: true);
 
-  void _finishDrag(double velocity) {
+  void _finishDrag(double velocity, {bool cancelled = false}) {
     if (!_dragging && !_overscrollDragging) return;
     _dragging = false;
     _overscrollDragging = false;
     widget.parentStack?.swiping = false;
+    if (cancelled) {
+      _settlingAfterDrag = true;
+      _settleTo(_activeSnapOffset(), 0);
+      return;
+    }
     final current = _travel.value.clamp(0, _extent).toDouble();
     final snapPoints = _resolvedSnapPoints();
     if (snapPoints.isEmpty) {
@@ -1048,24 +1056,35 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (!_vertical) return false;
+    if (!_vertical ||
+        _scrollPointer == null ||
+        _overscrollDragging ||
+        notification.metrics.axisDirection != AxisDirection.down) {
+      return false;
+    }
     if (notification is ScrollUpdateNotification &&
         notification.dragDetails != null) {
-      final delta = notification.scrollDelta ?? 0;
-      final atDismissEdge = switch (_direction) {
+      final pixels = notification.metrics.pixels;
+      final previous = pixels - (notification.scrollDelta ?? 0);
+      // Transfer only the part of this update that crossed the content edge.
+      final delta = switch (_direction) {
         DDrawerSwipeDirection.down =>
-          notification.metrics.pixels < notification.metrics.minScrollExtent &&
-              delta < 0,
+          math.max(0.0, notification.metrics.minScrollExtent - pixels) -
+              math.max(0.0, notification.metrics.minScrollExtent - previous),
         DDrawerSwipeDirection.up =>
-          notification.metrics.pixels > notification.metrics.maxScrollExtent &&
-              delta > 0,
-        _ => false,
+          math.max(0.0, pixels - notification.metrics.maxScrollExtent) -
+              math.max(0.0, previous - notification.metrics.maxScrollExtent),
+        _ => 0.0,
       };
-      if (atDismissEdge) {
-        _beginOverscrollDrag();
-        _updateDrag(delta.abs());
+      if (delta <= 0 ||
+          _signedPrimaryDelta(notification.dragDetails!.delta) <= 0) {
+        return false;
       }
-    } else if (notification is OverscrollNotification) {
+      _beginOverscrollDrag();
+      _updateDrag(delta);
+    } else if (notification is OverscrollNotification &&
+        notification.dragDetails != null &&
+        _signedPrimaryDelta(notification.dragDetails!.delta) > 0) {
       final atDismissEdge = switch (_direction) {
         DDrawerSwipeDirection.down =>
           notification.metrics.pixels <=
@@ -1080,13 +1099,6 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
       if (!atDismissEdge) return false;
       _beginOverscrollDrag();
       _updateDrag(notification.overscroll.abs());
-    } else if (notification is ScrollEndNotification && _overscrollDragging) {
-      final primaryVelocity = notification.dragDetails?.primaryVelocity ?? 0;
-      _finishDrag(
-        _direction == DDrawerSwipeDirection.up
-            ? -primaryVelocity
-            : primaryVelocity,
-      );
     }
     return false;
   }
@@ -1098,6 +1110,37 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     _settlingAfterDrag = false;
     _dragOrigin = _travel.value;
     widget.parentStack?.swiping = true;
+  }
+
+  void _startScrollPointer(PointerEvent event) {
+    if (_scrollPointer != null || event.kind == PointerDeviceKind.mouse) return;
+    _scrollPointer = event.pointer;
+    _scrollVelocity = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+  }
+
+  void _moveScrollPointer(
+    PointerEvent event, {
+    Offset? position,
+    Offset? delta,
+  }) {
+    if (event.pointer != _scrollPointer) return;
+    _scrollVelocity?.addPosition(event.timeStamp, position ?? event.position);
+    // After handoff, follow the finger rather than the resisted scroll offset.
+    // Scroll updates can stop at the bounce limit while the drag continues.
+    if (_overscrollDragging) {
+      _updateDrag(_signedPrimaryDelta(delta ?? event.delta));
+    }
+  }
+
+  void _endScrollPointer(PointerEvent event, {bool cancelled = false}) {
+    if (event.pointer != _scrollPointer) return;
+    final velocity = _scrollVelocity?.getVelocity() ?? Velocity.zero;
+    _scrollPointer = null;
+    _scrollVelocity = null;
+    if (_overscrollDragging) {
+      _finishDrag(_signedPrimaryVelocity(velocity), cancelled: cancelled);
+    }
   }
 
   void _requestDismiss(DDrawerChangeReason reason) {
@@ -1189,6 +1232,20 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
       onHorizontalDragUpdate: _vertical ? null : _dragUpdateGesture,
       onHorizontalDragEnd: _vertical ? null : _dragEndGesture,
       onHorizontalDragCancel: _vertical ? null : _dragCancelGesture,
+      child: popup,
+    );
+    popup = Listener(
+      onPointerDown: _startScrollPointer,
+      onPointerMove: _moveScrollPointer,
+      onPointerUp: _endScrollPointer,
+      onPointerCancel: (event) => _endScrollPointer(event, cancelled: true),
+      onPointerPanZoomStart: _startScrollPointer,
+      onPointerPanZoomUpdate: (event) => _moveScrollPointer(
+        event,
+        position: event.position + event.pan,
+        delta: event.panDelta,
+      ),
+      onPointerPanZoomEnd: _endScrollPointer,
       child: popup,
     );
     popup = Transform.translate(

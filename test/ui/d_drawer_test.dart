@@ -727,6 +727,110 @@ void main() {
     expect(reason, DDrawerChangeReason.swipe);
   });
 
+  for (final direction in [
+    DDrawerSwipeDirection.down,
+    DDrawerSwipeDirection.up,
+  ]) {
+    for (final release in ['slow', 'flick', 'reverse', 'cancel', 'ballistic']) {
+      testWidgets('scroll handoff handles $release toward $direction', (
+        tester,
+      ) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        DDrawerChangeReason? reason;
+        await tester.pumpWidget(
+          _host(
+            DDrawer<void>(
+              initiallyOpen: true,
+              swipeDirection: direction,
+              onOpenChanged: (details) {
+                if (!details.open) reason = details.reason;
+              },
+              trigger: DDrawerTrigger(
+                builder: (_, open) =>
+                    DButton(onPressed: open, label: const Text('Open')),
+              ),
+              content: DDrawerContent(
+                height: 420,
+                children: [
+                  const DDrawerHeader(
+                    children: [DDrawerTitle(child: Text('Scrollable'))],
+                  ),
+                  DDrawerScrollArea(
+                    controller: scroll,
+                    child: Column(
+                      children: List.generate(
+                        30,
+                        (index) =>
+                            SizedBox(height: 40, child: Text('Row $index')),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            disableAnimations: false,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final drawer = find.byType(DDrawerContent);
+        final area = find.byType(DDrawerScrollArea);
+        final bounds = tester.getRect(drawer);
+        final sign = direction == DDrawerSwipeDirection.down ? 1.0 : -1.0;
+        final edge = sign > 0 ? 0.0 : scroll.position.maxScrollExtent;
+        scroll.jumpTo(release == 'ballistic' ? edge + sign * 200 : edge);
+        await tester.pumpAndSettle();
+
+        if (release == 'ballistic') {
+          // Momentum may reach the edge after release, but must not move
+          // the drawer when the user was only scrolling through its content.
+          await tester.fling(area, Offset(0, sign * 100), 1200);
+          await tester.pumpAndSettle();
+          expect(scroll.offset, closeTo(edge, .01));
+        } else {
+          final gesture = await tester.startGesture(tester.getCenter(area));
+          var elapsed = Duration.zero;
+          final interval = Duration(milliseconds: release == 'flick' ? 10 : 50);
+          final steps = release == 'flick' ? 10 : 25;
+          for (var step = 0; step < steps; step++) {
+            elapsed += interval;
+            await gesture.moveBy(Offset(0, sign * 12), timeStamp: elapsed);
+            await tester.pump(interval);
+          }
+          final travel = (tester.getTopLeft(drawer).dy - bounds.top) * sign;
+          expect(
+            travel,
+            release == 'flick'
+                ? inExclusiveRange(0, bounds.height / 2)
+                : greaterThan(bounds.height / 2),
+          );
+          if (release == 'reverse') {
+            elapsed += const Duration(milliseconds: 500);
+            await gesture.moveBy(Offset(0, -sign * 280), timeStamp: elapsed);
+          }
+          if (release == 'cancel') {
+            await gesture.cancel();
+          } else {
+            await gesture.up(timeStamp: elapsed);
+          }
+          await tester.pumpAndSettle();
+        }
+
+        if (release == 'slow' || release == 'flick') {
+          expect(drawer, findsNothing);
+          expect(reason, DDrawerChangeReason.swipe);
+        } else {
+          expect(
+            tester.getRect(drawer),
+            rectMoreOrLessEquals(bounds, epsilon: .1),
+          );
+          expect(reason, isNull);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('swipe area opens only its attached controller', (tester) async {
     final controller = DDrawerController<void>();
     addTearDown(controller.dispose);
