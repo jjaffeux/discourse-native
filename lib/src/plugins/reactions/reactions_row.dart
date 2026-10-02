@@ -157,6 +157,7 @@ class ReactionsRow extends StatelessWidget {
     ReactionsController? controller,
     PluginEmojiHost? emoji,
   ) {
+    final touch = context.isTouch;
     String? filter;
     var closing = false;
     if (controller != null) {
@@ -165,9 +166,13 @@ class ReactionsRow extends StatelessWidget {
     return showDSheet<void>(
       context: context,
       side: DSheetSide.bottom,
+      inset: touch,
+      fillAvailableHeight: touch,
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
         semanticLabel: appL10n.postReactions,
+        topBottomMaxHeightFactor: touch ? 1 : null,
+        scrollWholeSheet: touch ? false : null,
         children: [
           DSheetHeader(children: [DSheetTitle(child: Text(appL10n.reactions))]),
           DSheetBody(

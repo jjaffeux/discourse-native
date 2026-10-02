@@ -144,9 +144,13 @@ class _ReactionPillState extends State<ReactionPill> {
     await showDSheet<void>(
       context: context,
       side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
       builder: (context, sheet) => DSheetContent(
         side: DSheetSide.bottom,
-        topBottomMaxHeightFactor: 0.8,
+        semanticLabel: title,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
         children: [
           DSheetHeader(children: [DSheetTitle(child: Text(title))]),
           DSheetBody(child: Builder(builder: widget.reactorsBuilder)),
@@ -187,7 +191,7 @@ class _ReactionPillState extends State<ReactionPill> {
           );
     return DHoverCard(
       controller: _panel,
-      enabled: widget.enabled,
+      enabled: widget.enabled && !context.isTouch,
       onOpenChange: (open, _) {
         if (open) _load();
       },
@@ -344,10 +348,17 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
   }
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxHeight: ReactionUsersList._maxHeight),
-    child: _body(context),
-  );
+  Widget build(BuildContext context) {
+    final body = _body(context);
+    // Mobile sheets own the scrolling; the desktop hover card stays compact.
+    if (context.isTouch) return body;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxHeight: ReactionUsersList._maxHeight,
+      ),
+      child: SingleChildScrollView(child: body),
+    );
+  }
 
   Widget _body(BuildContext context) {
     final theme = Theme.of(context);
@@ -408,27 +419,25 @@ class _ReactionUsersListState extends State<ReactionUsersList> {
 
     final hidden = held.total - held.reactors.length;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final reactor in held.reactors)
-            _ReactorRow(reactor: reactor, siteUrl: widget.siteUrl),
-          if (hidden > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 6, left: 2),
-              child: Text(
-                hidden == 1
-                    ? context.l10n.and1Other
-                    : context.l10n.andOthers((hidden).toString()),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final reactor in held.reactors)
+          _ReactorRow(reactor: reactor, siteUrl: widget.siteUrl),
+        if (hidden > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 2),
+            child: Text(
+              hidden == 1
+                  ? context.l10n.and1Other
+                  : context.l10n.andOthers((hidden).toString()),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
