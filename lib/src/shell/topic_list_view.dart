@@ -1580,8 +1580,9 @@ class _TopicTag extends StatelessWidget {
 }
 
 class _TopicTagOverflow extends StatelessWidget {
-  const _TopicTagOverflow({required this.tags});
+  const _TopicTagOverflow({required this.tags, this.compact = false});
   final List<TopicTag> tags;
+  final bool compact;
   int get count => tags.length;
 
   @override
@@ -1590,6 +1591,15 @@ class _TopicTagOverflow extends StatelessWidget {
     child: DBadge(
       key: const ValueKey('topic-row-tag-overflow'),
       variant: DBadgeVariant.outline,
+      size: compact ? DBadgeSize.tag : DBadgeSize.compact,
+      backgroundColor: compact ? DTokens.of(context).footerBorder : null,
+      foregroundColor: compact
+          ? Color.lerp(
+              DTokens.of(context).background,
+              DTokens.of(context).foreground,
+              .62,
+            )
+          : DTokens.of(context).mutedForeground,
       semanticLabel: context.l10n.moreTopiclistview(count),
       child: Text('+$count'),
     ),
