@@ -269,6 +269,7 @@ typedef _VoiceRequestCredentials = ({String apiKey, String clientId});
 /// participant tiles listen to the media session for those.
 typedef _VoiceMediaView = ({
   VoiceMediaConnectionState connectionState,
+  Object? connectionFailure,
   bool screenSharing,
   Object? localVideoTrack,
 });
@@ -4713,12 +4714,14 @@ final class VoiceController extends ChangeNotifier {
 
   static _VoiceMediaView _mediaView(VoiceMediaSession media) => (
     connectionState: media.connectionState,
+    connectionFailure: media.connectionFailure,
     screenSharing: media.screenSharing,
     localVideoTrack: media.localVideoTrack,
   );
 
   static bool _sameMediaView(_VoiceMediaView a, _VoiceMediaView b) =>
       a.connectionState == b.connectionState &&
+      identical(a.connectionFailure, b.connectionFailure) &&
       a.screenSharing == b.screenSharing &&
       identical(a.localVideoTrack, b.localVideoTrack);
 
@@ -4748,7 +4751,12 @@ final class VoiceController extends ChangeNotifier {
       // promote a `joining` call would announce the call before any of that
       // ran and would lift the guard that keeps a roster published before
       // join.json committed from tearing the call down.
-      if (status != call.status &&
+      if ((status != call.status ||
+              (status == VoiceCallStatus.failed &&
+                  !identical(
+                    seen?.connectionFailure,
+                    view.connectionFailure,
+                  ))) &&
           call.status != VoiceCallStatus.leaving &&
           call.status != VoiceCallStatus.joining) {
         _record(
@@ -4766,9 +4774,14 @@ final class VoiceController extends ChangeNotifier {
         updated = updated.copyWith(
           status: status,
           error: status == VoiceCallStatus.failed
-              ? appL10n.theMediaConnectionCouldNotBeRestored
+              ? switch (view.connectionFailure) {
+                  WriteException error => error.message,
+                  _ => appL10n.theMediaConnectionCouldNotBeRestored,
+                }
               : null,
-          clearError: status == VoiceCallStatus.connected,
+          clearError:
+              status == VoiceCallStatus.connected ||
+              status == VoiceCallStatus.reconnecting,
         );
       }
       final screenShareEnded =
@@ -4785,6 +4798,22 @@ final class VoiceController extends ChangeNotifier {
         updated = updated.copyWith(screenSharing: false);
       }
       _call = updated;
+      if (view.connectionFailure case final WriteException error
+          when updated.status == VoiceCallStatus.failed &&
+              error.statusCode == HttpStatus.gone) {
+        // The instance ended, so teardown must not leave a failed call owning
+        // capture or send a leave against a replacement instance. The room's
+        // existing error surface explains why the user needs to rejoin.
+        _errors[call.siteUrl] = error.message;
+        _observe(
+          () => _leave(
+            notifyServer: false,
+            reason: _VoiceLeaveReason.sessionExpired,
+          ),
+          'voice.reconnect.instanceEnded',
+        );
+        return;
+      }
       // A heartbeat that fires while the call is away from connected declines
       // to reschedule itself, so a recovered connection must restart the chain
       // or server presence expires and the roster prunes the local user.

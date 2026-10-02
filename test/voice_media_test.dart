@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
 import 'package:discourse_native/src/plugins/voice/voice_livekit_endpoint.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
@@ -3253,6 +3254,167 @@ void main() {
   });
 
   group('LiveKitVoiceMediaSession', () {
+    test(
+      'retains a capacity refusal after the ladder and recovers later',
+      () async {
+        const refusal = WriteException(
+          WriteFailure.validation,
+          statusCode: 422,
+          errors: ['This room is full.'],
+        );
+        var full = true;
+        var refreshes = 0;
+        final adapter = _FakeLiveKitRoomAdapter();
+        final media = _liveKitSession(
+          adapter,
+          refreshCredentials: () async {
+            refreshes++;
+            if (full) throw refusal;
+            return const VoiceLiveKitCredentials(
+              url: 'wss://localhost:3000',
+              token: 'recovered-token',
+            );
+          },
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        final failed = Completer<void>();
+        final recovered = Completer<void>();
+        final failures = <Object?>[];
+        media.addListener(() {
+          if (media.connectionState == VoiceMediaConnectionState.failed) {
+            failures.add(media.connectionFailure);
+            if (!failed.isCompleted) failed.complete();
+          }
+          if (!full &&
+              media.connectionState == VoiceMediaConnectionState.connected &&
+              !recovered.isCompleted) {
+            recovered.complete();
+          }
+        });
+
+        adapter.onDisconnected!();
+        await pumpEventQueue();
+        expect(refreshes, 1);
+        expect(media.connectionState, VoiceMediaConnectionState.reconnecting);
+        expect(media.connectionFailure, isNull);
+        await failed.future.timeout(const Duration(seconds: 10));
+        await pumpEventQueue();
+        expect(refreshes, 4);
+        expect(media.connectionState, VoiceMediaConnectionState.failed);
+        expect(media.connectionFailure, same(refusal));
+        expect(failures, hasLength(1));
+        expect(failures.single, same(refusal));
+        expect(adapter.calls.where((call) => call == 'connect'), hasLength(1));
+
+        full = false;
+        adapter.onDisconnected!();
+        expect(media.connectionState, VoiceMediaConnectionState.reconnecting);
+        expect(media.connectionFailure, isNull);
+        await recovered.future.timeout(const Duration(seconds: 1));
+        expect(refreshes, 5);
+        expect(media.connectionState, VoiceMediaConnectionState.connected);
+        expect(media.connectionFailure, isNull);
+        expect(adapter.token, 'recovered-token');
+      },
+    );
+
+    for (final status in [422, 429, 503]) {
+      test('retries token refusal $status and clears it on recovery', () async {
+        var refreshes = 0;
+        final adapter = _FakeLiveKitRoomAdapter();
+        final media = _liveKitSession(
+          adapter,
+          refreshCredentials: () async {
+            if (++refreshes == 1) {
+              throw WriteException(
+                WriteFailure.validation,
+                statusCode: status,
+                errors: ['A server-provided reason.'],
+              );
+            }
+            return const VoiceLiveKitCredentials(
+              url: 'wss://localhost:3000',
+              token: 'recovered-token',
+            );
+          },
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        final recovered = Completer<void>();
+        media.addListener(() {
+          if (media.connectionState == VoiceMediaConnectionState.connected &&
+              !recovered.isCompleted) {
+            recovered.complete();
+          }
+        });
+        adapter.onDisconnected!();
+        await pumpEventQueue();
+        expect(refreshes, 1);
+        expect(media.connectionState, VoiceMediaConnectionState.reconnecting);
+        await recovered.future.timeout(const Duration(seconds: 3));
+        expect(refreshes, 2);
+        expect(media.connectionState, VoiceMediaConnectionState.connected);
+        expect(media.connectionFailure, isNull);
+        expect(adapter.token, 'recovered-token');
+      });
+    }
+
+    test('stops the token ladder for an ended instance', () async {
+      const refusal = WriteException(
+        WriteFailure.validation,
+        statusCode: 410,
+        errors: ['This call has ended. Rejoin the room to start a new one.'],
+      );
+      var refreshes = 0;
+      final adapter = _FakeLiveKitRoomAdapter();
+      final media = _liveKitSession(
+        adapter,
+        refreshCredentials: () async {
+          refreshes++;
+          throw refusal;
+        },
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      adapter.onDisconnected!();
+      await pumpEventQueue();
+      expect(media.connectionState, VoiceMediaConnectionState.failed);
+      expect(media.connectionFailure, same(refusal));
+      expect(refreshes, 1);
+      expect(adapter.calls.where((call) => call == 'connect'), hasLength(1));
+    });
+
+    test('disposal suppresses a late token refusal', () async {
+      final pending = Completer<VoiceLiveKitCredentials>();
+      final started = Completer<void>();
+      final adapter = _FakeLiveKitRoomAdapter();
+      final media = _liveKitSession(
+        adapter,
+        refreshCredentials: () {
+          started.complete();
+          return pending.future;
+        },
+      );
+      await media.connect();
+      final states = <VoiceMediaConnectionState>[];
+      media.addListener(() => states.add(media.connectionState));
+      adapter.onDisconnected!();
+      await started.future;
+      await media.dispose();
+      pending.completeError(
+        const WriteException(
+          WriteFailure.validation,
+          statusCode: 422,
+          errors: ['This room is full.'],
+        ),
+      );
+      await pumpEventQueue();
+      expect(states, [VoiceMediaConnectionState.reconnecting]);
+      expect(media.connectionFailure, isNull);
+      expect(adapter.calls.where((call) => call == 'connect'), hasLength(1));
+    });
+
     for (final scheme in ['ws', 'http']) {
       for (final host in [
         '0127.0.0.1',
@@ -3649,12 +3811,13 @@ void main() {
     );
 
     test('exhaustion becomes failed without leaking attempt errors', () async {
+      final failure = StateError('still offline');
       var attempts = 0;
       final states = <VoiceMediaConnectionState>[];
       final coordinator = VoiceReconnectCoordinator(
         attempt: () async {
           attempts++;
-          throw StateError('still offline');
+          throw failure;
         },
         onStateChanged: states.add,
         schedule: const [Duration.zero, Duration.zero, Duration.zero],
@@ -3664,6 +3827,7 @@ void main() {
 
       expect(attempts, 3);
       expect(coordinator.connectionState, VoiceMediaConnectionState.failed);
+      expect(coordinator.failure, same(failure));
       expect(states, [
         VoiceMediaConnectionState.reconnecting,
         VoiceMediaConnectionState.failed,
@@ -3748,6 +3912,27 @@ void main() {
       );
     });
 
+    test('cancel suppresses a failure from an in-flight attempt', () async {
+      final started = Completer<void>();
+      final pending = Completer<void>();
+      final states = <VoiceMediaConnectionState>[];
+      final coordinator = VoiceReconnectCoordinator(
+        attempt: () {
+          started.complete();
+          return pending.future;
+        },
+        onStateChanged: states.add,
+        schedule: const [Duration.zero],
+      );
+      final reconnect = coordinator.reconnect();
+      await started.future;
+      coordinator.cancel();
+      pending.completeError(StateError('late refusal'));
+      await reconnect;
+      expect(states, [VoiceMediaConnectionState.reconnecting]);
+      expect(coordinator.failure, isNull);
+    });
+
     test('cancel suppresses success from an in-flight attempt', () async {
       final attemptStarted = Completer<void>();
       final finishAttempt = Completer<void>();
@@ -3817,6 +4002,7 @@ LiveKitVoiceMediaSession _liveKitSession(
   Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
   createCameraTrack,
   VoiceTrackVolumeSetter? setTrackVolume,
+  VoiceLiveKitCredentialRefresher? refreshCredentials,
 }) => LiveKitVoiceMediaSession(
   join: VoiceJoinResponse(
     transport: VoiceTransport.livekit,
@@ -3840,10 +4026,12 @@ LiveKitVoiceMediaSession _liveKitSession(
   ),
   localUserId: 10,
   audioPublishingAllowed: false,
-  refreshCredentials: () async => const VoiceLiveKitCredentials(
-    url: 'wss://localhost:3000',
-    token: 'refreshed-local-test-token',
-  ),
+  refreshCredentials:
+      refreshCredentials ??
+      () async => const VoiceLiveKitCredentials(
+        url: 'wss://localhost:3000',
+        token: 'refreshed-local-test-token',
+      ),
   roomAdapter: adapter,
   createCameraTrack: createCameraTrack,
   setTrackVolume: setTrackVolume,

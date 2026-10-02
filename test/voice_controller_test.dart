@@ -192,6 +192,8 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   VoiceMediaConnectionState connectionState =
       VoiceMediaConnectionState.connected;
+  @override
+  Object? connectionFailure;
   int connectCount = 0;
   int disposeCount = 0;
   bool muted = false;
@@ -3105,6 +3107,155 @@ void main() {
         },
       );
     }
+  });
+
+  group('media reconnect failures', () {
+    for (final failureCase in [
+      (
+        failure: const WriteException(
+          WriteFailure.validation,
+          statusCode: 422,
+          errors: ['This room is full.'],
+        ),
+        message: 'This room is full.',
+      ),
+      (
+        failure: const WriteException(
+          WriteFailure.validation,
+          statusCode: 422,
+          errors: ['A different refusal.', 'Please try again.'],
+        ),
+        message: 'A different refusal.\nPlease try again.',
+      ),
+      (
+        failure: const WriteException(WriteFailure.validation, statusCode: 422),
+        message: "That wasn't accepted.",
+      ),
+      (
+        failure: StateError('private SDK detail'),
+        message: 'The media connection could not be restored.',
+      ),
+    ]) {
+      test(
+        'surfaces ${failureCase.message} and clears it on recovery',
+        () async {
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          final media = mediaFactory.sessions.single;
+          media.connectionState = VoiceMediaConnectionState.reconnecting;
+          media.notifyListeners();
+          media.connectionFailure = failureCase.failure;
+          media.connectionState = VoiceMediaConnectionState.failed;
+          media.notifyListeners();
+          expect(controller.call?.status, VoiceCallStatus.failed);
+          expect(controller.call?.error, failureCase.message);
+          expect(media.disposeCount, 0);
+
+          media.connectionFailure = null;
+          media.connectionState = VoiceMediaConnectionState.reconnecting;
+          media.notifyListeners();
+          expect(controller.call?.error, isNull);
+          media.connectionState = VoiceMediaConnectionState.connected;
+          media.notifyListeners();
+          expect(controller.call?.status, VoiceCallStatus.connected);
+          expect(controller.call?.error, isNull);
+        },
+      );
+    }
+
+    test(
+      'an ended instance tears down locally and allows a new join',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        const message =
+            'This call has ended. Rejoin the room to start a new one.';
+        media.connectionFailure = const WriteException(
+          WriteFailure.validation,
+          statusCode: 410,
+          errors: [message],
+        );
+        media.connectionState = VoiceMediaConnectionState.failed;
+        media.notifyListeners();
+        await pumpEventQueue();
+        expect(controller.call, isNull);
+        expect(controller.errorFor(firstSite), message);
+        expect(media.disposeCount, 1);
+        expect(systemCall.ends, 1);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          isEmpty,
+        );
+
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.errorFor(firstSite), isNull);
+        expect(controller.call?.media, isNot(same(media)));
+      },
+    );
+
+    test(
+      'a refused token keeps its cause and session until refresh recovers',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_livekit',
+        );
+        const refusal = WriteException(
+          WriteFailure.validation,
+          statusCode: 422,
+          errors: ['This room is full.'],
+        );
+        transport.responders['POST /voice/rooms/7/livekit_token.json'] = (_) =>
+            throw refusal;
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        await expectLater(
+          media.refreshLiveKitCredentials(),
+          throwsA(same(refusal)),
+        );
+        await controller.setMuted(true);
+        final stateBeforeRecovery = transport.writes.lastWhere(
+          (write) => write.path.endsWith('/state.json'),
+        );
+        expect(
+          stateBeforeRecovery.body['participant_session_id'],
+          fixture('join_livekit')['participant_session_id'],
+        );
+
+        transport.responders.remove('POST /voice/rooms/7/livekit_token.json');
+        transport.responses['POST /voice/rooms/7/livekit_token.json'] = {
+          ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+          'participant_session_id': 'recovered-session',
+        };
+        await media.refreshLiveKitCredentials();
+        await controller.setMuted(false);
+        final stateAfterRecovery = transport.writes.lastWhere(
+          (write) => write.path.endsWith('/state.json'),
+        );
+        expect(
+          stateAfterRecovery.body['participant_session_id'],
+          'recovered-session',
+        );
+      },
+    );
   });
 
   group('participant session propagation', () {
