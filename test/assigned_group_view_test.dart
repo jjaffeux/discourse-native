@@ -1,18 +1,15 @@
 import 'dart:async';
 import 'dart:ui' show Tristate;
 
-import 'package:discourse_native/discourse_plugin_test.dart'
-    show PluginTestRequestHost;
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/models/topic_feed.dart';
+import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_api.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_controller.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_presentation.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_view.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +26,166 @@ const _topic = Topic(
 );
 
 void main() {
+  for (final (width, platform) in [
+    (390.0, TargetPlatform.android),
+    (1200.0, TargetPlatform.macOS),
+  ]) {
+    testWidgets('production Assigned tab fills initial loading at $width', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var response = Completer<Map<String, dynamic>>();
+      const topicsPath = '/topics/group-topics-assigned/support.json?';
+      final transport = RecordingPluginTransport(
+        responses: const {
+          'GET /assign/members/support.json?offset=0&limit=50': {
+            'members': <Object?>[],
+          },
+        },
+        responders: {'GET $topicsPath': (_) => response.future},
+      );
+      final host = await PluginHostHarness.open(
+        transport: transport,
+        manifest: const PluginManifest([assignModule]),
+        sites: const [
+          PluginHostSite(
+            url: _siteUrl,
+            apiKey: 'api-key',
+            user: PluginHostUser(username: 'sam', id: 1),
+          ),
+        ],
+      );
+      addTearDown(host.close);
+      await tester.pumpWidget(
+        host.scope(
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  final registry = PluginScope.of(context).registry;
+                  final group = PluginGroupContext(
+                    siteUrl: _siteUrl,
+                    route: GroupRoute.plugin(
+                      groupName: 'support',
+                      owner: 'discourse-assign',
+                      section: 'assigned',
+                      subsection: 'everyone',
+                    ),
+                    groupName: 'support',
+                    canSeeMembers: true,
+                    groupData: registry.readGroup(const {
+                      'assignable_level': 1,
+                      'can_show_assigned_tab': true,
+                    }, _siteUrl),
+                    currentUserData: registry.readCurrentUser(const {
+                      'can_assign_globally': true,
+                    }, _siteUrl),
+                  );
+                  expect(
+                    registry.ownedGroupTabs(group).single.tab.label,
+                    'Assigned',
+                  );
+                  return registry.groupContent(context, group)!;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        transport.reads.where((request) => request.path == topicsPath),
+        hasLength(1),
+        reason: '${transport.reads.map((r) => r.path).toList()}',
+      );
+      expect(find.byType(AssignedGroupView), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(DSkeletonRegion)).height,
+        greaterThan(650),
+      );
+      expect(find.byType(DItem), findsWidgets);
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('topic-list-loading-skeleton-content')),
+            )
+            .height,
+        greaterThanOrEqualTo(
+          tester.getSize(find.byType(DSkeletonRegion)).height,
+        ),
+      );
+      expect(find.byType(Scrollable), findsOneWidget);
+      expect(
+        tester
+            .state<ScrollableState>(find.byType(Scrollable))
+            .position
+            .maxScrollExtent,
+        0,
+      );
+      expect(
+        find.text('No active assignments match this filter.'),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+
+      response.completeError(StateError('Offline'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.byType(DAlert), findsOneWidget);
+      response = Completer<Map<String, dynamic>>();
+      await tester.tap(find.text('Try again'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        transport.reads.where((request) => request.path == topicsPath),
+        hasLength(2),
+      );
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      response.complete({
+        'topic_list': {
+          'topics': [
+            {'id': 42, 'title': _topic.title, 'slug': _topic.slug},
+          ],
+        },
+      });
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.text(_topic.title), findsOneWidget);
+      expect(find.byType(DAlert), findsNothing);
+
+      response = Completer<Map<String, dynamic>>();
+      final refresh = tester
+          .widget<AssignedGroupPresentationView>(
+            find.byType(AssignedGroupPresentationView),
+          )
+          .onRefresh();
+      await tester.pumpAndSettle();
+      expect(
+        transport.reads.where((request) => request.path == topicsPath),
+        hasLength(3),
+      );
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.text(_topic.title), findsOneWidget);
+      response.complete(const {
+        'topic_list': {'topics': <Object?>[]},
+      });
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(
+        find.text('No active assignments match this filter.'),
+        findsOneWidget,
+      );
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await host.close();
+    });
+  }
+
   group('AssignedGroupPresentationController', () {
     test('projects domain state and delegates route actions', () async {
       final api = _RecordingAssignedGroupApi();
