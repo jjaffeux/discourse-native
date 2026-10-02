@@ -97,7 +97,8 @@ class InlineTopicTitleEditor extends StatefulWidget {
 
   final String title;
   final String siteUrl;
-  final Future<String?> Function(String title) onSave;
+  final Future<String?> Function(String title, {required String originalTitle})
+  onSave;
   final TextStyle? style;
   final int maxLines;
   final bool showEditingFrame;
@@ -115,6 +116,9 @@ class InlineTopicTitleEditor extends StatefulWidget {
 class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   late _TopicTitleEditingController _controller;
   late String _savedTitle;
+  // Live titles remain available for cancel/no-op without replacing the
+  // conflict baseline of a draft that began before the refresh.
+  String? _originalTitle;
   final FocusNode _focus = FocusNode(debugLabel: 'topic title editor');
   bool _saving = false;
   bool _editing = false;
@@ -151,6 +155,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       _catalogRequestSite = null;
       final oldController = _controller;
       _savedTitle = widget.title;
+      _originalTitle = null;
       _controller = _newController();
       oldController.dispose();
       _ensureEmojiCatalog();
@@ -197,6 +202,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
 
   void _focusChanged() {
     if (!mounted) return;
+    if (_focus.hasFocus) _originalTitle ??= _savedTitle;
     setState(() {});
     if (widget.showEditingFrame) {
       if (_focus.hasFocus) {
@@ -223,17 +229,20 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   Future<bool> _save() async {
     if (_saving) return false;
     final title = _controller.text.trim();
-    if (title == _savedTitle.trim()) {
+    final originalTitle = _originalTitle ?? _savedTitle;
+    if (title == originalTitle.trim() || title == _savedTitle.trim()) {
       if (_controller.text != _savedTitle) _replaceText(_savedTitle);
+      _originalTitle = null;
       return true;
     }
 
     setState(() => _saving = true);
     widget.onEditingChanged?.call(true);
-    final error = await widget.onSave(title);
+    final error = await widget.onSave(title, originalTitle: originalTitle);
     if (!mounted) return false;
     if (error == null) {
       _savedTitle = title;
+      _originalTitle = null;
       if (_controller.text != title) _replaceText(title);
       setState(() => _saving = false);
       if (!widget.showEditingFrame) {
@@ -253,6 +262,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   void _cancel() {
     if (_saving) return;
     _skipBlurSave = true;
+    _originalTitle = null;
     _replaceText(_savedTitle);
     _focus.unfocus();
     if (widget.showEditingFrame) _finishFramedEditing();
@@ -260,6 +270,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
 
   void _beginFramedEditing() {
     _skipBlurSave = false;
+    _originalTitle = _savedTitle;
     setState(() => _editing = true);
     widget.onEditingChanged?.call(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {

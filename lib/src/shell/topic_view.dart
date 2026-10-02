@@ -3364,11 +3364,13 @@ class _TopicViewHeader extends StatelessWidget {
                             title: title,
                             siteUrl: siteUrl,
                             style: titleStyle,
-                            onSave: (title) => controller.saveTopicTitle(
-                              siteUrl: siteUrl,
-                              topicId: topic!.id,
-                              title: title,
-                            ),
+                            onSave: (title, {required originalTitle}) =>
+                                controller.saveTopicTitle(
+                                  siteUrl: siteUrl,
+                                  topicId: topic!.id,
+                                  title: title,
+                                  originalTitle: originalTitle,
+                                ),
                           )
                         : DTooltip(
                             message: title,

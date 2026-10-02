@@ -547,7 +547,7 @@ class _TestEditor extends StatelessWidget {
                 title: title,
                 siteUrl: 'https://meta.example',
                 style: style,
-                onSave: onSave,
+                onSave: (title, {required originalTitle}) => onSave(title),
                 maxLines: maxLines,
                 showEditingFrame: showEditingFrame,
                 autofocus: autofocus,

@@ -11080,6 +11080,7 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     required String title,
+    String? originalTitle,
   }) async {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
     if (detail?.canEdit != true) {
@@ -11101,7 +11102,7 @@ class ShellController extends FrameSafeNotifier
         apiKey: credential.apiKey!,
         topicId: topicId,
         title: nextTitle,
-        originalTitle: detail.title,
+        originalTitle: originalTitle ?? detail.title,
       );
     } on WriteException catch (error) {
       return error.message;

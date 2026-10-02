@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_inbox_header.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -38,6 +40,146 @@ const _row = Topic(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final inbox in [false, true]) {
+    testWidgets(
+      'a live refresh keeps the $inbox header draft and its opening title conflict baseline',
+      (tester) async {
+        final server = _TopicServer();
+        final api = _RefreshTopicApi(server);
+        final shell = await _fixture(server, api: api, inbox: inbox);
+        await _pumpReader(tester, shell);
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        await tester.enterText(field, _renamed);
+        final editor = tester.state(find.byType(InlineTopicTitleEditor));
+        server.topic.addAll({
+          'title': 'Another author renamed this',
+          'category_id': _categoryB.id,
+          'tags': <Object>[],
+        });
+        await shell.loadTopic(_row.id, _row.slug, force: true);
+        await tester.pumpAndSettle();
+        expect(api.reads, 2);
+        expect(tester.state(find.byType(InlineTopicTitleEditor)), same(editor));
+        expect(tester.widget<DInput>(field).controller!.text, _renamed);
+        expect(shell.currentTopic?.title, 'Another author renamed this');
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(jsonDecode(server.requests.single.body), {
+          'title': _renamed,
+          'original_title': _row.title,
+        });
+        expect(server.topic['title'], 'Another author renamed this');
+        expect(shell.currentTopic?.title, 'Another author renamed this');
+        expect(shell.currentTopic?.categoryId, _categoryB.id);
+        expect(shell.currentTopic?.tags, isEmpty);
+        expect(tester.widget<DInput>(field).controller!.text, _renamed);
+        expect(find.text('Edit conflict'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+
+    for (final cancel in [false, true]) {
+      testWidgets(
+        '${cancel ? 'cancel' : 'an unchanged draft'} adopts a live title and starts the next $inbox header edit from it',
+        (tester) async {
+          final server = _TopicServer();
+          final shell = await _fixture(
+            server,
+            api: _RefreshTopicApi(server),
+            inbox: inbox,
+          );
+          await _pumpReader(tester, shell);
+          final field = find.byKey(const ValueKey('topic-header-title-field'));
+          await tester.tap(field);
+          await tester.pumpAndSettle();
+          if (cancel) await tester.enterText(field, _renamed);
+          server.topic.addAll({
+            'title': 'Another author renamed this',
+            'category_id': _categoryB.id,
+            'tags': <Object>[],
+          });
+          await shell.loadTopic(_row.id, _row.slug, force: true);
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(
+            cancel ? LogicalKeyboardKey.escape : LogicalKeyboardKey.enter,
+          );
+          await tester.pumpAndSettle();
+          expect(server.requests, isEmpty);
+          expect(
+            tester.widget<DInput>(field).controller!.text,
+            'Another author renamed this',
+          );
+
+          await tester.tap(field);
+          await tester.pumpAndSettle();
+          await tester.enterText(field, _renamed);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(jsonDecode(server.requests.single.body), {
+            'title': _renamed,
+            'original_title': 'Another author renamed this',
+          });
+          expect(server.topic['title'], _renamed);
+          expect(shell.currentTopic?.title, _renamed);
+          expect(shell.currentTopic?.categoryId, _categoryB.id);
+          expect(shell.currentTopic?.tags, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+          TargetPlatform.macOS,
+        }),
+      );
+    }
+
+    testWidgets(
+      'the $inbox header uses a server-cleaned title for its next edit baseline',
+      (tester) async {
+        final server = _TopicServer(cleanTitle: _prettify);
+        final shell = await _fixture(
+          server,
+          api: _RefreshTopicApi(server),
+          inbox: inbox,
+        );
+        await _pumpReader(tester, shell);
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        await tester.enterText(field, 'a clearer topic title!!!');
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        const cleaned = 'A clearer topic title!';
+        expect(shell.currentTopic?.title, cleaned);
+        expect(tester.widget<DInput>(field).controller!.text, cleaned);
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        await tester.enterText(field, _renamed);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(jsonDecode(server.requests.last.body), {
+          'title': _renamed,
+          'original_title': cleaned,
+        });
+        expect(shell.currentTopic?.title, _renamed);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
 
   test('title-only save sends only title and its conflict baseline', () async {
     final server = _TopicServer();
@@ -403,16 +545,16 @@ String _prettify(String title) => title
     .replaceAll(RegExp('!+'), '!')
     .replaceFirstMapped(RegExp('^[a-z]'), (match) => match[0]!.toUpperCase());
 
-Future<ShellController> _fixture(_TopicServer server, {_TopicApi? api}) async {
+Future<ShellController> _fixture(
+  _TopicServer server, {
+  _TopicApi? api,
+  bool inbox = true,
+}) async {
   final topics = api ?? _TopicApi(server);
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.example').copyWith(
-        user: const DiscourseUser(
-          id: 7,
-          username: 'sam',
-          unifiedNewEnabled: true,
-        ),
+        user: DiscourseUser(id: 7, username: 'sam', unifiedNewEnabled: inbox),
         config: const SiteConfig(taggingEnabled: true),
       ),
     ]),
@@ -436,6 +578,62 @@ Future<ShellController> _fixture(_TopicServer server, {_TopicApi? api}) async {
   await shell.loadTopic(_row.id, _row.slug);
   shell.openTopicFromList(_row);
   return shell;
+}
+
+Future<void> _pumpReader(WidgetTester tester, ShellController shell) async {
+  final desktop = defaultTargetPlatform == TargetPlatform.macOS;
+  tester.view.physicalSize = desktop
+      ? const Size(1100, 800)
+      : const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+        builder: (context, child) => DToaster(child: child!),
+        home: Scaffold(
+          body: MainContent(
+            layout: desktop ? ShellLayout.expanded : ShellLayout.compact,
+            registry: PluginRegistry.empty,
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+final class _RefreshTopicApi extends _TopicApi {
+  _RefreshTopicApi(this.server) : super(server);
+
+  final _TopicServer server;
+  int reads = 0;
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) {
+    reads++;
+    return writes.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+  }
 }
 
 final class _TopicApi extends FakeDiscourseApi {
@@ -564,6 +762,32 @@ final class _TopicServer {
   };
 
   Future<http.Response> handle(http.Request request) async {
+    if (request.method == 'GET') {
+      expect(request.url.path, '/t/1.json');
+      return http.Response(
+        jsonEncode({
+          'id': _row.id,
+          'title': topic['title'],
+          'slug': _row.slug,
+          'category_id': topic['category_id'],
+          'tags': topic['tags'],
+          'posts_count': 1,
+          'details': {'can_edit': true, 'can_edit_tags': true},
+          'post_stream': {
+            'stream': [101],
+            'posts': [
+              {
+                'id': 101,
+                'post_number': 1,
+                'username': 'sam',
+                'cooked': '<p>Body</p>',
+              },
+            ],
+          },
+        }),
+        200,
+      );
+    }
     requests.add(request);
     expect(request.method, 'PUT');
     expect(request.url.path, isIn(['/t/1.json', '/t/1/tags.json']));
