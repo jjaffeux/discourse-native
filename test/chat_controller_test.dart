@@ -6061,6 +6061,88 @@ void main() {
   });
 
   group('editing a message', () {
+    for (final raw in ['', ' \n ']) {
+      test('can edit an upload-only message with raw "$raw"', () async {
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final held = ChatMessage(
+          id: 12,
+          channelId: 9,
+          raw: raw,
+          cooked: '',
+          author: const ChatMessageAuthor(id: 7, username: 'reader'),
+          uploads: const [
+            ChatUpload(
+              id: 31,
+              url: '/uploads/design.txt',
+              originalFilename: 'design.txt',
+              kind: ChatUploadKind.attachment,
+            ),
+          ],
+        );
+        subject.store.put(site, held);
+
+        expect(subject.chat.canEditMessage(site, held), isTrue);
+        expect(await subject.chat.editMessage(site, 12, raw), isNull);
+        expect(subject.api.chatMessagesEdited, isEmpty);
+        expect(await subject.chat.editMessage(site, 12, 'caption'), isNull);
+        expect(subject.api.chatMessagesEdited.single.message, 'caption');
+        expect(subject.api.chatMessagesEdited.single.uploadIds, [31]);
+        expect(await subject.chat.editMessage(site, 12, raw), isNull);
+        expect(subject.api.chatMessagesEdited.last.message, raw);
+        expect(subject.api.chatMessagesEdited.last.uploadIds, [31]);
+
+        expect(
+          await subject.chat.editMessage(site, 12, raw, uploads: const []),
+          'A message cannot be empty.',
+        );
+        expect(subject.api.chatMessagesEdited, hasLength(2));
+      });
+    }
+
+    for (final uploadId in <int?>[null, 0, -1]) {
+      test('blank edits require a valid upload identity ($uploadId)', () async {
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final uploads = [
+          if (uploadId != null)
+            ChatUpload(
+              id: uploadId,
+              url: '/uploads/design.txt',
+              originalFilename: 'design.txt',
+              kind: ChatUploadKind.attachment,
+            ),
+        ];
+        final held = ChatMessage(
+          id: 12,
+          channelId: 9,
+          raw: '',
+          cooked: '',
+          author: const ChatMessageAuthor(id: 7, username: 'reader'),
+          uploads: uploads,
+        );
+        subject.store.put(site, held);
+        expect(subject.chat.canEditMessage(site, held), isFalse);
+        subject.store.put(
+          site,
+          held.withPendingEdit(
+            'caption',
+            const SourceFallback(
+              'caption',
+              ChatPreviewFallbackReason.internalFailure,
+            ),
+          ),
+        );
+        expect(
+          await subject.chat.editMessage(site, 12, ' \n ', uploads: uploads),
+          'A message cannot be empty.',
+        );
+        expect(subject.api.chatMessagesEdited, isEmpty);
+      });
+    }
+
     test('projects source immediately and retains attachment IDs', () async {
       final gate = Completer<void>();
       final subject = build(currentUser: currentUser, editGate: gate);

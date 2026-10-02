@@ -2691,7 +2691,8 @@ class ChatController extends FrameSafeNotifier {
         user?.id != null &&
         user!.id == message.author.id &&
         message.id > 0 &&
-        message.raw.trim().isNotEmpty &&
+        (message.raw.trim().isNotEmpty ||
+            message.uploads.any((upload) => upload.id > 0)) &&
         !message.isOptimistic &&
         !message.isDeleted &&
         heldChannel != null &&
@@ -3433,7 +3434,6 @@ class ChatController extends FrameSafeNotifier {
     if (held == null || !canEditMessage(siteUrl, held)) {
       return appL10n.thisMessageCanNoLongerBeEdited;
     }
-    if (raw.trim().isEmpty) return appL10n.aMessageCannotBeEmpty;
     if (raw.length > ChatMessage.maximumEditLength) {
       return appL10n.messagesCanBeAtMostCharacters(
         (ChatMessage.maximumEditLength).toString(),
@@ -3446,6 +3446,9 @@ class ChatController extends FrameSafeNotifier {
       for (final upload in editedUploads)
         if (upload.id > 0) upload.id,
     ];
+    if (raw.trim().isEmpty && uploadIds.isEmpty) {
+      return appL10n.aMessageCannotBeEmpty;
+    }
     bool hasUploadIds(List<ChatUpload> candidate) => listEquals([
       for (final upload in candidate)
         if (upload.id > 0) upload.id,

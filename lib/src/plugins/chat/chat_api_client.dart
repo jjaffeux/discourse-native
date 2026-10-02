@@ -439,8 +439,12 @@ final class ChatApiClient implements ChatApi {
   }) async {
     _requirePositiveId(channelId, 'channelId');
     _requirePositiveId(messageId, 'messageId');
-    if (message.trim().isEmpty) {
+    if (message.trim().isEmpty && uploadIds.isEmpty) {
       throw ArgumentError.value(message, 'message', 'must not be blank');
+    }
+    if (uploadIds.length > ChatMessage.maximumUploadsPerMessage ||
+        uploadIds.any((id) => id <= 0)) {
+      throw ArgumentError.value(uploadIds, 'uploadIds', 'Invalid upload IDs.');
     }
     await _write(
       Uri.parse(
