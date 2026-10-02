@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
@@ -222,6 +223,7 @@ AiProofreadingController _controller({
 }
 
 Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
+  FakeDiscourseApi? apiOverride,
   Map<String, dynamic>? proofreadingResponse = const {
     'suggestions': ['This is the polished reply.'],
   },
@@ -231,26 +233,28 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
   bool privateMessage = false,
   List<DiscourseInstance> additionalInstances = const [],
 }) async {
-  final api = FakeDiscourseApi(
-    writeFailure: postingFailure,
-    user: _allowedUser,
-    feeds: const {'/latest.json': <Topic>[]},
-    topics: {
-      7: topicPayload(
-        id: 7,
-        title: 'Native writing',
-        canCreatePost: true,
-        privateMessage: privateMessage,
-      ),
-    },
-    siteConfigs: {_siteUrl: config ?? _enabledConfig},
-    pluginResponses: proofreadingResponse == null
-        ? const {}
-        : {'POST $aiProofreadingPath': proofreadingResponse},
-    pluginWriteFailures: proofreadingFailure == null
-        ? null
-        : {'POST $aiProofreadingPath': proofreadingFailure},
-  );
+  final api =
+      apiOverride ??
+      FakeDiscourseApi(
+        writeFailure: postingFailure,
+        user: _allowedUser,
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Native writing',
+            canCreatePost: true,
+            privateMessage: privateMessage,
+          ),
+        },
+        siteConfigs: {_siteUrl: config ?? _enabledConfig},
+        pluginResponses: proofreadingResponse == null
+            ? const {}
+            : {'POST $aiProofreadingPath': proofreadingResponse},
+        pluginWriteFailures: proofreadingFailure == null
+            ? null
+            : {'POST $aiProofreadingPath': proofreadingFailure},
+      );
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -321,7 +325,243 @@ Future<void> _openOptions(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+final class _RawProofreadingWireApi extends FakeDiscourseApi
+    implements PluginLongRunningWriteTransport {
+  _RawProofreadingWireApi(List<Object?> suggestions)
+    : super(
+        user: _allowedUser,
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {
+          7: topicPayload(id: 7, title: 'Native writing', canCreatePost: true),
+        },
+        siteConfigs: {_siteUrl: _enabledConfig},
+      ) {
+    wire = DiscourseApi(
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == aiProofreadingPath) {
+          return http.Response(jsonEncode({'suggestions': suggestions}), 200);
+        }
+        expect(request.url.path, '/posts.json');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'post': {
+              'id': 9001,
+              'topic_id': 7,
+              'post_number': 2,
+              'username': 'reader',
+              'raw': body['raw'],
+              'cooked': '<p>Posted reply</p>',
+            },
+          }),
+          200,
+        );
+      }),
+    );
+    addTearDown(wire.close);
+  }
+  late final DiscourseApi wire;
+  final requests = <http.Request>[];
+
+  @override
+  Future<Map<String, dynamic>> pluginLongRunningWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    required Duration requestTimeout,
+    String? clientId,
+  }) => wire.pluginLongRunningWriteJson(
+    siteUrl: siteUrl,
+    path: path,
+    method: method,
+    apiKey: apiKey,
+    body: body,
+    requestTimeout: requestTimeout,
+    clientId: clientId,
+  );
+
+  @override
+  Future<PostCreation> createPost({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required String raw,
+    required Duration typingDuration,
+    required Duration composerOpenDuration,
+    int? replyToPostNumber,
+    bool whisper = false,
+    String? draftKey,
+    String? clientId,
+  }) => wire.createPost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    raw: raw,
+    typingDuration: typingDuration,
+    composerOpenDuration: composerOpenDuration,
+    replyToPostNumber: replyToPostNumber,
+    whisper: whisper,
+    draftKey: draftKey,
+    clientId: clientId,
+  );
+}
+
 void main() {
+  const markdown = '    code\n\ntext  \nnext\n';
+  const original = 'Original reply before proofreading.';
+  for (final scenario in [
+    (
+      label: 'unchanged raw Markdown',
+      source: markdown,
+      suggestions: <Object?>[markdown],
+      expected: markdown,
+    ),
+    (
+      label: 'changed raw Markdown',
+      source: original,
+      suggestions: <Object?>[markdown],
+      expected: markdown,
+    ),
+    (
+      label: 'non-text and blank candidates before raw Markdown',
+      source: original,
+      suggestions: <Object?>[
+        null,
+        17,
+        true,
+        {'text': 'wrong type'},
+        ' \t\n',
+        markdown,
+      ],
+      expected: markdown,
+    ),
+    (
+      label: 'blank response fallback',
+      source: markdown,
+      suggestions: <Object?>[' \t\n'],
+      expected: markdown,
+    ),
+    (
+      label: 'non-text response fallback',
+      source: markdown,
+      suggestions: <Object?>[
+        null,
+        17,
+        true,
+        {'text': 'wrong type'},
+      ],
+      expected: markdown,
+    ),
+  ]) {
+    testWidgets(
+      'Native enabled proofreading preserves ${scenario.label} through post HTTP',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final api = _RawProofreadingWireApi(scenario.suggestions);
+        final fixture = await _openReply(apiOverride: api);
+        addTearDown(fixture.shell.dispose);
+        await _pumpComposer(tester, fixture.shell, submissionFeedback: true);
+        await tester.pump();
+        final composer = fixture.shell.visibleComposer!;
+        final input = find
+            .descendant(
+              of: find.byType(ComposerPanel),
+              matching: find.byType(EditableText),
+            )
+            .first;
+        await tester.enterText(input, scenario.source);
+        await _openOptions(tester);
+        final proofread = find.byKey(
+          const ValueKey('composer-proofread-control'),
+        );
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(proofread).checked,
+          isFalse,
+        );
+        await tester.tap(proofread);
+        await tester.pump();
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(proofread).checked,
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(const ValueKey('composer-submit')));
+          await pumpEventQueue();
+        });
+        await tester.pumpAndSettle();
+        expect(api.requests, hasLength(2));
+        expect(
+          api.requests.every((request) => request.method == 'POST'),
+          isTrue,
+        );
+        expect(
+          api.requests.every(
+            (request) => request.headers['User-Api-Key'] == 'api-key',
+          ),
+          isTrue,
+        );
+        final helperBody =
+            jsonDecode(api.requests.first.body) as Map<String, dynamic>;
+        expect(helperBody, {'text': scenario.source, 'mode': 'proofread'});
+        final postBody =
+            jsonDecode(api.requests.last.body) as Map<String, dynamic>;
+        // The existing post serializer trims the document's trailing whitespace.
+        // Preserve the helper's code indentation and internal hard-break spaces.
+        expect(postBody['raw'], scenario.expected.trimRight());
+        expect(postBody['topic_id'], 7);
+        expect(composer.error, isNull);
+        expect(fixture.shell.visibleComposer, isNull);
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
+
+  test('AI response decoder preserves exact nonblank Markdown', () async {
+    final api = _RawProofreadingWireApi([null, ' \t\n', markdown]);
+    expect(
+      await AiProofreadingApi(
+        api.wire,
+      ).proofread(siteUrl: _siteUrl, apiKey: 'api-key', text: markdown),
+      markdown,
+    );
+  });
+
+  test(
+    'unchanged raw proofreading leaves the editor value and changed flag intact',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final api = _RawProofreadingWireApi([markdown]);
+      final controller = _controller(api: api.wire);
+      final composer = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      composer.text.value = const TextEditingValue(
+        text: markdown,
+        selection: TextSelection.collapsed(offset: 8),
+      );
+      final value = composer.value;
+      controller.setEnabled(composer, true);
+      final result = await controller.prepareComposerSubmit(composer);
+      expect(result.changed, isFalse);
+      expect(result.notice, isNull);
+      expect(result.failure, isNull);
+      expect(composer.value, value);
+      expect(api.requests, hasLength(1));
+    },
+  );
+
   for (final remove in [false, true]) {
     testWidgets(
       'queued Proofread choices ${remove ? 'stay forgotten after forum removal' : 'survive a normal reconnect'}',
