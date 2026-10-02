@@ -122,14 +122,8 @@ class VoiceParticipant {
 
   bool get isAgent => externalAgent || id < 0;
 
-  String avatarUrl(String siteUrl, {int size = 96}) {
-    final template = avatarTemplate;
-    if (template == null) return '';
-    final path = template.replaceAll('{size}', '$size');
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    if (path.startsWith('//')) return 'https:$path';
-    return '$siteUrl${path.startsWith('/') ? '' : '/'}$path';
-  }
+  String avatarUrl(String siteUrl, {int size = 96}) =>
+      resolveAvatarUrl(avatarTemplate, siteUrl, size: size) ?? '';
 }
 
 @immutable
