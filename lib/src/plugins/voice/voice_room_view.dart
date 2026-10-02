@@ -1191,15 +1191,21 @@ Future<void> _showVoiceInvite(
   required String siteUrl,
   required VoiceRoom room,
   required String? inviteLink,
-}) => showDialog<void>(
-  context: context,
-  builder: (context) => _VoiceInviteDialog(
-    controller: controller,
-    siteUrl: siteUrl,
-    room: room,
-    inviteLink: inviteLink,
-  ),
-);
+}) {
+  final ownsAccount = controller.captureSiteSession(siteUrl);
+  return showDDialog<void>(
+    context: context,
+    useRootNavigator: true,
+    builder: (context, dialog) => _VoiceInviteDialog(
+      controller: controller,
+      siteUrl: siteUrl,
+      room: room,
+      inviteLink: inviteLink,
+      ownsAccount: ownsAccount,
+      dialog: dialog,
+    ),
+  );
+}
 
 class _VoiceInviteDialog extends StatefulWidget {
   const _VoiceInviteDialog({
@@ -1207,12 +1213,16 @@ class _VoiceInviteDialog extends StatefulWidget {
     required this.siteUrl,
     required this.room,
     required this.inviteLink,
+    required this.ownsAccount,
+    required this.dialog,
   });
 
   final VoiceController controller;
   final String siteUrl;
   final VoiceRoom room;
   final String? inviteLink;
+  final bool Function() ownsAccount;
+  final DDialogController<void> dialog;
 
   @override
   State<_VoiceInviteDialog> createState() => _VoiceInviteDialogState();
@@ -1231,11 +1241,14 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
   }
 
   Future<void> _loadSuggestions() async {
+    if (!widget.ownsAccount()) return;
     final suggestions = await widget.controller.inviteSuggestions(
       widget.siteUrl,
       widget.room.id,
     );
-    if (mounted) setState(() => _suggestions = suggestions);
+    if (mounted && widget.ownsAccount()) {
+      setState(() => _suggestions = suggestions);
+    }
   }
 
   /// Whether the invite went through: false when it was refused, and when
@@ -1245,7 +1258,9 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       for (final name in usernames)
         if (name.trim().isNotEmpty) name.trim().replaceFirst('@', ''),
     ];
-    if (names.isEmpty || _sending) return false;
+    if (!mounted || !widget.ownsAccount() || names.isEmpty || _sending) {
+      return false;
+    }
     setState(() => _sending = true);
     try {
       final result = await widget.controller.invite(
@@ -1253,7 +1268,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
         widget.room.id,
         names,
       );
-      if (!mounted) return true;
+      if (!mounted || !widget.ownsAccount()) return false;
       setState(() => _invited.addAll(result.invitedUsernames));
       if (result.invitedUsernames.isNotEmpty) {
         final count = result.invitedUsernames.length;
@@ -1277,7 +1292,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       }
       return true;
     } catch (error) {
-      if (!mounted) return false;
+      if (!mounted || !widget.ownsAccount()) return false;
       DToast.show(
         context,
         error is WriteException ? error.message : appL10n.couldnTSendTheInvite,
@@ -1307,11 +1322,19 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
   Widget build(BuildContext context) {
     final suggestions = _suggestions;
     final link = widget.inviteLink;
-    return AlertDialog(
-      title: Text(context.l10n.inviteTo((widget.room.name).toString())),
-      content: SizedBox(
-        width: 460,
-        child: SingleChildScrollView(
+    final available = widget.ownsAccount() && !_sending;
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: 520,
+      semanticLabel: context.l10n.inviteTo(widget.room.name),
+      children: [
+        DDialogHeader(
+          children: [
+            DDialogTitle(child: Text(context.l10n.inviteTo(widget.room.name))),
+          ],
+        ),
+        DDialogScrollArea(
+          maxHeightFactor: .65,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1319,22 +1342,17 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    child: DInput(
                       controller: _username,
                       autofocus: true,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.inviteByName,
-                        hintText: context.l10n.usernameLowercase,
-                      ),
-                      onSubmitted: (_) {
-                        if (!_sending) unawaited(_inviteTyped());
-                      },
+                      labelText: context.l10n.inviteByName,
+                      hintText: context.l10n.usernameLowercase,
+                      onSubmitted: (_) => unawaited(_inviteTyped()),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: DSpacing.sm),
                   DButton(
-                    onPressed: _sending ? null : _inviteTyped,
+                    onPressed: available ? _inviteTyped : null,
                     icon: const DIcon(DIcons.paperPlane),
                     label: Text(context.l10n.sendInvite),
                     variant: DButtonVariant.primary,
@@ -1342,61 +1360,68 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                   ),
                 ],
               ),
-              if (suggestions == null)
-                const SizedBox.shrink()
-              else if (suggestions.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  context.l10n.peopleYouVeSharedThisRoomWith,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+              if (suggestions != null && suggestions.isNotEmpty) ...[
+                const SizedBox(height: DSpacing.lg),
+                Text(context.l10n.peopleYouVeSharedThisRoomWith),
                 for (final suggestion in suggestions)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: DAvatar.frame(
-                      child: SizedBox.square(
-                        dimension: 36,
-                        child: AvatarImage(
-                          url: suggestion.user.avatarUrl(
-                            widget.siteUrl,
-                            size: 72,
-                          ),
-                          size: 36,
-                          fallback: ColoredBox(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHigh,
+                  DItem(
+                    children: [
+                      DItemMedia(
+                        variant: DItemMediaVariant.avatar,
+                        child: DAvatar.frame(
+                          child: SizedBox.square(
+                            dimension: 36,
+                            child: AvatarImage(
+                              url: suggestion.user.avatarUrl(
+                                widget.siteUrl,
+                                size: 72,
+                              ),
+                              size: 36,
+                              fallback: ColoredBox(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHigh,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    title: Text(suggestion.user.username),
-                    subtitle: Text(
-                      context.l10n.togetherRecently(
-                        (_timeTogether(suggestion.totalSeconds)).toString(),
-                      ),
-                    ),
-                    trailing: _invited.contains(suggestion.user.username)
-                        ? Text(context.l10n.invited)
-                        : DButton(
-                            onPressed: _sending
-                                ? null
-                                : () => _invite([suggestion.user.username]),
-                            label: Text(context.l10n.invite),
+                      DItemContent(
+                        children: [
+                          DItemTitle(child: Text(suggestion.user.username)),
+                          DItemDescription(
+                            child: Text(
+                              context.l10n.togetherRecently(
+                                _timeTogether(suggestion.totalSeconds),
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                      DItemActions(
+                        children: [
+                          if (_invited.contains(suggestion.user.username))
+                            Text(context.l10n.invited)
+                          else
+                            DButton(
+                              onPressed: available
+                                  ? () => _invite([suggestion.user.username])
+                                  : null,
+                              label: Text(context.l10n.invite),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
               ],
               if (link != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  context.l10n.orShareAnInviteLink,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DSpacing.lg),
+                Text(context.l10n.orShareAnInviteLink),
+                const SizedBox(height: DSpacing.xs),
                 Row(
                   children: [
                     Expanded(child: SelectableText(link)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: DSpacing.sm),
                     DButton(
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: link));
@@ -1417,11 +1442,13 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
             ],
           ),
         ),
-      ),
-      actions: [
-        DButton(
-          onPressed: () => Navigator.pop(context),
-          label: Text(context.l10n.done),
+        DDialogFooter(
+          children: [
+            DButton(
+              onPressed: widget.dialog.close,
+              label: Text(context.l10n.done),
+            ),
+          ],
         ),
       ],
     );
@@ -2039,8 +2066,9 @@ Future<void> _showVoiceMembers(
   required String siteUrl,
   required VoiceRoom room,
 }) async {
+  final ownsAccount = controller.captureSiteSession(siteUrl);
   final memberships = await controller.memberships(siteUrl, room.id);
-  if (!context.mounted) return;
+  if (!context.mounted || !ownsAccount()) return;
   if (memberships == null) {
     DToast.show(
       context,
@@ -2049,13 +2077,16 @@ Future<void> _showVoiceMembers(
     );
     return;
   }
-  await showDialog<void>(
+  await showDDialog<void>(
     context: context,
-    builder: (context) => _VoiceMembersDialog(
+    useRootNavigator: true,
+    builder: (context, dialog) => _VoiceMembersDialog(
       controller: controller,
       siteUrl: siteUrl,
       room: room,
       initialMemberships: memberships,
+      ownsAccount: ownsAccount,
+      dialog: dialog,
     ),
   );
 }
@@ -2066,12 +2097,16 @@ class _VoiceMembersDialog extends StatefulWidget {
     required this.siteUrl,
     required this.room,
     required this.initialMemberships,
+    required this.ownsAccount,
+    required this.dialog,
   });
 
   final VoiceController controller;
   final String siteUrl;
   final VoiceRoom room;
   final List<VoiceMembership> initialMemberships;
+  final bool Function() ownsAccount;
+  final DDialogController<void> dialog;
 
   @override
   State<_VoiceMembersDialog> createState() => _VoiceMembersDialogState();
@@ -2132,11 +2167,11 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
     Future<String?> Function() write, {
     VoidCallback? onSuccess,
   }) async {
-    if (_writing) return;
+    if (!mounted || !widget.ownsAccount() || _writing) return;
     setState(() => _writing = true);
     try {
       final error = await write();
-      if (!mounted) return;
+      if (!mounted || !widget.ownsAccount()) return;
       if (error != null) {
         DToast.show(context, error, type: DToastType.error);
         return;
@@ -2149,11 +2184,12 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
   }
 
   Future<void> _refreshMemberships() async {
+    if (!mounted || !widget.ownsAccount()) return;
     final memberships = await widget.controller.memberships(
       widget.siteUrl,
       widget.room.id,
     );
-    if (!mounted) return;
+    if (!mounted || !widget.ownsAccount()) return;
     if (memberships == null) {
       DToast.show(
         context,
@@ -2166,127 +2202,129 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.l10n.membersOf((widget.room.name).toString())),
-    content: SizedBox(
-      width: 500,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final membership in _memberships)
-                  ListTile(
-                    title: Text(
-                      membership.user?.name ??
-                          membership.user?.username ??
-                          context.l10n.user((membership.userId).toString()),
-                    ),
-                    subtitle: Text(membership.role.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    final available = widget.ownsAccount() && !_writing;
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: 560,
+      semanticLabel: context.l10n.membersOf(widget.room.name),
+      children: [
+        DDialogHeader(
+          children: [
+            DDialogTitle(child: Text(context.l10n.membersOf(widget.room.name))),
+          ],
+        ),
+        DDialogScrollArea(
+          maxHeightFactor: .5,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final membership in _memberships)
+                DItem(
+                  children: [
+                    DItemContent(
                       children: [
-                        Builder(
-                          builder: (menuContext) {
-                            void onSelect(VoiceRole role) =>
-                                _updateMember(membership, role);
-                            return Semantics(
-                              container: true,
-                              explicitChildNodes: true,
-                              child: DDropdownMenu(
-                                content: DDropdownMenuContent(
-                                  semanticLabel: context.l10n.changeRole,
-                                  width: 280,
-                                  children: [
-                                    for (final role in VoiceRole.values)
-                                      DDropdownMenuItem(
-                                        onPressed: () => onSelect(role),
-                                        child: Text(role.name),
-                                      ),
-                                  ],
+                        DItemTitle(
+                          child: Text(
+                            membership.user?.name ??
+                                membership.user?.username ??
+                                context.l10n.user(membership.userId.toString()),
+                          ),
+                        ),
+                        DItemDescription(child: Text(membership.role.name)),
+                      ],
+                    ),
+                    DItemActions(
+                      children: [
+                        DDropdownMenu(
+                          content: DDropdownMenuContent(
+                            semanticLabel: context.l10n.changeRole,
+                            width: 280,
+                            children: [
+                              for (final role in VoiceRole.values)
+                                DDropdownMenuItem(
+                                  onPressed: () =>
+                                      _updateMember(membership, role),
+                                  child: Text(role.name),
                                 ),
-                                child: DDropdownMenuTrigger(
-                                  builder: (triggerContext, state) =>
-                                      DButton.iconOnly(
-                                        tooltip: context.l10n.changeRole,
-                                        variant: DButtonVariant.ghost,
-                                        icon: const Icon(Icons.more_vert),
-                                        focusNode: state.focusNode,
-                                        hasPopup: true,
-                                        expanded: state.open,
-                                        onPressed: _writing
-                                            ? null
-                                            : state.toggle,
-                                      ),
+                            ],
+                          ),
+                          child: DDropdownMenuTrigger(
+                            builder: (triggerContext, state) =>
+                                DButton.iconOnly(
+                                  tooltip: context.l10n.changeRole,
+                                  variant: DButtonVariant.ghost,
+                                  icon: const DIcon(DIcons.ellipsisVertical),
+                                  focusNode: state.focusNode,
+                                  hasPopup: true,
+                                  expanded: state.open,
+                                  onPressed: available ? state.toggle : null,
                                 ),
-                              ),
-                            );
-                          },
+                          ),
                         ),
                         if (membership.userId != widget.room.creatorId)
                           DButton.iconOnly(
-                            onPressed: _writing
-                                ? null
-                                : () => _removeMember(membership),
+                            onPressed: available
+                                ? () => _removeMember(membership)
+                                : null,
                             variant: DButtonVariant.ghost,
                             tooltip: context.l10n.removeMember,
                             icon: const DIcon(DIcons.trashCan),
                           ),
                       ],
                     ),
-                  ),
-              ],
-            ),
-          ),
-          const DSeparator(),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  controller: _username,
-                  decoration: InputDecoration(labelText: context.l10n.username),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 120,
-                child: DSelect<VoiceRole>.controlled(
-                  isExpanded: true,
-                  value: _newRole,
-                  onChanged: (value) =>
-                      setState(() => _newRole = value ?? _newRole),
-                  entries: [
-                    for (final role in VoiceRole.values)
-                      DSelectOption(
-                        value: role,
-                        label: role.name,
-                        child: Text(role.name),
-                      ),
                   ],
-                  initialValue: _newRole,
                 ),
-              ),
-              DButton.iconOnly(
-                onPressed: _writing ? null : _addMember,
-                variant: DButtonVariant.secondary,
-                tooltip: context.l10n.addMember,
-                icon: const DIcon(DIcons.userPlus),
-              ),
             ],
           ),
-        ],
-      ),
-    ),
-    actions: [
-      DButton(
-        onPressed: () => Navigator.pop(context),
-        label: Text(context.l10n.done),
-      ),
-    ],
-  );
+        ),
+        const DSeparator(),
+        Row(
+          children: [
+            Expanded(
+              child: DInput(
+                controller: _username,
+                labelText: context.l10n.username,
+              ),
+            ),
+            const SizedBox(width: DSpacing.sm),
+            SizedBox(
+              width: 120,
+              child: DSelect<VoiceRole>.controlled(
+                isExpanded: true,
+                value: _newRole,
+                onChanged: (value) =>
+                    setState(() => _newRole = value ?? _newRole),
+                entries: [
+                  for (final role in VoiceRole.values)
+                    DSelectOption(
+                      value: role,
+                      label: role.name,
+                      child: Text(role.name),
+                    ),
+                ],
+                initialValue: _newRole,
+              ),
+            ),
+            DButton.iconOnly(
+              onPressed: available ? _addMember : null,
+              variant: DButtonVariant.secondary,
+              tooltip: context.l10n.addMember,
+              icon: const DIcon(DIcons.userPlus),
+            ),
+          ],
+        ),
+        DDialogFooter(
+          children: [
+            DButton(
+              onPressed: widget.dialog.close,
+              label: Text(context.l10n.done),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 /// Local participant-volume input; persistence and call ownership stay in the caller.
