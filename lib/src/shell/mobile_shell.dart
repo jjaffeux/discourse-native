@@ -267,7 +267,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       tooltip: sidebarOpen
                           ? context.l10n.closeNavigation
                           : context.l10n.openNavigation,
-                      variant: DButtonVariant.ghost,
+                      variant: DButtonVariant.inline,
                       expanded: sidebarOpen,
                       onPressed: () {
                         FocusManager.instance.primaryFocus?.unfocus();
