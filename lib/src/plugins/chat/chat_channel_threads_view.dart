@@ -27,7 +27,7 @@ class ChatChannelThreadsView extends StatefulWidget {
 }
 
 class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
-  late final ChatController _chat;
+  late ChatController _chat;
   late final ScrollController _scroll;
   ChatShellService? _shell;
   Object? _viewToken;
@@ -68,14 +68,19 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(shell, _shell)) {
       _shell?.removeListener(_handleShellChanged);
       _shell = shell..addListener(_handleShellChanged);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    if (!_ready) {
-      _chat = PluginUiScope.require(context, chatControllerService);
+    if (!_ready || !identical(chat, _chat)) {
+      if (_viewToken case final token?) {
+        _viewToken = null;
+        _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
+      }
+      _chat = chat;
       _ready = true;
       // Live events never add a thread to a held list, so each visit
       // revalidates it behind the rows already shown.
