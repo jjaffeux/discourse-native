@@ -43,9 +43,25 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _bindDirectory();
+  }
+
+  @override
+  void didUpdateWidget(ChatMyThreadsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _bindDirectory();
+  }
+
+  void _bindDirectory() {
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
-    if (_ready && identical(chat, _chat) && identical(shell, _shell)) return;
+    if (_ready &&
+        identical(chat, _chat) &&
+        identical(shell, _shell) &&
+        _directory.siteUrl == widget.siteUrl &&
+        _directory.isCurrent) {
+      return;
+    }
     _unregisterRefresher?.call();
     if (_ready) _directory.dispose();
     _chat = chat;

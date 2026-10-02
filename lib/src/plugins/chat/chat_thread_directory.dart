@@ -9,12 +9,15 @@ import 'chat_thread.dart';
 /// pages, revalidating their first, and load further pages only as the reader
 /// scrolls or requests them.
 final class ChatThreadDirectory extends FrameSafeNotifier {
-  ChatThreadDirectory(this.chat, this.siteUrl) {
+  ChatThreadDirectory(this.chat, this.siteUrl)
+    : _session = chat.captureSession(siteUrl) {
     chat.addListener(notifySafely);
   }
 
   final ChatController chat;
   final String siteUrl;
+  final PluginSiteLease _session;
+  bool get isCurrent => !isDisposed && !chat.isDisposed && _session.isCurrent;
   final Map<int, ChatChannel> _channels = {};
   int _offset = 0;
   int _nextChannel = 0;
@@ -63,7 +66,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
   }
 
   Future<void> load({bool reset = false, int? channelId}) async {
-    if (loading || isDisposed || chat.isDisposed) return;
+    if (loading || !isCurrent) return;
     if (!reset && loaded && error(channelId) == null && !hasMore(channelId)) {
       return;
     }
@@ -100,7 +103,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
         }
       } else if (failed.isNotEmpty) {
         for (final channel in failed) {
-          if (isDisposed || chat.isDisposed) return;
+          if (!isCurrent) return;
           await chat.retryChannelThreads(
             siteUrl,
             channel.id,
@@ -109,14 +112,14 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
         }
       } else if (_moreChannels) {
         final result = await chat.fetchBrowseChannels(siteUrl, offset: _offset);
-        if (isDisposed || chat.isDisposed) return;
+        if (!isCurrent) return;
         _directoryError = result.error;
         final page = result.page;
         if (page == null) return;
         _offset += page.rowCount;
         _moreChannels = page.hasMore && page.rowCount > 0;
         for (final channel in page.channels) {
-          if (isDisposed || chat.isDisposed) return;
+          if (!isCurrent) return;
           if (!channel.threadingEnabled) continue;
           _channels[channel.id] = channel;
           // A list held from an earlier visit misses threads started since,
@@ -142,7 +145,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
         }
       }
     } finally {
-      if (!isDisposed) {
+      if (isCurrent) {
         loading = false;
         loaded = true;
         notifySafely();
