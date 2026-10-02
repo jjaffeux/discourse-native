@@ -6,6 +6,7 @@ import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -750,6 +751,62 @@ void main() {
         'upload_ids': [31, 32],
       });
     });
+
+    for (final raw in ['', ' \n ']) {
+      test('edits an upload-only chat message with raw "$raw"', () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+        addTearDown(api.close);
+        await ChatApiClient(api).editChatMessage(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          channelId: 9,
+          messageId: 12,
+          message: raw,
+          uploadIds: const [31],
+        );
+        expect(jsonDecode(sent.single.body), {
+          'message': raw,
+          'upload_ids': [31],
+        });
+      });
+    }
+
+    for (final uploadIds in <List<int>>[
+      [],
+      [0],
+      [-1],
+      [31, 0],
+      List.filled(ChatMessage.maximumUploadsPerMessage + 1, 31),
+    ]) {
+      test('blank chat edit rejects invalid uploads $uploadIds', () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(jsonEncode({'success': 'OK'}), 200);
+          }),
+        );
+        addTearDown(api.close);
+        await expectLater(
+          ChatApiClient(api).editChatMessage(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            channelId: 9,
+            messageId: 12,
+            message: ' \n ',
+            uploadIds: uploadIds,
+          ),
+          throwsArgumentError,
+        );
+        expect(sent, isEmpty);
+      });
+    }
 
     test('deletes and restores a chat message on core routes', () async {
       final sent = <http.Request>[];
