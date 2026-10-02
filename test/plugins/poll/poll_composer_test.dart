@@ -230,6 +230,86 @@ void main() {
       Matcher localWallTimeWithOffset(String wall) =>
           matches(RegExp('^${RegExp.escape(wall)}[+-]\\d\\d:\\d\\d\$'));
 
+      test(
+        'rejects changed overflowing ISO components before normalization',
+        () {
+          for (final entered in [
+            '2027-01-32T12:00',
+            '2027-01-32T12:00Z',
+            '2027-01-30T25:61',
+            '2027-01-30T25:61Z',
+            '2027-02-29T12:00+05:30',
+            '2027-04-31T12:00-04:00',
+            '2027-00-15T12:00',
+            '2027-13-15T12:00',
+            '2027-01-00T12:00',
+            '20270132T1200',
+            '2027-01-30T24:01',
+            '2027-01-30T24:00:00.1',
+            '2027-01-30T12:00:61',
+            '2027-01-30T12:00+24:00',
+            '2027-01-30T12:00+05:60',
+          ]) {
+            expect(DateTime.tryParse(entered), isNotNull, reason: entered);
+            expect(
+              base
+                  .copyWith(close: entered)
+                  .validate(maximumOptions: 20, isStaff: false)
+                  .errors,
+              ['Automatic close must be a valid ISO-8601 date and time.'],
+              reason: entered,
+            );
+          }
+        },
+      );
+
+      test('retains accepted ISO forms and valid leap dates', () {
+        for (final entered in [
+          '2028-02-29T12:00',
+          '2028-02-29T12:00Z',
+          '2028-02-29T12:00+05:30',
+          '2028-02-29T12:00-04:00',
+          '2000-02-29T12:00',
+          '20280229T120030.123456+0530',
+          '2028-02-29 12:00:30,123456Z',
+          '2027-01-30T24:00',
+          '2027-01-30T24:00:00.000Z',
+          '2027-01-30T23:59:60Z',
+        ]) {
+          expect(
+            base
+                .copyWith(close: entered)
+                .validate(maximumOptions: 20, isStaff: false)
+                .isValid,
+            isTrue,
+            reason: entered,
+          );
+        }
+      });
+
+      test(
+        'untouched legacy overflowing close remains exact on other edits',
+        () {
+          const source =
+              '[poll close=2027-01-32T12:00Z]\n* Soup\n* Salad\n[/poll]';
+          final draft = PollComposerDraft.fromBlock(
+            parsePollComposerBlocks(source).single,
+          ).copyWith(title: 'Lunch');
+          expect(
+            draft.validate(maximumOptions: 20, isStaff: false).isValid,
+            isTrue,
+          );
+          expect(draft.serialize(), contains('close=2027-01-32T12:00Z'));
+          expect(
+            draft
+                .copyWith(close: '2027-01-30T25:61Z')
+                .validate(maximumOptions: 20, isStaff: false)
+                .isValid,
+            isFalse,
+          );
+        },
+      );
+
       test('an offset-less entry is written as local time with its offset', () {
         // Discourse parses a close value without an offset as UTC, so writing
         // the entry verbatim would close the poll at the wrong moment for

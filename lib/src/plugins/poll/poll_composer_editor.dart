@@ -206,9 +206,9 @@ class PollComposerDraft {
     }
 
     final closeValue = close.trim();
-    if (closeValue.isNotEmpty &&
-        DateTime.tryParse(closeValue) == null &&
-        close != _initial?.close) {
+    if (close != _initial?.close &&
+        closeValue.isNotEmpty &&
+        !_validCloseComponents(closeValue)) {
       errors.add(appL10n.automaticCloseMustBeAValidISO8601DateAndTime);
     }
 
@@ -418,6 +418,45 @@ class _PollDraftSnapshot {
 }
 
 int? _integer(String? value) => value == null ? null : int.tryParse(value);
+
+bool _validCloseComponents(String value) {
+  if (DateTime.tryParse(value) == null) return false;
+  final parts = _closeComponents.firstMatch(value);
+  if (parts == null) return false;
+  int component(int group) => int.parse(parts.group(group) ?? '0');
+  final year = component(1);
+  final month = component(2);
+  final day = component(3);
+  final hour = component(4);
+  final minute = component(5);
+  final second = component(6);
+  final fraction = parts.group(7);
+  if (month < 1 || month > 12) return false;
+  final daysInMonth = switch (month) {
+    2 => year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ? 29 : 28,
+    4 || 6 || 9 || 11 => 30,
+    _ => 31,
+  };
+  // Dart normalizes overflowing components. Keep ISO's end-of-day and leap
+  // second forms, which Discourse's parser also accepts, but reject typos.
+  return day >= 1 &&
+      day <= daysInMonth &&
+      hour <= 24 &&
+      minute <= 59 &&
+      second <= 60 &&
+      (hour != 24 ||
+          minute == 0 &&
+              second == 0 &&
+              (fraction == null || !fraction.contains(RegExp('[1-9]')))) &&
+      component(8) <= 23 &&
+      component(9) <= 59;
+}
+
+final _closeComponents = RegExp(
+  r'^([+-]?\d{4,6})-?(\d{2})-?(\d{2})'
+  r'(?:[ T](\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d+))?)?)?'
+  r'(?: ?[zZ]| ?[+-](\d{2})(?::?(\d{2}))?)?)?$',
+);
 
 /// Discourse parses a close value without an offset as UTC, but the web
 /// composer's picker and the poll card both work in device-local time. An

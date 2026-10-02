@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -23,6 +27,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -62,6 +68,43 @@ final class _GatedCurrentUserApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) => response.future;
+}
+
+final class _PollCloseWriteApi extends FakeDiscourseApi {
+  _PollCloseWriteApi(this.writer)
+    : super(
+        user: _pollUser,
+        feeds: const {'/latest.json': <Topic>[]},
+        topics: {7: topicPayload(id: 7, title: 'Lunch', canCreatePost: true)},
+        siteConfigs: const {_site: SiteConfig.unknown()},
+      );
+
+  final DiscourseApi writer;
+
+  @override
+  Future<PostCreation> createPost({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required String raw,
+    required Duration typingDuration,
+    required Duration composerOpenDuration,
+    int? replyToPostNumber,
+    bool whisper = false,
+    String? draftKey,
+    String? clientId,
+  }) => writer.createPost(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    topicId: topicId,
+    raw: raw,
+    typingDuration: typingDuration,
+    composerOpenDuration: composerOpenDuration,
+    replyToPostNumber: replyToPostNumber,
+    whisper: whisper,
+    draftKey: draftKey,
+    clientId: clientId,
+  );
 }
 
 final class _RecordingNavigatorObserver extends NavigatorObserver {
@@ -235,6 +278,113 @@ Future<void> _closeComposerAfterAssertions(
 void main() {
   setUpAll(LocalDateEnvironment.instance.ensureDatabase);
   setUp(() => LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC'));
+
+  for (final entered in [
+    '2027-01-32T12:00',
+    '2027-01-30T25:61',
+    '2027-01-32T12:00Z',
+    '2027-01-30T25:61Z',
+  ]) {
+    testWidgets('Poll close rejects overflowing input $entered', (
+      tester,
+    ) async {
+      final sent = <http.Request>[];
+      final client = MockClient((request) async {
+        sent.add(request);
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'action': 'create_post',
+            'post': {
+              'id': 9001,
+              'post_number': 2,
+              'username': 'reader',
+              'cooked': '<p>Poll</p>',
+            },
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      final shell = await _openComposer(
+        api: _PollCloseWriteApi(DiscourseApi(client: client)),
+      );
+      addTearDown(shell.dispose);
+      final composer = shell.visibleComposer!;
+      const before = 'A poll with a closing time.';
+      composer.text.value = const TextEditingValue(
+        text: before,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ListenableBuilder(
+                listenable: shell,
+                builder: (context, _) {
+                  final visible = shell.visibleComposer;
+                  return visible == null
+                      ? const SizedBox.shrink()
+                      : ComposerPanel(composer: visible, height: 500);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('composer-insert')));
+      await tester.pump();
+      await tester.tap(find.text('Add poll'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_pollSheetField('Option 1'), 'Soup');
+      await tester.enterText(_pollSheetField('Option 2'), 'Salad');
+      await tester.ensureVisible(find.text('Automatic close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Automatic close'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_pollSheetField('Close date and time'), entered);
+      await _applyPollSheet(tester);
+
+      expect(
+        find.text('Automatic close must be a valid ISO-8601 date and time.'),
+        findsOneWidget,
+        reason: composer.raw,
+      );
+      expect(composer.raw, before);
+      expect(sent, isEmpty);
+
+      const corrected = '2028-02-29T12:00+05:30';
+      await tester.enterText(_pollSheetField('Close date and time'), corrected);
+      await _applyPollSheet(tester);
+      expect(composer.text.pollBlocks.single.attribute('close'), corrected);
+      final raw = composer.raw;
+      await tester.runAsync(() async {
+        final service = OfflineCookingService();
+        try {
+          final cooked = await service.cook(
+            shell.cookingRequest(siteUrl: _site, raw: raw),
+          );
+          expect(cooked.failure, isNull);
+          expect(cooked.html, contains('data-poll-close="$corrected"'));
+        } finally {
+          await service.dispose();
+        }
+      });
+      await tester.ensureVisible(find.byKey(const ValueKey('composer-submit')));
+      await tester.tap(find.byKey(const ValueKey('composer-submit')));
+      await tester.pumpAndSettle();
+      final write = sent.single;
+      expect(write.url.path, '/posts.json');
+      expect(write.headers['user-api-key'], 'api-key');
+      expect((jsonDecode(write.body) as Map<String, dynamic>)['raw'], raw);
+      expect(shell.visibleComposer, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final poll in [true, false]) {
     testWidgets(

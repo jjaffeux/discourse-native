@@ -201,6 +201,49 @@ void main() {
   });
 
   group('existing poll editing', () {
+    for (final changed in [false, true]) {
+      testWidgets(
+        '${changed ? 'validates a changed' : 'preserves an untouched'} legacy overflowing close',
+        (tester) async {
+          const source =
+              '[poll close=" 2027-01-32T12:00Z "]\n* A\n* B\n[/poll]';
+          final result = await openSheet(
+            tester,
+            PollComposerDraft.fromBlock(parsePollComposerBlocks(source).single),
+          );
+          await tester.enterText(field('Title (optional)'), 'Lunch');
+          if (changed) {
+            await tester.enterText(
+              field('Close date and time'),
+              '2027-01-30T25:61Z',
+            );
+          }
+          await tapSheetAction(tester, 'Apply');
+
+          if (changed) {
+            expect(result.isCompleted, isFalse);
+            expect(
+              find.text(
+                'Automatic close must be a valid ISO-8601 date and time.',
+              ),
+              findsOneWidget,
+            );
+            await tester.tap(find.byTooltip('Close'));
+            await tester.pumpAndSettle();
+            expect(await result.future, isNull);
+          } else {
+            final action = await result.future;
+            expect(action?.draft?.title, 'Lunch');
+            expect(
+              action?.draft?.serialize(),
+              contains('close=" 2027-01-32T12:00Z "'),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('preserves an untouched close value exactly', (tester) async {
       const source =
           '[poll close=" 2026-08-30T18:00:00Z "]\n'
