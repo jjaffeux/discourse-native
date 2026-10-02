@@ -54,6 +54,7 @@ class ReactionsRow extends StatelessWidget {
         (!post.canReact || controller == null || emoji == null)) {
       return const SizedBox.shrink();
     }
+    final session = controller?.beginPicker(siteUrl, post);
     final writeInFlight = controller?.writeInFlight(siteUrl, post.id) == true;
     if (MediaQuery.sizeOf(context).width < 600) {
       final count = reactions.entries.fold<int>(
@@ -92,7 +93,8 @@ class ReactionsRow extends StatelessWidget {
                     ],
                   ),
                   label: Text('$count'),
-                  onPressed: () => _showSummary(context, controller, emoji),
+                  onPressed: () =>
+                      _showSummary(context, controller, emoji, session),
                 ),
               ),
             if (post.canReact && controller != null && emoji != null)
@@ -102,6 +104,7 @@ class ReactionsRow extends StatelessWidget {
                 emoji: emoji,
                 siteUrl: siteUrl,
                 post: post,
+                session: session,
               ),
           ],
         ),
@@ -122,7 +125,7 @@ class ReactionsRow extends StatelessWidget {
             interactionOwner: controller ?? this,
             enabled: !writeInFlight,
             onToggle: post.canReact && controller != null
-                ? () => controller.toggle(post, entry.id, siteUrl: siteUrl)
+                ? () => controller.toggleFromPicker(session!, post, entry.id)
                 : null,
             loadReactors: controller == null
                 ? () async {}
@@ -147,6 +150,7 @@ class ReactionsRow extends StatelessWidget {
             emoji: emoji,
             siteUrl: siteUrl,
             post: post,
+            session: session,
           ),
       ],
     );
@@ -156,9 +160,12 @@ class ReactionsRow extends StatelessWidget {
     BuildContext context,
     ReactionsController? controller,
     PluginEmojiHost? emoji,
+    ReactionPickerSession? session,
   ) {
+    if (session != null && !controller!.isPickerCurrent(session)) {
+      return Future.value();
+    }
     final touch = context.isTouch;
-    final session = controller?.beginPicker(siteUrl, post);
     String? filter;
     var closing = false;
     if (controller != null) {
