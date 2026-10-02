@@ -142,6 +142,68 @@ void main() {
     },
   );
 
+  for (final create in [true, false]) {
+    test(
+      'bookmark ${create ? 'creation' : 'update'} counts Unicode scalar values',
+      () async {
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response(create ? '{"id":81}' : '{}', 200);
+          }),
+        );
+        addTearDown(api.close);
+        Future<void> write(String note) async {
+          if (create) {
+            await api.createBookmark(
+              siteUrl: 'https://forum.example',
+              apiKey: 'synthetic-key',
+              targetType: BookmarkTargetType.post,
+              targetId: 44,
+              name: note,
+            );
+          } else {
+            await api.updateBookmark(
+              siteUrl: 'https://forum.example',
+              apiKey: 'synthetic-key',
+              bookmarkId: 81,
+              name: note,
+              autoDeletePreference: BookmarkAutoDeletePreference.never,
+            );
+          }
+        }
+
+        for (final note in [
+          List.filled(100, '🧵').join(),
+          List.filled(50, 'e\u0301').join(),
+        ]) {
+          await write(note);
+          expect(
+            (jsonDecode(requests.last.body) as Map<String, dynamic>)['name'],
+            note,
+          );
+        }
+        for (final note in [
+          List.filled(101, '🧵').join(),
+          List.filled(51, 'e\u0301').join(),
+        ]) {
+          await expectLater(
+            write(note),
+            throwsA(
+              isA<WriteException>().having(
+                (error) => error.failure,
+                'failure',
+                WriteFailure.validation,
+              ),
+            ),
+          );
+        }
+        expect(requests, hasLength(2));
+      },
+    );
+  }
+
   test('a malformed delete success is ambiguous', () async {
     final api = DiscourseApi(
       client: MockClient((_) async => http.Response('{"success":true}', 200)),

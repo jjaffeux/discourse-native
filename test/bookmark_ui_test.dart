@@ -70,7 +70,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Times use Europe/Paris.'), findsOneWidget);
-      await tester.enterText(find.byType(TextFormField), 'Follow up');
+      await tester.enterText(find.byType(DInput).first, 'Follow up');
       await tester.tap(find.text('Tomorrow').last);
       await _scrollEditorToEnd(tester, 'Save');
       await tester.pumpAndSettle();
@@ -179,7 +179,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Original note'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextFormField), 'Changed locally');
+    await tester.enterText(find.byType(DInput).first, 'Changed locally');
     await _scrollEditorToEnd(tester, 'Cancel');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
