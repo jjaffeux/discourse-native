@@ -1161,7 +1161,7 @@ class TopicComposerCapabilities {
   bool canCreateTagNamed(String name) {
     if (!canCreateTag || name.isEmpty) return false;
     if (maxTagLength case final maximum?) {
-      if (name.length > maximum) return false;
+      if (name.runes.length > maximum) return false;
     }
     final source = tagsFilterRegexp;
     if (source == null || source.isEmpty) return true;
