@@ -24,7 +24,6 @@ import 'post_permanent_delete.dart';
 import 'post_revision_history.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 import 'topic_change_owner.dart';
 import 'topic_share.dart';
 
@@ -642,38 +641,73 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Future<void> _openSheet(List<PostAction> actions) async {
-    await showShellSheet<void>(
+    final shell = ShellScope.read(context);
+    final siteUrl = widget.siteUrl;
+    final lease = shell.lifecycle.capture(siteUrl);
+    final tabId = shell.activeTabId;
+    final routeId = shell.currentContent?.id;
+    final postId = widget.post.id;
+    final selected = await showDSheet<PostAction>(
       context: context,
-      title: widget.post.displayName,
-      builder: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
+      side: DSheetSide.bottom,
+      builder: (sheetContext, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: widget.post.displayName,
+        topBottomMaxHeightFactor: .85,
         children: [
-          for (final action in actions)
-            ListTile(
-              leading: action.leading(
-                sheetContext,
-                size: 24,
-                color:
-                    action.tint ??
-                    (action.destructive
-                        ? Theme.of(sheetContext).colorScheme.error
-                        : null),
-              ),
-              title: Text(action.label),
-              contentPadding: EdgeInsets.zero,
-              enabled: action.enabled,
-              onTap: action.enabled
-                  ? () {
-                      // Closed first: the composer an action opens must not arrive
-                      // under the sheet it was reached from.
-                      Navigator.of(sheetContext).pop();
-                      action.onInvoke();
-                    }
-                  : null,
+          DSheetHeader(
+            children: [DSheetTitle(child: Text(widget.post.displayName))],
+          ),
+          DSheetBody(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final action in actions)
+                  DItem(
+                    enabled: action.enabled,
+                    onPressed: action.enabled
+                        ? () => sheet.close(action)
+                        : null,
+                    children: [
+                      DItemMedia(
+                        variant: DItemMediaVariant.icon,
+                        child: Builder(
+                          builder: (context) => action.leading(
+                            context,
+                            size: IconTheme.of(context).size!,
+                            color:
+                                action.tint ??
+                                (action.destructive
+                                    ? DTokens.of(context).destructive
+                                    : null),
+                          ),
+                        ),
+                      ),
+                      DItemContent(
+                        children: [DItemTitle(child: Text(action.label))],
+                      ),
+                    ],
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
+    if (selected == null ||
+        !mounted ||
+        !identical(ShellScope.maybeRead(context), shell) ||
+        !lease.isCurrent ||
+        widget.siteUrl != siteUrl ||
+        widget.post.id != postId ||
+        shell.currentInstance?.url != siteUrl ||
+        shell.activeTabId != tabId ||
+        shell.currentContent?.id != routeId) {
+      return;
+    }
+    // Open any composer only after the sheet has returned its selection.
+    selected.onInvoke();
   }
 
   @override
