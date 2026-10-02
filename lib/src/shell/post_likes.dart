@@ -13,7 +13,6 @@ import 'hover_panel.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'shell_sheet.dart';
 import 'user_card.dart';
 
 class PostLikes extends StatefulWidget {
@@ -63,13 +62,26 @@ class _PostLikesState extends State<PostLikes> {
     final count = widget.post.likeCount;
     unawaited(controller.loadLikers(widget.post.id, siteUrl: widget.siteUrl));
 
-    await showShellSheet<void>(
+    final title = count == 1
+        ? appL10n.message1Like
+        : appL10n.likesPostlikes((count).toString());
+    await showDSheet<void>(
       context: context,
-      title: count == 1
-          ? appL10n.message1Like
-          : appL10n.likesPostlikes((count).toString()),
-      builder: (sheetContext) =>
-          _Likers(siteUrl: widget.siteUrl, post: widget.post),
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [
+          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+          DSheetBody(
+            child: _Likers(siteUrl: widget.siteUrl, post: widget.post),
+          ),
+        ],
+      ),
     );
   }
 
@@ -89,13 +101,14 @@ class _PostLikesState extends State<PostLikes> {
           onLongPress: context.isTouch ? _openSheet : null,
           child: HoverPanel(
             key: _panel,
+            enabled: !context.isTouch,
             maxWidth: _panelWidth,
             onOpen: _load,
             panelBuilder: (context) =>
                 _LikersPanel(siteUrl: widget.siteUrl, post: post),
             child: _LikeCount(
               post: post,
-              onOpen: _openPanel,
+              onOpen: context.isTouch ? _openSheet : _openPanel,
               onToggle: post.canToggleLike ? _toggle : null,
             ),
           ),
@@ -277,10 +290,14 @@ class _LikersViewState extends State<_LikersView> {
   }
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: BoxConstraints(maxHeight: widget.maxHeight),
-    child: _body(context),
-  );
+  Widget build(BuildContext context) {
+    final body = _body(context);
+    if (context.isTouch) return body;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      child: SingleChildScrollView(child: body),
+    );
+  }
 
   Widget _body(BuildContext context) {
     final post = widget.post;
@@ -308,26 +325,24 @@ class _LikersViewState extends State<_LikersView> {
 
     final hidden = post.likeCount - likers.length;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final liker in likers) _LikerRow(siteUrl: siteUrl, liker: liker),
-          if (hidden > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 6, left: 2),
-              child: Text(
-                hidden == 1
-                    ? context.l10n.and1Other
-                    : context.l10n.andOthers((hidden).toString()),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final liker in likers) _LikerRow(siteUrl: siteUrl, liker: liker),
+        if (hidden > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 2),
+            child: Text(
+              hidden == 1
+                  ? context.l10n.and1Other
+                  : context.l10n.andOthers((hidden).toString()),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

@@ -784,8 +784,9 @@ void main() {
       testWidgets(
         'long pressing a reaction shows its users${failFirst ? ' after retry' : ''}',
         (tester) async {
-          await tester.binding.setSurfaceSize(const Size(390, 844));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
           const page = ChatMessageReactors(
             channelId: 9,
             messageId: 7,
@@ -846,6 +847,10 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(find.text('1 reaction'), findsOneWidget);
           expect(find.byType(DSheetContent), findsOneWidget);
+          final sheetBounds = tester.getRect(find.byType(DSheetContent));
+          expect(sheetBounds.height, greaterThan(844 * .8));
+          expect(sheetBounds.left, greaterThan(0));
+          expect(sheetBounds.right, lessThan(390));
           expect(find.byType(DSkeletonRegion), findsOneWidget);
           expect(api.chatReactorsRequested, [
             (channelId: 9, messageId: 7, filter: 'clap'),
