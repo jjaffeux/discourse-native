@@ -74,10 +74,11 @@ DNotificationDot(
       builder: (_) => const _HeaderNotificationExample(),
     ),
     StyleguideExample(
-      title: 'Combined count capsules',
+      title: 'Combined count buttons',
       description:
           'The approved application header composition uses success for '
-          'urgent chat and the ordinary notification accent for the bell. '
+          'urgent chat and the ordinary notification accent for the bell, '
+          'with the Native button’s 8px control radius. '
           'Counts cap at 99+ and keep their exact accessible label.',
       states: const [
         'Urgent chat',

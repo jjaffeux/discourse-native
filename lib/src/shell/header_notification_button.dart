@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/color_contrast.dart';
 
-/// The approved header capsule, composed from the existing Native button.
+/// The header count control, composed from the existing Native button.
 /// Callers retain their notification policy, exact accessible count and popup.
 DButton headerNotificationButton(
   BuildContext context, {
@@ -56,7 +56,6 @@ DButton headerNotificationButton(
       ],
     ),
     variant: DButtonVariant.ghost,
-    borderRadius: BorderRadius.circular(999),
     backgroundColor: background,
     foregroundColor: foreground,
     interactiveBackgroundColor: hover,
