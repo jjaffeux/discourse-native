@@ -38,6 +38,7 @@ class DiscourseUser {
     this.watchedFirstPostCategoryIds,
     this.mutedCategoryIds,
     this.indirectlyMutedCategoryIds,
+    this.mutedTagIds,
     this.doNotDisturbUntil,
     this.doNotDisturbChannelPosition,
     this.groupedUnreadNotifications = NotificationTypeCounts.unavailable,
@@ -97,6 +98,7 @@ class DiscourseUser {
       json,
       'indirectlyMutedCategoryIds',
     ),
+    mutedTagIds: _storedCategoryIds(json, 'mutedTagIds'),
     doNotDisturbUntil: jsonDate(json['doNotDisturbUntil']),
     doNotDisturbChannelPosition: jsonIntOrNull(
       json['doNotDisturbChannelPosition'],
@@ -162,6 +164,7 @@ class DiscourseUser {
 
   /// Resolved by the server so explicit child preferences override ancestors.
   final List<int>? indirectlyMutedCategoryIds;
+  final List<int>? mutedTagIds;
 
   Set<int>? get followedCategoryIds {
     if (trackedCategoryIds == null ||
@@ -225,6 +228,7 @@ class DiscourseUser {
       if (mutedCategoryIds != null) 'mutedCategoryIds': mutedCategoryIds,
       if (indirectlyMutedCategoryIds != null)
         'indirectlyMutedCategoryIds': indirectlyMutedCategoryIds,
+      if (mutedTagIds != null) 'mutedTagIds': mutedTagIds,
       'doNotDisturbUntil': doNotDisturbUntil?.toIso8601String(),
       'doNotDisturbChannelPosition': doNotDisturbChannelPosition,
       'groupedUnreadNotifications': ?groupedUnreadNotifications.toJson(),
@@ -273,6 +277,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -311,6 +316,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -349,6 +355,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -387,6 +394,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: until,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -426,6 +434,7 @@ class DiscourseUser {
         watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
         mutedCategoryIds: mutedCategoryIds,
         indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+        mutedTagIds: mutedTagIds,
         doNotDisturbUntil: doNotDisturbUntil,
         doNotDisturbChannelPosition: doNotDisturbChannelPosition,
         groupedUnreadNotifications: counts,
@@ -469,6 +478,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -508,6 +518,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -546,6 +557,7 @@ class DiscourseUser {
     watchedFirstPostCategoryIds: watchedFirstPostCategoryIds,
     mutedCategoryIds: mutedCategoryIds,
     indirectlyMutedCategoryIds: indirectlyMutedCategoryIds,
+    mutedTagIds: mutedTagIds,
     doNotDisturbUntil: doNotDisturbUntil,
     doNotDisturbChannelPosition: doNotDisturbChannelPosition,
     groupedUnreadNotifications: groupedUnreadNotifications,
@@ -592,6 +604,7 @@ class DiscourseUser {
         other.indirectlyMutedCategoryIds,
         indirectlyMutedCategoryIds,
       ) &&
+      listEquals(other.mutedTagIds, mutedTagIds) &&
       other.doNotDisturbUntil == doNotDisturbUntil &&
       other.doNotDisturbChannelPosition == doNotDisturbChannelPosition &&
       other.groupedUnreadNotifications == groupedUnreadNotifications &&
@@ -630,6 +643,7 @@ class DiscourseUser {
     Object.hashAll(watchedFirstPostCategoryIds ?? const <int>[]),
     Object.hashAll(mutedCategoryIds ?? const <int>[]),
     Object.hashAll(indirectlyMutedCategoryIds ?? const <int>[]),
+    Object.hashAll(mutedTagIds ?? const <int>[]),
     doNotDisturbUntil,
     doNotDisturbChannelPosition,
     groupedUnreadNotifications,

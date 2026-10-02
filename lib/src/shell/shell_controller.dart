@@ -4439,7 +4439,11 @@ class ShellController extends FrameSafeNotifier
   bool _admitsIncomingTopic(String siteUrl, Object? data) =>
       _topicTrackingMessageFilters
           .putIfAbsent(siteUrl, () => TopicTrackingMessageFilter(clock: _clock))
-          .admitsIncoming(data, user: _instanceAt(siteUrl)?.user);
+          .admitsIncoming(
+            data,
+            user: _instanceAt(siteUrl)?.user,
+            config: siteConfigFor(siteUrl),
+          );
 
   /// What a loaded list announces, read the way core's `trackIncoming` reads
   /// the list `findTopicList` found: Latest, New and Unseen by name, a
@@ -5398,7 +5402,13 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       () => TopicTrackingMessageFilter(clock: _clock),
     );
-    if (!filter.accepts(data, user: _instanceAt(siteUrl)?.user)) return;
+    if (!filter.accepts(
+      data,
+      user: _instanceAt(siteUrl)?.user,
+      config: siteConfigFor(siteUrl),
+    )) {
+      return;
+    }
     _topicTrackingPendingEvents[siteUrl]?.add(data);
     final tracking = _topicTrackingBySite.putIfAbsent(
       siteUrl,

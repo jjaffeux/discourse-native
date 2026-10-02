@@ -138,6 +138,10 @@ final class DiscourseModelCodec {
       indirectlyMutedCategoryIds: _categoryIds(
         json['indirectly_muted_category_ids'],
       ),
+      mutedTagIds: List.unmodifiable([
+        for (final tag in jsonArray(json['muted_tags']))
+          ?jsonIntOrNull(jsonObject(tag)['id']),
+      ]),
       timezone: jsonText(userOption['timezone']),
       hidePresence: userOption['hide_presence'] is bool
           ? userOption['hide_presence'] as bool
