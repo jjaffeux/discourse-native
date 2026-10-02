@@ -111,7 +111,10 @@ final class Group {
     publicExit: json['public_exit'] == true,
     allowMembershipRequests: json['allow_membership_requests'] == true,
     defaultNotificationLevel: jsonInt(json['default_notification_level']),
-    membershipRequestTemplate: jsonText(json['membership_request_template']),
+    membershipRequestTemplate: switch (json['membership_request_template']) {
+      final String raw => raw,
+      _ => null,
+    },
     isGroupUser: json['is_group_user'] == true,
     isGroupOwner: json['is_group_owner'] == true,
     isGroupOwnerDisplay: json['is_group_owner_display'] == true,
