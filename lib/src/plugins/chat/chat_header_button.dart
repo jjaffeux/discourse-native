@@ -12,14 +12,7 @@ import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
 class ChatHeaderButton extends StatelessWidget {
-  const ChatHeaderButton({
-    super.key,
-    this.hideWhenChatActive = false,
-    this.ringColor,
-    this.trailingSpacing = 0,
-  });
-
-  final bool hideWhenChatActive;
+  const ChatHeaderButton({super.key, this.ringColor, this.trailingSpacing = 0});
 
   final Color? ringColor;
 
@@ -39,9 +32,6 @@ class ChatHeaderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (forumTabsEnabledForCurrentPlatform) {
-      return const SizedBox.shrink();
-    }
     final shell = PluginUiScope.require(context, chatShellService);
     final chat = PluginUiScope.require(context, chatControllerService);
     return ListenableBuilder(
@@ -52,25 +42,29 @@ class ChatHeaderButton extends StatelessWidget {
         if (!shell.showHeaderShortcut || siteUrl == null || user == null) {
           return const SizedBox.shrink();
         }
-        if (hideWhenChatActive && shell.chatActive) {
+        final mobile = context.isTouch;
+        if (mobile && shell.chatActive) {
           return const SizedBox.shrink();
         }
         final totals = shell.currentTotals;
         // Null preserves legacy cached accounts until their session refresh.
-        if (totals?.hasChatEnabled != true ||
+        if (!shell.chatAvailable(siteUrl) ||
+            totals?.hasChatEnabled != true ||
             user.chatCurrentUser?.hasChatEnabled == false) {
           return const SizedBox.shrink();
         }
 
         final exitsChat =
+            !mobile &&
             shell.fullPageChatActive &&
             shell.separateSidebarMode != ChatSeparateSidebarMode.never;
+        void openChat() => unawaited(shell.openHeaderShortcut(mobile: mobile));
         if (exitsChat) {
           return _withSpacing(
             DButton.iconOnly(
               key: buttonKey,
               tooltip: context.l10n.exitChat,
-              onPressed: shell.closeSidebarPanel,
+              onPressed: openChat,
               variant: DButtonVariant.transparentBackground,
               icon: const DIcon(DIcons.shuffle),
             ),
@@ -79,7 +73,9 @@ class ChatHeaderButton extends StatelessWidget {
         final preference =
             user.chatCurrentUser?.headerIndicatorPreference ??
             ChatHeaderIndicatorPreference.allNew;
-        final indicator = shell.doNotDisturbActive(siteUrl)
+        final indicator =
+            (!mobile && shell.fullPageChatActive) ||
+                shell.doNotDisturbActive(siteUrl)
             ? ChatHeaderIndicator.none
             : chat.headerIndicator(siteUrl, preference);
         final urgentCount = indicator.urgentCount;
@@ -89,7 +85,6 @@ class ChatHeaderButton extends StatelessWidget {
             ? context.l10n.chatUnreadMessages
             : context.l10n.chat;
 
-        void openChat() => unawaited(shell.openShortcut());
         final theme = Theme.of(context);
         if (urgentCount != null) {
           return _withSpacing(

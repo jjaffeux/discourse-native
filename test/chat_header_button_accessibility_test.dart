@@ -1,10 +1,13 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -35,8 +38,7 @@ void main() {
               mentionCount: count,
               bellCount: count,
             );
-            final chatVisible =
-                chatEnabled && defaultTargetPlatform == TargetPlatform.fuchsia;
+            final chatVisible = chatEnabled;
             expect(
               find.byKey(ChatHeaderButton.buttonKey),
               chatVisible ? findsOneWidget : findsNothing,
@@ -78,10 +80,13 @@ void main() {
           await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
           expect(tester.takeException(), isNull);
           expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-          expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+          final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
           final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
           final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+          expect(chat.overlaps(bell), isFalse);
           expect(bell.overlaps(avatar), isFalse);
+          expect(chat.left, greaterThanOrEqualTo(0));
+          expect(chat.top, greaterThanOrEqualTo(53));
           expect(avatar.right, lessThanOrEqualTo(width));
           await tester.tap(find.byKey(UserMenuButton.bellKey));
           await tester.pumpAndSettle();
@@ -92,6 +97,31 @@ void main() {
           debugDefaultTargetPlatformOverride = previous;
         }
       },
+    );
+  }
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets(
+      'mobile header fits large counts at $width and 200%',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
+        expect(tester.takeException(), isNull);
+        final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
+        final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+        final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+        expect(chat.overlaps(bell), isFalse);
+        expect(bell.overlaps(avatar), isFalse);
+        for (final rect in [chat, bell, avatar]) {
+          expect(rect.left, greaterThanOrEqualTo(0));
+          expect(rect.right, lessThanOrEqualTo(width));
+        }
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
   }
 
@@ -111,12 +141,12 @@ void main() {
         tester.widget<DButton>(button).variant,
         DButtonVariant.transparentBackground,
       );
-      expect(tester.getSize(button), const Size.square(44));
+      expect(tester.getSize(button), const Size.square(34));
       expect(
         tester.getSize(
           find.descendant(of: button, matching: find.byType(Material)),
         ),
-        const Size.square(44),
+        const Size.square(34),
       );
       expect(
         tester.getSemantics(button),
@@ -147,7 +177,7 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('urgent chat announces the uncapped count only once', (
     tester,
@@ -190,23 +220,117 @@ void main() {
     } finally {
       semantics.dispose();
     }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final mode in [
+    ChatSeparateSidebarMode.never,
+    ChatSeparateSidebarMode.always,
+    ChatSeparateSidebarMode.fullscreen,
+  ]) {
+    testWidgets('desktop full-page chat with ${mode.wireName} sidebar mode', (
+      tester,
+    ) async {
+      final shell = await _pump(tester, mentionCount: 3, sidebarMode: mode);
+      final previous = shell.currentContent;
+      final button = find.byKey(ChatHeaderButton.buttonKey);
+      expect(find.byKey(ChatHeaderButton.urgentBadgeKey), findsOneWidget);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'chat-c-9');
+      expect(button, findsOneWidget);
+      expect(find.byKey(ChatHeaderButton.urgentBadgeKey), findsNothing);
+      expect(find.byKey(ChatHeaderButton.unreadDotKey), findsNothing);
+      expect(
+        tester.widget<DButton>(button).tooltip,
+        mode == ChatSeparateSidebarMode.never ? 'Chat' : 'Exit chat',
+      );
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        shell.currentContent?.id,
+        mode == ChatSeparateSidebarMode.never ? 'chat-c-9' : previous?.id,
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'mobile hides active chat with ${mode.wireName} sidebar mode',
+      (tester) async {
+        final shell = await _pump(
+          tester,
+          mentionCount: 3,
+          sidebarMode: mode,
+          width: 390,
+        );
+        final button = find.byKey(ChatHeaderButton.buttonKey);
+        expect(button, findsOneWidget);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'chat-channels');
+        expect(button, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  for (final scenario in [
+    (siteEnabled: false, userEnabled: true),
+    (siteEnabled: true, userEnabled: false),
+  ]) {
+    testWidgets(
+      'chat header respects site and account availability $scenario',
+      (tester) async {
+        await _pump(
+          tester,
+          siteEnabled: scenario.siteEnabled,
+          userEnabled: scenario.userEnabled,
+        );
+        expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 }
 
-Future<void> _pump(
+Future<ShellController> _pump(
   WidgetTester tester, {
   int unreadCount = 0,
   int mentionCount = 0,
   int bellCount = 0,
   bool chatEnabled = true,
   double width = 1440,
+  bool siteEnabled = true,
+  bool userEnabled = true,
+  ChatSeparateSidebarMode sidebarMode = ChatSeparateSidebarMode.never,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  const user = DiscourseUser(id: 7, username: 'reader', name: 'Reader');
-  final site = instance('meta.discourse.org').copyWith(user: user);
+  final user = DiscourseUser(
+    id: 7,
+    username: 'reader',
+    name: 'Reader',
+    plugins: PluginData.none.withValue(
+      chatCurrentUserDataKey,
+      ChatCurrentUser(hasChatEnabled: userEnabled, lastChannelId: 9),
+    ),
+  );
+  final config = SiteConfig(
+    plugins: PluginData.none.withValue(
+      chatSettingsDataKey,
+      ChatSettings(chatEnabled: siteEnabled, separateSidebarMode: sidebarMode),
+    ),
+  );
+  final site = instance(
+    'meta.discourse.org',
+  ).copyWith(user: user, config: config);
   final channel = ChatChannel(
     id: 9,
     title: 'Bugs',
@@ -220,6 +344,7 @@ Future<void> _pump(
   );
   final api = FakeDiscourseApi(
     user: user,
+    siteConfigs: {_siteUrl: config},
     totals: chatNotificationTotals(
       unreadNotifications: bellCount,
       available: chatEnabled,
@@ -257,6 +382,12 @@ Future<void> _pump(
     ),
   );
   await tester.pumpAndSettle();
+  final menu = find.byKey(const ValueKey('mobile-menu-button'));
+  if (menu.evaluate().isNotEmpty) {
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+  }
+  return tester.widget<ShellScope>(find.byType(ShellScope).first).notifier!;
 }
 
 FocusNode _focusButton(WidgetTester tester, Finder button) {

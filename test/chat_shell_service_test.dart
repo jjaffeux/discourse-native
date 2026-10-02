@@ -97,6 +97,102 @@ void main() {
       expect(fixture.host.currentContent?.id, ChatPlugin.inboxRouteId);
     },
   );
+
+  for (final mode in [
+    ChatSeparateSidebarMode.never,
+    ChatSeparateSidebarMode.always,
+    ChatSeparateSidebarMode.fullscreen,
+  ]) {
+    test(
+      'header restores the last chat and forum routes in ${mode.wireName}',
+      () async {
+        final fixture = await _fixture(
+          channels: ChatChannels(public: [_channel(9)]),
+          sidebarMode: mode,
+        );
+        addTearDown(fixture.dispose);
+        final forum = ContentRoute.topic(
+          topicId: 42,
+          slug: 'topic',
+          title: 'Topic',
+        );
+        fixture.host.pushContent(forum);
+        await fixture.shell.openHeaderShortcut();
+        expect(fixture.host.currentContent?.id, 'chat-c-9');
+
+        fixture.shell.openBrowseChannels();
+        final browse = fixture.host.currentContent;
+        await fixture.shell.openHeaderShortcut();
+        expect(
+          fixture.host.currentContent,
+          mode == ChatSeparateSidebarMode.never ? browse : forum,
+        );
+
+        fixture.host.pushContent(forum);
+        await fixture.shell.openHeaderShortcut();
+        expect(fixture.host.currentContent, browse);
+      },
+    );
+  }
+
+  for (final scenario in [
+    (
+      mobile: false,
+      index: ChatPreferredIndex.channels,
+      starred: false,
+      threads: false,
+      expected: ChatPlugin.browseRouteId,
+    ),
+    (
+      mobile: true,
+      index: ChatPreferredIndex.channels,
+      starred: false,
+      threads: false,
+      expected: ChatPlugin.channelsRouteId,
+    ),
+    (
+      mobile: true,
+      index: ChatPreferredIndex.channels,
+      starred: true,
+      threads: false,
+      expected: ChatPlugin.starredRouteId,
+    ),
+    (
+      mobile: true,
+      index: ChatPreferredIndex.directMessages,
+      starred: false,
+      threads: false,
+      expected: ChatPlugin.directMessagesRouteId,
+    ),
+    (
+      mobile: false,
+      index: ChatPreferredIndex.directMessages,
+      starred: false,
+      threads: false,
+      expected: ChatPlugin.directMessagesRouteId,
+    ),
+    (
+      mobile: false,
+      index: ChatPreferredIndex.myThreads,
+      starred: false,
+      threads: true,
+      expected: ChatPlugin.myThreadsRouteId,
+    ),
+  ]) {
+    test('header uses the web landing page for $scenario', () async {
+      final fixture = await _fixture(
+        channels: ChatChannels(
+          public: [_channel(9, starred: scenario.starred)],
+          hasThreads: scenario.threads,
+        ),
+        settings: ChatSettings(preferredIndex: scenario.index),
+        lastChannelId: null,
+      );
+      addTearDown(fixture.dispose);
+      await fixture.shell.openHeaderShortcut(mobile: scenario.mobile);
+      expect(fixture.host.currentContent?.id, scenario.expected);
+    });
+  }
 }
 
 ChatChannel _channel(
@@ -115,11 +211,16 @@ ChatChannel _channel(
   threadingEnabled: true,
 );
 
-Future<_Fixture> _fixture({required ChatChannels channels}) async {
-  final settings = SiteConfig(
+Future<_Fixture> _fixture({
+  required ChatChannels channels,
+  ChatSeparateSidebarMode sidebarMode = ChatSeparateSidebarMode.never,
+  ChatSettings? settings,
+  int? lastChannelId = 9,
+}) async {
+  final config = SiteConfig(
     plugins: PluginData.none.withValue(
       chatSettingsDataKey,
-      const ChatSettings(),
+      settings ?? ChatSettings(separateSidebarMode: sidebarMode),
     ),
   );
   final user = DiscourseUser(
@@ -127,7 +228,11 @@ Future<_Fixture> _fixture({required ChatChannels channels}) async {
     username: 'reader',
     plugins: PluginData.none.withValue(
       chatCurrentUserDataKey,
-      const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+      ChatCurrentUser(
+        hasChatEnabled: true,
+        canDirectMessage: true,
+        lastChannelId: lastChannelId,
+      ),
     ),
   );
   final totals = chatNotificationTotals();
@@ -136,7 +241,7 @@ Future<_Fixture> _fixture({required ChatChannels channels}) async {
     title: 'Meta',
     user: user,
     notificationTotals: totals,
-    config: settings,
+    config: config,
   );
   final api = FakeDiscourseApi(chatChannelsBySite: {_site: channels});
   final credentials = FakeApiCredentialReader()..keys[_site] = 'api-key';
@@ -146,12 +251,12 @@ Future<_Fixture> _fixture({required ChatChannels channels}) async {
     requests: FakePluginRequestHost(credentials: credentials),
     store: store,
     currentUserFor: (_) => user,
-    siteConfigFor: (_) => settings,
+    siteConfigFor: (_) => config,
   );
   await chat.loadChannels(_site);
 
   final host = _NavigationHost(instance: instance, totals: totals);
-  final settingsListenable = ValueNotifier(settings);
+  final settingsListenable = ValueNotifier(config);
   final shell = ChatShellService(
     chat: chat,
     host: host,
@@ -159,7 +264,7 @@ Future<_Fixture> _fixture({required ChatChannels channels}) async {
       buildComposer: (_) => null,
       openNewTopic: (_) async => OpenComposerResult.unavailable,
       isActive: (_) => false,
-      siteConfigFor: (_) => settings,
+      siteConfigFor: (_) => config,
       siteConfigListenableFor: (_) => settingsListenable,
     ),
     store: store,

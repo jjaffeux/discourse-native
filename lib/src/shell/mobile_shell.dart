@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
@@ -258,36 +259,77 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               child: Padding(
                 key: const ValueKey('mobile-header'),
                 padding: const EdgeInsets.all(DSpacing.xs),
-                child: Row(
-                  spacing: DSpacing.controlGap,
-                  children: [
-                    DButton.iconOnly(
-                      key: const ValueKey('mobile-menu-button'),
-                      icon: const Icon(Icons.menu, size: 20),
-                      tooltip: sidebarOpen
-                          ? context.l10n.closeNavigation
-                          : context.l10n.openNavigation,
-                      variant: DButtonVariant.inline,
-                      expanded: sidebarOpen,
-                      onPressed: () {
-                        FocusManager.instance.primaryFocus?.unfocus();
-                        shell.toggleMobileSidebar();
-                      },
-                    ),
-                    Expanded(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: ForumIdentityHeader(
-                          name: instance.title,
-                          iconUrl: instance.iconUrl,
-                          monogram: instance.monogram,
-                          accentColor: instance.accentColor,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final leading = [
+                      DButton.iconOnly(
+                        key: const ValueKey('mobile-menu-button'),
+                        icon: const Icon(Icons.menu, size: 20),
+                        tooltip: sidebarOpen
+                            ? context.l10n.closeNavigation
+                            : context.l10n.openNavigation,
+                        variant: DButtonVariant.inline,
+                        expanded: sidebarOpen,
+                        onPressed: () {
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          shell.toggleMobileSidebar();
+                        },
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: ForumIdentityHeader(
+                            name: instance.title,
+                            iconUrl: instance.iconUrl,
+                            monogram: instance.monogram,
+                            accentColor: instance.accentColor,
+                          ),
                         ),
                       ),
-                    ),
-                    const ForumSearch(fullScreen: true),
-                    const UserMenuButton(compact: true),
-                  ],
+                    ];
+                    final actions = [
+                      ...registry.shellHeaderActions(
+                        context,
+                        surface: PluginHeaderSurface.content,
+                        compact: true,
+                        ringColor: ForumWindowBackground.chromeColor(
+                          context,
+                          Theme.of(context).shell.sidebar,
+                        ),
+                      ),
+                      const UserMenuButton(compact: true),
+                    ];
+                    if (constraints.maxWidth < 600 &&
+                        MediaQuery.textScalerOf(context).scale(12) > 12) {
+                      return Column(
+                        spacing: DSpacing.controlGap,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            spacing: DSpacing.controlGap,
+                            children: [
+                              ...leading,
+                              const ForumSearch(fullScreen: true),
+                            ],
+                          ),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: DSpacing.controlGap,
+                            runSpacing: DSpacing.controlGap,
+                            children: actions,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      spacing: DSpacing.controlGap,
+                      children: [
+                        ...leading,
+                        const ForumSearch(fullScreen: true),
+                        ...actions,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

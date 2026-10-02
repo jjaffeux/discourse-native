@@ -715,7 +715,6 @@ class ChatPlugin
     Color? ringColor,
   }) => [
     ChatHeaderButton(
-      hideWhenChatActive: surface == PluginHeaderSurface.content && compact,
       ringColor: ringColor,
       trailingSpacing: surface == PluginHeaderSurface.titleBar
           ? DSpacing.controlGap

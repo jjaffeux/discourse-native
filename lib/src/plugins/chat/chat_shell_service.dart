@@ -44,6 +44,7 @@ final class ChatShellService
     required PluginPostFlagCatalogReader postFlagCatalog,
   }) : _host = host,
        _postFlagCatalog = postFlagCatalog {
+    _rememberHeaderRoutes();
     _lastHostPresentation = _hostPresentation;
     _lastHostInstance = _host.currentInstance;
     _host.changes.addListener(_handleHostChanged);
@@ -60,6 +61,8 @@ final class ChatShellService
   bool _disposed = false;
   Object? _lastHostPresentation;
   DiscourseInstance? _lastHostInstance;
+  final _lastChatRoutes = <(String, int?), ContentRoute>{};
+  final _lastForumRoutes = <(String, int?), ContentRoute>{};
 
   // Topic pagination and reading progress notify the host without changing
   // anything exposed by this service. Do not rebuild chat chrome and sidebar
@@ -152,11 +155,26 @@ final class ChatShellService
 
   void _handleHostChanged() {
     if (_disposed) return;
+    _rememberHeaderRoutes();
     final presentation = _hostPresentation;
     if (!identical(_host.currentInstance, _lastHostInstance) ||
         presentation != _lastHostPresentation) {
       _notify();
     }
+  }
+
+  void _rememberHeaderRoutes() {
+    final instance = _host.currentInstance;
+    final route = currentContent;
+    if (instance == null ||
+        !instance.isConnected ||
+        instance.user == null ||
+        !forumActive ||
+        route == null) {
+      return;
+    }
+    final routes = fullPageChatActive ? _lastChatRoutes : _lastForumRoutes;
+    routes[(instance.url, instance.user!.id)] = route;
   }
 
   void _notify() {
@@ -655,6 +673,105 @@ final class ChatShellService
       OpenComposerResult.unavailable || OpenComposerResult.sourceChanged =>
         appL10n.theTopicComposerIsNoLongerAvailableHere,
     };
+  }
+
+  Future<void> openHeaderShortcut({bool mobile = false}) async {
+    final instance = _host.currentInstance;
+    if (instance == null || !_currentSiteCanUseChat) return;
+    final key = (instance.url, instance.user?.id);
+    if (fullPageChatActive) {
+      if (separateSidebarMode == ChatSeparateSidebarMode.never) return;
+      final route = _lastForumRoutes[key];
+      if (route == null) {
+        closeSidebarPanel();
+      } else {
+        _host.pushContent(route);
+      }
+      return;
+    }
+    final route = _lastChatRoutes[key];
+    if (route == null) {
+      await _openHeaderIndex(mobile: mobile);
+    } else {
+      _host.pushContent(route);
+      _host.showPluginContent();
+    }
+  }
+
+  Future<void> _openHeaderIndex({required bool mobile}) async {
+    final instance = _host.currentInstance!;
+    final siteUrl = instance.url;
+    final sourceRouteId = currentContent?.id;
+    bool stillCurrent() =>
+        !_disposed &&
+        !_host.isDisposed &&
+        _host.currentInstance?.url == siteUrl &&
+        currentUser?.id == instance.user?.id &&
+        currentContent?.id == sourceRouteId &&
+        _currentSiteCanUseChat;
+    await chat.loadChannels(siteUrl);
+    if (!stillCurrent()) return;
+
+    final channels = [
+      ...chat.publicChannels(siteUrl),
+      ...chat.directChannels(siteUrl),
+    ];
+    final settings = chat.siteConfigFor(siteUrl).chatSettings;
+    final directMessages = chat.directChannels(siteUrl);
+    final canAccessDirectMessages =
+        currentUser?.staff == true ||
+        currentUser?.canDirectMessage == true ||
+        directMessages.isNotEmpty;
+    if (mobile && channels.any((channel) => channel.membership.starred)) {
+      _host.selectDestination(
+        SidebarDestination(
+          id: ChatPlugin.starredRouteId,
+          label: appL10n.starredChannels,
+          icon: DIcons.star,
+        ),
+      );
+      return;
+    }
+    if (settings.preferredIndex == ChatPreferredIndex.myThreads &&
+        settings.threadsEnabled &&
+        chat.hasThreads(siteUrl) &&
+        channels.any((channel) => channel.threadingEnabled)) {
+      openMyThreads();
+      return;
+    }
+    final prefersDirectMessages =
+        settings.preferredIndex == ChatPreferredIndex.directMessages &&
+        canAccessDirectMessages;
+    final prefersChannels =
+        settings.preferredIndex == ChatPreferredIndex.channels &&
+        settings.publicChannelsEnabled;
+    if (!mobile &&
+        (prefersChannels ||
+            (prefersDirectMessages && directMessages.isNotEmpty))) {
+      final id = currentUser?.lastChatChannelId;
+      if (id != null) {
+        final channel = await chat.ensureChannel(siteUrl, id);
+        if (!stillCurrent()) return;
+        if (channel != null) {
+          _openRoute(siteUrl, ChatRoute.channel(id));
+          return;
+        }
+      }
+      openBrowseChannels();
+    } else if (prefersDirectMessages ||
+        (!settings.publicChannelsEnabled && canAccessDirectMessages)) {
+      _host.selectDestination(
+        SidebarDestination(
+          id: ChatPlugin.directMessagesRouteId,
+          label: appL10n.directMessages,
+          icon: DIcons.comment,
+        ),
+      );
+    } else if (prefersChannels) {
+      openChannels();
+    } else {
+      openBrowseChannels();
+    }
   }
 
   Future<void> openShortcut() async {
