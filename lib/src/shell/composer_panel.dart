@@ -1082,7 +1082,7 @@ class _TopicTaxonomy extends StatelessWidget {
 class _SelectedPillInputFormatter extends TextInputFormatter {
   const _SelectedPillInputFormatter(this.isSelected, this.onDelete);
 
-  final bool Function() isSelected;
+  final bool Function(TextEditingValue) isSelected;
   final VoidCallback onDelete;
 
   @override
@@ -1090,7 +1090,7 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    if (!isSelected()) return newValue;
+    if (!isSelected(oldValue)) return newValue;
     if (_componentDeletionRange(oldValue, newValue) != null) {
       onDelete();
     }
@@ -1475,9 +1475,22 @@ class _ComposerEditorState extends State<ComposerEditor> {
       },
     );
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
-      () =>
-          widget.composer.text.keyboardSelectedProjection != null ||
-          _media.hasSelectedMediaProjection,
+      (value) {
+        final pill = _media.value.selectedGallery ?? _keyboardSelectedPill;
+        final selection = value.selection;
+        if (selection.isValid &&
+            !selection.isCollapsed &&
+            ((pill is ComposerImageGalleryBlock &&
+                    selection.start <= pill.start &&
+                    selection.end >= pill.end) ||
+                (pill is ComposerQuoteBlock &&
+                    selection.start == pill.start &&
+                    selection.end == pill.end))) {
+          return false;
+        }
+        return widget.composer.text.keyboardSelectedProjection != null ||
+            _media.hasSelectedMediaProjection;
+      },
       () {
         final composer = widget.composer;
         final pill = _media.value.selectedGallery ?? _keyboardSelectedPill;
@@ -3038,7 +3051,54 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ) {
     final selection = oldValue.selection;
     final deletion = _componentDeletionRange(oldValue, newValue);
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        newValue.selection.isValid &&
+        newValue.selection.isCollapsed &&
+        newValue.selection.extentOffset ==
+            selection.end + newValue.text.length - oldValue.text.length &&
+        selection.end <= oldValue.text.length &&
+        newValue.text.length >=
+            oldValue.text.length - selection.end + selection.start &&
+        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
+        newValue.text.endsWith(oldValue.text.substring(selection.end)) &&
+        (deletion == null ||
+            widget.composer.text.collapsedComponents.every(
+              (pill) =>
+                  _pillEnd(pill) <= selection.start ||
+                  _pillStart(pill) >= selection.end ||
+                  pill is ComposerImageGalleryBlock ||
+                  (pill is ComposerQuoteBlock &&
+                      selection.start == pill.start &&
+                      selection.end == pill.end) ||
+                  (pill is ComposerImageBlock &&
+                      widget.composer.text.galleryBlocks.any(
+                        (gallery) =>
+                            gallery.start <= pill.start &&
+                            gallery.end >= pill.end,
+                      )),
+            )) &&
+        widget.composer.text.collapsedComponents.every((pill) {
+          final start = _pillStart(pill);
+          final end = _pillEnd(pill);
+          return end <= selection.start ||
+              start >= selection.end ||
+              (selection.start <= start && selection.end >= end);
+        })) {
+      // Honor explicit whole-range replacements, including a gallery replaced
+      // or quote with a shared delimiter such as `[`. A quote must match the
+      // range exactly; selection metadata snapped over partial native deletes
+      // must still follow atomic handling below.
+      return newValue;
+    }
     if (deletion == null) {
+      // A visually trailing gallery caret can have a hidden source offset.
+      // Normalize its insertion to the gallery boundary before rejecting
+      // edits into projected Markdown. Deletions retain atomic handling below.
+      newValue = const ComposerImageGalleryInputFormatter().formatEditUpdate(
+        oldValue,
+        newValue,
+      );
       if (oldValue.text == newValue.text) return newValue;
       // A keyboard may combine deletion with prediction or autocorrection.
       // Keep ambiguous replacements out of projected source rather than
