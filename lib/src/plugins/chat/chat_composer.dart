@@ -293,12 +293,33 @@ class _ChatComposerState extends State<ChatComposer> {
     _sourceKey = sourceKey;
     final cookingSite = widget.siteUrl;
     var cookingAccount = chat.currentUserFor(cookingSite)?.id;
+    var composerSession = chat.captureSession(cookingSite);
     void accountChanged() {
       if (!identical(_chat, chat) || _sourceKey != sourceKey) return;
       final account = chat.currentUserFor(cookingSite)?.id;
-      if (account == cookingAccount) return;
+      final sessionChanged = !composerSession.isCurrent;
+      if (account == cookingAccount && !sessionChanged) return;
       cookingAccount = account;
       _cancelEditCooking();
+      if (sessionChanged) {
+        // A rollback can restore the same user while retiring every upload
+        // selected in the previous account session.
+        composerSession = chat.captureSession(cookingSite);
+        if (_composer case final composer?) {
+          final draft = chat.composerDraftFor(cookingSite, _target);
+          _deferredRetainedDraft = null;
+          _completedUploadIdsBeforeDeferral = null;
+          _applyingRetainedDraft = true;
+          try {
+            composer.replacePluginDocument(
+              raw: draft?.raw ?? '',
+              uploads: draft?.uploads ?? const [],
+            );
+          } finally {
+            _applyingRetainedDraft = false;
+          }
+        }
+      }
     }
 
     _chatAccountListener = accountChanged;
