@@ -225,24 +225,73 @@ void main() {
     );
 
     test(
-      'keeps a forum and its credential when notification revocation fails',
+      'removes a forum and its credential when notification revocation fails',
       () async {
         api.revokeError = StateError('remote revoke unavailable');
 
         expect(
           await controller.removeInstance(controller.currentInstance!),
-          isFalse,
+          isTrue,
         );
 
-        expect(controller.instances, hasLength(1));
-        expect(controller.currentInstance?.user?.username, 'reader');
-        expect(authenticator.keys[_siteUrl], 'api-key');
-        expect(authenticator.disconnected, isEmpty);
+        expect(controller.instances, isEmpty);
+        expect(await controller.instanceStore.load(), isEmpty);
+        expect(authenticator.keys, isNot(contains(_siteUrl)));
+        expect(authenticator.disconnected, [_siteUrl]);
         expect(api.revoked, [_siteUrl]);
         final event = _singleOperation(diagnostics, 'authentication.revokeKey');
-        expect(event.severity, DiagnosticSeverity.error);
+        expect(event.severity, DiagnosticSeverity.warning);
       },
     );
+
+    test('removes a forum before its revocation request responds', () async {
+      final gate = api.revokeGate = Completer<void>();
+      final removal = controller.removeInstance(controller.currentInstance!);
+      await api.revokeStarted.future;
+      try {
+        expect(await removal.timeout(const Duration(seconds: 1)), isTrue);
+        expect(controller.instances, isEmpty);
+        expect(await controller.instanceStore.load(), isEmpty);
+        expect(authenticator.keys, isNot(contains(_siteUrl)));
+        expect(authenticator.disconnected, [_siteUrl]);
+        expect(api.revoked, [_siteUrl]);
+      } finally {
+        gate.complete();
+        await removal;
+      }
+      await pumpEventQueue();
+      expect(controller.instances, isEmpty);
+      expect(await controller.instanceStore.load(), isEmpty);
+    });
+
+    for (final offline in [true, false]) {
+      test('removes a forum after ${offline ? 'an offline' : 'a 503'} HTTP '
+          'revocation failure', () async {
+        final transport = DiscourseTransport.create(
+          client: MockClient((_) async {
+            if (offline) throw const SocketException('forum unavailable');
+            return http.Response('Service unavailable', 503);
+          }),
+        );
+        addTearDown(transport.close);
+        api.revokeThrough = DiscourseAccountApi(
+          transport,
+          const DiscourseModelCodec.core(),
+        );
+
+        expect(
+          await controller.removeInstance(controller.currentInstance!),
+          isTrue,
+        );
+        await pumpEventQueue();
+
+        expect(controller.instances, isEmpty);
+        expect(await controller.instanceStore.load(), isEmpty);
+        expect(authenticator.keys, isNot(contains(_siteUrl)));
+        expect(authenticator.disconnected, [_siteUrl]);
+        expect(api.revoked, [_siteUrl]);
+      });
+    }
 
     test('removes a forum whose key the site already refuses', () async {
       final transport = DiscourseTransport.create(
@@ -386,6 +435,8 @@ final class _InstrumentedFailureApi extends FakeDiscourseApi {
   Completer<void>? opaqueLikeGate;
   final Completer<void> likeStarted = Completer<void>();
   Object? revokeError;
+  Completer<void>? revokeGate;
+  final Completer<void> revokeStarted = Completer<void>();
 
   /// Answers revocation with the production client's reading of a response.
   DiscourseAccountApi? revokeThrough;
@@ -419,6 +470,8 @@ final class _InstrumentedFailureApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     revoked.add(siteUrl);
+    if (!revokeStarted.isCompleted) revokeStarted.complete();
+    await revokeGate?.future;
     if (revokeError case final error?) throw error;
     await revokeThrough?.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
   }

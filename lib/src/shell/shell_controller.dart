@@ -2430,12 +2430,11 @@ class ShellController extends FrameSafeNotifier
   Future<bool> removeInstance(DiscourseInstance instance) async {
     if (!_instances.contains(instance)) return false;
 
-    // Removing the forum also removes the only local credential capable of
-    // revoking its native push registration. Do not commit the rail removal
-    // until the site has confirmed that revocation.
+    // Try revoking the old key and its native push registration, but an
+    // unreachable forum must not prevent the user from removing it locally.
     final disconnected = await _accountSessions.disconnect(
       instance.url,
-      requireRemoteRevocation: true,
+      waitForRemoteRevocation: false,
     );
     final lease = disconnected.lease;
     if (isDisposed ||
@@ -2446,7 +2445,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     // Presentation metadata may have replaced the immutable instance object
-    // while revocation was in flight. URL is the rail identity; resolve the
+    // while disconnection was in flight. URL is the rail identity; resolve the
     // object owned by the new lifecycle generation before mutating the list.
     final held = _instanceAt(instance.url);
     if (held == null) return false;

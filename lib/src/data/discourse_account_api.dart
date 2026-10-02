@@ -706,10 +706,8 @@ final class DiscourseAccountApi {
       return;
     }
 
-    // Every other non-2xx response is a failed revocation. In particular,
-    // accepting a missing route, a redirect, or a 403 from something other
-    // than Discourse would let forum removal delete our only local copy of the
-    // key while its native push registration stays active.
+    // Every other non-2xx response is a failed revocation, including a missing
+    // route, a redirect, or a 403 from something other than Discourse.
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,

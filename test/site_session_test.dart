@@ -826,6 +826,18 @@ final class _UnansweredClientIdAuthenticator extends FakeAuthenticator {
   }
 }
 
+final class _HeldCredentialDeleteAuthenticator extends FakeAuthenticator {
+  final deletionStarted = Completer<void>();
+  final finishDeletion = Completer<void>();
+
+  @override
+  Future<void> disconnect(String siteUrl) async {
+    deletionStarted.complete();
+    await finishDeletion.future;
+    await super.disconnect(siteUrl);
+  }
+}
+
 /// Answers every key read with what storage held when it was asked. Reads
 /// asked while [hold] is in force wait for its release, like a platform read
 /// that has already found nothing and whose answer is still on its way back.
@@ -1866,7 +1878,7 @@ void main() {
 
   group('connection and removal operations', () {
     test(
-      'remove a site despite signed-out presentation replacement during revocation',
+      'remove a site despite signed-out presentation replacement during local disconnection',
       () async {
         const otherSite = 'https://other.example.com';
         final initialAccountAppearance = siteAppearance(
@@ -1882,7 +1894,7 @@ void main() {
           connected,
           instance('other.example.com'),
         ]);
-        final authenticator = FakeAuthenticator()
+        final authenticator = _HeldCredentialDeleteAuthenticator()
           ..keys[_siteUrl] = 'account-key';
         final api = _DisconnectRaceAppearanceApi(
           initialAccountAppearance: initialAccountAppearance,
@@ -1892,6 +1904,9 @@ void main() {
           signedOutAppearance: signedOutAppearance,
         );
         addTearDown(() {
+          if (!authenticator.finishDeletion.isCompleted) {
+            authenticator.finishDeletion.complete();
+          }
           if (!api.finishRevocation.isCompleted) {
             api.finishRevocation.complete();
           }
@@ -1910,7 +1925,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         final removing = shell.removeInstance(connected);
-        await api.revocationStarted.future;
+        await authenticator.deletionStarted.future;
         shell.selectInstance(1);
         shell.selectInstance(0);
         await api.signedOutAppearanceStarted.future;
@@ -1921,8 +1936,9 @@ void main() {
         expect(shell.currentSiteAppearance, signedOutAppearance);
         expect(api.racingAppearanceStarted.isCompleted, isFalse);
 
-        api.finishRevocation.complete();
-        expect(await removing, isTrue);
+        authenticator.finishDeletion.complete();
+        expect(await removing.timeout(const Duration(seconds: 1)), isTrue);
+        expect(api.finishRevocation.isCompleted, isFalse);
         expect(authenticator.keys[_siteUrl], isNull);
         expect(shell.instances.map((instance) => instance.url), [otherSite]);
         expect((await store.load()).map((instance) => instance.url), [
@@ -1944,6 +1960,15 @@ void main() {
               .every((request) => request.apiKey == null),
           isTrue,
         );
+        expect(shell.currentSiteAppearance, signedOutAppearance);
+
+        api.finishRevocation.complete();
+        await pumpEventQueue();
+        expect(shell.instances.map((instance) => instance.url), [
+          otherSite,
+          _siteUrl,
+        ]);
+        expect(authenticator.keys[_siteUrl], isNull);
         expect(shell.currentSiteAppearance, signedOutAppearance);
       },
     );
@@ -2380,10 +2405,11 @@ void main() {
     });
 
     for (final removeSelected in [true, false]) {
-      test('keep the tabs of a ${removeSelected ? 'selected' : 'background'} '
+      test('remove the tabs of a ${removeSelected ? 'selected' : 'background'} '
           'forum whose removal the site cannot confirm', () async {
         const otherSite = 'https://other.example.com';
         final forumTabs = FakeForumTabStore();
+        final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
         final shell = ShellController(
           instanceStore: FakeInstanceStore([
             instance(
@@ -2393,7 +2419,7 @@ void main() {
           ]),
           forumTabs: forumTabs,
           api: _UnreachableRevocationApi(),
-          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+          authenticator: authenticator,
           drafts: FakeDraftStore(),
           trackers: FakeSiteTracker.reset(),
         );
@@ -2421,21 +2447,18 @@ void main() {
 
         expect(
           await shell.removeInstance(shell.instanceFor(_siteUrl)!),
-          isFalse,
+          isTrue,
         );
         await pumpEventQueue();
 
-        // The rollback keeps the account signed in, so it keeps what that
-        // account had open, in memory and in the store a relaunch reads.
-        expect(shell.instanceFor(_siteUrl)?.user?.username, 'reader');
-        expect(
-          shell.currentInstance?.url,
-          removeSelected ? _siteUrl : otherSite,
-        );
-        final kept = shell.workspaceFor(_siteUrl);
-        expect(tabIds(kept), tabs);
-        expect(kept!.tabs.map((tab) => tab.currentContent.topicId), [7, 8]);
-        expect(tabIds(persisted()), tabs);
+        expect(shell.instanceFor(_siteUrl), isNull);
+        expect(shell.currentInstance?.url, otherSite);
+        expect(shell.workspaceFor(_siteUrl), isNull);
+        expect(persisted(), isNull);
+        expect(authenticator.keys[_siteUrl], isNull);
+        expect((await shell.instanceStore.load()).map((item) => item.url), [
+          otherSite,
+        ]);
       });
     }
 

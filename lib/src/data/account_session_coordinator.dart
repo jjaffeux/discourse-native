@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/l10n/strings.dart';
 import '../models/discourse_instance.dart';
 import 'authenticator.dart';
@@ -400,7 +402,7 @@ final class AccountSessionCoordinator {
 
   Future<AccountDisconnectionResult> disconnect(
     String siteUrl, {
-    bool requireRemoteRevocation = false,
+    bool waitForRemoteRevocation = true,
   }) async {
     final operation = _begin(siteUrl);
     final initial = host.accountSessionInstance(siteUrl);
@@ -456,15 +458,7 @@ final class AccountSessionCoordinator {
             error,
             stackTrace,
             'authentication.readCredentialForDisconnect',
-            warning: !requireRemoteRevocation,
-          );
-        }
-        if (requireRemoteRevocation) {
-          return await _restoreFailedDisconnect(
-            siteUrl,
-            operation,
-            lease,
-            initial,
+            warning: true,
           );
         }
       }
@@ -472,20 +466,19 @@ final class AccountSessionCoordinator {
         return AccountDisconnectionResult.stale(lease);
       }
       if (apiKey != null) {
-        final revoked = await _revokeBestEffort(
+        final revocation = _revokeBestEffort(
           siteUrl,
           apiKey,
           operation: 'authentication.revokeKey',
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
-          warning: !requireRemoteRevocation,
         );
-        if (requireRemoteRevocation && !revoked) {
-          return await _restoreFailedDisconnect(
-            siteUrl,
-            operation,
-            lease,
-            initial,
-          );
+        if (waitForRemoteRevocation) {
+          await revocation;
+        } else {
+          // The captured key belongs to this account alone. A forum removal
+          // can forget it locally while the request settles; a late answer
+          // must neither hold the forum in the rail nor change a new account.
+          unawaited(revocation);
         }
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
@@ -731,22 +724,20 @@ final class AccountSessionCoordinator {
     );
   }
 
-  Future<bool> _revokeBestEffort(
+  Future<void> _revokeBestEffort(
     String siteUrl,
     String apiKey, {
     required String operation,
     bool Function()? ifCurrent,
     bool warning = true,
   }) async {
-    if (ifCurrent?.call() == false) return false;
+    if (ifCurrent?.call() == false) return;
     try {
       await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
-      return true;
     } catch (error, stackTrace) {
       if (ifCurrent?.call() != false) {
         _reportError(error, stackTrace, operation, warning: warning);
       }
-      return false;
     }
   }
 

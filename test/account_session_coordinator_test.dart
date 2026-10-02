@@ -620,28 +620,27 @@ void main() {
 
     for (final failure in [_Failure.readCredential, _Failure.revokeOld]) {
       test(
-        'restores the account when required revocation fails at ${failure.name}',
+        'finishes local disconnect when background revocation fails at ${failure.name}',
         () async {
           final fixture = _Fixture(failures: {failure});
 
           final result = await fixture.coordinator.disconnect(
             _siteUrl,
-            requireRemoteRevocation: true,
+            waitForRemoteRevocation: false,
           );
 
-          expect(result.outcome, AccountDisconnectionOutcome.failed);
-          expect(fixture.current.user, _accountA);
-          expect((await fixture.durable).user, _accountA);
-          expect(fixture.authenticator.keys[_siteUrl], _oldKey);
-          expect(fixture.events, isNot(contains('credential:delete')));
+          expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+          expect(fixture.current.user, isNull);
+          expect((await fixture.durable).user, isNull);
+          expect(fixture.authenticator.keys[_siteUrl], isNull);
           expect(
             fixture.events,
             containsAllInOrder([
               'presentation:disconnecting',
               if (failure == _Failure.revokeOld) 'credential:revoke:$_oldKey',
+              'credential:delete',
               'lifecycle:clear',
-              'presentation:restored',
-              'instances:save:account-a',
+              'presentation:disconnected',
             ]),
           );
           fixture.expectPrivateStateIsCoherent();
@@ -990,7 +989,7 @@ void main() {
     );
 
     test(
-      'required revocation rollback preserves an independent disconnect',
+      'background revocation cannot block an independent disconnect',
       () async {
         final fixture = await _RealStoreFixture.create(
           failures: {_Failure.revokeOld},
@@ -998,28 +997,30 @@ void main() {
         fixture.api.firstRevocationGate = Completer<void>();
         final firstDisconnect = fixture.coordinator.disconnect(
           _siteUrl,
-          requireRemoteRevocation: true,
+          waitForRemoteRevocation: false,
         );
         await fixture.api.firstRevocationStarted.future;
+        final firstResult = await firstDisconnect.timeout(
+          const Duration(seconds: 1),
+        );
+
+        expect(firstResult.outcome, AccountDisconnectionOutcome.disconnected);
+        expect(fixture.authenticator.keys[_siteUrl], isNull);
 
         final secondResult = await fixture.coordinator.disconnect(
           _otherSiteUrl,
         );
         expect(secondResult.outcome, AccountDisconnectionOutcome.disconnected);
-        expect(fixture.authenticator.keys[_siteUrl], _oldKey);
         expect(fixture.authenticator.keys[_otherSiteUrl], isNull);
 
         fixture.api.firstRevocationGate!.complete();
-        final firstResult = await firstDisconnect;
+        await pumpEventQueue();
         final durable = await fixture.instances.load();
 
-        expect(firstResult.outcome, AccountDisconnectionOutcome.failed);
-        expect(durable.map((item) => item.user), [_accountA, null]);
-        expect(fixture.authenticator.keys, {_siteUrl: _oldKey});
-        expect(fixture.snapshotsAtDeletion.keys, [_otherSiteUrl]);
-        expect(fixture.reports, [
-          (operation: 'authentication.revokeKey', warning: false),
-        ]);
+        expect(durable.map((item) => item.user), [null, null]);
+        expect(fixture.authenticator.keys, isEmpty);
+        expect(fixture.snapshotsAtDeletion.keys, [_siteUrl, _otherSiteUrl]);
+        expect(fixture.reports, isEmpty);
       },
     );
 
@@ -1061,6 +1062,50 @@ void main() {
   });
 
   group('AccountSessionCoordinator stale completions', () {
+    for (final failRevocation in [false, true]) {
+      test(
+        'a late ${failRevocation ? 'failed' : 'successful'} background revocation cannot change a newer account',
+        () async {
+          final fixture = _Fixture(
+            failures: {if (failRevocation) _Failure.revokeOld},
+          );
+          final gate = fixture.api.firstRevocationGate = Completer<void>();
+          try {
+            final disconnecting = fixture.coordinator.disconnect(
+              _siteUrl,
+              waitForRemoteRevocation: false,
+            );
+            await fixture.api.firstRevocationStarted.future;
+            final disconnected = await disconnecting.timeout(
+              const Duration(seconds: 1),
+            );
+            expect(
+              disconnected.outcome,
+              AccountDisconnectionOutcome.disconnected,
+            );
+            expect(fixture.authenticator.keys[_siteUrl], isNull);
+
+            final connected = await fixture.coordinator.connect(_siteUrl);
+            expect(connected.outcome, AccountConnectionOutcome.connected);
+          } finally {
+            gate.complete();
+          }
+          await pumpEventQueue();
+
+          expect(fixture.current.user, _accountB);
+          expect((await fixture.durable).user, _accountB);
+          expect(fixture.authenticator.keys[_siteUrl], _newKey);
+          expect(
+            fixture.events.where(
+              (event) => event.startsWith('credential:revoke:'),
+            ),
+            ['credential:revoke:$_oldKey'],
+          );
+          fixture.expectPrivateStateIsCoherent();
+        },
+      );
+    }
+
     test('revokes authorization completed after disconnect', () async {
       final fixture = _Fixture();
       fixture.authenticator.authorizeGate = Completer<void>();
