@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
@@ -158,6 +159,94 @@ void main() {
     expect(shell.selectedTabIn(ForumPanel.secondary)?.id, selectedId);
     expect(shell.tabsForCurrentForum, hasLength(4));
   });
+
+  for (final panel in ForumPanel.values) {
+    for (final samePanel in [true, false]) {
+      for (final entryPoint in ['link', 'content']) {
+        test(
+          '$entryPoint navigation to $panel from the '
+          '${samePanel ? 'current' : 'opposite'} panel honors explicit posts',
+          () {
+            shell.createTab(panel: panel);
+            final targetId = shell.activeTabId!;
+            shell.openTopic(_topic);
+            shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
+            shell.openTopic(_otherTopic);
+            final sourcePanel = samePanel
+                ? panel
+                : panel == ForumPanel.main
+                ? ForumPanel.secondary
+                : ForumPanel.main;
+            final sourceId = samePanel
+                ? targetId
+                : shell.selectedTabIn(sourcePanel)!.id;
+            shell.selectTab(sourceId);
+
+            TabOpenResult open({required bool explicit}) => entryPoint == 'link'
+                ? shell.openLinkInPanel(
+                    '/t/panel-topic/42${explicit ? '/3' : ''}',
+                    panel: panel,
+                  )
+                : shell.openContentInPanel(
+                    ContentRoute.topic(
+                      topicId: 42,
+                      slug: _topic.slug,
+                      title: _topic.title,
+                      postNumber: explicit ? 3 : null,
+                    ),
+                    panel: panel,
+                    resetScrollPosition: explicit,
+                  );
+
+            expect(open(explicit: true), TabOpenResult.opened);
+            expect(shell.activeTabId, targetId);
+            expect(shell.currentContent?.postNumber, 3);
+            expect(shell.topicScrollPostNumber(42), 3);
+            expect(shell.topicScrollPostOffset(42), 0);
+            expect(shell.activeTab!.anchors['topic-42'], isNull);
+
+            shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
+            final anchor = shell.activeTab!.anchors['topic-42'];
+            shell.openTopic(_otherTopic);
+            shell.selectTab(sourceId);
+
+            expect(open(explicit: false), TabOpenResult.opened);
+            expect(shell.activeTabId, targetId);
+            expect(shell.currentContent?.postNumber, isNull);
+            expect(shell.topicScrollPostNumber(42), 9);
+            expect(shell.topicScrollPostOffset(42), -24);
+            expect(shell.activeTab!.anchors['topic-42'], same(anchor));
+          },
+        );
+      }
+    }
+
+    test('search result posts override a saved reading position in $panel', () {
+      shell.moveTabToPanel(shell.activeTabId!, panel);
+      final targetId = shell.activeTabId;
+      shell.openTopic(_topic);
+      shell.saveTopicScrollPost(42, 9, viewportOffset: -24);
+      shell.openTopic(_otherTopic);
+
+      shell.openSearchResult(
+        const SearchPostHit(
+          postId: 4203,
+          topicId: 42,
+          postNumber: 3,
+          topicTitle: 'Panel topic',
+          topicSlug: 'panel-topic',
+          username: 'reader',
+          excerpt: SearchExcerpt([SearchExcerptSegment('Matched post')]),
+        ),
+      );
+
+      expect(shell.activeTabId, targetId);
+      expect(shell.currentContent?.postNumber, 3);
+      expect(shell.topicScrollPostNumber(42), 3);
+      expect(shell.topicScrollPostOffset(42), 0);
+      expect(shell.activeTab!.anchors['topic-42'], isNull);
+    });
+  }
 
   test('topic clicks retain the current list as their source', () {
     final mainId = shell.activeTabId!;
