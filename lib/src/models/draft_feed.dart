@@ -57,7 +57,9 @@ class DraftFeed {
       0,
       page.rawItemCount,
     );
-    final more = page.rawItemCount >= limit && consumed > 0;
+    // A full captured page can be entirely deleted while it loads. Later rows
+    // have shifted to this same offset, so keep an explicit continuation.
+    final more = page.rawItemCount >= limit;
     return DraftFeed(
       drafts: combined,
       loaded: true,

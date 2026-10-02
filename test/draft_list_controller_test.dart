@@ -575,7 +575,7 @@ void main() {
     });
 
     test(
-      'deleting an entire captured page stops a nonadvancing load',
+      'deleting an entire captured page waits for an explicit continuation',
       () async {
         final api = _GatedDraftsApi();
         final controller = DraftListController(
@@ -595,10 +595,19 @@ void main() {
         }
         api.pages.single.complete(page);
         await load;
-        await controller.load(_instance);
-
+        await pumpEventQueue();
         expect(api.offsets, [0]);
         expect(controller.feedFor(_siteUrl).nextOffset, 0);
+        expect(controller.feedFor(_siteUrl).hasMore, isTrue);
+        expect(controller.feedFor(_siteUrl).isEmpty, isFalse);
+
+        final more = controller.load(_instance);
+        await pumpEventQueue();
+        expect(api.offsets, [0, 0]);
+        api.pages[1].complete(const []);
+        await more;
+        await controller.load(_instance);
+        expect(api.offsets, [0, 0]);
         expect(controller.feedFor(_siteUrl).hasMore, isFalse);
         expect(controller.feedFor(_siteUrl).isEmpty, isTrue);
       },
@@ -863,6 +872,66 @@ void main() {
         expect(feed.hasMore, isTrue);
       },
     );
+
+    for (final hasRemaining in [false, true]) {
+      test(
+        'a fully deleted refresh page permits an explicit shifted page: remaining=$hasRemaining',
+        () async {
+          final api = _GatedDraftsApi();
+          final controller = DraftListController(
+            api: api,
+            credentials: _ReadyApiKeys(),
+            lifecycle: SiteLifecycle(),
+          );
+          addTearDown(controller.dispose);
+          final captured = [
+            for (var index = 0; index < DraftListController.pageSize; index++)
+              UserDraft(key: 'topic_$index', sequence: 1, data: null),
+          ];
+          final seed = controller.load(_instance);
+          await pumpEventQueue();
+          api.pages.single.complete(captured);
+          await seed;
+
+          final refresh = controller.load(_instance, refresh: true);
+          await pumpEventQueue();
+          for (final draft in captured) {
+            expect(await controller.delete(_instance, draft), isTrue);
+          }
+          expect(controller.feedFor(_siteUrl).loading, isTrue);
+          expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+          api.pages[1].complete(captured);
+          await refresh;
+
+          final shifted = controller.feedFor(_siteUrl);
+          expect(shifted.drafts, isEmpty);
+          expect(shifted.nextOffset, 0);
+          expect(shifted.hasMore, isTrue);
+          expect(shifted.isEmpty, isFalse);
+          // Keep the continuation user-driven even when no positions remain.
+          await pumpEventQueue();
+          expect(api.offsets, [0, 0]);
+          final more = controller.load(_instance);
+          await pumpEventQueue();
+          expect(api.offsets, [0, 0, 0]);
+          api.pages[2].complete([
+            if (hasRemaining)
+              const UserDraft(key: 'topic_later', sequence: 1, data: null),
+          ]);
+          await more;
+
+          final finished = controller.feedFor(_siteUrl);
+          expect(finished.drafts.map((draft) => draft.key), [
+            if (hasRemaining) 'topic_later',
+          ]);
+          expect(finished.nextOffset, hasRemaining ? 1 : 0);
+          expect(finished.totalCount, hasRemaining ? 1 : 0);
+          expect(finished.hasMore, isFalse);
+          await controller.load(_instance);
+          expect(api.pages, hasLength(3));
+        },
+      );
+    }
 
     test('keeps a draft deleted while a page is in flight', () async {
       final api = _GatedDraftsApi();
