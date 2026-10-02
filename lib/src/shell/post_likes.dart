@@ -11,6 +11,7 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'hover_panel.dart';
 import 'platform.dart';
+import 'post_action_owner.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
@@ -38,12 +39,16 @@ class _PostLikesState extends State<PostLikes> {
 
   void _openPanel() => _panel.currentState?.open();
 
-  Future<void> _toggle() async {
-    final controller = ShellScope.read(context);
-    final error = await controller.toggleLike(
-      widget.post,
+  Future<void> _toggle(PostActionOwner owner, Post post) async {
+    if (!owner.isCurrent(
+      context,
       siteUrl: widget.siteUrl,
-    );
+      postId: widget.post.id,
+    )) {
+      return;
+    }
+    final controller = ShellScope.read(context);
+    final error = await controller.toggleLike(post, siteUrl: widget.siteUrl);
     if (!mounted || !identical(ShellScope.read(context), controller)) return;
 
     // Either way, and before the failure is reported: the names on screen are
@@ -89,6 +94,11 @@ class _PostLikesState extends State<PostLikes> {
   Widget build(BuildContext context) {
     final post = widget.post;
     if (post.likeCount <= 0) return const SizedBox.shrink();
+    final owner = PostActionOwner.capture(
+      context,
+      siteUrl: widget.siteUrl,
+      postId: post.id,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -109,7 +119,7 @@ class _PostLikesState extends State<PostLikes> {
             child: _LikeCount(
               post: post,
               onOpen: context.isTouch ? _openSheet : _openPanel,
-              onToggle: post.canToggleLike ? _toggle : null,
+              onToggle: post.canToggleLike ? () => _toggle(owner, post) : null,
             ),
           ),
         ),
