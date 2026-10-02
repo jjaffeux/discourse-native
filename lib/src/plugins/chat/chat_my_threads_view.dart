@@ -27,9 +27,10 @@ class ChatMyThreadsView extends StatefulWidget {
 }
 
 class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
-  late final ChatController _chat;
+  late ChatController _chat;
   late final ScrollController _scroll;
-  late final ChatThreadDirectory _directory;
+  late ChatThreadDirectory _directory;
+  ChatShellService? _shell;
   VoidCallback? _unregisterRefresher;
   bool _ready = false;
 
@@ -42,17 +43,21 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_ready) return;
-    _chat = PluginUiScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (_ready && identical(chat, _chat) && identical(shell, _shell)) return;
+    _unregisterRefresher?.call();
+    if (_ready) _directory.dispose();
+    _chat = chat;
+    _shell = shell;
     _channelId = _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId;
     _ready = true;
     _directory = ChatThreadDirectory(_chat, widget.siteUrl);
-    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
-        .registerRouteRefresher(
-          widget.siteUrl,
-          ChatPlugin.myThreadsRouteId,
-          () => _directory.load(reset: true),
-        );
+    _unregisterRefresher = shell.registerRouteRefresher(
+      widget.siteUrl,
+      ChatPlugin.myThreadsRouteId,
+      () => _directory.load(reset: true),
+    );
     unawaited(_directory.load());
   }
 

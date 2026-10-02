@@ -29,8 +29,9 @@ class ChatBrowseChannelsView extends StatefulWidget {
 }
 
 class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
-  late final ChatController _chat;
-  late final TextEditingController _filterController;
+  late ChatController _chat;
+  late TextEditingController _filterController;
+  ChatShellService? _shell;
   late final ScrollController _scrollController;
   Timer? _filterTimer;
   Object? _request;
@@ -54,18 +55,36 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_request != null) return;
-    _chat = PluginUiScope.require(context, chatControllerService);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (_request != null &&
+        identical(chat, _chat) &&
+        identical(shell, _shell)) {
+      return;
+    }
+    _unregisterRefresher?.call();
+    _request = Object();
+    _filterTimer?.cancel();
+    _filterTimer = null;
+    _chat = chat;
+    _shell = shell;
     final saved = _chat.inboxFilters.browseFor(widget.siteUrl);
-    _filterController.text = saved.query;
+    // Replace the field controller when its owner changes: notifying the old
+    // mounted field synchronously here would update it during this build.
+    _filterController.dispose();
+    _filterController = TextEditingController(text: saved.query);
     _status = saved.status;
     _joined = saved.membership;
-    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
-        .registerRouteRefresher(
-          widget.siteUrl,
-          ChatPlugin.browseRouteId,
-          () => _load(reset: true),
-        );
+    _channels = const [];
+    _nextOffset = 0;
+    _loadingMore = false;
+    _hasMore = false;
+    _error = null;
+    _unregisterRefresher = shell.registerRouteRefresher(
+      widget.siteUrl,
+      ChatPlugin.browseRouteId,
+      () => _load(reset: true),
+    );
     unawaited(_load(reset: true));
   }
 
