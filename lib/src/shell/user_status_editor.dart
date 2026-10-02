@@ -9,8 +9,10 @@ import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/user_status.dart';
+import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/emoji_usage.dart';
 import 'emoji_picker.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -26,7 +28,7 @@ Future<void> showUserStatusEditor(
     return Future.value();
   }
   final lease = controller.lifecycle.capture(siteUrl);
-  // The menu that opens this dialog can close immediately afterward.
+  // The menu that opens this editor can close immediately afterward.
   final navigatorContext = Navigator.of(context, rootNavigator: true).context;
   bool ownsAccount() =>
       navigatorContext.mounted &&
@@ -41,9 +43,10 @@ Future<void> showUserStatusEditor(
   final initialPauseNotifications = controller.doNotDisturb
       .stateFor(siteUrl)
       .isActiveAt(DateTime.now());
-  return showDialog<void>(
+  return _showStatusForm<void>(
     context: context,
-    builder: (context) => _UserStatusDialog(
+    title: appL10n.setCustomStatus,
+    builder: (context) => _UserStatusEditor(
       siteUrl: siteUrl,
       controller: controller,
       ownsAccount: ownsAccount,
@@ -55,8 +58,8 @@ Future<void> showUserStatusEditor(
 
 enum _StatusExpiry { never, oneHour, twoHours, tomorrow, custom }
 
-class _UserStatusDialog extends StatefulWidget {
-  const _UserStatusDialog({
+class _UserStatusEditor extends StatefulWidget {
+  const _UserStatusEditor({
     required this.siteUrl,
     required this.controller,
     required this.ownsAccount,
@@ -71,10 +74,10 @@ class _UserStatusDialog extends StatefulWidget {
   final bool initialPauseNotifications;
 
   @override
-  State<_UserStatusDialog> createState() => _UserStatusDialogState();
+  State<_UserStatusEditor> createState() => _UserStatusEditorState();
 }
 
-class _UserStatusDialogState extends State<_UserStatusDialog> {
+class _UserStatusEditorState extends State<_UserStatusEditor> {
   late final TextEditingController _description;
   late String _emoji;
   late _StatusExpiry _expiry;
@@ -176,27 +179,28 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
         wallInitial.month,
         wallInitial.day,
       );
-      final date = await showDatePicker(
-        context: context,
-        initialDate: initialDate.isAfter(lastDate) ? lastDate : initialDate,
-        firstDate: firstDate,
-        lastDate: lastDate,
-        currentDate: firstDate,
-      );
-      if (date == null || !mounted || !_isCurrent) return;
-      final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay(
-          hour: wallInitial.hour,
-          minute: wallInitial.minute,
-        ),
-      );
-      if (time == null || !_isCurrent) return;
+      final selection =
+          await _showStatusForm<({DCalendarDate date, DTimeValue time})>(
+            context: context,
+            title: appL10n.customDateAndTime,
+            builder: (context) => _StatusExpiryPicker(
+              initialDate: DCalendarDate.fromDateTime(
+                initialDate.isAfter(lastDate) ? lastDate : initialDate,
+              ),
+              firstDate: DCalendarDate.fromDateTime(firstDate),
+              lastDate: DCalendarDate.fromDateTime(lastDate),
+              initialTime: DTimeValue(
+                hour: wallInitial.hour,
+                minute: wallInitial.minute,
+              ),
+            ),
+          );
+      if (selection == null || !_isCurrent) return;
       final endsAt = BookmarkReminderCalculator.resolveWallTime(
         location: location,
-        date: date,
-        hour: time.hour,
-        minute: time.minute,
+        date: selection.date.dateTimeUtc,
+        hour: selection.time.hour,
+        minute: selection.time.minute,
       );
       if (endsAt == null) {
         setState(
@@ -293,15 +297,37 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     final until = customEndsAt == null
         ? null
         : tz.TZDateTime.from(customEndsAt, _readerLocation);
-    return AlertDialog(
-      title: Text(context.l10n.setCustomStatus),
-      content: SizedBox(
-        width: 430,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return _StatusFormLayout(
+      key: const ValueKey('user-status-editor'),
+      title: context.l10n.setCustomStatus,
+      actions: [
+        if (widget.initialStatus != null)
+          DButton(
+            label: Text(context.l10n.clearStatus),
+            onPressed: _busy ? null : _clear,
+            variant: DButtonVariant.destructive,
+            expanded: context.isTouch,
+          ),
+        if (!context.isTouch)
+          DButton(
+            label: Text(context.l10n.cancel),
+            onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          ),
+        DButton(
+          label: Text(context.l10n.save),
+          onPressed: _save,
+          variant: DButtonVariant.primary,
+          loading: _busy,
+          expanded: context.isTouch,
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DField(
             children: [
+              DFieldLabel(child: Text(context.l10n.whatSYourStatus)),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -318,18 +344,14 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: TextField(
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    child: DInput(
                       controller: _description,
-                      autofocus: true,
+                      autofocus: !context.isTouch,
                       enabled: !_busy,
                       maxLength: 100,
                       textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.whatSYourStatus,
-                        hintText: context.l10n.whatAreYouUpTo,
-                        border: const OutlineInputBorder(),
-                      ),
+                      semanticLabel: context.l10n.whatSYourStatus,
+                      hintText: context.l10n.whatAreYouUpTo,
                       onChanged: (_) {
                         if (_canAct) setState(() => _error = null);
                       },
@@ -340,129 +362,112 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              DSelect<_StatusExpiry>.controlled(
-                isExpanded: true,
-                label: Text(context.l10n.clearAfter),
-                value: _expiry,
-                entries: [
-                  DSelectOption(
-                    value: _StatusExpiry.never,
-                    label: context.l10n.never,
-                    child: Text(context.l10n.never),
-                  ),
-                  DSelectOption(
-                    value: _StatusExpiry.oneHour,
-                    label: context.l10n.message1Hour,
-                    child: Text(context.l10n.message1Hour),
-                  ),
-                  DSelectOption(
-                    value: _StatusExpiry.twoHours,
-                    label: context.l10n.message2Hours,
-                    child: Text(context.l10n.message2Hours),
-                  ),
-                  DSelectOption(
-                    value: _StatusExpiry.tomorrow,
-                    label: context.l10n.tomorrow,
-                    child: Text(context.l10n.tomorrow),
-                  ),
-                  DSelectOption(
-                    value: _StatusExpiry.custom,
-                    label: context.l10n.customDateAndTime,
-                    child: Text(context.l10n.customDateAndTime),
-                  ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) {
-                        if (value != null) unawaited(_chooseExpiry(value));
-                      },
-                initialValue: _expiry,
-                enabled: !_busy,
-              ),
-              if (until != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  context.l10n.until(
-                    (MaterialLocalizations.of(
-                      context,
-                    ).formatMediumDate(until)).toString(),
-                    (clockTimeLabel(context, until)).toString(),
-                  ),
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
-              DCheckbox(
-                value: _pauseNotifications,
-                onChanged: _busy
-                    ? null
-                    : (value) {
-                        if (!_canAct) return;
-                        setState(() {
-                          _pauseNotifications = value ?? false;
-                          _error = null;
-                        });
-                      },
-                contentPadding: EdgeInsets.zero,
-
-                title: DLabel(child: Text(context.l10n.pauseNotifications)),
-              ),
-              if (preview != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Text(context.l10n.preview),
-                    Flexible(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: SiteEmojiImage(
-                              siteUrl: widget.siteUrl,
-                              name: _emoji,
-                              size: 17,
-                              alt: preview,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              preview,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (_error case final error?) ...[
-                const SizedBox(height: 10),
-                Text(error, style: TextStyle(color: theme.colorScheme.error)),
-              ],
             ],
           ),
-        ),
-      ),
-      actions: [
-        if (widget.initialStatus != null)
-          DButton(
-            label: Text(context.l10n.clearStatus),
-            onPressed: _busy ? null : _clear,
+          const SizedBox(height: DSpacing.lg),
+          DSelect<_StatusExpiry>.controlled(
+            isExpanded: true,
+            label: Text(context.l10n.clearAfter),
+            value: _expiry,
+            entries: [
+              DSelectOption(
+                value: _StatusExpiry.never,
+                label: context.l10n.never,
+                child: Text(context.l10n.never),
+              ),
+              DSelectOption(
+                value: _StatusExpiry.oneHour,
+                label: context.l10n.message1Hour,
+                child: Text(context.l10n.message1Hour),
+              ),
+              DSelectOption(
+                value: _StatusExpiry.twoHours,
+                label: context.l10n.message2Hours,
+                child: Text(context.l10n.message2Hours),
+              ),
+              DSelectOption(
+                value: _StatusExpiry.tomorrow,
+                label: context.l10n.tomorrow,
+                child: Text(context.l10n.tomorrow),
+              ),
+              DSelectOption(
+                value: _StatusExpiry.custom,
+                label: context.l10n.customDateAndTime,
+                child: Text(context.l10n.customDateAndTime),
+              ),
+            ],
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (value != null) unawaited(_chooseExpiry(value));
+                  },
+            initialValue: _expiry,
+            enabled: !_busy,
           ),
-        DButton(
-          label: Text(context.l10n.cancel),
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-        ),
-        DButton(
-          label: Text(context.l10n.save),
-          onPressed: _save,
-          variant: DButtonVariant.primary,
-          loading: _busy,
-        ),
-      ],
+          if (until != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.until(
+                (MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(until)).toString(),
+                (clockTimeLabel(context, until)).toString(),
+              ),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          const SizedBox(height: DSpacing.lg),
+          DCheckbox(
+            value: _pauseNotifications,
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (!_canAct) return;
+                    setState(() {
+                      _pauseNotifications = value ?? false;
+                      _error = null;
+                    });
+                  },
+            contentPadding: EdgeInsets.zero,
+            title: DLabel(child: Text(context.l10n.pauseNotifications)),
+          ),
+          if (preview != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(context.l10n.preview),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: SiteEmojiImage(
+                          siteUrl: widget.siteUrl,
+                          name: _emoji,
+                          size: 17,
+                          alt: preview,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_error case final error?) ...[
+            const SizedBox(height: 10),
+            DFieldError(child: Text(error)),
+          ],
+        ],
+      ),
     );
   }
 
@@ -471,4 +476,161 @@ class _UserStatusDialogState extends State<_UserStatusDialog> {
     _description.dispose();
     super.dispose();
   }
+}
+
+Future<T?> _showStatusForm<T>({
+  required BuildContext context,
+  required String title,
+  required WidgetBuilder builder,
+}) {
+  if (context.isTouch) {
+    return showDSheet<T>(
+      context: context,
+      useRootNavigator: true,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        showCloseButton: false,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [Expanded(child: builder(context))],
+      ),
+    );
+  }
+  return showDDialog<T>(
+    context: context,
+    useRootNavigator: true,
+    builder: (context, dialog) => builder(context),
+  );
+}
+
+/// The status forms share the poll/date sheet's fixed header and action bar.
+class _StatusFormLayout extends StatelessWidget {
+  const _StatusFormLayout({
+    super.key,
+    required this.title,
+    required this.child,
+    required this.actions,
+  });
+
+  final String title;
+  final Widget child;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isTouch) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ComposerSheetHeader(title: title),
+          Expanded(
+            child: DSheetBody(
+              padding: const EdgeInsets.fromLTRB(
+                DSpacing.lg,
+                0,
+                DSpacing.lg,
+                DSpacing.lg,
+              ),
+              child: child,
+            ),
+          ),
+          const DSeparator(),
+          DSheetFooter(
+            children: [
+              Row(
+                children: [
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) const SizedBox(width: DSpacing.controlGap),
+                    Expanded(child: actions[i]),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    return DDialogContent(
+      maxWidth: 480,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+        DDialogScrollArea(child: child),
+        DDialogFooter(children: actions),
+      ],
+    );
+  }
+}
+
+class _StatusExpiryPicker extends StatefulWidget {
+  const _StatusExpiryPicker({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.initialTime,
+  });
+
+  final DCalendarDate initialDate;
+  final DCalendarDate firstDate;
+  final DCalendarDate lastDate;
+  final DTimeValue initialTime;
+
+  @override
+  State<_StatusExpiryPicker> createState() => _StatusExpiryPickerState();
+}
+
+class _StatusExpiryPickerState extends State<_StatusExpiryPicker> {
+  late DCalendarDate? _date = widget.initialDate;
+  late DTimeValue? _time = widget.initialTime;
+  bool _validTime = true;
+
+  @override
+  Widget build(BuildContext context) => _StatusFormLayout(
+    title: context.l10n.customDateAndTime,
+    actions: [
+      if (!context.isTouch)
+        DButton(
+          label: Text(context.l10n.cancel),
+          variant: DButtonVariant.secondary,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      DButton(
+        label: Text(context.l10n.apply),
+        variant: DButtonVariant.primary,
+        expanded: context.isTouch,
+        onPressed: _date == null || _time == null || !_validTime
+            ? null
+            : () => Navigator.of(context).pop((date: _date!, time: _time!)),
+      ),
+    ],
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DCalendar(
+          selection: DCalendarSingleSelection(_date),
+          initialDisplayedMonth: widget.initialDate,
+          startMonth: widget.firstDate,
+          endMonth: widget.lastDate,
+          today: widget.firstDate,
+          disabled: (date) =>
+              date.isBefore(widget.firstDate) || date.isAfter(widget.lastDate),
+          onSelectionChanged: (selection, _) => setState(
+            () => _date = (selection as DCalendarSingleSelection).date,
+          ),
+        ),
+        const SizedBox(height: DSpacing.lg),
+        DTimeInput(
+          initialValue: widget.initialTime,
+          includeSeconds: false,
+          label: context.l10n.time,
+          onChanged: (time) => setState(() => _time = time),
+          onValidityChanged: (valid) => setState(() => _validTime = valid),
+        ),
+      ],
+    ),
+  );
 }

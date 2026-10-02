@@ -36,6 +36,123 @@ const _user = DiscourseUser(
 );
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets(
+      'mobile inset sheet keeps its actions above the keyboard (${dark ? 'dark' : 'light'})',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final api = await _open(
+          tester,
+          platform: TargetPlatform.iOS,
+          dark: dark,
+        );
+        expect(find.byType(DDialogContent), findsNothing);
+        expect(find.byType(DInput), findsOneWidget);
+        expect(tester.testTextInput.isVisible, isFalse);
+        expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
+        final bounds = tester.getRect(find.byType(DSheetContent));
+        expect(bounds.left, greaterThan(0));
+        expect(bounds.right, lessThan(390));
+        expect(bounds.top, greaterThan(0));
+        expect(bounds.bottom, lessThan(844));
+        final footer = tester.getRect(find.byType(DSheetFooter));
+        expect(footer.bottom, closeTo(bounds.bottom, 1));
+        await tester.enterText(find.byType(TextField), 'On holiday');
+        tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+        await tester.pumpAndSettle();
+        final keyboardFooter = tester.getRect(find.byType(DSheetFooter));
+        expect(keyboardFooter.bottom, lessThanOrEqualTo(524));
+        expect(find.text('Save').hitTestable(), findsOneWidget);
+        expect(find.text('Clear status').hitTestable(), findsOneWidget);
+        final closePosition = tester.getCenter(find.byTooltip('Close'));
+        await tester.drag(find.byType(DSheetBody), const Offset(0, -200));
+        await tester.pumpAndSettle();
+        expect(tester.getCenter(find.byTooltip('Close')), closePosition);
+        expect(tester.getRect(find.byType(DSheetFooter)), keyboardFooter);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(api.userStatusesSet, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('new status remains usable on a narrow screen with large text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 700);
+    addTearDown(tester.view.reset);
+    final api = await _open(
+      tester,
+      platform: TargetPlatform.android,
+      hasStatus: false,
+      textScale: 1.5,
+    );
+    expect(find.text('Clear status'), findsNothing);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a status description.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Ready');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(find.text('Save').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(api.userStatusesSet.single.description, 'Ready');
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mobile expiry and emoji pickers return to the status sheet', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final api = _StatusApi();
+    await _open(tester, api: api, platform: TargetPlatform.iOS);
+    await _select(tester, 'Custom date and time');
+    expect(find.byType(DCalendar), findsOneWidget);
+    expect(find.byType(DTimeInput), findsOneWidget);
+    expect(find.text('Apply').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('Close').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Never').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('Choose status emoji'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('emoji-picker-cell-default-0-smile')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Save').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(api.userStatusesSet.single.emoji, 'smile');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('invalid custom time cannot apply a stale value', (tester) async {
+    await _open(tester);
+    await _select(tester, 'Custom date and time');
+    final timeField = find.descendant(
+      of: find.byType(DTimeInput),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(timeField, '25:99');
+    await tester.pumpAndSettle();
+    expect(_button(tester, 'Apply').onPressed, isNull);
+    await tester.enterText(timeField, '12:30');
+    await tester.pumpAndSettle();
+    expect(_button(tester, 'Apply').onPressed, isNotNull);
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Until '), findsOneWidget);
+  });
+
   for (final (width, platform) in [
     (390.0, TargetPlatform.iOS),
     (1000.0, TargetPlatform.macOS),
@@ -72,7 +189,7 @@ void main() {
         'description': description,
         'emoji': 'house',
       });
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byKey(const ValueKey('user-status-editor')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -82,10 +199,15 @@ void main() {
       '$action rejects a replaced shell while the dialog stays open',
       (tester) async {
         final api = await _open(tester);
-        final dialog = tester.element(find.byType(AlertDialog));
+        final dialog = tester.element(
+          find.byKey(const ValueKey('user-status-editor')),
+        );
         final replacementApi = _StatusApi();
         await _pump(tester, await _loadShell(replacementApi));
-        expect(tester.element(find.byType(AlertDialog)), same(dialog));
+        expect(
+          tester.element(find.byKey(const ValueKey('user-status-editor'))),
+          same(dialog),
+        );
 
         await tester.tap(find.text(action));
         await tester.pumpAndSettle();
@@ -93,7 +215,10 @@ void main() {
         expect(api.userStatusesSet, isEmpty);
         expect(api.userStatusesCleared, isEmpty);
         expect(replacementApi.writes, isEmpty);
-        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('user-status-editor')),
+          findsOneWidget,
+        );
       },
     );
 
@@ -101,13 +226,18 @@ void main() {
       tester,
     ) async {
       final api = await _open(tester);
-      final dialog = tester.element(find.byType(AlertDialog));
+      final dialog = tester.element(
+        find.byKey(const ValueKey('user-status-editor')),
+      );
       final shell = ShellScope.read(dialog);
       await shell.disconnectCurrentInstance();
       await shell.connectCurrentInstance();
       await tester.pumpAndSettle();
       expect(shell.currentInstance?.isConnected, isTrue);
-      expect(tester.element(find.byType(AlertDialog)), same(dialog));
+      expect(
+        tester.element(find.byKey(const ValueKey('user-status-editor'))),
+        same(dialog),
+      );
 
       await tester.tap(find.text(action));
       await tester.pumpAndSettle();
@@ -115,7 +245,7 @@ void main() {
       expect(api.userStatusesSet, isEmpty);
       expect(api.userStatusesCleared, isEmpty);
       expect(api.doNotDisturbDurations, isEmpty);
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byKey(const ValueKey('user-status-editor')), findsOneWidget);
     });
 
     for (final replacement in ['account', 'shell']) {
@@ -126,7 +256,9 @@ void main() {
             final api = _StatusApi();
             final gate = _writeGate(api);
             await _open(tester, api: api);
-            final dialog = tester.element(find.byType(AlertDialog));
+            final dialog = tester.element(
+              find.byKey(const ValueKey('user-status-editor')),
+            );
             final shell = ShellScope.read(dialog);
             await tester.tap(find.text(action));
             await tester.pump();
@@ -146,7 +278,10 @@ void main() {
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 300));
 
-            expect(tester.element(find.byType(AlertDialog)), same(dialog));
+            expect(
+              tester.element(find.byKey(const ValueKey('user-status-editor'))),
+              same(dialog),
+            );
             expect(_button(tester, 'Save').loading, isTrue);
             expect(
               find.text(const WriteException(WriteFailure.forbidden).message),
@@ -180,35 +315,30 @@ void main() {
       );
       gate.complete();
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byKey(const ValueKey('user-status-editor')), findsNothing);
     });
   }
 
-  for (final stage in ['date', 'time']) {
-    testWidgets('accepted $stage picker cannot continue after reconnect', (
-      tester,
-    ) async {
-      final api = await _open(tester);
-      final shell = ShellScope.read(tester.element(find.byType(AlertDialog)));
-      await _select(tester, 'Custom date and time');
-      if (stage == 'time') {
-        await tester.tap(find.text('OK'));
-        await tester.pumpAndSettle();
-      }
-      await shell.disconnectCurrentInstance();
-      await shell.connectCurrentInstance();
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+  testWidgets('accepted expiry picker cannot continue after reconnect', (
+    tester,
+  ) async {
+    final api = await _open(tester);
+    final shell = ShellScope.read(
+      tester.element(find.byKey(const ValueKey('user-status-editor'))),
+    );
+    await _select(tester, 'Custom date and time');
+    await shell.disconnectCurrentInstance();
+    await shell.connectCurrentInstance();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(DatePickerDialog), findsNothing);
-      expect(find.byType(TimePickerDialog), findsNothing);
-      expect(find.text('Never').hitTestable(), findsOneWidget);
-      expect(find.textContaining('Until '), findsNothing);
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
-      expect(api.userStatusesSet, isEmpty);
-    });
-  }
+    expect(find.byType(DCalendar), findsNothing);
+    expect(find.text('Never').hitTestable(), findsOneWidget);
+    expect(find.textContaining('Until '), findsNothing);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(api.userStatusesSet, isEmpty);
+  });
 
   for (final reconnect in [false, true]) {
     testWidgets(
@@ -216,7 +346,9 @@ void main() {
       (tester) async {
         final api = _StatusApi();
         await _open(tester, api: api);
-        final shell = ShellScope.read(tester.element(find.byType(AlertDialog)));
+        final shell = ShellScope.read(
+          tester.element(find.byKey(const ValueKey('user-status-editor'))),
+        );
         await tester.tap(find.byTooltip('Choose status emoji'));
         await tester.pumpAndSettle();
         final picker = tester.widget<EmojiPicker>(find.byType(EmojiPicker));
@@ -258,7 +390,9 @@ void main() {
   ) async {
     final api = _StatusApi();
     await _open(tester, api: api);
-    final shell = ShellScope.read(tester.element(find.byType(AlertDialog)));
+    final shell = ShellScope.read(
+      tester.element(find.byKey(const ValueKey('user-status-editor'))),
+    );
     await tester.tap(find.text('Pause notifications'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -267,7 +401,7 @@ void main() {
     ]);
     expect(api.doNotDisturbDurations, hasLength(1));
     expect(shell.doNotDisturb.stateFor(_site).until, eternalDoNotDisturbUntil);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const ValueKey('user-status-editor')), findsNothing);
 
     await tester.tap(find.text('Edit status'));
     await tester.pumpAndSettle();
@@ -278,7 +412,7 @@ void main() {
     expect(api.doNotDisturbResumes, [_site]);
     expect(shell.currentInstance?.user?.status, isNull);
     expect(shell.doNotDisturb.stateFor(_site).until, isNull);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const ValueKey('user-status-editor')), findsNothing);
   });
 
   testWidgets('a current write failure allows retrying the edited status', (
@@ -301,59 +435,49 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(api.userStatusesSet.single.description, 'On holiday');
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const ValueKey('user-status-editor')), findsNothing);
   });
 
   for (final original in ['Never', '1 hour', '2 hours', 'Tomorrow', 'custom']) {
-    for (final stage in ['date', 'time']) {
-      testWidgets('cancel $stage picker retains $original in field and save', (
-        tester,
-      ) async {
-        final stored = original == 'custom'
-            ? DateTime.now().add(const Duration(days: 3))
-            : null;
-        final api = await _open(tester, endsAt: stored, timezone: _zone);
-        if (original != 'Never' && original != 'custom') {
-          await _select(tester, original);
-        }
-        await _select(tester, 'Custom date and time');
-        if (stage == 'time') {
-          await tester.tap(find.text('OK'));
-          await tester.pumpAndSettle();
-          expect(find.byType(TimePickerDialog), findsOneWidget);
-        }
-        await tester.tap(find.text('Cancel').last);
-        await tester.pumpAndSettle();
+    testWidgets('cancel expiry picker retains $original in field and save', (
+      tester,
+    ) async {
+      final stored = original == 'custom'
+          ? DateTime.now().add(const Duration(days: 3))
+          : null;
+      final api = await _open(tester, endsAt: stored, timezone: _zone);
+      if (original != 'Never' && original != 'custom') {
+        await _select(tester, original);
+      }
+      await _select(tester, 'Custom date and time');
+      await tester.tap(find.text('Cancel').last);
+      await tester.pumpAndSettle();
+      expect(
+        find
+            .text(original == 'custom' ? 'Custom date and time' : original)
+            .hitTestable(),
+        findsOneWidget,
+      );
+      final before = DateTime.now();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      final submitted = api.userStatusesSet.single.endsAt?.toUtc();
+      if (original == 'Never') {
+        expect(submitted, isNull);
+      } else if (original == 'custom') {
+        expect(submitted, stored!.toUtc());
+      } else if (original == 'Tomorrow') {
+        final today = tz.TZDateTime.from(before, _location());
+        // Eight o'clock on the next Kiritimati day is 18:00 UTC on this one.
+        expect(submitted, DateTime.utc(today.year, today.month, today.day, 18));
+      } else {
+        final hours = original == '1 hour' ? 1 : 2;
         expect(
-          find
-              .text(original == 'custom' ? 'Custom date and time' : original)
-              .hitTestable(),
-          findsOneWidget,
+          submitted!.difference(before).inSeconds,
+          inInclusiveRange(hours * 3600, hours * 3600 + 2),
         );
-        final before = DateTime.now();
-        await tester.tap(find.text('Save'));
-        await tester.pumpAndSettle();
-        final submitted = api.userStatusesSet.single.endsAt?.toUtc();
-        if (original == 'Never') {
-          expect(submitted, isNull);
-        } else if (original == 'custom') {
-          expect(submitted, stored!.toUtc());
-        } else if (original == 'Tomorrow') {
-          final today = tz.TZDateTime.from(before, _location());
-          // Eight o'clock on the next Kiritimati day is 18:00 UTC on this one.
-          expect(
-            submitted,
-            DateTime.utc(today.year, today.month, today.day, 18),
-          );
-        } else {
-          final hours = original == '1 hour' ? 1 : 2;
-          expect(
-            submitted!.difference(before).inSeconds,
-            inInclusiveRange(hours * 3600, hours * 3600 + 2),
-          );
-        }
-      });
-    }
+      }
+    });
   }
 
   testWidgets(
@@ -361,14 +485,13 @@ void main() {
     (tester) async {
       final api = await _open(tester, timezone: _zone);
       await _select(tester, 'Custom date and time');
-      final date = tester
-          .widget<DatePickerDialog>(find.byType(DatePickerDialog))
-          .initialDate!;
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+      final date =
+          (tester.widget<DCalendar>(find.byType(DCalendar)).selection
+                  as DCalendarSingleSelection)
+              .date!;
       final time = tester
-          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
-          .initialTime;
+          .widget<DTimeInput>(find.byType(DTimeInput))
+          .initialValue!;
       // The picked wall time is the account's: UTC+14.
       final expected = DateTime.utc(
         date.year,
@@ -377,7 +500,7 @@ void main() {
         time.hour - 14,
         time.minute,
       );
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Apply'));
       await tester.pumpAndSettle();
       expect(find.text('Custom date and time').hitTestable(), findsOneWidget);
       expect(find.textContaining('Until '), findsOneWidget);
@@ -401,20 +524,17 @@ void main() {
 
     await _select(tester, 'Custom date and time');
     expect(
-      tester
-          .widget<DatePickerDialog>(find.byType(DatePickerDialog))
-          .initialDate,
-      DateTime(year, 6, 16),
+      (tester.widget<DCalendar>(find.byType(DCalendar)).selection
+              as DCalendarSingleSelection)
+          .date,
+      DCalendarDate(year, 6, 16),
     );
-    await tester.tap(find.text('OK'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
-          .initialTime,
-      const TimeOfDay(hour: 2, minute: 0),
-    );
-    await tester.tap(find.text('OK'));
+    final time = tester
+        .widget<DTimeInput>(find.byType(DTimeInput))
+        .initialValue!;
+    expect(time.hour, 2);
+    expect(time.minute, 0);
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -429,10 +549,11 @@ void main() {
       final api = await _open(tester, endsAt: stored);
       await _select(tester, 'Custom date and time');
       expect(tester.takeException(), isNull);
-      final picker = tester.widget<DatePickerDialog>(
-        find.byType(DatePickerDialog),
+      final picker = tester.widget<DCalendar>(find.byType(DCalendar));
+      expect(
+        (picker.selection as DCalendarSingleSelection).date,
+        picker.endMonth,
       );
-      expect(picker.initialDate, picker.lastDate);
       await tester.tap(find.text('Cancel').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save'));
@@ -458,12 +579,17 @@ Future<FakeDiscourseApi> _open(
   String? timezone,
   FakeDiscourseApi? api,
   TargetPlatform platform = TargetPlatform.macOS,
+  bool dark = false,
+  bool hasStatus = true,
+  double textScale = 1,
 }) async {
   final user = DiscourseUser(
     id: 7,
     username: 'reader',
     timezone: timezone,
-    status: UserStatus(description: 'Working', emoji: 'house', endsAt: endsAt),
+    status: hasStatus
+        ? UserStatus(description: 'Working', emoji: 'house', endsAt: endsAt)
+        : null,
   );
   api ??= FakeDiscourseApi(
     user: user,
@@ -471,7 +597,13 @@ Future<FakeDiscourseApi> _open(
     siteConfigs: const {_site: SiteConfig(userStatusEnabled: true)},
   );
   final shell = await _loadShell(api, user: user);
-  await _pump(tester, shell, platform: platform);
+  await _pump(
+    tester,
+    shell,
+    platform: platform,
+    dark: dark,
+    textScale: textScale,
+  );
   await tester.tap(find.text('Edit status'));
   await tester.pumpAndSettle();
   return api;
@@ -501,11 +633,21 @@ Future<void> _pump(
   WidgetTester tester,
   ShellController shell, {
   TargetPlatform platform = TargetPlatform.macOS,
+  bool dark = false,
+  double textScale = 1,
 }) => tester.pumpWidget(
   ShellScope(
     controller: shell,
     child: MaterialApp(
-      theme: AppTheme.light.copyWith(platform: platform),
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+      ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
