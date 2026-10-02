@@ -399,6 +399,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
       description: appL10n.enterCommaSeparatedCategoryIDsForEachLevel,
       keys: groupCategoryKeys,
       controllers: controller.textControllers,
+      errors: controller.snapshot.fieldErrors,
     ),
     GroupRoute.tags => _ListNotificationFields(
       title: appL10n.tagNotifications,
@@ -511,12 +512,14 @@ class _ListNotificationFields extends StatelessWidget {
     required this.description,
     required this.keys,
     required this.controllers,
+    this.errors = const {},
   });
 
   final String title;
   final String description;
   final List<String> keys;
   final Map<String, TextEditingController> controllers;
+  final Map<String, String> errors;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -526,11 +529,11 @@ class _ListNotificationFields extends StatelessWidget {
       for (final key in keys)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
-          child: TextFormField(
-            style: Theme.of(context).textTheme.bodyMedium,
+          child: DInput(
             key: ValueKey('group-field-$key'),
             controller: controllers[key],
-            decoration: InputDecoration(labelText: _fieldLabel(key)),
+            labelText: _fieldLabel(key),
+            errorText: errors[key],
           ),
         ),
     ],

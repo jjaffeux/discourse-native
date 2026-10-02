@@ -10083,6 +10083,10 @@
   "@enterAValidWholeNumber": {
     "description": "English UI message used by shell/global_search_filters.dart. Keep placeholders intact."
   },
+  "enterPositiveNumericIDsSeparatedByCommas": "Enter positive numeric IDs, separated by commas.",
+  "@enterPositiveNumericIDsSeparatedByCommas": {
+    "description": "Validation error for category and associated group ID lists in group settings."
+  },
   "chooseAValidDate": "Choose a valid date.",
   "@chooseAValidDate": {
     "description": "English UI message used by shell/global_search_filters.dart. Keep placeholders intact."

@@ -16,6 +16,86 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final (subsection, field) in [
+    (GroupRoute.membership, 'associated_group_ids'),
+    (GroupRoute.categories, 'watching_category_ids'),
+    (GroupRoute.categories, 'tracking_category_ids'),
+    (GroupRoute.categories, 'watching_first_post_category_ids'),
+    (GroupRoute.categories, 'regular_category_ids'),
+    (GroupRoute.categories, 'muted_category_ids'),
+  ]) {
+    for (final invalid in ['oops', '12, 35x']) {
+      testWidgets(
+        '$field rejects $invalid without losing saved IDs',
+        (tester) async {
+          final server = _GroupServer(
+            staff: true,
+            admin: true,
+            provider: true,
+            automatic: false,
+            subsection: subsection,
+          );
+          server.group[field] = [12, 34];
+          addTearDown(server.transport.close);
+          await server.pump(
+            tester,
+            size: Size(
+              defaultTargetPlatform == TargetPlatform.iOS ? 390 : 1000,
+              1300,
+            ),
+          );
+          final input = _field(field);
+          await tester.ensureVisible(input);
+          await tester.enterText(input, invalid);
+          await tester.pumpAndSettle();
+          final save = find.byKey(ValueKey('save-group-$subsection'));
+          await tester.ensureVisible(save);
+          await tester.runAsync(() async {
+            await tester.tap(save);
+            await pumpEventQueue();
+          });
+          await tester.pumpAndSettle();
+          expect(server.writes, isEmpty);
+          expect(server.group[field], [12, 34]);
+          final rejected = tester.widget<DInput>(input);
+          expect(rejected.controller!.text, invalid);
+          expect(rejected.errorText, isNotNull);
+          await tester.ensureVisible(input);
+          await tester.enterText(input, '12, 35');
+          await tester.pumpAndSettle();
+          expect(tester.widget<DInput>(input).errorText, isNull);
+          await server.save(tester);
+          expect(server.writes.single[field], [12, 35]);
+          await server.pump(
+            tester,
+            size: Size(
+              defaultTargetPlatform == TargetPlatform.iOS ? 390 : 1000,
+              1300,
+            ),
+          );
+          expect(tester.widget<DInput>(input).controller!.text, '12,35');
+          await tester.ensureVisible(input);
+          await tester.enterText(input, '');
+          await tester.pumpAndSettle();
+          await server.save(tester);
+          expect(server.writes.last[field], isEmpty);
+          await server.pump(
+            tester,
+            size: Size(
+              defaultTargetPlatform == TargetPlatform.iOS ? 390 : 1000,
+              1300,
+            ),
+          );
+          expect(tester.widget<DInput>(input).controller!.text, '');
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.macOS,
+          TargetPlatform.iOS,
+        }),
+      );
+    }
+  }
   for (final (admin, provider, automatic) in [
     (false, true, false),
     (true, false, false),
@@ -651,6 +731,14 @@ class _GroupServer {
             'default_notification_level',
             'messageable_level',
             'mentionable_level',
+            for (final level in [
+              'muted',
+              'regular',
+              'tracking',
+              'watching',
+              'watching_first_post',
+            ])
+              '${level}_category_ids',
             if (!automatic) ...[
               'allow_membership_requests',
               'public_exit',

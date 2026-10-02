@@ -419,6 +419,76 @@ void main() {
   });
 
   group('GroupManageController', () {
+    for (final invalid in ['0', '-1', '12,,35', '12,', '9223372036854775808']) {
+      test('invalid category IDs $invalid stay local', () async {
+        var writes = 0;
+        final controller = GroupManageController(
+          group: const Group(
+            id: 9,
+            name: 'support',
+            watchingCategoryIds: [12, 34],
+          ),
+          subsection: GroupRoute.categories,
+          onSubmit: (_) async {
+            writes++;
+            return true;
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.textController('watching_category_ids').text = invalid;
+        expect(await controller.submit(), isFalse);
+        expect(writes, 0);
+        expect(
+          controller.textController('watching_category_ids').text,
+          invalid,
+        );
+        expect(controller.snapshot.fieldErrors, {
+          'watching_category_ids':
+              'Enter positive numeric IDs, separated by commas.',
+        });
+        controller.textController('watching_category_ids').text = ' 12, 35 ';
+        expect(controller.snapshot.fieldErrors, isEmpty);
+        expect(await controller.submit(), isTrue);
+        expect(controller.buildUpdate().values['watching_category_ids'], [
+          12,
+          35,
+        ]);
+        controller.textController('watching_category_ids').text = '  ';
+        expect(await controller.submit(), isTrue);
+        expect(
+          controller.buildUpdate().values['watching_category_ids'],
+          isEmpty,
+        );
+      });
+    }
+    for (final (admin, capability) in [(false, true), (true, false)]) {
+      test(
+        'withheld associated IDs do not block allowed membership saves admin=$admin capability=$capability',
+        () async {
+          GroupManageUpdate? saved;
+          final controller = GroupManageController(
+            group: Group(
+              id: 9,
+              name: 'support',
+              canAssociateGroups: capability,
+            ),
+            currentUserAdmin: admin,
+            subsection: GroupRoute.membership,
+            onSubmit: (update) async {
+              saved = update;
+              return true;
+            },
+          );
+          addTearDown(controller.dispose);
+          controller.textController('associated_group_ids').text = 'oops';
+          controller.setPublicExit(true);
+          expect(await controller.submit(), isTrue);
+          expect(controller.snapshot.fieldErrors, isEmpty);
+          expect(saved!.values, isNot(contains('associated_group_ids')));
+          expect(saved!.values['public_exit'], isTrue);
+        },
+      );
+    }
     for (final invalid in ['587x', '58.7', '', '9223372036854775808']) {
       test('SMTP port $invalid cannot submit null while enabled', () async {
         var writes = 0;
