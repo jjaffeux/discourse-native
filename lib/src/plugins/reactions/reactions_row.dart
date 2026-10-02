@@ -158,6 +158,7 @@ class ReactionsRow extends StatelessWidget {
     PluginEmojiHost? emoji,
   ) {
     final touch = context.isTouch;
+    final session = controller?.beginPicker(siteUrl, post);
     String? filter;
     var closing = false;
     if (controller != null) {
@@ -181,13 +182,15 @@ class ReactionsRow extends StatelessWidget {
               builder: (context, setSheetState) => ListenableBuilder(
                 listenable: controller ?? const AlwaysStoppedAnimation(null),
                 builder: (context, _) {
-                  final current = controller?.post(siteUrl, post.id) ?? post;
-                  final reactions = current.reactions;
-                  if (reactions == null) {
-                    // A 404 toggle or a refresh without the plugin removes
-                    // the record and, with it, the row that opened this
-                    // sheet. The pop waits for the frame because the
-                    // navigator cannot change routes mid-build.
+                  final current = controller == null
+                      ? post
+                      : controller.pickerPost(session!, post);
+                  final reactions = current?.reactions;
+                  if (current == null || reactions == null) {
+                    // Account retirement, a 404 toggle or a refresh without
+                    // the plugin removes this sheet's source. The pop waits
+                    // for the frame because the navigator cannot change
+                    // routes mid-build.
                     if (!closing) {
                       closing = true;
                       WidgetsBinding.instance.addPostFrameCallback(
@@ -213,9 +216,15 @@ class ReactionsRow extends StatelessWidget {
                                 entry.count,
                                 entry.id,
                               ),
-                              onPressedChanged: (_) => setSheetState(() {
-                                filter = filter == entry.id ? null : entry.id;
-                              }),
+                              onPressedChanged: (_) {
+                                if (session != null &&
+                                    !controller!.isPickerCurrent(session)) {
+                                  return;
+                                }
+                                setSheetState(() {
+                                  filter = filter == entry.id ? null : entry.id;
+                                });
+                              },
                               icon: Builder(
                                 builder: (context) => SiteEmojiImage(
                                   siteUrl: siteUrl,
@@ -234,6 +243,7 @@ class ReactionsRow extends StatelessWidget {
                               emoji: emoji,
                               siteUrl: siteUrl,
                               post: current,
+                              session: session,
                             ),
                         ],
                       ),
