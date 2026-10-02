@@ -10,13 +10,13 @@ final resizableExamples = ComponentExamples(
   description: 'Resizable horizontal, vertical and nested panel layouts.',
   status: ComponentStatus.implemented,
   notes:
-      'Base Nova: 1px divider, optional 4×24px rounded pill. Sizes use explicit '
+      'Base Nova: 1px divider, optional 4×36px rounded pill. Sizes use explicit '
       'DResizableSize.pixels or .percent; percentages exclude divider space. '
       'IDs retain sizes and child state across reorder. Removed IDs are forgotten. '
       'Controllers are borrowed and attach to one group; dispose them in the host. '
       'Arrow keys resize, Shift accelerates, Home/End reach limits, Enter toggles '
       'collapse, double-click restores the default. RTL mirrors horizontal input. '
-      'Resize gestures start on the visible divider or grip. '
+      'Resize gestures start on the divider or anywhere in a 12px workspace gutter. '
       'Infeasible minima are clipped and excess maximum space stays empty; switch '
       'responsive modes before that point. Layout is not a Form input.',
   examples: [
@@ -277,6 +277,7 @@ class _ResizableProductionFixtureState
             resizeKey: 'fixture',
             semanticsLabel: 'Resize local sidebar',
             dividerWidth: 1,
+            gap: DResizableHandle.workspaceGutterExtent,
             maximumWidth: (c.maxWidth - 80).clamp(100, 320),
             child: ColoredBox(
               color: DTokens.of(context).muted,
@@ -667,6 +668,7 @@ class _ResizableProductionFixtureState
             resizeKey: 'fixture',
             semanticsLabel: 'Resize local sidebar',
             dividerWidth: 1,
+            gap: DResizableHandle.workspaceGutterExtent,
             maximumWidth: (c.maxWidth - 80).clamp(100, 320),
             child: ColoredBox(
               color: DTokens.of(context).muted,

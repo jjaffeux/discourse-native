@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,6 +59,151 @@ Widget host(
 );
 
 void main() {
+  for (final axis in Axis.values) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'workspace gutter resizes along its whole $axis in $direction',
+        (tester) async {
+          final c = DResizableController();
+          addTearDown(c.dispose);
+          const gestureKey = ValueKey('gutter-gesture');
+          await tester.pumpWidget(
+            host(
+              c,
+              axis: axis,
+              direction: direction,
+              children: const [
+                DResizablePanel(id: 'a', child: Text('A')),
+                DResizableHandle(
+                  withHandle: true,
+                  dividerThickness: 0,
+                  gestureKey: gestureKey,
+                ),
+                DResizablePanel(id: 'b', child: Text('B')),
+              ],
+            ),
+          );
+          final horizontal = axis == Axis.horizontal;
+          final gutter = find.byKey(gestureKey);
+          expect(
+            tester.getSize(gutter),
+            horizontal ? const Size(12, 300) : const Size(602, 12),
+          );
+          final pill = find.descendant(
+            of: gutter,
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration! as BoxDecoration).borderRadius != null,
+            ),
+          );
+          expect(
+            tester.getSize(pill),
+            horizontal ? const Size(4, 36) : const Size(36, 4),
+          );
+          final target = tester.renderObject(gutter);
+          final rect = tester.getRect(gutter);
+          final outside = horizontal
+              ? Offset(rect.left - .5, rect.center.dy)
+              : Offset(rect.center.dx, rect.top - .5);
+          expect(
+            tester
+                .hitTestOnBinding(outside)
+                .path
+                .any((e) => e.target == target),
+            isFalse,
+          );
+          for (final corner in [
+            const Offset(.05, .05),
+            const Offset(.95, .05),
+            const Offset(.05, .95),
+            const Offset(.95, .95),
+          ]) {
+            final rect = tester.getRect(gutter);
+            final before = c.layout['a']!;
+            final total = c.layout.values.reduce((a, b) => a + b);
+            final gesture = await tester.startGesture(
+              Offset(
+                rect.left + rect.width * corner.dx,
+                rect.top + rect.height * corner.dy,
+              ),
+            );
+            final delta = horizontal
+                ? Offset(direction == TextDirection.ltr ? 20 : -20, 0)
+                : const Offset(0, 20);
+            await gesture.moveBy(delta);
+            await gesture.moveBy(delta);
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(c.layout['a'], greaterThan(before));
+            expect(
+              c.layout.values.reduce((a, b) => a + b),
+              closeTo(total, .001),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final disabled in [false, true]) {
+    testWidgets(
+      'workspace grip hover and drag colors with disabled=$disabled',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: 12,
+                height: 200,
+                child: DResizableHandle.standalone(
+                  withHandle: true,
+                  dividerThickness: 0,
+                  disabled: disabled,
+                  value: 100,
+                  onChanged: (_) {},
+                ),
+              ),
+            ),
+          ),
+        );
+        final handle = find.byType(DResizableHandle);
+        final tokens = DTokens.of(tester.element(handle));
+        final pill = find.descendant(
+          of: handle,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration! as BoxDecoration).borderRadius != null,
+          ),
+        );
+        Color? color() =>
+            (tester.widget<Container>(pill).decoration! as BoxDecoration).color;
+        expect(color(), tokens.border);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        final rect = tester.getRect(handle);
+        await mouse.moveTo(Offset(rect.left + .5, rect.top + 5));
+        await tester.pump();
+        expect(color(), disabled ? tokens.border : tokens.primary);
+        await mouse.down(Offset(rect.left + .5, rect.top + 5));
+        await mouse.moveBy(const Offset(20, 0));
+        await tester.pump();
+        await mouse.moveBy(const Offset(20, 0));
+        await tester.pump();
+        expect(color(), disabled ? tokens.border : tokens.primary);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(color(), tokens.border);
+        await mouse.removePointer();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'iOS $direction keeps collapsed-edge drag and semantics target inside its group',
@@ -170,7 +317,7 @@ void main() {
               (w.decoration! as BoxDecoration).borderRadius != null,
         ),
       );
-      expect(tester.getSize(pill), const Size(4, 24));
+      expect(tester.getSize(pill), const Size(4, 36));
       theme.value = ThemeData.dark().copyWith(
         extensions: [
           DTokens.fromTheme(

@@ -1157,8 +1157,13 @@ void main() {
     await _pump(tester, shell);
     final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
     expect(tester.getRect(_mainPanel).width, 400);
-
-    await tester.drag(handle, const Offset(80, 0));
+    final gutter = tester.getRect(handle);
+    expect(gutter.width, workspacePanelGap);
+    expect(gutter.height, tester.getSize(_mainPanel).height);
+    await tester.dragFrom(
+      Offset(gutter.left + .5, gutter.top + 5),
+      const Offset(80, 0),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.getRect(_mainPanel).width, 480);

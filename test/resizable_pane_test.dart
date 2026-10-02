@@ -103,14 +103,33 @@ void main() {
         final content = find.byKey(contentKey);
         final contentRect = tester.getRect(content);
         final handleRect = tester.getRect(handle);
-        expect(handleRect.width, 4);
+        expect(handleRect.size, const Size(12, 200));
         expect(contentRect.width, 228);
         expect(contentRect.overlaps(handleRect), isFalse);
         final growsRight =
             (edge == ResizablePaneEdge.trailing) ==
             (direction == TextDirection.ltr);
-        await tester.drag(handle, Offset(growsRight ? 40 : -40, 0));
-        await tester.pumpAndSettle();
+        // Both edges and both ends of the gutter resize, away from the pill.
+        for (final fraction in [
+          const Offset(.05, .05),
+          const Offset(.95, .05),
+          const Offset(.05, .95),
+          const Offset(.95, .95),
+        ]) {
+          final rect = tester.getRect(handle);
+          final before = controller.value;
+          final gesture = await tester.startGesture(
+            Offset(
+              rect.left + rect.width * fraction.dx,
+              rect.top + rect.height * fraction.dy,
+            ),
+          );
+          await gesture.moveBy(Offset(growsRight ? 20 : -20, 0));
+          await gesture.moveBy(Offset(growsRight ? 20 : -20, 0));
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(controller.value, greaterThan(before));
+        }
         expect(tester.getSize(content).width, greaterThan(228));
         expect(
           tester.getRect(content).overlaps(tester.getRect(handle)),
