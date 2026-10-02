@@ -18,12 +18,14 @@ class PostReactionButton extends StatefulWidget {
     required this.emoji,
     required this.siteUrl,
     required this.post,
+    this.session,
   });
 
   final ReactionsController controller;
   final PluginEmojiHost emoji;
   final String siteUrl;
   final Post post;
+  final ReactionPickerSession? session;
 
   @override
   State<PostReactionButton> createState() => _PostReactionButtonState();
@@ -47,7 +49,8 @@ class _PostReactionButtonState extends State<PostReactionButton> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller ||
         oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.post.id != widget.post.id) {
+        oldWidget.post.id != widget.post.id ||
+        oldWidget.session != widget.session) {
       _operation = null;
       _changes = _listenable();
       unawaited(_loadSettings());
@@ -69,8 +72,13 @@ class _PostReactionButtonState extends State<PostReactionButton> {
       widget.controller.isPickerCurrent(session) &&
       _stillOwnsUi(context, widget.controller);
 
+  ReactionPickerSession _session() =>
+      widget.session ??
+      widget.controller.beginPicker(widget.siteUrl, widget.post);
+
   Future<void> _loadSettings() async {
-    final session = widget.controller.beginPicker(widget.siteUrl, widget.post);
+    final session = _session();
+    if (!widget.controller.isPickerCurrent(session)) return;
     await widget.controller.allowsAnyEmoji(widget.siteUrl);
     if (_isCurrent(session)) setState(() {});
   }
@@ -80,7 +88,8 @@ class _PostReactionButtonState extends State<PostReactionButton> {
     final controller = widget.controller;
     final post = widget.post;
     final siteUrl = widget.siteUrl;
-    final session = controller.beginPicker(siteUrl, post);
+    final session = _session();
+    if (!_isCurrent(session)) return;
     final toast = DToast.maybeOf(context);
     final operation = Object();
     _panel.currentState?.close();
@@ -101,6 +110,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
           widget.emoji,
           siteUrl,
           current,
+          session: session,
         );
         return;
       }
@@ -130,6 +140,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
         widget.emoji,
         widget.siteUrl,
         widget.post,
+        session: _session(),
       );
     } finally {
       if (mounted && identical(_operation, operation)) {
@@ -151,6 +162,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
       final mine = current.reactions?.mine?.id;
       final enabled =
           current.canReact &&
+          (widget.session == null || _isCurrent(widget.session!)) &&
           !_busy &&
           !controller.writeInFlight(widget.siteUrl, widget.post.id);
       final icon =
@@ -177,7 +189,7 @@ class _PostReactionButtonState extends State<PostReactionButton> {
                   width: ReactionGrid.maxWidth,
                   padding: const EdgeInsets.all(DSpacing.xs),
                   child: ReactionGrid._withSession(
-                    controller.beginPicker(widget.siteUrl, widget.post),
+                    _session(),
                     buttonContext,
                     controller: controller,
                     siteUrl: widget.siteUrl,
@@ -223,17 +235,19 @@ Future<void> showPostReactionPicker(
   String siteUrl,
   Post post, {
   Rect? anchor,
+  ReactionPickerSession? session,
 }) async {
-  final session = controller.beginPicker(siteUrl, post);
+  final pickerSession = session ?? controller.beginPicker(siteUrl, post);
+  if (!controller.isPickerCurrent(pickerSession)) return;
   final toast = DToast.maybeOf(context);
   bool stillOwnsUi() => !context.mounted || _stillOwnsUi(context, controller);
   final allowAnyEmoji = await controller.allowsAnyEmoji(siteUrl);
   if (!context.mounted ||
-      !controller.isPickerCurrent(session) ||
+      !controller.isPickerCurrent(pickerSession) ||
       !_stillOwnsUi(context, controller)) {
     return;
   }
-  final current = controller.pickerPost(session, post);
+  final current = controller.pickerPost(pickerSession, post);
   if (current == null || !current.canReact) return;
   if (!allowAnyEmoji) {
     return showReactionPicker(
@@ -242,7 +256,7 @@ Future<void> showPostReactionPicker(
       siteUrl,
       current,
       nested: false,
-      session: session,
+      session: pickerSession,
     );
   }
 
@@ -257,7 +271,7 @@ Future<void> showPostReactionPicker(
     loadSearchAliases: ({refresh = false}) =>
         emoji.loadSearchAliases(siteUrl, refresh: refresh),
   );
-  if (picked == null || !controller.isPickerCurrent(session)) {
+  if (picked == null || !controller.isPickerCurrent(pickerSession)) {
     return;
   }
 
@@ -271,8 +285,8 @@ Future<void> showPostReactionPicker(
   _report(
     toast,
     controller,
-    session,
-    controller.toggleFromPicker(session, current, picked),
+    pickerSession,
+    controller.toggleFromPicker(pickerSession, current, picked),
     stillOwnsUi: stillOwnsUi,
   );
 }
