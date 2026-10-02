@@ -1959,23 +1959,39 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
       return;
     }
     final shell = PluginUiScope.require(context, chatShellService);
+    final chat = widget.chat;
+    final siteUrl = widget.siteUrl;
+    final channelId = widget.channelId;
+    final sourceTabId = shell.activeTabId;
+    final sourceRoute = shell.currentContent;
+    final session = chat.captureSession(siteUrl);
+    bool sourceIsCurrent() =>
+        mounted &&
+        session.isCurrent &&
+        identical(widget.chat, chat) &&
+        widget.siteUrl == siteUrl &&
+        widget.channelId == channelId &&
+        shell.currentSiteUrl == siteUrl &&
+        shell.activeTabId == sourceTabId &&
+        identical(shell.currentContent, sourceRoute);
     setState(() => _quoting = true);
-    final result = await widget.chat.generateMessageQuote(
-      widget.siteUrl,
-      widget.channelId,
+    final result = await chat.generateMessageQuote(
+      siteUrl,
+      channelId,
       widget.messageIds,
     );
+    if (!mounted) return;
+    if (!sourceIsCurrent()) {
+      setState(() => _quoting = false);
+      return;
+    }
     var notice = result.error;
     if (result.markdown case final markdown?) {
-      notice = await shell.openQuote(
-        widget.siteUrl,
-        widget.channelId,
-        markdown,
-      );
+      notice = await shell.openQuote(siteUrl, channelId, markdown);
     }
     if (!mounted) return;
     setState(() => _quoting = false);
-    if (notice != null) {
+    if (notice != null && sourceIsCurrent()) {
       DToast.show(context, notice);
     }
   }
