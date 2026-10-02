@@ -24,6 +24,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
 
   final _themes = PreferenceSnapshots<String, ForumThemePreferences>();
   final _themeImports = SerialOperationQueue();
+  final _themeImportOwners = <String, Object>{};
   final _themeEdits =
       <String, ({ForumThemePreferences before, ForumThemePreferences after})>{};
   final _themeWrites = <String, _Write<ForumThemePreferences>>{};
@@ -138,8 +139,13 @@ final class ForumSettingsController extends FrameSafeNotifier {
         _persist(
           write,
           (value) => store.writeThemes(site, value, previous: write.saved),
-          revert: (saved) => _themes.remember(site, saved),
+          revert: (saved) {
+            if (identical(_themeWrites[site], write)) {
+              _themes.remember(site, saved);
+            }
+          },
           done: () {
+            if (!identical(_themeWrites[site], write)) return;
             _themeWrites.remove(site);
             _themeEdits.remove(site);
             if (!isDisposed) notifySafely();
@@ -193,21 +199,21 @@ final class ForumSettingsController extends FrameSafeNotifier {
     required void Function(T saved) revert,
     required void Function() done,
   }) async {
-    while (write.pending != null) {
+    while (!write.retired && write.pending != null) {
       final value = write.pending!;
       write.pending = null;
       try {
         await save(value);
+        if (write.retired) break;
         write.saved = value;
       } catch (error, stack) {
+        if (write.retired) break;
         // A newer live edit supersedes an obsolete failed write. Try that
         // latest value before reporting a failure or reverting the app.
         if (write.pending != null) continue;
+        if (!isDisposed) revert(write.saved);
         done();
-        if (!isDisposed) {
-          revert(write.saved);
-          notifySafely();
-        }
+        if (!isDisposed) notifySafely();
         write.completion.completeError(error, stack);
         return;
       }
@@ -221,20 +227,28 @@ final class ForumSettingsController extends FrameSafeNotifier {
   Future<void> useThemesIn(String siteUrl, Iterable<String> siteUrls) {
     final source = requireStoredForumBase(siteUrl);
     final chosen = themesFor(source);
+    Future<void> copyTo(String site) {
+      final owner = _themeImportOwners.putIfAbsent(site, Object.new);
+      bool current() =>
+          !isDisposed && identical(_themeImportOwners[site], owner);
+      return _themeImports.run(
+        owner: this,
+        key: site,
+        operation: () async {
+          if (!current()) return;
+          await _themes.ensure(site, () => store.loadThemes(site));
+          if (current()) {
+            await setThemes(site, themesFor(site).showing(chosen));
+          }
+        },
+      );
+    }
+
     return Future.wait([
       for (final site in {
         for (final url in siteUrls) requireStoredForumBase(url),
       }.where((site) => site != source))
-        _themeImports.run(
-          owner: this,
-          key: site,
-          operation: () async {
-            await _themes.ensure(site, () => store.loadThemes(site));
-            if (!isDisposed) {
-              await setThemes(site, themesFor(site).showing(chosen));
-            }
-          },
-        ),
+        copyTo(site),
     ]);
   }
 
@@ -242,13 +256,16 @@ final class ForumSettingsController extends FrameSafeNotifier {
   /// simultaneous shares.
   Future<ForumThemePreferences> importTheme(String siteUrl, ForumTheme theme) {
     final site = requireStoredForumBase(siteUrl);
+    final owner = _themeImportOwners.putIfAbsent(site, Object.new);
+    bool current() => !isDisposed && identical(_themeImportOwners[site], owner);
     return _themeImports.run(
       owner: this,
       key: site,
       operation: () async {
+        if (!current()) return themesFor(site);
         await _themes.ensure(site, () => store.loadThemes(site));
         final previous = themesFor(site);
-        if (!isDisposed) await setThemes(site, previous.importTheme(theme));
+        if (current()) await setThemes(site, previous.importTheme(theme));
         return previous;
       },
     );
@@ -279,6 +296,14 @@ final class ForumSettingsController extends FrameSafeNotifier {
   void forgetSites(ForgottenSites sites) {
     _themeModes.forgetWhere(sites.includes);
     _themes.forgetWhere(sites.includes);
+    _themeWrites.removeWhere((site, write) {
+      if (!sites.includes(site)) return false;
+      write.retired = true;
+      write.pending = null;
+      return true;
+    });
+    _themeEdits.removeWhere((site, _) => sites.includes(site));
+    _themeImportOwners.removeWhere((site, _) => sites.includes(site));
     unawaited(
       store.forgetThemes(sites).catchError((Object _) {
         // Retain the library if persistence is temporarily unavailable.
@@ -308,5 +333,6 @@ final class _Write<T extends Object> {
   _Write(this.saved);
   T saved;
   T? pending;
+  bool retired = false;
   final completion = Completer<void>();
 }
