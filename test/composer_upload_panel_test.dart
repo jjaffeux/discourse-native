@@ -1315,6 +1315,112 @@ void main() {
       composer.draftSettled();
     });
 
+    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
+      testWidgets('outside $kind taps clear image selection', (tester) async {
+        final composer = ComposerController(
+          _target,
+          resolveUploadUrls: (_) async => const {},
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.text = '![old|100x60](upload://photo)';
+        await _pumpPanel(tester, shell, composer);
+
+        Future<void> tapAt(Offset position) async {
+          final gesture = await tester.startGesture(position, kind: kind);
+          await gesture.up();
+          await tester.pump();
+          await tester.pump();
+        }
+
+        Future<void> selectImage() async {
+          await tapAt(
+            tester.getTopLeft(find.byType(ComposerImagePreview)) +
+                const Offset(8, 8),
+          );
+          expect(composer.text.keyboardSelectedImage, isNotNull);
+          expect(
+            tester
+                .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+                .highlighted,
+            isTrue,
+          );
+        }
+
+        void expectUnselected() {
+          expect(composer.text.keyboardSelectedImage, isNull);
+          expect(
+            tester
+                .widget<ComposerImagePreview>(find.byType(ComposerImagePreview))
+                .highlighted,
+            isFalse,
+          );
+          expect(find.byTooltip('Decrease image size'), findsNothing);
+        }
+
+        await selectImage();
+        // Image editing controls remain part of the selection interaction.
+        await tapAt(tester.getCenter(find.byTooltip('Decrease image size')));
+        expect(composer.text.keyboardSelectedImage, isNotNull);
+
+        final preview = tester.getRect(find.byType(ComposerImagePreview));
+        final editor = tester.getRect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is EditableText &&
+                identical(widget.controller, composer.text),
+          ),
+        );
+        await tapAt(Offset(editor.right - 8, preview.center.dy));
+        expectUnselected();
+
+        await selectImage();
+        await tapAt(Offset(editor.center.dx, editor.bottom - 8));
+        expectUnselected();
+
+        await selectImage();
+        await tapAt(
+          tester.getCenter(find.byKey(const ValueKey('composer-submit'))),
+        );
+        expectUnselected();
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+    }
+
+    testWidgets('mobile image controls retain selection until an outside tap', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _target,
+        resolveUploadUrls: (_) async => const {},
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '![old|100x60](upload://photo)';
+      await _pumpPanel(tester, shell, composer);
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(ComposerImagePreview)) +
+            const Offset(8, 8),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('composer-image-toolbar')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Decrease image size'));
+      await tester.pump();
+      expect(composer.text.keyboardSelectedImage, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('composer-submit')));
+      await tester.pump();
+      expect(composer.text.keyboardSelectedImage, isNull);
+      expect(
+        find.byKey(const ValueKey('composer-image-toolbar')),
+        findsNothing,
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     testWidgets('selecting a projected image shows its editing controls', (
       tester,
     ) async {
@@ -2597,6 +2703,8 @@ final class _InteractionTrackingShellController extends ShellController {
       true;
 
   @override
-  Future<void> submitComposer({ComposerController? composer}) async =>
-      submitCalls++;
+  Future<void> submitComposer({
+    ComposerController? composer,
+    void Function(String)? onPreparationNotice,
+  }) async => submitCalls++;
 }

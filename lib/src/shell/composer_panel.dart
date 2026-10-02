@@ -1425,6 +1425,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   ComposerSyntaxOccurrence? _pointerDownAfterBlockSyntax;
   ComposerImageGalleryBlock? _gallerySelectedAtPointerDown;
   Offset? _pointerDownPosition;
+  bool _pointerDownBesideImage = false;
   int _pointerSequence = 0;
   bool _hoveringMention = false;
   bool _hoveringLink = false;
@@ -2392,6 +2393,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _clearKeyboardPillSelection();
     _releasePointerDownPillCollapse();
     _pointerDownAfterBlockSyntax = null;
+    _pointerDownBesideImage = false;
     _pointerSequence++;
     final position = event.position;
     _pointerDownPosition = position;
@@ -2431,6 +2433,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       image = _pointerDownQuote == null
           ? widget.composer.text.collapsedImageAtOffset(offset)
           : null;
+      _pointerDownBesideImage = image != null;
       _pointerDownSyntax =
           _pointerDownQuote == null && image == null && gallery == null
           ? widget.composer.text.collapsedSyntaxAtOffset(offset)
@@ -2497,6 +2500,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     _pointerDownAfterBlockSyntax = null;
     _gallerySelectedAtPointerDown = null;
     _pointerDownPosition = null;
+    _pointerDownBesideImage = false;
   }
 
   void _activatePointerDownPill() {
@@ -2517,6 +2521,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final afterBlockSyntax = _pointerDownAfterBlockSyntax;
     final selectedGallery = _gallerySelectedAtPointerDown;
     final position = _pointerDownPosition;
+    final besideImage = _pointerDownBesideImage;
     _clearPointerDownPill(releaseCollapse: false);
     if (syntax?.projection is ComposerInteractiveSyntaxProjection) {
       widget.composer.text.releaseSyntaxPointerEdit(syntax!);
@@ -2536,7 +2541,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return;
     }
     if (image != null) {
-      _media.selectImageForKeyboard(image);
+      if (besideImage) {
+        widget.composer.text.selection = TextSelection.collapsed(
+          offset: image.end,
+        );
+        widget.composer.text.releaseImagePointerEdit(image);
+      } else {
+        _media.selectImageForKeyboard(image);
+      }
       return;
     }
     if (gallery != null) {
@@ -3343,13 +3355,16 @@ class _ComposerEditorState extends State<ComposerEditor> {
           width: _imageMenuPreferredWidth,
           side: DPopoverSide.top,
           align: DPopoverAlign.start,
-          child: _ImageComposerMenu(
-            image: state.selectedImage!,
-            gallery: state.selectedImageGallery,
-            alt: media.imageAlt,
-            onSaveAlt: media.saveImageAlt,
-            onScale: media.scaleImage,
-            onDelete: media.deleteSelectedImage,
+          child: TapRegion(
+            groupId: media,
+            child: _ImageComposerMenu(
+              image: state.selectedImage!,
+              gallery: state.selectedImageGallery,
+              alt: media.imageAlt,
+              onSaveAlt: media.saveImageAlt,
+              onScale: media.scaleImage,
+              onDelete: media.deleteSelectedImage,
+            ),
           ),
         ),
         child: DPopoverAnchor(
@@ -3394,9 +3409,15 @@ class _ComposerEditorState extends State<ComposerEditor> {
             editorScroll: () =>
                 _ancestorScroll ??
                 (_scroll.hasClients ? _scroll.position : null),
-            child: _editorBody(),
+            child: _imageSelectionRegion(_editorBody()),
           )
-        : _editorBody(),
+        : _imageSelectionRegion(_editorBody()),
+  );
+
+  Widget _imageSelectionRegion(Widget child) => TapRegion(
+    groupId: _media,
+    onTapOutside: (_) => _media.dismissImage(requestFocus: false),
+    child: child,
   );
 
   ComposerEmptyLine? _emptyLineAt(Offset? position) {
@@ -3961,89 +3982,92 @@ class _MobileComposerImageToolbar extends StatelessWidget {
     const scales = [50, 75, 100];
     final scale = scales.contains(image.scale) ? image.scale! : 100;
     final index = scales.indexOf(scale);
-    return TextFieldTapRegion(
-      child: DCard(
-        key: const ValueKey('composer-image-toolbar'),
-        spacing: DSpacing.sm,
-        child: DCardContent(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: DSpacing.controlGap,
-            children: [
-              DInput(
-                key: const ValueKey('composer-image-description'),
-                controller: media.imageAlt,
-                semanticLabel: context.l10n.imageDescription,
-                hintText: context.l10n.addImageDescription,
-                prefix: const DIcon(DIcons.pen),
-                textInputAction: TextInputAction.done,
-                onChanged: (_) => media.updateImageAlt(),
-                onSubmitted: (_) => media.dismissImage(),
-              ),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                runSpacing: DSpacing.controlGap,
-                children: [
-                  if (state.selectedImageGallery == null)
+    return TapRegion(
+      groupId: media,
+      child: TextFieldTapRegion(
+        child: DCard(
+          key: const ValueKey('composer-image-toolbar'),
+          spacing: DSpacing.sm,
+          child: DCardContent(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: DSpacing.controlGap,
+              children: [
+                DInput(
+                  key: const ValueKey('composer-image-description'),
+                  controller: media.imageAlt,
+                  semanticLabel: context.l10n.imageDescription,
+                  hintText: context.l10n.addImageDescription,
+                  prefix: const DIcon(DIcons.pen),
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) => media.updateImageAlt(),
+                  onSubmitted: (_) => media.dismissImage(),
+                ),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  runSpacing: DSpacing.controlGap,
+                  children: [
+                    if (state.selectedImageGallery == null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DButton.iconOnly(
+                            onPressed: index > 0
+                                ? () => media.scaleImage(
+                                    scales[index - 1],
+                                    requestFocus: false,
+                                  )
+                                : null,
+                            variant: DButtonVariant.ghost,
+                            tooltip: context.l10n.decreaseImageSize,
+                            icon: const DIcon(DIcons.minus),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DSpacing.xs,
+                            ),
+                            child: Text('$scale%'),
+                          ),
+                          DButton.iconOnly(
+                            onPressed: index < scales.length - 1
+                                ? () => media.scaleImage(
+                                    scales[index + 1],
+                                    requestFocus: false,
+                                  )
+                                : null,
+                            variant: DButtonVariant.ghost,
+                            tooltip: context.l10n.increaseImageSize,
+                            icon: const DIcon(DIcons.plus),
+                          ),
+                        ],
+                      ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
+                      spacing: DSpacing.controlGap,
                       children: [
-                        DButton.iconOnly(
-                          onPressed: index > 0
-                              ? () => media.scaleImage(
-                                  scales[index - 1],
-                                  requestFocus: false,
-                                )
-                              : null,
+                        DButton(
+                          onPressed: media.deleteSelectedImage,
                           variant: DButtonVariant.ghost,
-                          tooltip: context.l10n.decreaseImageSize,
-                          icon: const DIcon(DIcons.minus),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: DSpacing.xs,
-                          ),
-                          child: Text('$scale%'),
+                          foregroundColor: DTokens.of(context).destructive,
+                          tooltip: context.l10n.deleteImage,
+                          semanticLabel: context.l10n.deleteImage,
+                          icon: const DIcon(DIcons.trashCan),
+                          label: Text(context.l10n.removeImage),
                         ),
                         DButton.iconOnly(
-                          onPressed: index < scales.length - 1
-                              ? () => media.scaleImage(
-                                  scales[index + 1],
-                                  requestFocus: false,
-                                )
-                              : null,
+                          onPressed: media.dismissImage,
                           variant: DButtonVariant.ghost,
-                          tooltip: context.l10n.increaseImageSize,
-                          icon: const DIcon(DIcons.plus),
+                          tooltip: context.l10n.done,
+                          icon: const DIcon(DIcons.check),
                         ),
                       ],
                     ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: DSpacing.controlGap,
-                    children: [
-                      DButton(
-                        onPressed: media.deleteSelectedImage,
-                        variant: DButtonVariant.ghost,
-                        foregroundColor: DTokens.of(context).destructive,
-                        tooltip: context.l10n.deleteImage,
-                        semanticLabel: context.l10n.deleteImage,
-                        icon: const DIcon(DIcons.trashCan),
-                        label: Text(context.l10n.removeImage),
-                      ),
-                      DButton.iconOnly(
-                        onPressed: media.dismissImage,
-                        variant: DButtonVariant.ghost,
-                        tooltip: context.l10n.done,
-                        icon: const DIcon(DIcons.check),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
