@@ -200,7 +200,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         if (id == 0 && _canClear) {
           widget.onSelected?.call(null);
         } else if (!_loading && id != null) {
-          final category = matches.where((item) => item.id == id).firstOrNull;
+          final category = _matches.where((item) => item.id == id).firstOrNull;
           if (category != null) widget.onSelected?.call(category);
         }
       },
