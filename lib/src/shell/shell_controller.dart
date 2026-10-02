@@ -12689,6 +12689,9 @@ class ShellController extends FrameSafeNotifier
   Future<String?> toggleLike(Post post, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null || !post.canToggleLike) return null;
+    // A completed write can precede the frame that replaces its old button.
+    final held = store.read<Post>(targetSite, post.id);
+    if (held != null && held.liked != post.liked) return null;
 
     final key = _postKey(targetSite, post.id);
     // One at a time per post. Without this a double tap sends a like and an
