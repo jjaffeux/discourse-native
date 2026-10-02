@@ -306,8 +306,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                 ),
               if (!feed.loaded && feed.loading)
                 const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: SizedBox.shrink(),
+                  child: TopicListLoadingSkeleton(destination: 'assigned'),
                 )
               else if (topics.isEmpty && feed.error == null)
                 const SliverFillRemaining(

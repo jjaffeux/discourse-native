@@ -639,7 +639,7 @@ class _TopicListViewState extends State<TopicListView> {
       return ContentReadingLaneBox(
         widthLimit: topicListContentWidth,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: _TopicListLoadingSkeleton(
+        child: TopicListLoadingSkeleton(
           key: const ValueKey('topic-list-loading-skeleton'),
           destination: destination,
         ),
@@ -660,7 +660,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (feed.isEmpty && feed.hasMore) {
       _scheduleLoadMore(controller, destination, feedIdentity, feed);
       // A filtered page can be empty while later pages still contain replies.
-      return _TopicListLoadingSkeleton(destination: destination);
+      return TopicListLoadingSkeleton(destination: destination);
     }
     if (feed.isEmpty) {
       return _Message(
@@ -901,8 +901,9 @@ class TopicListHeader extends StatelessWidget {
         );
 }
 
-class _TopicListLoadingSkeleton extends StatelessWidget {
-  const _TopicListLoadingSkeleton({super.key, required this.destination});
+/// Native topic rows filling the visible viewport while a feed loads.
+class TopicListLoadingSkeleton extends StatelessWidget {
+  const TopicListLoadingSkeleton({super.key, required this.destination});
 
   static const _patternLength = 5;
 
@@ -924,7 +925,7 @@ class _TopicListLoadingSkeleton extends StatelessWidget {
       expand: true,
       semanticsLabel: _semanticsLabel,
       color: skeletonFill(context),
-      child: ForumTabLayoutBuilder(
+      child: LayoutBuilder(
         builder: (context, constraints) {
           final visibleRowCount = constraints.hasBoundedHeight
               ? (constraints.maxHeight / TopicListRow.minimumHeight).ceil()
