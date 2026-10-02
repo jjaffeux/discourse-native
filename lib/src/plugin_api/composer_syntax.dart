@@ -93,6 +93,8 @@ final class ComposerSyntaxRenderContext {
     required this.hovered,
     required this.followedByLineBreak,
     this.scrollController,
+    this.siteUrl,
+    this.resolveUploadUrl,
   });
 
   final TextStyle baseStyle;
@@ -104,6 +106,10 @@ final class ComposerSyntaxRenderContext {
 
   /// Borrowed document viewport for embedded editor coordinate correction.
   final ScrollController? scrollController;
+
+  /// Source forum and upload resolver for static attachment artwork.
+  final String? siteUrl;
+  final String? Function(String url)? resolveUploadUrl;
 }
 
 final class ComposerSyntaxOccurrence {

@@ -28,6 +28,7 @@ import 'lightbox.dart';
 import 'mention.dart';
 import 'oneboxes/onebox.dart';
 import 'open_link.dart';
+import 'pdf_attachment.dart';
 import 'progressive_html_mode.dart';
 import 'quote.dart';
 import 'shell_scope.dart';
@@ -153,6 +154,7 @@ class CookedHtml extends StatelessWidget {
           imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
           inlineVideoWidgetBuilder(element, siteUrl: siteUrl) ??
+          pdfAttachmentWidgetBuilder(element, siteUrl: siteUrl) ??
           youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??

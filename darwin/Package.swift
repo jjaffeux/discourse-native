@@ -8,11 +8,12 @@ let package = Package(
     .target(
       name: "DiscourseNativeSupport",
       path: ".",
-      exclude: ["Tests", "VideoThumbnailChannel.swift"],
+      exclude: ["Tests", "VideoThumbnailChannel.swift", "PdfThumbnailChannel.swift"],
       sources: [
         "PasteboardFilePaths.swift",
         "PushRegistrationCoordinator.swift",
         "VideoThumbnailGenerator.swift",
+        "PdfThumbnailGenerator.swift",
       ]
     ),
     .testTarget(

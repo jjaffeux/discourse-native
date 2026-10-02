@@ -6,6 +6,7 @@ import webview_all_wkwebview
 class MainFlutterWindow: NSWindow {
   private var flutterController: FlutterViewController?
   private let videoThumbnails = VideoThumbnailChannel()
+  private let pdfThumbnails = PdfThumbnailChannel()
   private var windowChannel: FlutterMethodChannel?
   private var windowFrameObservers: [NSObjectProtocol] = []
   private var liveResize = false
@@ -58,6 +59,7 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     videoThumbnails.attach(to: flutterViewController.engine.binaryMessenger)
+    pdfThumbnails.attach(to: flutterViewController.engine.binaryMessenger)
     MacOSPushNotifications.shared.attach(
       to: flutterViewController.engine.binaryMessenger
     )

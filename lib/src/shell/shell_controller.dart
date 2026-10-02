@@ -34,6 +34,7 @@ import '../data/sidebar_section_store.dart';
 import '../data/site_image_repository.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_message_bus_bootstrap.dart';
+import '../data/site_pdf_thumbnail_repository.dart';
 import '../data/site_preference_keys.dart';
 import '../data/site_tracker.dart';
 import '../data/site_video_thumbnail_repository.dart';
@@ -349,6 +350,7 @@ class ShellController extends FrameSafeNotifier
     DateTime Function()? clock,
     SiteImageRepository? siteImages,
     SiteVideoThumbnailRepository? videoThumbnails,
+    SitePdfThumbnailRepository? pdfThumbnails,
     this._discoverSites,
     this.trackers = SiteTracker.new,
     Updater updater = const UnsupportedUpdater(),
@@ -386,6 +388,7 @@ class ShellController extends FrameSafeNotifier
        _clock = clock ?? DateTime.now,
        _providedSiteImages = siteImages,
        _providedVideoThumbnails = videoThumbnails,
+       _providedPdfThumbnails = pdfThumbnails,
        _rootMode = initialRootMode,
        _providedCookingService = cookingService,
        _ownsPlugins = plugins == null,
@@ -628,6 +631,7 @@ class ShellController extends FrameSafeNotifier
       );
   final SiteImageRepository? _providedSiteImages;
   final SiteVideoThumbnailRepository? _providedVideoThumbnails;
+  final SitePdfThumbnailRepository? _providedPdfThumbnails;
   final InstalledPlugins plugins;
   final bool _ownsPlugins;
   final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
@@ -649,6 +653,13 @@ class ShellController extends FrameSafeNotifier
   late final SiteVideoThumbnailRepository videoThumbnails =
       _providedVideoThumbnails ??
       SiteVideoThumbnailRepository(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+
+  late final SitePdfThumbnailRepository pdfThumbnails =
+      _providedPdfThumbnails ??
+      SitePdfThumbnailRepository(
         credentials: credentials,
         lifecycle: lifecycle,
       );
@@ -16197,6 +16208,7 @@ class ShellController extends FrameSafeNotifier
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
+    pdfThumbnails.forget(siteUrl);
     _removeWorkspace(siteUrl);
     _rotatedWorkspaces.remove(siteUrl);
     search.forget(siteUrl);
@@ -18052,6 +18064,7 @@ class ShellController extends FrameSafeNotifier
     forumSettings.dispose();
     siteImages.dispose();
     videoThumbnails.dispose();
+    pdfThumbnails.dispose();
     final closePluginSession = _pluginSession.close();
     _backgroundRetention.close();
     _observePluginLifecycle(closePluginSession, 'plugins.session.close');

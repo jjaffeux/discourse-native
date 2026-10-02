@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 
 import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
+import '../data/site_pdf_thumbnail_repository.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/count_label.dart';
 import '../models/composer_draft.dart';
@@ -1254,6 +1255,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           pending.result = result;
           if (SiteConfig.isImageFilename(result.originalFilename)) {
             text.cacheImageUrl(result.shortUrl, result.previewUrl);
+          }
+          if (isPdfAttachment(result.originalFilename, result.shortUrl)) {
+            text.cacheImageUrl(result.shortUrl, result.url);
           }
           _flushReadyUploads(pending.batch);
         },
