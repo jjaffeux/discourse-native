@@ -27,6 +27,7 @@ import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_texture.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -86,7 +87,7 @@ void main() {
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('forum logo menu no longer offers theme settings', (
+  testWidgets('desktop sidebar starts with mode tabs and no forum placard', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -99,9 +100,87 @@ void main() {
       ]),
       api: FakeDiscourseApi(),
     );
-    await tester.tap(find.byKey(const ValueKey('forum-identity-header')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('forum-identity-settings')), findsNothing);
+    expect(find.byType(ForumIdentityHeader), findsNothing);
+    final sidebar = tester.getRect(find.byType(InstanceSidebar));
+    final tabs = tester.getRect(
+      find.byKey(const ValueKey('sidebar-panel-tabs')),
+    );
+    expect(tabs.top, sidebar.top + DSpacing.sm);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('desktop sidebar fill follows the darker sidebar preference', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await _pumpApp(
+      tester,
+      store: FakeInstanceStore([
+        const DiscourseInstance(url: siteA, title: 'A'),
+      ]),
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+      appSettingsStore: AppSettingsStore(
+        persistence: MemoryAppSettingsPersistence(),
+      ),
+    );
+    final settings = _controller(tester).forumSettings;
+    for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+      await settings.setThemeMode(siteA, mode);
+      for (final customBackground in [false, true]) {
+        await settings.setShared(
+          customBackground
+              ? const SharedAppearance(
+                  effects: ForumBackground.appearance(
+                    effect: ForumBackgroundEffect.gradient,
+                    noiseIntensity: .5,
+                  ),
+                )
+              : SharedAppearance.defaults,
+        );
+        for (final darker in [false, true, false]) {
+          final palette = forumThemePresets.first.forBrightness(
+            mode == AppThemeMode.light ? Brightness.light : Brightness.dark,
+          );
+          await settings.setThemes(
+            siteA,
+            ForumThemePreferences().save(
+              palette.copyWith(
+                id: 'custom-sidebar',
+                name: 'Sidebar',
+                darkerSidebars: darker,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final sidebar = find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.byType(DSidebar),
+          );
+          final context = tester.element(sidebar);
+          expect(
+            tester.widget<DSidebar>(sidebar).backgroundColor,
+            darker ? DTokens.of(context).muted : Colors.transparent,
+            reason:
+                '$mode, custom background: $customBackground, darker: $darker',
+          );
+          final card = find
+              .ancestor(
+                of: find.byType(InstanceSidebar),
+                matching: find.byType(DCard),
+              )
+              .first;
+          expect(
+            tester.widget<DCard>(card).backgroundColor,
+            Colors.transparent,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('plain forum window chrome matches the panel gutters', (

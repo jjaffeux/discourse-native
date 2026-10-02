@@ -1142,9 +1142,11 @@ class _WideShellState extends State<_WideShell> {
                               maximumWidth: windowMaximum,
                               dividerWidth: 1,
                               gap: context.isTouch ? 0 : workspacePanelGap,
-                              child: const WorkspacePanel(
-                                atRightEdge: false,
-                                child: InstanceSidebar(),
+                              child: const DCard(
+                                border: false,
+                                spacing: 0,
+                                backgroundColor: Colors.transparent,
+                                child: Expanded(child: InstanceSidebar()),
                               ),
                             ),
                             child: _PageComposerDock(

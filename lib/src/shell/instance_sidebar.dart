@@ -34,10 +34,6 @@ import 'user_menu_button.dart';
 final class _SidebarSnapshot {
   const _SidebarSnapshot({
     required this.siteUrl,
-    required this.name,
-    required this.iconUrl,
-    required this.monogram,
-    required this.accentColor,
     required this.destinationId,
     required this.draftCount,
     required this.canCreateTopic,
@@ -49,10 +45,6 @@ final class _SidebarSnapshot {
   });
 
   final String? siteUrl;
-  final String? name;
-  final String? iconUrl;
-  final String? monogram;
-  final Color? accentColor;
   final String? destinationId;
   final int draftCount;
   final bool canCreateTopic;
@@ -66,10 +58,6 @@ final class _SidebarSnapshot {
   bool operator ==(Object other) {
     if (other is! _SidebarSnapshot ||
         siteUrl != other.siteUrl ||
-        name != other.name ||
-        iconUrl != other.iconUrl ||
-        monogram != other.monogram ||
-        accentColor != other.accentColor ||
         destinationId != other.destinationId ||
         draftCount != other.draftCount ||
         canCreateTopic != other.canCreateTopic ||
@@ -97,10 +85,6 @@ final class _SidebarSnapshot {
   @override
   int get hashCode => Object.hash(
     siteUrl,
-    name,
-    iconUrl,
-    monogram,
-    accentColor,
     destinationId,
     draftCount,
     canCreateTopic,
@@ -206,92 +190,97 @@ class InstanceSidebar extends StatelessWidget {
   final VoidCallback? onNavigate;
 
   @override
-  Widget build(BuildContext context) => ForumSidebarTheme(
-    child: ShellSelector<_SidebarSnapshot>(
-      select: (controller) {
-        final instance = controller.currentInstance;
-        final currentContent = controller.currentContent;
-        // The focused document owns the highlighted sidebar destination.
-        var selectedDestinationId = controller.topicListTab?.rootDestinationId;
-        if (currentContent?.groupRoute != null) {
-          selectedDestinationId = 'groups';
-        } else if (currentContent?.isBadges == true) {
-          selectedDestinationId = 'badges';
-        } else if (currentContent?.isTopic == true &&
-            selectedDestinationId == 'drafts') {
-          // Reply drafts keep Drafts in their back stack, but the topic itself
-          // is not the Drafts route.
-          selectedDestinationId = null;
-        }
-        final categorySection = instance == null
-            ? null
-            : controller.categorySidebarSectionFor(instance.url);
-        final tagSection = instance == null
-            ? null
-            : controller.tagSidebarSectionFor(instance.url);
-        return _SidebarSnapshot(
-          siteUrl: instance?.url,
-          name: instance?.title,
-          iconUrl: instance?.iconUrl,
-          monogram: instance?.monogram,
-          accentColor: instance?.accentColor,
-          // Mobile shows navigation instead of the retained content route.
-          destinationId: mobile ? null : selectedDestinationId,
-          draftCount: instance?.user?.draftCount ?? 0,
-          canCreateTopic: instance?.user?.canCreateTopic ?? false,
-          navigationLoading:
-              instance != null &&
-              controller.sidebarNavigationLoadingFor(instance.url),
-          presentationToken: instance == null
+  Widget build(BuildContext context) {
+    final filled =
+        mobile ||
+        Theme.of(context).extension<ForumThemeEffects>()?.sidebarTheme != null;
+    return ForumSidebarTheme(
+      child: ShellSelector<_SidebarSnapshot>(
+        select: (controller) {
+          final instance = controller.currentInstance;
+          final currentContent = controller.currentContent;
+          // The focused document owns the highlighted sidebar destination.
+          var selectedDestinationId =
+              controller.topicListTab?.rootDestinationId;
+          if (currentContent?.groupRoute != null) {
+            selectedDestinationId = 'groups';
+          } else if (currentContent?.isBadges == true) {
+            selectedDestinationId = 'badges';
+          } else if (currentContent?.isTopic == true &&
+              selectedDestinationId == 'drafts') {
+            // Reply drafts keep Drafts in their back stack, but the topic itself
+            // is not the Drafts route.
+            selectedDestinationId = null;
+          }
+          final categorySection = instance == null
               ? null
-              : controller.presentationTokenFor(instance.url),
-          topicTrackingRevision: instance == null
-              ? 0
-              : controller.topicTrackingRevisionFor(instance.url),
-          sections: instance == null
-              ? const <SidebarSection>[]
-              : controller.sidebarSectionsFor(instance),
-          navigationSections: [?categorySection, ?tagSection],
-        );
-      },
-      builder: (context, sidebar, _) {
-        if (sidebar.siteUrl == null) {
-          return ColoredBox(
-            color: ForumWindowBackground.surfaceColor(
-              context,
-              DTokens.of(context).muted,
-            ),
+              : controller.categorySidebarSectionFor(instance.url);
+          final tagSection = instance == null
+              ? null
+              : controller.tagSidebarSectionFor(instance.url);
+          return _SidebarSnapshot(
+            siteUrl: instance?.url,
+            // Mobile shows navigation instead of the retained content route.
+            destinationId: mobile ? null : selectedDestinationId,
+            draftCount: instance?.user?.draftCount ?? 0,
+            canCreateTopic: instance?.user?.canCreateTopic ?? false,
+            navigationLoading:
+                instance != null &&
+                controller.sidebarNavigationLoadingFor(instance.url),
+            presentationToken: instance == null
+                ? null
+                : controller.presentationTokenFor(instance.url),
+            topicTrackingRevision: instance == null
+                ? 0
+                : controller.topicTrackingRevisionFor(instance.url),
+            sections: instance == null
+                ? const <SidebarSection>[]
+                : controller.sidebarSectionsFor(instance),
+            navigationSections: [?categorySection, ?tagSection],
           );
-        }
-        return LayoutBuilder(
-          builder: (context, constraints) => DSidebarProvider(
-            mobileBreakpoint: 0,
-            open: true,
-            child: SafeArea(
-              top: !mobile,
-              bottom: !mobile,
-              left: false,
-              child: _SidebarPanelBody(
-                sidebar: sidebar,
-                width: constraints.maxWidth,
-                showUserMenu: showUserMenu,
-                mobile: mobile,
-                panelOwner: panelOwner,
-                onNavigate: onNavigate,
-                sectionStore:
-                    sectionStore ?? ShellScope.read(context).sidebarSections,
+        },
+        builder: (context, sidebar, _) {
+          final backgroundColor = filled
+              ? ForumWindowBackground.surfaceColor(
+                  context,
+                  DTokens.of(context).muted,
+                )
+              : Colors.transparent;
+          if (sidebar.siteUrl == null) {
+            return ColoredBox(color: backgroundColor);
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) => DSidebarProvider(
+              mobileBreakpoint: 0,
+              open: true,
+              child: SafeArea(
+                top: !mobile,
+                bottom: !mobile,
+                left: false,
+                child: _SidebarPanelBody(
+                  sidebar: sidebar,
+                  backgroundColor: backgroundColor,
+                  width: constraints.maxWidth,
+                  showUserMenu: showUserMenu,
+                  mobile: mobile,
+                  panelOwner: panelOwner,
+                  onNavigate: onNavigate,
+                  sectionStore:
+                      sectionStore ?? ShellScope.read(context).sidebarSections,
+                ),
               ),
             ),
-          ),
-        );
-      },
-    ),
-  );
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _SidebarPanelBody extends StatefulWidget {
   const _SidebarPanelBody({
     required this.sidebar,
+    required this.backgroundColor,
     required this.width,
     required this.showUserMenu,
     required this.sectionStore,
@@ -301,6 +290,7 @@ class _SidebarPanelBody extends StatefulWidget {
   });
 
   final _SidebarSnapshot sidebar;
+  final Color backgroundColor;
   final double width;
   final bool showUserMenu;
   final SidebarSectionStore sectionStore;
@@ -449,10 +439,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           ];
 
     return DSidebar(
-      backgroundColor: ForumWindowBackground.surfaceColor(
-        context,
-        DTokens.of(context).muted,
-      ),
+      backgroundColor: widget.backgroundColor,
       width: width,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: context.l10n.navigationInstancesidebar(
@@ -502,16 +489,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (showUserMenu) const _SidebarUserHeader(),
-                DSidebarHeader(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: ForumIdentityHeader(
-                    siteUrl: sidebar.siteUrl!,
-                    name: sidebar.name!,
-                    iconUrl: sidebar.iconUrl,
-                    monogram: sidebar.monogram!,
-                    accentColor: sidebar.accentColor!,
-                  ),
-                ),
                 DSidebarHeader(
                   child: _SidebarPanelTabs(
                     selectedOwner: selectedPanel?.owner.value,
@@ -1455,10 +1432,8 @@ class _SectionState extends State<_Section> {
 
       final extent = scalable
           ? null
-          : context.isTouch
-          ? 48.0
           : DControlStyle.height(
-              DSidebarMenuButtonSize.large,
+              DSidebarMenuButtonSize.regular,
               context: context,
             );
       Widget paddedRow(BuildContext context, int index) => Padding(
@@ -1524,11 +1499,7 @@ class _SectionState extends State<_Section> {
       final builder? => Builder(builder: builder),
       null => _destinationMenus(context, section, canEdit),
     };
-    final header = _SectionHeader(
-      section: section,
-      collapsed: _collapsed,
-      onPressed: () => _setOpen(_collapsed),
-    );
+    final header = _SectionHeader(section: section, collapsed: _collapsed);
     final group = SliverMainAxisGroup(
       slivers: [
         if (section.actionAboveHeader && section.onAction != null)
@@ -1610,7 +1581,7 @@ class _MoreDestinationsTile extends StatelessWidget {
     ),
     child: DDropdownMenuTrigger(
       builder: (context, menu) => DSidebarMenuButton(
-        size: DSidebarMenuButtonSize.large,
+        size: DSidebarMenuButtonSize.regular,
         icon: const DIcon(DIcons.ellipsisVertical, size: 16),
         focusNode: menu.focusNode,
         expanded: menu.open,
@@ -1622,14 +1593,9 @@ class _MoreDestinationsTile extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.section,
-    required this.collapsed,
-    required this.onPressed,
-  });
+  const _SectionHeader({required this.section, required this.collapsed});
   final SidebarSection section;
   final bool collapsed;
-  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1669,44 +1635,52 @@ class _SectionHeader extends StatelessWidget {
     final expandIcon = Directionality.of(context) == TextDirection.rtl
         ? DIcons.chevronLeft
         : DIcons.chevronRight;
-    return DSidebarMenuItem(
-      action:
-          section.headerActionsBuilder != null ||
-              (!section.actionAboveHeader && section.onAction != null)
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (section.headerActionsBuilder != null)
-                  section.headerActionsBuilder!(context),
-                if (!section.actionAboveHeader && section.onAction != null)
-                  DTooltip(
-                    message: section.actionLabel ?? section.title,
-                    shortcut: section.actionShortcut == null
-                        ? null
-                        : DShortcut(section.actionShortcut!),
-                    child: DSidebarMenuAction(
-                      semanticLabel: section.actionLabel ?? section.title,
-                      onPressed: section.onAction,
-                      child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
-                    ),
+    final action =
+        section.headerActionsBuilder != null ||
+            (!section.actionAboveHeader && section.onAction != null)
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (section.headerActionsBuilder != null)
+                section.headerActionsBuilder!(context),
+              if (!section.actionAboveHeader && section.onAction != null)
+                DTooltip(
+                  message: section.actionLabel ?? section.title,
+                  shortcut: section.actionShortcut == null
+                      ? null
+                      : DShortcut(section.actionShortcut!),
+                  child: DSidebarMenuAction(
+                    semanticLabel: section.actionLabel ?? section.title,
+                    onPressed: section.onAction,
+                    child: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
                   ),
-              ],
-            )
-          : null,
-      child: section.collapsible
-          ? DSidebarMenuButton(
-              size: DSidebarMenuButtonSize.large,
-              icon: DIcon(
-                collapsed ? expandIcon : DIcons.chevronDown,
-                size: 16,
+                ),
+            ],
+          )
+        : null;
+    final header = section.collapsible
+        ? DCollapsibleTrigger(
+            semanticLabel: description,
+            child: DSidebarGroupLabel(
+              child: Row(
+                spacing: DSpacing.sm,
+                children: [
+                  DIcon(
+                    collapsed ? expandIcon : DIcons.chevronDown,
+                    size: context.isTouch ? 22 : 18,
+                    color: DTokens.of(context).foreground.withValues(alpha: .7),
+                  ),
+                  Expanded(child: ExcludeSemantics(child: label)),
+                ],
               ),
-              iconSize: context.isTouch ? 22 : 18,
-              semanticLabel: description,
-              expanded: !collapsed,
-              onPressed: onPressed,
-              child: ExcludeSemantics(child: label),
-            )
-          : DSidebarGroupLabel(child: label),
+            ),
+          )
+        : DSidebarGroupLabel(child: label);
+    return Row(
+      children: [
+        Expanded(child: header),
+        ?action,
+      ],
     );
   }
 }
@@ -1899,7 +1873,7 @@ class SidebarDestinationTile extends StatelessWidget {
                   ),
                 )),
       child: DSidebarMenuButton(
-        size: DSidebarMenuButtonSize.large,
+        size: DSidebarMenuButtonSize.regular,
         isActive: selected,
         onPressed: destination.enabled ? onTap : null,
         iconSize: context.isTouch ? 22 : 18,
@@ -1925,7 +1899,13 @@ class SidebarDestinationTile extends StatelessWidget {
               ),
             ),
             if (destination.labelSuffixBuilder case final builder?)
-              builder(context, 14),
+              builder(
+                context,
+                DControlStyle.fontSize(
+                  DSidebarMenuButtonSize.regular,
+                  context: context,
+                ),
+              ),
             if (badge.isVisible && badge.dot)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
