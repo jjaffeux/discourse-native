@@ -44,6 +44,67 @@ void main() {
   Finder tagOption(String name) =>
       find.byKey(ValueKey(('tag-selector-option', name)));
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final (id, expected) in [
+      (2, <TopicCategory?>[]),
+      (1, <TopicCategory?>[support]),
+      (0, <TopicCategory?>[null]),
+    ]) {
+      testWidgets('local category option $id respects a query edited before '
+          'repaint on $platform', (tester) async {
+        final selections = <TopicCategory?>[];
+        tester.view.physicalSize = platform == TargetPlatform.iOS
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: TopicCategorySelector(
+                siteUrl: 'https://example.invalid',
+                categories: const [support, designCategory],
+                selected: support,
+                includeAll: true,
+                sheetOnMobile: true,
+                onSelected: selections.add,
+              ),
+            ),
+          ),
+        );
+        await open(tester, TopicCategorySelector);
+        await tester.pumpAndSettle();
+        final oldOption = find.byKey(
+          ValueKey(('category-selector-option', id)),
+        );
+        expect(oldOption, findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('category-selector-query')),
+          'Support',
+        );
+        await tester.tap(oldOption);
+        expect(selections, expected);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        // A normal selection from the newly rendered local filter still works.
+        await open(tester, TopicCategorySelector);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('category-selector-query')),
+          'Design',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey(('category-selector-option', 2))),
+        );
+        expect(selections, [...expected, designCategory]);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
       'mobile tags retain focus and allow repeated toggles on $platform',
