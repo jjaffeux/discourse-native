@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -266,7 +267,18 @@ class _GifPickerState extends State<GifPicker> {
           if (controller.loadingMore || controller.canLoadMore)
             Center(
               child: controller.loadingMore
-                  ? const SizedBox.shrink()
+                  ? DSkeletonRegion(
+                      key: const ValueKey('gif-picker-page-loading'),
+                      semanticsLabel: context.l10n.loading,
+                      color: skeletonFill(
+                        context,
+                        on: SkeletonSurface.floating,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: DSpacing.sm),
+                        child: DSkeleton(width: 96, height: 20),
+                      ),
+                    )
                   : DButton(
                       key: const ValueKey('gif-picker-load-more'),
                       label: Text(context.l10n.loadMore),
@@ -336,7 +348,7 @@ class _GifPickerState extends State<GifPicker> {
     }
 
     if (controller.isBusy || controller.searchPending) {
-      return const SizedBox.shrink();
+      return _GifGridSkeleton(categories: !controller.hasActiveSearch);
     }
 
     if (!controller.hasActiveSearch) {
@@ -351,6 +363,60 @@ class _GifPickerState extends State<GifPicker> {
       message: context.l10n.noGIFsFound,
     );
   }
+}
+
+class _GifGridSkeleton extends StatelessWidget {
+  const _GifGridSkeleton({required this.categories});
+
+  final bool categories;
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    key: const ValueKey('gif-picker-loading'),
+    semanticsLabel: categories
+        ? context.l10n.loadingCategories
+        : context.l10n.searching,
+    color: skeletonFill(context, on: SkeletonSurface.floating),
+    expand: true,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = DSpacing.sm;
+        final columns = math.max(
+          1,
+          (constraints.maxWidth / ((categories ? 200 : 180) + spacing)).ceil(),
+        );
+        final width =
+            (constraints.maxWidth - (columns - 1) * spacing) / columns;
+        final height = width / (categories ? 4 / 3 : 1);
+        final rows = math.max(
+          1,
+          (constraints.maxHeight / (height + spacing)).ceil(),
+        );
+        return ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            maxHeight: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var row = 0; row < rows; row++) ...[
+                  if (row > 0) const SizedBox(height: spacing),
+                  Row(
+                    children: [
+                      for (var column = 0; column < columns; column++) ...[
+                        if (column > 0) const SizedBox(width: spacing),
+                        Expanded(child: DSkeleton(height: height)),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _GifResultTile extends StatelessWidget {

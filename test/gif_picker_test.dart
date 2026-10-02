@@ -28,6 +28,128 @@ const _result = GifResult(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
+    testWidgets('$platform picker shows loading throughout held requests', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final api = _HeldGifsApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('Open held GIF picker'),
+                onPressed: () => unawaited(
+                  showGifPicker(
+                    context: context,
+                    siteUrl: _siteUrl,
+                    api: api,
+                    requests: FakePluginRequestHost(
+                      credentials: FakeAuthenticator()
+                        ..keys[_siteUrl] = 'api-key',
+                      lifecycle: SiteLifecycle(),
+                    ),
+                    settings: const GifsSettings(enabled: true),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open held GIF picker'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final loading = find.byKey(const ValueKey('gif-picker-loading'));
+      expect(loading, findsOneWidget);
+      expect(
+        tester.widget<DSkeletonRegion>(loading).semanticsLabel,
+        'Loading categories…',
+      );
+      expect(tester.getSize(loading).height, greaterThan(200));
+      expect(find.byType(DSkeleton), findsWidgets);
+      expect(find.byKey(const ValueKey('gif-category-0')), findsNothing);
+      if (platform == TargetPlatform.android) {
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.getSize(loading).height, greaterThan(100));
+        expect(tester.getBottomLeft(loading).dy, lessThanOrEqualTo(564));
+      }
+
+      api.categoryResponse.complete(const [_category]);
+      await tester.pump();
+      await tester.pump();
+      expect(loading, findsNothing);
+      expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);
+      final search = find.byKey(const ValueKey('gif-picker-search'));
+      await tester.enterText(search, 'ca');
+      await tester.pump();
+      expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);
+      expect(loading, findsNothing);
+
+      await tester.enterText(search, 'cats');
+      await tester.pump();
+      expect(loading, findsOneWidget);
+      expect(
+        tester.widget<DSkeletonRegion>(loading).semanticsLabel,
+        'Searching…',
+      );
+      expect(api.searches, isEmpty);
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(api.searches.single.query, 'cats');
+      expect(loading, findsOneWidget);
+      api.searches.single.response.complete(
+        GifSearchPage(results: const [_result]),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(loading, findsNothing);
+      expect(find.byKey(const ValueKey('gif-result-0')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('gif-picker-clear')));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('gif-category-0')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('gif-category-0')));
+      await tester.pump();
+      expect(api.searches.last.query, _category.searchTerm);
+      expect(loading, findsOneWidget);
+      api.searches.last.response.complete(
+        GifSearchPage(results: _firstPage, nextPosition: 'next'),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(loading, findsNothing);
+      final grid = find.byKey(const ValueKey('gif-picker-results'));
+      await tester.drag(grid, const Offset(0, -5000));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(api.searches.last.position, 'next');
+      final paging = find.byKey(const ValueKey('gif-picker-page-loading'));
+      expect(paging, findsOneWidget);
+      expect(tester.getSize(paging).height, greaterThan(0));
+      expect(find.byTooltip(RegExp('Choose Cat [0-9]+ GIF')), findsWidgets);
+      expect(
+        tester.widget<GifPicker>(find.byType(GifPicker)).controller.results,
+        _firstPage,
+      );
+      expect(find.byKey(const ValueKey('gif-picker-load-more')), findsNothing);
+      api.searches.last.response.complete(GifSearchPage(results: const []));
+      await tester.pump();
+      await tester.pump();
+      expect(paging, findsNothing);
+      expect(find.byTooltip(RegExp('Choose Cat [0-9]+ GIF')), findsWidgets);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const ValueKey('gif-picker-close')));
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('only a reopened picker can search with a replacement account', (
     tester,
   ) async {
@@ -491,6 +613,39 @@ final List<GifResult> _firstPage = List.unmodifiable([
       height: 180,
     ),
 ]);
+
+const _category = GifCategory(
+  title: 'Hello',
+  imageUrl: 'https://media.klipy.example/hello.webp',
+  searchTerm: 'hi',
+);
+
+final class _HeldGifsApi extends FakeDiscourseApi {
+  final categoryResponse = Completer<List<GifCategory>>();
+  final searches =
+      <({String query, String position, Completer<GifSearchPage> response})>[];
+
+  @override
+  Future<List<GifCategory>> gifCategories({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) => categoryResponse.future;
+
+  @override
+  Future<GifSearchPage> searchGifs({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    required String fileDetail,
+    String position = '0',
+    String? clientId,
+  }) {
+    final response = Completer<GifSearchPage>();
+    searches.add((query: query, position: position, response: response));
+    return response.future;
+  }
+}
 
 final class _PaginationFailureApi extends FakeDiscourseApi {
   int laterPageRequests = 0;
