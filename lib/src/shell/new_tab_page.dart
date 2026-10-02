@@ -1167,6 +1167,7 @@ class _ShortcutBarState extends State<_ShortcutBar> {
         key: key,
         size: DButtonSize.filter,
         variant: DButtonVariant.secondary,
+        backgroundColor: DTokens.of(context).buttonTheme.outline.hover,
         icon: const DIcon(DIcons.ellipsis, size: 12),
         label: Text(context.l10n.more),
         onPressed: onPressed,
@@ -1209,6 +1210,9 @@ class _ShortcutBarState extends State<_ShortcutBar> {
                         key: const ValueKey('start-page-more'),
                         size: DButtonSize.filter,
                         variant: DButtonVariant.secondary,
+                        backgroundColor: DTokens.of(
+                          context,
+                        ).buttonTheme.outline.hover,
                         focusNode: state.focusNode,
                         hasPopup: true,
                         expanded: state.open,
@@ -1247,9 +1251,7 @@ class _LinkButton extends StatelessWidget {
     final button = DButton(
       variant: DButtonVariant.secondary,
       size: DButtonSize.filter,
-      backgroundColor: tokens.footerBackground,
-      interactiveBackgroundColor: tokens.buttonTheme.accent.hover,
-      borderColor: Colors.transparent,
+      backgroundColor: tokens.buttonTheme.outline.hover,
       icon: DIcon(icon, size: 12),
       label: Text(label),
       onPressed: onPressed,

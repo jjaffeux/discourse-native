@@ -490,8 +490,13 @@ void main() {
     expect(find.text('Everything else'), findsNothing);
     final categories = tester.widget<DButton>(shortcut('Categories').first);
     expect(categories.variant, DButtonVariant.secondary);
-    expect(categories.backgroundColor, isNot(Colors.transparent));
-    expect(categories.borderColor, Colors.transparent);
+    expect(
+      categories.backgroundColor,
+      DTokens.of(
+        tester.element(shortcut('Categories').first),
+      ).buttonTheme.outline.hover,
+    );
+    expect(categories.borderColor, isNull);
     expect(
       tester.widget<DButton>(shortcut('Recent topics').first).variant,
       DButtonVariant.secondary,
