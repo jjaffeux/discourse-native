@@ -18,7 +18,8 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -486,6 +487,88 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      _test('Start scroll header keeps mockup spacing in $mode on $platform', (
+        tester,
+      ) async {
+        final shell = await _start(tester, const Size(390, 600));
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+        });
+        await shell.forumSettings.setThemeMode(_site, mode);
+        await tester.pumpAndSettle();
+        final page = find.byType(NewTabPage).last;
+        Finder onPage(Finder finder) =>
+            find.descendant(of: page, matching: finder);
+        final heading = onPage(
+          find.byKey(const ValueKey('start-page-heading')),
+        );
+        final filter = onPage(find.byKey(const ValueKey('topic-list-filter')));
+        final scroll = onPage(find.byType(SingleChildScrollView)).first;
+        Future<void> scrollBy(double delta) async {
+          if (platform == TargetPlatform.macOS) {
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: tester.getCenter(scroll),
+                scrollDelta: Offset(0, delta),
+              ),
+            );
+          } else {
+            await tester.drag(scroll, Offset(0, -delta));
+          }
+          await tester.pumpAndSettle();
+        }
+
+        ScrollPosition position() => tester
+            .state<ScrollableState>(
+              find.descendant(of: scroll, matching: find.byType(Scrollable)),
+            )
+            .position;
+        final initialHeading = tester.getRect(heading);
+        final initialFilter = tester.getRect(filter);
+        expect(initialFilter.top - initialHeading.bottom, closeTo(16, .01));
+        final content = onPage(
+          find.byKey(const ValueKey('start-page-content')),
+        );
+        final initialContentTop = tester.getTopLeft(content).dy;
+        final extent = position().maxScrollExtent;
+        expect(extent, greaterThan(120));
+
+        await scrollBy(100);
+        await _capture(tester, 'scroll-${platform.name}-${mode.name}');
+        expect(
+          tester.getRect(filter).top - tester.getRect(scroll).top,
+          closeTo(16, .01),
+        );
+        expect(
+          tester.getTopLeft(content).dy,
+          closeTo(initialContentTop - position().pixels, .01),
+          reason: 'Retracting the title must not shift the content anchor',
+        );
+        // The phone dock can release more viewport space while scrolling.
+        expect(position().maxScrollExtent, lessThanOrEqualTo(extent));
+
+        await scrollBy(1000);
+        expect(tester.getRect(heading), initialHeading);
+        expect(tester.getRect(filter), initialFilter);
+        expect(filter.hitTestable(), findsOneWidget);
+        // Continue to the new bottom after the dock has taken its space back.
+        await scrollBy(1000);
+        expect(position().pixels, closeTo(position().maxScrollExtent, .01));
+        expect(tester.getRect(heading), initialHeading);
+        expect(tester.getRect(filter), initialFilter);
+        await _capture(tester, 'bottom-${platform.name}-${mode.name}');
+
+        await scrollBy(-1000);
+        expect(position().pixels, closeTo(0, .01));
+        expect(tester.getRect(heading), initialHeading);
+        expect(tester.getRect(filter), initialFilter);
+        await _capture(tester, 'top-${platform.name}-${mode.name}');
+        expect(tester.takeException(), isNull);
+      }, platform: platform);
+    }
+
     _test(
       'native Start wells and shortcuts fit phone and large text in $mode',
       (tester) async {

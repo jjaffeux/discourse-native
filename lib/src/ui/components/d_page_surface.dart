@@ -27,6 +27,7 @@ class DPageSurface extends StatefulWidget {
     this.backgroundColor,
     this.borderRadius,
     this.hideHeaderOnScroll = false,
+    this.revealHeaderAtEnd = false,
     this.scrollBody = false,
     this.limitContentSize,
     required this.child,
@@ -50,6 +51,12 @@ class DPageSurface extends StatefulWidget {
   /// Animate after a small vertical movement, requiring speed to retract, or
   /// reveal completely when scrolling reaches the top.
   final bool hideHeaderOnScroll;
+
+  /// Whether reaching the physical bottom also reveals the retracting header.
+  ///
+  /// Requires [hideHeaderOnScroll]. The header stays visible through viewport
+  /// changes at the bottom until the reader scrolls back toward the top.
+  final bool revealHeaderAtEnd;
 
   /// Persistent tabs above the retracting header.
   final Widget? tabs;
@@ -91,6 +98,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   final _headerKey = GlobalKey();
   late final AnimationController _headerAnimation;
   bool _headerHidden = false;
+  bool _headerHeldAtEnd = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
   double _directionDistance = 0;
@@ -111,8 +119,10 @@ class _DPageSurfaceState extends State<DPageSurface>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
+        oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
         (oldWidget.header != null && widget.header == null)) {
       _headerHidden = false;
+      _headerHeldAtEnd = false;
       _headerAnimation.value = 0;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
@@ -189,6 +199,11 @@ class _DPageSurfaceState extends State<DPageSurface>
       return false;
     }
     if (notification is ScrollStartNotification &&
+        notification.dragDetails == null &&
+        !_userScrolling) {
+      _headerHeldAtEnd = false;
+    }
+    if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _directionDistance = 0;
       _lastScrollTime =
@@ -208,7 +223,19 @@ class _DPageSurfaceState extends State<DPageSurface>
       final atTop = reversed
           ? metrics.pixels >= metrics.maxScrollExtent
           : metrics.pixels <= metrics.minScrollExtent;
+      final atEnd =
+          widget.revealHeaderAtEnd &&
+          (reversed
+              ? metrics.pixels <= metrics.minScrollExtent + 4
+              : metrics.pixels >= metrics.maxScrollExtent - 4);
       if (atTop) {
+        _headerHeldAtEnd = false;
+        _directionDistance = 0;
+        _animateHeader(hidden: false);
+      } else if (atEnd) {
+        // Returning a mobile dock can reduce the viewport while a fling is
+        // still moving. Keep the header revealed through that extra travel.
+        _headerHeldAtEnd = true;
         _directionDistance = 0;
         _animateHeader(hidden: false);
       } else if (!metrics.outOfRange) {
@@ -220,6 +247,7 @@ class _DPageSurfaceState extends State<DPageSurface>
           final revealing = reversed
               ? _direction == ScrollDirection.reverse
               : _direction == ScrollDirection.forward;
+          if (_headerHeldAtEnd && !revealing) return false;
           final headerHeight = _headerFocus.context?.size?.height ?? 0;
           final canRetract =
               _headerHidden ||
@@ -252,6 +280,7 @@ class _DPageSurfaceState extends State<DPageSurface>
             } else {
               _directionDistance += delta.abs();
               if (_directionDistance >= _triggerDistance) {
+                if (revealing) _headerHeldAtEnd = false;
                 _animateHeader(hidden: !revealing);
               }
             }
@@ -337,6 +366,9 @@ class _DPageSurfaceState extends State<DPageSurface>
                     delegate: ScrollConfiguration.of(context),
                   ),
                   child: SingleChildScrollView(
+                    // A page owns this viewport. Sharing the shell's primary
+                    // controller with another page disables its edge fade.
+                    primary: false,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
