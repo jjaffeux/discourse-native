@@ -60,8 +60,12 @@ class _ManageSection extends StatelessWidget {
         : FocusTraversalGroup(
             policy: WidgetOrderTraversalPolicy(),
             child: _GroupManageForm(
-              key: ValueKey('group-manage-form-${group.id}-$selected'),
+              key: ValueKey(
+                'group-manage-form-${group.id}-$selected-'
+                '${group.automatic}-${data.currentUserStaff}',
+              ),
               group: group,
+              currentUserStaff: data.currentUserStaff,
               subsection: selected,
               onSave: onSave,
             ),
@@ -136,11 +140,13 @@ class _GroupManageForm extends StatefulWidget {
   const _GroupManageForm({
     super.key,
     required this.group,
+    required this.currentUserStaff,
     required this.subsection,
     required this.onSave,
   });
 
   final Group group;
+  final bool currentUserStaff;
   final String subsection;
   final GroupManageSubmit? onSave;
 
@@ -156,6 +162,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
     super.initState();
     controller = GroupManageController(
       group: widget.group,
+      currentUserStaff: widget.currentUserStaff,
       subsection: widget.subsection,
       onSubmit: widget.onSave,
     );
@@ -218,7 +225,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
 
   Widget _manageFields() => switch (widget.subsection) {
     GroupRoute.profile => _ProfileFields(
-      group: widget.group,
+      canEdit: controller.canEditProfileField,
       controllers: controller.textControllers,
       errors: controller.snapshot.fieldErrors,
     ),
@@ -414,12 +421,12 @@ class _GroupManageFormState extends State<_GroupManageForm> {
 
 class _ProfileFields extends StatelessWidget {
   const _ProfileFields({
-    required this.group,
+    required this.canEdit,
     required this.controllers,
     required this.errors,
   });
 
-  final Group group;
+  final bool Function(String key) canEdit;
   final Map<String, TextEditingController> controllers;
   final Map<String, String> errors;
 
@@ -434,23 +441,18 @@ class _ProfileFields extends StatelessWidget {
                   controller: controllers[key],
                   minLines: lines,
                   maxLines: lines,
-                  enabled: key != 'name' || !group.automatic,
+                  enabled: canEdit(key),
                   labelText: label,
                   hintText: hint,
                   errorText: errors[key],
                 )
-              : TextFormField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+              : DInput(
                   key: ValueKey('group-field-$key'),
                   controller: controllers[key],
-                  minLines: lines,
-                  maxLines: lines,
-                  enabled: key != 'name' || !group.automatic,
-                  decoration: InputDecoration(
-                    labelText: label,
-                    hintText: hint,
-                    errorText: errors[key],
-                  ),
+                  enabled: canEdit(key),
+                  labelText: label,
+                  hintText: hint,
+                  errorText: errors[key],
                 ),
         );
     return Column(
