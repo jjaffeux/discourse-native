@@ -21,10 +21,11 @@ class ComposerRecipients extends StatefulWidget {
 }
 
 class _ComposerRecipientsState extends State<ComposerRecipients> {
-  final _query = TextEditingController();
+  String _query = '';
   Timer? _debounce;
   int _searchGeneration = 0;
   FoundUsersAndGroups _results = const FoundUsersAndGroups();
+  bool _rejectedSelection = false;
 
   List<String> get _recipients => widget.composer.target.targetRecipients!
       .split(',')
@@ -34,6 +35,10 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
   void _search(String query) {
     _debounce?.cancel();
     final generation = ++_searchGeneration;
+    setState(() {
+      _query = query;
+      _results = const FoundUsersAndGroups();
+    });
     _debounce = Timer(const Duration(milliseconds: 200), () async {
       if (!mounted) return;
       final results = await ShellScope.read(context).searchMessageRecipients(
@@ -45,11 +50,36 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
     });
   }
 
+  void _selectionChanged(List<String> values) {
+    final current = _recipients;
+    // An old row can still dispatch before the query edit rebuilds the popup.
+    final accepted = values
+        .where(
+          (name) =>
+              current.contains(name) ||
+              _results.users.any((user) => user.username == name) ||
+              _results.groups.any((group) => group.name == name),
+        )
+        .toList();
+    _rejectedSelection = accepted.length != values.length;
+    widget.composer.setRecipients(accepted);
+  }
+
+  void _queryChanged(String query, DComboboxChangeReason reason) {
+    final rejectedReset =
+        _rejectedSelection &&
+        query.isEmpty &&
+        (reason == DComboboxChangeReason.keyboard ||
+            reason == DComboboxChangeReason.itemPress);
+    _rejectedSelection = false;
+    // Keep the replacement query and its lookup after rejecting an old row.
+    if (!rejectedReset) _search(query);
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
     _searchGeneration++;
-    _query.dispose();
     super.dispose();
   }
 
@@ -57,7 +87,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
   Widget build(BuildContext context) {
     final mobile = context.isTouch;
     final recipients = _recipients;
-    final query = _query.text.trim().toLowerCase();
+    final query = _query.trim().toLowerCase();
     final picker = DCombobox<String>.multipleControlled(
       key: const ValueKey('composer-private-message-recipients'),
       value: recipients,
@@ -95,28 +125,23 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
           ],
         ),
       ],
-      textController: _query,
+      query: _query,
       filterLocally: false,
       closeOnSelect: false,
       itemToStringLabel: (name) => name,
-      onQueryChanged: (query, reason) {
-        if (reason == DComboboxChangeReason.input) _search(query);
-      },
+      onQueryChanged: _queryChanged,
       onOpenChanged: (open, reason) {
         if (mobile) {
           _debounce?.cancel();
           _searchGeneration++;
           if (open) {
-            _query.clear();
-            setState(() => _results = const FoundUsersAndGroups());
             _search('');
           }
         } else if (open && _results.users.isEmpty && _results.groups.isEmpty) {
-          _search(_query.text);
+          _search(_query);
         }
       },
-      onValuesChanged: (values, reason) =>
-          widget.composer.setRecipients(values),
+      onValuesChanged: (values, reason) => _selectionChanged(values),
       anchor: mobile
           ? DComboboxTrigger<String>(
               builder: (context, trigger) => TopicTaxonomyButton(
