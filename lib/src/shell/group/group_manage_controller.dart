@@ -289,8 +289,8 @@ final class GroupManageController extends ChangeNotifier {
           'smtp_port': _nullableInt('smtp_port'),
           'smtp_ssl_mode': _nullableInt('smtp_ssl_mode'),
           'email_username': _value('email_username'),
-          if (_value('email_password').isNotEmpty)
-            'email_password': _value('email_password'),
+          if (textController('email_password').text.isNotEmpty)
+            'email_password': textController('email_password').text,
           'email_from_alias': _value('email_from_alias'),
           'allow_unknown_sender_topic_replies': _allowUnknownSenderReplies,
         },
