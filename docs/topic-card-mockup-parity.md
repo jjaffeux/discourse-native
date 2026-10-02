@@ -28,20 +28,26 @@ Reference: `discourse-native-mockups` commit `912027c`, `src/App.tsx`,
    taxonomy space. Active desktop sort indicators also reserve their width.
 2. The category path receives 55% of the remaining strip. If a multi-level
    path exceeds this budget, replace ancestors with `… ›` and retain the leaf.
-3. Subtract swatches, chevrons, and spacing from the path budget. Give the leaf
+3. Subtract swatches (or category icons/emoji), private-category locks,
+   chevrons, and spacing from the path budget. Give the leaf
    at least 82px where room permits, bounded by the actual available space and
    the tag-overflow reservation. Shorten the **middle** of the leaf, retaining
    both its beginning and distinguishing suffix.
-4. Fit complete tags first. Reserve 16px for `+N` and 5px between tags when
-   some tags remain hidden.
+4. Fit complete tags first. Reserve the measured `+N` width (at least 16px)
+   and 5px between tags when some tags remain hidden. Enlarged text and
+   multi-digit counts increase that reservation.
 5. A partial next tag is allowed only when at least 30px remains after those
    reservations. Shorten its **end**. The overflow count excludes that visible
    partial tag.
-6. `+N` expands the remaining tags and permits wrapping. Clipped labels retain
-   full tooltips, accessible labels, and original navigation destinations.
+6. Category, tags, and activity counts share a single row; counts never wrap
+   beneath the taxonomy. Category names and tags truncate further when needed.
+   `+N` reveals all tags in a wrapping run below the category/count row.
+   Clipped labels retain full tooltips, accessible labels, and original
+   navigation destinations.
 7. Measurements use the rendered font and text scale. Clipping preserves
-   Unicode graphemes. Very narrow layouts with large accessibility text wrap
-   the metadata strip instead of losing links or counts.
+   Unicode graphemes. Very narrow layouts with large accessibility text move
+   the whole category/count row below the avatars/time; counts stay beside
+   the category.
 
 ## Native components and behavior
 

@@ -34,6 +34,51 @@ double _topicTextWidth(BuildContext context, String text) {
   return width;
 }
 
+// Match CategoryIcon's square/icon/emoji and optional private-category lock.
+double _topicCategoryMarkWidth(TopicCategory category) =>
+    (category.styleType == 'icon' ||
+            (category.styleType == 'emoji' && category.emoji != null)
+        ? 13.0
+        : 9.0) +
+    (category.readRestricted ? 4 + 13 : 0);
+
+double _topicMinimumTaxonomyWidth(BuildContext context, _TopicRowBody row) {
+  final ellipsis = _topicTextWidth(context, '…');
+  var width = 0.0;
+  if (row.topic.privateMessage) {
+    width = ellipsis;
+  } else if (row.category case final category?) {
+    width = _topicCategoryMarkWidth(category) + _topicTagGap + ellipsis;
+    if (row.showCategoryBreadcrumb && row.categoryAncestors.isNotEmpty) {
+      width += ellipsis + 7 + _topicTagGap * 2;
+    }
+  }
+  if (row.topic.tags.isNotEmpty) {
+    width +=
+        (width > 0 ? _topicTagGap : 0) +
+        _topicTextWidth(
+          context,
+          '+${row.topic.tags.length}',
+        ).clamp(16.0, double.infinity);
+  }
+  return width.clamp(45.0, double.infinity);
+}
+
+String? _topicSortOrder(
+  BuildContext context,
+  _TopicRowBody row, {
+  required bool allowSort,
+}) {
+  if (!allowSort) return null;
+  if (row.onSort != null) return row.order;
+  final route = ShellScope.maybeRead(context)?.topicListContent;
+  return row.forum == null &&
+          !row.topic.privateMessage &&
+          route?.canSortTopicList == true
+      ? route?.topicListOrder
+      : null;
+}
+
 class _TopicCardFooter extends StatelessWidget {
   const _TopicCardFooter({required this.row, required this.allowSort});
   final _TopicRowBody row;
@@ -121,11 +166,17 @@ class _TopicCardFooter extends StatelessWidget {
             constraints.maxWidth -
             avatarsWidth -
             _topicTextWidth(context, age) -
+            (_topicSortOrder(context, row, allowSort: allowSort) == 'activity'
+                ? 18
+                : 0) -
             (shown.isEmpty ? 14 : 28);
         // At accessibility sizes the entire metadata strip gets its own line.
         // Keep every link/count available instead of squeezing it to zero.
+        final minimumTaxonomyWidth = _topicMinimumTaxonomyWidth(context, row);
         final wrap =
-            room < _topicCountsWidth(context, row, allowSort: allowSort) + 45;
+            room <
+            _topicCountsWidth(context, row, allowSort: allowSort) +
+                minimumTaxonomyWidth;
         final footer = wrap
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -177,7 +228,8 @@ class _TopicCardFooter extends StatelessWidget {
           final siteWidth = 20 + _topicTextWidth(context, forum.title);
           if (!wrap &&
               room - siteWidth - _topicTailGap >=
-                  _topicCountsWidth(context, row, allowSort: allowSort) + 82) {
+                  _topicCountsWidth(context, row, allowSort: allowSort) +
+                      minimumTaxonomyWidth.clamp(82.0, double.infinity)) {
             return Row(
               spacing: _topicTailGap,
               children: [
@@ -209,11 +261,7 @@ double _topicCountsWidth(
   _TopicRowBody row, {
   required bool allowSort,
 }) {
-  final order = allowSort
-      ? (row.onSort != null
-            ? row.order
-            : ShellScope.maybeRead(context)?.topicListContent?.topicListOrder)
-      : null;
+  final order = _topicSortOrder(context, row, allowSort: allowSort);
   return _topicCounts(row).fold(
     0.0,
     (width, count) =>
@@ -266,21 +314,26 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           allowSort: widget.allowSort,
         ),
         categories: path.map((c) => c.name).toList(),
-        tags: topic.tags.map((t) => t.name).toList(),
+        categoryMarkWidths: path.map(_topicCategoryMarkWidth).toList(),
+        tags: _allTags ? [] : topic.tags.map((t) => t.name).toList(),
         measure: measure,
       );
       final shownPath = layout.abridged
           ? path.skip(path.length - 1).toList()
           : path;
-      final shownTags = _allTags ? topic.tags.length : layout.visibleTags;
+      final shownTags = layout.visibleTags;
       final children = <Widget>[
         if (topic.privateMessage)
-          Text(
-            context.l10n.privateConversation,
-            style: _topicMetadataStyle(context),
+          Flexible(
+            child: Text(
+              context.l10n.privateConversation,
+              style: _topicMetadataStyle(context),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           )
         else if (shownPath.isNotEmpty)
-          _categoryPath(context, shownPath, layout),
+          Flexible(child: _categoryPath(context, shownPath, layout)),
         for (var i = 0; i < shownTags; i++) _tag(context, topic.tags[i]),
         if (!_allTags && layout.stub != null)
           _tag(context, topic.tags[shownTags], label: layout.stub),
@@ -305,24 +358,31 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
                 ? _topicTailGap - _topicTagGap
                 : 0,
           ),
-          child: Wrap(
+          child: Row(
             key: ValueKey('topic-card-activity-${topic.id}'),
+            mainAxisSize: MainAxisSize.min,
             spacing: _topicTailGap,
-            runSpacing: 5,
-            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               for (final count in _topicCounts(row)) _count(context, count),
             ],
           ),
         ),
       ];
-      // Expanded tags wrap; extremely narrow accessible layouts may also wrap
-      // the category and counts instead of dropping information.
-      return Wrap(
-        spacing: _topicTagGap,
-        runSpacing: 5,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: children,
+      // Counts cannot wrap: the category yields its space after tag fitting.
+      // Explicitly expanded tags get a separate run below this stable row.
+      final metadata = Row(spacing: _topicTagGap, children: children);
+      if (!_allTags || topic.tags.isEmpty) return metadata;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 5,
+        children: [
+          metadata,
+          Wrap(
+            spacing: _topicTagGap,
+            runSpacing: 5,
+            children: [for (final tag in topic.tags) _tag(context, tag)],
+          ),
+        ],
       );
     },
   );
