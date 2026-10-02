@@ -90,7 +90,12 @@ ComposerImagePicker _sitePhotoLibrary(
   return () => pickComposerImages(optimization: optimization, limit: limit);
 }
 
-Color _composerToolForeground(BuildContext context) {
+DButtonVariant _composerToolbarVariant(BuildContext context) => context.isTouch
+    ? DButtonVariant.inline
+    : DButtonVariant.transparentBackground;
+
+Color? _composerToolForeground(BuildContext context) {
+  if (context.isTouch) return null;
   final tokens = DTokens.of(context);
   return Color.lerp(tokens.background, tokens.foreground, .5)!;
 }
@@ -4585,7 +4590,7 @@ class _FormattingToolbar extends StatelessWidget {
                 key: ValueKey('composer-format-${mark.name}'),
                 tooltip: label,
                 shortcut: DShortcut(_formattingShortcut(key)),
-                variant: DButtonVariant.transparentBackground,
+                variant: _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
                 icon: DIcon(icon),
@@ -4600,7 +4605,7 @@ class _FormattingToolbar extends StatelessWidget {
               key: const ValueKey('composer-format-link'),
               tooltip: context.l10n.link,
               shortcut: DShortcut(_formattingShortcut(LogicalKeyboardKey.keyL)),
-              variant: DButtonVariant.transparentBackground,
+              variant: _composerToolbarVariant(context),
               foregroundColor: _composerToolForeground(context),
               size: _composerToolbarSize(context),
               icon: const DIcon(DIcons.link),
@@ -4658,7 +4663,7 @@ class _Toolbar extends StatelessWidget {
         DButton.iconOnly(
           key: const ValueKey('composer-mention'),
           tooltip: context.l10n.mentionUsersOrGroups,
-          variant: DButtonVariant.transparentBackground,
+          variant: _composerToolbarVariant(context),
           foregroundColor: _composerToolForeground(context),
           size: _composerToolbarSize(context),
           onPressed: !composer.isEditing
@@ -4680,7 +4685,7 @@ class _Toolbar extends StatelessWidget {
             child: DButton.iconOnly(
               key: const ValueKey('composer-code-block'),
               tooltip: context.l10n.codeBlock,
-              variant: DButtonVariant.transparentBackground,
+              variant: _composerToolbarVariant(context),
               foregroundColor: _composerToolForeground(context),
               size: _composerToolbarSize(context),
               icon: const DIcon(DIcons.code),
@@ -4701,7 +4706,7 @@ class _Toolbar extends StatelessWidget {
               builder: (buttonContext) => DButton.iconOnly(
                 key: const ValueKey('composer-emoji-picker'),
                 tooltip: context.l10n.addEmoji,
-                variant: DButtonVariant.transparentBackground,
+                variant: _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
                 onPressed: !composer.isEditing
@@ -4758,7 +4763,7 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: DButtonVariant.transparentBackground,
+                variant: _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
@@ -4783,7 +4788,7 @@ class _Toolbar extends StatelessWidget {
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
-                variant: DButtonVariant.transparentBackground,
+                variant: _composerToolbarVariant(context),
                 foregroundColor: _composerToolForeground(context),
                 size: _composerToolbarSize(context),
                 onPressed: composer.isEditing ? trigger.toggle : null,
@@ -4865,7 +4870,7 @@ class _ListIndentationControlsState extends State<_ListIndentationControls> {
             DButton.iconOnly(
               key: ValueKey(key),
               tooltip: label,
-              variant: DButtonVariant.transparentBackground,
+              variant: _composerToolbarVariant(context),
               foregroundColor: _composerToolForeground(context),
               size: _composerToolbarSize(context),
               icon: DIcon(icon),
@@ -5028,7 +5033,7 @@ class _ComposerToolbarScrollButton extends StatelessWidget {
             : context.l10n.showPreviousComposerTools,
         onPressed: onPressed,
         icon: DIcon(pointsRight ? DIcons.chevronRight : DIcons.chevronLeft),
-        variant: DButtonVariant.transparentBackground,
+        variant: _composerToolbarVariant(context),
         foregroundColor: _composerToolForeground(context),
         size: _composerToolbarSize(context),
       ),
@@ -5141,7 +5146,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         hasPopup: true,
         expanded: trigger.open,
         icon: const DIcon(DIcons.paperclip),
-        variant: DButtonVariant.transparentBackground,
+        variant: _composerToolbarVariant(context),
         foregroundColor: _composerToolForeground(context),
         size: _composerToolbarSize(context),
       ),

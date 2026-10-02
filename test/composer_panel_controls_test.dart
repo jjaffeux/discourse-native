@@ -29,6 +29,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
@@ -36,6 +37,123 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'mobile toolbar changes only icon colors during hover and press (dark: $dark)',
+        (tester) async {
+          final composer = ComposerController(
+            _newTopicTarget,
+            imageUploader:
+                (file, {required onProgress, required abortTrigger}) async =>
+                    throw StateError('The picker is not invoked by this test.'),
+          );
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            size: const Size(390, 800),
+            height: 800,
+            theme: dark ? AppTheme.dark : AppTheme.light,
+          );
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          addTearDown(mouse.removePointer);
+          await mouse.addPointer(location: Offset.zero);
+          for (final key in [
+            'composer-mention',
+            'composer-code-block',
+            'composer-upload',
+            'composer-emoji-picker',
+            'composer-insert',
+          ]) {
+            final button = find.byKey(ValueKey(key));
+            final icon = find.descendant(
+              of: button,
+              matching: find.byType(DIcon),
+            );
+            final tokens = DTokens.of(tester.element(button));
+            Color foreground() => IconTheme.of(tester.element(icon)).color!;
+            final resting = foreground();
+            final bounds = tester.getRect(button);
+            expect(resting, isNot(tokens.foreground));
+            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            await mouse.moveTo(bounds.center);
+            await tester.pumpAndSettle();
+            expect(foreground(), tokens.foreground);
+            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            await mouse.down(bounds.center);
+            await tester.pumpAndSettle();
+            expect(foreground(), tokens.foreground);
+            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+            expect(tester.getRect(button), bounds);
+            await mouse.cancel();
+            await mouse.moveTo(Offset.zero);
+            await tester.pumpAndSettle();
+            expect(foreground(), resting);
+            expect(buttonSurface(tester, of: button).color, Colors.transparent);
+          }
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+    }
+
+    testWidgets(
+      'mobile toolbar popup triggers stay transparent while their menus are open',
+      (tester) async {
+        final composer = ComposerController(
+          _newTopicTarget,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async =>
+                  throw StateError('The picker is not invoked by this test.'),
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          size: const Size(390, 800),
+          height: 800,
+        );
+        for (final (key, item) in [
+          ('composer-insert', 'Table'),
+          ('composer-upload', 'Photo Library'),
+        ]) {
+          final button = find.byKey(ValueKey(key));
+          final icon = find.descendant(
+            of: button,
+            matching: find.byType(DIcon),
+          );
+          final tokens = DTokens.of(tester.element(button));
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          expect(find.text(item), findsOneWidget);
+          expect(tester.widget<DButton>(button).expanded, isTrue);
+          expect(IconTheme.of(tester.element(icon)).color, tokens.foreground);
+          expect(buttonSurface(tester, of: button).color, Colors.transparent);
+          await tester.tapAt(const Offset(12, 12));
+          await tester.pumpAndSettle();
+          expect(find.text(item), findsNothing);
+          expect(tester.widget<DButton>(button).expanded, isFalse);
+          expect(buttonSurface(tester, of: button).color, Colors.transparent);
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+
     testWidgets(
       'mobile mention button opens user and group search above the keyboard',
       (tester) async {
@@ -1827,12 +1945,13 @@ Future<void> _pumpPanel(
   TextScaler textScaler = TextScaler.noScaling,
   double height = 500,
   ComposerPlacement placement = ComposerPlacement.right,
+  ThemeData? theme,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.dark.copyWith(
+      theme: (theme ?? AppTheme.dark).copyWith(
         platform: debugDefaultTargetPlatformOverride ?? TargetPlatform.linux,
       ),
       builder: (context, child) => MediaQuery(
