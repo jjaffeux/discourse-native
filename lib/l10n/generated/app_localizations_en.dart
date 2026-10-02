@@ -14602,4 +14602,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get composerOutdent => 'Outdent';
+
+  @override
+  String get aiConversations => 'AI conversations';
+
+  @override
+  String get aiConversationsLoading => 'Loading AI conversations';
+
+  @override
+  String get aiConversationsEmpty => 'No AI conversations yet.';
+
+  @override
+  String get aiConversationsUnavailable =>
+      'AI conversations are unavailable for this account.';
+
+  @override
+  String get aiConversationsLoadFailed =>
+      'Couldn’t load AI conversations. Try again.';
+
+  @override
+  String get aiConversationsOpenForum => 'Browse forum';
 }

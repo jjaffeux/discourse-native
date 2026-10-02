@@ -2,6 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show
+        ContentRoute,
+        PluginRouteSite,
+        PluginRouteNavigationHost,
+        PluginTopicListNavigationHost;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -1012,6 +1018,14 @@ final class _SummaryFixture {
         PluginHostPort<Object>(corePluginTransportPort, this.api),
         PluginHostPort<Object>(corePluginRequestPort, requests),
         PluginHostPort<Object>(
+          corePluginRouteNavigationPort,
+          _SummaryNavigation(),
+        ),
+        PluginHostPort<Object>(
+          corePluginTopicListNavigationPort,
+          _SummaryNavigation(),
+        ),
+        PluginHostPort<Object>(
           corePluginTrackerPort,
           (String _) => streaming ? tracker : null,
         ),
@@ -1100,4 +1114,29 @@ final class _SummaryFixture {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
+}
+
+final class _SummaryNavigation
+    implements PluginRouteNavigationHost, PluginTopicListNavigationHost {
+  @override
+  List<PluginRouteSite> get sites => const [];
+  @override
+  PluginRouteSite? get currentSite => null;
+  @override
+  ContentRoute? get currentContent => null;
+  @override
+  void selectInstance(int index) {}
+  @override
+  void pushContent(ContentRoute route) {}
+  @override
+  void replaceCurrentContent(ContentRoute route) {}
+  @override
+  void openTopicList(ContentRoute route) {}
+  @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    bool highlight = false,
+  }) {}
 }

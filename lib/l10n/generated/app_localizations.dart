@@ -22862,6 +22862,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Outdent'**
   String get composerOutdent;
+
+  /// Page and tab title for the configured AI bot conversation homepage.
+  ///
+  /// In en, this message translates to:
+  /// **'AI conversations'**
+  String get aiConversations;
+
+  /// Screen-reader announcement while loading the AI conversation list.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading AI conversations'**
+  String get aiConversationsLoading;
+
+  /// Empty state when this account has no AI bot conversations.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI conversations yet.'**
+  String get aiConversationsEmpty;
+
+  /// Shown when the account or site cannot access AI conversations.
+  ///
+  /// In en, this message translates to:
+  /// **'AI conversations are unavailable for this account.'**
+  String get aiConversationsUnavailable;
+
+  /// Error shown after an AI conversation list request fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t load AI conversations. Try again.'**
+  String get aiConversationsLoadFailed;
+
+  /// Action to open the regular forum from the AI conversation page.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse forum'**
+  String get aiConversationsOpenForum;
 }
 
 class _AppLocalizationsDelegate
