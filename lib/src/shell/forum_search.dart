@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
@@ -104,8 +105,13 @@ class _ForumSearchState extends State<ForumSearch> {
     _global.addListener(_globalChanged);
     shell.addListener(_siteChanged);
     _unregisterFocus = _search.registerFocus(_field, _requestShortcutFocus);
-    _syncSite();
-    _syncText();
+    // The shared editor can be mounted in a separate Navigator route, so its
+    // listeners must not be notified while this subtree is rebuilding.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_shell, shell)) return;
+      _syncSite();
+      _syncText();
+    });
   }
 
   void _detach() {
@@ -113,8 +119,17 @@ class _ForumSearchState extends State<ForumSearch> {
     _search.removeListener(_searchChanged);
     _global.removeListener(_globalChanged);
     _shell!.removeListener(_siteChanged);
-    _unregisterFocus?.call();
+    final unregister = _unregisterFocus;
     _unregisterFocus = null;
+    if (unregister == null) return;
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      // Unregistering an active field closes its old search panel and notifies
+      // the separately mounted route that still owns that controller.
+      WidgetsBinding.instance.addPostFrameCallback((_) => unregister());
+    } else {
+      unregister();
+    }
   }
 
   void _syncSite() {
