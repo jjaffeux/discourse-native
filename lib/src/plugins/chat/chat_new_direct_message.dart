@@ -149,9 +149,9 @@ class _ChatNewDirectMessageDialogState
   int get _maximumGroupMembers =>
       widget.chat.siteConfigFor(widget.siteUrl).chatMaximumDirectMessageUsers;
 
-  bool get _canUseGroupChat =>
-      widget.chat.currentUserFor(widget.siteUrl)?.staff == true ||
-      _maximumGroupMembers > 1;
+  bool get _staff => widget.chat.currentUserFor(widget.siteUrl)?.staff == true;
+
+  bool get _canUseGroupChat => _staff || _maximumGroupMembers > 1;
 
   int get _membersCount => _members.fold(0, (count, member) {
     return count +
@@ -351,7 +351,7 @@ class _ChatNewDirectMessageDialogState
   bool _canAddMember(ChatDirectMessageSearchItem item) =>
       item is! ChatDirectMessageChannel &&
       item.enabled &&
-      _membersCount + _memberCount(item) <= _maximumGroupMembers;
+      (_staff || _membersCount + _memberCount(item) <= _maximumGroupMembers);
 
   void _addMember(ChatDirectMessageSearchItem item) {
     if (!_checkSession() ||
@@ -390,7 +390,7 @@ class _ChatNewDirectMessageDialogState
     if (!_checkSession() ||
         _opening ||
         _members.isEmpty ||
-        _membersCount > _maximumGroupMembers) {
+        (!_staff && _membersCount > _maximumGroupMembers)) {
       return;
     }
     _debounce?.cancel();
@@ -732,19 +732,22 @@ class _ChatNewDirectMessageDialogState
         ),
         const SizedBox(height: DSpacing.xs),
       ],
-      Semantics(
-        liveRegion: true,
-        child: Text(
-          appL10n.ofPeopleSelected(
-            (_membersCount).toString(),
-            (_maximumGroupMembers).toString(),
-          ),
-          style: TextStyle(
-            fontSize: DiscourseTypography.xs,
-            color: DTokens.of(context).mutedForeground,
+      // Core's DM member policy exempts staff, so its bounded hint applies
+      // only to people whose selections are actually capped.
+      if (!_staff)
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            appL10n.ofPeopleSelected(
+              (_membersCount).toString(),
+              (_maximumGroupMembers).toString(),
+            ),
+            style: TextStyle(
+              fontSize: DiscourseTypography.xs,
+              color: DTokens.of(context).mutedForeground,
+            ),
           ),
         ),
-      ),
     ],
   );
 
