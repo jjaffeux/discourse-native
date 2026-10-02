@@ -12,6 +12,7 @@ import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
+import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'user_menu_message.dart';
@@ -166,37 +167,63 @@ class PluginNotificationsSection extends StatefulWidget {
       _PluginNotificationsSectionState();
 }
 
+typedef _PluginNotificationRequestIdentity = ({
+  PluginNotificationFeedHost host,
+  String siteUrl,
+  PluginNotificationFeedId source,
+  ShellController? controller,
+  Object? session,
+});
+
 class _PluginNotificationsSectionState
     extends State<PluginNotificationsSection> {
   bool _dismissing = false;
   String? _dismissError;
   int _dismissRevision = 0;
+  _PluginNotificationRequestIdentity? _requestIdentity;
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(
-      widget.host.loadPluginNotificationFeed(widget.siteUrl, widget.source),
-    );
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ShellScope.maybeOf(context);
+    _request();
   }
 
   @override
   void didUpdateWidget(PluginNotificationsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final identityChanged =
-        oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.source.id != widget.source.id ||
-        !identical(oldWidget.host, widget.host);
-    if (identityChanged) {
-      _dismissRevision++;
-      _dismissing = false;
-      _dismissError = null;
-      unawaited(
-        widget.host.loadPluginNotificationFeed(widget.siteUrl, widget.source),
-      );
-    } else if (widget.unreadCount == 0) {
-      _dismissError = null;
-    }
+    _request();
+    if (widget.unreadCount == 0) _dismissError = null;
+  }
+
+  void _request() {
+    final controller = ShellScope.maybeRead(context);
+    final host = widget.host;
+    final siteUrl = widget.siteUrl;
+    final source = widget.source;
+    final lease = controller?.lifecycle.capture(siteUrl);
+    final identity = (
+      host: host,
+      siteUrl: siteUrl,
+      source: source.id,
+      controller: controller,
+      session: lease?.session,
+    );
+    if (_requestIdentity == identity) return;
+    _requestIdentity = identity;
+    _dismissRevision++;
+    _dismissing = false;
+    _dismissError = null;
+    // A retained feed may have been cleared by an account-session rollback.
+    // Load after this build so its synchronous loading notification is safe.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _requestIdentity != identity ||
+          lease?.isCurrent == false) {
+        return;
+      }
+      unawaited(host.loadPluginNotificationFeed(siteUrl, source));
+    });
   }
 
   Future<void> _confirmDismiss() async {
