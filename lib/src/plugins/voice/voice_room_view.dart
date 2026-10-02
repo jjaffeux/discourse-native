@@ -374,6 +374,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                       controller: controller,
                       participant: participant,
                       siteUrl: siteUrl,
+                      roomId: room.id,
                       media: media,
                       canManage: active?.room.canManage ?? false,
                       canKick:
@@ -593,6 +594,7 @@ class _ParticipantTile extends StatefulWidget {
     required this.controller,
     required this.participant,
     required this.siteUrl,
+    required this.roomId,
     required this.media,
     required this.canManage,
     required this.canKick,
@@ -604,6 +606,7 @@ class _ParticipantTile extends StatefulWidget {
   final VoiceController controller;
   final VoiceParticipant participant;
   final String siteUrl;
+  final int roomId;
   final VoiceMediaSession? media;
   final bool canManage;
   final bool canKick;
@@ -660,6 +663,7 @@ class _ParticipantTileState extends State<_ParticipantTile> {
     final controller = widget.controller;
     final participant = widget.participant;
     final siteUrl = widget.siteUrl;
+    final roomId = widget.roomId;
     final videoTrack = _videoTrack;
     final speaking = _speaking;
     final canManage = widget.canManage;
@@ -773,6 +777,8 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                             context,
                             controller,
                             participant,
+                            siteUrl: siteUrl,
+                            roomId: roomId,
                             controllerResolver: controllerResolver,
                           );
                         }
@@ -968,6 +974,8 @@ class _CallControls extends StatelessWidget {
             onPressed: () => _confirmRecording(
               context,
               controller,
+              siteUrl: call.siteUrl,
+              roomId: call.room.id,
               active: call.room.recording?.active == true,
               controllerResolver: controllerResolver,
             ),
@@ -1721,19 +1729,25 @@ Future<void> _showParticipantFlag(
   BuildContext context,
   VoiceController controller,
   VoiceParticipant participant, {
+  required String siteUrl,
+  required int roomId,
   VoiceController Function()? controllerResolver,
 }) async {
-  final message = await showDialog<String>(
+  final ownsAccount = controller.captureSiteSession(siteUrl);
+  final message = await showDDialog<String>(
     context: context,
-    builder: (context) =>
-        _ParticipantFlagDialog(username: participant.username),
+    builder: (context, dialog) => _ParticipantFlagDialog(
+      username: participant.username,
+      onClose: dialog.close,
+    ),
   );
   if (message == null || message.trim().isEmpty || !context.mounted) return;
-  final sent = await _resolveController(
-    context,
-    controller,
-    controllerResolver,
-  ).flagParticipant(participant.id, message);
+  final current = _resolveController(context, controller, controllerResolver);
+  final call = current.call;
+  if (!ownsAccount() || call?.siteUrl != siteUrl || call?.room.id != roomId) {
+    return;
+  }
+  final sent = await current.flagParticipant(participant.id, message);
   if (!sent && context.mounted) {
     DToast.show(
       context,
@@ -1744,9 +1758,10 @@ Future<void> _showParticipantFlag(
 }
 
 class _ParticipantFlagDialog extends StatefulWidget {
-  const _ParticipantFlagDialog({required this.username});
+  const _ParticipantFlagDialog({required this.username, required this.onClose});
 
   final String username;
+  final ValueChanged<String?> onClose;
 
   @override
   State<_ParticipantFlagDialog> createState() => _ParticipantFlagDialogState();
@@ -1762,26 +1777,38 @@ class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(
-      context.l10n.notifyModeratorsAbout((widget.username).toString()),
-    ),
-    content: DTextarea(
-      controller: _message,
-      autofocus: true,
-      minLines: 3,
-      maxLines: 6,
-      labelText: context.l10n.whatShouldModeratorsKnow,
-    ),
-    actions: [
-      DButton(
-        onPressed: () => Navigator.pop(context),
-        label: Text(context.l10n.cancel),
+  Widget build(BuildContext context) => DDialogContent(
+    maxWidth: 528,
+    semanticLabel: context.l10n.notifyModeratorsAbout(widget.username),
+    showCloseButton: false,
+    children: [
+      DDialogHeader(
+        children: [
+          DDialogTitle(
+            child: Text(context.l10n.notifyModeratorsAbout(widget.username)),
+          ),
+        ],
       ),
-      DButton(
-        onPressed: () => Navigator.pop(context, _message.text),
-        label: Text(context.l10n.notify),
-        variant: DButtonVariant.primary,
+      DTextarea(
+        controller: _message,
+        autofocus: true,
+        minLines: 3,
+        maxLines: 6,
+        labelText: context.l10n.whatShouldModeratorsKnow,
+      ),
+      DDialogFooter(
+        children: [
+          DButton(
+            onPressed: () => widget.onClose(null),
+            label: Text(context.l10n.cancel),
+            variant: DButtonVariant.outline,
+          ),
+          DButton(
+            onPressed: () => widget.onClose(_message.text),
+            label: Text(context.l10n.notify),
+            variant: DButtonVariant.primary,
+          ),
+        ],
       ),
     ],
   );
@@ -1790,9 +1817,12 @@ class _ParticipantFlagDialogState extends State<_ParticipantFlagDialog> {
 Future<void> _confirmRecording(
   BuildContext context,
   VoiceController controller, {
+  required String siteUrl,
+  required int roomId,
   required bool active,
   VoiceController Function()? controllerResolver,
 }) async {
+  final ownsAccount = controller.captureSiteSession(siteUrl);
   final confirmed = await showDiscourseAlertDialog<bool>(
     context: context,
     title: Text(
@@ -1812,11 +1842,12 @@ Future<void> _confirmRecording(
     actionVariant: active ? DButtonVariant.destructive : DButtonVariant.primary,
   );
   if (confirmed == true && context.mounted) {
-    await _resolveController(
-      context,
-      controller,
-      controllerResolver,
-    ).setRecording(!active);
+    final current = _resolveController(context, controller, controllerResolver);
+    final call = current.call;
+    if (!ownsAccount() || call?.siteUrl != siteUrl || call?.room.id != roomId) {
+      return;
+    }
+    await current.setRecording(!active);
   }
 }
 

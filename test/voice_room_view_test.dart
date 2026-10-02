@@ -2151,6 +2151,188 @@ void main() {
       },
     );
 
+    for (final recording in [false, true]) {
+      for (final (change, framed) in [
+        ('room', false),
+        ('site', false),
+        ('account', false),
+        if (!recording) ...[('room', true), ('site', true)],
+      ]) {
+        final otherSite = change == 'site';
+        final retiredSession = change == 'account';
+        testWidgets('confirmation stays with its rendered call '
+            '(recording: $recording, change: $change, framed: $framed)', (
+          tester,
+        ) async {
+          final room = _room(
+            canManage: true,
+            creatorId: 1,
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.moderator,
+              ),
+              VoiceParticipant(
+                id: 2,
+                username: 'lee',
+                role: VoiceRole.participant,
+              ),
+            ],
+          );
+          final replacementRoom = _room(
+            id: otherSite || retiredSession ? 7 : 8,
+            canManage: true,
+            participants: room.participants,
+          );
+          const replacementSite = 'https://another-voice.example.com';
+          final requests = PluginTestRequestHost(
+            apiKeys: const {_siteUrl: 'key', replacementSite: 'other-key'},
+          );
+          final transport = recording
+              ? VoiceTransport.livekit
+              : VoiceTransport.mesh;
+          final harness = _Harness(
+            joinRoom: room,
+            joinTransport: transport,
+            requests: requests,
+          );
+          addTearDown(harness.dispose);
+          await _join(harness, room);
+          if (framed) {
+            harness.transport.responses['GET /voice/rooms.json'] = {
+              'rooms': [_joinPayload(room)['room']],
+            };
+            await harness.controller.ensureLoaded(_siteUrl);
+          }
+          await tester.pumpWidget(
+            MaterialApp(
+              builder: (context, child) => DToaster(child: child!),
+              home: VoiceRoomView(
+                roomId: 7,
+                controller: harness.controller,
+                shell: _voiceShell(
+                  harness.controller,
+                  recordingEnabled: true,
+                  site: const PluginRouteSite(
+                    url: _siteUrl,
+                    title: 'Voice',
+                    isConnected: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (recording) {
+            await tester.tap(find.byTooltip('Start recording'));
+          } else {
+            await tester.tap(find.byTooltip('Participant actions'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Notify moderators'));
+          }
+          await tester.pumpAndSettle();
+          if (!recording) {
+            await tester.enterText(find.byType(TextField), 'Review this call');
+          }
+
+          final id = replacementRoom.id;
+          harness.transport.responses.addAll({
+            'POST /voice/rooms/$id/join.json': _joinPayload(
+              replacementRoom,
+              transport: transport,
+            ),
+            'POST /voice/rooms/$id/state.json': const {},
+            'DELETE /voice/rooms/$id/leave.json': const {},
+            'POST /voice/rooms/$id/flag.json': const {},
+            'POST /voice/rooms/$id/recording.json': const {},
+          });
+          if (retiredSession) {
+            harness.controller.forget(_siteUrl);
+            requests.forget(_siteUrl);
+            requests.apiKeys[_siteUrl] = 'replacement-key';
+          }
+          await harness.controller.join(
+            siteUrl: otherSite ? replacementSite : _siteUrl,
+            siteName: 'Another voice call',
+            room: replacementRoom,
+          );
+          expect(
+            harness.controller.call?.siteUrl,
+            otherSite ? replacementSite : _siteUrl,
+          );
+          expect(harness.controller.call?.room.id, id);
+          if (framed) {
+            await tester.pump();
+            expect(harness.controller.room(_siteUrl, 7), isNotNull);
+            expect(find.byType(VoiceRoomContent), findsOneWidget);
+          }
+          // Both the pre-frame controls and a retained roster can outlive the
+          // call while this production dialog remains open.
+          await tester.tap(
+            find.widgetWithText(FilledButton, recording ? 'Start' : 'Notify'),
+          );
+          await tester.pumpAndSettle();
+          final path = recording ? '/recording.json' : '/flag.json';
+          expect(
+            harness.transport.writes.where(
+              (write) => write.path.endsWith(path),
+            ),
+            isEmpty,
+          );
+          expect(tester.takeException(), isNull);
+          harness.dispose();
+        });
+      }
+    }
+
+    testWidgets('Native flag dialog fits a narrow view and cancels', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final room = _room(
+        canManage: true,
+        creatorId: 1,
+        participants: const [
+          VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+          VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.participant),
+        ],
+      );
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await _join(harness, room);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, call: harness.controller.call),
+      );
+      await tester.tap(find.byTooltip('Participant actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Notify moderators'));
+      await tester.pumpAndSettle();
+      final dialog = find.byType(DDialogContent);
+      expect(dialog, findsOneWidget);
+      expect(tester.getRect(dialog).left, greaterThanOrEqualTo(0));
+      expect(tester.getRect(dialog).right, lessThanOrEqualTo(390));
+      await tester.enterText(find.byType(TextField), 'Please review this');
+      final cancel = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(DButton, 'Cancel'),
+      );
+      await tester.ensureVisible(cancel);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(dialog, findsNothing);
+      expect(
+        harness.transport.writes.where(
+          (write) => write.path.endsWith('/flag.json'),
+        ),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+      harness.dispose();
+    });
+
     testWidgets('uses the latest controller when confirming a flag', (
       tester,
     ) async {
@@ -3914,6 +4096,7 @@ Widget _app(
 );
 
 VoiceRoom _room({
+  int id = 7,
   required List<VoiceParticipant> participants,
   String? description,
   String? cookedDescription,
@@ -3926,7 +4109,7 @@ VoiceRoom _room({
   VoiceTransport? expectedTransport,
   VoiceRecording? recording,
 }) => VoiceRoom(
-  id: 7,
+  id: id,
   name: 'Lounge',
   slug: 'lounge',
   description: description,
@@ -3986,6 +4169,7 @@ final class _Harness {
     VoiceTransport joinTransport = VoiceTransport.mesh,
     Set<int> speakingIds = const {},
     RecordingPluginTransport? discourseApi,
+    PluginTestRequestHost? requests,
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
@@ -4029,7 +4213,8 @@ final class _Harness {
     controller = VoiceController(
       api: VoiceApi(transport),
       chatConversations: this.chatConversations,
-      requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),
+      requests:
+          requests ?? PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),
       trackerFor: (_) => tracker,
       userIdFor: (_) => 1,
       onCallSiteChanged: () {},
