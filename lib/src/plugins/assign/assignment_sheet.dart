@@ -585,6 +585,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     }
     if (_suggestions == null) return const SizedBox.shrink();
     final selected = _selected;
+    final searchEpoch = _searchEpoch;
     final stackGroupBadge =
         MediaQuery.sizeOf(context).width /
             MediaQuery.textScalerOf(context).scale(1) <
@@ -629,6 +630,10 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                 groupValue: selected == null ? null : _assigneeKey(selected),
                 enabled: !_saving && !_searching,
                 onChanged: (value) {
+                  // A mounted row can retain its enabled state until repaint.
+                  if (_saving || _searching || searchEpoch != _searchEpoch) {
+                    return;
+                  }
                   final assignee = _results
                       .where((item) => _assigneeKey(item) == value)
                       .firstOrNull;

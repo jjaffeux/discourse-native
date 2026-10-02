@@ -67,6 +67,88 @@ void main() {
     }
   }
 
+  for (final size in [const Size(1000, 800), const Size(390, 844)]) {
+    testWidgets(
+      'old assignee row cannot be selected before search repaints at width ${size.width}',
+      (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final fixture = await _fixture(tester);
+        await tester.pumpWidget(fixture.host(existing: false));
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final oldRow = find.byKey(const Key('assignment-assignee-user:sam'));
+        expect(oldRow, findsOneWidget);
+        fixture.clearCalls();
+        fixture.api.pendingSearch = Completer<Map<String, dynamic>>();
+
+        await tester.enterText(
+          find.byKey(const Key('assignment-search')),
+          'alice',
+        );
+        // The Native row is still mounted with its previous enabled snapshot.
+        await tester.tap(oldRow);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(fixture.api.calls.single.method, 'GET');
+        fixture.api.pendingSearch!.complete(const {
+          'users': [
+            {'username': 'alice', 'name': 'Alice'},
+          ],
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('assignment-save')));
+        await tester.pumpAndSettle();
+        expect(
+          fixture.api.calls.where((call) => call.method == 'PUT'),
+          isEmpty,
+        );
+        expect(find.byType(AssignmentEditor), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const Key('assignment-assignee-user:alice')),
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('assignment-save')));
+        await tester.pumpAndSettle();
+        expect(fixture.api.calls.last.body, {
+          'target_id': 7,
+          'target_type': 'Topic',
+          'username': 'alice',
+        });
+        expect(find.byType(AssignmentEditor), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('intentional assignee selection survives a replacement search', (
+    tester,
+  ) async {
+    final fixture = await _fixture(tester);
+    await tester.pumpWidget(fixture.host(existing: false));
+    await _openAndSelect(tester);
+    fixture.clearCalls();
+    fixture.api.pendingSearch = Completer<Map<String, dynamic>>();
+    await tester.enterText(find.byKey(const Key('assignment-search')), 'alice');
+    await tester.pump(const Duration(milliseconds: 300));
+    fixture.api.pendingSearch!.complete(const {
+      'users': [
+        {'username': 'alice', 'name': 'Alice'},
+      ],
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Selected: @sam'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('assignment-save')));
+    await tester.pumpAndSettle();
+    expect(fixture.api.calls.last.body, {
+      'target_id': 7,
+      'target_type': 'Topic',
+      'username': 'sam',
+    });
+  });
+
   testWidgets(
     'a resize preserves the mounted draft and selects the next presentation on reopen',
     (tester) async {
@@ -414,6 +496,7 @@ class _AssignmentApi extends FakeDiscourseApi {
 
   bool failSuggestions = false;
   Completer<Map<String, dynamic>>? pendingWrite;
+  Completer<Map<String, dynamic>>? pendingSearch;
   final calls =
       <
         ({
@@ -487,6 +570,7 @@ class _AssignmentApi extends FakeDiscourseApi {
         'assign_allowed_on_groups': ['staff'],
       };
     }
+    if (pendingSearch case final pending?) return pending.future;
     return const {
       'users': [
         {'username': 'sam', 'name': 'Sam'},
