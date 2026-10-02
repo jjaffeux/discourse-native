@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart'
         DControlStyle,
         DControlSize,
         DDropdownMenuItem,
+        DItem,
         DSpinner,
         DSkeletonRegion;
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -431,6 +432,13 @@ void main() {
 
       expect(find.byType(DSpinner), findsNothing);
       expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DSkeletonRegion),
+          matching: find.byType(DItem),
+        ),
+        findsNWidgets(2),
+      );
       expect(find.text('Load more'), findsNothing);
       expect(_offsets(api), [0, 1]);
 
