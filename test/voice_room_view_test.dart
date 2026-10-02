@@ -37,6 +37,7 @@ import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
@@ -51,6 +52,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 import 'support/fakes.dart';
 import 'support/voice_fake_chat_conversations.dart';
@@ -58,6 +61,7 @@ import 'support/voice_fake_chat_conversations.dart';
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  _preferenceRemovalTests();
   _roomDialogSessionTests();
   _meshPrivacyTests();
   _roomSurfaceTests();
@@ -4453,6 +4457,7 @@ final class _Harness {
     RecordingPluginTransport? discourseApi,
     PluginRequestHost? requests,
     _Preferences? preferences,
+    VoicePreferences? persistentPreferences,
     FakeChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
@@ -4503,7 +4508,7 @@ final class _Harness {
       mediaFactory: media,
       systemCall: systemCall ?? _SystemCall(),
       diagnostics: diagnostics,
-      preferences: this.preferences,
+      preferences: persistentPreferences ?? this.preferences,
       heartbeatInterval: const Duration(days: 1),
     );
   }
@@ -4515,6 +4520,250 @@ final class _Harness {
   late final VoiceController controller;
 
   void dispose() => controller.dispose();
+}
+
+void _preferenceRemovalTests() {
+  for (final remove in [false, true]) {
+    for (final camera in [false, true]) {
+      testWidgets(
+        'queued Voice ${camera ? 'camera' : 'volume'} choices ${remove ? 'stay forgotten after removal' : 'survive reconnect'}',
+        (tester) async {
+          final key = camera
+              ? '${SharedPreferencesVoicePreferences.cameraEnabledKeys.of(_siteUrl)}.1'
+              : '${SharedPreferencesVoicePreferences.volumeKeys.of(_siteUrl)}.7.2';
+          const otherSite = 'https://other.example';
+          final otherKey = camera
+              ? '${SharedPreferencesVoicePreferences.cameraEnabledKeys.of(otherSite)}.1'
+              : '${SharedPreferencesVoicePreferences.volumeKeys.of(otherSite)}.7.2';
+          SharedPreferences.setMockInitialValues({});
+          final persistence = _HeldVoicePreferences({
+            'flutter.$key': camera ? true : 0.4,
+            'flutter.$otherKey': camera ? true : 0.3,
+            'flutter.voice.device.camera': 'global-camera',
+          }, heldKey: 'flutter.$key');
+          SharedPreferencesStorePlatform.instance = persistence;
+          addTearDown(() {
+            if (!persistence.release.isCompleted) {
+              persistence.release.complete();
+            }
+          });
+          const preferences = SharedPreferencesVoicePreferences();
+          final room = _room(
+            videoAllowed: true,
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.participant,
+              ),
+              VoiceParticipant(
+                id: 2,
+                username: 'lee',
+                role: VoiceRole.participant,
+              ),
+            ],
+          );
+          final transport = RecordingPluginTransport(
+            responses: {
+              'GET /voice/rooms.json': {
+                'rooms': [_joinPayload(room)['room']],
+                'can_create_room': true,
+              },
+              'POST /voice/rooms/7/join.json': _joinPayload(room),
+              'POST /voice/rooms/7/state.json': const {},
+              'DELETE /voice/rooms/7/leave.json': const {},
+            },
+          );
+          final module = _EditorSessionModule(
+            transport,
+            preferences: preferences,
+          );
+          final plugins = PluginInstaller.install(PluginManifest([module]));
+          addTearDown(plugins.close);
+          const user = DiscourseUser(id: 1, username: 'sam');
+          final original = instance('voice.example.com').copyWith(user: user);
+          final shell = ShellController(
+            instanceStore: FakeInstanceStore([
+              original,
+              instance('other.example'),
+            ]),
+            api: FakeDiscourseApi(
+              user: user,
+              feeds: const {'/latest.json': []},
+            ),
+            authenticator: FakeAuthenticator()..keys[_siteUrl] = 'key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            plugins: plugins,
+          );
+          addTearDown(shell.dispose);
+          await shell.load();
+          final controller = module.harness.controller;
+          await controller.ensureLoaded(_siteUrl);
+          await _join(module.harness, room);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: PluginUiScope.own(
+                    voicePluginId,
+                    const VoiceRoomView(roomId: 7),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          if (camera) {
+            expect(controller.call?.cameraEnabled, isTrue);
+            await tester.tap(find.byTooltip('Camera off'));
+            await tester.pumpAndSettle();
+            await persistence.started.future;
+            expect(
+              await persistence.getAll(),
+              containsPair('flutter.$key', false),
+            );
+            await tester.tap(find.byTooltip('Camera on'));
+            await tester.pumpAndSettle();
+            expect(controller.call?.cameraEnabled, isTrue);
+          } else {
+            await tester.tap(find.byTooltip('Participant actions'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Local volume'));
+            await tester.pumpAndSettle();
+            Future<void> setVolume(double value) async {
+              final bounds = tester.getRect(find.byType(DSlider));
+              await tester.tapAt(
+                Offset(
+                  bounds.left + 6 + (bounds.width - 12) * value,
+                  bounds.center.dy,
+                ),
+              );
+              await tester.pumpAndSettle();
+            }
+
+            await setVolume(0.7);
+            await persistence.started.future;
+            expect(
+              await persistence.getAll(),
+              containsPair('flutter.$key', 0.7),
+            );
+            await setVolume(0.2);
+            await tester.tap(find.text('Done'));
+            await tester.pumpAndSettle();
+          }
+          final oldRead = camera
+              ? preferences.readCameraEnabled(_siteUrl, 1)
+              : preferences.readParticipantVolume(_siteUrl, 7, 2);
+          await tester.pumpWidget(const SizedBox.shrink());
+          if (remove) {
+            expect(await shell.removeInstance(original), isTrue);
+            await tester.runAsync(pumpEventQueue);
+            expect(await persistence.getAll(), isNot(contains('flutter.$key')));
+            expect(await shell.addInstance(original), isTrue);
+          }
+          await shell.connectCurrentInstance();
+          persistence.release.complete();
+          expect(await oldRead, camera ? !remove : (remove ? null : 0.2));
+          if (camera) {
+            expect(await preferences.readCameraEnabled(_siteUrl, 1), !remove);
+          } else {
+            expect(
+              await preferences.readParticipantVolume(_siteUrl, 7, 2),
+              remove ? null : 0.2,
+            );
+          }
+          expect(
+            await persistence.getAll(),
+            containsPair('flutter.$otherKey', camera ? true : 0.3),
+          );
+          expect(
+            await persistence.getAll(),
+            containsPair('flutter.voice.device.camera', 'global-camera'),
+          );
+          if (remove) {
+            expect(await persistence.getAll(), isNot(contains('flutter.$key')));
+          }
+          await controller.ensureLoaded(_siteUrl, force: true);
+          await _join(module.harness, room);
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: PluginUiScope.own(
+                    voicePluginId,
+                    const VoiceRoomView(roomId: 7),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (camera) {
+            expect(controller.call?.cameraEnabled, !remove);
+            if (remove) {
+              await tester.tap(find.byTooltip('Camera on'));
+              await tester.pumpAndSettle();
+              expect(controller.call?.cameraEnabled, isTrue);
+              expect(await preferences.readCameraEnabled(_siteUrl, 1), isTrue);
+            }
+          } else {
+            await tester.tap(find.byTooltip('Participant actions'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Local volume'));
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<DSlider>(find.byType(DSlider)).value,
+              remove ? 1 : 0.2,
+            );
+            if (remove) {
+              final bounds = tester.getRect(find.byType(DSlider));
+              await tester.tapAt(
+                Offset(
+                  bounds.left + 6 + (bounds.width - 12) * 0.8,
+                  bounds.center.dy,
+                ),
+              );
+              await tester.pumpAndSettle();
+              expect(
+                await preferences.readParticipantVolume(_siteUrl, 7, 2),
+                0.8,
+              );
+            }
+            await tester.tap(find.text('Done'));
+            await tester.pumpAndSettle();
+          }
+          await controller.leave();
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+          TargetPlatform.macOS,
+        }),
+      );
+    }
+  }
+}
+
+final class _HeldVoicePreferences extends InMemorySharedPreferencesStore {
+  _HeldVoicePreferences(super.data, {required this.heldKey}) : super.withData();
+  final String heldKey;
+  final started = Completer<void>();
+  final release = Completer<void>();
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    final saved = await super.setValue(valueType, key, value);
+    if (key == heldKey && !started.isCompleted) {
+      started.complete();
+      await release.future;
+    }
+    return saved;
+  }
 }
 
 void _roomDialogSessionTests() {
@@ -4788,8 +5037,9 @@ void _roomDialogSessionTests() {
 }
 
 final class _EditorSessionModule implements PluginModule {
-  _EditorSessionModule(this.transport);
+  _EditorSessionModule(this.transport, {this.preferences});
   final RecordingPluginTransport transport;
+  final VoicePreferences? preferences;
   late _Harness harness;
 
   @override
@@ -4797,10 +5047,12 @@ final class _EditorSessionModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
+    if (preferences != null) registrar.addCapability(const VoicePlugin());
     registrar.addSession((bindings, _) {
       harness = _Harness(
         discourseApi: transport,
         requests: bindings.require(corePluginRequestPort),
+        persistentPreferences: preferences,
       );
       final voice = VoiceShellService(
         controller: harness.controller,
