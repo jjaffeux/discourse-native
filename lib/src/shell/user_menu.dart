@@ -1049,7 +1049,7 @@ class _DoNotDisturbTile extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller.doNotDisturb,
       builder: (context, _) {
-        final theme = Theme.of(context);
+        final lease = controller.lifecycle.capture(siteUrl);
         final state = controller.doNotDisturb.stateFor(siteUrl);
         final active = state.isActiveAt(DateTime.now());
         final until = state.until;
@@ -1073,7 +1073,9 @@ class _DoNotDisturbTile extends StatelessWidget {
 
         Future<void> resume() async {
           final error = await controller.doNotDisturb.resume(siteUrl);
-          if (error != null && toastController?.isDisposed == false) {
+          if (lease.isCurrent &&
+              error != null &&
+              toastController?.isDisposed == false) {
             toastController!.add(
               DToastOptions(description: error, type: DToastType.error),
             );
@@ -1082,9 +1084,14 @@ class _DoNotDisturbTile extends StatelessWidget {
 
         final VoidCallback? action = state.saving
             ? null
-            : active
-            ? () => unawaited(resume())
-            : onPause;
+            : () {
+                if (!context.mounted || !lease.isCurrent) return;
+                if (active) {
+                  unawaited(resume());
+                } else {
+                  onPause();
+                }
+              };
 
         if (dropdown) {
           return DDropdownMenuCheckboxItem(
@@ -1103,56 +1110,31 @@ class _DoNotDisturbTile extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-          child: Semantics(
-            key: const ValueKey('pause-notifications-row'),
-            container: true,
-            button: true,
-            enabled: !state.saving,
-            toggled: active,
-            label: context.l10n.pauseNotifications,
-            value: value,
-            onTap: action,
-            child: ExcludeSemantics(
-              child: InkWell(
-                onTap: action,
-                borderRadius: BorderRadius.circular(6),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        if (state.saving)
-                          const SizedBox.square(
-                            dimension: 18,
-                            child: DSpinner(),
-                          )
-                        else
-                          DIcon(
-                            active ? DIcons.toggleOn : DIcons.toggleOff,
-                            size: 18,
-                            color: active
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            context.l10n.pauseNotifications,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (detail != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            detail,
-                            style: Theme.of(context).textTheme.labelMedium,
-                          ),
-                        ],
-                      ],
+          child: MergeSemantics(
+            child: Semantics(
+              value: value,
+              child: DToggle(
+                key: const ValueKey('pause-notifications-row'),
+                pressed: active,
+                enabled: action != null,
+                onPressedChanged: action == null ? null : (_) => action(),
+                semanticLabel: context.l10n.pauseNotifications,
+                visualStyle: const DToggleVisualStyle(expandArtwork: true),
+                icon: state.saving
+                    ? const DSpinner()
+                    : DIcon(active ? DIcons.toggleOn : DIcons.toggleOff),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.pauseNotifications,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
+                    if (detail != null)
+                      DText(detail, variant: DTextVariant.muted),
+                  ],
                 ),
               ),
             ),
@@ -1195,7 +1177,12 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-typedef _HidePresenceSnapshot = ({bool? hidden, bool saving, String? error});
+typedef _HidePresenceSnapshot = ({
+  bool? hidden,
+  bool saving,
+  String? error,
+  Object session,
+});
 
 class _HidePresenceTile extends StatelessWidget {
   const _HidePresenceTile({required this.siteUrl, this.dropdown = false});
@@ -1212,9 +1199,12 @@ class _HidePresenceTile extends StatelessWidget {
       hidden: controller.hidePresenceFor(siteUrl),
       saving: controller.hidePresenceWriteInFlight(siteUrl),
       error: controller.hidePresenceErrorFor(siteUrl),
+      // Equal settings can belong to a replacement account.
+      session: controller.lifecycle.capture(siteUrl).session,
     ),
     builder: (context, state, _) {
       final controller = ShellScope.read(context);
+      final lease = controller.lifecycle.capture(siteUrl);
       final theme = Theme.of(context);
       final hidden = state.hidden;
       final loading = hidden == null && state.error == null;
@@ -1226,9 +1216,14 @@ class _HidePresenceTile extends StatelessWidget {
       };
       final VoidCallback? onTap = state.saving || loading
           ? null
-          : hidden == null
-          ? () => unawaited(controller.retryHidePresence(siteUrl))
-          : () => unawaited(controller.toggleHidePresence(siteUrl));
+          : () {
+              if (!context.mounted || !lease.isCurrent) return;
+              if (hidden == null) {
+                unawaited(controller.retryHidePresence(siteUrl));
+              } else {
+                unawaited(controller.toggleHidePresence(siteUrl));
+              }
+            };
       final semanticsLabel = hidden == null ? context.l10n.presence : title;
       final semanticsValue = state.saving
           ? context.l10n.savingUsermenu
@@ -1268,69 +1263,45 @@ class _HidePresenceTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Semantics(
-              key: semanticsKey,
-              container: true,
-              button: true,
-              enabled: onTap != null,
-              toggled: hidden == null ? null : !hidden,
-              label: semanticsLabel,
-              value: semanticsValue,
-              hint: semanticsHint,
-              liveRegion: state.saving || loading,
-              onTap: onTap,
-              child: ExcludeSemantics(
+            MergeSemantics(
+              child: Semantics(
+                value: semanticsValue,
+                liveRegion: state.saving || loading,
                 child: DTooltip(
                   message: context.l10n.togglePresenceFeatures,
                   excludeFromSemantics: true,
-                  child: InkWell(
-                    onTap: onTap,
-                    borderRadius: BorderRadius.circular(6),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          children: [
-                            DIcon(
-                              hidden == false
-                                  ? DIcons.toggleOn
-                                  : DIcons.toggleOff,
-                              size: 18,
-                              color: hidden == false
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            ),
-                            if (state.saving)
-                              const SizedBox.square(
-                                dimension: 16,
-                                child: DSpinner(),
-                              )
-                            else if (loading)
-                              DIcon(
-                                DIcons.farClock,
-                                size: 16,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              )
-                            else if (hidden == null)
-                              Text(
-                                context.l10n.retry,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                          ],
+                  child: DToggle(
+                    key: semanticsKey,
+                    pressed: hidden == false,
+                    enabled: onTap != null,
+                    onPressedChanged: onTap == null ? null : (_) => onTap(),
+                    semanticLabel: semanticsLabel,
+                    semanticHint: semanticsHint,
+                    visualStyle: const DToggleVisualStyle(expandArtwork: true),
+                    icon: state.saving
+                        ? const DSpinner()
+                        : DIcon(
+                            loading
+                                ? DIcons.farClock
+                                : hidden == false
+                                ? DIcons.toggleOn
+                                : DIcons.toggleOff,
+                          ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
+                        if (hidden == null && !loading)
+                          DText(
+                            context.l10n.retry,
+                            variant: DTextVariant.muted,
+                          ),
+                      ],
                     ),
                   ),
                 ),

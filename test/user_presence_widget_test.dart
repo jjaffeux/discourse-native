@@ -40,7 +40,7 @@ void main() {
 
         final toggle = find.byKey(_toggleKey);
         expect(toggle, findsOneWidget);
-        expect(tester.getSize(toggle).height, greaterThanOrEqualTo(44));
+        expect(tester.widget(toggle), isA<DToggle>());
         final online = tester.widget<Text>(find.text('Online'));
         expect(
           online.style?.color,
@@ -61,14 +61,7 @@ void main() {
             hasTapAction: true,
           ),
         );
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: toggle, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(toggle)).colorScheme.primary,
-        );
+        expect(tester.widget<DToggle>(toggle).pressed, isTrue);
 
         await tester.tap(toggle);
         await tester.pump();
@@ -88,27 +81,14 @@ void main() {
             isLiveRegion: true,
           ),
         );
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: toggle, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(toggle)).colorScheme.onSurfaceVariant,
-        );
+        expect(tester.widget<DToggle>(toggle).enabled, isFalse);
+        expect(tester.widget<DToggle>(toggle).pressed, isFalse);
 
         gate.complete();
         await tester.pumpAndSettle();
 
         expect(find.text('Online'), findsOneWidget);
-        expect(
-          tester
-              .widget<DIcon>(
-                find.descendant(of: toggle, matching: find.byType(DIcon)),
-              )
-              .color,
-          Theme.of(tester.element(toggle)).colorScheme.primary,
-        );
+        expect(tester.widget<DToggle>(toggle).pressed, isTrue);
         final error = find.bySemanticsLabel(
           "Couldn't update presence. Check the connection and try again.",
         );
@@ -155,6 +135,8 @@ void main() {
           isButton: true,
           hasEnabledState: true,
           isEnabled: false,
+          hasToggledState: true,
+          isToggled: false,
           isLiveRegion: true,
         ),
       );
