@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/reaction_presentation.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -151,8 +152,9 @@ class _ReactionPillState extends State<ReactionPill> {
         semanticLabel: title,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
+        showCloseButton: false,
         children: [
-          DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+          ComposerSheetHeader(title: title),
           DSheetBody(child: Builder(builder: widget.reactorsBuilder)),
         ],
       ),

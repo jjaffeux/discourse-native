@@ -292,17 +292,30 @@ Future<void> showReactionPicker(
   };
 
   if (isTouch) {
-    return showShellSheet<void>(
+    return showDSheet<void>(
       context: context,
-      title: appL10n.react,
-      nested: nested,
-      builder: (sheetContext) => ReactionGrid._withSession(
-        pickerSession,
-        context,
-        controller: controller,
-        siteUrl: siteUrl,
-        post: post,
-        onPicked: Navigator.of(sheetContext).pop,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (_, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: appL10n.react,
+        showCloseButton: false,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [
+          ComposerSheetHeader(title: appL10n.react),
+          DSheetBody(
+            child: ReactionGrid._withSession(
+              pickerSession,
+              context,
+              controller: controller,
+              siteUrl: siteUrl,
+              post: post,
+              onPicked: sheet.close,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -350,7 +363,7 @@ class ReactionGrid extends StatelessWidget {
   });
 
   static double get maxWidth =>
-      DToggle.visualDimensionFor(DToggleSize.large) * 8 +
+      DToggle.visualDimensionFor(DToggleSize.post) * 8 +
       DSpacing.controlGap * 7 +
       DSpacing.xs * 2;
 
@@ -428,7 +441,7 @@ class ReactionGrid extends StatelessWidget {
         if (more != null)
           DButton.iconOnly(
             onPressed: enabled ? more : null,
-            size: DButtonSize.large,
+            size: DButtonSize.post,
             variant: DButtonVariant.ghost,
             tooltip: context.l10n.moreEmojis,
             icon: const DIcon(DIcons.farFaceSmile),
@@ -495,14 +508,14 @@ class _ReactionCell extends StatelessWidget {
     semanticLabel: id,
     pressed: held,
     enabled: onTap != null,
-    size: DToggleSize.large,
+    size: DToggleSize.post,
     onPressedChanged: (_) => onTap?.call(),
     icon: Builder(
       builder: (context) => SizedBox.square(
-        dimension: IconTheme.of(context).size!,
+        dimension: 16,
         child: EmojiImage(
           url: url,
-          size: IconTheme.of(context).size!,
+          size: 16,
           alt: ':$id:',
           style: Theme.of(context).textTheme.labelSmall,
         ),

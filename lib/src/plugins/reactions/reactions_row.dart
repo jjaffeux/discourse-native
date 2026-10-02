@@ -173,8 +173,9 @@ class ReactionsRow extends StatelessWidget {
         semanticLabel: appL10n.postReactions,
         topBottomMaxHeightFactor: touch ? 1 : null,
         scrollWholeSheet: touch ? false : null,
+        showCloseButton: false,
         children: [
-          DSheetHeader(children: [DSheetTitle(child: Text(appL10n.reactions))]),
+          ComposerSheetHeader(title: appL10n.reactions),
           DSheetBody(
             child: StatefulBuilder(
               builder: (context, setSheetState) => ListenableBuilder(
@@ -205,7 +206,7 @@ class ReactionsRow extends StatelessWidget {
                           for (final entry in reactions.entries)
                             DToggle(
                               key: ValueKey('post-reaction-filter-${entry.id}'),
-                              size: DToggleSize.large,
+                              size: DToggleSize.post,
                               variant: DToggleVariant.outline,
                               pressed: filter == entry.id,
                               semanticLabel: appL10n.namedReactions(
@@ -219,7 +220,7 @@ class ReactionsRow extends StatelessWidget {
                                 builder: (context) => SiteEmojiImage(
                                   siteUrl: siteUrl,
                                   name: entry.id,
-                                  size: IconTheme.of(context).size!,
+                                  size: 16,
                                   alt: ':${entry.id}:',
                                 ),
                               ),
