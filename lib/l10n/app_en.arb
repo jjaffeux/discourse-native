@@ -19729,6 +19729,15 @@
   "startPageFilters": "Filters",
   "@startPageFilters": {
     "description": "Start page toolbar action that opens the topic filter builder."
+  },
+  "useAtMostCharacters": "Use {maximum} characters or fewer.",
+  "@useAtMostCharacters": {
+    "description": "Field validation for a value that exceeds the server's Unicode character limit.",
+    "placeholders": {
+      "maximum": {
+        "type": "String"
+      }
+    }
   }
 
 }

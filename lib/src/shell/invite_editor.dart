@@ -40,6 +40,7 @@ class _InviteEditorState extends State<InviteEditor> {
   InviteSettings get _settings => widget.controller.instance.config.invites;
   bool get _staff => widget.controller.instance.user?.staff == true;
   bool get _hasEmail => _email.text.trim().isNotEmpty;
+  bool get _sendsEmail => _settings.allowEmail && _hasEmail && _sendEmail;
 
   @override
   void dispose() {
@@ -63,10 +64,10 @@ class _InviteEditorState extends State<InviteEditor> {
       InviteDraft(
         email: _email.text,
         description: _description.text,
-        customMessage: _message.text,
+        customMessage: _sendsEmail ? _message.text : '',
         maxRedemptions: _hasEmail ? 1 : int.parse(_uses.text),
         expiresAt: DateTime.now().add(Duration(days: int.parse(_days.text))),
-        sendEmail: _settings.allowEmail && _hasEmail && _sendEmail,
+        sendEmail: _sendsEmail,
       ),
     );
     if (!mounted || !widget.controller.isCurrent) return;
@@ -168,6 +169,9 @@ class _InviteEditorState extends State<InviteEditor> {
                 maxLength: 100,
 
                 labelText: context.l10n.descriptionOptional,
+                validator: (value) => (value?.trim().runes.length ?? 0) > 100
+                    ? context.l10n.useAtMostCharacters('100')
+                    : null,
               ),
               if (!_hasEmail) ...[
                 const SizedBox(height: 12),
@@ -225,6 +229,10 @@ class _InviteEditorState extends State<InviteEditor> {
                     minLines: 2,
                     maxLines: 5,
                     labelText: context.l10n.customMessageOptional,
+                    validator: (value) =>
+                        (value?.trim().runes.length ?? 0) > 1000
+                        ? context.l10n.useAtMostCharacters('1000')
+                        : null,
                   ),
               ],
               const SizedBox(height: 16),

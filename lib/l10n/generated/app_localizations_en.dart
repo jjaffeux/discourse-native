@@ -14752,4 +14752,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startPageFilters => 'Filters';
+
+  @override
+  String useAtMostCharacters(String maximum) {
+    return 'Use $maximum characters or fewer.';
+  }
 }
