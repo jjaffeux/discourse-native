@@ -261,7 +261,10 @@ class _GifPickerState extends State<GifPicker> {
                 key: ValueKey('gif-result-$index'),
                 result: controller.results[index],
                 onPicked: (result) {
-                  if (controller.isCurrent) widget.onPicked(result);
+                  if (controller.isCurrent &&
+                      controller.results.contains(result)) {
+                    widget.onPicked(result);
+                  }
                 },
               ),
             ),
