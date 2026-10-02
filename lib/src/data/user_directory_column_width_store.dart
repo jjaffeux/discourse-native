@@ -103,19 +103,40 @@ final class UserDirectoryColumnWidthStore {
   final UserDirectoryColumnWidthPersistence _persistence;
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
+  static final Expando<Map<String, Object>> _siteOwners = Expando();
 
-  Future<UserDirectoryColumnWidths> read({required String siteUrl}) =>
-      _operations.read(
-        owner: _persistence,
-        key: siteUrl,
-        operation: () => _read(siteUrl),
-      );
+  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
 
-  Future<UserDirectoryColumnWidths> _read(String siteUrl) async {
+  Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
+
+  bool _owns(String siteUrl, Object owner) =>
+      identical(_owners[siteUrl], owner);
+
+  /// Retires pending resizes and reads when [forgetSitePreferences] drops a
+  /// forum. A re-add owns fresh operations in the same persistence queue.
+  void forgetSites(ForgottenSites sites) => _owners.removeWhere(
+    (site, _) => sites.includes(
+      site,
+      SharedPreferencesUserDirectoryColumnWidthPersistence.keys,
+    ),
+  );
+
+  Future<UserDirectoryColumnWidths> read({required String siteUrl}) {
+    final owner = _owner(siteUrl);
+    return _operations.read(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () => _read(siteUrl, owner),
+    );
+  }
+
+  Future<UserDirectoryColumnWidths> _read(String siteUrl, Object owner) async {
     try {
-      return UserDirectoryColumnWidths.decode(
-        await _persistence.readWidths(siteUrl: siteUrl),
-      );
+      final encoded = await _persistence.readWidths(siteUrl: siteUrl);
+      if (!_owns(siteUrl, owner)) {
+        return const UserDirectoryColumnWidths.empty();
+      }
+      return UserDirectoryColumnWidths.decode(encoded);
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'userDirectoryColumnWidths.read');
       return const UserDirectoryColumnWidths.empty();
@@ -125,11 +146,17 @@ final class UserDirectoryColumnWidthStore {
   Future<void> write({
     required String siteUrl,
     required UserDirectoryColumnWidths widths,
-  }) => _operations.write<void>(
-    owner: _persistence,
-    key: siteUrl,
-    operation: () => _write(siteUrl: siteUrl, widths: widths),
-  );
+  }) {
+    final owner = _owner(siteUrl);
+    return _operations.write<void>(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () async {
+        if (!_owns(siteUrl, owner)) return;
+        await _write(siteUrl: siteUrl, widths: widths);
+      },
+    );
+  }
 
   Future<void> _write({
     required String siteUrl,
