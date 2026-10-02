@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -98,6 +99,8 @@ Future<ShellController> pumpMobileShellFixture(
   TopicPayload? topic,
   PluginManifest? pluginManifest,
   ChatChannels? conversations,
+  List<Topic>? topics,
+  List<ChatMessage>? chatMessages,
 }) async {
   final config = SiteConfig(
     userStatusEnabled: true,
@@ -166,12 +169,14 @@ Future<ShellController> pumpMobileShellFixture(
             'can_create_room': true,
           },
       },
-      feeds: const {
-        '/latest.json': [
+      feeds: {
+        '/latest.json':
+            topics ??
+            const [Topic(id: 7, title: 'Shared topic card', slug: 'shared')],
+        '/new.json': const [
           Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
         ],
-        '/new.json': [Topic(id: 7, title: 'Shared topic card', slug: 'shared')],
-        '/c/support/42.json': [
+        '/c/support/42.json': const [
           Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
         ],
       },
@@ -182,7 +187,7 @@ Future<ShellController> pumpMobileShellFixture(
       },
       chatMessagesByKey: {
         FakeDiscourseApi.chatMessagesKey(10): (
-          messages: const [],
+          messages: chatMessages ?? const [],
           canLoadMorePast: false,
           canLoadMoreFuture: false,
           targetMessageId: null,
@@ -390,6 +395,143 @@ void main() {
         expect(activator.sites, [_teamUrl]);
       },
     );
+  });
+
+  _mobileTest(
+    'scrolling Topics hides the tab bar and gives the page its space',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topics: [
+          for (var id = 1; id <= 50; id++)
+            Topic(
+              id: id,
+              title: 'Scrollable topic $id',
+              slug: 'scrollable-$id',
+            ),
+        ],
+      );
+      final panel = find.byKey(const ValueKey('mobile-content-panel'));
+      final page = tester.element(find.byType(TopicListView));
+      final originalPanel = tester.getRect(panel);
+      final originalHeader = tester.getRect(_header);
+      final list = find.byType(TopicListView);
+      await tester.drag(list, const Offset(0, -240));
+      await tester.pumpAndSettle();
+      expect(_bar, findsNothing);
+      expect(tester.getRect(panel).bottom, greaterThan(originalPanel.bottom));
+      expect(tester.getRect(_header), originalHeader);
+      expect(tester.element(list), same(page));
+      await tester.drag(list, const Offset(0, 80));
+      await tester.pumpAndSettle();
+      expect(_bar.hitTestable(), findsOneWidget);
+      expect(tester.getRect(panel), originalPanel);
+      await tester.drag(list, const Offset(0, -160));
+      await tester.pumpAndSettle();
+      expect(_bar, findsNothing);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatMobileSidebar), findsOneWidget);
+      expect(_bar.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest(
+    'scrolling the Chat inbox hides and restores the shared tab bar',
+    (tester) async {
+      await pumpMobileShellFixture(
+        tester,
+        conversations: ChatChannels(
+          public: [
+            for (var id = 1; id <= 40; id++)
+              ChatChannel(
+                id: id,
+                title: 'Channel $id',
+                kind: ChatChannelKind.category,
+                membership: const ChatMembership(following: true),
+              ),
+          ],
+          direct: const [],
+        ),
+      );
+      await _tapDockTab(tester, 'panel/chat');
+      final list = find.descendant(
+        of: find.byType(ChatMobileSidebar),
+        matching: find.byType(ListView),
+      );
+      expect(list, findsOneWidget);
+      await tester.drag(list, const Offset(0, -240));
+      await tester.pumpAndSettle();
+      expect(_bar, findsNothing);
+      await tester.drag(list, const Offset(0, 80));
+      await tester.pumpAndSettle();
+      expect(_bar.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest('chat scrolling hides destinations while keeping Send in place', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(
+      tester,
+      chatMessages: [
+        for (var id = 1; id <= 50; id++)
+          ChatMessage(
+            id: id,
+            channelId: 10,
+            cooked: '<p>Scrollable chat message $id</p>',
+            author: ChatMessageAuthor(
+              id: id % 2 + 1,
+              username: 'reader${id % 2}',
+            ),
+            createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
+          ),
+      ],
+    );
+    await _tapDockTab(tester, 'panel/chat');
+    await _selectChatKind(tester, 'Direct messages');
+    await tester.tap(find.text('sam').first);
+    await tester.pumpAndSettle();
+    final messages = find.byType(DMessageScrollerViewport);
+    final start = find.byKey(const ValueKey('mobile-mode-start'));
+    final send = find.byKey(const ValueKey('chat-composer-send'));
+    final originalSend = tester.getRect(send);
+    final originalBar = tester.getRect(_bar);
+    // Chat begins at its newest messages. Read older messages, then down again.
+    await tester.drag(messages, const Offset(0, 320));
+    await tester.pumpAndSettle();
+    await tester.drag(messages, const Offset(0, -160));
+    await tester.pumpAndSettle();
+    expect(start.hitTestable(), findsNothing);
+    expect(send.hitTestable(), findsOneWidget);
+    expect(tester.getRect(send), originalSend);
+    expect(tester.getRect(_bar), originalBar);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(ComposerEditor),
+        matching: find.byType(TextField),
+      ),
+      'Send remains available',
+    );
+    await tester.pumpAndSettle();
+    expect(start.hitTestable(), findsNothing);
+    expect(tester.widget<DButton>(send).onPressed, isNotNull);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ComposerEditor>(find.byType(ComposerEditor))
+          .composer
+          .text
+          .text,
+      isEmpty,
+    );
+    await tester.drag(messages, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(start.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   _mobileTest('Voice keeps the redesigned Chat inbox and its filters', (
