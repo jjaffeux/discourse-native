@@ -523,6 +523,62 @@ void main() {
       expect(annotate('hey @martin.j'), 'hey <at>@martin.j</>');
     });
 
+    test('carries full Unicode usernames with UTF-16 source ranges', () {
+      for (final name in [
+        'josé',
+        '中文',
+        'jose\u0301',
+        '𐐀name',
+        'jo𐐀',
+        '𐐀',
+        '٢',
+      ]) {
+        const prefix = '🧵 hello ';
+        final source = '$prefix@$name!';
+        final run = scanMarkdown(
+          source,
+        ).singleWhere((run) => run.has(Md.mention));
+        expect(run.token, name);
+        expect(run.start, prefix.length);
+        expect(run.end, prefix.length + 1 + name.length);
+        expect(source.substring(run.start, run.end), '@$name');
+        expect(annotate(source), '$prefix<at>@$name</>!');
+      }
+    });
+
+    test('Unicode names retain core punctuation and scalar length grammar', () {
+      expect(annotate('@josé._-'), '<at>@josé</>._-');
+      expect(annotate('@中.文-٢'), '<at>@中.文-٢</>');
+      expect(annotate('@_é'), '<at>@_é</>');
+      expect(annotate('@🧵'), '@🧵');
+      expect(tokenOf('@${'𐐀' * 80}'), '𐐀' * 60);
+      final run = scanMarkdown('@${'𐐀' * 80}').first;
+      expect(run.end, 1 + 60 * 2);
+    });
+
+    test('Unicode mentions preserve code, URL and word boundaries', () {
+      for (final source in [
+        '`@josé`',
+        '```\n@josé\n```',
+        'https://example.com/@josé',
+        '[link](https://example.com/@josé)',
+        'me@josé',
+        'me/@josé',
+        '@@josé',
+      ]) {
+        expect(
+          scanMarkdown(source).where((run) => run.has(Md.mention)),
+          isEmpty,
+          reason: source,
+        );
+      }
+      final label = scanMarkdown(
+        '[@josé](https://example.com)',
+      ).singleWhere((run) => run.has(Md.mention));
+      expect(label.token, 'josé');
+      expect(label.has(Md.linkText), isTrue);
+    });
+
     test('a name may not end in a dot, a dash or an underscore', () {
       expect(annotate('thanks @sam.'), 'thanks <at>@sam</>.');
       expect(annotate('@sam-'), '<at>@sam</>-');

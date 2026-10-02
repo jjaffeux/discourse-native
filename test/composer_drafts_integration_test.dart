@@ -1445,6 +1445,58 @@ void _registerComposerAndDraftTests() {
       expect(fake.mentionChecksRequested, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    for (final username in [
+      'josé',
+      '中文',
+      'jose\u0301',
+      '𐐀name',
+      'jo𐐀',
+      '𐐀',
+    ]) {
+      testWidgets('accepted Unicode mention $username keeps its full pill', (
+        tester,
+      ) async {
+        final fake = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          realUsernames: {'jos', 'jose', 'name'},
+          userSearches: {
+            'uni': [FoundUser(username: username, name: 'Unicode person')],
+          },
+        );
+        await openComposer(tester, fake);
+        await tester.enterText(_composerField, '🧵 hello @uni');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unicode person'));
+        await tester.pumpAndSettle();
+        final source = '🧵 hello @$username ';
+        final controller = field(tester).controller!;
+        expect(controller.text, source);
+        final pill = find.byType(MentionPill);
+        expect(pill, findsOneWidget);
+        expect(tester.widget<MentionPill>(pill).label, '@$username');
+        expect(fake.mentionChecksRequested, isEmpty);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(pill));
+        await tester.pump();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.click,
+        );
+        await tester.tapAt(tester.getCenter(pill));
+        await tester.pumpAndSettle();
+        expect(controller.text, source);
+        expect(
+          controller.selection.baseOffset,
+          inInclusiveRange('🧵 hello '.length, source.length - 1),
+        );
+        expect(fake.cardsRequested, isEmpty);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    }
+
     testWidgets('a mention uses the hand cursor over its pill', (tester) async {
       final fake = FakeDiscourseApi(
         feeds: {'/latest.json': listed},

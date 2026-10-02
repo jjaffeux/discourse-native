@@ -445,8 +445,12 @@ class _Scan {
   static final RegExp _linkAddressPattern = RegExp(r'[^)\s]*\)');
   static final RegExp _bareUrlPattern = RegExp(r'https?://[^\s<>\[\]()]+');
 
+  static const _mentionNameCharacter =
+      r'\p{Alphabetic}\p{Mark}\p{Decimal_Number}';
   static final RegExp _mentionPattern = RegExp(
-    r'@(\w[\w.-]{0,58}[^\W_])|@(\w)',
+    '@([${_mentionNameCharacter}_][$_mentionNameCharacter._-]{0,58}'
+    '[$_mentionNameCharacter])|@([${_mentionNameCharacter}_])',
+    unicode: true,
   );
   static final RegExp _hashtagPattern = RegExp(
     r'(?<!/)#([\wÀ-῿Ⰰ-퟿:-]'

@@ -1324,6 +1324,41 @@ void main() {
       );
     });
 
+    for (final name in ['jo𐐀', '𐐀']) {
+      testWidgets('Unicode mention $name keeps source and caret offsets', (
+        tester,
+      ) async {
+        real[name] = true;
+        final source = '🧵 ask @$name next';
+        await pumpAway(tester, source);
+        expect(
+          tester.widget<MentionPill>(find.byType(MentionPill)).label,
+          '@$name',
+        );
+        expect(painted(tester).toPlainText().length, source.length);
+        for (final offset in [source.indexOf('next'), source.length]) {
+          controller.selection = TextSelection.collapsed(offset: offset);
+          await tester.pump();
+          final render = editable(tester).renderEditable;
+          final point = render
+              .getLocalRectForCaret(TextPosition(offset: offset))
+              .center;
+          expect(
+            render.getPositionForPoint(render.localToGlobal(point)).offset,
+            offset,
+          );
+        }
+        final start = source.indexOf('@');
+        controller.selection = TextSelection(
+          baseOffset: start,
+          extentOffset: start + 1 + name.length,
+        );
+        await tester.pump();
+        expect(controller.text, source);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('the painted text is still every character of the source', (
       tester,
     ) async {
