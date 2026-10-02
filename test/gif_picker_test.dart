@@ -506,6 +506,53 @@ void main() {
     }
   });
 
+  for (final terminalFirstPage in [true, false]) {
+    testWidgets('terminal zero removes picker pagination '
+        '(first page: $terminalFirstPage)', (tester) async {
+      final api = FakeDiscourseApi(
+        gifSearchPages: {
+          FakeDiscourseApi.gifSearchKey('cats'): GifSearchPage(
+            results: _firstPage,
+            nextPosition: terminalFirstPage ? '0' : 'opaque/24',
+          ),
+          FakeDiscourseApi.gifSearchKey('cats', position: 'opaque/24'):
+              GifSearchPage(results: const [_result], nextPosition: '0'),
+        },
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _pumpPicker(tester, controller);
+      await tester.enterText(
+        find.byKey(const ValueKey('gif-picker-search')),
+        'cats',
+      );
+      await tester.pumpAndSettle();
+      final loadMore = find.byKey(const ValueKey('gif-picker-load-more'));
+      if (!terminalFirstPage) {
+        expect(loadMore, findsOneWidget);
+        await tester.tap(loadMore);
+        await tester.pumpAndSettle();
+      }
+
+      expect(loadMore, findsNothing);
+      expect(find.byKey(const ValueKey('gif-picker-results')), findsOneWidget);
+      await tester.drag(
+        find.byKey(const ValueKey('gif-picker-results')),
+        const Offset(0, -5000),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        api.gifSearchRequests.map((request) => request.position),
+        terminalFirstPage ? ['0'] : ['0', 'opaque/24'],
+      );
+      expect(
+        controller.results,
+        terminalFirstPage ? _firstPage : [..._firstPage, _result],
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('pagination failure announces error and preserves results', (
     tester,
   ) async {

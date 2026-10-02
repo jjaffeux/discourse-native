@@ -119,6 +119,33 @@ void main() {
   });
 
   group('GifSearchPage', () {
+    for (final cursor in ['0', ' 0\n']) {
+      test('normalizes canonical zero (trimmed: ${cursor != '0'})', () {
+        final page = GifSearchPage(results: const [], nextPosition: cursor);
+        final parsed = GifSearchPage.fromJson({
+          'results': const <Object?>[],
+          'next': cursor,
+        }, fileDetail: 'webp');
+
+        for (final value in [page, parsed]) {
+          expect(value.nextPosition, isNull);
+          expect(value.hasMore, isFalse);
+        }
+      });
+    }
+
+    for (final cursor in ['24', '0.25', 'cursor/0', '0/24']) {
+      test('preserves opaque continuation $cursor', () {
+        final page = GifSearchPage.fromJson({
+          'results': const <Object?>[],
+          'next': ' $cursor ',
+        }, fileDetail: 'webp');
+
+        expect(page.nextPosition, cursor);
+        expect(page.hasMore, isTrue);
+      });
+    }
+
     test('bounds raw page slots while retaining its continuation cursor', () {
       final page = GifSearchPage.fromJson({
         'results': [

@@ -9,6 +9,48 @@ import 'package:http/testing.dart';
 void main() {
   group('GIF proxy API', () {
     test(
+      'accepts initial position zero and consumes terminal next zero',
+      () async {
+        late http.Request sent;
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({
+                'results': [
+                  {
+                    'title': 'Last cat',
+                    'media_formats': {
+                      'webp': {
+                        'url': 'https://cdn.example/last-cat.webp',
+                        'dims': [320, 180],
+                      },
+                    },
+                  },
+                ],
+                'next': '0',
+              }),
+              200,
+            );
+          }),
+        );
+        addTearDown(api.close);
+
+        final page = await GifsApiClient(api).searchGifs(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+          query: 'cats',
+          fileDetail: 'webp',
+        );
+
+        expect(sent.url.queryParameters['pos'], '0');
+        expect(page.results.single.title, 'Last cat');
+        expect(page.nextPosition, isNull);
+        expect(page.hasMore, isFalse);
+      },
+    );
+
+    test(
       'loads authenticated featured categories and skips malformed tags',
       () async {
         late http.Request sent;
