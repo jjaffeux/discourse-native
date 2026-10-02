@@ -12,6 +12,7 @@ The live reference was inspected at mobile width and in a narrow desktop panel.
 | Forum title action | Passive title | Native menu with Open forum in browser and Remove forum |
 | Header actions | Filters beside title and density | Filters and navigation shortcuts on their own bar below the title |
 | Filters action | Large icon-only filter trigger | Compact Native button with the Filters label |
+| Header button styling | Filled shortcuts beside outlined Filters and More | One raised chip treatment for Filters, shortcuts, and More: 10% foreground fill, Native 1px palette border, matching radius and height |
 | Shortcut location | Everything else section at the foot | Header bar; no Everything else section |
 | Shortcut overflow | All shortcuts wrap in the body | Keep fitting shortcuts in order, then a More menu containing the remainder; measure actual Native buttons |
 | Shortcut order | Bookmarks, Latest topics, Categories, Chat, other pages | Empty Bookmarks, Categories, Chat, Recent topics, then Messages, Groups, Badges, Upcoming events, Users, Preferences, Settings |
@@ -40,6 +41,13 @@ are not additional visible sections or interactions. The app continues to
 respect authentication and installed-plugin availability for destinations.
 The mockup's seeded sample histories are not production data: a new account
 has shortcuts until it actually visits destinations.
+
+The mockup's `BarOverflow` does render a labelled More button when header
+shortcuts do not fit. It disappears when all shortcuts fit and restores them
+in place as the panel widens. Filters, shortcuts, and More all use `toolChip`;
+their Native equivalents retain the same raised fill and thin palette border.
+The header parity regression checks the rendered fill, border, radius, height,
+and hover state in light/dark palettes across a wide/narrow/wide resize.
 
 Validation: all 103 focused tests pass across the Start page, page surface,
 search controllers/presentation/accessibility, and filter lifecycle. Targeted

@@ -18,12 +18,14 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -192,6 +194,75 @@ void main() {
   });
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  _test('header chips share mockup styling and More follows available space', (
+    tester,
+  ) async {
+    final shell = await _start(tester, desktop);
+    await shell.appSettings.setLimitContentSize(false);
+    Finder onActivePage(Finder finder) =>
+        find.descendant(of: find.byType(NewTabPage).last, matching: finder);
+    final filter = onActivePage(
+      find.byKey(const ValueKey('topic-list-filter')),
+    );
+    final more = onActivePage(find.byKey(const ValueKey('start-page-more')));
+    final shortcuts = onActivePage(
+      find.byKey(const ValueKey('start-page-shortcuts')),
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+
+    for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+      await shell.forumSettings.setThemeMode(_site, mode);
+      for (final width in [2400.0, 1000.0, 2400.0]) {
+        tester.view.physicalSize = Size(width, 900);
+        await tester.pumpAndSettle();
+        final chips = [
+          filter,
+          ...find
+              .descendant(of: shortcuts, matching: find.byType(DButton))
+              .evaluate()
+              .map((element) => find.byWidget(element.widget)),
+        ];
+        final tokens = DTokens.of(tester.element(filter));
+        final expectedFill = Color.lerp(
+          tokens.background,
+          tokens.foreground,
+          .10,
+        );
+        final expectedBorder = Color.lerp(
+          tokens.background,
+          tokens.foreground,
+          .22,
+        );
+        for (final chip in chips) {
+          final surface = buttonSurface(tester, of: chip);
+          expect(surface.color, expectedFill);
+          expect(surface.borderColor, expectedBorder);
+          expect(surface.strokeWidth, 1);
+          expect(surface.borderRadius, BorderRadius.circular(DRadius.control));
+          expect(tester.getSize(chip).height, tester.getSize(filter).height);
+          await mouse.moveTo(tester.getCenter(chip));
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester, of: chip).color, expectedFill);
+          expect(
+            buttonSurface(tester, of: chip).borderColor,
+            tokens.buttonTheme.outline.hoverBorder,
+          );
+          await mouse.moveTo(Offset.zero);
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+        await _capture(tester, 'header-${width.toInt()}-${mode.name}');
+        expect(
+          more,
+          width == 1000 ? findsOneWidget : findsNothing,
+          reason: 'Shortcut bar width: ${tester.getSize(shortcuts).width}',
+        );
+      }
+    }
   });
 
   _test(

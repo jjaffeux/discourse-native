@@ -221,7 +221,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                   ? DButtonVariant.secondary
                   : DButtonVariant.primary,
               backgroundColor: widget.query.isEmpty
-                  ? DTokens.of(context).footerBackground
+                  ? DTokens.of(context).buttonTheme.outline.hover
                   : null,
               focusNode: trigger.focusNode,
               expanded: trigger.open,
