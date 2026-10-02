@@ -42,7 +42,10 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
 
   Widget _buildButton(BuildContext context, TopicDetail topic) {
     final controller = ShellScope.read(context);
-    final user = controller.instanceFor(widget.siteUrl)?.user;
+    final siteUrl = widget.siteUrl;
+    final topicId = topic.id;
+    final lease = controller.lifecycle.capture(siteUrl);
+    final user = controller.instanceFor(siteUrl)?.user;
     final groups = topic.allowedMessageGroups
         .where((name) => user?.groups.contains(name) == true)
         .toList();
@@ -58,9 +61,15 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
     final VoidCallback? onPressed = _busy
         ? null
         : () async {
+            if (!mounted ||
+                !context.mounted ||
+                !lease.isCurrent ||
+                widget.siteUrl != siteUrl ||
+                widget.topic.id != topicId ||
+                !identical(ShellScope.read(context), controller)) {
+              return;
+            }
             final toasts = DToast.of(context);
-            final siteUrl = widget.siteUrl;
-            final topicId = widget.topic.id;
             setState(() => _busy = true);
             try {
               await _moveMessage(
