@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -59,6 +65,138 @@ void main() {
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  for (final threaded in [false, true]) {
+    for (final replacement in ['none', 'open', 'disposed']) {
+      testWidgets(
+        'a held ${threaded ? 'thread' : 'channel'} result opens only with its '
+        'source owner ($replacement)',
+        (tester) async {
+          final gate = Completer<void>();
+          addTearDown(() {
+            if (!gate.isCompleted) gate.complete();
+          });
+          final hit = ChatSearchHit(
+            message: _hit(1, threadId: threaded ? 12 : null).message,
+            channel: _hit(1).channel,
+            excerpt: 'deploy 1',
+          );
+          final api = _DelayedChannelApi(gate, hit);
+          final original = await _createController(api);
+          final other = await _createController(
+            FakeDiscourseApi(
+              user: const DiscourseUser(id: 8, username: 'replacement'),
+              chatChannelsBySite: const {
+                _site: ChatChannels(public: [_replacementChannel]),
+              },
+            ),
+            user: const DiscourseUser(id: 8, username: 'replacement'),
+          );
+          await other.pluginSession
+              .require(chatControllerService)
+              .loadChannels(_site);
+          await tester.pumpWidget(_searchWidget(original));
+          await tester.pumpAndSettle();
+          final state = tester.state(find.byType(ChatSearchView));
+          await tester.enterText(
+            find.byKey(const ValueKey('chat-search-field')),
+            'deploy',
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Ops'));
+          await tester.pump();
+          expect(api.chatChannelDetailsRequested, [9]);
+          final sourceShell = original.pluginSession.require(chatShellService);
+          final replacementShell = other.pluginSession.require(
+            chatShellService,
+          );
+          expect(sourceShell.fullPageChatActive, isFalse);
+
+          if (replacement != 'none') {
+            await tester.pumpWidget(_searchWidget(other));
+            await tester.pumpAndSettle();
+            expect(tester.state(find.byType(ChatSearchView)), same(state));
+            if (replacement == 'disposed') await original.pluginSession.close();
+          }
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(replacementShell.fullPageChatActive, isFalse);
+          expect(sourceShell.fullPageChatActive, replacement == 'none');
+          if (replacement == 'none') {
+            expect(sourceShell.visibleChannelId, 9);
+            expect(
+              ChatRoute.parse(sourceShell.currentContent?.id ?? '')?.threadId,
+              threaded ? 12 : null,
+            );
+          }
+          expect(find.text('Could not open this chat message.'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final replacement in ['none', 'open', 'disposed']) {
+    testWidgets(
+      'a retained channel thread row keeps its activation owner ($replacement)',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final api = _DelayedChannelApi(gate, _hit(1), threads: true);
+        final original = await _createController(api);
+        final other = await _createController(
+          FakeDiscourseApi(
+            user: _user,
+            chatChannelsBySite: const {
+              _site: ChatChannels(public: [_replacementChannel]),
+            },
+            chatChannelThreadPagesByKey: _threadPages,
+          ),
+        );
+        final sourceChat = original.pluginSession.require(
+          chatControllerService,
+        );
+        final otherChat = other.pluginSession.require(chatControllerService);
+        await otherChat.loadChannels(_site);
+        await otherChat.loadChannelThreads(_site, 9);
+        await sourceChat.loadChannelThreads(
+          _site,
+          9,
+          directoryChannel: _hit(1).channel,
+        );
+        expect(api.chatChannelThreadPagesRequested, isNotEmpty);
+        expect(sourceChat.channelThreads(_site, 9), hasLength(1));
+        await tester.pumpWidget(_threadWidget(original));
+        await tester.pumpAndSettle();
+        final row = find.byType(ChatThreadListRow);
+        final rowElement = tester.element(row);
+        await tester.tap(find.byKey(const ValueKey('chat-channel-thread-12')));
+        await tester.pump();
+        expect(api.chatChannelDetailsRequested, [9]);
+        final sourceShell = original.pluginSession.require(chatShellService);
+        final replacementShell = other.pluginSession.require(chatShellService);
+        if (replacement != 'none') {
+          await tester.pumpWidget(_threadWidget(other));
+          await tester.pumpAndSettle();
+          expect(tester.element(row), same(rowElement));
+          if (replacement == 'disposed') await original.pluginSession.close();
+        }
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(replacementShell.fullPageChatActive, isFalse);
+        expect(sourceShell.fullPageChatActive, replacement == 'none');
+        if (replacement == 'none') {
+          expect(sourceShell.currentContent?.id, 'chat-c-9-t-12');
+          expect(sourceChat.channel(_site, 9), isNotNull);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final closeOriginal in [false, true]) {
     testWidgets(
@@ -152,10 +290,11 @@ void main() {
   }
 }
 
-ChatSearchHit _hit(int id) => ChatSearchHit(
+ChatSearchHit _hit(int id, {int? threadId}) => ChatSearchHit(
   message: ChatMessage(
     id: id,
     channelId: 9,
+    threadId: threadId,
     cooked: '<p>deploy $id</p>',
     author: const ChatMessageAuthor(id: 2, username: 'sam'),
     createdAt: DateTime.utc(2026, 8, 25, 10),
@@ -164,15 +303,19 @@ ChatSearchHit _hit(int id) => ChatSearchHit(
     id: 9,
     title: 'Ops',
     kind: ChatChannelKind.category,
+    threadingEnabled: true,
   ),
   excerpt: 'deploy $id',
 );
 
-Future<ShellController> _createController(FakeDiscourseApi api) async {
+Future<ShellController> _createController(
+  FakeDiscourseApi api, {
+  DiscourseUser user = _user,
+}) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org').copyWith(user: _user),
+      instance('meta.discourse.org').copyWith(user: user),
     ]),
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
@@ -200,3 +343,76 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   await tester.pumpWidget(_searchWidget(controller));
   await tester.pumpAndSettle();
 }
+
+const _replacementChannel = ChatChannel(
+  id: 9,
+  title: 'Replacement channel',
+  kind: ChatChannelKind.category,
+  threadingEnabled: true,
+  membership: ChatMembership(following: true),
+);
+
+class _DelayedChannelApi extends FakeDiscourseApi {
+  _DelayedChannelApi(this.completion, ChatSearchHit hit, {bool threads = false})
+    : super(
+        user: _user,
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey('deploy'): ChatSearchPage(hits: [hit]),
+        },
+        chatChannelsById: {9: hit.channel},
+        chatChannelsBySite: const {_site: ChatChannels()},
+        chatChannelThreadPagesByKey: threads ? _threadPages : const {},
+      );
+
+  final Completer<void> completion;
+
+  @override
+  Future<ChatChannel> chatChannel({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    String? clientId,
+  }) async {
+    final channel = await super.chatChannel(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      clientId: clientId,
+    );
+    await completion.future;
+    return channel;
+  }
+}
+
+final _threadPages = {
+  FakeDiscourseApi.chatChannelThreadPageKey(9, 0): const ChatThreadPage(
+    threads: [
+      ChatThread(
+        id: 12,
+        channelId: 9,
+        title: 'Thread result',
+        originalMessage: ChatThreadOriginalMessage(
+          id: 100,
+          channelId: 9,
+          author: ChatMessageAuthor(id: 2, username: 'sam'),
+          excerpt: 'Original message',
+        ),
+        status: 'open',
+        replyCount: 1,
+      ),
+    ],
+  ),
+};
+
+Widget _threadWidget(ShellController controller) => ShellScope(
+  controller: controller,
+  child: PluginUiScope.own(
+    chatPluginId,
+    MaterialApp(
+      theme: AppTheme.light,
+      home: const Scaffold(
+        body: ChatChannelThreadsView(siteUrl: _site, channelId: 9),
+      ),
+    ),
+  ),
+);
