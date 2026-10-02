@@ -4756,6 +4756,10 @@
   "@undo": {
     "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
   },
+  "redo": "Redo",
+  "@redo": {
+    "description": "Composer toolbar action to restore the most recently undone edit."
+  },
   "postAssignplugin": "Post #{postNumber}",
   "@postAssignplugin": {
     "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
