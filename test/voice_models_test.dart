@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -61,6 +62,49 @@ const _callRoomJson = <String, Object?>{
 };
 
 void main() {
+  test(
+    'room description Markdown keeps indentation through wire decoding',
+    () async {
+      const raw = '    code\n\nParagraph hard break  \nnext line\n';
+      final room = VoiceRoom.fromJson(const {'id': 7, 'description': raw});
+      final cooking = OfflineCookingService();
+      addTearDown(cooking.dispose);
+      final snapshot = CookingSnapshot(
+        siteId: 'voice.example',
+        accountId: 'reader',
+      );
+      final original = await cooking.cook(
+        CookingRequest(raw: raw, snapshot: snapshot),
+      );
+      final decoded = await cooking.cook(
+        CookingRequest(raw: room.description!, snapshot: snapshot),
+      );
+      expect(original.failure, isNull);
+      expect(decoded.failure, isNull);
+      expect(original.html, contains('<pre><code>'));
+      expect(original.html, contains('<br>'));
+      expect(decoded.html, original.html);
+      expect(room.description, raw);
+    },
+  );
+
+  test(
+    'optional room descriptions preserve raw blank text and reject nonstrings',
+    () {
+      for (final raw in ['', '  \n', '\tMarkdown\r\n']) {
+        expect(VoiceRoom.fromJson({'description': raw}).description, raw);
+      }
+      for (final value in [
+        null,
+        false,
+        42,
+        const ['text'],
+        const {'text': 'value'},
+      ]) {
+        expect(VoiceRoom.fromJson({'description': value}).description, isNull);
+      }
+    },
+  );
   for (final scenario in [
     (
       name: 'root-relative subfolder template',
