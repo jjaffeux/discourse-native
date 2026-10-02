@@ -367,6 +367,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }) : _ownsHistory = sharedHistory == null,
        _enableAutoGridImages = enableAutoGridImages,
        text = MarkdownEditingController(
+         protectComponentSource: true,
          imageSiteUrl: _target.siteUrl,
          resolveEmoji: resolveEmoji,
          pills: pills,

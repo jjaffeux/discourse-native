@@ -1105,21 +1105,15 @@ TextRange? _componentDeletionRange(
   TextEditingValue oldValue,
   TextEditingValue newValue,
 ) {
-  final selection = oldValue.selection;
   final removedLength = oldValue.text.length - newValue.text.length;
   if (removedLength <= 0 ||
-      !selection.isValid ||
       !newValue.selection.isValid ||
-      !newValue.selection.isCollapsed ||
-      !oldValue.composing.isCollapsed) {
+      !newValue.selection.isCollapsed) {
     return null;
   }
   final start = newValue.selection.extentOffset;
   final end = start + removedLength;
   if (end > oldValue.text.length ||
-      (selection.isCollapsed
-          ? start != selection.extentOffset && end != selection.extentOffset
-          : start != selection.start || end != selection.end) ||
       newValue.text != oldValue.text.replaceRange(start, end, '')) {
     return null;
   }
@@ -3043,9 +3037,37 @@ class _ComposerEditorState extends State<ComposerEditor> {
     TextEditingValue newValue,
   ) {
     final selection = oldValue.selection;
-    if (!selection.isCollapsed) return newValue;
     final deletion = _componentDeletionRange(oldValue, newValue);
-    if (deletion == null) return newValue;
+    if (deletion == null) {
+      if (oldValue.text == newValue.text) return newValue;
+      // A keyboard may combine deletion with prediction or autocorrection.
+      // Keep ambiguous replacements out of projected source rather than
+      // accepting a damaged component that its parser can no longer recognize.
+      var start = 0;
+      while (start < oldValue.text.length &&
+          start < newValue.text.length &&
+          oldValue.text.codeUnitAt(start) == newValue.text.codeUnitAt(start)) {
+        start++;
+      }
+      var end = oldValue.text.length;
+      var newEnd = newValue.text.length;
+      while (end > start &&
+          newEnd > start &&
+          oldValue.text.codeUnitAt(end - 1) ==
+              newValue.text.codeUnitAt(newEnd - 1)) {
+        end--;
+        newEnd--;
+      }
+      for (final pill in widget.composer.text.collapsedComponents) {
+        final pillStart = _pillStart(pill);
+        final pillEnd = _pillEnd(pill);
+        if (start < pillEnd && end > pillStart ||
+            start == end && start > pillStart && start < pillEnd) {
+          return oldValue.copyWith(composing: TextRange.empty);
+        }
+      }
+      return newValue;
+    }
     final caret = selection.extentOffset;
     final backward = deletion.end == caret;
     final composer = widget.composer;
@@ -3054,20 +3076,44 @@ class _ComposerEditorState extends State<ComposerEditor> {
         (backward
             ? _collapsedPillEndingAt(caret) ?? composer.text.blockBeforeCaret
             : _collapsedPillStartingAt(caret));
-    if (component == null || deletion.start < _pillStart(component)) {
-      return newValue;
+    // Native word/range deletion can begin in prose and end inside hidden
+    // source, or cross several components. Expand every partially touched
+    // projection against the old document before any delimiter can be lost.
+    var start = deletion.start;
+    var end = deletion.end;
+    for (final pill in composer.text.collapsedComponents) {
+      final pillStart = _pillStart(pill);
+      final pillEnd = _pillEnd(pill);
+      if (start < pillEnd && pillStart < end) {
+        start = math.min(start, pillStart);
+        end = math.max(end, pillEnd);
+      }
+    }
+    final afterContent =
+        component != null &&
+        backward &&
+        caret > composer.text.componentContentEnd(component) &&
+        deletion.start >= composer.text.componentContentEnd(component);
+    if (!selection.isCollapsed ||
+        component == null ||
+        deletion.start < _pillStart(component) ||
+        (deletion.end > _pillEnd(component) && !afterContent)) {
+      if (start == deletion.start && end == deletion.end) return newValue;
+      return TextEditingValue(
+        text: oldValue.text.replaceRange(start, end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      );
     }
 
     // Software keyboards send a text replacement instead of a key event.
     // Reject their edit into hidden source and perform the same component
     // command as a hardware key, after EditableText finishes its proposal.
-    final afterContent =
-        backward && caret > composer.text.componentContentEnd(component);
+    final protectedValue = oldValue.copyWith(composing: TextRange.empty);
     scheduleMicrotask(() {
       if (!mounted ||
           !identical(widget.composer, composer) ||
           !composer.isEditing ||
-          composer.text.value != oldValue) {
+          composer.text.value != protectedValue) {
         return;
       }
       if (afterContent) {
@@ -3077,7 +3123,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _removePill(component);
       }
     });
-    return oldValue;
+    return protectedValue;
   }
 
   void _clearKeyboardPillSelection() {
@@ -3178,6 +3224,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     ComposerQuoteBlock quote => quote.start,
     ComposerImageGalleryBlock gallery => gallery.start,
     ComposerImageBlock image => image.start,
+    _ => throw ArgumentError.value(pill, 'pill'),
+  };
+
+  static int _pillEnd(Object pill) => switch (pill) {
+    ComposerSyntaxOccurrence syntax => syntax.end,
+    ComposerQuoteBlock quote => quote.end,
+    ComposerImageGalleryBlock gallery => gallery.end,
+    ComposerImageBlock image => image.end,
     _ => throw ArgumentError.value(pill, 'pill'),
   };
 

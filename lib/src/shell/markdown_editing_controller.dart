@@ -50,6 +50,7 @@ class MarkdownEditingController extends TextEditingController {
     this.enableImageGalleries = true,
     this.enableTodos = true,
     this.enableBlockSeparators = false,
+    this.protectComponentSource = false,
     @visibleForTesting
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
@@ -79,6 +80,11 @@ class MarkdownEditingController extends TextEditingController {
   final bool enableImageGalleries;
   final bool enableTodos;
   final bool enableBlockSeparators;
+
+  /// Keeps recognized components atomic in rich composers, including during
+  /// native selection and IME composition. Explicit raw Markdown mode bypasses
+  /// this protection.
+  final bool protectComponentSource;
 
   bool _rawMarkdown = false;
 
@@ -306,6 +312,25 @@ class MarkdownEditingController extends TextEditingController {
       return;
     }
     final current = super.value;
+    if (protectComponentSource &&
+        newValue.text == current.text &&
+        newValue.isComposingRangeValid &&
+        !newValue.composing.isCollapsed) {
+      final composing = newValue.composing;
+      final ranges = [
+        for (final block in syntaxBlocks)
+          if (block.projection is! ComposerParagraphSpacingProjection)
+            (block.start, block.end),
+        for (final block in quoteBlocks) (block.start, block.end),
+        for (final block in galleryBlocks) (block.start, block.end),
+        for (final block in imageBlocks) (block.start, block.end),
+      ];
+      if (ranges.any(
+        (range) => composing.start < range.$2 && composing.end > range.$1,
+      )) {
+        newValue = newValue.copyWith(composing: TextRange.empty);
+      }
+    }
     if (current.text.contains('<')) {
       newValue = normalizeComposerTagEdit(
         current,
@@ -456,11 +481,15 @@ class MarkdownEditingController extends TextEditingController {
   TextEditingValue _normalizeAtomicSelection(TextEditingValue document) {
     var selection = document.selection;
     for (final block in _syntaxBlocksFor(document.text)) {
-      if (block.projection is! ComposerAtomicSelectionProjection ||
-          block.projection.needsRawSource(
-            document,
-            suppressCollapsedCaret: false,
-          )) {
+      final atomic = block.projection is ComposerAtomicSelectionProjection;
+      if (block.projection is ComposerParagraphSpacingProjection) continue;
+      final needsRawSource = block.projection.needsRawSource(
+        document,
+        suppressCollapsedCaret: false,
+      );
+      if (atomic
+          ? !protectComponentSource && needsRawSource
+          : !protectComponentSource || !needsRawSource) {
         continue;
       }
       bool inside(int offset) => offset > block.start && offset < block.end;
@@ -468,10 +497,17 @@ class MarkdownEditingController extends TextEditingController {
       // selection must not strand a caret or a range inside hidden Markdown.
       if (selection.isCollapsed) {
         if (inside(selection.extentOffset)) {
-          selection = TextSelection.collapsed(offset: block.start);
+          selection = TextSelection.collapsed(
+            offset:
+                !atomic &&
+                    selection.extentOffset - block.start >
+                        block.end - selection.extentOffset
+                ? componentContentEnd(block)
+                : block.start,
+          );
           break;
         }
-      } else {
+      } else if (atomic) {
         final forward = selection.baseOffset < selection.extentOffset;
         selection = selection.copyWith(
           baseOffset: inside(selection.baseOffset)
@@ -534,11 +570,24 @@ class MarkdownEditingController extends TextEditingController {
     _ => throw ArgumentError.value(block, 'block'),
   };
 
+  /// Rendered components whose source must be edited as one unit.
+  Iterable<Object> get collapsedComponents sync* {
+    if (rawMarkdown) return;
+    yield* syntaxBlocks.where(
+      (block) =>
+          block.projection is! ComposerParagraphSpacingProjection &&
+          isSyntaxCollapsed(block),
+    );
+    yield* quoteBlocks.where(isQuoteCollapsed);
+    yield* galleryBlocks.where(isGalleryCollapsed);
+    yield* imageBlocks.where(isImageCollapsed);
+  }
+
   /// The collapsed component separated from the caret by a structural gap.
   Object? get blockBeforeCaret {
     if (!selection.isValid ||
         !selection.isCollapsed ||
-        !value.composing.isCollapsed ||
+        (!protectComponentSource && !value.composing.isCollapsed) ||
         keyboardSelectedProjection != null) {
       return null;
     }
@@ -1375,7 +1424,9 @@ class MarkdownEditingController extends TextEditingController {
     final syntaxBlocks = _syntaxBlocksFor(source);
     final collapsedSyntax = [
       for (final block in syntaxBlocks)
-        if (isPillSelectedForKeyboard(block) ||
+        if ((protectComponentSource &&
+                block.projection is! ComposerParagraphSpacingProjection) ||
+            isPillSelectedForKeyboard(block) ||
             !block.projection.needsRawSource(
               value,
               suppressCollapsedCaret: _sameProjection(
@@ -1429,14 +1480,15 @@ class MarkdownEditingController extends TextEditingController {
     final collapsedImages = [
       for (final image in images)
         if (!galleryImageStarts.contains(image.start) &&
-            !_imageNeedsRawSource(
-              image,
-              value,
-              suppressCollapsedCaret: _sameProjection(
-                _caretSuppressedImage,
-                image,
-              ),
-            ))
+            (protectComponentSource ||
+                !_imageNeedsRawSource(
+                  image,
+                  value,
+                  suppressCollapsedCaret: _sameProjection(
+                    _caretSuppressedImage,
+                    image,
+                  ),
+                )))
           image,
     ];
     _collapsedImageStarts = {

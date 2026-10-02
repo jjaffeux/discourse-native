@@ -116,6 +116,132 @@ void main() {
     'link': '[Discourse](https://discourse.org)',
   }.entries) {
     testWidgets(
+      '${entry.key} native replacement cannot partially overwrite component source',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        composer.text.selection = TextSelection.collapsed(offset: caret);
+        await tester.pump();
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 2, caret, 'x'),
+            selection: TextSelection.collapsed(offset: caret - 1),
+          ),
+        );
+        await tester.pump();
+        expect(composer.text.text, source);
+        expect(composer.text.collapsedComponents, isNotEmpty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
+      '${entry.key} native composition cannot reveal component source',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source,
+            selection: TextSelection.collapsed(offset: caret),
+            composing: TextRange(start: 8, end: caret),
+          ),
+        );
+        await tester.pump();
+        expect(composer.text.value.composing, TextRange.empty);
+        expect(composer.text.collapsedComponents, isNotEmpty);
+        expect(composer.text.text, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
+      '${entry.key} mobile deletion protects components during active composition',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        final caret = 8 + entry.value.length;
+        composer.text.value = composer.text.value.copyWith(
+          selection: TextSelection.collapsed(offset: caret),
+          composing: const TextRange(start: 0, end: 6),
+        );
+        await tester.pump();
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(caret - 1, caret, ''),
+            selection: TextSelection.collapsed(offset: caret - 1),
+            composing: TextRange(start: 8, end: caret - 1),
+          ),
+        );
+        await tester.pump();
+        expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+        expect(composer.text.value.composing, TextRange.empty);
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    for (final selected in [false, true]) {
+      testWidgets(
+        '${entry.key} mobile range deletion expands partial components ($selected)',
+        (tester) async {
+          final source = 'Before\n\n${entry.value}\n\nAfter';
+          final composer = await _pump(tester, source);
+          final start = 8 + entry.value.length - 2;
+          final end = source.length;
+          composer.text.selection = selected
+              ? TextSelection(baseOffset: start, extentOffset: end)
+              : TextSelection.collapsed(offset: end);
+          await tester.pump();
+          tester.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: source.replaceRange(start, end, ''),
+              selection: TextSelection.collapsed(offset: start),
+            ),
+          );
+          await tester.pump();
+          expect(composer.raw, 'Before');
+          expect(composer.text.value.composing, TextRange.empty);
+          composer.history.undo();
+          await tester.pump();
+          expect(composer.raw, source);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.mobile(),
+      );
+    }
+
+    testWidgets(
+      '${entry.key} mobile forward range deletion expands partial components',
+      (tester) async {
+        final source = 'Before\n\n${entry.value}\n\nAfter';
+        final composer = await _pump(tester, source);
+        composer.text.selection = const TextSelection.collapsed(offset: 0);
+        await tester.pump();
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(
+            text: source.replaceRange(0, 10, ''),
+            selection: const TextSelection.collapsed(offset: 0),
+          ),
+        );
+        await tester.pump();
+        expect(composer.raw, 'After');
+        composer.history.undo();
+        await tester.pump();
+        expect(composer.raw, source);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.mobile(),
+    );
+
+    testWidgets(
       '${entry.key} mobile backspace with native composing metadata removes the whole component',
       (tester) async {
         final source = 'Before\n\n${entry.value}\n\nAfter';
@@ -372,6 +498,34 @@ void main() {
     },
     variant: TargetPlatformVariant.mobile(),
   );
+
+  testWidgets('mobile range deletion expands both touched components', (
+    tester,
+  ) async {
+    final poll = _blocks['poll']!;
+    const date = '[date=2026-09-30 timezone=Etc/UTC]';
+    final source = 'Before\n\n$poll\n\n$date\n\nAfter';
+    final composer = await _pump(tester, source);
+    final start = 8 + poll.length - 2;
+    final end = source.indexOf(date) + date.length - 2;
+    composer.text.selection = TextSelection(
+      baseOffset: start,
+      extentOffset: end,
+    );
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      TextEditingValue(
+        text: source.replaceRange(start, end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, matches(RegExp(r'^Before\n+After$')));
+    composer.history.undo();
+    await tester.pump();
+    expect(composer.raw, source);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.mobile());
 
   testWidgets('mobile forward delete removes an inline date', (tester) async {
     const date = '[date=2026-09-30 timezone=Etc/UTC]';
@@ -657,8 +811,8 @@ void main() {
     expect(painted[source.indexOf(poll)], '￼');
     expect(painted[source.indexOf(_table)], '￼');
 
-    // The caret inside the poll shows its source. Each option keeps its list
-    // editor, which holds neither the closing tag nor the following table.
+    // Native caret movement into a poll must keep the whole component
+    // projected. Its option markers cannot become ordinary list editors.
     composer.text.selection = TextSelection.collapsed(
       offset: source.indexOf('[poll]') + 3,
     );
@@ -669,7 +823,16 @@ void main() {
             find.byType(ComposerRichBodyEditor),
           )
           .map((editor) => editor.composer.text.text),
-      ['Before', 'Tea', 'Coffee'],
+      ['Before'],
+    );
+    expect(composer.text.text, source);
+    expect(
+      composer.text.isSyntaxCollapsed(
+        composer.text.syntaxBlocks.firstWhere(
+          (block) => block.kind.name == 'poll',
+        ),
+      ),
+      isTrue,
     );
     expect(composer.text.text, source);
     expect(tester.takeException(), isNull);
