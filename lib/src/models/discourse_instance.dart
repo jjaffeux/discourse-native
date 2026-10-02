@@ -267,14 +267,13 @@ class DiscourseInstance {
     final source = title.trim();
     final words = _instanceTitleWord.allMatches(source).iterator;
     if (!words.moveNext()) return '?';
-    final first = words.current;
+    final initials = CharacterRange.at(source, words.current.start)..moveNext();
     if (!words.moveNext()) {
-      final length = first.end - first.start;
-      return source
-          .substring(first.start, first.start + (length >= 2 ? 2 : 1))
-          .toUpperCase();
+      initials.expandNext();
+      return initials.current.toUpperCase();
     }
-    return '${source[first.start]}${source[words.current.start]}'.toUpperCase();
+    final second = CharacterRange.at(source, words.current.start)..moveNext();
+    return '${initials.current}${second.current}'.toUpperCase();
   }
 
   List<SidebarSection> get sections {
