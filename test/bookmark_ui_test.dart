@@ -629,6 +629,136 @@ void main() {
     });
   }
 
+  for (final scenario in [
+    (
+      label: 'leap-day exact boundary',
+      now: DateTime.utc(2024, 2, 29, 12),
+      reminder: DateTime.utc(2034, 2, 28, 12),
+      valid: true,
+    ),
+    (
+      label: 'leap-day one minute beyond boundary',
+      now: DateTime.utc(2024, 2, 29, 12),
+      reminder: DateTime.utc(2034, 2, 28, 12, 1),
+      valid: false,
+    ),
+    (
+      label: 'leap-day normalized March 1',
+      now: DateTime.utc(2024, 2, 29, 12),
+      reminder: DateTime.utc(2034, 3, 1, 12),
+      valid: false,
+    ),
+    (
+      label: 'ordinary exact boundary',
+      now: DateTime.utc(2026, 4, 15, 12),
+      reminder: DateTime.utc(2036, 4, 15, 12),
+      valid: true,
+    ),
+    (
+      label: 'ordinary one minute beyond boundary',
+      now: DateTime.utc(2026, 4, 15, 12),
+      reminder: DateTime.utc(2036, 4, 15, 12, 1),
+      valid: false,
+    ),
+  ]) {
+    testWidgets('Native bookmark save validates ${scenario.label}', (
+      tester,
+    ) async {
+      final api = await _openEditor(
+        tester,
+        now: scenario.now,
+        reminder: scenario.reminder,
+        timezone: 'Etc/UTC',
+      );
+      if (scenario.label != 'leap-day normalized March 1') {
+        await _openCustomPicker(tester);
+        await _confirmPicker(tester);
+        await _confirmPicker(tester);
+      }
+      await _saveEditor(tester);
+      if (scenario.valid) {
+        expect(api.updatedBookmarks.single.reminderAt, scenario.reminder);
+        expect(find.text('Save'), findsNothing);
+      } else {
+        expect(api.updatedBookmarks, isEmpty);
+        expect(
+          find.text('Choose a reminder no more than 10 years away.'),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final scenario in [
+    (
+      label: 'UTC leap day',
+      zone: 'Etc/UTC',
+      now: DateTime.utc(2024, 2, 29, 12),
+      lastDay: DateTime(2034, 2, 28),
+    ),
+    (
+      label: 'previous reader day from UTC leap day',
+      zone: 'America/Los_Angeles',
+      now: DateTime.utc(2024, 2, 29, 0, 30),
+      lastDay: DateTime(2034, 2, 27),
+    ),
+    (
+      label: 'next reader day from UTC February 28',
+      zone: 'Pacific/Kiritimati',
+      now: DateTime.utc(2024, 2, 28, 23, 30),
+      lastDay: DateTime(2034, 3, 1),
+    ),
+    (
+      label: 'ten-year daylight saving offset change',
+      zone: 'Europe/Paris',
+      now: DateTime.utc(2026, 3, 29, 22, 30),
+      lastDay: DateTime(2036, 3, 29),
+    ),
+  ]) {
+    testWidgets('custom picker maximum civil day follows ${scenario.label}', (
+      tester,
+    ) async {
+      await _openEditor(tester, now: scenario.now, timezone: scenario.zone);
+      await _openCustomPicker(tester);
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.lastDate, scenario.lastDay);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'custom picker permits a valid next reader day at the UTC maximum',
+    (tester) async {
+      final maximum = DateTime.utc(2034, 2, 28, 23, 30);
+      final api = await _openEditor(
+        tester,
+        now: DateTime.utc(2024, 2, 28, 23, 30),
+        reminder: maximum,
+        timezone: 'Pacific/Kiritimati',
+      );
+      await _openCustomPicker(tester);
+      final picker = tester.widget<DatePickerDialog>(
+        find.byType(DatePickerDialog),
+      );
+      expect(picker.initialDate, DateTime(2034, 3, 1));
+      expect(picker.lastDate, DateTime(2034, 3, 1));
+      await _confirmPicker(tester);
+      expect(
+        tester
+            .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+            .initialTime,
+        const TimeOfDay(hour: 13, minute: 30),
+      );
+      await _confirmPicker(tester);
+      await _saveEditor(tester);
+      expect(api.updatedBookmarks.single.reminderAt, maximum);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('grouped topic bookmarks are ordered by post number', (
     tester,
   ) async {

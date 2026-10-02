@@ -1,7 +1,13 @@
 part of 'discourse_api.dart';
 
 final class DiscourseAccountApi {
-  DiscourseAccountApi(this._transport, this._models);
+  DiscourseAccountApi(
+    this._transport,
+    this._models, {
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
+
+  final DateTime Function() _clock;
 
   final DiscourseTransport _transport;
   final DiscourseModelCodec _models;
@@ -769,7 +775,7 @@ final class DiscourseAccountApi {
     }
   }
 
-  static void _validateBookmarkDraft({
+  void _validateBookmarkDraft({
     required String? name,
     required DateTime? reminderAt,
   }) {
@@ -781,7 +787,7 @@ final class DiscourseAccountApi {
       );
     }
     if (reminderAt == null) return;
-    final now = DateTime.now().toUtc();
+    final now = _clock().toUtc();
     final reminder = reminderAt.toUtc();
     if (!reminder.isAfter(now)) {
       throw WriteException(
@@ -789,16 +795,7 @@ final class DiscourseAccountApi {
         errors: [appL10n.bookmarkRemindersMustBeInTheFuture],
       );
     }
-    final maximum = DateTime.utc(
-      now.year + 10,
-      now.month,
-      now.day,
-      now.hour,
-      now.minute,
-      now.second,
-      now.millisecond,
-      now.microsecond,
-    );
+    final maximum = BookmarkReminderCalculator.maximumReminderAt(now: now);
     if (reminder.isAfter(maximum)) {
       throw WriteException(
         WriteFailure.validation,
