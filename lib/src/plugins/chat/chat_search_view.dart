@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -138,7 +139,13 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty &&
         (state.phase == ChatSearchPhase.waiting ||
             state.phase == ChatSearchPhase.loading)) {
-      return const SizedBox.shrink();
+      return ContentReadingLane(
+        basePadding: const EdgeInsets.symmetric(vertical: 8),
+        builder: (context, lane) => Padding(
+          padding: lane.padding,
+          child: const _ChatSearchSkeleton(scrollable: true),
+        ),
+      );
     }
     if (state.phase == ChatSearchPhase.empty) {
       return _SearchMessage(
@@ -166,7 +173,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         itemBuilder: (context, index) {
           if (index == state.hits.length) {
             if (state.loadingMore) {
-              return const SizedBox.shrink();
+              return const _ChatSearchSkeleton(rows: 2);
             }
             return Padding(
               padding: const EdgeInsets.all(12),
@@ -233,6 +240,88 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       );
     }
   }
+}
+
+class _ChatSearchSkeleton extends StatelessWidget {
+  const _ChatSearchSkeleton({this.rows, this.scrollable = false});
+
+  final int? rows;
+  final bool scrollable;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final fillViewport = rows == null && constraints.hasBoundedHeight;
+      // The channel line, avatar and gap are a lower bound; Native items own
+      // the remaining geometry. Clip extra rows at the content viewport.
+      const minimumRowHeight = 12 + 40 + DSpacing.sm;
+      final count =
+          rows ??
+          (fillViewport
+              ? math.max(1, (constraints.maxHeight / minimumRowHeight).ceil())
+              : 6);
+      final placeholders = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var row = 0; row < count; row++) ...[
+            if (row > 0) const DSeparator(space: 1),
+            DItem(
+              shape: DItemShape.fullWidth,
+              children: [
+                DItemContent(
+                  spacing: DSpacing.sm,
+                  children: [
+                    const DSkeleton(width: 80, height: 12),
+                    Row(
+                      spacing: DSpacing.sm,
+                      children: [
+                        const DSkeleton.circle(diameter: 40),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: DSpacing.sm,
+                            children: [
+                              const DSkeleton(width: 100, height: 14),
+                              FractionallySizedBox(
+                                widthFactor: row.isEven ? .8 : .65,
+                                child: const DSkeleton(height: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+      final region = DSkeletonRegion(
+        semanticsLabel: context.l10n.searching,
+        color: skeletonFill(context),
+        expand: fillViewport,
+        child: fillViewport
+            ? ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: 0,
+                  maxHeight: double.infinity,
+                  child: placeholders,
+                ),
+              )
+            : placeholders,
+      );
+      return scrollable
+          ? SingleChildScrollView(
+              child: fillViewport
+                  ? SizedBox(height: constraints.maxHeight, child: region)
+                  : region,
+            )
+          : region;
+    },
+  );
 }
 
 class _SearchControls extends StatelessWidget {
