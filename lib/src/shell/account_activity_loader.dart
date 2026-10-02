@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../data/site_lifecycle.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -78,12 +79,18 @@ class AccountActivityLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      ShellSelector<({ShellController controller, bool loaded})>(
-        select: (controller) =>
-            (controller: controller, loaded: controller.loaded),
+      ShellSelector<
+        ({ShellController controller, bool loaded, Object session})
+      >(
+        select: (controller) => (
+          controller: controller,
+          loaded: controller.loaded,
+          session: controller.lifecycle.capture(siteUrl).session,
+        ),
         builder: (context, shell, _) => _AccountActivityRequestView(
           controller: shell.controller,
           controllerLoaded: shell.loaded,
+          session: shell.session,
           siteUrl: siteUrl,
           request: _request,
           child: builder(context, shell.controller),
@@ -95,12 +102,14 @@ typedef _RequestIdentity = ({
   ShellController controller,
   String siteUrl,
   _AccountActivityRequest request,
+  Object session,
 });
 
 class _AccountActivityRequestView extends StatefulWidget {
   const _AccountActivityRequestView({
     required this.controller,
     required this.controllerLoaded,
+    required this.session,
     required this.siteUrl,
     required this.request,
     required this.child,
@@ -108,6 +117,7 @@ class _AccountActivityRequestView extends StatefulWidget {
 
   final ShellController controller;
   final bool controllerLoaded;
+  final Object session;
   final String siteUrl;
   final _AccountActivityRequest request;
   final Widget child;
@@ -135,28 +145,32 @@ class _AccountActivityRequestViewState
     if (!identical(oldWidget.controller, widget.controller) ||
         oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.request != widget.request ||
+        oldWidget.session != widget.session ||
         (!oldWidget.controllerLoaded && widget.controllerLoaded)) {
       _request();
     }
   }
 
   void _request() {
+    final lease = widget.controller.lifecycle.capture(widget.siteUrl);
     final identity = (
       controller: widget.controller,
       siteUrl: widget.siteUrl,
       request: widget.request,
+      session: lease.session,
     );
     if (_loadedRequestIdentity == identity && widget.controller.loaded) return;
     if (_requestIdentity == identity && _requestInFlight) return;
     _requestIdentity = identity;
     _requestInFlight = true;
-    unawaited(_load(identity));
+    unawaited(_load(identity, lease));
   }
 
-  Future<void> _load(_RequestIdentity identity) async {
+  Future<void> _load(_RequestIdentity identity, SiteLease lease) async {
     try {
       await identity.controller.load();
       if (!mounted ||
+          !lease.isCurrent ||
           _requestIdentity != identity ||
           !identity.controller.loaded) {
         return;
