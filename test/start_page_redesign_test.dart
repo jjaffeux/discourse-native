@@ -348,32 +348,71 @@ void main() {
     },
   );
 
-  _test(
-    'forum title menu opens externally and remove uses the existing confirmation',
-    (tester) async {
-      final launched = watchBrowser(tester);
-      final shell = await _start(tester, desktop);
-      final options = _onPage(
-        find.byKey(const ValueKey('start-page-forum-options')),
-      );
-      await tester.tap(options);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.widgetWithText(DDropdownMenuItem, 'Open forum in browser'),
-      );
-      await tester.pumpAndSettle();
-      expect(launched, [_site]);
-      await tester.tap(options);
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Remove forum'));
-      await tester.pumpAndSettle();
-      expect(find.text('Remove Discourse Meta?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
-      await tester.pumpAndSettle();
-      expect(shell.currentInstance?.url, _site);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    _test(
+      'forum title menu keeps actions on one line and opens externally on $platform',
+      (tester) async {
+        final launched = watchBrowser(tester);
+        final shell = await _start(
+          tester,
+          platform == TargetPlatform.iOS ? phone : desktop,
+        );
+        final options = _onPage(
+          find.byKey(const ValueKey('start-page-forum-options')),
+        );
+        for (final scale in [
+          AppTextScale.percent100,
+          AppTextScale.percent200,
+        ]) {
+          await shell.appSettings.setTextScale(scale);
+          await tester.pumpAndSettle();
+          await tester.tap(options);
+          await tester.pumpAndSettle();
+          for (final label in ['Open forum in browser', 'Remove forum']) {
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find.descendant(
+                of: find.text(label),
+                matching: find.byType(RichText),
+              ),
+            );
+            expect(
+              paragraph.getBoxesForSelection(
+                TextSelection(baseOffset: 0, extentOffset: label.length),
+              ),
+              hasLength(1),
+              reason: '$label should occupy one line at $scale',
+            );
+            if (scale == AppTextScale.percent100) {
+              expect(paragraph.didExceedMaxLines, isFalse);
+            }
+          }
+          final popup = tester.getRect(find.byType(DDropdownMenuContent));
+          expect(popup.left, greaterThanOrEqualTo(0));
+          expect(
+            popup.right,
+            lessThanOrEqualTo(tester.view.physicalSize.width),
+          );
+          await tester.tap(
+            find.widgetWithText(DDropdownMenuItem, 'Open forum in browser'),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(launched, [_site, _site]);
+        await tester.tap(options);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuItem, 'Remove forum'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Remove Discourse Meta?'), findsOneWidget);
+        await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+        await tester.pumpAndSettle();
+        expect(shell.currentInstance?.url, _site);
+        expect(tester.takeException(), isNull);
+      },
+      platform: platform,
+    );
+  }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     _test(

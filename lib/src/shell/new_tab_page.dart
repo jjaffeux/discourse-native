@@ -362,10 +362,15 @@ class NewTabPage extends StatelessWidget {
                   )
                 : DDropdownMenu(
                     content: DDropdownMenuContent(
+                      width: 240,
                       children: [
                         DDropdownMenuItem(
                           leading: const DIcon(DIcons.upRightFromSquare),
-                          child: Text(context.l10n.openForumInBrowser),
+                          child: Text(
+                            context.l10n.openForumInBrowser,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           onPressed: () =>
                               unawaited(openExternalLink(forum.url)),
                         ),
@@ -373,7 +378,11 @@ class NewTabPage extends StatelessWidget {
                         DDropdownMenuItem(
                           variant: DDropdownMenuItemVariant.destructive,
                           leading: const DIcon(DIcons.trashCan),
-                          child: Text(context.l10n.removeForum),
+                          child: Text(
+                            context.l10n.removeForum,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           onPressed: () =>
                               unawaited(confirmInstanceRemoval(context, forum)),
                         ),
