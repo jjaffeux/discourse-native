@@ -603,6 +603,12 @@ class NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = ShellScope.maybeRead(context);
+    final lease = controller?.lifecycle.capture(siteUrl);
+    bool ownsSource() =>
+        context.mounted &&
+        lease?.isCurrent != false &&
+        identical(ShellScope.maybeRead(context), controller);
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final description = resolved == null
@@ -629,7 +635,9 @@ class NotificationRow extends StatelessWidget {
         child: DItem(
           key: ValueKey('notification-row-${notification.id}'),
           semanticLabel: accessibilityLabel,
-          onPressed: onTap,
+          onPressed: () {
+            if (ownsSource()) onTap();
+          },
           padding: const EdgeInsets.all(7),
           children: [
             DItemContent(
@@ -679,7 +687,11 @@ class NotificationRow extends StatelessWidget {
     final interactive = GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
-      onTertiaryTapUp: onMiddleClick == null ? null : (_) => onMiddleClick!(),
+      onTertiaryTapUp: onMiddleClick == null
+          ? null
+          : (_) {
+              if (ownsSource()) onMiddleClick!();
+            },
       child: row,
     );
     final path = linkPath;
