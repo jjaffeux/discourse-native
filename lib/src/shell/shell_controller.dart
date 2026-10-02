@@ -17457,8 +17457,13 @@ class ShellController extends FrameSafeNotifier
     UserDraft draft, {
     bool Function()? sourceIsCurrent,
   }) async {
-    bool isCurrent() => sourceIsCurrent?.call() ?? true;
-    if (!draft.canResume || !isCurrent()) return;
+    if (isDisposed || !draft.canResume) return;
+    final lease = lifecycle.capture(siteUrl);
+    // Navigation can finish after reconnecting at the same URL. The row and
+    // its private contents still belong to the account that started it.
+    bool isCurrent() =>
+        !isDisposed && lease.isCurrent && (sourceIsCurrent?.call() ?? true);
+    if (!isCurrent()) return;
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
