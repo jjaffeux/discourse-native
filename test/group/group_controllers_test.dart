@@ -369,6 +369,54 @@ void main() {
   });
 
   group('GroupManageController', () {
+    test(
+      'SMTP passwords preserve whitespace while address fields trim',
+      () async {
+        Map<String, Object?>? submitted;
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          subsection: GroupRoute.email,
+          onSubmit: (update) async {
+            submitted = update.values;
+            return true;
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.textController('smtp_server').text = ' smtp.example.com ';
+        controller.textController('email_username').text = ' mailbox ';
+        controller.textController('email_from_alias').text = ' Support ';
+        const syntheticPassword = ' synthetic smtp password ';
+        controller.textController('email_password').text = syntheticPassword;
+
+        expect(await controller.submit(), isTrue);
+        expect(submitted?['email_password'], syntheticPassword);
+        expect(submitted?['smtp_server'], 'smtp.example.com');
+        expect(submitted?['email_username'], 'mailbox');
+        expect(submitted?['email_from_alias'], 'Support');
+      },
+    );
+
+    test('unchanged blank SMTP passwords stay omitted', () {
+      final controller = GroupManageController(
+        group: const Group(id: 9, name: 'support'),
+        subsection: GroupRoute.email,
+      );
+      addTearDown(controller.dispose);
+      expect(
+        controller.buildUpdate().values,
+        isNot(contains('email_password')),
+      );
+      controller.textController('email_password').text = '   ';
+      expect(controller.buildUpdate().values['email_password'], '   ');
+      expect(controller.snapshot.dirty, isTrue);
+      controller.textController('email_password').clear();
+      expect(
+        controller.buildUpdate().values,
+        isNot(contains('email_password')),
+      );
+      expect(controller.snapshot.dirty, isFalse);
+    });
+
     test('a retained management command stops after disposal', () async {
       var calls = 0;
       final controller = GroupManageController(
