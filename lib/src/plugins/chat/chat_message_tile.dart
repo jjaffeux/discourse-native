@@ -1640,6 +1640,12 @@ class _Reactions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chat = PluginUiScope.require(context, chatControllerService);
+    final session = chat.captureSession(siteUrl);
+    final owner = chat.messageRef(siteUrl, message.id);
+    bool ownsMessage() =>
+        context.mounted &&
+        session.isCurrent &&
+        identical(PluginUiScope.require(context, chatControllerService), chat);
     final canAdd = chat.canAddReactionToMessage(siteUrl, message);
     bool canToggle(ChatReaction reaction) => reaction.reacted
         ? chat.canRemoveReactionFromMessage(siteUrl, message)
@@ -1659,35 +1665,48 @@ class _Reactions extends StatelessWidget {
                     ? context.l10n.removeYourReaction
                     : context.l10n.addThisReaction
               : null,
-          interactionOwner: chat,
+          interactionOwner: owner,
           onToggle: canToggle(reaction)
-              ? () => chat.toggleMessageReaction(
-                  siteUrl,
-                  message.id,
-                  reaction.emoji,
-                )
+              ? () async {
+                  if (!ownsMessage()) return null;
+                  return chat.toggleMessageReaction(
+                    siteUrl,
+                    message.id,
+                    reaction.emoji,
+                  );
+                }
               : null,
-          loadReactors: () => chat.loadMessageReactors(
-            siteUrl: siteUrl,
-            channelId: message.channelId,
-            messageId: message.id,
-            filter: reaction.emoji,
-          ),
+          loadReactors: () async {
+            if (!ownsMessage()) return;
+            await chat.loadMessageReactors(
+              siteUrl: siteUrl,
+              channelId: message.channelId,
+              messageId: message.id,
+              filter: reaction.emoji,
+            );
+          },
           reactorsBuilder: (_) => PluginUiScope.own(
             chatPluginId,
             _ChatReactorList(
               siteUrl: siteUrl,
               message: message,
               filter: reaction.emoji,
+              chat: chat,
+              session: session,
             ),
           ),
           visualKey: ValueKey('chat-reaction-${reaction.emoji}'),
         ),
     ];
-    return DMessageFooter(
-      key: const ValueKey('chat-reactions'),
-      spacing: DSpacing.xs,
-      children: children,
+    // Account retirement detaches the old message ref even when the same
+    // message ID is rehydrated before the next frame. Retire its interactions.
+    return KeyedSubtree(
+      key: ObjectKey(owner),
+      child: DMessageFooter(
+        key: const ValueKey('chat-reactions'),
+        spacing: DSpacing.xs,
+        children: children,
+      ),
     );
   }
 }
@@ -1697,18 +1716,32 @@ class _ChatReactorList extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.filter,
+    required this.chat,
+    required this.session,
   });
 
   final String siteUrl;
   final ChatMessage message;
   final String filter;
+  final ChatController chat;
+  final PluginSiteLease session;
 
   @override
   Widget build(BuildContext context) =>
-      PluginServiceSelector<ChatController, ChatController>(
+      PluginServiceSelector<ChatController, bool>(
         service: chatControllerService,
-        select: (controller) => controller,
-        builder: (context, chat, child) {
+        select: (controller) =>
+            identical(controller, chat) && session.isCurrent,
+        builder: (context, current, child) {
+          if (!current) {
+            return Semantics(
+              liveRegion: true,
+              child: Text(
+                context.l10n.yourConnectionChangedReopenTheActionAndTryAgain,
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
           return ReactionUsersList(
             siteUrl: siteUrl,
             source: chat,
@@ -1718,26 +1751,35 @@ class _ChatReactorList extends StatelessWidget {
               messageId: message.id,
               filter: filter,
             ),
-            select: () => (
-              reactors: chat.messageReactors(
-                siteUrl,
-                message.channelId,
-                message.id,
+            select: () => !session.isCurrent
+                ? (
+                    reactors: null,
+                    error:
+                        appL10n.yourConnectionChangedReopenTheActionAndTryAgain,
+                  )
+                : (
+                    reactors: chat.messageReactors(
+                      siteUrl,
+                      message.channelId,
+                      message.id,
+                      filter: filter,
+                    ),
+                    error: chat.messageReactorsError(
+                      siteUrl,
+                      message.channelId,
+                      message.id,
+                      filter: filter,
+                    ),
+                  ),
+            load: () async {
+              if (!session.isCurrent) return;
+              await chat.loadMessageReactors(
+                siteUrl: siteUrl,
+                channelId: message.channelId,
+                messageId: message.id,
                 filter: filter,
-              ),
-              error: chat.messageReactorsError(
-                siteUrl,
-                message.channelId,
-                message.id,
-                filter: filter,
-              ),
-            ),
-            load: () => chat.loadMessageReactors(
-              siteUrl: siteUrl,
-              channelId: message.channelId,
-              messageId: message.id,
-              filter: filter,
-            ),
+              );
+            },
           );
         },
       );
