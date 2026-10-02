@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart'
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -31,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 import 'support/fakes.dart';
 
@@ -227,6 +229,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
   WriteException? postingFailure,
   SiteConfig? config,
   bool privateMessage = false,
+  List<DiscourseInstance> additionalInstances = const [],
 }) async {
   final api = FakeDiscourseApi(
     writeFailure: postingFailure,
@@ -252,6 +255,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _openReply({
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: _allowedUser),
+      ...additionalInstances,
     ]),
     api: api,
     authenticator: authenticator,
@@ -318,6 +322,146 @@ Future<void> _openOptions(WidgetTester tester) async {
 }
 
 void main() {
+  for (final remove in [false, true]) {
+    testWidgets(
+      'queued Proofread choices ${remove ? 'stay forgotten after forum removal' : 'survive a normal reconnect'}',
+      (tester) async {
+        String key(String site, int userId) =>
+            '${SharedPreferencesAiProofreadingPreferencePersistence.keys.of(site)}.$userId';
+        final accountKey = key(_siteUrl, _readerId);
+        const otherSite = 'https://other.example';
+        final otherKey = key(otherSite, _readerId);
+        final otherAccountKey = key(_siteUrl, 99);
+        SharedPreferences.setMockInitialValues({});
+        final preferences = _HeldProofreadingPreferences({
+          'flutter.$accountKey': true,
+          'flutter.$otherKey': true,
+          'flutter.$otherAccountKey': true,
+        }, heldKey: 'flutter.$accountKey');
+        SharedPreferencesStorePlatform.instance = preferences;
+        addTearDown(() {
+          if (!preferences.release.isCompleted) preferences.release.complete();
+        });
+        final fixture = await _openReply(
+          additionalInstances: [instance('other.example')],
+        );
+        addTearDown(fixture.shell.dispose);
+        final original = fixture.shell.currentInstance!;
+        await _pumpComposer(tester, fixture.shell);
+        await tester.runAsync(pumpEventQueue);
+        await _openOptions(tester);
+        final control = find.byKey(
+          const ValueKey('composer-proofread-control'),
+        );
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(control).checked,
+          isTrue,
+        );
+
+        await tester.tap(control);
+        await tester.pump();
+        await preferences.started.future;
+        expect(
+          await preferences.getAll(),
+          containsPair('flutter.$accountKey', false),
+        );
+        // The first write is durable, while its acknowledgement holds the
+        // queue. A newer real menu choice must not resurrect a removed forum.
+        await tester.tap(control);
+        await tester.pump();
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(control).checked,
+          isTrue,
+        );
+        final oldRead = const AiProofreadingPreferenceStore().read(
+          siteUrl: _siteUrl,
+          userId: _readerId,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+
+        if (remove) {
+          expect(await fixture.shell.removeInstance(original), isTrue);
+          await tester.runAsync(pumpEventQueue);
+          expect(
+            await preferences.getAll(),
+            isNot(contains('flutter.$accountKey')),
+          );
+          expect(await fixture.shell.addInstance(original), isTrue);
+        }
+        await fixture.shell.connectCurrentInstance();
+        preferences.release.complete();
+        expect(await oldRead, !remove);
+        final remembered = await tester.runAsync(
+          () => const AiProofreadingPreferenceStore().read(
+            siteUrl: _siteUrl,
+            userId: _readerId,
+          ),
+        );
+        expect(remembered, !remove);
+        expect(
+          await preferences.getAll(),
+          containsPair('flutter.$otherKey', true),
+        );
+        if (remove) {
+          expect(
+            await preferences.getAll(),
+            isNot(contains('flutter.$accountKey')),
+          );
+          expect(
+            await preferences.getAll(),
+            isNot(contains('flutter.$otherAccountKey')),
+          );
+        } else {
+          expect(
+            await preferences.getAll(),
+            containsPair('flutter.$otherAccountKey', true),
+          );
+        }
+
+        fixture.shell.pushContent(
+          ContentRoute.topic(
+            topicId: 7,
+            slug: 'native-writing',
+            title: 'Native writing',
+          ),
+        );
+        await fixture.shell.loadTopic(7, 'native-writing');
+        fixture.shell.openReply();
+        await _pumpComposer(tester, fixture.shell);
+        await tester.runAsync(pumpEventQueue);
+        await _openOptions(tester);
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(control).checked,
+          !remove,
+        );
+        if (remove) {
+          // A new opt-in after re-add owns fresh persistence in the same queue.
+          await tester.tap(control);
+          await tester.pump();
+          expect(
+            await tester.runAsync(
+              () => const AiProofreadingPreferenceStore().read(
+                siteUrl: _siteUrl,
+                userId: _readerId,
+              ),
+            ),
+            isTrue,
+          );
+          expect(
+            await preferences.getAll(),
+            containsPair('flutter.$accountKey', true),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
+
   test('decodes the AI settings and assistant permission conservatively', () {
     const plugin = AiProofreadingPlugin();
 
@@ -1348,5 +1492,25 @@ void main() {
         method == 'mobile button' ? TargetPlatform.iOS : TargetPlatform.macOS,
       ),
     );
+  }
+}
+
+final class _HeldProofreadingPreferences
+    extends InMemorySharedPreferencesStore {
+  _HeldProofreadingPreferences(super.data, {required this.heldKey})
+    : super.withData();
+
+  final String heldKey;
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    final saved = await super.setValue(valueType, key, value);
+    if (key == heldKey && !started.isCompleted) {
+      started.complete();
+      await release.future;
+    }
+    return saved;
   }
 }

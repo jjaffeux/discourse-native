@@ -13,11 +13,16 @@ final class SitePreferenceKey {
   const SitePreferenceKey(
     this.prefix, {
     this.tail = SitePreferenceTail.none,
+    this.onForget,
     this._spelling,
   });
 
   final String prefix;
   final SitePreferenceTail tail;
+
+  /// Retires pending operations for the forgotten forums before their cached
+  /// and stored values leave. Account changes do not invoke this callback.
+  final void Function(ForgottenSites sites)? onForget;
   final String Function(String siteUrl)? _spelling;
 
   /// The key for [siteUrl], before its [tail].
@@ -126,6 +131,9 @@ Future<void> forgetSitePreferences(
     final preferences = await SharedPreferences.getInstance();
     final forgotten = sites();
     if (forgotten == null) return;
+    for (final key in keys) {
+      key.onForget?.call(forgotten);
+    }
     final removals = [
       for (final stored in preferences.getKeys())
         if (keys.any((key) => forgotten.covers(key, stored)))

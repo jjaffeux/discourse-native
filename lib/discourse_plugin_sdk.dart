@@ -30,7 +30,7 @@ export 'src/data/origin_cooldown.dart' show OriginCooldown;
 export 'src/data/plugin_transport.dart';
 export 'src/data/serial_operation_queue.dart';
 export 'src/data/site_preference_keys.dart'
-    show SitePreferenceKey, SitePreferenceTail;
+    show ForgottenSites, SitePreferenceKey, SitePreferenceTail;
 export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
 export 'src/data/store_diagnostics.dart' show reportStorageFailure;
 export 'src/diagnostics/diagnostic_event.dart';
