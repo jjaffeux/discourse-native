@@ -191,6 +191,36 @@ void main() {
     }
   });
 
+  for (final atEnd in [false, true]) {
+    testWidgets('dock returns after hiding reduces travel below its threshold '
+        '(at end: $atEnd)', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller, count: 14);
+      expect(controller.position.maxScrollExtent, 160);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_body)),
+      );
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_dock), findsNothing);
+      expect(controller.position.maxScrollExtent, 100);
+
+      await gesture.moveBy(Offset(0, atEnd ? -80 : 30));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_dock), findsOneWidget);
+      if (atEnd) {
+        // Returning the dock adds travel again. Continuing to that new end
+        // must not immediately hide it and start an extent feedback loop.
+        await gesture.moveBy(const Offset(0, -80));
+        await tester.pumpAndSettle();
+        expect(find.byKey(_dock), findsOneWidget);
+      }
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('elastic overscroll restores the dock at the top', (
     tester,
   ) async {
