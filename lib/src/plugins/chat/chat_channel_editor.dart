@@ -49,12 +49,17 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
   bool _saving = false;
   String? _error;
 
+  String? get _descriptionError =>
+      _description.text.runes.length > ChatChannel.maxDescriptionLength
+      ? appL10n.theChannelDescriptionCannotExceed500Characters
+      : null;
+
   bool get _canSave {
     final slug = _slug.text.trim();
     return !_saving &&
         slug.isNotEmpty &&
         slug.length <= 100 &&
-        _description.text.length <= 280 &&
+        _descriptionError == null &&
         (_name.text.trim() != widget.channel.title ||
             slug != widget.channel.slug ||
             _description.text != (widget.channel.description ?? ''));
@@ -140,8 +145,8 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               enabled: !_saving,
               minLines: 3,
               maxLines: 6,
-              maxLength: 280,
-              showCounter: true,
+              maxLength: ChatChannel.maxDescriptionLength,
+              errorText: _descriptionError,
               onChanged: (_) => setState(() => _error = null),
               labelText: context.l10n.description,
             ),

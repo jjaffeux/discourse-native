@@ -986,8 +986,8 @@
   "@theChannelSlugMustBeBetween1And100Characters": {
     "description": "English UI message used by plugins/chat/chat_controller.dart. Keep placeholders intact."
   },
-  "theChannelDescriptionCannotExceed280Characters": "The channel description cannot exceed 280 characters.",
-  "@theChannelDescriptionCannotExceed280Characters": {
+  "theChannelDescriptionCannotExceed500Characters": "The channel description cannot exceed 500 characters.",
+  "@theChannelDescriptionCannotExceed500Characters": {
     "description": "English UI message used by plugins/chat/chat_controller.dart. Keep placeholders intact."
   },
   "reconnectThisSiteToEditTheChannel": "Reconnect this site to edit the channel.",
