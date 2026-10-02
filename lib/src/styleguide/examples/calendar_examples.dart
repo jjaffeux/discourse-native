@@ -12,7 +12,7 @@ final calendarExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Select dates and date ranges in a compact month grid.',
   notes:
-      'Backed by kalender 0.31.3 and themed with DKalenderTheme. Calendar owns '
+      'Backed by kalender 0.33.0 and themed with DKalenderTheme. Calendar owns '
       'inline date selection; Date Picker owns its future popover/input. '
       'Gregorian locale labels and RTL are supported. True Persian, Hijri, or '
       'Jalali chronology needs a kalender engine implementation, matching the '
@@ -624,7 +624,9 @@ class _CompactEventMonth extends StatefulWidget {
 }
 
 class _CompactEventMonthState extends State<_CompactEventMonth> {
-  final _calendar = kalender.KalenderController();
+  late final _calendar = kalender.KalenderController(
+    viewConfiguration: _configuration,
+  );
   final _events = kalender.DefaultEventsController();
   String _selection = 'Tap a day to see its events';
   late final _configuration = kalender.MonthViewConfiguration.singleMonth(
@@ -673,7 +675,6 @@ class _CompactEventMonthState extends State<_CompactEventMonth> {
             child: kalender.KalenderView(
               eventsController: _events,
               kalenderController: _calendar,
-              viewConfiguration: _configuration,
               components: kalender.KalenderComponents(
                 monthComponents: kalender.MonthComponents(
                   headerComponents: kalender.MonthHeaderComponents(
@@ -682,14 +683,17 @@ class _CompactEventMonthState extends State<_CompactEventMonth> {
                   ),
                 ),
               ),
-              header: const kalender.KalenderHeader(),
-              body: DKalenderCompactMonthBody(
-                onDayPressed: (date) => setState(
-                  () => _selection = DateFormat.yMMMMEEEEd().format(date),
+              views: [
+                kalender.MonthViewParts(
+                  body: DKalenderCompactMonthBody(
+                    onDayPressed: (date) => setState(
+                      () => _selection = DateFormat.yMMMMEEEEd().format(date),
+                    ),
+                    eventColor: (event) =>
+                        event.id == 'launch' ? Colors.green : Colors.orange,
+                  ),
                 ),
-                eventColor: (event) =>
-                    event.id == 'launch' ? Colors.green : Colors.orange,
-              ),
+              ],
             ),
           ),
         ),

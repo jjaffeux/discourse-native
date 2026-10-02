@@ -1,14 +1,14 @@
 # Local patches
 
-Voice vendors the published `flutter_webrtc` 1.6.2 package under
+Voice vendors the published `flutter_webrtc` 1.6.2+hotfix.3 package under
 `packages/discourse_voice/third_party/flutter_webrtc`, from
-<https://pub.dev/packages/flutter_webrtc/versions/1.6.2>. The owner-local
+<https://pub.dev/packages/flutter_webrtc/versions/1.6.2+hotfix.3>. The owner-local
 `packages/discourse_voice/tool/vendor_contract.json` connects that external
 source tree to this reviewed inventory without teaching the root runner about
 Voice or WebRTC.
 
-- Archive SHA-256: `f2bacdefc9c8631edcb57bb667cb372fea1832f89ee2a5b17ddc7c3c773801ea`
-- Upstream source: <https://github.com/flutter-webrtc/flutter-webrtc/tree/v1.6.2>
+- Archive SHA-256: `c1d3674f61b14cbe98b60f0cce396835b1483163e644b8cd26fd3fdd55360fb9`
+- Upstream source: <https://github.com/flutter-webrtc/flutter-webrtc/tree/v1.6.2+hotfix.3>
 
 The archive is the review baseline. The sections below enumerate every known
 local delta; this file is not a claim that the directory is otherwise
@@ -18,7 +18,7 @@ not part of the published archive.
 ## iOS privacy manifest
 
 The upstream iOS screen-broadcast reader calls `mach_absolute_time()` to create
-elapsed video-frame timestamps, but version 1.6.2 does not provide a privacy
+elapsed video-frame timestamps, but version 1.6.2+hotfix.3 does not provide a privacy
 manifest for that required-reason API.
 
 This copy adds `PrivacyInfo.xcprivacy` to the `flutter_webrtc` Swift package and

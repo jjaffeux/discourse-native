@@ -53,7 +53,7 @@ final class EventCalendar extends StatefulWidget {
 
 final class _EventCalendarState extends State<EventCalendar> {
   static final _localeData = initializeDateFormatting();
-  final _calendar = kalender.KalenderController();
+  late final kalender.KalenderController _calendar;
   final _events = kalender.DefaultEventsController();
   final _monthScroll = ScrollController();
   late kalender.ViewConfiguration _configuration;
@@ -81,6 +81,10 @@ final class _EventCalendarState extends State<EventCalendar> {
     unawaited(_localeData);
     _awaitingScheduleEvents = _schedule && widget.events.isEmpty;
     _configure();
+    _calendar = kalender.KalenderController(
+      viewConfiguration: _configuration,
+      location: widget.location,
+    );
     _replaceEvents();
   }
 
@@ -109,6 +113,9 @@ final class _EventCalendarState extends State<EventCalendar> {
     if (scheduleLoaded) _awaitingScheduleEvents = false;
     if (pageChanged) {
       _configure();
+      _calendar
+        ..location = widget.location
+        ..viewConfiguration = _configuration;
       if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
     }
     if (eventsChanged) _replaceEvents();
@@ -180,9 +187,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           initialDateTime: date,
           dateResolver: (_) =>
               kalender.FloatingDateTime.fromDateTime(widget.page.date),
-          // Keep one internal schedule page. Kalender 0.31's neighboring
-          // pages share a mutable item map during animation; returning from
-          // an empty month can read the wrong map. The toolbar owns months.
+          // The toolbar owns months; keep the schedule on its requested month.
           displayRange: kalender.KalenderDateTimeRange(
             start: _inCalendar(_days.start),
             end: _inCalendar(_days.end),
@@ -502,8 +507,6 @@ final class _EventCalendarState extends State<EventCalendar> {
             required events,
             required numberOfHiddenRows,
             required tileHeight,
-            required getMultiDayEventLayoutRenderBox,
-            required overlayTileBuilder,
             required overlayBuilders,
           }) => DButton(
             onPressed: () => _openDay(date),
@@ -516,18 +519,15 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
     );
-    final body = kalender.KalenderBody(
-      interaction: _interaction,
-      monthTileComponents: tiles,
-      multiDayTileComponents: kalender.TileComponents(
-        tileBuilder: (context, event, range) =>
-            _tile(context, event, range, timeline: true),
-      ),
-      monthBodyConfiguration: kalender.MonthBodyConfiguration(
+    final monthBody = kalender.MonthBody(
+      tileComponents: tiles,
+      configuration: kalender.MonthBodyConfiguration(
         tileHeight: rowHeight,
         multiDayLayoutStrategy: const EventCalendarLayout(),
       ),
-      scheduleTileComponents: kalender.ScheduleTileComponents(
+    );
+    final scheduleBody = kalender.ScheduleBody(
+      tileComponents: kalender.ScheduleTileComponents(
         tileBuilder: _schedule
             ? _scheduleTile
             : (context, event, range) => SizedBox(
@@ -535,7 +535,7 @@ final class _EventCalendarState extends State<EventCalendar> {
                 child: _tile(context, event, range),
               ),
       ),
-      scheduleBodyConfiguration: kalender.ScheduleBodyConfiguration(
+      configuration: kalender.ScheduleBodyConfiguration(
         emptyDay: kalender.EmptyDayBehavior.hide,
         leadingWidth: _schedule ? 0 : 56,
       ),
@@ -545,8 +545,6 @@ final class _EventCalendarState extends State<EventCalendar> {
       child: kalender.KalenderView(
         eventsController: _events,
         kalenderController: _calendar,
-        viewConfiguration: _configuration,
-        location: widget.location,
         locale: Localizations.localeOf(context),
         callbacks: kalender.KalenderCallbacks(onPageChanged: _pageChanged),
         components: kalender.KalenderComponents(
@@ -589,56 +587,69 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
         ),
-        header: kalender.KalenderHeader(
-          interaction: _interaction,
-          multiDayTileComponents: tiles,
-          multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
-            maximumNumberOfVerticalEvents: 4,
-            tileHeight: rowHeight,
-          ),
-        ),
-        body: _schedule
-            ? DKalenderScheduleBody(child: body)
-            : _view != EventCalendarView.month
-            ? body
-            : compact
-            ? DKalenderCompactMonthBody(
-                onDayPressed: _openDay,
-                eventColor: (event) => (event as EventCalendarEntry).color,
-                layoutStrategy: const EventCalendarLayout(),
-              )
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  var most = 0;
-                  for (
-                    var date = _days.start;
-                    date.isBefore(_days.end);
-                    date = date.add(const Duration(days: 1))
-                  ) {
-                    most = math.max(
-                      most,
-                      widget.events
-                          .where((event) => event.includes(date))
-                          .length,
-                    );
-                  }
-                  // Dense months scroll vertically like core. Reserve an overflow row
-                  // for unusually crowded days; its dialog includes every occurrence.
-                  final lanes = most.clamp(3, 20);
-                  final weeks = _days.duration.inDays ~/ 7;
-                  final height = math.max(
-                    constraints.maxHeight,
-                    weeks * (36 + (lanes + 1) * rowHeight),
-                  );
-                  return DScrollBar(
-                    controller: _monthScroll,
-                    child: SingleChildScrollView(
-                      controller: _monthScroll,
-                      child: SizedBox(height: height, child: body),
-                    ),
-                  );
-                },
+        interaction: _interaction,
+        views: [
+          kalender.MultiDayViewParts(
+            header: kalender.MultiDayHeader(
+              tileComponents: tiles,
+              configuration: kalender.MultiDayHeaderConfiguration(
+                maximumNumberOfVerticalEvents: 4,
+                tileHeight: rowHeight,
               ),
+            ),
+            body: kalender.MultiDayBody(
+              tileComponents: kalender.TileComponents(
+                tileBuilder: (context, event, range) =>
+                    _tile(context, event, range, timeline: true),
+              ),
+            ),
+          ),
+          kalender.ScheduleViewParts(
+            body: _schedule
+                ? DKalenderScheduleBody(child: scheduleBody)
+                : scheduleBody,
+          ),
+          kalender.MonthViewParts(
+            body: compact
+                ? DKalenderCompactMonthBody(
+                    onDayPressed: _openDay,
+                    eventColor: (event) => (event as EventCalendarEntry).color,
+                    layoutStrategy: const EventCalendarLayout(),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      var most = 0;
+                      for (
+                        var date = _days.start;
+                        date.isBefore(_days.end);
+                        date = date.add(const Duration(days: 1))
+                      ) {
+                        most = math.max(
+                          most,
+                          widget.events
+                              .where((event) => event.includes(date))
+                              .length,
+                        );
+                      }
+                      // Dense months scroll vertically like core. Reserve an overflow row
+                      // for unusually crowded days; its dialog includes every occurrence.
+                      final lanes = most.clamp(3, 20);
+                      final weeks = _days.duration.inDays ~/ 7;
+                      final height = math.max(
+                        constraints.maxHeight,
+                        weeks * (36 + (lanes + 1) * rowHeight),
+                      );
+                      return DScrollBar(
+                        controller: _monthScroll,
+                        child: SingleChildScrollView(
+                          controller: _monthScroll,
+                          child: SizedBox(height: height, child: monthBody),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -663,7 +674,6 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
           multiDayRule: _configuration.multiDayRule,
-          location: widget.location,
         )
         .firstOrNull;
     final now = _now();

@@ -56,9 +56,8 @@ enum _CalendarView {
 
 final class _TopicCalendarState extends State<TopicCalendar> {
   static final _localeData = initializeDateFormatting();
-  final _calendar = kalender.KalenderController();
+  late final kalender.KalenderController _calendar;
   final _events = kalender.DefaultEventsController();
-  late kalender.ViewConfiguration _configuration;
   late DateTime _focus;
   late DateTimeRange _loadedRange;
   DateTimeRange? _visibleRange;
@@ -80,7 +79,10 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     // The local intl initializer installs its date tables synchronously.
     unawaited(_localeData);
     _focus = _today;
-    _configuration = _viewConfiguration();
+    _calendar = kalender.KalenderController(
+      viewConfiguration: _viewConfiguration(),
+      location: _location,
+    );
     _refreshEvents();
     _calendar.visibleDateTimeRange.addListener(_scheduleRangeUpdate);
   }
@@ -90,7 +92,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     super.didUpdateWidget(oldWidget);
     if (_loadedTimezone != _timezone ||
         oldWidget.settings.firstDay != widget.settings.firstDay) {
-      _configuration = _viewConfiguration();
+      _calendar
+        ..location = _location
+        ..viewConfiguration = _viewConfiguration();
     }
     if (oldWidget.data != widget.data ||
         oldWidget.options.fullDay != widget.options.fullDay ||
@@ -204,7 +208,6 @@ final class _TopicCalendarState extends State<TopicCalendar> {
       _rangeUpdateScheduled = false;
       if (!mounted) return;
       final range = _calendar.visibleDateTimeRange.value;
-      if (range == null) return;
       final days = DateTimeRange(
         start: topicCalendarDay(range.start),
         end: topicCalendarDay(range.end),
@@ -233,7 +236,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     setState(() {
       _view = view;
       _visibleRange = null;
-      _configuration = _viewConfiguration();
+      _calendar
+        ..location = _location
+        ..viewConfiguration = _viewConfiguration();
     });
   }
 
@@ -248,7 +253,9 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     if (mounted && selected != null) {
       setState(() {
         _selectedTimezone = selected;
-        _configuration = _viewConfiguration();
+        _calendar
+          ..location = _location
+          ..viewConfiguration = _viewConfiguration();
         _refreshEvents();
       });
     }
@@ -506,8 +513,6 @@ final class _TopicCalendarState extends State<TopicCalendar> {
             required events,
             required numberOfHiddenRows,
             required tileHeight,
-            required getMultiDayEventLayoutRenderBox,
-            required overlayTileBuilder,
             required overlayBuilders,
           }) => DButton(
             onPressed: () => _openDay(
@@ -538,9 +543,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
         child: kalender.KalenderView(
           eventsController: _events,
           kalenderController: _calendar,
-          viewConfiguration: _configuration,
           locale: Localizations.localeOf(context),
-          location: _location,
           components: kalender.KalenderComponents(
             monthComponents: kalender.MonthComponents(
               headerComponents: kalender.MonthHeaderComponents(
@@ -581,28 +584,37 @@ final class _TopicCalendarState extends State<TopicCalendar> {
               ),
             ),
           ),
-          header: kalender.KalenderHeader(
-            interaction: _interaction,
-            multiDayTileComponents: tiles,
-            multiDayHeaderConfiguration: kalender.MultiDayHeaderConfiguration(
-              maximumNumberOfVerticalEvents: lanes,
-              tileHeight: rowHeight,
-            ),
-          ),
-          body: kalender.KalenderBody(
-            interaction: _interaction,
-            monthTileComponents: tiles,
-            multiDayTileComponents: tiles,
-            scheduleTileComponents: kalender.ScheduleTileComponents(
-              tileBuilder: (context, event, range) => SizedBox(
-                height: rowHeight + 8,
-                child: _tile(context, event, range),
+          interaction: _interaction,
+          views: [
+            kalender.MonthViewParts(
+              body: kalender.MonthBody(
+                tileComponents: tiles,
+                configuration: kalender.MonthBodyConfiguration(
+                  tileHeight: rowHeight,
+                ),
               ),
             ),
-            monthBodyConfiguration: kalender.MonthBodyConfiguration(
-              tileHeight: rowHeight,
+            kalender.MultiDayViewParts(
+              header: kalender.MultiDayHeader(
+                tileComponents: tiles,
+                configuration: kalender.MultiDayHeaderConfiguration(
+                  maximumNumberOfVerticalEvents: lanes,
+                  tileHeight: rowHeight,
+                ),
+              ),
+              body: kalender.MultiDayBody(tileComponents: tiles),
             ),
-          ),
+            kalender.ScheduleViewParts(
+              body: kalender.ScheduleBody(
+                tileComponents: kalender.ScheduleTileComponents(
+                  tileBuilder: (context, event, range) => SizedBox(
+                    height: rowHeight + 8,
+                    child: _tile(context, event, range),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
