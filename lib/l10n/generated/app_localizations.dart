@@ -4251,6 +4251,12 @@ abstract class AppLocalizations {
   /// **'Moment format (optional)'**
   String get momentFormatOptional;
 
+  /// Validation error in the local-date composer when a custom format cannot be serialized using straight or curly single or double quotation marks.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove line breaks or at least one quotation mark type from the format.'**
+  String get removeLineBreaksOrOneQuotationMarkTypeFromTheFormat;
+
   /// English UI message used by plugins/local_dates/local_date_composer_sheet.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

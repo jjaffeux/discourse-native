@@ -3192,6 +3192,10 @@
   "@momentFormatOptional": {
     "description": "English UI message used by plugins/local_dates/local_date_composer_sheet.dart. Keep placeholders intact."
   },
+  "removeLineBreaksOrOneQuotationMarkTypeFromTheFormat": "Remove line breaks or at least one quotation mark type from the format.",
+  "@removeLineBreaksOrOneQuotationMarkTypeFromTheFormat": {
+    "description": "Validation error in the local-date composer when a custom format cannot be serialized using straight or curly single or double quotation marks."
+  },
   "forExampleLLLOrYYYYMMDDAtHHMm": "For example: LLL or YYYY-MM-DD [at] HH:mm",
   "@forExampleLLLOrYYYYMMDDAtHHMm": {
     "description": "English UI message used by plugins/local_dates/local_date_composer_sheet.dart. Keep placeholders intact."

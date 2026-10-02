@@ -2404,6 +2404,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get momentFormatOptional => 'Moment format (optional)';
 
   @override
+  String get removeLineBreaksOrOneQuotationMarkTypeFromTheFormat =>
+      'Remove line breaks or at least one quotation mark type from the format.';
+
+  @override
   String get forExampleLLLOrYYYYMMDDAtHHMm =>
       'For example: LLL or YYYY-MM-DD [at] HH:mm';
 

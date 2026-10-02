@@ -15,6 +15,36 @@ final RegExp _recurringPattern = RegExp(
   r'^[1-9]\d*\.(years?|quarters?|months?|weeks?|days?|hours?|minutes?|seconds?)$',
 );
 final RegExp _timePattern = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$');
+const _attributeQuotes = [('"', '"'), ("'", "'"), ('“', '”'), ('‘', '’')];
+
+/// Quotes an attribute value using delimiters supported by the date parser.
+///
+/// Preserves a supplied quote pair when possible and otherwise chooses one
+/// whose closing mark is absent from [value]. Throws [ArgumentError] for line
+/// breaks or a value that needs quoting but contains every closing mark.
+String renderLocalDateMarkupValue(
+  String value, {
+  String? openingQuote,
+  String? closingQuote,
+}) {
+  if (!value.contains('\n') && !value.contains('\r')) {
+    if (openingQuote != null &&
+        closingQuote != null &&
+        !value.contains(closingQuote)) {
+      return '$openingQuote$value$closingQuote';
+    }
+    if (openingQuote == null &&
+        value.isNotEmpty &&
+        !value.contains(_unquotedValuePattern) &&
+        !_attributeQuotes.any((pair) => value.startsWith(pair.$1))) {
+      return value;
+    }
+    for (final (open, close) in _attributeQuotes) {
+      if (!value.contains(close)) return '$open$value$close';
+    }
+  }
+  throw ArgumentError.value(value, 'value', 'cannot be represented safely');
+}
 
 @immutable
 class LocalDateMarkupAttribute {
@@ -44,22 +74,11 @@ class LocalDateMarkupAttribute {
 
   String withValue(String next) {
     if (next == value) return raw;
-    var open = openingQuote;
-    var close = closingQuote;
-    if (open == null && _needsQuote(next)) {
-      open = '"';
-      close = '"';
-    }
-    if (open != null && next.contains(close!)) {
-      if (!next.contains("'")) {
-        open = close = "'";
-      } else if (!next.contains('"')) {
-        open = close = '"';
-      } else {
-        throw ArgumentError.value(next, 'next', 'cannot be represented safely');
-      }
-    }
-    final rendered = open == null ? next : '$open$next$close';
+    final rendered = renderLocalDateMarkupValue(
+      next,
+      openingQuote: openingQuote,
+      closingQuote: closingQuote,
+    );
     if (implicit) {
       return '$leadingWhitespace$whitespaceBeforeEquals='
           '$whitespaceAfterEquals$rendered';
@@ -67,9 +86,6 @@ class LocalDateMarkupAttribute {
     return '$leadingWhitespace$name$whitespaceBeforeEquals='
         '$whitespaceAfterEquals$rendered';
   }
-
-  static bool _needsQuote(String value) =>
-      value.isEmpty || value.contains(_unquotedValuePattern);
 }
 
 extension LocalDateComposerEditing on MarkdownEditingController {
