@@ -699,6 +699,7 @@ class _ChatComposerState extends State<ChatComposer> {
     if (_savingEdit) return;
     setState(() => _savingEdit = true);
     composer.showNotice(null);
+    final fieldGeneration = composer.fieldGeneration;
     final originalUploads = {
       for (final upload in message.uploads) upload.id: upload,
     };
@@ -714,9 +715,12 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     if (!mounted || !identical(_composer, composer)) return;
     setState(() => _savingEdit = false);
-    // The list can have moved on to another message's edit while this one was
-    // out. Its outcome must neither end that edit nor annotate its document.
-    if (widget.editingMessage?.id != message.id) return;
+    // The list can have opened another edit, even of the same message, while
+    // this one was out. Its outcome belongs only to the submitted document.
+    if (widget.editingMessage?.id != message.id ||
+        composer.fieldGeneration != fieldGeneration) {
+      return;
+    }
     if (error != null) {
       composer.showNotice(error);
       return;
