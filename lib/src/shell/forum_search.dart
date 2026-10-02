@@ -335,15 +335,23 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   Future<void> _openResult(GlobalSearchResult result) async {
+    final shell = _shell!;
     final site = _global.siteUrl;
     if (site == null) return;
+    final lease = shell.lifecycle.capture(site);
     unawaited(_global.recordSelection(result));
     final page = _page;
     _closeSearch();
     if (page != null) await page.completed;
-    if (!mounted) return;
+    if (!mounted || !lease.isCurrent) return;
+    if (!identical(_shell, shell) ||
+        !identical(ShellScope.maybeRead(context), shell) ||
+        _global.siteUrl != site ||
+        shell.currentInstance?.url != site) {
+      return;
+    }
     if (result.source case final SearchPostHit hit) {
-      _shell!.openSearchResult(hit);
+      shell.openSearchResult(hit);
     } else {
       unawaited(
         openLink(

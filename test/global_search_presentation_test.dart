@@ -30,8 +30,135 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.panelKey), findsNothing);
     expect(shell.globalSearch.query, 'design');
+    expect(shell.currentInstance?.url, globalSearchFixtureSite);
+    expect(shell.currentContent?.topicId, 1038);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (kind, label) in [
+    ('post', 'A calmer, more useful global search'),
+    ('chat', 'The search design is ready for a keyboard review.'),
+  ]) {
+    _testPresentation(
+      'mobile $kind result activation is cancelled after changing forums',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final shell = await _pumpSearch(tester, size: phone);
+        await _openAndSearch(tester, 'design');
+        if (kind == 'chat') {
+          shell.globalSearch.setScope(chatSearchScope);
+          await _finishSearch(tester);
+        }
+        final result = _panelText(label).first;
+        await tester.ensureVisible(result);
+        await tester.pumpAndSettle();
+        await tester.tap(result);
+        await tester.pump();
+        expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+        expect(shell.currentContent?.topicId, isNull);
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+
+        expect(shell.currentInstance?.url, globalSearchFixtureOtherSite);
+        expect(shell.currentContent?.topicId, isNull);
+        expect(
+          shell.pluginSession.require(chatShellService).fullPageChatActive,
+          isFalse,
+        );
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  _testPresentation(
+    'mobile result activation is cancelled after account disconnection',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final shell = await _pumpSearch(tester, size: phone);
+      await _openAndSearch(tester, 'design');
+      final result = _panelText('A calmer, more useful global search').first;
+      await tester.ensureVisible(result);
+      await tester.pumpAndSettle();
+      await tester.tap(result);
+      await tester.pump();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+
+      expect(await shell.disconnectInstance(globalSearchFixtureSite), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(shell.currentInstance?.url, globalSearchFixtureSite);
+      expect(shell.currentInstance?.isConnected, isFalse);
+      expect(shell.currentContent?.topicId, isNull);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _testPresentation(
+    'mobile result activation is cancelled after replacing its shell',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = phone;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final original = createGlobalSearchFixtureController();
+      final replacement = createGlobalSearchFixtureController();
+      addTearDown(original.dispose);
+      addTearDown(replacement.dispose);
+      await original.load();
+      await replacement.load();
+      final selected = ValueNotifier(original);
+      addTearDown(selected.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<ShellController>(
+          valueListenable: selected,
+          builder: (_, shell, _) => ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: const Scaffold(
+                body: ForumSearch(
+                  fullScreen: true,
+                  showNavigationControls: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final state = tester.state(find.byType(ForumSearch));
+      await _openAndSearch(tester, 'design');
+      replacement.globalSearch.configure(
+        siteUrl: globalSearchFixtureSite,
+        capabilities: GlobalSearchCapabilities.fromSite(
+          replacement.siteConfigFor(globalSearchFixtureSite),
+          replacement.currentInstance?.user,
+          contributions: replacement.plugins.registry.searchContributions,
+        ),
+      );
+      replacement.globalSearch.setQuery('design');
+      await _finishSearch(tester);
+      final result = _panelText('A calmer, more useful global search').first;
+      await tester.ensureVisible(result);
+      await tester.pumpAndSettle();
+      await tester.tap(result);
+      await tester.pump();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+
+      selected.value = replacement;
+      await tester.pump();
+      expect(tester.state(find.byType(ForumSearch)), same(state));
+      await tester.pumpAndSettle();
+
+      expect(original.currentContent?.topicId, isNull);
+      expect(replacement.currentContent?.topicId, isNull);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _testPresentation('chat results from a forum open in full-page Chat', (
     tester,
@@ -50,6 +177,27 @@ void main() {
       _panelText('The search design is ready for a keyboard review.'),
     );
     await tester.pumpAndSettle();
+    expect(chat.fullPageChatActive, isTrue);
+    expect(chat.currentContent?.id, 'chat-c-2');
+    expect(find.byKey(ForumSearch.panelKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  _testPresentation('mobile chat result activates on its unchanged forum', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final shell = await _pumpSearch(tester, size: phone);
+    await _openAndSearch(tester, 'design');
+    shell.globalSearch.setScope(chatSearchScope);
+    await _finishSearch(tester);
+    await tester.tap(
+      _panelText('The search design is ready for a keyboard review.'),
+    );
+    await tester.pumpAndSettle();
+
+    final chat = shell.pluginSession.require(chatShellService);
+    expect(shell.currentInstance?.url, globalSearchFixtureSite);
     expect(chat.fullPageChatActive, isTrue);
     expect(chat.currentContent?.id, 'chat-c-2');
     expect(find.byKey(ForumSearch.panelKey), findsNothing);
