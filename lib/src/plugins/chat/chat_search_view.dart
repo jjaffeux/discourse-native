@@ -24,7 +24,9 @@ class ChatSearchView extends StatefulWidget {
 }
 
 class _ChatSearchViewState extends State<ChatSearchView> {
-  late final ChatSearchController _search;
+  late ChatSearchController _search;
+  ChatShellService? _shell;
+  String? _boundSite;
   final TextEditingController _query = TextEditingController();
   late final FocusNode _focus;
   late final ScrollController _scroll;
@@ -42,26 +44,49 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_ready) return;
-    _search = PluginUiScope.require(context, chatSearchControllerService);
-    _query.text = _search.globalState(widget.siteUrl).query;
-    _unregisterFocus = _search.registerGlobalFocus(
-      widget.siteUrl,
-      _focus.requestFocus,
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatSearchView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl) _bind();
+  }
+
+  void _bind() {
+    final search = PluginUiScope.require(context, chatSearchControllerService);
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = widget.siteUrl;
+    if (_ready &&
+        identical(_search, search) &&
+        identical(_shell, shell) &&
+        _boundSite == siteUrl) {
+      return;
+    }
+    _detach();
+    _search = search;
+    _shell = shell;
+    _boundSite = siteUrl;
+    _query.text = search.globalState(siteUrl).query;
+    _unregisterFocus = search.registerGlobalFocus(siteUrl, _focus.requestFocus);
+    _unregisterRefresher = shell.registerRouteRefresher(
+      siteUrl,
+      ChatPlugin.searchRouteId,
+      () => search.retryGlobal(siteUrl),
     );
-    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
-        .registerRouteRefresher(
-          widget.siteUrl,
-          ChatPlugin.searchRouteId,
-          () => _search.retryGlobal(widget.siteUrl),
-        );
     _ready = true;
+  }
+
+  void _detach() {
+    _unregisterFocus?.call();
+    _unregisterFocus = null;
+    _unregisterRefresher?.call();
+    _unregisterRefresher = null;
   }
 
   @override
   void dispose() {
-    _unregisterFocus?.call();
-    _unregisterRefresher?.call();
+    _detach();
     _scroll.dispose();
     _focus.dispose();
     _query.dispose();
