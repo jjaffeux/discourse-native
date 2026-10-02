@@ -288,8 +288,19 @@ class DismissNewTopicsButton extends StatelessWidget {
         TopicListMode.newReplies => context.l10n.dismissNewReplies,
         _ => context.l10n.dismissNew,
       };
+      final siteUrl = shell.currentInstance!.url;
+      final lease = shell.lifecycle.capture(siteUrl);
+      final tabId = shell.activeTabId;
+      final route = shell.topicListContent;
       Future<void> dismiss() async {
-        final lease = shell.lifecycle.capture(shell.currentInstance!.url);
+        if (!context.mounted ||
+            !lease.isCurrent ||
+            !identical(ShellScope.read(context), shell) ||
+            shell.currentInstance?.url != siteUrl ||
+            shell.activeTabId != tabId ||
+            shell.topicListContent != route) {
+          return;
+        }
         final error = await shell.dismissNewTopics();
         if (context.mounted && lease.isCurrent && error != null) {
           DToast.show(context, error, type: DToastType.error);
