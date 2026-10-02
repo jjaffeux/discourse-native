@@ -189,6 +189,95 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final direction in TextDirection.values) {
+    testWidgets('restricted category keeps counts on one line in $direction', (
+      tester,
+    ) async {
+      for (final (width, scale, styleType, tagCount) in [
+        (430.0, 1.25, 'square', 1),
+        (390.0, 1.0, 'square', 1),
+        (320.0, 1.25, 'square', 1),
+        (280.0, 2.0, 'square', 1),
+        (390.0, 1.75, 'icon', 12),
+        (320.0, 1.25, 'icon', 12),
+      ]) {
+        await _pump(
+          tester,
+          width: width,
+          scale: scale,
+          dark: true,
+          direction: direction,
+          topics: [
+            Topic(
+              id: 21,
+              title:
+                  'Scheduled Topic Timer occasionally fails to move topics to target category',
+              excerpt:
+                  'Hi team,\nWe’ve been using the Topic Timer to schedule topics for later.',
+              slug: 'timer',
+              categoryId: 12,
+              replyCount: 12,
+              likeCount: 3,
+              tags: [
+                const TopicTag(name: 'in-progress'),
+                for (var i = 1; i < tagCount; i++)
+                  TopicTag(name: 'long-tag-number-$i'),
+              ],
+              posters: [
+                ..._topics.first.posters,
+                const TopicPoster(userId: 5, username: 'fifth'),
+              ],
+            ),
+          ],
+          categories: [
+            const TopicCategory(id: 11, name: 'Customers', color: 'A787CB'),
+            TopicCategory(
+              id: 12,
+              name: 'HubSpot',
+              color: 'FFAACC',
+              parentCategoryId: 11,
+              readRestricted: true,
+              styleType: styleType,
+              icon: 'folder',
+            ),
+          ],
+        );
+        final category = find.byKey(const ValueKey(('topic-row-category', 12)));
+        void expectSingleLine() {
+          final y = tester.getCenter(category).dy;
+          for (final count in ['12', '3']) {
+            expect(
+              tester.getCenter(find.text(count)).dy,
+              closeTo(y, .01),
+              reason: 'Counts must stay beside the category at $width/$scale',
+            );
+          }
+          final activity = tester.getRect(
+            find.byKey(const ValueKey('topic-card-activity-21')),
+          );
+          expect(activity.left, greaterThanOrEqualTo(16));
+          expect(activity.right, lessThanOrEqualTo(width - 16));
+          expect(tester.takeException(), isNull);
+        }
+
+        expectSingleLine();
+        if (width == 430 && direction == TextDirection.ltr) {
+          await expectLater(
+            find.byKey(const ValueKey('mobile-topics')),
+            matchesGoldenFile('goldens/topic-card-restricted-taxonomy.png'),
+          );
+        }
+        final overflow = find.byKey(const ValueKey('topic-row-tag-overflow'));
+        if (overflow.evaluate().isNotEmpty) {
+          await tester.tap(overflow);
+          await tester.pumpAndSettle();
+          expect(find.text('#in-progress'), findsOneWidget);
+          expectSingleLine();
+        }
+      }
+    });
+  }
+
   testWidgets('category links name their category once', (tester) async {
     final semantics = tester.ensureSemantics();
     await _pump(tester, width: 590);

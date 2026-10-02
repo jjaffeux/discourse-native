@@ -43,11 +43,37 @@ void main() {
   );
 
   test('a stub needs at least 30px after reserving the overflow count', () {
-    expect(layout(342).stub, '#b…');
-    final result = layout(341);
+    // The measured +N is 20px in this font, exceeding the 16px minimum.
+    expect(layout(346).stub, '#b…');
+    final result = layout(345);
     expect(result.stub, isNull);
     expect(result.visibleTags, 1);
     expect(result.remainingTags, 2);
+  });
+
+  test('private category artwork reduces the space available to tags', () {
+    final result = TopicCardTaxonomyLayout.calculate(
+      width: 330,
+      countsWidth: 100,
+      categories: ['Parent', 'HubSpot'],
+      categoryMarkWidths: [9, 26],
+      tags: ['in-progress'],
+      measure: measure,
+    );
+    expect(result.leaf, 'HubSpot');
+    expect(result.stub, '#in-pr…');
+    expect(result.remainingTags, 0);
+  });
+
+  test('multi-digit overflow reserves its full rendered width', () {
+    final result = layout(
+      290,
+      categories: ['Category'],
+      tags: List.generate(12, (i) => 'long-tag-number-$i'),
+    );
+    expect(result.visibleTags, 0);
+    expect(result.stub, '#lon…');
+    expect(result.remainingTags, 11);
   });
 
   test('category clipping preserves its distinguishing suffix', () {

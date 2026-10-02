@@ -24,13 +24,20 @@ class TopicCardTaxonomyLayout {
     required List<String> categories,
     required List<String> tags,
     required double Function(String) measure,
+    List<double>? categoryMarkWidths,
   }) {
+    assert(
+      categoryMarkWidths == null ||
+          categoryMarkWidths.length == categories.length,
+    );
     const gap = 5.0;
-    const plus = 16.0;
-    double pathWidth(List<String> path, bool lead) {
+    // Keep the mockup's minimum, but allow for scaled text and multi-digit +N.
+    final plus = math.max(16.0, measure('+${tags.length}'));
+    final marks = categoryMarkWidths ?? List.filled(categories.length, 9.0);
+    double pathWidth(List<String> path, List<double> marks, bool lead) {
       if (path.isEmpty) return 0;
       return path.fold(0.0, (sum, name) => sum + measure(name)) +
-          9 * path.length +
+          marks.fold(0.0, (sum, width) => sum + width) +
           7 * (path.length - 1 + (lead ? 1 : 0)) +
           (lead ? measure('…') : 0) +
           gap * (1 + 3 * (path.length - 1) + (lead ? 2 : 0));
@@ -39,14 +46,15 @@ class TopicCardTaxonomyLayout {
     final runWidth = math.max(0.0, width - countsWidth);
     final budget = runWidth * .55;
     final abridged =
-        categories.length > 1 && pathWidth(categories, false) > budget;
+        categories.length > 1 && pathWidth(categories, marks, false) > budget;
     final path = abridged
         ? categories.sublist(categories.length - 1)
         : categories;
     final leaf = path.isEmpty ? '' : path.last;
     final chrome = path.isEmpty
         ? 0.0
-        : pathWidth(path, abridged) - measure(leaf);
+        : pathWidth(path, abridged ? [marks.last] : marks, abridged) -
+              measure(leaf);
     final clipTo = math.max(
       0.0,
       math.min(
