@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 
 import 'forum_background.dart';
 import 'site_appearance.dart';
@@ -36,7 +37,7 @@ final class ForumTheme {
     if (json['version'] != 1 ||
         name is! String ||
         name.trim().isEmpty ||
-        name.trim().length > 48 ||
+        name.trim().characters.length > 48 ||
         (mode != 'light' && mode != 'dark') ||
         colors is! Map) {
       throw FormatException(appL10n.invalidTheme);
