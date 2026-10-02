@@ -99,6 +99,7 @@ void main() {
       final maximum = ComposerTriggerKind.mention.maximum;
       expect(triggerIn('@${'é' * maximum}|'), '@${'é' * maximum}');
       expect(triggerIn('@${'é' * (maximum + 1)}|'), '-');
+      expect(triggerIn('@${'ب\u0650' * 16}|'), '@${'ب\u0650' * 16}');
       expect(triggerIn('@${'𐐀' * maximum}|'), '@${'𐐀' * maximum}');
       expect(triggerIn('@${'𐐀' * (maximum + 1)}|'), '-');
       expect(

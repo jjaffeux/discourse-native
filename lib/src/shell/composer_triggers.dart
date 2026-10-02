@@ -22,7 +22,9 @@ enum ComposerTriggerKind {
   };
 
   int get maximum => switch (this) {
-    ComposerTriggerKind.mention => 30,
+    // Core caps usernames at 60 scalars even when combining marks make fewer
+    // visible characters. This also bounds group-name lookup terms.
+    ComposerTriggerKind.mention => 60,
     // Core's own cap on a hashtag ref.
     ComposerTriggerKind.hashtag => 101,
     ComposerTriggerKind.emoji => 30,

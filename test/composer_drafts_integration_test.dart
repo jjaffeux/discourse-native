@@ -1229,6 +1229,7 @@ void _registerComposerAndDraftTests() {
       '𐐀name',
       '𐐀' * 16,
       '𐐀' * 20,
+      'ب\u0650' * 16,
     ]) {
       testWidgets('Unicode mention $username reaches search and inserts', (
         tester,
