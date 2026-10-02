@@ -25,7 +25,9 @@ void main() {
   Future<void> pump(WidgetTester tester, String html) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.dark,
+        // Keep the existing anchored preview and keyboard coverage on desktop;
+        // the touch drawer has its own responsive/interaction tests.
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
         localizationsDelegates:
             RelativeTimeLocalizations.localizationsDelegates,
         supportedLocales: RelativeTimeLocalizations.supportedLocales,

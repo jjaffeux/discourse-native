@@ -147,6 +147,7 @@ class LocalDatePreview {
   const LocalDatePreview({
     required this.timezone,
     required this.label,
+    required this.value,
     required this.formatted,
     this.current = false,
     this.source = false,
@@ -154,6 +155,7 @@ class LocalDatePreview {
 
   final String timezone;
   final String label;
+  final tz.TZDateTime value;
   final String formatted;
   final bool current;
   final bool source;
@@ -279,6 +281,7 @@ class LocalDateFormatter {
         LocalDatePreview(
           timezone: zone,
           label: zoneLabel(zone),
+          value: value,
           formatted: formatMoment(value, 'LLLL', locale),
           current: zone == resolved.readerTimezone,
           source: zone == resolved.sourceTimezone,

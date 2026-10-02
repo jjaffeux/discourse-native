@@ -4005,6 +4005,36 @@ abstract class AppLocalizations {
   /// **'Date and time'**
   String get dateAndTime;
 
+  /// The time zone's calendar date is one day before the reader's date.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous day'**
+  String get localDatePreviousDay;
+
+  /// The time zone's calendar date is one day after the reader's date.
+  ///
+  /// In en, this message translates to:
+  /// **'Next day'**
+  String get localDateNextDay;
+
+  /// The time zone's calendar date is multiple days before the reader's date.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day earlier} other{{count} days earlier}}'**
+  String localDateDaysEarlier(int count);
+
+  /// The time zone's calendar date is multiple days after the reader's date.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day later} other{{count} days later}}'**
+  String localDateDaysLater(int count);
+
+  /// Description of UTC in the local-date time zone preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Universal time'**
+  String get localDateUniversalTime;
+
   /// English UI message used by plugins/local_dates/local_date_widget.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

@@ -9,6 +9,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'local_date.dart';
+import 'local_date_preview_sheet.dart';
 import 'local_dates_services.dart';
 import 'local_dates_settings.dart';
 
@@ -265,10 +266,20 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       now: _now,
     );
     if (context.isTouch) {
-      await showShellSheet<void>(
+      await showDDrawer<void>(
         context: context,
-        title: appL10n.dateAndTime,
-        builder: body,
+        showSwipeHandle: true,
+        requestInitialFocus: false,
+        barrierLabel: context.l10n.dismissDateAndTime,
+        builder: (context, drawer) => LocalDatePreviewSheet(
+          previews: previews,
+          hasTime: widget.spec.hasTime,
+          rangeEndHasTime: widget.to?.hasTime ?? false,
+          rangeEnd: widget.to == null
+              ? null
+              : widget.formatter.resolveInstant(widget.to!, now: _now),
+          onClose: drawer.close,
+        ),
       );
       return;
     }
