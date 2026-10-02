@@ -3356,6 +3356,65 @@ void _feedGroups() {
       expect(jsonDecode(sent.last.body), <String, dynamic>{});
     });
 
+    for (final (label, description) in [
+      ('100 ASCII', 'a' * 100),
+      ('100 emoji', '🧵' * 100),
+      ('100 combining scalars', 'e\u0301' * 50),
+    ]) {
+      test('custom status accepts $label', () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response('', 200);
+          }),
+        );
+        addTearDown(api.close);
+        await api.setUserStatus(
+          siteUrl: 'https://example.com',
+          apiKey: 'key',
+          description: ' $description ',
+          emoji: ':house:',
+        );
+        expect(sent, hasLength(1));
+        expect(jsonDecode(sent.single.body), {
+          'description': description,
+          'emoji': 'house',
+        });
+      });
+    }
+
+    for (final (label, description, emoji) in [
+      ('empty description', '', 'house'),
+      ('blank description', '   ', 'house'),
+      ('101 ASCII description', 'a' * 101, 'house'),
+      ('101 emoji description', '🧵' * 101, 'house'),
+      ('102 combining scalars description', 'e\u0301' * 51, 'house'),
+      ('empty emoji name', 'Working', ''),
+      ('101 ASCII emoji name', 'Working', 'a' * 101),
+    ]) {
+      test('custom status rejects $label before HTTP', () async {
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response('', 200);
+          }),
+        );
+        addTearDown(api.close);
+        await expectLater(
+          api.setUserStatus(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            description: description,
+            emoji: emoji,
+          ),
+          throwsArgumentError,
+        );
+        expect(sent, isEmpty);
+      });
+    }
+
     test('enters and leaves Do Not Disturb with core payloads', () async {
       final sent = <http.Request>[];
       final api = DiscourseApi(
