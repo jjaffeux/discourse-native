@@ -9,6 +9,7 @@ import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
+import 'directory_skeleton.dart';
 import 'shell_scope.dart';
 
 class TagsPage extends StatefulWidget {
@@ -56,7 +57,13 @@ class _TagsPageState extends State<TagsPage> {
         );
       }
       if (!feed.loaded && feed.tags.isEmpty) {
-        return const SizedBox.shrink();
+        return ContentReadingLane(
+          basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          builder: (context, lane) => Padding(
+            padding: lane.padding,
+            child: const DirectorySkeleton(kind: DirectorySkeletonKind.tags),
+          ),
+        );
       }
       if (feed.isEmpty) {
         return _TagPageState(icon: DIcons.tag, title: context.l10n.noTagsYet);

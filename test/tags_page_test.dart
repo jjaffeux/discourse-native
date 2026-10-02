@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
@@ -10,8 +13,11 @@ import 'package:discourse_native/src/shell/tags_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' as harness;
+import 'support/skeleton_expectations.dart';
 
 const Size _viewport = Size(1200, 900);
 const String _siteUrl = 'https://meta.discourse.org';
@@ -82,6 +88,75 @@ SidebarDestination _allTagsDestination(ShellController controller) => controller
     .singleWhere((destination) => destination.id == 'all-tags');
 
 void main() {
+  for (final mobile in [false, true]) {
+    testWidgets(
+      'All tags shows a viewport-filling Native skeleton on ${mobile ? 'mobile' : 'desktop'} and retains rows during refresh',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final api = _HeldTagApi();
+        addTearDown(() {
+          if (!api.tagsGate.isCompleted) api.tagsGate.complete();
+        });
+        const user = _directoryUser;
+        final site = instance('meta.discourse.org').copyWith(user: user);
+        await harness.pumpShell(
+          tester,
+          mobile ? harness.phone : harness.desktop,
+          instances: [site],
+          api: api,
+          authenticator: FakeAuthenticator.signedIn([site], site: api),
+          revealMobileNavigation: mobile,
+        );
+        final allTags = _sidebarText('All tags');
+        await tester.ensureVisible(allTags);
+        await tester.tap(allTags);
+        await tester.pump();
+        await api.started.future;
+        await tester.pump(const Duration(milliseconds: 400));
+        final page = find.byType(TagsPage);
+        expect(page, findsOneWidget);
+        expectSkeletonFillsViewport(
+          tester,
+          label: 'Loading tags',
+          bottom: tester.getRect(page).bottom - 24,
+        );
+        expect(find.byType(TagDirectoryRow), findsNothing);
+        expect(find.text('No tags yet'), findsNothing);
+
+        api.tagsGate.complete();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('tag-directory-tag-17')),
+          findsOneWidget,
+        );
+        expect(find.byType(DSkeletonRegion), findsNothing);
+
+        api.tagsGate = Completer<void>();
+        final shell = ShellScope.read(tester.element(page));
+        final refresh = shell.loadTags(_siteUrl, force: true);
+        await tester.pump();
+        expect(shell.tagDirectoryFeedFor(_siteUrl).loading, isTrue);
+        expect(
+          find.byKey(const ValueKey('tag-directory-tag-17')),
+          findsOneWidget,
+        );
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        api.tagsGate.complete();
+        await refresh;
+        await tester.pumpAndSettle();
+        api.result = const [];
+        await shell.loadTags(_siteUrl, force: true);
+        await tester.pumpAndSettle();
+        expect(find.text('No tags yet'), findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(
+        mobile ? TargetPlatform.iOS : TargetPlatform.linux,
+      ),
+    );
+  }
+
   test(
     'connected sidebar tags win and an empty selection uses site top tags',
     () async {
@@ -311,6 +386,42 @@ void main() {
     expect(api.tagRequests, [_siteUrl, _siteUrl, _siteUrl]);
     expect(find.byKey(rowKey), findsOneWidget);
   });
+}
+
+const _loadedTag = SidebarTag(
+  id: 17,
+  name: 'priority-high',
+  slug: 'priority-high',
+  description: 'Topics which need prompt attention',
+  count: 3,
+);
+
+const _directoryUser = DiscourseUser(
+  id: 1,
+  username: 'reader',
+  displaySidebarTags: true,
+  sidebarTags: [_loadedTag],
+);
+
+final class _HeldTagApi extends FakeDiscourseApi {
+  _HeldTagApi()
+    : super(user: _directoryUser, feeds: const {'/latest.json': []});
+
+  final started = Completer<void>();
+  Completer<void> tagsGate = Completer<void>();
+  List<SidebarTag> result = const [_loadedTag];
+
+  @override
+  Future<List<SidebarTag>> tags({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    tagRequests.add(siteUrl);
+    if (!started.isCompleted) started.complete();
+    await tagsGate.future;
+    return result;
+  }
 }
 
 final class _FailingTagApi extends FakeDiscourseApi {

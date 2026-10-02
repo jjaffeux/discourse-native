@@ -6,7 +6,14 @@ import 'package:flutter/widgets.dart';
 
 import 'skeleton_fill.dart';
 
-enum DirectorySkeletonKind { bookmarks, badges, categories, groups, users }
+enum DirectorySkeletonKind {
+  bookmarks,
+  badges,
+  categories,
+  groups,
+  tags,
+  users,
+}
 
 /// Page placeholders composed from the Native skeletons, sized to the viewport.
 class DirectorySkeleton extends StatelessWidget {
@@ -19,6 +26,7 @@ class DirectorySkeleton extends StatelessWidget {
     DirectorySkeletonKind.badges => 96,
     DirectorySkeletonKind.categories => 80,
     DirectorySkeletonKind.groups => 144,
+    DirectorySkeletonKind.tags => 80,
     DirectorySkeletonKind.users => 48,
   };
 
@@ -57,6 +65,7 @@ class DirectorySkeleton extends StatelessWidget {
   Widget _row(int index, double width) {
     final users = kind == DirectorySkeletonKind.users;
     final groups = kind == DirectorySkeletonKind.groups;
+    final tags = kind == DirectorySkeletonKind.tags;
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: DSpacing.lg,
@@ -74,7 +83,7 @@ class DirectorySkeleton extends StatelessWidget {
                   borderRadius: BorderRadius.circular(DRadius.popover),
                 )
               else
-                DSkeleton.circle(diameter: users ? 24 : 40),
+                DSkeleton.circle(diameter: users || tags ? 24 : 40),
               SizedBox(width: users ? DSpacing.sm : DSpacing.lg),
               Expanded(
                 child: Column(
@@ -94,8 +103,12 @@ class DirectorySkeleton extends StatelessWidget {
                   ],
                 ),
               ),
-              if (users)
-                for (var column = 0; column < (width < 600 ? 1 : 4); column++)
+              if (users || tags)
+                for (
+                  var column = 0;
+                  column < (tags || width < 600 ? 1 : 4);
+                  column++
+                )
                   const Expanded(
                     child: Padding(
                       padding: EdgeInsetsDirectional.only(start: DSpacing.lg),
