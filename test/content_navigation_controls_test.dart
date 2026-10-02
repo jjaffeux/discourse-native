@@ -82,7 +82,40 @@ void main() {
         final shell = _shell(tester);
         final tabId = shell.activeTabId;
 
-        expect(find.byType(DButtonGroup), findsNothing);
+        final controls = find.byType(ContentNavigationControls);
+        final group = find.descendant(
+          of: controls,
+          matching: find.byType(DButtonGroup),
+        );
+        expect(group, findsOneWidget);
+        final separator = find.descendant(
+          of: group,
+          matching: find.byType(DSeparator),
+        );
+        expect(separator, findsOneWidget);
+        final backRect = tester.getRect(
+          find.byKey(ContentNavigationControls.backKey),
+        );
+        final forwardRect = tester.getRect(
+          find.byKey(ContentNavigationControls.forwardKey),
+        );
+        final refreshRect = tester.getRect(
+          find.byKey(ContentNavigationControls.refreshKey),
+        );
+        final separatorRect = tester.getRect(separator);
+        // One continuous surface with no gaps between the button targets.
+        expect(backRect.right, forwardRect.left);
+        expect(forwardRect.right, separatorRect.left);
+        expect(separatorRect.right, refreshRect.left);
+        expect(tester.getRect(group), backRect.expandToInclude(refreshRect));
+        expect(backRect.size, const Size(34, 34));
+        expect(forwardRect.size, backRect.size);
+        expect(refreshRect.size, backRect.size);
+        final rule = tester.widget<DSeparator>(separator);
+        expect(rule.orientation, Axis.vertical);
+        expect(rule.indent, greaterThan(0));
+        expect(rule.endIndent, rule.indent);
+        expect(rule.indent + rule.endIndent, lessThan(backRect.height));
 
         expect(
           _button(tester, ContentNavigationControls.backKey).onPressed,
