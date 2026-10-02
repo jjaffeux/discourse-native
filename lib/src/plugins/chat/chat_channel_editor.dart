@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -12,29 +13,39 @@ Future<void> showChatChannelDetailsEditor({
   required ChatController chat,
   required String siteUrl,
   required ChatChannel channel,
-}) => showDDialog<void>(
-  context: context,
-  dismissOnBarrier: false,
-  builder: (context, dialog) => _ChannelDetailsDialog(
-    chat: chat,
-    siteUrl: siteUrl,
-    channel: channel,
-    dialog: dialog,
-  ),
-);
+}) {
+  final lease = chat.captureSession(siteUrl);
+  final dialogKey = GlobalKey<_ChannelDetailsDialogState>();
+  return showDDialog<void>(
+    context: context,
+    dismissOnBarrier: false,
+    canDismiss: () => !(dialogKey.currentState?._saving ?? false),
+    builder: (context, dialog) => _ChannelDetailsDialog(
+      key: dialogKey,
+      chat: chat,
+      siteUrl: siteUrl,
+      channel: channel,
+      dialog: dialog,
+      lease: lease,
+    ),
+  );
+}
 
 class _ChannelDetailsDialog extends StatefulWidget {
   const _ChannelDetailsDialog({
+    super.key,
     required this.chat,
     required this.siteUrl,
     required this.channel,
     required this.dialog,
+    required this.lease,
   });
 
   final ChatController chat;
   final String siteUrl;
   final ChatChannel channel;
   final DDialogController<void> dialog;
+  final PluginSiteLease lease;
 
   @override
   State<_ChannelDetailsDialog> createState() => _ChannelDetailsDialogState();
@@ -85,21 +96,27 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
     final slugChanged = slug != widget.channel.slug;
     final descriptionChanged =
         _description.text != (widget.channel.description ?? '');
-    final error = await widget.chat.updateChannelMetadata(
-      widget.siteUrl,
-      widget.channel.id,
-      name: titleChanged ? name : null,
-      slug: slugChanged ? slug : null,
-      description: descriptionChanged ? _description.text : null,
-    );
+    final error = widget.lease.isCurrent
+        ? await widget.chat.updateChannelMetadata(
+            widget.siteUrl,
+            widget.channel.id,
+            name: titleChanged ? name : null,
+            slug: slugChanged ? slug : null,
+            description: descriptionChanged ? _description.text : null,
+          )
+        : appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
     if (!mounted) return;
-    if (error != null) {
+    final refusal = widget.lease.isCurrent
+        ? error
+        : appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
+    if (refusal != null) {
       setState(() {
         _saving = false;
-        _error = error;
+        _error = refusal;
       });
       return;
     }
+    _saving = false;
     widget.dialog.close();
   }
 
@@ -151,13 +168,10 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
               labelText: context.l10n.description,
             ),
             if (_error case final error?)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  error,
-                  key: const ValueKey('chat-channel-details-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+              DAlert(
+                key: const ValueKey('chat-channel-details-error'),
+                variant: DAlertVariant.destructive,
+                description: DAlertDescription(child: Text(error)),
               ),
           ],
         ),
