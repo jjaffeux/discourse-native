@@ -27,6 +27,8 @@ final sheetExamples = ComponentExamples(
       'to reveal the screen underneath and restores if the swipe is cancelled. '
       'Retained DSheetViewport surfaces enable swipes with onDismiss; the host '
       'removes the sheet after its exit or leaves it mounted to restore it. '
+      'onSwipeDismissRequested instead restores the sheet as soon as the swipe '
+      'reaches the dismissal threshold, then lets the host show close actions. '
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
       'Swipe handles, detents and snap points belong to Drawer.',
   examples: [

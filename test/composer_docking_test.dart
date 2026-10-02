@@ -911,8 +911,19 @@ void main() {
             await gesture.moveBy(const Offset(0, 30));
             await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
             await tester.pump();
-            expect(tester.getTopLeft(sheet).dy, greaterThan(top + 50));
+            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
             if (origin == 'header') expect(scroll.offset, 400);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 16));
+            for (final action in ['Discard', 'Minimize', 'Save draft']) {
+              expect(find.text(action).hitTestable(), findsOneWidget);
+            }
+            // The menu is available while the finger is still down. Continued
+            // movement must neither drag the sheet again nor duplicate it.
+            await gesture.moveBy(const Offset(0, 30));
+            await tester.pump();
+            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
+            expect(find.text('Discard'), findsOneWidget);
             await gesture.up();
             await tester.pumpAndSettle();
             expect(harness.shell.visibleComposer, same(composer));
@@ -1068,7 +1079,7 @@ void main() {
     });
   }
 
-  testWidgets('a cancelled swipe keeps the short composer and selection', (
+  testWidgets('partial swipe cancellation keeps the composer and selection', (
     tester,
   ) async {
     final harness = await _Harness.create(
@@ -1100,7 +1111,7 @@ void main() {
       tester.getCenter(find.byKey(const ValueKey('composer-mobile-scroll'))),
     );
     await gesture.moveBy(const Offset(0, 30));
-    await gesture.moveBy(const Offset(0, 180));
+    await gesture.moveBy(const Offset(0, 100));
     await tester.pump();
     expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top));
     await gesture.cancel();

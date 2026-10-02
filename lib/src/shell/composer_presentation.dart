@@ -167,13 +167,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     unawaited(_place(entry, _previousDockPlacement, focusEditor: false));
   }
 
-  Future<void> _showMobileCloseMenu(_ComposerEntry entry) async {
-    final duration = DMotion.duration(context, DMotion.change);
-    // The retained sheet starts returning on the next frame. Open its anchored
-    // menu once the header is back, including when the keyboard is visible.
-    await WidgetsBinding.instance.endOfFrame;
-    await Future<void>.delayed(duration);
-    await WidgetsBinding.instance.endOfFrame;
+  void _showMobileCloseMenu(_ComposerEntry entry) {
     if (!mounted || _mobileSheetEntry != entry || entry.composer.isDisposed) {
       return;
     }
@@ -306,9 +300,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                 },
                 child: DSheetViewport(
                   key: ObjectKey(mobileSheet.composer),
-                  // Retain the sheet so a swipe restores it and asks the user
-                  // to choose an action, just like the header close button.
-                  onDismiss: () => unawaited(_showMobileCloseMenu(mobileSheet)),
+                  onSwipeDismissRequested: () =>
+                      _showMobileCloseMenu(mobileSheet),
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,
