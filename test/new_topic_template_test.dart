@@ -8,7 +8,11 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -54,13 +58,14 @@ void main() {
       sequence: 0,
     ),
     SiteConfig? siteConfig,
+    TopicCategory bugs = _bugs,
   }) async {
     const user = DiscourseUser(id: 7, username: 'reader', canCreateTopic: true);
     final api = FakeDiscourseApi(
       user: user,
       feeds: const {'/latest.json': [], '/c/bugs/5.json': []},
       creatableFeedPaths: const {'/latest.json', '/c/bugs/5.json'},
-      categoryList: const [_bugs, _features, _general],
+      categoryList: [bugs, _features, _general],
       draftRestoreGate: draftRestoreGate,
       draftToRestore: draftToRestore,
       siteConfigs: {_siteUrl: ?siteConfig},
@@ -202,6 +207,84 @@ void main() {
       expect(api.topicsCreated.single['categoryId'], _bugs.id);
     },
   );
+
+  for (final entry in [
+    ('normal', _bugTemplate),
+    ('newline', '\n$_bugTemplate\n'),
+    ('indent', '    Describe what happened\n\n    Add a code sample\n'),
+  ]) {
+    testWidgets(
+      'Native submit refuses untouched ${entry.$1} template and keeps authored indentation',
+      (tester) async {
+        final template = entry.$2;
+        final bugs = TopicCategory(
+          id: _bugs.id,
+          name: _bugs.name,
+          slug: _bugs.slug,
+          color: _bugs.color,
+          permission: _bugs.permission,
+          topicTemplate: template,
+        );
+        final (:shell, :api) = await start(bugs: bugs);
+        final composer = (await tester.runAsync(() => openInBugs(shell)))!;
+        expect(composer.text.text, template);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: ShellScope(
+              controller: shell,
+              child: Scaffold(
+                body: ListenableBuilder(
+                  listenable: shell,
+                  builder: (context, _) {
+                    final current = shell.visibleComposer;
+                    return current == null
+                        ? const SizedBox.shrink()
+                        : ComposerPanel(composer: current, height: 500);
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('composer-topic-title')),
+          'A category template report',
+        );
+        for (final body in [template, '\n$template\n\n']) {
+          await tester.enterText(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is EditableText && widget.controller == composer.text,
+            ),
+            body,
+          );
+          await tester.pumpAndSettle();
+          expect(composer.canSubmit, isTrue);
+          await tester.tap(find.byKey(const ValueKey('composer-submit')));
+          await tester.pumpAndSettle();
+          expect(api.topicsCreated, isEmpty);
+          expect(shell.visibleComposer, same(composer));
+          expect(composer.error?.message, _untouchedTemplateMessage);
+        }
+        final authored =
+            '    puts "hi"\n\n$template\nAuthored explanation.\n\n';
+        await tester.enterText(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is EditableText && widget.controller == composer.text,
+          ),
+          authored,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-submit')));
+        await tester.pumpAndSettle();
+        expect(api.topicsCreated.single['raw'], authored.trimRight());
+        expect(api.topicsCreated.single['categoryId'], _bugs.id);
+      },
+    );
+  }
 
   test(
     'a site with templates requires a category before it asks the site',

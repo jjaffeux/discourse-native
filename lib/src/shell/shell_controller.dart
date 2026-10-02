@@ -14351,7 +14351,7 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = composer.target.siteUrl;
     final categoryId = composer.categoryId;
     final template = categoryFor(categoryId, siteUrl: siteUrl)?.topicTemplate;
-    if (template != null && composer.raw == template.trim()) {
+    if (template != null && composer.raw.trim() == template.trim()) {
       return appL10n.pleaseAddDetailsAndSpecificsToYourTopicByEditingThe;
     }
     if (categoryId == null &&
