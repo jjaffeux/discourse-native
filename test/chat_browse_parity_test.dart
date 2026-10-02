@@ -22,11 +22,13 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/skeleton_expectations.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
@@ -104,7 +106,7 @@ void main() {
     testWidgets(
       '${page.name} shows skeleton rows until its request completes',
       (tester) async {
-        final fixture = await _pump(tester);
+        final fixture = await _pump(tester, platform: defaultTargetPlatform);
         final gate = Completer<void>();
         addTearDown(() {
           if (!gate.isCompleted) gate.complete();
@@ -128,6 +130,15 @@ void main() {
           find.byKey(const ValueKey('chat-browse-navigation')),
           findsOneWidget,
         );
+        for (final size in [const Size(430, 932), const Size(900, 1200)]) {
+          await tester.binding.setSurfaceSize(size);
+          await tester.pump();
+          expectSkeletonFillsViewport(
+            tester,
+            label: 'Loading ${page.name}',
+            bottom: size.height - (page == ChatBrowsePage.chats ? 0 : 16),
+          );
+        }
         await tester.binding.setSurfaceSize(const Size(320, 260));
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -150,6 +161,10 @@ void main() {
         expect(skeleton, findsNothing);
         expect(tester.takeException(), isNull);
       },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+      }),
     );
   }
 
