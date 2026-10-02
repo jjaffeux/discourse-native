@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -14598,4 +14597,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get composerOutdent => 'Outdent';
+
+  @override
+  String get recentTopics => 'Recent topics';
+
+  @override
+  String startPageNoMatches(String query) {
+    return 'Nothing matches “$query”';
+  }
+
+  @override
+  String startPageResults(int count, String query) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0 for “$query”';
+  }
+
+  @override
+  String get startPageFilters => 'Filters';
 }

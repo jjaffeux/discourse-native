@@ -68,6 +68,18 @@ class _ForumSearchState extends State<ForumSearch> {
 
   bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
 
+  bool get _filtersStartPage =>
+      !widget.fullScreen &&
+      _search.siteUrl != null &&
+      _shell?.currentContent?.id == 'new-tab';
+
+  String get _query => _filtersStartPage
+      ? _search.startPageQueryFor(
+          _search.siteUrl!,
+          _shell!.activeTabId ?? 'start',
+        )
+      : _global.query;
+
   void _closeSearch() {
     if (widget.fullScreen) {
       final page = _page;
@@ -134,6 +146,9 @@ class _ForumSearchState extends State<ForumSearch> {
   void _siteChanged() {
     if (!mounted) return;
     _syncSite();
+    _syncText();
+    if (_filtersStartPage && _surfaceOpen) _search.closePanel();
+    setState(() {});
   }
 
   void _searchChanged() {
@@ -165,15 +180,20 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _syncText() {
-    if (_text.text == _global.query) return;
+    final query = _query;
+    if (_text.text == query) return;
     _text.value = TextEditingValue(
-      text: _global.query,
-      selection: TextSelection.collapsed(offset: _global.query.length),
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
     );
   }
 
   void _requestFocus() {
     if (!mounted) return;
+    if (_filtersStartPage) {
+      _focus.requestFocus();
+      return;
+    }
     _search.activateField(_field);
     _openSearch();
     _focus.requestFocus();
@@ -181,6 +201,10 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _requestShortcutFocus(SearchFocusMode mode) {
     if (!mounted) return;
+    if (_filtersStartPage) {
+      _focus.requestFocus();
+      return;
+    }
     _search.activateField(_field);
     _openSearch(mode: mode);
     _focus.requestFocus();
@@ -283,15 +307,35 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _clear() {
     _selectedResultId = null;
-    _global.setQuery('');
+    _setQuery('');
     _focus.requestFocus();
+  }
+
+  void _setQuery(String value) {
+    if (_filtersStartPage) {
+      _search.setStartPageQuery(
+        _search.siteUrl!,
+        _shell!.activeTabId ?? 'start',
+        value,
+      );
+    } else {
+      _global.setQuery(value);
+    }
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    if (!_focus.hasFocus || !_open) return KeyEventResult.ignored;
+    if (!_focus.hasFocus) return KeyEventResult.ignored;
+    if (_filtersStartPage) {
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _clear();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (!_open) return KeyEventResult.ignored;
     final composing = _text.value.composing;
     if (composing.isValid && !composing.isCollapsed) {
       return KeyEventResult.ignored;
@@ -376,9 +420,11 @@ class _ForumSearchState extends State<ForumSearch> {
             onTap: _requestFocus,
             onChanged: (value) {
               _selectedResultId = null;
-              _global.setQuery(value);
+              _setQuery(value);
             },
-            onSubmitted: (_) => _global.submit(),
+            onSubmitted: (_) {
+              if (!_filtersStartPage) _global.submit();
+            },
           ),
           if (width >= 140)
             const DInputGroupAddon(
@@ -390,7 +436,7 @@ class _ForumSearchState extends State<ForumSearch> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_global.query.isNotEmpty)
+                if (_query.isNotEmpty)
                   DInputGroupButton.icon(
                     key: const ValueKey('forum-search-clear'),
                     icon: const DIcon(DIcons.xmark, size: 16),

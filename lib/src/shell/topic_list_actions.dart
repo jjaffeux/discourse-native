@@ -19,10 +19,12 @@ class TopicListFilterMenu extends StatefulWidget {
     required this.siteUrl,
     required this.query,
     this.onSubmitted,
+    this.label,
   });
   final String siteUrl;
   final String query;
   final Future<void> Function(String)? onSubmitted;
+  final String? label;
 
   @override
   State<TopicListFilterMenu> createState() => _TopicListFilterMenuState();
@@ -191,21 +193,41 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       ),
     ),
     child: DPopoverTrigger(
-      builder: (context, trigger) => DButton.iconOnly(
-        key: const ValueKey('topic-list-filter'),
-        tooltip: widget.query.isEmpty
-            ? context.l10n.filterTopics
-            : context.l10n.editActiveFilter,
-        icon: const DIcon(DNativeIcons.filterLines),
-        size: DButtonSize.large,
-        variant: widget.query.isEmpty
-            ? DButtonVariant.transparentBackground
-            : DButtonVariant.primary,
-        focusNode: trigger.focusNode,
-        expanded: trigger.open,
-        hasPopup: true,
-        onPressed: trigger.toggle,
-      ),
+      builder: (context, trigger) => widget.label == null
+          ? DButton.iconOnly(
+              key: const ValueKey('topic-list-filter'),
+              tooltip: widget.query.isEmpty
+                  ? context.l10n.filterTopics
+                  : context.l10n.editActiveFilter,
+              icon: const DIcon(DNativeIcons.filterLines),
+              size: DButtonSize.large,
+              variant: widget.query.isEmpty
+                  ? DButtonVariant.transparentBackground
+                  : DButtonVariant.primary,
+              focusNode: trigger.focusNode,
+              expanded: trigger.open,
+              hasPopup: true,
+              onPressed: trigger.toggle,
+            )
+          : DButton(
+              key: const ValueKey('topic-list-filter'),
+              label: Text(widget.label!),
+              tooltip: widget.query.isEmpty
+                  ? context.l10n.filterTopics
+                  : context.l10n.editActiveFilter,
+              icon: const DIcon(DNativeIcons.filterLines, size: 12),
+              size: DButtonSize.filter,
+              variant: widget.query.isEmpty
+                  ? DButtonVariant.secondary
+                  : DButtonVariant.primary,
+              backgroundColor: widget.query.isEmpty
+                  ? DTokens.of(context).footerBackground
+                  : null,
+              focusNode: trigger.focusNode,
+              expanded: trigger.open,
+              hasPopup: true,
+              onPressed: trigger.toggle,
+            ),
     ),
   );
 }

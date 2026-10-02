@@ -841,7 +841,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsNothing);
       expect(shell.globalSearch.query, 'keyboard');
-      expect(_editor(tester).controller.text, 'keyboard');
+      // Dismissing in the empty secondary pane also focuses its Start tab.
+      // The chrome now shows that tab's local filter, preserving server search.
+      expect(shell.currentContent?.id, 'new-tab');
+      expect(_editor(tester).controller.text, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );

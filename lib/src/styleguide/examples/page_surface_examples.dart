@@ -12,6 +12,10 @@ final pageSurfaceExamples = ComponentExamples(
       'hiding requires scroll speed, so slow reads keep the controls visible. '
       'This also works in reversed chat lists. Reaching the top reveals it. '
       'Focused header controls remain visible. '
+      'headerControls places a persistent bar below a retracting title and '
+      'reserves the full header space so the body does not move. '
+      'scrollBody owns the scroll view and lets rows pass through the title’s '
+      'former space below the control bar. Give it non-scrolling content. '
       'Programmatic restoration and '
       'nested or horizontal scrolling do not retract it. Changing identity resets '
       'the header. Use framed: false inside an existing page frame or touch shell. '
@@ -37,17 +41,15 @@ final pageSurfaceExamples = ComponentExamples(
       ],
       code: '''DPageSurface(
   hideHeaderOnScroll: true,
+  scrollBody: true,
   identity: selectedPage,
   limitContentSize: limited,
   tabs: tabs,
   header: header,
+  headerControls: controls,
   footer: footer,
-  child: DPageReadingLane(
-    builder: (context, lane) => ListView.builder(
-      padding: lane.padding,
-      itemCount: 100,
-      itemBuilder: buildRow,
-    ),
+  child: DPageReadingLaneBox(
+    child: Column(children: rows),
   ),
 )''',
       builder: (_) => const SizedBox(height: 460, child: _PageExample()),
@@ -68,6 +70,7 @@ class _PageExampleState extends State<_PageExample> {
   @override
   Widget build(BuildContext context) => DPageSurface(
     hideHeaderOnScroll: true,
+    scrollBody: true,
     identity: _page,
     limitContentSize: _limited,
     tabs: DTabs<String>.controlled(
@@ -88,6 +91,23 @@ class _PageExampleState extends State<_PageExample> {
       padding: const EdgeInsets.all(DSpacing.lg),
       child: Text(_page, style: Theme.of(context).textTheme.titleLarge),
     ),
+    headerControls: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+      child: DControlWrap(
+        children: [
+          DButton(
+            size: DButtonSize.filter,
+            label: const Text('Browse topics'),
+            onPressed: () => setState(() => _page = 'Topics'),
+          ),
+          DButton(
+            size: DButtonSize.filter,
+            label: const Text('Open topic'),
+            onPressed: () => setState(() => _page = 'Topic'),
+          ),
+        ],
+      ),
+    ),
     footer: DCardFooter(
       rounded: true,
       child: DToggle(
@@ -96,20 +116,20 @@ class _PageExampleState extends State<_PageExample> {
         child: const Text('Limit content width'),
       ),
     ),
-    child: DPageReadingLane(
-      basePadding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
-      builder: (context, lane) => ListView.builder(
-        key: ValueKey(_page),
-        padding: lane.padding,
-        itemCount: 100,
-        itemBuilder: (_, index) => Column(
+    child: DPageReadingLaneBox(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+        child: Column(
+          key: ValueKey(_page),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
-              child: Text('$_page · ${index + 1}'),
-            ),
-            const DSeparator(),
+            for (var index = 0; index < 100; index++) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
+                child: Text('$_page · ${index + 1}'),
+              ),
+              const DSeparator(),
+            ],
           ],
         ),
       ),

@@ -22856,6 +22856,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Outdent'**
   String get composerOutdent;
+
+  /// Start page section containing recently visited topics.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent topics'**
+  String get recentTopics;
+
+  /// Start page cached search has no matching rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches “{query}”'**
+  String startPageNoMatches(String query);
+
+  /// Number of matching rows in the start page cached search.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result} other{{count} results}} for “{query}”'**
+  String startPageResults(int count, String query);
+
+  /// Start page toolbar action that opens the topic filter builder.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get startPageFilters;
 }
 
 class _AppLocalizationsDelegate

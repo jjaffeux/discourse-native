@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/rendering.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../foundation/calendar_day.dart';
@@ -18,11 +19,13 @@ import '../models/sidebar.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'external_link.dart';
 import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
+import 'instance_actions.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
@@ -32,104 +35,20 @@ import 'start_page_drag.dart';
 import 'topic_list_actions.dart';
 
 /// The landing surface for an otherwise empty forum tab.
-class NewTabPage extends StatefulWidget {
+class NewTabPage extends StatelessWidget {
   const NewTabPage({super.key, required this.onBrowseTopics});
 
   final VoidCallback onBrowseTopics;
 
   @override
-  State<NewTabPage> createState() => _NewTabPageState();
-}
-
-class _NewTabPageState extends State<NewTabPage> {
-  static const _dismissedKey = 'discourse_native.panel_tutorial_dismissed';
-  static const _compactKey = 'discourse_native.start_page_compact';
-  bool? _dismissed;
-  bool _compact = true;
-  bool _compactChanged = false;
-  String? _requestedLatestSite;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadPreferences());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final instance = ShellScope.maybeOf(context)?.currentInstance;
-    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
-      _requestedLatestSite = null;
-      return;
-    }
-    if (_requestedLatestSite == instance.url) return;
-    _requestedLatestSite = instance.url;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final shell = ShellScope.maybeRead(context);
-      if (shell?.currentInstance?.url != instance.url) return;
-      unawaited(shell!.loadFeed(TopicListMode.latest.routeId));
-    });
-  }
-
-  Future<void> _loadPreferences() async {
-    bool dismissed;
-    bool compact;
-    try {
-      final preferences = await SharedPreferences.getInstance();
-      dismissed = preferences.getBool(_dismissedKey) ?? false;
-      compact = preferences.getBool(_compactKey) ?? true;
-    } catch (_) {
-      dismissed = false;
-      compact = true;
-    }
-    if (mounted) {
-      setState(() {
-        _dismissed = dismissed;
-        if (!_compactChanged) _compact = compact;
-      });
-    }
-  }
-
-  void _setCompact(bool compact) {
-    if (_compact == compact) return;
-    _compactChanged = true;
-    setState(() => _compact = compact);
-    unawaited(_saveCompact(compact));
-  }
-
-  Future<void> _saveCompact(bool compact) async {
-    try {
-      await (await SharedPreferences.getInstance()).setBool(
-        _compactKey,
-        compact,
-      );
-    } catch (_) {
-      // Keep the selected layout for this page if storage is unavailable.
-    }
-  }
-
-  Future<void> _dismiss() async {
-    setState(() => _dismissed = true);
-    try {
-      await (await SharedPreferences.getInstance()).setBool(
-        _dismissedKey,
-        true,
-      );
-    } catch (_) {
-      // The current tab still honors the choice if local storage is unavailable.
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
     if (shell == null) return _buildPage(context);
-    return ListenableBuilder(
+    return ForumTabListenableBuilder(
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
+        shell.search,
         TimezoneEnvironment.instance,
         ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
@@ -151,15 +70,6 @@ class _NewTabPageState extends State<NewTabPage> {
               RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(destination.id))
             destination,
     ];
-    conversations.sort((a, b) {
-      final unread = (b.badge?.isVisible == true ? 1 : 0).compareTo(
-        a.badge?.isVisible == true ? 1 : 0,
-      );
-      if (unread != 0) return unread;
-      return (b.lastActivityAt ?? DateTime(1970)).compareTo(
-        a.lastActivityAt ?? DateTime(1970),
-      );
-    });
     final hasChat = pluginSections.any(
       (section) =>
           section.id.startsWith('chat') || section.id == 'direct-messages',
@@ -184,26 +94,27 @@ class _NewTabPageState extends State<NewTabPage> {
           };
     // This catalogue is scoped by the server to the current reader. History
     // must never reintroduce categories removed by a permission change.
-    final categories = [
-      for (final category in categoryDetails.values)
-        ContentRoute.list(
-          ListLink.parse(
-            Uri(
-              pathSegments: [
-                '',
-                'c',
-                if (category.slug.isNotEmpty) category.slug,
-                '${category.id}',
-              ],
-            ).toString(),
-          )!,
-          title: category.name,
-          color: Color(category.colorValue),
-        ),
-    ];
-    final latest = siteUrl == null
-        ? <Topic>[]
-        : shell!.cachedLatestTopicsFor(siteUrl).take(8).toList();
+    final categories = siteUrl == null
+        ? <ContentRoute>[]
+        : [
+            for (final recent in shell!.recentCategoriesFor(siteUrl))
+              if (categoryDetails[recent.categoryId] case final category?)
+                ContentRoute.list(
+                  ListLink.parse('/c/${category.slug}/${category.id}')!,
+                  title: category.name,
+                  color: Color(category.colorValue),
+                ),
+          ];
+    final recentTopics = siteUrl == null
+        ? <ContentRoute>[]
+        : shell!.recentTopicsFor(siteUrl);
+    final recentChats = siteUrl == null
+        ? <SidebarDestination>[]
+        : [
+            for (final recent in shell!.recentChannelsFor(siteUrl))
+              for (final destination in conversations)
+                if (destination.id == recent.id) destination,
+          ];
     final bookmarks = siteUrl == null
         ? <Bookmark>[]
         : shell!.bookmarksFor(siteUrl).loaded
@@ -211,7 +122,6 @@ class _NewTabPageState extends State<NewTabPage> {
               .bookmarksFor(siteUrl)
               .bookmarks
               .where((b) => b.path != null)
-              .take(8)
               .toList()
         : <Bookmark>[];
     final closed =
@@ -231,46 +141,63 @@ class _NewTabPageState extends State<NewTabPage> {
       ),
     );
 
-    final categoryRows = [
-      for (final route in categories.take(8))
+    final query = siteUrl == null
+        ? ''
+        : shell!.search.startPageQueryFor(
+            siteUrl,
+            ForumTabScope.idOf(context) ?? shell.activeTabId ?? 'start',
+          );
+    List<_StartPageEntry> matching(List<_StartPageEntry> entries) {
+      final term = query.trim().toLowerCase();
+      return term.isEmpty
+          ? entries
+          : entries
+                .where(
+                  (entry) => '${entry.title} ${entry.description ?? ''}'
+                      .toLowerCase()
+                      .contains(term),
+                )
+                .toList();
+    }
+
+    final categoryRows = matching([
+      for (final route in categories.take(4))
         _StartPageEntry.fromRoute(
           route,
           () => _openRoute(context, route),
           siteUrl: siteUrl,
+          icon: pluginIconNamed(
+            context,
+            categoryDetails[route.categoryId]?.icon,
+          ),
           count: route.categoryId == null
               ? null
               : shell!.categoryActivityCountFor(siteUrl!, route.categoryId!),
           description: categoryDetails[route.categoryId]?.descriptionExcerpt,
         ),
-    ];
-    final chatRows = [
-      for (final destination in conversations.take(8))
+    ]);
+    final chatRows = matching([
+      for (final destination in recentChats.take(4))
         _StartPageEntry.fromRoute(
           ContentRoute.fromDestination(destination),
           () => shell!.selectDestination(destination),
           siteUrl: siteUrl,
           destination: destination,
         ),
-    ];
-    final topicRows = [
-      for (final topic in latest)
-        _StartPageEntry(
-          id: 'topic-${topic.id}',
-          title: topic.title,
-          icon: topic.pinned
-              ? DIcons.thumbtack
-              : topic.closed
-              ? DIcons.lock
-              : DIcons.layerGroup,
-          count: topic.unreadCount,
-          activityAt: topic.bumpedAt,
-          description: topic.excerpt,
-          path: shell!.siteLink('/t/${topic.slug}/${topic.id}'),
-          onPressed: () =>
-              openLink(context, shell.siteLink('/t/${topic.slug}/${topic.id}')),
+    ]);
+    final topicRows = matching([
+      for (final route in recentTopics.take(4))
+        _StartPageEntry.fromTopic(
+          route,
+          siteUrl!,
+          route.topicId == null
+              ? null
+              : shell!.store.read<Topic>(siteUrl, route.topicId!),
+          categoryDetails,
+          () => _openRoute(context, route),
         ),
-    ];
-    final bookmarkRows = [
+    ]);
+    final bookmarkRows = matching([
       for (final bookmark in bookmarks)
         _StartPageEntry(
           id: 'bookmark-${bookmark.id}',
@@ -282,23 +209,34 @@ class _NewTabPageState extends State<NewTabPage> {
               : bookmark.coreTargetType == BookmarkTargetType.topic
               ? DIcons.layerGroup
               : DIcons.bookmark,
+          color: categoryDetails[bookmark.categoryId] == null
+              ? null
+              : Color(categoryDetails[bookmark.categoryId]!.colorValue),
           time: bookmark.reminderAt == null
               ? null
               : bookmark.reminderAt!.isBefore(DateTime.now())
               ? context.l10n.due
               : context.l10n.reminderNewtabpage,
-          description: bookmark.name,
-          reminderAt: bookmark.reminderAt,
-          postNumber: bookmark.postNumber,
+          description: [
+            ?bookmark.name,
+            ?categoryDetails[bookmark.categoryId]?.name,
+            ?bookmark.bookmarkableType,
+          ].join(' '),
           path: bookmark.path,
           targetBookmark: bookmark,
           onPressed: () => openLink(context, bookmark.path!),
         ),
-    ];
-    final closedRows = [
-      for (final tab in closed.take(8))
+    ]).take(4).toList();
+    final closedRows = matching([
+      for (final tab in closed)
         _closedEntry(context, tab, siteUrl!, categoryDetails, conversations),
-    ];
+    ]).take(query.isEmpty ? 8 : 16).toList();
+    final found =
+        categoryRows.length +
+        chatRows.length +
+        topicRows.length +
+        bookmarkRows.length +
+        closedRows.length;
     final primarySections = siteUrl == null
         ? <_StartSection>[]
         : <_StartSection>[
@@ -307,7 +245,6 @@ class _NewTabPageState extends State<NewTabPage> {
                 title: context.l10n.bookmarks,
                 icon: DIcons.bookmark,
                 rows: bookmarkRows,
-                compact: _compact,
                 siteUrl: siteUrl,
                 onHeading: openBookmarks,
               ),
@@ -316,7 +253,6 @@ class _NewTabPageState extends State<NewTabPage> {
                 title: context.l10n.categories,
                 icon: DIcons.tag,
                 rows: categoryRows,
-                compact: _compact,
                 siteUrl: siteUrl,
                 onHeading: openCategories,
               ),
@@ -325,254 +261,245 @@ class _NewTabPageState extends State<NewTabPage> {
                 title: context.l10n.chat,
                 icon: DIcons.comment,
                 rows: chatRows,
-                compact: _compact,
                 siteUrl: siteUrl,
                 onHeading: openChat,
               ),
             if (topicRows.isNotEmpty)
               _StartSection(
-                title: context.l10n.latestTopics,
+                title: context.l10n.recentTopics,
                 icon: DIcons.layerGroup,
                 rows: topicRows,
-                compact: _compact,
                 siteUrl: siteUrl,
-                onHeading: widget.onBrowseTopics,
+                onHeading: onBrowseTopics,
               ),
           ];
 
-    return SingleChildScrollView(
-      child: DPageReadingLaneBox(
-        child: Align(
-          alignment: AlignmentDirectional.topCenter,
-          child: ConstrainedBox(
-            key: const ValueKey('start-page-content'),
-            constraints: const BoxConstraints(maxWidth: 1500),
-            child: Padding(
-              padding: const EdgeInsets.all(DSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.lg,
-                children: [
-                  Row(
-                    spacing: DSpacing.md,
-                    children: [
-                      if (forum != null) ForumIcon(forum: forum, size: 46),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (siteUrl == null)
-                              Text(
-                                context.l10n.startPage,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                              )
-                            else
-                              SiteEmojiText.plain(
-                                forum!.title,
-                                siteUrl: siteUrl,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                              ),
-                            if (forum != null)
-                              DButton(
-                                key: const ValueKey('start-page-forum-website'),
-                                variant: DButtonVariant.inline,
-                                size: DButtonSize.chip,
-                                foregroundColor: DTokens.of(context).primary,
-                                isLink: true,
-                                label: Text(
-                                  Uri.tryParse(forum.url)?.host ?? forum.url,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                onPressed: () =>
-                                    unawaited(openExternalLink(forum.url)),
-                              ),
-                          ],
+    final links = <_LinkButton>[
+      if (bookmarkRows.isEmpty && forum?.user != null)
+        _LinkButton(
+          label: context.l10n.bookmarks,
+          icon: DIcons.bookmark,
+          onPressed: openBookmarks,
+        ),
+      if (categoryRows.isEmpty)
+        _LinkButton(
+          label: context.l10n.categories,
+          icon: DIcons.tag,
+          url: shell?.siteLink('/categories'),
+          onPressed: openCategories,
+        ),
+      if (hasChat && chatRows.isEmpty)
+        _LinkButton(
+          label: context.l10n.chat,
+          icon: DIcons.comment,
+          content: ContentRoute.fromDestination(chatDestination),
+          onPressed: openChat,
+        ),
+      if (topicRows.isEmpty)
+        _LinkButton(
+          label: context.l10n.recentTopics,
+          icon: DIcons.layerGroup,
+          url: shell?.siteLink('/latest'),
+          onPressed: onBrowseTopics,
+        ),
+      if (forum?.user != null)
+        _LinkButton(
+          label: context.l10n.messages,
+          icon: DIcons.inbox,
+          url: shell!.siteLink('/my/messages'),
+          onPressed: () => openLink(context, shell.siteLink('/my/messages')),
+        ),
+      if (shell != null && siteUrl != null) ...[
+        _LinkButton(
+          label: context.l10n.groups,
+          icon: DIcons.users,
+          url: shell.siteLink('/g'),
+          onPressed: () => openLink(context, shell.siteLink('/g')),
+        ),
+        _LinkButton(
+          label: context.l10n.badges,
+          icon: DIcons.certificate,
+          url: shell.siteLink('/badges'),
+          onPressed: () => openLink(context, shell.siteLink('/badges')),
+        ),
+        for (final shortcut in shortcuts)
+          _LinkButton(
+            label: shortcut.label,
+            icon: shortcut.icon,
+            content: ContentRoute.fromDestination(shortcut),
+            onPressed: () => shell.selectDestination(shortcut),
+          ),
+        _LinkButton(
+          label: context.l10n.users,
+          icon: DIcons.user,
+          url: shell.siteLink('/u'),
+          onPressed: () => openLink(context, shell.siteLink('/u')),
+        ),
+        if (forum?.user != null)
+          _LinkButton(
+            label: context.l10n.preferences,
+            icon: DNativeIcons.sliders,
+            onPressed: () => shell.openPreferences(siteUrl),
+          ),
+        _LinkButton(
+          label: context.l10n.settings,
+          icon: DIcons.gear,
+          onPressed: () => shell.openForumSettings(siteUrl),
+        ),
+      ],
+    ];
+    final title = LayoutBuilder(
+      builder: (context, constraints) => Row(
+        key: const ValueKey('start-page-heading'),
+        spacing: 10,
+        children: [
+          if (forum != null) ForumIcon(forum: forum, size: 28),
+          Flexible(
+            child: forum == null
+                ? Text(
+                    context.l10n.startPage,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  )
+                : DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      children: [
+                        DDropdownMenuItem(
+                          leading: const DIcon(DIcons.upRightFromSquare),
+                          child: Text(context.l10n.openForumInBrowser),
+                          onPressed: () =>
+                              unawaited(openExternalLink(forum.url)),
                         ),
+                        const DDropdownMenuSeparator(),
+                        DDropdownMenuItem(
+                          variant: DDropdownMenuItemVariant.destructive,
+                          leading: const DIcon(DIcons.trashCan),
+                          child: Text(context.l10n.removeForum),
+                          onPressed: () =>
+                              unawaited(confirmInstanceRemoval(context, forum)),
+                        ),
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DButton(
+                        key: const ValueKey('start-page-forum-options'),
+                        variant: DButtonVariant.inline,
+                        semanticLabel: context.l10n.showForumActions,
+                        focusNode: state.focusNode,
+                        hasPopup: true,
+                        expanded: state.open,
+                        icon: const DIcon(DIcons.chevronDown, size: 10),
+                        iconPosition: DButtonIconPosition.end,
+                        label: SiteEmojiText.plain(
+                          forum.title,
+                          siteUrl: forum.url,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                              ),
+                        ),
+                        onPressed: state.toggle,
                       ),
-                      if (siteUrl != null)
-                        TopicListFilterMenu(siteUrl: siteUrl, query: ''),
-                      _densityControl(context),
-                    ],
+                    ),
                   ),
-                  if (!DControlStyle.isTouch(context) &&
-                      _dismissed == false &&
-                      (ShellScope.maybeRead(context)?.desktopPanelsEnabled ??
-                          true))
-                    _PanelTutorial(onDismiss: _dismiss),
-                  if (shell != null) ...[
-                    if (closedRows.isNotEmpty)
-                      _StartSection(
-                        title: context.l10n.recentlyClosedNewtabpage,
-                        icon: DIcons.arrowRotateLeft,
-                        rows: closedRows,
-                        compact: _compact,
-                        fullWidth: true,
-                        siteUrl: siteUrl!,
-                      ),
-                    if (_compact)
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final columns = ((constraints.maxWidth + 18) / 256)
-                              .floor()
-                              .clamp(1, 6);
-                          final width =
-                              (constraints.maxWidth - (columns - 1) * 18) /
-                              columns;
-                          return Wrap(
-                            spacing: 18,
-                            runSpacing: 28,
-                            children: [
-                              for (final section in primarySections)
-                                SizedBox(width: width, child: section),
-                            ],
-                          );
-                        },
-                      )
-                    else
-                      ...primarySections,
-                    _StartSection(
-                      title: context.l10n.everythingElse,
-                      icon: DIcons.ellipsis,
-                      rows: const [],
-                      compact: _compact,
-                      siteUrl: siteUrl!,
-                      fullWidth: true,
-                      content: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Wrap(
-                          key: const ValueKey('start-page-shortcuts'),
-                          spacing: 7,
-                          runSpacing: 7,
-                          children: [
-                            if (bookmarkRows.isEmpty && forum?.user != null)
-                              _LinkButton(
-                                label: context.l10n.bookmarks,
-                                icon: DIcons.bookmark,
-                                onPressed: openBookmarks,
-                              ),
-                            if (topicRows.isEmpty)
-                              _LinkButton(
-                                label: context.l10n.latestTopics,
-                                icon: DIcons.layerGroup,
-                                url: shell.siteLink('/latest'),
-                                onPressed: widget.onBrowseTopics,
-                              ),
-                            if (categoryRows.isEmpty)
-                              _LinkButton(
-                                label: context.l10n.categories,
-                                icon: DIcons.tag,
-                                url: shell.siteLink('/categories'),
-                                onPressed: openCategories,
-                              ),
-                            if (hasChat && chatRows.isEmpty)
-                              _LinkButton(
-                                label: context.l10n.chat,
-                                icon: DIcons.comment,
-                                content: ContentRoute.fromDestination(
-                                  chatDestination,
-                                ),
-                                onPressed: openChat,
-                              ),
-                            if (forum?.user != null)
-                              _LinkButton(
-                                label: context.l10n.messages,
-                                icon: DIcons.inbox,
-                                url: shell.siteLink('/my/messages'),
-                                onPressed: () => openLink(
-                                  context,
-                                  shell.siteLink('/my/messages'),
-                                ),
-                              ),
-                            _LinkButton(
-                              label: context.l10n.groups,
-                              icon: DIcons.users,
-                              url: shell.siteLink('/g'),
-                              onPressed: () =>
-                                  openLink(context, shell.siteLink('/g')),
-                            ),
-                            _LinkButton(
-                              label: context.l10n.badges,
-                              icon: DIcons.certificate,
-                              url: shell.siteLink('/badges'),
-                              onPressed: () =>
-                                  openLink(context, shell.siteLink('/badges')),
-                            ),
-                            for (final shortcut in shortcuts)
-                              _LinkButton(
-                                label: shortcut.label,
-                                icon: shortcut.icon,
-                                onPressed: () =>
-                                    shell.selectDestination(shortcut),
-                              ),
-                            _LinkButton(
-                              label: context.l10n.users,
-                              icon: DIcons.user,
-                              url: shell.siteLink('/u'),
-                              onPressed: () =>
-                                  openLink(context, shell.siteLink('/u')),
-                            ),
-                            if (forum?.user != null)
-                              _LinkButton(
-                                label: context.l10n.preferences,
-                                icon: DIcons.filter,
-                                onPressed: () => shell.openPreferences(siteUrl),
-                              ),
-                            _LinkButton(
-                              label: context.l10n.settings,
-                              icon: DIcons.gear,
-                              onPressed: () => shell.openForumSettings(siteUrl),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ] else if (_dismissed != null)
-                    DButton(
-                      onPressed: widget.onBrowseTopics,
-                      label: Text(context.l10n.browseLatestTopics),
-                    ),
-                ],
+          ),
+          if (forum != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * .45),
+              child: DButton(
+                key: const ValueKey('start-page-forum-website'),
+                variant: DButtonVariant.inline,
+                size: DButtonSize.chip,
+                foregroundColor: DTokens.of(context).mutedForeground,
+                isLink: true,
+                label: Text(
+                  Uri.tryParse(forum.url)?.host ?? forum.url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () => unawaited(openExternalLink(forum.url)),
               ),
             ),
+        ],
+      ),
+    );
+    final controls = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      spacing: 8,
+      children: [
+        if (siteUrl != null)
+          TopicListFilterMenu(
+            siteUrl: siteUrl,
+            query: '',
+            label: context.l10n.startPageFilters,
+          ),
+        if (shell != null) Expanded(child: _ShortcutBar(links: links)),
+      ],
+    );
+    return DPageSurface(
+      framed: false,
+      hideHeaderOnScroll: true,
+      scrollBody: true,
+      identity: (siteUrl, ForumTabScope.idOf(context)),
+      header: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          shell?.desktopPanelsEnabled == true ? 4 : 16,
+          16,
+          16,
+        ),
+        child: title,
+      ),
+      headerControls: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 8,
+          children: [
+            controls,
+            if (query.isNotEmpty)
+              Text(
+                found == 0
+                    ? context.l10n.startPageNoMatches(query)
+                    : context.l10n.startPageResults(found, query),
+                key: const ValueKey('start-page-search-results'),
+                style: TextStyle(color: DTokens.of(context).mutedForeground),
+              ),
+          ],
+        ),
+      ),
+      child: DPageReadingLaneBox(
+        child: Padding(
+          key: const ValueKey('start-page-content'),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 18,
+            children: [
+              if (closedRows.isNotEmpty)
+                _StartSection(
+                  title: context.l10n.recentlyClosedNewtabpage,
+                  icon: DIcons.arrowRotateLeft,
+                  rows: closedRows,
+                  fullWidth: true,
+                  siteUrl: siteUrl!,
+                ),
+              if (primarySections.isNotEmpty)
+                _SectionGrid(sections: primarySections),
+              if (shell == null)
+                DButton(
+                  onPressed: onBrowseTopics,
+                  label: Text(context.l10n.browseLatestTopics),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  Widget _densityControl(BuildContext context) => DToggleGroup<bool>(
-    key: const ValueKey('start-page-density'),
-    values: [_compact],
-    onChanged: (values) {
-      if (values.isNotEmpty) _setCompact(values.single);
-    },
-    allowEmptySelection: false,
-    inset: true,
-    density: DToggleDensity.compactInset,
-    size: DToggleSize.small,
-    items: [
-      DToggleGroupItem<bool>.iconOnly(
-        value: false,
-        icon: const DIcon(DIcons.grip, size: 12),
-        semanticLabel: context.l10n.comfortable,
-        tooltip: context.l10n.comfortable,
-      ),
-      DToggleGroupItem<bool>.iconOnly(
-        value: true,
-        icon: const DIcon(DIcons.list, size: 12),
-        semanticLabel: context.l10n.compact,
-        tooltip: context.l10n.compact,
-      ),
-    ],
-  );
 
   _StartPageEntry _closedEntry(
     BuildContext context,
@@ -586,7 +513,7 @@ class _NewTabPageState extends State<NewTabPage> {
     final topic = route.topicId == null
         ? null
         : shell.store.read<Topic>(siteUrl, route.topicId!);
-    final category = categories[route.categoryId];
+    final category = categories[route.categoryId ?? topic?.categoryId];
     final destination = conversations
         .where((d) => d.id == route.id)
         .firstOrNull;
@@ -596,12 +523,15 @@ class _NewTabPageState extends State<NewTabPage> {
           topic?.title ?? category?.name ?? destination?.label ?? route.title,
       icon:
           destination?.icon ??
+          pluginIconNamed(context, category?.icon) ??
           (topic?.pinned == true
               ? DIcons.thumbtack
               : topic?.closed == true
               ? DIcons.lock
               : route.icon),
-      color: category == null ? route.color : Color(category.colorValue),
+      color:
+          destination?.iconColor ??
+          (category == null ? route.color : Color(category.colorValue)),
       count:
           topic?.unreadCount ??
           destination?.unreadCount ??
@@ -609,11 +539,6 @@ class _NewTabPageState extends State<NewTabPage> {
               ? null
               : shell.categoryActivityCountFor(siteUrl, category.id)),
       activityAt: topic?.bumpedAt ?? destination?.lastActivityAt,
-      description:
-          topic?.excerpt ??
-          category?.descriptionExcerpt ??
-          destination?.preview ??
-          route.subtitle,
       avatarUrl: destination?.avatarUrl,
       prefixBuilder: destination?.prefixBuilder,
       path: _recentRouteUrl(siteUrl, route),
@@ -672,22 +597,6 @@ String reminderDateLabel(
   );
 }
 
-String _reminderDate(
-  DateTime date, {
-  String? accountTimezone,
-  required bool use24HourClock,
-}) {
-  final environment = TimezoneEnvironment.instance;
-  return reminderDateLabel(
-    date,
-    location: environment.location(
-      environment.readerTimezone(accountTimezone),
-    )!,
-    now: DateTime.now(),
-    use24HourClock: use24HourClock,
-  );
-}
-
 class _StartPageEntry {
   const _StartPageEntry({
     required this.id,
@@ -699,8 +608,6 @@ class _StartPageEntry {
     this.time,
     this.activityAt,
     this.description,
-    this.reminderAt,
-    this.postNumber,
     this.path,
     this.targetBookmark,
     this.bookmarkUrl,
@@ -713,12 +620,13 @@ class _StartPageEntry {
     VoidCallback onPressed, {
     required String? siteUrl,
     SidebarDestination? destination,
+    DIconData? icon,
     int? count,
     String? description,
   }) => _StartPageEntry(
     id: route.id,
     title: route.title,
-    icon: destination?.icon ?? route.icon,
+    icon: icon ?? destination?.icon ?? route.icon,
     color: destination?.iconColor ?? route.color,
     count: count ?? destination?.unreadCount ?? destination?.badge?.count,
     avatarUrl: destination?.avatarUrl,
@@ -732,6 +640,35 @@ class _StartPageEntry {
     onPressed: onPressed,
   );
 
+  factory _StartPageEntry.fromTopic(
+    ContentRoute route,
+    String siteUrl,
+    Topic? topic,
+    Map<int, TopicCategory> categories,
+    VoidCallback onPressed,
+  ) => _StartPageEntry(
+    id: route.id,
+    title: topic?.title ?? route.title,
+    icon: topic?.pinned == true
+        ? DIcons.thumbtack
+        : topic?.closed == true
+        ? DIcons.lock
+        : DIcons.layerGroup,
+    color: categories[topic?.categoryId] == null
+        ? route.color
+        : Color(categories[topic?.categoryId]!.colorValue),
+    count: topic?.unreadCount,
+    activityAt: topic?.bumpedAt,
+    description: [
+      if (topic?.excerpt != null) topic!.excerpt!,
+      if (categories[topic?.categoryId] case final category?) category.name,
+      ...?topic?.tags.map((tag) => tag.name),
+    ].join(' '),
+    path: _recentRouteUrl(siteUrl, route),
+    bookmarkUrl: resolveSiteRootPath(siteUrl, '/t/${route.topicId}'),
+    onPressed: onPressed,
+  );
+
   final String id;
   final String title;
   final DIconData icon;
@@ -740,8 +677,6 @@ class _StartPageEntry {
   final String? time;
   final DateTime? activityAt;
   final String? description;
-  final DateTime? reminderAt;
-  final int? postNumber;
   final String? path;
   final String? bookmarkUrl;
   final Bookmark? targetBookmark;
@@ -761,7 +696,28 @@ class _StartPageEntry {
         ),
       );
     }
-    return DIcon(icon, size: size, color: color);
+    final tokens = DTokens.of(context);
+    final tint = color ?? tokens.primary;
+    return SizedBox.square(
+      dimension: size,
+      child: Center(
+        child: DAvatar(
+          dimension: size * 29 / 34,
+          decorative: true,
+          border: false,
+          borderRadius: BorderRadius.circular(size * 9 / 34),
+          child: ColoredBox(
+            color: Color.alphaBlend(
+              tint.withValues(alpha: .2),
+              tokens.background,
+            ),
+            child: Center(
+              child: DIcon(icon, size: size * 13 / 34, color: tint),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// The age of [activityAt], which advances while the page stays open, or
@@ -782,146 +738,46 @@ class _StartSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.rows,
-    required this.compact,
     required this.siteUrl,
     this.onHeading,
     this.fullWidth = false,
-    this.content,
   });
 
   final String title;
   final DIconData icon;
   final List<_StartPageEntry> rows;
-  final bool compact;
   final String siteUrl;
   final VoidCallback? onHeading;
   final bool fullWidth;
-  final Widget? content;
 
   Widget _row(BuildContext context, _StartPageEntry entry) {
     final siteUrl = this.siteUrl;
     final canDrag =
         entry.path != null && ShellScope.of(context).desktopPanelsEnabled;
-    if (!compact) return _comfortableRow(context, entry, canDrag: canDrag);
     final tokens = DTokens.of(context);
-    final metadata = (entry.count ?? 0) > 0
-        ? DBadge(
-            size: DBadgeSize.compact,
-            variant: DBadgeVariant.secondary,
-            child: Text(entry.count.toString()),
-          )
-        : entry.timeLabel(
-            style: const TextStyle(
-              fontSize: DiscourseTypography.metadata,
-              fontWeight: FontWeight.w400,
-            ),
-          );
-    final row = DItem(
-      key: ValueKey('start-page-recent-${entry.id}'),
-      variant: fullWidth ? DItemVariant.muted : DItemVariant.standard,
-      fitContent: fullWidth,
-      size: compact ? DItemSize.xs : DItemSize.standard,
-      link: entry.path != null,
-      onPressed: entry.onPressed,
-      dragData: !canDrag
-          ? null
-          : StartPageDrag(
-              siteUrl: siteUrl,
-              path: entry.path!,
-              title: entry.title,
-            ),
-      dragFeedback: !canDrag
-          ? null
-          : Transform.translate(
-              offset: const Offset(DSpacing.md, 20),
-              child: ForumTabDragFeedback(
-                key: const ValueKey('start-page-drag-feedback'),
-                item: ForumTabItem(
-                  id: entry.id,
-                  title: entry.title,
-                  icon: entry.icon,
-                  iconColor: entry.color,
-                ),
-                width: ForumTabsBar.maximumTabWidth,
-              ),
-            ),
-      children: [
-        entry.mark(context, entry.avatarUrl == null ? 16 : 24),
-        DItemContent(
-          children: [
-            SiteEmojiText.plain(
-              entry.title,
-              siteUrl: siteUrl,
-              maxLines: compact ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 13 : 13.5,
-                fontWeight: compact ? FontWeight.w500 : FontWeight.w600,
-              ),
-            ),
-            if (!compact && entry.description?.isNotEmpty == true)
-              DItemDescription(
-                child: SiteEmojiText.plain(
-                  entry.description!,
-                  siteUrl: siteUrl,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-        ),
-        ?metadata,
-      ],
-    );
-    final card = fullWidth
-        ? row
-        : DCard(
-            spacing: 0,
-            border: false,
-            borderRadius: BorderRadius.circular(9),
-            backgroundColor: tokens.footerBackground,
-            child: row,
-          );
-    return entry.path == null
-        ? card
-        : LinkTarget(
-            url: entry.path!,
-            bookmarkUrl: entry.bookmarkUrl,
-            targetBookmark: entry.targetBookmark,
-            title: entry.title,
-            siteUrl: siteUrl,
-            child: card,
-          );
-  }
-
-  Widget _comfortableRow(
-    BuildContext context,
-    _StartPageEntry entry, {
-    required bool canDrag,
-  }) {
-    final siteUrl = this.siteUrl;
-    final tokens = DTokens.of(context);
-    final accent = entry.color ?? tokens.primary;
-    final metadata = entry.reminderAt != null
+    final unread = (entry.count ?? 0) > 0;
+    final due =
+        entry.targetBookmark?.reminderAt?.isBefore(DateTime.now()) == true;
+    final metadata = fullWidth
         ? null
-        : (entry.count ?? 0) > 0
+        : unread || due
         ? DBadge(
             size: DBadgeSize.compact,
             variant: DBadgeVariant.primary,
-            child: Text(entry.count.toString()),
+            child: Text(unread ? entry.count.toString() : context.l10n.due),
           )
         : entry.timeLabel(
-            maxLines: 1,
             style: TextStyle(
               fontSize: DiscourseTypography.metadata,
+              fontWeight: FontWeight.w400,
               color: tokens.mutedForeground,
             ),
           );
     final row = DItem(
       key: ValueKey('start-page-recent-${entry.id}'),
       variant: DItemVariant.standard,
-      shape: DItemShape.card,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      fitContent: fullWidth,
+      size: DItemSize.xs,
       link: entry.path != null,
       onPressed: entry.onPressed,
       dragData: !canDrag
@@ -947,113 +803,40 @@ class _StartSection extends StatelessWidget {
               ),
             ),
       children: [
+        entry.mark(context, 21),
         DItemContent(
-          spacing: 7,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DItemMedia(
-                  child: entry.avatarUrl != null || entry.prefixBuilder != null
-                      ? entry.mark(context, 29)
-                      : Container(
-                          width: 29,
-                          height: 29,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Color.lerp(tokens.background, accent, .2),
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: DIcon(entry.icon, size: 13, color: accent),
-                        ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 36),
-                    child: SiteEmojiText.plain(
-                      entry.title,
-                      siteUrl: siteUrl,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: DiscourseTypography.compact,
-                        height: 18 / 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: tokens.foreground,
-                      ),
-                    ),
-                  ),
-                ),
-                if (metadata != null) ...[const SizedBox(width: 4), metadata],
-              ],
-            ),
-            if (entry.reminderAt case final reminder?)
-              DItemDescription(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 2,
-                  children: [
-                    Row(
-                      children: [
-                        const DIcon(DIcons.farClock, size: 13),
-                        const SizedBox(width: DSpacing.sm),
-                        Flexible(
-                          child: Text(
-                            _reminderDate(
-                              reminder,
-                              accountTimezone: ShellScope.maybeRead(
-                                context,
-                              )?.currentUserFor(siteUrl)?.timezone,
-                              use24HourClock: use24HourClockOf(context),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (entry.postNumber != null ||
-                        entry.description?.isNotEmpty == true)
-                      SiteEmojiText.plain(
-                        [
-                          if (entry.postNumber case final number?)
-                            context.l10n.postNewtabpage((number).toString()),
-                          if (entry.description?.isNotEmpty == true)
-                            entry.description!,
-                        ].join(' · '),
-                        siteUrl: siteUrl,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              )
-            else if (entry.description?.isNotEmpty == true)
-              DItemDescription(
-                child: SiteEmojiText.plain(
-                  entry.description!,
-                  siteUrl: siteUrl,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: DiscourseTypography.preview,
-                    height: 1.38,
-                  ),
-                ),
+            SiteEmojiText.plain(
+              entry.title,
+              siteUrl: siteUrl,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: DiscourseTypography.control,
+                fontWeight: FontWeight.w500,
+                fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
+                fontFamilyFallback: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.fontFamilyFallback,
               ),
+            ),
           ],
         ),
+        ?metadata,
       ],
     );
-    final card = DCard(
-      spacing: 0,
-      border: false,
-      backgroundColor: tokens.footerBackground,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 100),
-        child: row,
-      ),
+    final card = Stack(
+      children: [
+        Positioned.fill(
+          child: DCard(
+            spacing: 0,
+            border: false,
+            borderRadius: BorderRadius.circular(9),
+            backgroundColor: tokens.footerBackground,
+          ),
+        ),
+        row,
+      ],
     );
     return entry.path == null
         ? card
@@ -1068,114 +851,380 @@ class _StartSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Stack(
+    children: [
+      Positioned.fill(child: surface(context)),
+      contents(context),
+    ],
+  );
+
+  Widget surface(BuildContext context) => DCard(
+    key: ValueKey('start-page-section-$title'),
+    border: false,
+    spacing: 0,
+    borderRadius: BorderRadius.circular(14),
+    backgroundColor: _wellColor(DTokens.of(context).background),
+  );
+
+  Widget contents(BuildContext context) {
     final tokens = DTokens.of(context);
-    final headingStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-      fontSize: DiscourseTypography.control,
-      fontWeight: FontWeight.w700,
-      color: tokens.foreground,
+    final label = Text(
+      title,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: DiscourseTypography.control,
+        fontWeight: FontWeight.w700,
+        color: tokens.foreground,
+      ),
     );
     final heading = onHeading == null
-        ? SizedBox(
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               spacing: 9,
               children: [
-                SizedBox(
-                  width: 20,
-                  child: Center(
-                    child: DIcon(icon, size: 12, color: tokens.mutedForeground),
-                  ),
-                ),
-                Flexible(
-                  child: Text(
-                    title,
-                    style: headingStyle,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                DIcon(icon, size: 12, color: tokens.mutedForeground),
+                Flexible(child: label),
               ],
             ),
           )
         : DButton(
+            key: ValueKey('start-page-section-link-$title'),
             variant: DButtonVariant.transparentBackground,
-            size: DButtonSize.small,
+            size: DButtonSize.filter,
             foregroundColor: tokens.foreground,
-            icon: SizedBox(
-              width: 20,
-              child: Center(
-                child: DIcon(icon, size: 12, color: tokens.mutedForeground),
-              ),
-            ),
+            icon: DIcon(icon, size: 12, color: tokens.mutedForeground),
             label: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 9,
               children: [
-                Flexible(
-                  child: Text(
-                    title,
-                    style: headingStyle,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                Expanded(child: label),
                 DIcon(
                   DIcons.chevronRight,
-                  size: 11,
+                  size: 10,
                   color: tokens.mutedForeground,
                 ),
               ],
             ),
             onPressed: onHeading,
           );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 9,
-      children: [
-        heading,
-        if (rows.isNotEmpty)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final gap = compact ? 4.0 : 10.0;
-              if (compact && fullWidth) {
-                return Wrap(
-                  spacing: gap,
-                  runSpacing: gap,
-                  children: [
-                    for (final entry in rows.take(8))
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth.clamp(0.0, 280.0),
-                        ),
-                        child: _row(context, entry),
-                      ),
-                  ],
-                );
-              }
-              final across = (compact && !fullWidth)
-                  ? 1
-                  : ((constraints.maxWidth + gap) /
-                            ((compact ? 250 : 190) + gap))
-                        .floor()
-                        .clamp(compact ? 1 : 2, 8);
-              final columnWidth =
-                  (constraints.maxWidth - (across - 1) * gap) / across;
-
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        spacing: 8,
+        children: [
+          heading,
+          if (fullWidth)
+            LayoutBuilder(
+              builder: (context, constraints) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  for (final entry in rows.take(
-                    compact ? (fullWidth ? 8 : 4) : across,
-                  ))
-                    SizedBox(width: columnWidth, child: _row(context, entry)),
+                  for (final entry in rows)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth.clamp(0.0, 280.0),
+                      ),
+                      child: _row(context, entry),
+                    ),
                 ],
-              );
-            },
-          ),
-        ?content,
-      ],
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 4,
+              children: [for (final entry in rows) _row(context, entry)],
+            ),
+        ],
+      ),
     );
   }
+}
+
+class _SectionGrid extends StatelessWidget {
+  const _SectionGrid({required this.sections});
+  final List<_StartSection> sections;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      var columns = math.max(1, ((constraints.maxWidth + 18) / 256).floor());
+      for (var count = columns; count >= 2; count--) {
+        if (sections.length % count == 0) {
+          columns = count;
+          break;
+        }
+      }
+      return Column(
+        spacing: 18,
+        children: [
+          for (var start = 0; start < sections.length; start += columns)
+            _SectionRow(
+              direction: Directionality.of(context),
+              children: [
+                for (var column = 0; column < columns; column++) ...[
+                  if (start + column < sections.length) ...[
+                    sections[start + column].surface(context),
+                    sections[start + column].contents(context),
+                  ] else ...[
+                    const SizedBox.shrink(),
+                    const SizedBox.shrink(),
+                  ],
+                ],
+              ],
+            ),
+        ],
+      );
+    },
+  );
+}
+
+// Measure section contents once at their actual width, then stretch the Native
+// surfaces behind them. Intrinsic estimates miss inline emoji height.
+class _SectionRow extends MultiChildRenderObjectWidget {
+  const _SectionRow({required this.direction, required super.children});
+  final TextDirection direction;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSectionRow(direction);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSectionRow renderObject,
+  ) {
+    renderObject.direction = direction;
+  }
+}
+
+class _SectionParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderSectionRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _SectionParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _SectionParentData> {
+  _RenderSectionRow(this._direction);
+  TextDirection _direction;
+  set direction(TextDirection value) {
+    if (_direction == value) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _SectionParentData) {
+      child.parentData = _SectionParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final columns = childCount ~/ 2;
+    final width = ((constraints.maxWidth - 18 * (columns - 1)) / columns).clamp(
+      0.0,
+      double.infinity,
+    );
+    final children = getChildrenAsList();
+    var height = 0.0;
+    for (var i = 1; i < children.length; i += 2) {
+      final child = children[i];
+      child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
+      height = math.max(height, child.size.height);
+    }
+    for (var i = 0; i < children.length; i += 2) {
+      children[i].layout(BoxConstraints.tightFor(width: width, height: height));
+      final x = (i ~/ 2) * (width + 18);
+      final offset = Offset(
+        _direction == TextDirection.ltr ? x : constraints.maxWidth - width - x,
+        0,
+      );
+      (children[i].parentData! as _SectionParentData).offset = offset;
+      (children[i + 1].parentData! as _SectionParentData).offset = offset;
+    }
+    size = constraints.constrain(Size(constraints.maxWidth, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+// Matches the mockup's oklch(from secondary calc(l - 0.08) c h).
+// Changing only lightness is equivalent in Oklab and preserves hue/chroma.
+Color _wellColor(Color color) {
+  double linear(double v) =>
+      v <= .04045 ? v / 12.92 : math.pow((v + .055) / 1.055, 2.4).toDouble();
+  double root(double v) => v.sign * math.pow(v.abs(), 1 / 3).toDouble();
+  final r = linear(color.r), g = linear(color.g), b = linear(color.b);
+  final l = root(.4122214708 * r + .5363325363 * g + .0514459929 * b);
+  final m = root(.2119034982 * r + .6806995451 * g + .1073969566 * b);
+  final s = root(.0883024619 * r + .2817188376 * g + .6299787005 * b);
+  final lightness = (.2104542553 * l + .793617785 * m - .0040720468 * s - .08)
+      .clamp(0.0, 1.0);
+  final a = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s;
+  final bb = .0259040371 * l + .7827717662 * m - .808675766 * s;
+  double cube(double v) => v * v * v;
+  double gamma(double v) =>
+      (v <= .0031308 ? 12.92 * v : 1.055 * math.pow(v, 1 / 2.4) - .055)
+          .clamp(0.0, 1.0)
+          .toDouble();
+  final ll = cube(lightness + .3963377774 * a + .2158037573 * bb);
+  final mm = cube(lightness - .1055613458 * a - .0638541728 * bb);
+  final ss = cube(lightness - .0894841775 * a - 1.291485548 * bb);
+  return Color.from(
+    alpha: color.a,
+    red: gamma(4.0767416621 * ll - 3.3077115913 * mm + .2309699292 * ss),
+    green: gamma(-1.2684380046 * ll + 2.6097574011 * mm - .3413193965 * ss),
+    blue: gamma(-.0041960863 * ll - .7034186147 * mm + 1.707614701 * ss),
+  );
+}
+
+/// Measures the Native buttons themselves so text scaling and localization
+/// determine which shortcuts fit beside the menu trigger.
+class _ShortcutBar extends StatefulWidget {
+  const _ShortcutBar({required this.links});
+  final List<_LinkButton> links;
+
+  @override
+  State<_ShortcutBar> createState() => _ShortcutBarState();
+}
+
+class _ShortcutBarState extends State<_ShortcutBar> {
+  List<GlobalKey> _measureKeys = [];
+  final _moreKey = GlobalKey();
+  List<double> _widths = [];
+  double _moreWidth = 0;
+  String? _signature;
+  bool _scheduled = false;
+
+  void _measure() {
+    _scheduled = false;
+    if (!mounted) return;
+    final widths = [
+      for (final key in _measureKeys)
+        (key.currentContext?.findRenderObject() as RenderBox?)?.size.width,
+    ];
+    if (widths.any((width) => width == null)) return;
+    final more =
+        (_moreKey.currentContext?.findRenderObject() as RenderBox?)?.size.width;
+    if (more == null) return;
+    final measured = widths.cast<double>();
+    if (_moreWidth != more ||
+        _widths.length != measured.length ||
+        [
+          for (var i = 0; i < measured.length; i++)
+            if (_widths[i] != measured[i]) i,
+        ].isNotEmpty) {
+      setState(() {
+        _widths = measured;
+        _moreWidth = more;
+      });
+    }
+  }
+
+  int _fitting(double width) {
+    if (_widths.length != widget.links.length) return 0;
+    var used = 0.0;
+    var shown = 0;
+    while (shown < _widths.length &&
+        used + (shown == 0 ? 0 : 8) + _widths[shown] <= width) {
+      used += (shown == 0 ? 0 : 8) + _widths[shown++];
+    }
+    while (shown > 0 &&
+        shown < _widths.length &&
+        used + 8 + _moreWidth > width) {
+      used -= _widths[--shown] + (shown == 0 ? 0 : 8);
+    }
+    return shown;
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final signature =
+          '${widget.links.map((link) => link.label).join('|')} ${MediaQuery.textScalerOf(context).scale(14)} ${Theme.of(context).textTheme}';
+      if (_signature != signature) {
+        _signature = signature;
+        _widths = [];
+      }
+      if (_measureKeys.length != widget.links.length) {
+        _measureKeys = [for (final _ in widget.links) GlobalKey()];
+      }
+      if (!_scheduled) {
+        _scheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+      }
+      final shown = _fitting(constraints.maxWidth);
+      final rest = widget.links.skip(shown).toList();
+      Widget moreButton({Key? key, VoidCallback? onPressed}) => DButton(
+        key: key,
+        size: DButtonSize.filter,
+        variant: DButtonVariant.secondary,
+        icon: const DIcon(DIcons.ellipsis, size: 12),
+        label: Text(context.l10n.more),
+        onPressed: onPressed,
+      );
+      return Stack(
+        key: const ValueKey('start-page-shortcuts'),
+        children: [
+          Offstage(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < widget.links.length; i++)
+                    SizedBox(key: _measureKeys[i], child: widget.links[i]),
+                  moreButton(key: _moreKey, onPressed: () {}),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            spacing: 8,
+            children: [
+              ...widget.links.take(shown),
+              if (rest.isNotEmpty)
+                Flexible(
+                  child: DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      children: [
+                        for (final link in rest)
+                          DDropdownMenuItem(
+                            leading: DIcon(link.icon, size: 12),
+                            onPressed: link.onPressed,
+                            child: Text(link.label),
+                          ),
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DButton(
+                        key: const ValueKey('start-page-more'),
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.secondary,
+                        focusNode: state.focusNode,
+                        hasPopup: true,
+                        expanded: state.open,
+                        icon: const DIcon(DIcons.ellipsis, size: 12),
+                        label: Text(context.l10n.more),
+                        onPressed: state.toggle,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _LinkButton extends StatelessWidget {
@@ -1197,10 +1246,11 @@ class _LinkButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final button = DButton(
       variant: DButtonVariant.secondary,
+      size: DButtonSize.filter,
       backgroundColor: tokens.footerBackground,
       interactiveBackgroundColor: tokens.buttonTheme.accent.hover,
       borderColor: Colors.transparent,
-      icon: DIcon(icon, size: 16),
+      icon: DIcon(icon, size: 12),
       label: Text(label),
       onPressed: onPressed,
     );
@@ -1210,245 +1260,4 @@ class _LinkButton extends StatelessWidget {
     }
     return button;
   }
-}
-
-class _PanelTutorial extends StatelessWidget {
-  const _PanelTutorial({required this.onDismiss});
-
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 920),
-    child: DCard(
-      spacing: 0,
-      child: Stack(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 700;
-              final instructions = Padding(
-                padding: const EdgeInsets.all(DSpacing.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.md,
-                  children: [
-                    Padding(
-                      padding: EdgeInsetsDirectional.only(
-                        end: compact ? DSpacing.xxl : 0,
-                      ),
-                      child: Text(
-                        context.l10n.workWithTwoPanels,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    _PanelGestureHint(
-                      keys: [context.l10n.middleClick],
-                      description: context.l10n.opensANewTabInMainPanel,
-                    ),
-                    _PanelGestureHint(
-                      keys: [context.l10n.shift, context.l10n.click],
-                      description: context.l10n.openInSecondaryPanel,
-                    ),
-                    _PanelGestureHint(
-                      keys: [context.l10n.shift, context.l10n.middleClick],
-                      description: context.l10n.openInANewTabInSecondaryPanel,
-                    ),
-                  ],
-                ),
-              );
-              final diagram = _PanelTutorialDiagram();
-              if (compact) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [instructions, const DSeparator(), diagram],
-                );
-              }
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: instructions),
-                    const DSeparator(orientation: Axis.vertical),
-                    Expanded(child: diagram),
-                  ],
-                ),
-              );
-            },
-          ),
-          PositionedDirectional(
-            top: DSpacing.sm,
-            end: DSpacing.sm,
-            child: DButton.iconOnly(
-              key: const ValueKey('dismiss-panel-tutorial'),
-              icon: const DIcon(DIcons.xmark),
-              tooltip: context.l10n.donTShowThisTutorialAgain,
-              onPressed: onDismiss,
-              variant: DButtonVariant.transparentBackground,
-              size: DButtonSize.small,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _PanelTutorialDiagram extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return ColoredBox(
-      color: tokens.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: DSpacing.xl,
-          vertical: DSpacing.lg,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: DSpacing.md,
-          children: [
-            Text(
-              context.l10n.tWOPANELS,
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: tokens.mutedForeground),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: DSpacing.sm,
-              children: [
-                Expanded(child: _PanelPreview(label: context.l10n.main)),
-                Expanded(
-                  child: _PanelPreview(
-                    label: context.l10n.secondary,
-                    backgroundColor: tokens.selected,
-                    highlightFirstLine: true,
-                  ),
-                ),
-              ],
-            ),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: Text(
-                context.l10n.shiftClickOpensHere,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: tokens.mutedForeground),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PanelPreview extends StatelessWidget {
-  const _PanelPreview({
-    required this.label,
-    this.backgroundColor,
-    this.highlightFirstLine = false,
-  });
-
-  final String label;
-  final Color? backgroundColor;
-  final bool highlightFirstLine;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return SizedBox(
-      height: 148,
-      child: DCard(
-        spacing: 0,
-        borderRadius: BorderRadius.circular(DRadius.control),
-        backgroundColor: backgroundColor,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: DSpacing.sm,
-                vertical: DSpacing.sm,
-              ),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: tokens.foreground,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const DSeparator(),
-            Padding(
-              padding: const EdgeInsets.all(DSpacing.md),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.sm,
-                  children: [
-                    _PanelPreviewLine(
-                      color: highlightFirstLine
-                          ? tokens.primary
-                          : tokens.border,
-                    ),
-                    _PanelPreviewLine(
-                      width: constraints.maxWidth * .75,
-                      color: tokens.border,
-                    ),
-                    _PanelPreviewLine(
-                      width: constraints.maxWidth * .55,
-                      color: tokens.border,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Illustration artwork for a panel's content, not a loading placeholder: it
-/// is drawn in the illustration's own colors and never animates.
-class _PanelPreviewLine extends StatelessWidget {
-  const _PanelPreviewLine({required this.color, this.width});
-
-  final Color color;
-  final double? width;
-
-  @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-    child: Container(
-      key: const ValueKey('panel-preview-line'),
-      width: width,
-      height: 5,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(DTokens.of(context).radius * 0.8),
-      ),
-    ),
-  );
-}
-
-class _PanelGestureHint extends StatelessWidget {
-  const _PanelGestureHint({required this.keys, required this.description});
-
-  final List<String> keys;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: DSpacing.sm,
-    runSpacing: DSpacing.xs,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [for (final key in keys) DKbd(key), Text(description)],
-  );
 }

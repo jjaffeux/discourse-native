@@ -10,6 +10,31 @@ import 'support/fakes.dart';
 void main() {
   const site = 'https://example.com';
 
+  test(
+    'Start queries stay isolated by forum and tab and clear on account removal',
+    () {
+      final search = ShellSearchController(
+        api: _SearchApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      search.setStartPageQuery(site, 'main', 'garden');
+      search.setStartPageQuery(site, 'secondary', 'design');
+      search.setStartPageQuery('https://other.example', 'main', 'community');
+      expect(search.startPageQueryFor(site, 'main'), 'garden');
+      expect(search.startPageQueryFor(site, 'secondary'), 'design');
+      search.forget(site);
+      expect(search.startPageQueryFor(site, 'main'), isEmpty);
+      expect(search.startPageQueryFor(site, 'secondary'), isEmpty);
+      expect(
+        search.startPageQueryFor('https://other.example', 'main'),
+        'community',
+      );
+      expect(search.panelOpen, isFalse);
+    },
+  );
+
   group('recent-search lifecycle', () {
     testWidgets(
       'forgetting history admits a new load before the old one settles',
