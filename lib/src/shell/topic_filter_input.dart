@@ -293,12 +293,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         filter.dismiss();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab when filter.isOpen:
-        unawaited(
-          filter.ensureFreshSuggestions().then((_) async {
-            if (!mounted) return;
-            await _acceptSelectedSuggestion();
-          }),
-        );
+        unawaited(_acceptSelectedOrFallback(allowFallback: false));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
           when widget.tokenized &&
@@ -340,11 +335,19 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     }
   }
 
-  Future<void> _acceptSelectedOrFallback() async {
-    await filter.ensureFreshSuggestions();
-    if (!mounted) return;
+  Future<void> _acceptSelectedOrFallback({bool allowFallback = true}) async {
+    final controller = filter;
+    final fresh = await controller.ensureFreshSuggestions();
+    if (!mounted ||
+        !identical(_filter, controller) ||
+        !widget.enabled ||
+        !fresh) {
+      return;
+    }
     if (filter.isOpen) {
       await _acceptSelectedSuggestion();
+    } else if (!allowFallback) {
+      return;
     } else if (widget.tokenized) {
       _commitTokenDraft();
     } else {

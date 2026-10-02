@@ -180,6 +180,7 @@ class TopicFilterController extends ChangeNotifier {
   TopicFilterSuggestions engine;
   Timer? _timer;
   int _request = 0;
+  int _suggestionSession = 0;
   bool _suggestionRunning = false;
   _QueuedTopicFilterSuggestions? _activeSuggestions;
   _QueuedTopicFilterSuggestions? _queuedSuggestions;
@@ -200,11 +201,13 @@ class TopicFilterController extends ChangeNotifier {
 
   void updateEngine(TopicFilterSuggestions engine) {
     this.engine = engine;
+    _suggestionSession++;
     _lastSuggestionInput = null;
     if (_open) unawaited(refreshSuggestions());
   }
 
   void inputChanged(String value) {
+    _suggestionSession++;
     _open = true;
     _selectedIndex = _suggestions.isEmpty ? -1 : 0;
     _timer?.cancel();
@@ -217,11 +220,22 @@ class TopicFilterController extends ChangeNotifier {
     await ensureFreshSuggestions();
   }
 
-  Future<void> ensureFreshSuggestions() async {
-    if (_lastSuggestionInput == text.text) return;
+  Future<bool> ensureFreshSuggestions() async {
+    if (_disposed) return false;
+    final input = text.text;
+    final session = _suggestionSession;
+    if (_lastSuggestionInput == input) return true;
     _timer?.cancel();
     _timer = null;
-    await refreshSuggestions();
+    final refresh = refreshSuggestions();
+    final request = _request;
+    await refresh;
+    // A keyboard action waiting on this lookup belongs to the input and menu
+    // session that started it, even when the user later returns to that text.
+    return !_disposed &&
+        input == text.text &&
+        session == _suggestionSession &&
+        request == _request;
   }
 
   Future<void> refreshSuggestions() {
@@ -294,6 +308,7 @@ class TopicFilterController extends ChangeNotifier {
   }
 
   Future<void> accept(TopicFilterSuggestion choice) async {
+    _suggestionSession++;
     final input = _FilterInput(text.text);
     var replacement = choice.name;
     if (choice.isSuggestion) {
@@ -319,6 +334,7 @@ class TopicFilterController extends ChangeNotifier {
   }
 
   Future<void> clear() async {
+    _suggestionSession++;
     text.clear();
     _lastSuggestionInput = null;
     await submitQuery('');
@@ -327,6 +343,7 @@ class TopicFilterController extends ChangeNotifier {
   }
 
   void dismiss() {
+    _suggestionSession++;
     _open = false;
     _suggestions = const [];
     _selectedIndex = -1;
