@@ -63,6 +63,14 @@ void main() {
         invite: (_) async => true,
       );
       await openDialog(tester, invitation, textScale: 1.5);
+      expect(
+        find
+            .text(
+              'Ensure your LiveKit agent is deployed before adding it to this call.',
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(EditableText), 'assistant');
       await tester.tap(find.text('Send invitation'));
       await tester.pumpAndSettle();

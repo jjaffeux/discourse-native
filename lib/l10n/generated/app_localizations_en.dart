@@ -2588,6 +2588,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inviteVoiceAgent => 'Invite voice agent';
 
   @override
+  String get voiceAgentDeployHint =>
+      'Ensure your LiveKit agent is deployed before adding it to this call.';
+
+  @override
   String get chooseADeployedAgentOrEnterItsDispatchName =>
       'Choose a deployed agent or enter its dispatch name.';
 

@@ -4551,6 +4551,12 @@ abstract class AppLocalizations {
   /// **'Invite voice agent'**
   String get inviteVoiceAgent;
 
+  /// Reminder in the voice agent invitation dialog that the named LiveKit agent must already be deployed before it can join the call.
+  ///
+  /// In en, this message translates to:
+  /// **'Ensure your LiveKit agent is deployed before adding it to this call.'**
+  String get voiceAgentDeployHint;
+
   /// English UI message used by plugins/voice/voice_agent_invite.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
