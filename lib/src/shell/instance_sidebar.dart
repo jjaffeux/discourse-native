@@ -20,7 +20,6 @@ import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
-import 'instance_actions.dart';
 import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -877,24 +876,20 @@ class _SidebarUserHeader extends StatelessWidget {
   }
 }
 
+/// Static forum artwork for the mobile header.
 class ForumIdentityHeader extends StatelessWidget {
   const ForumIdentityHeader({
     super.key,
-    required this.siteUrl,
     required this.name,
     required this.iconUrl,
     required this.monogram,
     required this.accentColor,
-    this.compact = false,
-    this.showName = false,
   });
-  final String siteUrl;
+
   final String name;
   final String? iconUrl;
   final String monogram;
   final Color accentColor;
-  final bool compact;
-  final bool showName;
 
   @override
   Widget build(BuildContext context) {
@@ -902,8 +897,9 @@ class ForumIdentityHeader extends StatelessWidget {
         ThemeData.estimateBrightnessForColor(accentColor) == Brightness.dark
         ? Colors.white
         : Colors.black;
-    final logo = DAvatar.frame(
+    return DAvatar.frame(
       key: const ValueKey('forum-identity-logo'),
+      semanticLabel: name,
       border: false,
       borderRadius: BorderRadius.circular(6),
       child: AvatarImage(
@@ -916,114 +912,6 @@ class ForumIdentityHeader extends StatelessWidget {
             child: Text(monogram, style: TextStyle(color: fallbackForeground)),
           ),
         ),
-      ),
-    );
-    return DDropdownMenu(
-      key: const ValueKey('forum-identity-header'),
-      content: DDropdownMenuContent(
-        width: 240,
-        children: [
-          DDropdownMenuItem(
-            key: const ValueKey('forum-identity-open-browser'),
-            leading: const DIcon(DIcons.upRightFromSquare, size: 16),
-            onPressed: () => unawaited(openExternalLink(siteUrl)),
-            child: Text(context.l10n.openForumInBrowser),
-          ),
-          const DDropdownMenuSeparator(),
-          DDropdownMenuItem(
-            key: const ValueKey('forum-identity-remove'),
-            leading: const DIcon(DIcons.trashCan, size: 16),
-            variant: DDropdownMenuItemVariant.destructive,
-            onPressed: () async {
-              final instance = ShellScope.read(context).currentInstance;
-              if (instance != null) {
-                await confirmInstanceRemoval(context, instance);
-              }
-            },
-            child: Text(context.l10n.removeForum),
-          ),
-        ],
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (context, menu) => compact && showName
-            ? DButton(
-                key: const ValueKey('forum-identity-button'),
-                icon: logo,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: DSpacing.sm),
-                    const Icon(Icons.unfold_more_rounded),
-                  ],
-                ),
-                tooltip: name,
-                semanticLabel: context.l10n.forumMenu((name).toString()),
-                variant: DButtonVariant.inline,
-                size: compact ? DButtonSize.regular : DButtonSize.large,
-                focusNode: menu.focusNode,
-                hasPopup: true,
-                expanded: menu.open,
-                onPressed: menu.toggle,
-              )
-            : compact
-            ? DButton.iconOnly(
-                key: const ValueKey('forum-identity-button'),
-                icon: logo,
-                tooltip: name,
-                semanticLabel: context.l10n.forumMenu((name).toString()),
-                variant: DButtonVariant.ghost,
-                size: compact ? DButtonSize.regular : DButtonSize.large,
-                focusNode: menu.focusNode,
-                hasPopup: true,
-                expanded: menu.open,
-                onPressed: menu.toggle,
-              )
-            : DSidebarMenuButton(
-                key: const ValueKey('forum-identity-button'),
-                size: DSidebarMenuButtonSize.large,
-                focusNode: menu.focusNode,
-                expanded: menu.open,
-                onPressed: menu.toggle,
-                iconSize: 32,
-                icon: logo,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (!compact)
-                            Text(
-                              siteUrl.replaceFirst(RegExp(r'^https?://'), ''),
-                              key: const ValueKey('forum-identity-url'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: DiscourseTypography.xs,
-                                height: 16 / 12,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: DSpacing.sm),
-                    const Icon(Icons.unfold_more_rounded, size: 16),
-                  ],
-                ),
-              ),
       ),
     );
   }
