@@ -294,6 +294,7 @@ class _GlobalSearchConditionEditorState
   );
   late List<String> _values = List.of(widget.initial?.value ?? const []);
   List<GlobalSearchFilterChoice> _choices = const [];
+  String? _choicesQuery;
   final _tagSearchFocus = FocusNode();
   String? _error;
   String? _lookupError;
@@ -307,6 +308,10 @@ class _GlobalSearchConditionEditorState
       _choicesOnly ||
       widget.filter.choices.isNotEmpty ||
       widget.filter.lookup != GlobalSearchLookup.none;
+  bool get _choicesCurrent =>
+      widget.filter.choices.isNotEmpty || _choicesQuery == _text.text;
+  bool _isTypedValue(String value) =>
+      !_tags && !_choicesOnly && value == _text.text.trim();
 
   @override
   void initState() {
@@ -327,7 +332,10 @@ class _GlobalSearchConditionEditorState
     setState(() {
       _loading = true;
       _lookupError = null;
-      if (_tags) _choices = widget.controller.cachedTagChoices(query);
+      if (_tags) {
+        _choices = widget.controller.cachedTagChoices(query);
+        _choicesQuery = query;
+      }
     });
     try {
       if (query.isNotEmpty) {
@@ -341,6 +349,7 @@ class _GlobalSearchConditionEditorState
       if (!mounted || generation != _generation) return;
       setState(() {
         _choices = values;
+        _choicesQuery = query;
         _loading = false;
       });
     } catch (_) {
@@ -357,6 +366,11 @@ class _GlobalSearchConditionEditorState
   }
 
   void _choose(String value) {
+    if (!(_multiple && _values.contains(value)) &&
+        !_isTypedValue(value) &&
+        !(_choicesCurrent && _choices.any((choice) => choice.value == value))) {
+      return;
+    }
     setState(() {
       _error = null;
       if (_multiple) {
@@ -837,6 +851,7 @@ class _GlobalSearchConditionEditorState
                 DCommandItem<String>(
                   value: choice.value,
                   searchValue: '${choice.label} ${choice.value}',
+                  enabled: _choicesCurrent || _isTypedValue(choice.value),
                   checked: _values.contains(choice.value),
                   child: Text(choice.label),
                 ),
