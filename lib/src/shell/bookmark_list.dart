@@ -148,6 +148,15 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   Future<void> _open(String absolute, {bool newTab = false}) async {
     final controller = widget.controller;
+    final siteUrl = widget.siteUrl;
+    final lease = controller.lifecycle.capture(siteUrl);
+    bool current() =>
+        mounted &&
+        lease.isCurrent &&
+        identical(widget.controller, controller) &&
+        widget.siteUrl == siteUrl &&
+        controller.currentInstance?.url == siteUrl;
+
     if (newTab) {
       await openLink(context, absolute, newTab: true);
       return;
@@ -156,17 +165,17 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       absolute,
       origin: PluginLinkOrigin.inApp,
     )) {
-      if (mounted) widget.onOpened();
+      if (current()) widget.onOpened();
       return;
     }
     // The Chat access check above can cross a credential and network boundary.
     // Do not navigate or dismiss a replacement section after this one has gone.
-    if (!mounted) return;
+    if (!current()) return;
     if (controller.openTopicUrl(absolute)) {
       widget.onOpened();
       return;
     }
-    if (await openExternalLink(absolute) && mounted) widget.onOpened();
+    if (await openExternalLink(absolute) && current()) widget.onOpened();
   }
 
   Future<void> _openReminder(
