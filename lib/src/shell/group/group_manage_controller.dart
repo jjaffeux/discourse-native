@@ -254,7 +254,7 @@ final class GroupManageController extends ChangeNotifier {
         GroupRoute.profile => {
           'name': _value('name'),
           'full_name': _value('full_name'),
-          'bio_raw': _value('bio_raw'),
+          'bio_raw': textController('bio_raw').text,
           'title': _value('title'),
           'flair_icon': _value('flair_icon'),
           'flair_bg_color': _value('flair_bg_color'),

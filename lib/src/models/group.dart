@@ -101,7 +101,10 @@ final class Group {
     flairType: jsonText(json['flair_type']),
     flairBackgroundColor: jsonText(json['flair_bg_color']),
     flairColor: jsonText(json['flair_color']),
-    bioRaw: jsonText(json['bio_raw']),
+    bioRaw: switch (json['bio_raw']) {
+      final String raw => raw,
+      _ => null,
+    },
     bioCooked: jsonText(json['bio_cooked']),
     bioExcerpt: jsonText(json['bio_excerpt']),
     publicAdmission: json['public_admission'] == true,
