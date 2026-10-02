@@ -1777,84 +1777,64 @@ void _registerShellNavigationTests() {
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets(
-    'the forum name and URL stay at the top while navigation scrolls',
-    (tester) async {
-      final site = instance(
-        'meta.discourse.org',
-        title: 'Discourse Meta',
-      ).copyWith(user: const DiscourseUser(id: 7, username: 'sam'));
-      await pumpShell(
-        tester,
-        desktop,
-        instances: [site],
-        authenticator: FakeAuthenticator()..keys[site.url] = 'api-key',
-        api: FakeDiscourseApi(
-          customSidebarSectionsBySite: {
-            site.url: [
-              SidebarSection(
-                id: 'projects',
-                title: 'Projects',
-                collapsible: false,
-                destinations: [
-                  for (var index = 0; index < 40; index++)
-                    SidebarDestination(
-                      id: 'project-$index',
-                      label: 'Project $index',
-                      icon: DIcons.comment,
-                    ),
-                ],
-              ),
-            ],
-          },
-        ),
-      );
+  testWidgets('sidebar mode tabs stay at the top while navigation scrolls', (
+    tester,
+  ) async {
+    final site = instance(
+      'meta.discourse.org',
+      title: 'Discourse Meta',
+    ).copyWith(user: const DiscourseUser(id: 7, username: 'sam'));
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [site],
+      authenticator: FakeAuthenticator()..keys[site.url] = 'api-key',
+      api: FakeDiscourseApi(
+        customSidebarSectionsBySite: {
+          site.url: [
+            SidebarSection(
+              id: 'projects',
+              title: 'Projects',
+              collapsible: false,
+              destinations: [
+                for (var index = 0; index < 40; index++)
+                  SidebarDestination(
+                    id: 'project-$index',
+                    label: 'Project $index',
+                    icon: DIcons.comment,
+                  ),
+              ],
+            ),
+          ],
+        },
+      ),
+    );
 
-      final sidebar = find.byType(InstanceSidebar);
-      final header = find.byKey(const ValueKey('forum-identity-header'));
-      expect(header, findsOneWidget);
-      expect(
-        find.descendant(of: header, matching: find.text('Discourse Meta')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: header, matching: find.text('meta.discourse.org')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: header,
-          matching: find.byKey(const ValueKey('forum-identity-logo')),
-        ),
-        findsOneWidget,
-      );
-      final headerRect = tester.getRect(header);
-      final cardRect = tester.getRect(
-        find.byKey(const ValueKey('forum-identity-button')),
-      );
-      expect(headerRect.top, tester.getRect(sidebar).top + 8);
-      expect(cardRect.top, headerRect.top);
-      final navigation = find.descendant(
-        of: sidebar,
-        matching: find.byType(CustomScrollView),
-      );
-      expect(
-        tester.getRect(navigation).top,
-        greaterThanOrEqualTo(headerRect.bottom),
-      );
-      final scrollPosition = tester
-          .state<ScrollableState>(
-            find.descendant(of: navigation, matching: find.byType(Scrollable)),
-          )
-          .position;
-      expect(scrollPosition.maxScrollExtent, greaterThan(0));
-      await tester.drag(navigation, const Offset(0, -300));
-      await tester.pumpAndSettle();
-      expect(scrollPosition.pixels, greaterThan(0));
-      expect(tester.getRect(header), headerRect);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
+    final sidebar = find.byType(InstanceSidebar);
+    final header = find.byKey(const ValueKey('sidebar-panel-tabs'));
+    expect(header, findsOneWidget);
+    expect(find.byType(ForumIdentityHeader), findsNothing);
+    final headerRect = tester.getRect(header);
+    expect(headerRect.top, tester.getRect(sidebar).top + 8);
+    final navigation = find.descendant(
+      of: sidebar,
+      matching: find.byType(CustomScrollView),
+    );
+    expect(
+      tester.getRect(navigation).top,
+      greaterThanOrEqualTo(headerRect.bottom),
+    );
+    final scrollPosition = tester
+        .state<ScrollableState>(
+          find.descendant(of: navigation, matching: find.byType(Scrollable)),
+        )
+        .position;
+    expect(scrollPosition.maxScrollExtent, greaterThan(0));
+    await tester.drag(navigation, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(scrollPosition.pixels, greaterThan(0));
+    expect(tester.getRect(header), headerRect);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('the community section is headerless and always expanded', (
     tester,
@@ -1875,12 +1855,12 @@ void _registerShellNavigationTests() {
     final sidebar = tester.getRect(find.byType(InstanceSidebar));
     final tile = tester.getRect(topicsTile);
     final header = tester.getRect(
-      find.byKey(const ValueKey('forum-identity-header')),
+      find.byKey(const ValueKey('sidebar-panel-tabs')),
     );
-    expect(tile.top - header.bottom, closeTo(60, 0.01));
+    expect(tile.top - header.bottom, closeTo(10, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
-    expect(tile.height, closeTo(40, 0.01));
+    expect(tile.height, closeTo(34, 0.01));
     expect(tester.getRect(topics).left - sidebar.left, closeTo(42, 0.01));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1950,32 +1930,25 @@ void _registerShellNavigationTests() {
     expect(background(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('the forum menu opens actions below the header', (tester) async {
+  testWidgets('forum removal stays reachable from the rail without a placard', (
+    tester,
+  ) async {
     await pumpShell(tester, desktop);
 
-    final header = find.byKey(const ValueKey('forum-identity-header'));
-    final chevrons = find.descendant(
-      of: header,
-      matching: find.byIcon(Icons.unfold_more_rounded),
+    expect(find.byType(ForumIdentityHeader), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('https://meta.discourse.org')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryButton,
     );
-    expect(chevrons, findsOneWidget);
-    await tester.tap(chevrons);
     await tester.pumpAndSettle();
 
-    final remove = find.widgetWithText(DDropdownMenuItem, 'Remove forum');
+    final remove = find.widgetWithText(DContextMenuItem, 'Remove forum');
     expect(remove, findsOneWidget);
-    expect(find.text('Open forum in browser'), findsOneWidget);
     expect(find.text('More Options'), findsNothing);
-    final anchor = tester.getRect(
-      find.byKey(const ValueKey('forum-identity-button')),
-    );
-    expect(
-      tester.getRect(find.text('Open forum in browser')).top,
-      greaterThan(anchor.bottom),
-    );
 
-    final button = tester.widget<DDropdownMenuItem>(remove);
-    expect(button.variant, DDropdownMenuItemVariant.destructive);
+    final button = tester.widget<DContextMenuItem>(remove);
+    expect(button.variant, DContextMenuItemVariant.destructive);
 
     await tester.tap(remove);
     await tester.pumpAndSettle();

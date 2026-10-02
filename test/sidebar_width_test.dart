@@ -1,4 +1,4 @@
-import 'dart:ui' show PointerDeviceKind, SemanticsAction;
+import 'dart:ui' show PointerDeviceKind, SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/sidebar_width_store.dart';
@@ -16,7 +16,6 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -125,7 +124,7 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
+    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 13);
     expect(
       tester
           .getSize(
@@ -134,13 +133,13 @@ void main() {
                 .first,
           )
           .height,
-      DControlStyle.largeHeight,
+      DControlStyle.regularHeight,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   for (final size in [const Size(390, 700), const Size(1200, 800)]) {
     testWidgets(
-      'scaled sidebar labels and forum identity fit ${size.width}px layouts',
+      'scaled sidebar labels fit ${size.width}px layouts without a placard',
       (tester) async {
         SharedPreferences.setMockInitialValues({
           SidebarWidthStore.storageKey: AdaptiveShell.sidebarMinWidth,
@@ -171,38 +170,16 @@ void main() {
         final textRect = tester.getRect(topics);
         final rowRect = tester.getRect(row);
 
-        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 14);
-        expect(rowRect.height, greaterThan(DControlStyle.largeHeight));
+        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 13);
+        expect(rowRect.height, greaterThan(DControlStyle.regularHeight));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
 
-        final header = find.byKey(const ValueKey('forum-identity-header'));
-        final name = find.descendant(
-          of: header,
-          matching: find.text(site.title),
-        );
-        final url = find.byKey(const ValueKey('forum-identity-url'));
-        final headerRect = tester.getRect(header);
-        final cardRect = tester.getRect(
-          find.byKey(const ValueKey('forum-identity-button')),
-        );
-        expect(cardRect.left, rowRect.left);
-        expect(cardRect.right, rowRect.right);
-        expect(tester.widget<Text>(url).data, address);
+        expect(find.byType(ForumIdentityHeader), findsNothing);
         expect(
-          tester.getRect(name).bottom,
-          lessThanOrEqualTo(tester.getRect(url).top),
+          find.byKey(const ValueKey('sidebar-panel-tabs')),
+          findsOneWidget,
         );
-        for (final label in [name, url]) {
-          final paragraph = tester.renderObject<RenderParagraph>(label);
-          expect(paragraph.maxLines, 1);
-          expect(paragraph.overflow, TextOverflow.ellipsis);
-          expect(paragraph.didExceedMaxLines, isTrue);
-          final labelRect = tester.getRect(label);
-          expect(labelRect.left, greaterThanOrEqualTo(headerRect.left));
-          expect(labelRect.right, lessThanOrEqualTo(headerRect.right));
-          expect(labelRect.bottom, lessThanOrEqualTo(headerRect.bottom));
-        }
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
@@ -211,87 +188,98 @@ void main() {
   testWidgets('scaled sidebar section titles reflow around their controls', (
     tester,
   ) async {
-    var actions = 0;
-    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
-    final site = instance(
-      'meta.discourse.org',
-      title: 'Meta',
-    ).copyWith(user: me);
-    final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
-    final controller = await _controller(
-      store: FakeInstanceStore([site]),
-      api: FakeDiscourseApi(
-        customSidebarSectionsBySite: {
-          site.url: [
-            SidebarSection(
-              id: 'lead-calls',
-              title: 'Teach Lead Calls',
-              destinations: const [],
-              actionLabel: 'Add lead call',
-              onAction: () => actions++,
-            ),
-            SidebarSection(
-              id: 'one-to-one',
-              title: '1:1',
-              destinations: const [],
-              actionLabel: 'Add 1:1',
-              onAction: () {},
-            ),
-          ],
-        },
-      ),
-      authenticator: authenticator,
-    );
-    await controller.appSettings.setTextScale(AppTextScale.percent200);
-    await _pumpShell(tester, controller, const Size(1200, 1200));
+    final semantics = tester.ensureSemantics();
+    try {
+      var actions = 0;
+      const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+      final site = instance(
+        'meta.discourse.org',
+        title: 'Meta',
+      ).copyWith(user: me);
+      final authenticator = FakeAuthenticator()..keys[site.url] = 'api-key';
+      final controller = await _controller(
+        store: FakeInstanceStore([site]),
+        api: FakeDiscourseApi(
+          customSidebarSectionsBySite: {
+            site.url: [
+              SidebarSection(
+                id: 'lead-calls',
+                title: 'Teach Lead Calls',
+                destinations: const [],
+                actionLabel: 'Add lead call',
+                onAction: () => actions++,
+              ),
+              SidebarSection(
+                id: 'one-to-one',
+                title: '1:1',
+                destinations: const [],
+                actionLabel: 'Add 1:1',
+                onAction: () {},
+              ),
+            ],
+          },
+        ),
+        authenticator: authenticator,
+      );
+      await controller.appSettings.setTextScale(AppTextScale.percent200);
+      await _pumpShell(tester, controller, const Size(1200, 1200));
 
-    final longTitle = find.text('Teach Lead Calls');
-    final shortTitle = find.text('1:1');
-    final longHeader = find
-        .ancestor(of: longTitle, matching: find.byType(DSidebarMenuButton))
-        .first;
-    final shortHeader = find
-        .ancestor(of: shortTitle, matching: find.byType(DSidebarMenuButton))
-        .first;
-    final longTitleRect = tester.getRect(longTitle);
-    final shortTitleRect = tester.getRect(shortTitle);
-    final longHeaderRect = tester.getRect(longHeader);
-    final shortHeaderRect = tester.getRect(shortHeader);
+      final longTitle = find.text('Teach Lead Calls');
+      final shortTitle = find.text('1:1');
+      final longHeader = find
+          .ancestor(of: longTitle, matching: find.byType(DCollapsibleTrigger))
+          .first;
+      final shortHeader = find
+          .ancestor(of: shortTitle, matching: find.byType(DCollapsibleTrigger))
+          .first;
+      final longTitleRect = tester.getRect(longTitle);
+      final shortTitleRect = tester.getRect(shortTitle);
+      final longHeaderRect = tester.getRect(longHeader);
+      final shortHeaderRect = tester.getRect(shortHeader);
 
-    expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
-    expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
-    expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
-    expect(shortHeaderRect.top, longHeaderRect.bottom + 2);
-    expect(
-      longTitleRect.top - longHeaderRect.top,
-      closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),
-    );
-    expect(
-      longHeaderRect.bottom - longTitleRect.bottom,
-      closeTo(shortHeaderRect.bottom - shortTitleRect.bottom, 0.25),
-    );
+      expect(longHeaderRect.height, greaterThan(shortHeaderRect.height));
+      expect(longTitleRect.top, greaterThanOrEqualTo(longHeaderRect.top));
+      expect(longTitleRect.bottom, lessThanOrEqualTo(longHeaderRect.bottom));
+      expect(shortHeaderRect.top, longHeaderRect.bottom + 2);
+      expect(
+        longTitleRect.top - longHeaderRect.top,
+        closeTo(shortTitleRect.top - shortHeaderRect.top, 0.25),
+      );
+      expect(
+        longHeaderRect.bottom - longTitleRect.bottom,
+        closeTo(shortHeaderRect.bottom - shortTitleRect.bottom, 0.25),
+      );
 
-    final actionRect = tester.getRect(find.byTooltip('Add lead call'));
-    final chevronRect = tester.getRect(longHeader);
-    expect(longTitleRect.right, lessThanOrEqualTo(actionRect.left));
-    expect(
-      actionRect.center.dy,
-      inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
-    );
-    expect(
-      chevronRect.center.dy,
-      inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
-    );
+      final actionRect = tester.getRect(find.byTooltip('Add lead call'));
+      final chevronRect = tester.getRect(longHeader);
+      expect(longTitleRect.right, lessThanOrEqualTo(actionRect.left));
+      expect(
+        actionRect.center.dy,
+        inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
+      );
+      expect(
+        chevronRect.center.dy,
+        inInclusiveRange(longHeaderRect.top, longHeaderRect.bottom),
+      );
 
-    await tester.tap(find.byTooltip('Add lead call'));
-    await tester.pumpAndSettle();
-    expect(actions, 1);
-    expect(tester.widget<DSidebarMenuButton>(longHeader).expanded, isTrue);
+      await tester.tap(find.byTooltip('Add lead call'));
+      await tester.pumpAndSettle();
+      expect(actions, 1);
+      expect(
+        tester.getSemantics(longHeader).flagsCollection.isExpanded,
+        Tristate.isTrue,
+      );
 
-    await tester.tap(longHeader);
-    await tester.pumpAndSettle();
-    expect(tester.widget<DSidebarMenuButton>(longHeader).expanded, isFalse);
-    expect(actions, 1);
+      await tester.tap(longHeader);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(longHeader).flagsCollection.isExpanded,
+        Tristate.isFalse,
+      );
+      expect(actions, 1);
+    } finally {
+      semantics.dispose();
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('resizes once for every forum and restores after reload', (

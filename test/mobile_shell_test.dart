@@ -850,6 +850,21 @@ void main() {
       expect(find.byKey(const ValueKey('mobile-content-panel')), findsNothing);
       expect(find.text('Forum'), findsOneWidget);
       expect(find.text('Shortcuts'), findsOneWidget);
+      final sidebar = find.descendant(
+        of: find.byKey(const ValueKey('mobile-navigation-page')),
+        matching: find.byType(DSidebar),
+      );
+      expect(
+        tester.widget<DSidebar>(sidebar).backgroundColor,
+        DTokens.of(tester.element(sidebar)).muted,
+      );
+      expect(
+        find.descendant(
+          of: sidebar,
+          matching: find.byType(ForumIdentityHeader),
+        ),
+        findsNothing,
+      );
       for (final label in ['Topics', 'Messages', 'Users', 'Handbook']) {
         expect(sidebarDestination(label), findsNothing);
       }
