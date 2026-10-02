@@ -31,7 +31,6 @@ double shellHeaderHeightFor(BuildContext context, {required bool subtitle}) {
 }
 
 const double workspaceTabStripHeight = 56;
-const workspaceTabsPadding = EdgeInsets.fromLTRB(8, 8, 8, 4);
 
 /// Grows with the forum tab label role so scaled tab labels keep their inset.
 double workspaceTabStripHeightFor(BuildContext context) {

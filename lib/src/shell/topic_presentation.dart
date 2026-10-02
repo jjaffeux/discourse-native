@@ -5,7 +5,6 @@ import 'composer_presentation.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';
-import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'topic_presentation_controller.dart';
 
@@ -86,8 +85,10 @@ class TopicPanelTabs extends StatelessWidget {
           shell.currentWorkspace?.tabById(details.data) != null,
       onAcceptWithDetails: (details) =>
           shell.moveTabToPanel(details.data, target!),
-      builder: (context, candidates, rejected) => Padding(
-        padding: workspaceTabsPadding,
+      // Keep the mockup's header height even when this panel has no tabs.
+      // The tab strip already owns the controls' insets.
+      builder: (context, candidates, rejected) => SizedBox(
+        height: ForumTabsBar.heightFor(context),
         child: Row(
           children: [
             Expanded(
@@ -98,7 +99,11 @@ class TopicPanelTabs extends StatelessWidget {
                     )
                   : const SizedBox.shrink(),
             ),
-            ?trailing,
+            if (trailing case final action?)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 10),
+                child: action,
+              ),
           ],
         ),
       ),
