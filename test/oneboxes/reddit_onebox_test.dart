@@ -222,6 +222,36 @@ void main() {
       messenger.setMockMethodCallHandler(launcher, null);
     });
 
+    testWidgets('malformed query bytes do not break cooked Reddit rendering', (
+      tester,
+    ) async {
+      final markup = redditCommentOnebox.replaceFirst(
+        'embed=true',
+        'bad=%FF&amp;%FF=bad&amp;embed=true&amp;ref=second',
+      );
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(body: CookedHtml(buildAsync: false, html: markup)),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        final embed = tester.widget<DEmbed>(find.byType(DEmbed));
+        expect(embed.uri.queryParameters['embed'], 'true');
+        expect(embed.uri.queryParameters['context'], '1');
+        expect(embed.uri.queryParametersAll['ref'], ['second', 'share']);
+        expect(embed.uri.queryParameters, isNot(contains('bad')));
+        expect(
+          embed.uri.queryParameters['theme'],
+          theme.brightness == Brightness.dark ? 'dark' : null,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      }
+    });
+
     for (final (markup, height) in [
       (redditPostOnebox, 500.0),
       (redditCommentOnebox, 300.0),
