@@ -2097,6 +2097,12 @@ void main() {
       final panel = tester.element(
         find.byKey(const ValueKey('mobile-content-panel')),
       );
+      final navigationPage = find.byKey(
+        const ValueKey('mobile-navigation-page'),
+        skipOffstage: false,
+      );
+      final navigationElement = tester.element(navigationPage);
+      expect(find.byType(InstanceRail), findsNothing);
 
       final open = await tester.startGesture(const Offset(8, 400));
       await open.moveBy(
@@ -2105,8 +2111,17 @@ void main() {
       );
       await tester.pump();
       expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(find.text('Forum'), findsOneWidget);
+      expect(tester.element(navigationPage), same(navigationElement));
       expect(tester.getRect(_header), header);
       await open.up();
+      await tester.pump();
+      await tester.pump(DMotion.change);
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+      expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
+      expect(tester.element(navigationPage), same(navigationElement));
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.sidebarOpen, isTrue, reason: tab);
       expect(find.byType(InstanceRail), findsOneWidget);
@@ -2122,9 +2137,18 @@ void main() {
       );
       await tester.pump();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      final preview = tester.widget<RawImage>(find.byType(RawImage));
+      expect(preview.image, isNotNull);
+      expect(preview.fit, BoxFit.fitWidth);
       expect(tester.getRect(_header), header);
       await close.up();
+      await tester.pump();
+      await tester.pump(DMotion.change);
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+      expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
       await tester.pumpAndSettle();
+      expect(tester.element(navigationPage), same(navigationElement));
       expect(shell.mobileNavigation.sidebarOpen, isFalse, reason: tab);
       expect(shell.mobileNavigation.tab.name, tab);
       expect(shell.mobileNavigation.historyId, same(history));
@@ -2158,6 +2182,10 @@ void main() {
         Offset(right ? -120 : 120, 0),
         timeStamp: const Duration(milliseconds: 200),
       );
+      await tester.pump();
+      if (right) {
+        expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
+      }
       await gesture.up();
       await tester.pumpAndSettle();
     }
