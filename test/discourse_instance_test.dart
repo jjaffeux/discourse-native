@@ -102,6 +102,18 @@ void main() {
       expect(monogram('  Discourse\tMeta\nForum  '), 'DM');
     });
 
+    test('initials preserve whole emoji and combining graphemes', () {
+      expect(monogram('🧵 Discourse'), '🧵D');
+      expect(monogram('🇫🇷 Forum'), '🇫🇷F');
+      expect(monogram('👩🏽‍💻 Community'), '👩🏽‍💻C');
+      expect(monogram('e\u0301 Forum'), 'E\u0301F');
+      expect(monogram('🧵Discourse'), '🧵D');
+      expect(monogram('🇫🇷Forum'), '🇫🇷F');
+      expect(monogram('👩🏽‍💻Community'), '👩🏽‍💻C');
+      expect(monogram('e\u0301clair'), 'E\u0301C');
+      expect(monogram('🧵'), '🧵');
+    });
+
     test('only observes the first two words of an oversized title', () {
       final title = 'Alpha Beta ${List.filled(200000, 'ignored').join(' ')}';
 

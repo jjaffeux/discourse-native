@@ -68,6 +68,21 @@ List<String?> _customActions(SemanticsNode node) => [
 ];
 
 void main() {
+  testWidgets('rail fallback keeps an emoji monogram intact', (tester) async {
+    const title = '🧵 Discourse';
+    await pumpShell(
+      tester,
+      desktop,
+      instances: const [DiscourseInstance(url: _meta, title: title)],
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: _railItem(_meta), matching: find.text('🧵D')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: _desktopBridges);
+
   testWidgets('a rail forum is a named button that says which is current', (
     tester,
   ) async {
