@@ -51,7 +51,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'page-surface',
     name: 'Page surface',
-    sections: ['Page structure'],
+    sections: ['Virtualized body', 'Page structure'],
   ),
   ComponentReference(
     id: 'sticky',

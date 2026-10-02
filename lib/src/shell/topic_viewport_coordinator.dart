@@ -77,6 +77,9 @@ abstract interface class TopicViewportGeometry {
 
   double? postViewportOffset(int postId);
 
+  /// Obscured space above the readable area used by [postViewportOffset].
+  double get viewportTopInset;
+
   bool get canCorrectAnchor;
 
   TopicViewportScrollPosition get scrollPosition;
@@ -98,12 +101,14 @@ final class TopicViewportGeometryCallbacks implements TopicViewportGeometry {
     required TopicViewportScrollPosition Function() scrollPosition,
     required void Function(int itemIndex, double viewportOffset) jumpToPost,
     required void Function(double pixels) jumpToPixels,
+    double Function()? viewportTopInset,
   }) : _captureAnchor = captureAnchor,
        _postViewportOffset = postViewportOffset,
        _canCorrectAnchor = canCorrectAnchor,
        _scrollPosition = scrollPosition,
        _jumpToPost = jumpToPost,
-       _jumpToPixels = jumpToPixels;
+       _jumpToPixels = jumpToPixels,
+       _viewportTopInset = viewportTopInset;
 
   final TopicViewportAnchor? Function(
     List<int> postIds, {
@@ -115,6 +120,10 @@ final class TopicViewportGeometryCallbacks implements TopicViewportGeometry {
   final TopicViewportScrollPosition Function() _scrollPosition;
   final void Function(int itemIndex, double viewportOffset) _jumpToPost;
   final void Function(double pixels) _jumpToPixels;
+  final double Function()? _viewportTopInset;
+
+  @override
+  double get viewportTopInset => _viewportTopInset?.call() ?? 0;
 
   @override
   TopicViewportAnchor? captureAnchor(
@@ -378,6 +387,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   Object? _anchorRestoreToken;
   int? _anchorRestorePostId;
   double _anchorRestoreViewportOffset = 0;
+  double _anchorRestoreTopInset = 0;
   _TopicViewportAnchorBoundary? _anchorRestoreBoundary;
   bool _anchorCorrectionScheduled = false;
   bool _restored = false;
@@ -459,7 +469,14 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   @override
   int? get progressPosition => _progressPosition;
   int? get anchorRestorePostId => _anchorRestorePostId;
-  double get anchorRestoreViewportOffset => _anchorRestoreViewportOffset;
+  // An anchor keeps its physical screen position while the overlay moves.
+  // Convert that frozen position back to the current readable-area coordinates
+  // for both layout-time and post-frame corrections.
+  double get anchorRestoreViewportOffset =>
+      _anchorRestoreViewportOffset +
+      (_anchorRestoreToken == null
+          ? 0
+          : _anchorRestoreTopInset - _geometry.viewportTopInset);
   int get generation => _generation;
 
   bool get _readerActive =>
@@ -780,6 +797,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _anchorRestoreToken = token;
     _anchorRestorePostId = postId;
     _anchorRestoreViewportOffset = viewportOffset;
+    _anchorRestoreTopInset = _geometry.viewportTopInset;
     _anchorRestoreBoundary = null;
     _record('viewport.anchor.held', {
       'postId': postId,
@@ -876,7 +894,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         });
         _jumpTo(
           postIndex + leading,
-          viewportOffset: _anchorRestoreViewportOffset,
+          viewportOffset: anchorRestoreViewportOffset,
         );
       } finally {
         _applyingAnchorRestore = false;
@@ -886,7 +904,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
 
     final position = _geometry.scrollPosition;
     final requestedTarget =
-        position.pixels + currentOffset - _anchorRestoreViewportOffset;
+        position.pixels + currentOffset - anchorRestoreViewportOffset;
     final target = requestedTarget
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
@@ -900,7 +918,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         'postId': postId,
         'pixels': position.pixels,
         'currentViewportOffset': currentOffset,
-        'requestedViewportOffset': _anchorRestoreViewportOffset,
+        'requestedViewportOffset': anchorRestoreViewportOffset,
         if (_anchorRestoreBoundary case final boundary?)
           'boundary': boundary.name,
       });
@@ -913,7 +931,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         'fromPixels': position.pixels,
         'toPixels': target,
         'currentViewportOffset': currentOffset,
-        'requestedViewportOffset': _anchorRestoreViewportOffset,
+        'requestedViewportOffset': anchorRestoreViewportOffset,
       });
       _geometry.jumpToPixels(target);
     } finally {

@@ -216,6 +216,21 @@ final class TopicPostIndexProjection {
 class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
+  DPageHeaderGeometry? _headerGeometry;
+
+  double get _visibleHeaderExtent => _headerGeometry?.visibleExtent ?? 0;
+  double get _readingViewportExtent => math.max(
+    0,
+    (_scroll?.position.viewportDimension ?? 0) - _visibleHeaderExtent,
+  );
+
+  void _bindHeaderGeometry(DPageHeaderGeometry header) {
+    if (identical(header, _headerGeometry)) return;
+    _headerGeometry?.removeListener(_scheduleLook);
+    _headerGeometry = header;
+    header.addListener(_scheduleLook);
+  }
+
   int? _visibleContextCurrentPostId;
   final ValueNotifier<int?> _keyboardPost = ValueNotifier(null);
   final ReadingFocusNode _entryFocus = ReadingFocusNode(
@@ -505,6 +520,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       geometry: TopicViewportGeometryCallbacks(
         captureAnchor: _captureViewportAnchor,
         postViewportOffset: _postViewportOffset,
+        viewportTopInset: () => _visibleHeaderExtent,
         canCorrectAnchor: () =>
             _list?.isAttached == true && _scroll?.hasClients == true,
         scrollPosition: () {
@@ -524,6 +540,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         scroll: TopicPostScrollController(
           _initialPostOffset,
           anchorOffset: _heldPostOffset,
+          topInset: () => _visibleHeaderExtent,
         ),
         list: ListController(),
       ),
@@ -627,8 +644,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (snapshot == null) return null;
     final position = _viewport.initialPositionFor(snapshot);
     if (position == null) return null;
-    if (widget.inbox &&
-        position.itemIndex == 0 &&
+    if (position.itemIndex == 0 &&
         position.viewportOffset == 0 &&
         !snapshot.hasEarlier) {
       return 0;
@@ -637,7 +653,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _postSliverKey.currentContext,
       position.itemIndex,
     );
-    return offset == null ? null : offset - position.viewportOffset;
+    return offset == null
+        ? null
+        : offset - position.viewportOffset - _visibleHeaderExtent;
   }
 
   double? _heldPostOffset() {
@@ -654,7 +672,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
     return offset == null
         ? null
-        : offset - _viewport.anchorRestoreViewportOffset;
+        : offset - _viewport.anchorRestoreViewportOffset - _visibleHeaderExtent;
   }
 
   void _jumpTo(int index, {double viewportOffset = 0}) {
@@ -691,15 +709,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     // `separated` interleaves a separator after every logical item, and the
     // ListController addresses that expanded child list.
-    if (widget.inbox &&
-        index == 0 &&
+    if (index == 0 &&
         viewportOffset == 0 &&
         _viewport.laidOutSnapshot?.hasEarlier == false) {
       scroll.jumpTo(scroll.position.minScrollExtent);
+      return;
     } else {
       list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
     }
-    if (viewportOffset == 0 || !scroll.hasClients) {
+    final targetInset = viewportOffset + _visibleHeaderExtent;
+    if (targetInset == 0 || !scroll.hasClients) {
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('scroll.jump.completed', {
           'itemIndex': index,
@@ -710,7 +729,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     final position = scroll.position;
     scroll.jumpTo(
-      (position.pixels - viewportOffset)
+      (position.pixels - targetInset)
           .clamp(position.minScrollExtent, position.maxScrollExtent)
           .toDouble(),
     );
@@ -779,7 +798,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final bounds = _postViewportBounds(postId);
     if (scroll == null || !scroll.hasClients || bounds == null) return false;
     final position = scroll.position;
-    final height = position.viewportDimension;
+    final height = _readingViewportExtent;
     if (height <= 0 || bounds.bottom <= 0 || bounds.top >= height) return false;
     if (_postContexts[postId] case StatefulElement(
       state: _TopicPostItemState(bodyComplete: false),
@@ -790,7 +809,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     // Keep a little context between pages, and stop at the post's edge before
-    // selecting its neighbor. The scroll viewport excludes the reader chrome.
+    // selecting its neighbor. Use the unobscured area below the header.
     final remaining = direction > 0 ? bounds.bottom - height : -bounds.top;
     if (remaining <= 0.5) return false;
     final delta = math.min(height * 0.9, remaining) * direction;
@@ -823,14 +842,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (bounds == null || scroll == null || !scroll.hasClients) return false;
       _keyboardPostEndTarget = null;
       final position = scroll.position;
-      if (bounds.bottom - bounds.top <= position.viewportDimension) {
+      if (bounds.bottom - bounds.top <= _readingViewportExtent) {
         return false;
       }
-      final target =
-          (position.pixels + bounds.bottom - position.viewportDimension).clamp(
-            position.minScrollExtent,
-            position.maxScrollExtent,
-          );
+      final target = (position.pixels + bounds.bottom - _readingViewportExtent)
+          .clamp(position.minScrollExtent, position.maxScrollExtent);
       if ((target - position.pixels).abs() <= 0.5) return false;
       scroll.jumpTo(target);
       return true;
@@ -919,6 +935,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'sliverLayout': _sliverLayoutData(),
       });
     }
+    _headerGeometry?.removeListener(_scheduleLook);
     _viewport.dispose();
     _warmCacheIdentity.dispose();
     _keyboardPost.dispose();
@@ -1086,6 +1103,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (childIndex.isOdd) continue;
       final postIndex = childIndex ~/ 2 - leading;
       if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+      final bounds = _postViewportBounds(snapshot.postIds[postIndex]);
+      if (bounds != null && bounds.bottom <= 0) continue;
       firstVisiblePostIndex = postIndex;
       break;
     }
@@ -1111,7 +1130,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
 
     double? topOf(_TopicDayStart start) {
-      // The viewport starts below the fixed topic header.
+      // Offsets are relative to the visible edge below the floating header.
       return _postViewportOffset(snapshot.postIds[start.postIndex]);
     }
 
@@ -1303,6 +1322,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
+      final bounds = post == null ? null : _postViewportBounds(post.id);
+      if (bounds != null && bounds.bottom <= 0) continue;
       if (post != null) {
         leadingPost = (
           postId: post.id,
@@ -1326,6 +1347,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         snapshot.postIds[postIndex],
       );
       if (post == null) continue;
+      final bounds = _postViewportBounds(post.id);
+      if (bounds != null && bounds.bottom <= 0) continue;
       visiblePost = (
         postId: post.id,
         postNumber: post.postNumber,
@@ -1336,7 +1359,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     final scrollPosition = _scroll!.position;
     final contextEyeline = topicContextEyeline(
-      viewportExtent: scrollPosition.viewportDimension,
+      viewportExtent: _readingViewportExtent,
       scrollOffset: scrollPosition.pixels,
       maxScrollExtent: scrollPosition.maxScrollExtent,
       postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
@@ -1419,8 +1442,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // the viewport; a post taller than the screen qualifies when its end is
     // eventually reached. Every such post on screen was read, not only the
     // farthest, and each needs its own timing.
-    final viewportExtent = _scroll?.position.viewportDimension;
-    if (viewportExtent == null) return;
+    final viewportExtent = _readingViewportExtent;
     TopicViewportSeenPost? readablePost;
     final readablePostNumbers = <int>[];
     for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
@@ -1434,7 +1456,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
       if (post == null) continue;
       final bounds = _postViewportBounds(post.id);
-      if (bounds == null || bounds.bottom > viewportExtent + 0.5) continue;
+      if (bounds == null ||
+          bounds.bottom <= 0 ||
+          bounds.bottom > viewportExtent + 0.5) {
+        continue;
+      }
       if (readablePost != null) {
         // Trailing small actions are numbered above highest_post_number and
         // only the farthest readable post is mapped back to a real one.
@@ -1796,7 +1822,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (viewport == null) return null;
     final revealed = getOffsetToRevealIfLaidOut(viewport, renderObject, 0);
     if (revealed == null) return null;
-    final top = revealed.offset - scroll.position.pixels;
+    final top = revealed.offset - scroll.position.pixels - _visibleHeaderExtent;
     return (top: top, bottom: top + renderObject.size.height);
   }
 
@@ -1880,28 +1906,33 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         _buildForViewport(context, snapshot, constraints.maxWidth),
   );
 
-  Widget _buildFloatingDayOverlay(EdgeInsets readingLanePadding) => Positioned(
+  Widget _buildFloatingDayOverlay(
+    EdgeInsets readingLanePadding,
+    DPageHeaderGeometry header,
+  ) => Positioned(
     left: readingLanePadding.left,
     right: readingLanePadding.right,
     top: 0,
-    child: ListenableBuilder(
-      listenable: _viewportState.floatingDayOverlayListenable,
-      builder: (context, child) {
-        final floatingDay = _floatingDay;
-        if (floatingDay == null) return const SizedBox.shrink();
-        // Stack clips layout overflow, but this translation only affects paint.
-        return ClipRect(
-          child: Transform.translate(
-            offset: Offset(0, _floatingDayOffset),
-            child: StreamDaySeparator(
-              key: ValueKey(('topic-floating-day', floatingDay)),
-              day: floatingDay,
-              floating: true,
-              onTap: () => _jumpToDayStart(floatingDay),
+    child: header.inset(
+      ListenableBuilder(
+        listenable: _viewportState.floatingDayOverlayListenable,
+        builder: (context, child) {
+          final floatingDay = _floatingDay;
+          if (floatingDay == null) return const SizedBox.shrink();
+          // Stack clips layout overflow, but this translation only affects paint.
+          return ClipRect(
+            child: Transform.translate(
+              offset: Offset(0, _floatingDayOffset),
+              child: StreamDaySeparator(
+                key: ValueKey(('topic-floating-day', floatingDay)),
+                day: floatingDay,
+                floating: true,
+                onTap: () => _jumpToDayStart(floatingDay),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     ),
   );
 
@@ -1934,7 +1965,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   /// The body shared by the loading and loaded reader, so arriving posts
   /// replace the skeleton inside an unchanged frame and footer.
   Widget _buildBodyFrame({
-    required Widget toolbar,
+    required DPageHeaderGeometry header,
     required Widget? stream,
     required bool skeleton,
     required EdgeInsets lanePadding,
@@ -1946,7 +1977,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       Positioned.fill(
         child: Column(
           children: [
-            toolbar,
             Expanded(
               child: Stack(
                 clipBehavior: Clip.hardEdge,
@@ -1959,11 +1989,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   if (skeleton)
                     Positioned.fill(
                       key: const ValueKey('topic-loading-skeleton-slot'),
-                      child: Padding(
-                        padding: lanePadding,
-                        child: const _TopicLoadingSkeleton(
-                          key: ValueKey('topic-loading-skeleton'),
+                      child: header.inset(
+                        Padding(
+                          padding: lanePadding,
+                          child: const _TopicLoadingSkeleton(
+                            key: ValueKey('topic-loading-skeleton'),
+                          ),
                         ),
+                        fullExtent: true,
                       ),
                     ),
                   ...overlays,
@@ -1972,12 +2005,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                     top: 0,
                     left: 0,
                     right: 0,
-                    child: Padding(
-                      padding: lanePadding.add(
-                        const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      child: const DSeparator(
-                        key: ValueKey('topic-scroll-separator'),
+                    child: header.inset(
+                      Padding(
+                        padding: lanePadding.add(
+                          const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        child: const DSeparator(
+                          key: ValueKey('topic-scroll-separator'),
+                        ),
                       ),
                     ),
                   ),
@@ -1989,7 +2024,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         ),
       ),
       if (overlaySidebar != null)
-        Positioned(top: 0, right: 0, bottom: 0, child: overlaySidebar),
+        Positioned(
+          top: 0,
+          right: 0,
+          bottom: 0,
+          child: header.inset(overlaySidebar),
+        ),
     ],
   );
 
@@ -2026,8 +2066,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         ? null
         : controller.store.read<Topic>(siteUrl, topicId);
     final title = topic?.title ?? widget.route?.title ?? row?.title;
-    final body = _buildBodyFrame(
-      toolbar: const SizedBox.shrink(),
+    Widget buildBody(DPageHeaderGeometry header) => _buildBodyFrame(
+      header: header,
       stream: null,
       skeleton: true,
       lanePadding: lanePadding,
@@ -2074,9 +2114,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   canReturnToSidebar: widget.canReturnToSidebar,
                   keepTopicListOpen: widget.keepTopicListOpen,
                   registry: widget.registry,
-                  bodyBuilder: (_) => body,
+                  bodyBuilder: buildBody,
                 )
-              : DPageSurface(
+              : DPageSurface.scrollable(
                   hideHeaderOnScroll: true,
                   framed: false,
                   identity: (siteUrl, topicId, null),
@@ -2110,7 +2150,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  child: body,
+                  bodyBuilder: (_, header) => buildBody(header),
                 ),
         ),
         if (showPinnedSidebar)
@@ -2514,14 +2554,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       },
     );
 
-    Widget buildPostStream(List<Widget> openingSlivers) {
+    Widget buildPostStream(DPageHeaderGeometry header) {
       final physics = SuperRangeMaintainingScrollPhysics(
         parent: snapshot.hasEarlier || snapshot.hasMore
             ? const AlwaysScrollableScrollPhysics()
             : null,
       );
       final slivers = [
-        ...openingSlivers,
+        SliverToBoxAdapter(child: header.spacer),
         SliverPadding(
           padding: readingLane.padding,
           sliver: context.isTouch ? postList : DStickySliver(sliver: postList),
@@ -2627,59 +2667,67 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
-    Widget buildBody(List<Widget> openingSlivers) => _buildBodyFrame(
-      toolbar: _TopicPostSelectionToolbar(
-        siteUrl: siteUrl,
-        topic: snapshot.topic!,
-      ),
-      stream: buildPostStream(openingSlivers),
-      skeleton: _openingPostId != null,
-      lanePadding: readingLane.padding,
-      overlays: [
-        _buildFloatingDayOverlay(readingLane.padding),
-        if (controller.mobileNavigationEnabled)
-          PositionedDirectional(
-            start: DSpacing.sm,
-            end: DSpacing.sm,
-            bottom: DSpacing.sm,
-            child: Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: ListenableBuilder(
-                listenable: _viewportState.progressPositionListenable,
-                builder: (context, _) {
-                  final position = _progressPosition;
-                  if (position == null || snapshot.progressTotal <= 1) {
-                    return const SizedBox.shrink();
-                  }
-                  return TopicProgressPopover(
-                    controller: controller,
-                    position: position,
-                    total: snapshot.progressTotal,
-                    floating: true,
-                  );
-                },
+    final selectionToolbar = _TopicPostSelectionToolbar(
+      siteUrl: siteUrl,
+      topic: snapshot.topic!,
+    );
+    Widget buildBody(DPageHeaderGeometry header) {
+      _bindHeaderGeometry(header);
+      return _buildBodyFrame(
+        header: header,
+        stream: buildPostStream(header),
+        skeleton: _openingPostId != null,
+        lanePadding: readingLane.padding,
+        overlays: [
+          _buildFloatingDayOverlay(readingLane.padding, header),
+          if (controller.mobileNavigationEnabled)
+            PositionedDirectional(
+              start: DSpacing.sm,
+              end: DSpacing.sm,
+              bottom: DSpacing.sm,
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: ListenableBuilder(
+                  listenable: _viewportState.progressPositionListenable,
+                  builder: (context, _) {
+                    final position = _progressPosition;
+                    if (position == null || snapshot.progressTotal <= 1) {
+                      return const SizedBox.shrink();
+                    }
+                    return TopicProgressPopover(
+                      controller: controller,
+                      position: position,
+                      total: snapshot.progressTotal,
+                      floating: true,
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-      ],
-      footer: controller.mobileNavigationEnabled
-          ? null
-          : _buildTopicBottomBar(controller, snapshot.progressTotal, snapshot),
-      overlaySidebar: showOverlaySidebar
-          ? _TopicSidebarPanel(
-              width: _sidebarOverlayWidth(context),
-              siteUrl: siteUrl,
-              topic: snapshot.topic!,
-              recommendations: snapshot.recommendations,
-              loading: recommendationsPending || snapshot.loadingMore,
-              selected: _recommendationsSourceId,
-              onSelected: _setRecommendationsSource,
-              onCollapsed: () => _setSidebarOverlayOpen(false),
-              route: widget.route,
-              registry: widget.registry,
-            )
-          : null,
-    );
+        ],
+        footer: controller.mobileNavigationEnabled
+            ? null
+            : _buildTopicBottomBar(
+                controller,
+                snapshot.progressTotal,
+                snapshot,
+              ),
+        overlaySidebar: showOverlaySidebar
+            ? _TopicSidebarPanel(
+                width: _sidebarOverlayWidth(context),
+                siteUrl: siteUrl,
+                topic: snapshot.topic!,
+                recommendations: snapshot.recommendations,
+                loading: recommendationsPending || snapshot.loadingMore,
+                selected: _recommendationsSourceId,
+                onSelected: _setRecommendationsSource,
+                onCollapsed: () => _setSidebarOverlayOpen(false),
+                route: widget.route,
+                registry: widget.registry,
+              )
+            : null,
+      );
+    }
 
     return Stack(
       children: [
@@ -2697,9 +2745,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   canReturnToSidebar: widget.canReturnToSidebar,
                   keepTopicListOpen: widget.keepTopicListOpen,
                   registry: widget.registry,
+                  headerControls: selectionToolbar,
                   bodyBuilder: buildBody,
                 )
-              : DPageSurface(
+              : DPageSurface.scrollable(
                   hideHeaderOnScroll: true,
                   framed: false,
                   identity: (siteUrl, snapshot.topicId, _scroll),
@@ -2736,7 +2785,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  child: buildBody(const []),
+                  headerControls: selectionToolbar,
+                  bodyBuilder: (_, header) => buildBody(header),
                 ),
         ),
         if (showPinnedSidebar)

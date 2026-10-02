@@ -46,6 +46,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/page_scrollbar.dart';
+import 'support/topic_post_list.dart';
 
 const _parent = TopicCategory(
   id: 21,
@@ -313,11 +314,11 @@ void main() {
 
     await wheel(reader, 240);
     expect(title.hitTestable(), findsNothing);
-    expect(tester.getTopLeft(reader).dy, lessThan(readerTop));
+    expect(tester.getTopLeft(reader).dy, readerTop);
     expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     final hiddenReaderTop = tester.getTopLeft(reader).dy;
     await wheel(reader, -20);
-    expect(tester.getTopLeft(reader).dy, greaterThan(hiddenReaderTop));
+    expect(tester.getTopLeft(reader).dy, hiddenReaderTop);
     expect(tester.getTopLeft(reader).dy, readerTop);
     expect(title.hitTestable(), findsOneWidget);
     await wheel(reader, -220);
@@ -717,7 +718,10 @@ void main() {
             (element) => tester.getRect(find.byWidget(element.widget)).bottom,
           )
           .reduce((a, b) => a > b ? a : b);
-      expect(viewportBounds.top, closeTo(paintedBottom + DSpacing.lg, 1));
+      expect(
+        topicReadingViewportRect(tester).top,
+        closeTo(paintedBottom + DSpacing.lg, 1),
+      );
       expect(tester.getRect(scrollbar), viewportBounds);
       final title = find.byKey(const ValueKey('topic-header-title-field'));
       final toolbarTitleBounds = tester.getRect(_compactHeader);
@@ -783,6 +787,9 @@ void main() {
         tester,
         viewport: viewport,
         right: viewportBounds.right,
+        topInset: () => DPageSurface.headerGeometryOf(
+          tester.element(viewport),
+        )!.visibleExtent,
       );
       expect(tester.takeException(), isNull);
     },

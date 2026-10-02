@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,19 @@ Finder topicPostListFinder() => find.ancestor(
   ),
   matching: find.byType(CustomScrollView),
 );
+
+/// The portion of the stable viewport below the overlaid reader header.
+Rect topicReadingViewportRect(WidgetTester tester) {
+  final finder = topicPostListFinder();
+  final rect = tester.getRect(finder);
+  final header = DPageSurface.headerGeometryOf(tester.element(finder));
+  return Rect.fromLTRB(
+    rect.left,
+    rect.top + (header?.visibleExtent ?? 0),
+    rect.right,
+    rect.bottom,
+  );
+}
 
 TopicPostListHandle topicPostList(WidgetTester tester) {
   final viewport = topicPostListFinder();

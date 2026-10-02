@@ -33,7 +33,7 @@ void main() {
         await tester.pump();
         expect(
           tester.getTopLeft(avatar).dy,
-          closeTo(tester.getTopLeft(topicPostListFinder()).dy + 14, .01),
+          closeTo(topicReadingViewportRect(tester).top + 14, .01),
         );
       }
       expect(htmlRebuilds, 0);
@@ -43,7 +43,7 @@ void main() {
         tester.getBottomLeft(find.byKey(const ValueKey(1))).dy,
         greaterThan(tester.getBottomLeft(slot).dy + 16),
       );
-      final viewportTop = tester.getTopLeft(topicPostListFinder()).dy;
+      final viewportTop = topicReadingViewportRect(tester).top;
       scroll.jumpTo(
         scroll.offset + tester.getBottomLeft(slot).dy - viewportTop - 20,
       );
@@ -60,14 +60,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getTopLeft(avatar).dy,
-        closeTo(tester.getTopLeft(topicPostListFinder()).dy + 14, .01),
+        closeTo(topicReadingViewportRect(tester).top + 14, .01),
       );
       // A real user scroll also retracts the topic header.
       await tester.drag(topicPostListFinder(), const Offset(0, -160));
       await tester.pumpAndSettle();
       expect(
         tester.getTopLeft(avatar).dy,
-        closeTo(tester.getTopLeft(topicPostListFinder()).dy + 14, .01),
+        closeTo(topicReadingViewportRect(tester).top + 14, .01),
       );
       await tester.tap(avatar);
       await tester.pumpAndSettle();
@@ -91,7 +91,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(avatar).dy,
-      closeTo(tester.getTopLeft(topicPostListFinder()).dy + 14, .01),
+      closeTo(topicReadingViewportRect(tester).top + 14, .01),
     );
     expect(tester.takeException(), isNull);
   });
@@ -127,7 +127,7 @@ void main() {
       expect(tester.element(find.byType(CookedHtml).first), same(originalHtml));
       expect(
         tester.getTopLeft(avatar).dy,
-        closeTo(tester.getTopLeft(topicPostListFinder()).dy + 14, .01),
+        closeTo(topicReadingViewportRect(tester).top + 14, .01),
       );
       expect(tester.takeException(), isNull);
     },

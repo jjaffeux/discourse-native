@@ -18,6 +18,8 @@ final pageSurfaceExamples = ComponentExamples(
       'reserves the full header space so the body does not move. '
       'scrollBody owns the scroll view and lets rows pass through the title’s '
       'former space below the control bar. Give it non-scrolling content. '
+      'DPageSurface.scrollable keeps an existing virtualized viewport fixed; '
+      'insert header.spacer at the start of its scroll content. '
       'Programmatic restoration and '
       'nested or horizontal scrolling do not retract it. Changing identity resets '
       'the header. Use framed: false inside an existing page frame or touch shell. '
@@ -28,6 +30,47 @@ final pageSurfaceExamples = ComponentExamples(
       'padding inside that shared column. This app composition is separate from the '
       'frozen upstream catalogue.',
   examples: [
+    StyleguideExample(
+      title: 'Virtualized body',
+      description:
+          'The header slides over a fixed viewport. Its leading spacer keeps '
+          'the first row below the header without moving rows during animation.',
+      states: const ['Scroll', 'Keyboard', 'RTL'],
+      code: '''DPageSurface.scrollable(
+  hideHeaderOnScroll: true,
+  header: header,
+  bodyBuilder: (context, header) => CustomScrollView(
+    slivers: [
+      SliverToBoxAdapter(child: header.spacer),
+      postSliver,
+    ],
+  ),
+)''',
+      builder: (_) => SizedBox(
+        height: 460,
+        child: DPageSurface.scrollable(
+          hideHeaderOnScroll: true,
+          header: const Padding(
+            padding: EdgeInsets.all(DSpacing.lg),
+            child: Text('Topic'),
+          ),
+          bodyBuilder: (_, header) => CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: header.spacer),
+              SliverList.builder(
+                itemCount: 100,
+                itemBuilder: (_, index) => DPageReadingLaneBox(
+                  child: Padding(
+                    padding: const EdgeInsets.all(DSpacing.lg),
+                    child: Text('Post ${index + 1}'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Page structure',
       description:

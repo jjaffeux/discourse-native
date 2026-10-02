@@ -72,6 +72,7 @@ class DScrollBehavior extends ScrollBehavior {
       topExtent: local?.topExtent ?? 14,
       bottomExtent: local?.bottomExtent ?? 20,
       topInset: local?.topInset,
+      repaint: local?.repaint,
       child: decorated,
     );
   }
@@ -91,6 +92,7 @@ class DScrollFadeScope extends InheritedWidget {
     this.topExtent = 14,
     this.bottomExtent = 20,
     this.topInset,
+    this.repaint,
     required super.child,
   }) : assert(topExtent >= 0 && topExtent < double.infinity),
        assert(bottomExtent >= 0 && bottomExtent < double.infinity);
@@ -99,6 +101,9 @@ class DScrollFadeScope extends InheritedWidget {
   final double bottomExtent;
   final ValueGetter<double>? topInset;
 
+  /// Repaints changing insets without replacing the scroll position.
+  final Listenable? repaint;
+
   static DScrollFadeScope? _of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<DScrollFadeScope>();
 
@@ -106,7 +111,8 @@ class DScrollFadeScope extends InheritedWidget {
   bool updateShouldNotify(DScrollFadeScope oldWidget) =>
       topExtent != oldWidget.topExtent ||
       bottomExtent != oldWidget.bottomExtent ||
-      topInset != oldWidget.topInset;
+      topInset != oldWidget.topInset ||
+      repaint != oldWidget.repaint;
 }
 
 class _ScrollEdgeFade extends StatefulWidget {
@@ -115,6 +121,7 @@ class _ScrollEdgeFade extends StatefulWidget {
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
+    required this.repaint,
     required this.child,
   });
 
@@ -122,6 +129,7 @@ class _ScrollEdgeFade extends StatefulWidget {
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
+  final Listenable? repaint;
   final Widget child;
 
   @override
@@ -146,6 +154,7 @@ class _ScrollEdgeFadeState extends State<_ScrollEdgeFade> {
           topExtent: widget.topExtent,
           bottomExtent: widget.bottomExtent,
           topInset: widget.topInset,
+          repaint: widget.repaint,
           child: widget.child,
         ),
       );
@@ -158,6 +167,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
+    required this.repaint,
     required super.child,
   });
 
@@ -165,17 +175,24 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
+  final Listenable? repaint;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderScrollFadeMask(controller, topExtent, bottomExtent, topInset);
+      _RenderScrollFadeMask(
+        controller,
+        topExtent,
+        bottomExtent,
+        topInset,
+        repaint,
+      );
 
   @override
   void updateRenderObject(
     BuildContext context,
     covariant _RenderScrollFadeMask renderObject,
   ) {
-    renderObject.update(controller, topExtent, bottomExtent, topInset);
+    renderObject.update(controller, topExtent, bottomExtent, topInset, repaint);
   }
 }
 
@@ -185,23 +202,31 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     this._topExtent,
     this._bottomExtent,
     this._topInset,
+    this._repaint,
   );
 
   ScrollController? _controller;
   double _topExtent;
   double _bottomExtent;
   ValueGetter<double>? _topInset;
+  Listenable? _repaint;
 
   void update(
     ScrollController? controller,
     double topExtent,
     double bottomExtent,
     ValueGetter<double>? topInset,
+    Listenable? repaint,
   ) {
     if (controller != _controller) {
       if (attached) _controller?.removeListener(markNeedsPaint);
       _controller = controller;
       if (attached) _controller?.addListener(markNeedsPaint);
+    }
+    if (repaint != _repaint) {
+      if (attached) _repaint?.removeListener(markNeedsPaint);
+      _repaint = repaint;
+      if (attached) _repaint?.addListener(markNeedsPaint);
     }
     _topExtent = topExtent;
     _bottomExtent = bottomExtent;
@@ -213,11 +238,13 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _controller?.addListener(markNeedsPaint);
+    _repaint?.addListener(markNeedsPaint);
   }
 
   @override
   void detach() {
     _controller?.removeListener(markNeedsPaint);
+    _repaint?.removeListener(markNeedsPaint);
     super.detach();
   }
 

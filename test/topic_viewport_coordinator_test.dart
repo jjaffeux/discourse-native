@@ -506,6 +506,47 @@ void main() {
       expect(geometry.pixelJumps, [1400]);
       expect(diagnostics, contains('viewport.anchor.boundaryCorrecting'));
     });
+
+    for (final insets in [(80.0, 0.0), (0.0, 80.0)]) {
+      test(
+        'anchor ignores an overlay moving from ${insets.$1} to ${insets.$2}',
+        () {
+          final frames = _FrameQueue();
+          final geometry = _Geometry()
+            ..viewportTopInset = insets.$1
+            ..offsets[11] = 12
+            ..position = (
+              pixels: 100,
+              minScrollExtent: 0,
+              maxScrollExtent: 500,
+            );
+          final subject = _coordinator(frames: frames, geometry: geometry);
+          _disposeAfter(subject, frames);
+          final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+          subject
+            ..bind(owner.binding)
+            ..updateLaidOutSnapshot(owner.snapshot)
+            ..holdViewportAnchor(11, 12, token: Object());
+          frames.flushFrame();
+          final relativeOffset = 12 + insets.$1 - insets.$2;
+          geometry
+            ..viewportTopInset = insets.$2
+            ..offsets[11] = relativeOffset;
+          subject.scheduleAnchorCorrection();
+          frames.flushFrame();
+          expect(geometry.pixelJumps, isEmpty);
+          expect(subject.anchorRestoreViewportOffset, relativeOffset);
+
+          // Recycling the row must use the same physical target when it returns.
+          geometry.offsets.remove(11);
+          subject.scheduleAnchorCorrection();
+          frames.flushFrame();
+          expect(geometry.itemJumps, [
+            (itemIndex: 1, viewportOffset: relativeOffset),
+          ]);
+        },
+      );
+    }
   });
 }
 
@@ -605,6 +646,8 @@ final class _Owner {
 }
 
 final class _Geometry implements TopicViewportGeometry {
+  @override
+  double viewportTopInset = 0;
   final Map<int, double> offsets = {};
   TopicViewportAnchor? capturedAnchor;
   TopicViewportScrollPosition position = (

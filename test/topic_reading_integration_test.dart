@@ -2983,7 +2983,7 @@ void _registerTopicReadingTests() {
         final targetPost = find.byKey(ValueKey(target));
         expect(targetPost, findsOneWidget);
         final firstTop = tester.getTopLeft(targetPost).dy;
-        final viewport = tester.getRect(topicPostListFinder());
+        final viewport = topicReadingViewportRect(tester);
         expect(firstTop, inInclusiveRange(viewport.top, viewport.bottom));
         if (target == 12) expect(firstTop, closeTo(viewport.top, 1));
         for (var frame = 0; frame < 4; frame++) {
@@ -4753,17 +4753,17 @@ void _registerTopicReadingTests() {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        suggestedTab,
-        200,
-        scrollable: find.descendant(
-          of: find.descendant(
-            of: find.byType(TopicView),
-            matching: find.byType(CustomScrollView),
-          ),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      // Drag within the readable area; the full viewport also extends behind
+      // the header, which can cover its center at large text sizes.
+      for (var attempt = 0; suggestedTab.evaluate().isEmpty; attempt++) {
+        expect(attempt, lessThan(50));
+        await tester.dragFrom(
+          topicReadingViewportRect(tester).center,
+          const Offset(0, -200),
+        );
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(suggestedTab);
       await tester.pumpAndSettle();
       await tester.tap(suggestedTab);
       await tester.pumpAndSettle();

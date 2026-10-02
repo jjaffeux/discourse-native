@@ -10,10 +10,15 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 /// Positions the reader before paint, including while its anchor changes size.
 class TopicPostScrollController extends ScrollController {
-  TopicPostScrollController(this._initialOffset, {required this.anchorOffset});
+  TopicPostScrollController(
+    this._initialOffset, {
+    required this.anchorOffset,
+    this.topInset,
+  });
 
   double? Function()? _initialOffset;
   final double? Function() anchorOffset;
+  final ValueGetter<double>? topInset;
 
   @override
   ScrollPosition createScrollPosition(
@@ -26,6 +31,7 @@ class TopicPostScrollController extends ScrollController {
     oldPosition: oldPosition,
     targetOffset: () => _initialOffset?.call() ?? anchorOffset(),
     onPositioned: () => _initialOffset = null,
+    topInset: topInset,
   );
 }
 
@@ -36,10 +42,66 @@ class _TopicPostScrollPosition extends ScrollPositionWithSingleContext {
     super.oldPosition,
     required this.targetOffset,
     required this.onPositioned,
+    required this.topInset,
   });
 
   final double? Function() targetOffset;
   final VoidCallback onPositioned;
+  final ValueGetter<double>? topInset;
+
+  @override
+  Future<void> ensureVisible(
+    RenderObject object, {
+    double alignment = 0,
+    Duration duration = Duration.zero,
+    Curve curve = Curves.ease,
+    ScrollPositionAlignmentPolicy alignmentPolicy =
+        ScrollPositionAlignmentPolicy.explicit,
+    RenderObject? targetRenderObject,
+  }) async {
+    final inset = topInset?.call() ?? 0;
+    if (inset == 0 ||
+        axisDirection != AxisDirection.down ||
+        alignmentPolicy == ScrollPositionAlignmentPolicy.keepVisibleAtEnd) {
+      return super.ensureVisible(
+        object,
+        alignment: alignment,
+        duration: duration,
+        curve: curve,
+        alignmentPolicy: alignmentPolicy,
+        targetRenderObject: targetRenderObject,
+      );
+    }
+    final viewport = RenderAbstractViewport.maybeOf(object);
+    if (viewport == null) return;
+    final rect = targetRenderObject != null && targetRenderObject != object
+        ? MatrixUtils.transformRect(
+            targetRenderObject.getTransformTo(object),
+            object.paintBounds.intersect(targetRenderObject.paintBounds),
+          )
+        : null;
+    final align = alignmentPolicy == ScrollPositionAlignmentPolicy.explicit
+        ? alignment
+        : 0.0;
+    // Align within the readable area below the overlay. This also protects
+    // focused controls revealed by Flutter, rather than topic navigation.
+    var target =
+        (viewport
+                    .getOffsetToReveal(object, align, rect: rect, axis: axis)
+                    .offset -
+                inset * (1 - align))
+            .clamp(minScrollExtent, maxScrollExtent);
+    if (alignmentPolicy == ScrollPositionAlignmentPolicy.keepVisibleAtStart &&
+        target > pixels) {
+      target = pixels;
+    }
+    if (target == pixels) return;
+    if (duration == Duration.zero) {
+      jumpTo(target);
+    } else {
+      await animateTo(target, duration: duration, curve: curve);
+    }
+  }
 
   @override
   bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {

@@ -208,15 +208,18 @@ void main() {
           lessThanOrEqualTo(scale == 1 ? 48 : 64),
           reason: 'the opening should not reserve a full day-boundary gap',
         );
-        final viewport = find.byType(CustomScrollView);
-        final pinAt = tester.getRect(date).top - tester.getRect(viewport).top;
+        final pinAt =
+            tester.getRect(date).top - topicReadingViewportRect(tester).top;
         scroll.jumpTo(pinAt - 1);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
         scroll.jumpTo(pinAt + 1);
         await tester.pumpAndSettle();
         expect(floating, findsOneWidget);
-        expect(tester.getRect(floating).top, tester.getRect(viewport).top);
+        expect(
+          tester.getRect(floating).top,
+          topicReadingViewportRect(tester).top,
+        );
         scroll.jumpTo(0);
         await tester.pumpAndSettle();
         expect(floating, findsNothing);
@@ -425,7 +428,7 @@ void main() {
     await tester.tap(floatingFirst);
     await tester.pumpAndSettle();
 
-    final viewport = tester.getRect(topicPostListFinder());
+    final viewport = topicReadingViewportRect(tester);
     expect(tester.getTopLeft(find.byKey(const ValueKey(1))).dy, viewport.top);
     expect(floatingFirst, findsNothing);
 
@@ -505,7 +508,7 @@ void main() {
       final openingHeader = await _headerPixels(tester, captureKey);
       expect(
         tester.getTopLeft(find.byKey(const ValueKey(7))).dy,
-        closeTo(tester.getTopLeft(viewport).dy, 0.1),
+        closeTo(topicReadingViewportRect(tester).top, 0.1),
       );
 
       scroll.jumpTo(boundaryOffset + StreamDaySeparator.height);
@@ -583,7 +586,7 @@ void main() {
       [for (var id = 21; id <= 40; id++) id],
       [for (var id = 1; id <= 20; id++) id],
     ]);
-    final viewport = tester.getRect(topicPostListFinder());
+    final viewport = topicReadingViewportRect(tester);
     expect(tester.getTopLeft(find.byKey(const ValueKey(21))).dy, viewport.top);
     expect(find.byKey(ValueKey(('topic-day', targetDay))), findsOneWidget);
     expect(

@@ -234,7 +234,7 @@ void main() {
                 sawLoadedImage = true;
                 expect(
                   tester.getTopLeft(post).dy,
-                  closeTo(tester.getTopLeft(topicPostListFinder()).dy - 600, 1),
+                  closeTo(topicReadingViewportRect(tester).top - 600, 1),
                   reason: 'first loaded image frame must already be positioned',
                 );
               }
@@ -300,7 +300,7 @@ void main() {
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
         final list = topicPostList(tester);
-        final viewport = tester.getRect(topicPostListFinder());
+        final viewport = topicReadingViewportRect(tester);
         final firstPost = tester.getRect(
           find.byKey(const ValueKey('topic-post-highlight-1')),
         );
@@ -1248,7 +1248,7 @@ void main() {
               if (longPost == 74) {
                 expect(
                   firstTop,
-                  closeTo(tester.getTopLeft(topicPostListFinder()).dy, 1),
+                  closeTo(topicReadingViewportRect(tester).top, 1),
                 );
               }
 
@@ -1289,6 +1289,94 @@ void main() {
 
     group('scroll attachment lifecycle', () {
       for (final inbox in [false, true]) {
+        testWidgets(
+          'topic header animation keeps the viewport and posts fixed '
+          '(inbox: $inbox)',
+          (tester) async {
+            final site = instance('meta.example');
+            final controller = _controller(
+              site,
+              FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            );
+            addTearDown(controller.dispose);
+            await controller.load();
+            _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+            controller.pushContent(
+              ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+            );
+            await tester.pumpWidget(_topicView(controller, inbox: inbox));
+            await tester.pumpAndSettle();
+            final viewport = topicPostListFinder();
+            final scroll = topicPostList(tester).controller!;
+            final header = DPageSurface.headerGeometryOf(
+              tester.element(viewport),
+            )!;
+            expect(header.visibleExtent, greaterThan(0));
+            expect(
+              tester.getTopLeft(find.byKey(const ValueKey(100))).dy,
+              closeTo(topicReadingViewportRect(tester).top, 1),
+            );
+            for (final nearEnd in [false, true]) {
+              scroll.jumpTo(
+                nearEnd ? scroll.position.maxScrollExtent - 16 : 400,
+              );
+              await tester.pumpAndSettle();
+              if (nearEnd) {
+                // The lazy list now has measured the terminal posts.
+                scroll.jumpTo(scroll.position.maxScrollExtent - 16);
+                await tester.pumpAndSettle();
+              }
+              final rect = tester.getRect(viewport);
+              final position = scroll.position;
+              final maxExtent = position.maxScrollExtent;
+              final anchor =
+                  [
+                    for (var id = 100; id < 130; id++) find.byKey(ValueKey(id)),
+                  ].firstWhere(
+                    (post) =>
+                        post.evaluate().isNotEmpty &&
+                        tester
+                            .getRect(post)
+                            .overlaps(topicReadingViewportRect(tester)),
+                  );
+              for (final delta in [8.0, -8.0]) {
+                final before = tester.getTopLeft(anchor).dy;
+                final offset = scroll.offset;
+                await tester.sendEventToBinding(
+                  PointerScrollEvent(
+                    position: tester.getCenter(viewport),
+                    scrollDelta: Offset(0, delta),
+                  ),
+                );
+                await tester.pump();
+                for (var frame = 0; frame < 10; frame++) {
+                  await tester.pump(const Duration(milliseconds: 16));
+                  expect(tester.getRect(viewport), rect);
+                  expect(scroll.position, same(position));
+                  expect(
+                    scroll.position.maxScrollExtent,
+                    closeTo(maxExtent, .01),
+                  );
+                  expect(scroll.offset, closeTo(offset + delta, .01));
+                  expect(
+                    tester.getTopLeft(anchor).dy,
+                    closeTo(before - delta, .01),
+                  );
+                }
+                expect(
+                  header.visibleExtent,
+                  delta > 0 ? 0 : header.naturalExtent,
+                );
+              }
+            }
+            expect(tester.takeException(), isNull);
+          },
+          variant: const TargetPlatformVariant({
+            TargetPlatform.macOS,
+            TargetPlatform.iOS,
+          }),
+        );
+
         testWidgets('topic header separator remains visible (inbox: $inbox)', (
           tester,
         ) async {
@@ -1584,7 +1672,7 @@ void main() {
                 );
               }
               await tester.pumpAndSettle();
-              final viewport = tester.getRect(topicPostListFinder());
+              final viewport = topicReadingViewportRect(tester);
               final post = find.byKey(const ValueKey(137));
               expect(post, findsOneWidget);
               expect(
@@ -1627,7 +1715,7 @@ void main() {
             await tester.pumpWidget(_topicView(controller, inbox: inbox));
             final target = find.byKey(const ValueKey(111));
             expect(target, findsOneWidget);
-            final viewport = tester.getRect(topicPostListFinder());
+            final viewport = topicReadingViewportRect(tester);
             expect(
               tester.getTopLeft(target).dy,
               closeTo(viewport.top + offset, 1),
@@ -1727,7 +1815,7 @@ void main() {
           expect(api.postFetches, [
             [for (var id = 41; id <= 60; id++) id],
           ]);
-          final viewport = tester.getRect(topicPostListFinder());
+          final viewport = topicReadingViewportRect(tester);
           final target = find.byKey(const ValueKey(80));
           expect(target, findsOneWidget);
           expect(tester.getTopLeft(target).dy, closeTo(viewport.top, 1));

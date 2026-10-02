@@ -32,8 +32,8 @@ import 'topic_header_tags.dart';
 import 'topic_skeleton.dart';
 import 'topic_title.dart';
 
-/// Fixed topic title, actions and taxonomy above the post viewport.
-/// [bodyBuilder] supplies the virtualized post list below the retracting header.
+/// Topic title, actions and taxonomy floating above the post viewport.
+/// [bodyBuilder] inserts the header spacer into the virtualized post list.
 class TopicInboxHeader extends StatelessWidget {
   const TopicInboxHeader({
     super.key,
@@ -49,6 +49,7 @@ class TopicInboxHeader extends StatelessWidget {
     this.scrollController,
     this.hasEarlierPosts = false,
     this.bodyBuilder,
+    this.headerControls,
   });
 
   /// Null while loading a topic whose title no route or list row supplied.
@@ -69,7 +70,8 @@ class TopicInboxHeader extends StatelessWidget {
   final bool loading;
   final ScrollController? scrollController;
   final bool hasEarlierPosts;
-  final Widget Function(List<Widget> openingSlivers)? bodyBuilder;
+  final Widget Function(DPageHeaderGeometry header)? bodyBuilder;
+  final Widget? headerControls;
 
   @override
   Widget build(BuildContext context) {
@@ -117,12 +119,13 @@ class TopicInboxHeader extends StatelessWidget {
         children: rows,
       );
     }
-    return DPageSurface(
+    return DPageSurface.scrollable(
       hideHeaderOnScroll: true,
       framed: false,
       identity: (siteUrl, topic?.id, scrollController),
       header: Column(children: rows),
-      child: bodyBuilder(const []),
+      headerControls: headerControls,
+      bodyBuilder: (_, header) => bodyBuilder(header),
     );
   }
 }
