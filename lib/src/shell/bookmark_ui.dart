@@ -645,6 +645,10 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   bool get _canUseSession =>
       mounted && _canAct(context, widget.controller.session);
 
+  String? get _nameError => _name.text.trim().runes.length > 100
+      ? appL10n.bookmarkNotesMustBe100CharactersOrFewer
+      : null;
+
   late final TextEditingController _name;
   final TextEditingController _relative = TextEditingController(text: '1');
   late BookmarkAutoDeletePreference _preference;
@@ -768,7 +772,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   }
 
   Future<void> _save() async {
-    if (!_canUseSession) return;
+    if (!_canUseSession || _busy || _nameError != null) return;
     final now = widget.now().toUtc();
     final reminder = _reminder?.toUtc();
     if (reminder != null && !reminder.isAfter(now)) {
@@ -829,15 +833,15 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          DInput(
             style: Theme.of(context).textTheme.bodyMedium,
             controller: _name,
             maxLength: 100,
             enabled: !_busy,
-            decoration: InputDecoration(
-              labelText: context.l10n.noteBookmarkui,
-              hintText: context.l10n.whyAreYouSavingThis,
-            ),
+            labelText: context.l10n.noteBookmarkui,
+            hintText: context.l10n.whyAreYouSavingThis,
+            errorText: _nameError,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
           DSelect<BookmarkAutoDeletePreference>.controlled(
@@ -975,7 +979,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               const SizedBox(width: DSpacing.controlGap),
               DButton(
                 label: Text(context.l10n.save),
-                onPressed: _save,
+                onPressed: _nameError == null ? _save : null,
                 variant: DButtonVariant.primary,
                 loading: _busy,
               ),

@@ -772,7 +772,8 @@ final class DiscourseAccountApi {
     required String? name,
     required DateTime? reminderAt,
   }) {
-    if (name != null && name.length > 100) {
+    // Core validates Ruby string length, which counts Unicode scalar values.
+    if (name != null && name.runes.length > 100) {
       throw WriteException(
         WriteFailure.validation,
         errors: [appL10n.bookmarkNotesMustBe100CharactersOrFewer],

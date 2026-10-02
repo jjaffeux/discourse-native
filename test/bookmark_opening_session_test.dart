@@ -50,7 +50,7 @@ void main() {
       expect(find.text('Times use Europe/Paris.'), findsOneWidget);
       await fixture.replaceAccount(tester);
       // Force a form rebuild; the old form must not adopt the new timezone.
-      await tester.enterText(find.byType(TextFormField), 'Old account note');
+      await tester.enterText(find.byType(DInput).first, 'Old account note');
       await tester.ensureVisible(find.text('No reminder'));
       await tester.tap(find.text('No reminder'));
       await tester.pumpAndSettle();
@@ -121,7 +121,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Edit bookmark').last);
         await tester.pumpAndSettle();
-        expect(find.byType(TextFormField), findsNothing);
+        expect(find.byType(DInput), findsNothing);
         expect(fixture.auth.reads, reads);
         expect(fixture.api.writes, isEmpty);
       },
