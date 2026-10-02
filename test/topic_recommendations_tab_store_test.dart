@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/topic_recommendation_source.dart';
@@ -99,4 +102,95 @@ void main() {
       coreSuggestedTopicRecommendationSourceId,
     );
   });
+
+  test(
+    'retirement spans stores sharing persistence without changing ordering',
+    () async {
+      final persistence = _HeldPersistence();
+      final first = TopicRecommendationsTabStore(persistence: persistence);
+      final replacement = TopicRecommendationsTabStore(
+        persistence: persistence,
+      );
+      const site = 'https://meta.discourse.org';
+      const other = 'https://team.discourse.org';
+      const initial = TopicRecommendationSourceId('test/initial');
+      const stale = TopicRecommendationSourceId('test/stale');
+      const fresh = TopicRecommendationSourceId('test/fresh');
+      final write = first.write(siteUrl: site, sourceId: initial);
+      await persistence.writeStarted.future;
+      final queued = replacement.write(siteUrl: site, sourceId: stale);
+      final oldRead = replacement.read(siteUrl: site);
+      first.forgetSites(ForgottenSites.removed(site, keeping: const [other]));
+      persistence.values.remove(site);
+      await first.write(siteUrl: other, sourceId: fresh);
+      final freshWrite = replacement.write(siteUrl: site, sourceId: fresh);
+      persistence.releaseWrite.complete();
+      await Future.wait([write, queued, freshWrite]);
+      expect(await oldRead, coreSuggestedTopicRecommendationSourceId);
+      expect(persistence.writes, [
+        (site, initial),
+        (other, fresh),
+        (site, fresh),
+      ]);
+      expect(await first.read(siteUrl: site), fresh);
+      expect(await replacement.read(siteUrl: other), fresh);
+    },
+  );
+
+  test(
+    'a pending read cannot return a forgotten source to a replacement',
+    () async {
+      final persistence = _HeldPersistence()..holdRead = true;
+      const site = 'https://meta.discourse.org';
+      persistence.values[site] = 'test/old';
+      final first = TopicRecommendationsTabStore(persistence: persistence);
+      final replacement = TopicRecommendationsTabStore(
+        persistence: persistence,
+      );
+      final oldRead = first.read(siteUrl: site);
+      await persistence.readStarted.future;
+      replacement.forgetSites(ForgottenSites.removed(site, keeping: const []));
+      persistence.values.remove(site);
+      expect(
+        await replacement.read(siteUrl: site),
+        coreSuggestedTopicRecommendationSourceId,
+      );
+      persistence.releaseRead.complete();
+      expect(await oldRead, coreSuggestedTopicRecommendationSourceId);
+    },
+  );
+}
+
+final class _HeldPersistence implements TopicRecommendationsTabPersistence {
+  final values = <String, String>{};
+  final writes = <(String, TopicRecommendationSourceId)>[];
+  final writeStarted = Completer<void>();
+  final releaseWrite = Completer<void>();
+  final readStarted = Completer<void>();
+  final releaseRead = Completer<void>();
+  bool holdRead = false;
+
+  @override
+  Future<String?> readStoredSourceId({required String siteUrl}) async {
+    final value = values[siteUrl];
+    if (holdRead && !readStarted.isCompleted) {
+      readStarted.complete();
+      await releaseRead.future;
+    }
+    return value;
+  }
+
+  @override
+  Future<bool> writeTab({
+    required String siteUrl,
+    required TopicRecommendationSourceId sourceId,
+  }) async {
+    writes.add((siteUrl, sourceId));
+    values[siteUrl] = sourceId.value;
+    if (!writeStarted.isCompleted) {
+      writeStarted.complete();
+      await releaseWrite.future;
+    }
+    return true;
+  }
 }

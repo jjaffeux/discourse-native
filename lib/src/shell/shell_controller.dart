@@ -2567,6 +2567,7 @@ class ShellController extends FrameSafeNotifier
           forumSettings.forgetSites(sites);
           sidebarSections.forgetSites(sites);
           topicSidebar.forgetSites(sites);
+          const TopicRecommendationsTabStore().forgetSites(sites);
           return sites;
         },
       );

@@ -48,26 +48,49 @@ final class TopicRecommendationsTabStore {
   final TopicRecommendationsTabPersistence _persistence;
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
+  static final Expando<Map<String, Object>> _siteOwners = Expando();
+
+  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+
+  Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
+
+  bool _owns(String siteUrl, Object owner) =>
+      identical(_owners[siteUrl], owner);
+
+  /// Retires pending choices and reads for forums whose stored preferences
+  /// leave with [forgetSitePreferences]. A re-add gets a fresh owner, while
+  /// writes still use the same persistence queue.
+  void forgetSites(ForgottenSites sites) => _owners.removeWhere(
+    (site, _) => sites.includes(
+      site,
+      SharedPreferencesTopicRecommendationsTabPersistence.keys,
+    ),
+  );
 
   Future<TopicRecommendationSourceId> read({
     required String siteUrl,
     TopicRecommendationSourceMigrationRegistry sourceMigrations =
         const EmptyTopicRecommendationSourceMigrationRegistry(),
-  }) => _operations.read(
-    owner: _persistence,
-    key: siteUrl,
-    operation: () => _read(siteUrl, sourceMigrations),
-  );
+  }) {
+    final owner = _owner(siteUrl);
+    return _operations.read(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () => _read(siteUrl, sourceMigrations, owner),
+    );
+  }
 
   Future<TopicRecommendationSourceId> _read(
     String siteUrl,
     TopicRecommendationSourceMigrationRegistry sourceMigrations,
+    Object owner,
   ) async {
     try {
-      return _sourceIdFromStoredValue(
-            await _persistence.readStoredSourceId(siteUrl: siteUrl),
-            sourceMigrations,
-          ) ??
+      final stored = await _persistence.readStoredSourceId(siteUrl: siteUrl);
+      if (!_owns(siteUrl, owner)) {
+        return coreSuggestedTopicRecommendationSourceId;
+      }
+      return _sourceIdFromStoredValue(stored, sourceMigrations) ??
           coreSuggestedTopicRecommendationSourceId;
     } catch (error, stackTrace) {
       reportStorageFailure(
@@ -82,11 +105,17 @@ final class TopicRecommendationsTabStore {
   Future<void> write({
     required String siteUrl,
     required TopicRecommendationSourceId sourceId,
-  }) => _operations.write<void>(
-    owner: _persistence,
-    key: siteUrl,
-    operation: () => _persist(siteUrl: siteUrl, sourceId: sourceId),
-  );
+  }) {
+    final owner = _owner(siteUrl);
+    return _operations.write<void>(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () async {
+        if (!_owns(siteUrl, owner)) return;
+        await _persist(siteUrl: siteUrl, sourceId: sourceId);
+      },
+    );
+  }
 
   Future<void> _persist({
     required String siteUrl,
