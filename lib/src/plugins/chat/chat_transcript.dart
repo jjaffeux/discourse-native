@@ -1,7 +1,22 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
+
+// Core's summary marker, drawn as a vector so it never depends on font coverage.
+const _disclosureIcon = DIconData(
+  'chat-transcript-disclosure',
+  '<svg viewBox="0 0 16 16"><path d="M3 1v14l12-7z"/></svg>',
+);
+
+// Discourse's vendor/assets/svg-icons/discourse-additional.svg.
+const _threadIcon = DIconData(
+  'discourse-threads',
+  '<svg viewBox="0 0 16 17" fill-rule="evenodd" clip-rule="evenodd">'
+      '<path d="M5 0L4.57143 3H1V5H4.28571L3.71429 9H0V11H3.42857L3 14L4.9799 14.2828L5.44888 11H7V9H5.73459L6.30602 5H11.2857L11 7H13.0203L13.306 5H16V3H13.5917L13.9799 0.282843L12 0L11.5714 3H6.59173L6.9799 0.282843L5 0ZM8 13.5V9C8 8.44772 8.44771 8 9 8H15C15.5523 8 16 8.44771 16 9V13.5C16 14.0523 15.5523 14.5 15 14.5H12.1194C11.5042 15.2014 10.396 16.3544 10.0417 16C9.97944 15.9223 9.99982 15.0667 10.0206 14.5H9C8.44771 14.5 8 14.0523 8 13.5Z"/>'
+      '</svg>',
+);
 
 class ChatTranscriptData {
   const ChatTranscriptData({
@@ -17,6 +32,7 @@ class ChatTranscriptData {
     required this.bodyHtml,
     required this.nestedTranscriptsHtml,
     required this.chained,
+    this.disclosure,
   });
 
   final String? username;
@@ -31,10 +47,20 @@ class ChatTranscriptData {
   final String bodyHtml;
   final List<String> nestedTranscriptsHtml;
   final bool chained;
+  final ChatTranscriptDisclosure? disclosure;
 
   static ChatTranscriptData from(dom.Element element) {
+    // Core only wraps a thread in details when it includes replies. A thread
+    // id alone also occurs on ordinary message quotes and must not collapse.
+    final details = element.localName == 'details'
+        ? element
+        : childWhere(element, (child) => child.localName == 'details');
+    final summary = details == null
+        ? null
+        : childWhere(details, (child) => child.localName == 'summary');
+    final visible = summary ?? element;
     final user = _ownedDescendant(
-      element,
+      visible,
       (candidate) => candidate.classes.contains('chat-transcript-user'),
     );
     final avatar = user == null
@@ -73,11 +99,11 @@ class ChatTranscriptData {
                 candidate.classes.contains('chat-transcript-channel'),
           );
     final messages = _ownedDescendant(
-      element,
+      visible,
       (candidate) => candidate.classes.contains('chat-transcript-messages'),
     );
     final images = _ownedDescendant(
-      element,
+      visible,
       (candidate) => candidate.classes.contains('chat-transcript-images'),
     );
     final meta = _ownedDescendant(
@@ -113,10 +139,48 @@ class ChatTranscriptData {
         ))
           if (_belongsToTranscript(candidate, element) &&
               !_isInside(candidate, messages) &&
-              !_isInside(candidate, images))
+              !_isInside(candidate, images) &&
+              (summary == null || !_isInside(candidate, details)))
             candidate.outerHtml,
       ],
       chained: element.classes.contains('chat-transcript-chained'),
+      disclosure: details != null && summary != null
+          ? ChatTranscriptDisclosure.from(details, summary)
+          : null,
+    );
+  }
+}
+
+class ChatTranscriptDisclosure {
+  const ChatTranscriptDisclosure({
+    required this.titleHtml,
+    required this.titleText,
+    required this.bodyHtml,
+    required this.open,
+  });
+
+  final String titleHtml;
+  final String titleText;
+  final String bodyHtml;
+  final bool open;
+
+  static ChatTranscriptDisclosure from(
+    dom.Element details,
+    dom.Element summary,
+  ) {
+    final title = _ownedDescendant(
+      summary,
+      (child) => child.classes.contains('chat-transcript-thread-header__title'),
+    );
+    final body = dom.Element.tag('div');
+    for (final node in details.nodes) {
+      if (!identical(node, summary)) body.append(node.clone(true));
+    }
+    return ChatTranscriptDisclosure(
+      titleHtml: title?.innerHtml.trim() ?? '',
+      titleText: title?.text.trim() ?? '',
+      bodyHtml: body.innerHtml.trim(),
+      open: details.attributes.containsKey('open'),
     );
   }
 }
@@ -158,29 +222,139 @@ class ChatTranscriptBlock extends StatelessWidget {
               compactParagraphs: true,
             ),
             DSeparator(color: theme.dividerColor),
-          ],
-          if (data.username != null ||
-              data.displayName != null ||
-              data.avatarUrl != null ||
-              data.createdAt != null ||
-              data.dateText != null ||
-              data.channelName != null) ...[
-            _TranscriptHeader(data: data, siteUrl: siteUrl),
             const SizedBox(height: 8),
           ],
-          if (data.bodyHtml.isNotEmpty)
-            CookedHtml(
-              html: data.bodyHtml,
+          if (data.disclosure case final disclosure?)
+            _TranscriptThread(
+              data: data,
+              disclosure: disclosure,
               siteUrl: siteUrl,
-              textStyle: theme.textTheme.bodyLarge,
-              compactParagraphs: true,
-            ),
+            )
+          else
+            _TranscriptMessage(data: data, siteUrl: siteUrl),
           for (final transcript in data.nestedTranscriptsHtml)
             CookedHtml(html: transcript, siteUrl: siteUrl),
         ],
       ),
     );
   }
+}
+
+class _TranscriptThread extends StatelessWidget {
+  const _TranscriptThread({
+    required this.data,
+    required this.disclosure,
+    required this.siteUrl,
+  });
+
+  final ChatTranscriptData data;
+  final ChatTranscriptDisclosure disclosure;
+  final String? siteUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DCollapsible(
+      defaultOpen: disclosure.open,
+      child: DCard(
+        border: false,
+        borderRadius: BorderRadius.zero,
+        spacing: 0,
+        backgroundColor: theme.colorScheme.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DCollapsibleTrigger(
+              interactiveChildren: true,
+              semanticLabel: disclosure.titleText.isEmpty
+                  ? context.l10n.thread
+                  : disclosure.titleText,
+              builder: (context, state) => Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 4,
+                  children: [
+                    RotatedBox(
+                      quarterTurns: state.open ? 1 : 0,
+                      child: const DIcon(_disclosureIcon, size: 16),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: 8,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 4,
+                            children: [
+                              const DIcon(_threadIcon, size: 18),
+                              Expanded(
+                                child: disclosure.titleHtml.isEmpty
+                                    ? Text(context.l10n.thread)
+                                    : CookedHtml(
+                                        html: disclosure.titleHtml,
+                                        siteUrl: siteUrl,
+                                        textStyle: theme.textTheme.bodyLarge,
+                                        buildAsync: false,
+                                      ),
+                              ),
+                            ],
+                          ),
+                          _TranscriptMessage(data: data, siteUrl: siteUrl),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            DCollapsibleContent(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: CookedHtml(
+                  html: disclosure.bodyHtml,
+                  siteUrl: siteUrl,
+                  buildAsync: false,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TranscriptMessage extends StatelessWidget {
+  const _TranscriptMessage({required this.data, required this.siteUrl});
+
+  final ChatTranscriptData data;
+  final String? siteUrl;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (data.username != null ||
+          data.displayName != null ||
+          data.avatarUrl != null ||
+          data.createdAt != null ||
+          data.dateText != null ||
+          data.channelName != null) ...[
+        _TranscriptHeader(data: data, siteUrl: siteUrl),
+        const SizedBox(height: 8),
+      ],
+      if (data.bodyHtml.isNotEmpty)
+        CookedHtml(
+          html: data.bodyHtml,
+          siteUrl: siteUrl,
+          textStyle: Theme.of(context).textTheme.bodyLarge,
+          compactParagraphs: true,
+          buildAsync: false,
+        ),
+    ],
+  );
 }
 
 class _TranscriptHeader extends StatelessWidget {
@@ -270,11 +444,13 @@ class _Author extends StatelessWidget {
           const SizedBox(width: 8),
         ],
         if (label case final label?)
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
       ],

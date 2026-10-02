@@ -110,9 +110,10 @@ class DCollapsibleTriggerState {
 
 /// Unstyled button behavior with expanded semantics, Enter/Space activation,
 /// and a visible exterior focus outline. Disabled triggers remain focusable
-/// for discoverability, matching Base UI, but cannot activate. Supply passive artwork, never another
-/// button, through [child] or [builder]. Padding/size/variants belong to the
-/// composition, not Collapsible. A supplied [focusNode] remains caller-owned.
+/// for discoverability, matching Base UI, but cannot activate. Supply passive
+/// artwork through [child] or [builder], or opt into [interactiveChildren] for
+/// rich summaries containing independently actionable links. Padding, size and
+/// variants belong to the composition. A supplied [focusNode] is caller-owned.
 class DCollapsibleTrigger extends StatefulWidget {
   const DCollapsibleTrigger({
     super.key,
@@ -120,6 +121,7 @@ class DCollapsibleTrigger extends StatefulWidget {
     this.builder,
     this.focusNode,
     this.semanticLabel,
+    this.interactiveChildren = false,
     this.disabled = false,
     this.focusBorderRadius,
     this.focusBorder = false,
@@ -133,6 +135,12 @@ class DCollapsibleTrigger extends StatefulWidget {
   final Widget Function(BuildContext, DCollapsibleTriggerState)? builder;
   final FocusNode? focusNode;
   final String? semanticLabel;
+
+  /// Preserves child semantics and text selection for rich summaries. Child
+  /// actions win the gesture arena; keyboard activation toggles only while the
+  /// trigger itself has primary focus. A [semanticLabel] labels the disclosure
+  /// without replacing its independently accessible children in this mode.
+  final bool interactiveChildren;
   final bool disabled;
 
   /// Optional rounded focus treatment for styled compositions.
@@ -159,8 +167,25 @@ class _TriggerState extends State<DCollapsibleTrigger> {
   // that focus for keyboard activation, but match focus-visible artwork.
   bool _pointerFocused = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_handlePrimaryFocus);
+  }
+
+  void _handlePrimaryFocus() {
+    if (widget.interactiveChildren) {
+      _handleFocusHighlight(
+        FocusManager.instance.highlightMode == FocusHighlightMode.traditional,
+      );
+    }
+  }
+
   void _handleFocusHighlight(bool visible) {
-    final focused = visible && !_pointerFocused;
+    final focused =
+        visible &&
+        !_pointerFocused &&
+        (!widget.interactiveChildren || _focus.hasPrimaryFocus);
     if (focused != _focused) setState(() => _focused = focused);
   }
 
@@ -180,7 +205,9 @@ class _TriggerState extends State<DCollapsibleTrigger> {
     setState(() {
       _pointerFocused = false;
       _focused =
-          _focus.hasFocus &&
+          (widget.interactiveChildren
+              ? _focus.hasPrimaryFocus
+              : _focus.hasFocus) &&
           FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
       _pressed = false;
     });
@@ -211,8 +238,10 @@ class _TriggerState extends State<DCollapsibleTrigger> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.focusNode != widget.focusNode) {
       _owner?._triggers.remove(_focus);
+      _focus.removeListener(_handlePrimaryFocus);
       if (oldWidget.focusNode == null) _focus.dispose();
       _focus = widget.focusNode ?? FocusNode();
+      _focus.addListener(_handlePrimaryFocus);
       _owner?._triggers.add(_focus);
     }
   }
@@ -220,6 +249,7 @@ class _TriggerState extends State<DCollapsibleTrigger> {
   @override
   void dispose() {
     _owner?._triggers.remove(_focus);
+    _focus.removeListener(_handlePrimaryFocus);
     if (widget.focusNode == null) _focus.dispose();
     super.dispose();
   }
@@ -247,8 +277,13 @@ class _TriggerState extends State<DCollapsibleTrigger> {
             focused: _focused,
           ),
         );
+    final semanticVisual = ExcludeSemantics(
+      excluding: widget.semanticLabel != null && !widget.interactiveChildren,
+      child: visual,
+    );
     return Semantics(
       container: true,
+      explicitChildNodes: widget.interactiveChildren,
       button: true,
       expanded: scope.open,
       enabled: enabled,
@@ -270,6 +305,9 @@ class _TriggerState extends State<DCollapsibleTrigger> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
+              if (widget.interactiveChildren && !_focus.hasPrimaryFocus) {
+                return null;
+              }
               _showKeyboardFocus();
               activate();
               return null;
@@ -292,12 +330,9 @@ class _TriggerState extends State<DCollapsibleTrigger> {
               ringWidth: widget.focusRingWidth,
               ringOpacity: widget.focusRingOpacity,
             ),
-            child: SelectionContainer.disabled(
-              child: ExcludeSemantics(
-                excluding: widget.semanticLabel != null,
-                child: visual,
-              ),
-            ),
+            child: widget.interactiveChildren
+                ? semanticVisual
+                : SelectionContainer.disabled(child: semanticVisual),
           ),
         ),
       ),

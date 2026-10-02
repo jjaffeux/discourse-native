@@ -39,6 +39,78 @@ Widget disclosure({
 );
 
 void main() {
+  testWidgets('rich summaries keep child actions and semantics independent', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final trigger = FocusNode();
+      final link = FocusNode();
+      final passive = FocusNode();
+      addTearDown(trigger.dispose);
+      addTearDown(link.dispose);
+      addTearDown(passive.dispose);
+      var activations = 0;
+      await tester.pumpWidget(
+        host(
+          DCollapsible(
+            child: Column(
+              children: [
+                DCollapsibleTrigger(
+                  focusNode: trigger,
+                  interactiveChildren: true,
+                  semanticLabel: 'Thread preview',
+                  child: Column(
+                    children: [
+                      const Text('Toggle thread'),
+                      DButton(
+                        focusNode: link,
+                        variant: DButtonVariant.link,
+                        label: const Text('Open source'),
+                        onPressed: () => activations++,
+                      ),
+                      Focus(
+                        focusNode: passive,
+                        child: const Text('Focusable content'),
+                      ),
+                    ],
+                  ),
+                ),
+                const DCollapsibleContent(child: Text('Replies')),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('Open source'), findsOneWidget);
+      await tester.tap(find.text('Open source'));
+      await tester.pump();
+      expect(activations, 1);
+      expect(find.text('Replies'), findsNothing);
+      link.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(activations, 2);
+      expect(find.text('Replies'), findsNothing);
+      passive.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(find.text('Replies'), findsNothing);
+      trigger.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.text('Replies'), findsOneWidget);
+      await tester.tap(find.text('Toggle thread'));
+      await tester.pump();
+      expect(find.text('Replies'), findsNothing);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets(
     'uncontrolled trigger toggles with pointer Enter and Space and announces expanded state',
     (tester) async {
