@@ -8,6 +8,19 @@ void main() {
   const siteUrl = 'https://forum.example';
   final extensions = PluginRegistry.validated(const [AssignPlugin()]);
 
+  test('associated IDs field presence preserves the server capability', () {
+    for (final included in [false, true]) {
+      final group = Group.fromWire({
+        'id': 9,
+        'name': 'support',
+        if (included) 'associated_group_ids': <int>[],
+      }, siteUrl);
+      expect(group.canAssociateGroups, included);
+      expect(group.associatedGroupIds, isEmpty);
+    }
+    expect(const Group(id: 9, name: 'support').canAssociateGroups, isFalse);
+  });
+
   test('group request template preserves its raw Markdown from detail', () {
     const raw = '    indented code\n\nA hard break  \n\n';
     final detail = GroupDetail.fromWire(const {

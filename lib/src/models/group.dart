@@ -48,6 +48,7 @@ final class Group {
     this.publishReadState = false,
     this.automaticMembershipEmailDomains,
     this.associatedGroupIds = const [],
+    this.canAssociateGroups = false,
     this.watchingCategoryIds = const [],
     this.trackingCategoryIds = const [],
     this.watchingFirstPostCategoryIds = const [],
@@ -128,6 +129,7 @@ final class Group {
       json['automatic_membership_email_domains'],
     ),
     associatedGroupIds: _positiveIds(json['associated_group_ids']),
+    canAssociateGroups: json.containsKey('associated_group_ids'),
     watchingCategoryIds: _positiveIds(json['watching_category_ids']),
     trackingCategoryIds: _positiveIds(json['tracking_category_ids']),
     watchingFirstPostCategoryIds: _positiveIds(
@@ -199,6 +201,9 @@ final class Group {
   final bool publishReadState;
   final String? automaticMembershipEmailDomains;
   final List<int> associatedGroupIds;
+
+  /// Core includes associated IDs only for an admin with a configured provider.
+  final bool canAssociateGroups;
   final List<int> watchingCategoryIds;
   final List<int> trackingCategoryIds;
   final List<int> watchingFirstPostCategoryIds;
