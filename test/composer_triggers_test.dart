@@ -17,12 +17,12 @@ String triggerIn(String annotated) {
 }
 
 void main() {
-  test('trigger kinds retain their exact ASCII character grammar', () {
+  test('trigger kinds retain their ASCII punctuation grammar', () {
     for (final kind in ComposerTriggerKind.values) {
       for (final character in ['a', 'Z', '0', '_', '-']) {
         expect(kind.accepts(character), isTrue, reason: '$kind $character');
       }
-      for (final character in ['/', 'é', ' ']) {
+      for (final character in ['/', ' ']) {
         expect(kind.accepts(character), isFalse, reason: '$kind $character');
       }
     }
@@ -38,11 +38,79 @@ void main() {
     expect(ComposerTriggerKind.emoji.accepts(':'), isFalse);
   });
 
+  test('only mentions and hashtags accept Unicode names', () {
+    for (final character in ['é', '中', '𐐀', '\u0301', '٢']) {
+      expect(ComposerTriggerKind.mention.accepts(character), isTrue);
+      expect(ComposerTriggerKind.hashtag.accepts(character), isTrue);
+      expect(ComposerTriggerKind.emoji.accepts(character), isFalse);
+    }
+    for (final kind in ComposerTriggerKind.values) {
+      expect(kind.accepts('🧵'), isFalse);
+    }
+  });
+
   group('composerTriggerAt', () {
     test('opens once enough has been typed', () {
       expect(triggerIn('hey @s|'), '@s');
       expect(triggerIn('hey @sam|'), '@sam');
       expect(triggerIn('a :sm|'), ':sm');
+    });
+
+    test('opens on accented, non-Latin and combining name characters', () {
+      for (final name in ['josé', '中文', 'jose\u0301', '𐐀name', '٢']) {
+        expect(triggerIn('hello @$name|'), '@$name');
+        expect(triggerIn('see #$name|'), '#$name');
+        expect(triggerIn('a :$name|'), '-');
+      }
+      expect(triggerIn('see #父:子|'), '#父:子');
+      expect(triggerIn('see #café::tag|'), '#café::tag');
+    });
+
+    test('Unicode words retain punctuation and caret boundaries', () {
+      for (final value in [
+        'é@josé|',
+        '中#文|',
+        'hello @jos|é',
+        'hello @jo|se\u0301',
+        'see #父|子',
+        'see #café/extra|',
+        'hello @🧵|',
+      ]) {
+        expect(triggerIn(value), '-', reason: value);
+      }
+      expect(triggerIn('(@josé|'), '@josé');
+    });
+
+    test('keeps UTF-16 offsets without splitting supplementary characters', () {
+      final value = typed('🧵 hello @𐐀name|');
+      final trigger = composerTriggerAt(value)!;
+      expect(trigger.start, '🧵 hello '.length);
+      expect(trigger.end, value.text.length);
+      expect(trigger.query, '𐐀name');
+      final completed = applyComposerCompletion(value, trigger, '𐐀reader');
+      expect(completed.text, '🧵 hello @𐐀reader ');
+      expect(completed.selection.baseOffset, completed.text.length);
+      // A selection offset is in UTF-16 units and can be placed inside a pair.
+      expect(triggerIn('@\uD801|\uDC00'), '-');
+      expect(triggerIn('@a|𐐀'), '-');
+    });
+
+    test('Unicode runs retain the existing UTF-16 length bounds', () {
+      final maximum = ComposerTriggerKind.mention.maximum;
+      expect(triggerIn('@${'é' * maximum}|'), '@${'é' * maximum}');
+      expect(triggerIn('@${'é' * (maximum + 1)}|'), '-');
+      expect(
+        triggerIn('@${'𐐀' * (maximum ~/ 2)}|'),
+        '@${'𐐀' * (maximum ~/ 2)}',
+      );
+      expect(triggerIn('@${'𐐀' * (maximum ~/ 2 + 1)}|'), '-');
+      final hashtagMaximum = ComposerTriggerKind.hashtag.maximum;
+      expect(
+        triggerIn('#${'中' * hashtagMaximum}|'),
+        '#${'中' * hashtagMaximum}',
+      );
+      expect(triggerIn('#${'中' * (hashtagMaximum + 1)}|'), '-');
+      expect(triggerIn('#${'𐐀' * runMaximum}|'), '-');
     });
 
     test('opens on the first character of an emoji', () {
