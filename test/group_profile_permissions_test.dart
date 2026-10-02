@@ -135,12 +135,187 @@ void main() {
     expect(submitted?['bio_raw'], 'Owner biography');
     expect(tester.takeException(), isNull);
   });
+
+  for (final (subsection, staff, automatic, field, label, value) in [
+    (
+      GroupRoute.membership,
+      false,
+      false,
+      'visibility_level',
+      'Group visibility',
+      1,
+    ),
+    (
+      GroupRoute.membership,
+      false,
+      false,
+      'members_visibility_level',
+      'Member-list visibility',
+      1,
+    ),
+    (GroupRoute.membership, false, false, 'grant_trust_level', '', 2),
+    (GroupRoute.interaction, false, false, 'publish_read_state', '', true),
+    (
+      GroupRoute.interaction,
+      false,
+      false,
+      'incoming_email',
+      '',
+      'new@example.com',
+    ),
+    (GroupRoute.interaction, true, true, 'publish_read_state', '', true),
+    (
+      GroupRoute.interaction,
+      true,
+      true,
+      'incoming_email',
+      '',
+      'new@example.com',
+    ),
+  ]) {
+    testWidgets('setting restricts $field staff=$staff automatic=$automatic', (
+      tester,
+    ) async {
+      final server = _GroupServer(
+        staff: staff,
+        automatic: automatic,
+        subsection: subsection,
+      );
+      addTearDown(server.transport.close);
+      await server.pump(tester);
+      final original = server.group[field];
+      if (label.isNotEmpty) {
+        final select = _level(label);
+        expect(tester.widget<DSelect<int>>(select).enabled, isFalse);
+        tester.widget<DSelect<int>>(select).onChanged?.call(value as int);
+      } else if (value is bool) {
+        expect(tester.widget<DSwitchTile>(_publishReadState).enabled, isFalse);
+        expect(tester.widget<DSwitchTile>(_publishReadState).onChanged, isNull);
+      } else {
+        final input = tester.widget<DInput>(_field(field));
+        expect(input.enabled, isFalse);
+        input.controller!.text = value.toString();
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<DButton>(find.byKey(ValueKey('save-group-$subsection')))
+            .onPressed,
+        isNull,
+      );
+      if (subsection == GroupRoute.membership) {
+        await tester.tap(find.widgetWithText(DSwitchTile, 'Members can leave'));
+      } else {
+        await _chooseLevel(
+          tester,
+          'Default notification level',
+          'Group owners',
+        );
+      }
+      await tester.pumpAndSettle();
+      await server.save(tester);
+      expect(server.writes, hasLength(1));
+      expect(server.writes.single, isNot(contains(field)));
+      expect(server.group[field], original);
+      expect(
+        server.group[subsection == GroupRoute.membership
+            ? 'public_exit'
+            : 'default_notification_level'],
+        subsection == GroupRoute.membership ? true : 3,
+      );
+      await server.pump(tester);
+      if (label.isNotEmpty) {
+        expect(tester.widget<DSelect<int>>(_level(label)).value, original);
+      } else if (value is bool) {
+        expect(tester.widget<DSwitchTile>(_publishReadState).value, original);
+      } else {
+        expect(
+          tester.widget<DInput>(_field(field)).controller!.text,
+          original.toString(),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (subsection, field, label, value) in [
+    (GroupRoute.membership, 'visibility_level', 'Group visibility', 1),
+    (
+      GroupRoute.membership,
+      'members_visibility_level',
+      'Member-list visibility',
+      1,
+    ),
+    (GroupRoute.membership, 'grant_trust_level', '', 2),
+    (GroupRoute.interaction, 'publish_read_state', '', true),
+    (GroupRoute.interaction, 'incoming_email', '', 'new@example.com'),
+  ]) {
+    testWidgets('staff custom setting saves $field', (tester) async {
+      final server = _GroupServer(
+        staff: true,
+        automatic: false,
+        subsection: subsection,
+      );
+      addTearDown(server.transport.close);
+      await server.pump(tester);
+      if (label.isNotEmpty) {
+        expect(tester.widget<DSelect<int>>(_level(label)).enabled, isTrue);
+        await _chooseLevel(tester, label, 'Logged-in users');
+      } else if (value is bool) {
+        await tester.tap(_publishReadState);
+      } else {
+        expect(tester.widget<DInput>(_field(field)).enabled, isTrue);
+        await tester.enterText(_field(field), value.toString());
+      }
+      await tester.pumpAndSettle();
+      await server.save(tester);
+      expect(server.writes.single[field], value);
+      expect(server.group[field], value);
+      await server.pump(tester);
+      if (label.isNotEmpty) {
+        expect(tester.widget<DSelect<int>>(_level(label)).value, value);
+      } else if (value is bool) {
+        expect(tester.widget<DSwitchTile>(_publishReadState).value, value);
+      } else {
+        expect(
+          tester.widget<DInput>(_field(field)).controller!.text,
+          value.toString(),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+Future<void> _chooseLevel(
+  WidgetTester tester,
+  String label,
+  String option,
+) async {
+  final select = _level(label);
+  await tester.ensureVisible(select);
+  await tester.tap(select);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(option).last);
+  await tester.pumpAndSettle();
 }
 
 Finder _field(String name) => find.byKey(ValueKey('group-field-$name'));
+Finder _level(String label) => find.byWidgetPredicate(
+  (widget) =>
+      widget is DSelect<int> &&
+      widget.label is Text &&
+      (widget.label! as Text).data == label,
+);
+Finder get _publishReadState =>
+    find.widgetWithText(DSwitchTile, 'Publish read state');
 
 class _GroupServer {
-  _GroupServer({required this.staff, required this.automatic}) {
+  _GroupServer({
+    required this.staff,
+    required this.automatic,
+    this.subsection = GroupRoute.profile,
+  }) {
     group = {
       'id': 9,
       'name': 'support',
@@ -150,6 +325,12 @@ class _GroupServer {
       'flair_icon': 'shield-halved',
       'flair_bg_color': 'ffffff',
       'flair_color': '000000',
+      'visibility_level': 0,
+      'members_visibility_level': 0,
+      'grant_trust_level': 1,
+      'publish_read_state': false,
+      'incoming_email': 'old@example.com',
+      'default_notification_level': 2,
       'automatic': automatic,
       'can_admin_group': true,
       'is_group_owner': !staff,
@@ -170,8 +351,24 @@ class _GroupServer {
             'flair_icon',
             'flair_bg_color',
             'flair_color',
+            'default_notification_level',
+            'messageable_level',
+            'mentionable_level',
+            if (!automatic) ...[
+              'allow_membership_requests',
+              'public_exit',
+              'public_admission',
+              'membership_request_template',
+            ],
+            if (staff) ...['visibility_level', 'members_visibility_level'],
             if (!automatic) 'full_name',
-            if (!automatic && staff) ...['name', 'title'],
+            if (!automatic && staff) ...[
+              'name',
+              'title',
+              'grant_trust_level',
+              'publish_read_state',
+              'incoming_email',
+            ],
           };
           for (final entry in values.entries) {
             if (permitted.contains(entry.key)) group[entry.key] = entry.value;
@@ -188,6 +385,7 @@ class _GroupServer {
 
   final bool staff;
   final bool automatic;
+  final String subsection;
   late final DiscourseApi transport;
   late final GroupsApi api;
   late final Map<String, dynamic> group;
@@ -215,7 +413,7 @@ class _GroupServer {
             route: GroupRoute.detail(
               group['name'] as String,
               section: GroupRoute.manage,
-              subsection: GroupRoute.profile,
+              subsection: subsection,
             ),
             registry: PluginRegistry.empty,
             data: GroupPageData(
@@ -242,7 +440,7 @@ class _GroupServer {
   }
 
   Future<void> save(WidgetTester tester) async {
-    final save = find.byKey(const ValueKey('save-group-profile'));
+    final save = find.byKey(ValueKey('save-group-$subsection'));
     await tester.ensureVisible(save);
     await tester.runAsync(() async {
       await tester.tap(save);
