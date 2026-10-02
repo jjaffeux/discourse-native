@@ -317,8 +317,7 @@ final class GroupsApi {
     required String reason,
     String? clientId,
   }) async {
-    final normalizedReason = reason.trim();
-    if (normalizedReason.isEmpty) {
+    if (reason.trim().isEmpty) {
       throw ArgumentError.value(reason, 'reason', 'A reason is required.');
     }
     final body = await _write(
@@ -327,7 +326,7 @@ final class GroupsApi {
       clientId: clientId,
       path: '/groups/${_groupName(groupName)}/request_membership.json',
       method: 'POST',
-      body: {'reason': normalizedReason},
+      body: {'reason': reason},
     );
     return jsonText(body['relative_url']);
   }

@@ -341,21 +341,24 @@ void main() {
       ]);
     });
 
-    test('membership request trims its reason and returns its route', () async {
-      final transport = _RecordingTransport()
-        ..writeResponse = {'relative_url': '/g/support/requests'};
-      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+    test(
+      'membership request preserves its reason and returns its route',
+      () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {'relative_url': '/g/support/requests'};
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
-      final requestUrl = await api.requestMembership(
-        siteUrl: siteUrl,
-        apiKey: 'secret',
-        groupName: 'support',
-        reason: ' I can help ',
-      );
+        final requestUrl = await api.requestMembership(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupName: 'support',
+          reason: ' I can help ',
+        );
 
-      expect(requestUrl, '/g/support/requests');
-      expect(transport.writes.single.body, {'reason': 'I can help'});
-    });
+        expect(requestUrl, '/g/support/requests');
+        expect(transport.writes.single.body, {'reason': ' I can help '});
+      },
+    );
 
     test('notification level sends the selected level and user', () async {
       final transport = _RecordingTransport();
