@@ -709,6 +709,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     theme: theme,
     darkTheme: darkTheme,
     themeMode: themeMode,
+    scrollBehavior: const DScrollBehavior(),
     // Forum switches replace the whole palette. Animating that change makes
     // every theme-dependent subtree rebuild on each tick, including cooked
     // HTML.
