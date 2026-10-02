@@ -1277,24 +1277,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('different visible creation labels still animate between tabs', (
+  _mobileTest('wide dock keeps creation actions icon-only when tabs change', (
     tester,
   ) async {
     await pumpMobileShellFixture(tester, size: const Size(800, 1000));
     final topic = find.byKey(const ValueKey('mobile-new-topic'));
     expect(
       find.descendant(of: topic, matching: find.text('New topic')),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(tester.widget<DButton>(topic).tooltip, 'New topic');
     await _tapDockTab(tester, 'messages', settle: false);
     await tester.pump();
     final message = find.byKey(const ValueKey('new-message-button'));
     expect(
       find.descendant(of: message, matching: find.text('New message')),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(tester.widget<DButton>(message).tooltip, 'New message');
     await tester.pump(const Duration(milliseconds: 60));
-    expect(topic, findsOneWidget);
+    expect(topic, findsNothing);
     expect(
       tester
           .widget<FadeTransition>(
@@ -1304,7 +1306,7 @@ void main() {
           )
           .opacity
           .value,
-      inExclusiveRange(0, 1),
+      1,
     );
     await tester.pumpAndSettle();
     expect(topic, findsNothing);
@@ -1505,7 +1507,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('creation labels collapse while every action stays on one row', (
+  _mobileTest('creation actions stay icon-only and on one row at every width', (
     tester,
   ) async {
     await pumpMobileShellFixture(tester, events: true);
@@ -1514,7 +1516,7 @@ void main() {
       final action = find.byKey(
         ValueKey(tab == 'topics' ? 'mobile-new-topic' : 'new-message-button'),
       );
-      for (final width in [600.0, 390.0, 320.0]) {
+      for (final width in [800.0, 600.0, 390.0, 320.0]) {
         tester.view.physicalSize = Size(width, 844);
         await tester.pumpAndSettle();
         expect(tester.widget<DButton>(action).label is! Text, isTrue);

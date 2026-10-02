@@ -437,7 +437,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final shown = destinations.take(shownCount).toList();
     final spilled = destinations.skip(shownCount).toList();
     // Give the action the same column as a destination on compact screens.
-    // Wider layouts can use the remaining room for a labelled action.
     final itemWidth = math.min(
       itemMax,
       constraints.maxWidth / (shown.length + 2),
@@ -447,13 +446,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       itemWidth,
       220.0,
     );
-    final actionLabel =
-        pageAction?.label ??
-        (showReply
-            ? context.l10n.reply
-            : showNewMessage
-            ? context.l10n.newMessage
-            : panelAction?.label ?? context.l10n.newTopic);
     final actionIcon =
         pageAction?.icon ??
         (showReply
@@ -461,10 +453,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             : showNewMessage
             ? DIcons.plus
             : panelAction?.icon ?? DIcons.plus);
-    final showLabel =
-        pageAction != null ||
-        (constraints.maxWidth > itemMax * (shown.length + 2) &&
-            _creationLabelFits(context, actionWidth, 0, actionLabel));
     Widget? primaryAction;
     if (pageAction case final action?) {
       primaryAction = DButton.iconOnly(
@@ -477,27 +465,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         onPressed: action.onPressed,
       );
     } else if (showReply) {
-      primaryAction = showLabel
-          ? DButton(
-              key: const ValueKey('mobile-topic-reply'),
-              icon: const DIcon(DIcons.reply),
-              label: Text(context.l10n.reply),
-              tooltip: context.l10n.replyToThisTopic,
-              shape: DButtonShape.pill,
-              density: DButtonDensity.mobileDockAction,
-              onPressed: shell.openReply,
-            )
-          : DButton.iconOnly(
-              key: const ValueKey('mobile-topic-reply'),
-              icon: const DIcon(DIcons.reply),
-              tooltip: context.l10n.replyToThisTopic,
-              shape: DButtonShape.pill,
-              density: DButtonDensity.mobileDockAction,
-              onPressed: shell.openReply,
-            );
+      primaryAction = DButton.iconOnly(
+        key: const ValueKey('mobile-topic-reply'),
+        icon: const DIcon(DIcons.reply),
+        tooltip: context.l10n.replyToThisTopic,
+        shape: DButtonShape.pill,
+        density: DButtonDensity.mobileDockAction,
+        onPressed: shell.openReply,
+      );
     } else if (showNewMessage) {
-      primaryAction = MessageCreateButton(
-        showLabel: showLabel,
+      primaryAction = const MessageCreateButton(
+        showLabel: false,
         pill: true,
         dockAction: true,
       );
@@ -506,7 +484,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         key: const ValueKey('mobile-panel-action'),
         icon: panelAction.icon,
         label: panelAction.label,
-        showLabel: showLabel,
         onPressed: panelAction.onPressed,
       );
     } else if (showNewTopic) {
@@ -514,7 +491,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.plus,
         label: context.l10n.newTopic,
-        showLabel: showLabel,
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
       );
     }
@@ -604,10 +580,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   : KeyedSubtree(
                       // Only a visible change should animate. Route-specific
                       // tooltips and callbacks still update for identical icons.
-                      key: ValueKey((
-                        actionIcon,
-                        showLabel ? actionLabel : null,
-                      )),
+                      key: ValueKey(actionIcon),
                       child: primaryAction,
                     ),
             ),
@@ -621,62 +594,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required Key key,
     required DIconData icon,
     required String label,
-    required bool showLabel,
     required VoidCallback onPressed,
-  }) => showLabel
-      ? DButton(
-          key: key,
-          icon: DIcon(icon),
-          label: Text(label),
-          shape: DButtonShape.pill,
-          density: DButtonDensity.mobileDockAction,
-          onPressed: onPressed,
-        )
-      : DButton.iconOnly(
-          key: key,
-          icon: DIcon(icon),
-          tooltip: label,
-          shape: DButtonShape.pill,
-          density: DButtonDensity.mobileDockAction,
-          onPressed: onPressed,
-        );
-
-  bool _creationLabelFits(
-    BuildContext context,
-    double width,
-    int actionCount,
-    String label,
-  ) {
-    const size = DControlSize.regular;
-    final scaler = MediaQuery.textScalerOf(context);
-    final controlWidth = DControlStyle.scaledHeight(
-      size,
-      scaler,
-      context: context,
-    );
-    final text = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: Theme.of(context).textTheme.labelLarge!.copyWith(
-          fontSize: DControlStyle.fontSize(size, context: context),
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-        ),
-      ),
-      textScaler: scaler,
-      textDirection: Directionality.of(context),
-      maxLines: 1,
-    )..layout();
-    // Reserve enough room for the Native button's icon and content insets.
-    // The control retains ownership of its actual dimensions and touch target.
-    final labelWidth =
-        text.width +
-        2 * DControlStyle.iconDimension(size, context: context) +
-        DControlStyle.contentGap(size);
-    text.dispose();
-    return width >=
-        actionCount * (controlWidth + DSpacing.controlGap) + labelWidth;
-  }
+  }) => DButton.iconOnly(
+    key: key,
+    icon: DIcon(icon),
+    tooltip: label,
+    shape: DButtonShape.pill,
+    density: DButtonDensity.mobileDockAction,
+    onPressed: onPressed,
+  );
 }
 
 /// Adapts mobile visit history to the Native interactive transition.
