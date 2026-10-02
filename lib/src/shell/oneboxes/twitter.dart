@@ -41,7 +41,7 @@ class TwitterOneboxData {
   final TwitterOneboxData? quote;
 
   String? get profileUrl => handle == null ? null : 'https://x.com/$handle';
-  String? get statusId => url == null ? null : Uri.parse(url!).pathSegments[2];
+  String? get statusId => _parsePostUrl(url)?.statusId;
 
   static TwitterOneboxData? from(dom.Element aside, OneboxData envelope) {
     final description = _withClass(aside, 'tweet-description');
@@ -98,7 +98,10 @@ class TwitterOneboxData {
         : null;
   }
 
-  static String? _postUrl(String? value) {
+  static String? _postUrl(String? value) =>
+      _parsePostUrl(value)?.uri.toString();
+
+  static ({Uri uri, String statusId})? _parsePostUrl(String? value) {
     final uri = value == null ? null : Uri.tryParse(value);
     if (uri == null ||
         !const {'https', 'http'}.contains(uri.scheme) ||
@@ -113,7 +116,12 @@ class TwitterOneboxData {
         !RegExp(r'^/[^/]+/status/\d+/?$').hasMatch(uri.path)) {
       return null;
     }
-    return uri.toString();
+    try {
+      // Parsing preserves percent escapes; segment decoding validates UTF-8.
+      return (uri: uri, statusId: uri.pathSegments[2]);
+    } on FormatException {
+      return null;
+    }
   }
 }
 
