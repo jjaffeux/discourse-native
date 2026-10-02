@@ -1396,8 +1396,7 @@ class ChatController extends FrameSafeNotifier {
         held!.membership.following;
   }
 
-  /// Discourse requires the existing slug for title edits and an empty string
-  /// to remove a description.
+  /// Omit unchanged fields; an empty description removes the existing value.
   Future<String?> updateChannelMetadata(
     String siteUrl,
     int channelId, {

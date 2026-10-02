@@ -88,8 +88,8 @@ class _ChannelDetailsDialogState extends State<_ChannelDetailsDialog> {
     final error = await widget.chat.updateChannelMetadata(
       widget.siteUrl,
       widget.channel.id,
-      name: titleChanged || slugChanged ? name : null,
-      slug: titleChanged || slugChanged ? slug : null,
+      name: titleChanged ? name : null,
+      slug: slugChanged ? slug : null,
       description: descriptionChanged ? _description.text : null,
     );
     if (!mounted) return;
