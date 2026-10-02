@@ -445,6 +445,101 @@ void main() {
     expect(selection, [design]);
   });
 
+  for (final waiting in ['debounce', 'lookup']) {
+    testWidgets('Enter ignores previous tags during the next $waiting', (
+      tester,
+    ) async {
+      final pendingSearch = Completer<TopicTagSearch>();
+      final selections = <List<TopicTag>?>[];
+      await openPicker(
+        tester,
+        selectedTags: const [],
+        onClosed: selections.add,
+        search: (term) => term == 'support'
+            ? pendingSearch.future
+            : Future.value(const TopicTagSearch(tags: [design])),
+      );
+      final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+      await tester.enterText(query, 'design');
+      await tester.pumpAndSettle(const Duration(milliseconds: 300));
+      expect(option('design'), findsOneWidget);
+
+      await tester.enterText(query, 'support');
+      await tester.pump(
+        waiting == 'debounce'
+            ? Duration.zero
+            : const Duration(milliseconds: 300),
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(selections, isEmpty);
+      expect(option('design'), findsNothing);
+      expect(find.byType(TopicTagPicker), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      pendingSearch.complete(const TopicTagSearch(tags: [support]));
+      await tester.pumpAndSettle();
+      await tester.tap(query);
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(selections, [
+        [support],
+      ]);
+    });
+  }
+
+  for (final fails in [false, true]) {
+    testWidgets(
+      'query edits ignore an older ${fails ? 'error' : 'result'} during debounce',
+      (tester) async {
+        final oldSearch = Completer<TopicTagSearch>();
+        final selections = <List<TopicTag>?>[];
+        final searches = <String>[];
+        await openPicker(
+          tester,
+          selectedTags: const [],
+          onClosed: selections.add,
+          search: (term) {
+            searches.add(term);
+            return term == 'design'
+                ? oldSearch.future
+                : Future.value(
+                    TopicTagSearch(tags: term == 'support' ? [support] : []),
+                  );
+          },
+        );
+        final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+        await tester.enterText(query, 'design');
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(searches, ['', 'design']);
+
+        await tester.enterText(query, 'support');
+        if (fails) {
+          oldSearch.completeError(StateError('old query failed'));
+        } else {
+          oldSearch.complete(const TopicTagSearch(tags: [design]));
+        }
+        await tester.pump();
+
+        expect(searches, ['', 'design']);
+        expect(option('design'), findsNothing);
+        expect(find.text("Couldn't load tags."), findsNothing);
+        expect(find.byType(TopicTaxonomyPickerProgress), findsOneWidget);
+
+        await tester.pumpAndSettle(const Duration(milliseconds: 300));
+        expect(searches, ['', 'design', 'support']);
+        expect(option('support'), findsOneWidget);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(selections, [
+          [support],
+        ]);
+      },
+    );
+  }
+
   testWidgets('keeps the create row mounted while search results refresh', (
     tester,
   ) async {

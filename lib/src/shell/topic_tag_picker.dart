@@ -348,6 +348,11 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
 
   void _changed(String value) {
     _debounce?.cancel();
+    _lookup.invalidate();
+    setState(() {
+      _result = const TopicTagSearch();
+      _loading = true;
+    });
     _debounce = Timer(const Duration(milliseconds: 250), () => _search(value));
   }
 
@@ -407,6 +412,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   List<TopicTag> get _visibleResults {
+    if (_loading) return const [];
     final seen = <String>{};
     final term = _query.text.trim().toLowerCase();
     return [
@@ -428,10 +434,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
       queryController: _query,
       queryFocusNode: _queryFocus,
       queryHint: context.l10n.findOrAddTags,
-      onQueryChanged: (value) {
-        _changed(value);
-        setState(() {});
-      },
+      onQueryChanged: _changed,
       onQuerySubmitted: (_) => _submitQuery(),
       separatorKey: const ValueKey('topic-tag-picker-divider'),
       children: [
