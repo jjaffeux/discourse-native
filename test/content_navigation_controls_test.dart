@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -85,7 +86,7 @@ void main() {
         final controls = find.byType(ContentNavigationControls);
         final group = find.descendant(
           of: controls,
-          matching: find.byType(DButtonGroup),
+          matching: find.byType(DCard),
         );
         expect(group, findsOneWidget);
         final separator = find.descendant(
@@ -284,6 +285,44 @@ void main() {
       },
     );
   }
+
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'navigation hover paints each action as a complete circle',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+      for (final id in ['hover-first', 'hover-second']) {
+        shell.pushContent(
+          ContentRoute(id: id, title: id, icon: DIcons.comments),
+        );
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ContentNavigationControls.backKey));
+      await tester.pumpAndSettle();
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      for (final key in [
+        ContentNavigationControls.backKey,
+        ContentNavigationControls.forwardKey,
+        ContentNavigationControls.refreshKey,
+      ]) {
+        final button = find.byKey(key);
+        final rect = tester.getRect(button);
+        await mouse.moveTo(rect.center);
+        await tester.pump();
+        final surface = buttonSurface(tester, of: button);
+        expect(surface.color.a, greaterThan(0));
+        expect(surface.borderRadius, BorderRadius.circular(rect.height / 2));
+        expect(surface.joinedAxis, isNull);
+        // Moving to another action must clear this one's complete circle.
+        await mouse.moveTo(tester.getBottomRight(primaryMainContent));
+        await tester.pump();
+        expect(buttonSurface(tester, of: button).color.a, 0);
+      }
+      await mouse.removePointer();
+    },
+  );
 
   _testOnPlatform(
     TargetPlatform.macOS,

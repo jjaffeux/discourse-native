@@ -45,67 +45,77 @@ class ContentNavigationControls extends StatelessWidget {
               spacing: 0,
               borderRadius: BorderRadius.circular(DRadius.pill),
               backgroundColor: tokens.hover,
-              child: DButtonGroup(
-                semanticLabel: context.l10n.navigation,
-                children: [
-                  DButton.iconOnly(
-                    key: backKey,
-                    icon: const DIcon(DIcons.arrowLeft),
-                    tooltip: context.l10n.backMouseBackButton,
-                    semanticLabel: context.l10n.back,
-                    shortcut: DShortcut(
-                      contentBackShortcutForPlatform(defaultTargetPlatform),
+              child: Semantics(
+                container: true,
+                explicitChildNodes: true,
+                label: context.l10n.navigation,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DButton.iconOnly(
+                      key: backKey,
+                      icon: const DIcon(DIcons.arrowLeft),
+                      tooltip: context.l10n.backMouseBackButton,
+                      semanticLabel: context.l10n.back,
+                      shortcut: DShortcut(
+                        contentBackShortcutForPlatform(defaultTargetPlatform),
+                      ),
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.toolbar,
+                      shape: DButtonShape.pill,
+                      onPressed: state.back
+                          ? () =>
+                                controller.handleBack(canReturnToSidebar: false)
+                          : null,
                     ),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.toolbar,
-                    shape: DButtonShape.pill,
-                    onPressed: state.back
-                        ? () => controller.handleBack(canReturnToSidebar: false)
-                        : null,
-                  ),
-                  DButton.iconOnly(
-                    key: forwardKey,
-                    icon: const RotatedBox(
-                      quarterTurns: 2,
-                      child: DIcon(DIcons.arrowLeft),
+                    DButton.iconOnly(
+                      key: forwardKey,
+                      icon: const RotatedBox(
+                        quarterTurns: 2,
+                        child: DIcon(DIcons.arrowLeft),
+                      ),
+                      tooltip: context.l10n.forwardMouseForwardButton,
+                      semanticLabel: context.l10n.forward,
+                      shortcut: DShortcut(
+                        contentForwardShortcutForPlatform(
+                          defaultTargetPlatform,
+                        ),
+                      ),
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.toolbar,
+                      shape: DButtonShape.pill,
+                      onPressed: state.forward
+                          ? controller.handleForward
+                          : null,
                     ),
-                    tooltip: context.l10n.forwardMouseForwardButton,
-                    semanticLabel: context.l10n.forward,
-                    shortcut: DShortcut(
-                      contentForwardShortcutForPlatform(defaultTargetPlatform),
+                    DSeparator(
+                      orientation: Axis.vertical,
+                      length: DControlStyle.scaledHeight(
+                        DControlSize.toolbar,
+                        MediaQuery.textScalerOf(context),
+                        context: context,
+                      ),
+                      indent: DSpacing.sm,
+                      endIndent: DSpacing.sm,
+                      color: tokens.mutedForeground.withValues(alpha: .35),
                     ),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.toolbar,
-                    shape: DButtonShape.pill,
-                    onPressed: state.forward ? controller.handleForward : null,
-                  ),
-                  DSeparator(
-                    orientation: Axis.vertical,
-                    length: DControlStyle.scaledHeight(
-                      DControlSize.toolbar,
-                      MediaQuery.textScalerOf(context),
-                      context: context,
+                    DButton.iconOnly(
+                      key: refreshKey,
+                      icon: const DIcon(DIcons.arrowsRotate),
+                      tooltip: context.l10n.refreshCurrentTab,
+                      shortcut: DShortcut(
+                        refreshTabShortcutForPlatform(defaultTargetPlatform),
+                      ),
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.toolbar,
+                      shape: DButtonShape.pill,
+                      foregroundColor: tokens.foreground,
+                      onPressed: state.refresh && !state.refreshing
+                          ? () => unawaited(controller.refreshCurrentTab())
+                          : null,
                     ),
-                    indent: DSpacing.sm,
-                    endIndent: DSpacing.sm,
-                    color: tokens.mutedForeground.withValues(alpha: .35),
-                  ),
-                  DButton.iconOnly(
-                    key: refreshKey,
-                    icon: const DIcon(DIcons.arrowsRotate),
-                    tooltip: context.l10n.refreshCurrentTab,
-                    shortcut: DShortcut(
-                      refreshTabShortcutForPlatform(defaultTargetPlatform),
-                    ),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.toolbar,
-                    shape: DButtonShape.pill,
-                    foregroundColor: tokens.foreground,
-                    onPressed: state.refresh && !state.refreshing
-                        ? () => unawaited(controller.refreshCurrentTab())
-                        : null,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
