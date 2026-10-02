@@ -2083,6 +2083,107 @@ void main() {
       expect(inPane(10, thumbnail), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+    for (final returnToFirst in [false, true]) {
+      for (final fail in [false, true]) {
+        testWidgets(
+          'Native Edit selection keeps a newer ${returnToFirst ? 'same-message' : 'other-message'} draft after an older ${fail ? 'refused' : 'saved'} edit',
+          (tester) async {
+            ChatMessage message(int id, String raw) => ChatMessage(
+              id: id,
+              channelId: 9,
+              raw: raw,
+              cooked: '<p>$raw</p>',
+              author: const ChatMessageAuthor(id: 7, username: 'reader'),
+              createdAt: DateTime.utc(2026, 8, 11, 0, 0, id),
+            );
+            final first = message(7, 'first');
+            final second = message(8, 'second');
+            final gate = Completer<void>();
+            addTearDown(() {
+              if (!gate.isCompleted) gate.complete();
+            });
+            final fixture = await _fixture(
+              pages: {
+                FakeDiscourseApi.chatMessagesKey(9): (
+                  messages: [first, second],
+                  canLoadMorePast: false,
+                  canLoadMoreFuture: false,
+                  targetMessageId: null,
+                ),
+              },
+              sessionUser: const DiscourseUser(id: 7, username: 'reader'),
+              editGate: gate,
+              editFailure: fail
+                  ? const WriteException(
+                      WriteFailure.validation,
+                      errors: ['The older edit was refused.'],
+                    )
+                  : null,
+            );
+            addTearDown(fixture.shell.dispose);
+            await tester.pumpWidget(_TestView(shell: fixture.shell));
+            await tester.pumpAndSettle();
+            await tester.enterText(_composerField(), 'ordinary draft');
+            final pointer = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await pointer.addPointer(location: Offset.zero);
+            addTearDown(pointer.removePointer);
+            Future<void> chooseEdit(int id, {bool saving = false}) async {
+              final tile = find.byWidgetPredicate(
+                (widget) => widget is ChatMessageTile && widget.messageId == id,
+              );
+              await tester.ensureVisible(tile);
+              await pointer.moveTo(tester.getCenter(tile));
+              await tester.pump();
+              await tester.tap(
+                find.descendant(
+                  of: tile,
+                  matching: find.byTooltip('More message actions'),
+                ),
+              );
+              await tester.pump(const Duration(milliseconds: 300));
+              await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 300));
+              if (!saving) await tester.pumpAndSettle();
+            }
+
+            await chooseEdit(7);
+            await tester.enterText(_composerField(), 'first submitted edit');
+            await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+            await tester.pump();
+            expect(
+              fixture.api.chatMessagesEdited.single.message,
+              'first submitted edit',
+            );
+            await chooseEdit(8, saving: true);
+            expect(_text(tester), 'second');
+            if (returnToFirst) await chooseEdit(7, saving: true);
+            await tester.enterText(_composerField(), 'keep this newer draft');
+            await tester.pump();
+            final composerState = tester.state(find.byType(ChatComposer));
+            gate.complete();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(
+              tester.state(find.byType(ChatComposer)),
+              same(composerState),
+            );
+            expect(
+              find.byKey(const ValueKey('chat-composer-edit-cancel')),
+              findsOneWidget,
+            );
+            expect(_text(tester), 'keep this newer draft');
+            expect(find.text('The older edit was refused.'), findsNothing);
+            expect(fixture.api.chatMessagesEdited, hasLength(1));
+            expect(tester.takeException(), isNull);
+          },
+          variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+        );
+      }
+    }
+
     testWidgets(
       'editing fills the composer and restores its normal draft afterward',
       (tester) async {
