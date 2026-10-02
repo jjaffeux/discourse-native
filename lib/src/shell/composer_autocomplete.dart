@@ -92,6 +92,16 @@ class ComposerAutocomplete extends ChangeNotifier {
 
   List<ComposerSuggestion> _suggestions = const [];
   List<ComposerSuggestion> get suggestions => _suggestions;
+  (ComposerTriggerKind, String)? _suggestionsQuery;
+
+  bool canAccept(ComposerSuggestion suggestion) {
+    final open = _trigger;
+    return !_disposed &&
+        open != null &&
+        _suggestionsQuery == (open.kind, open.query) &&
+        suggestion.kind == open.kind &&
+        _suggestions.contains(suggestion);
+  }
 
   int _selected = 0;
   int get selectedIndex => _selected;
@@ -150,7 +160,10 @@ class ComposerAutocomplete extends ChangeNotifier {
     // Rows from the same kind stay visible while the new answer is loading;
     // that avoids a flash on every keystroke. A different kind's rows would
     // be actively misleading, so those are cleared immediately.
-    if (previousKind != next.kind) _suggestions = const [];
+    if (previousKind != next.kind) {
+      _suggestions = const [];
+      _suggestionsQuery = null;
+    }
     notifyListeners();
     // A synchronous listener may have replaced or cancelled this request.
     if (_disposed || epoch != _epoch) return;
@@ -207,6 +220,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     } catch (_) {
       if (_disposed || request.epoch != _epoch) return;
       _suggestions = const [];
+      _suggestionsQuery = null;
       _selected = 0;
       _loading = false;
       _failed = true;
@@ -219,6 +233,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     if (_disposed || request.epoch != _epoch) return;
 
     _suggestions = _take(found);
+    _suggestionsQuery = (asked.kind, asked.query);
     _selected = 0;
     _loading = false;
     notifyListeners();
@@ -278,6 +293,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     _timer = null;
     _queuedRemoteSearch = null;
     _epoch++;
+    _suggestionsQuery = null;
     if (_trigger == null && _suggestions.isEmpty) return;
     _trigger = null;
     _suggestions = const [];

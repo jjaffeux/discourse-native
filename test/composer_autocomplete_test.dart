@@ -83,6 +83,59 @@ void main() {
 
   tearDown(() => popup.dispose());
 
+  group('retained row acceptance', () {
+    testWidgets('waits for rows for the new query before accepting', (
+      tester,
+    ) async {
+      popup.update(typed('hey @sa'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      final sam = popup.suggestions.first;
+      expect(popup.canAccept(sam), isTrue);
+
+      gate = Completer<void>();
+      people['alice'] = [user('alice')];
+      popup.update(typed('hey @alice'));
+      expect(popup.suggestions.first, same(sam));
+      expect(popup.canAccept(sam), isFalse);
+      await tester.pump(ComposerAutocomplete.debounce);
+      expect(popup.canAccept(sam), isFalse);
+
+      gate!.complete();
+      await tester.pump();
+      final alice = popup.suggestions.single;
+      expect(popup.canAccept(alice), isTrue);
+      expect(popup.canAccept(sam), isFalse);
+      popup.close();
+      expect(popup.canAccept(alice), isFalse);
+    });
+
+    testWidgets('keeps rows eligible when the query is unchanged', (
+      tester,
+    ) async {
+      popup.update(typed('hey @sa'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      final sam = popup.suggestions.first;
+      popup.update(typed('hey @sa'));
+      expect(popup.canAccept(sam), isTrue);
+
+      // Moving the same query changes the trigger offsets but not its results.
+      popup.update(typed('elsewhere @sa'));
+      expect(popup.isLoading, isTrue);
+      expect(popup.canAccept(sam), isTrue);
+      popup.close();
+    });
+
+    testWidgets('keeps same-query emoji rows eligible during refresh', (
+      tester,
+    ) async {
+      popup.update(typed(':sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      final smile = popup.suggestions.first;
+      popup.refresh();
+      expect(popup.canAccept(smile), isTrue);
+    });
+  });
+
   group('synchronous listeners', () {
     late ManualScheduler scheduler;
 

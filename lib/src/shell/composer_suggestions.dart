@@ -269,7 +269,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
   }
 
   void _activate(ComposerSuggestion choice) {
-    if (!widget.composer.isEditing) return;
+    if (!widget.composer.isEditing || !_popup.canAccept(choice)) return;
     if (choice.action == null) {
       widget.composer.acceptSuggestion(choice);
       widget.composer.focus.requestFocus();
