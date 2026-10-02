@@ -17,6 +17,7 @@ import 'instance_sidebar.dart';
 import 'message_create_button.dart';
 import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
+import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_button.dart';
@@ -296,103 +297,105 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-                child: MobileHistoryGestures(
-                  tabIndex: tabOrder.indexOf(selected),
-                  navigationPreview: navigationPage,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Offstage(
-                        offstage: sidebarOpen,
-                        child: TickerMode(
-                          enabled: !sidebarOpen,
-                          child: ExcludeFocus(
-                            excluding: sidebarOpen,
-                            child: DPageSurface(
-                              key: const ValueKey('mobile-content-panel'),
-                              backgroundColor: ForumWindowBackground.panelColor(
-                                context,
-                              ),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  for (final entry in panels)
-                                    Offstage(
-                                      offstage:
-                                          !(panelRoot &&
-                                              panelOwner == entry.owner.value),
-                                      child: TickerMode(
-                                        enabled:
-                                            panelRoot &&
-                                            panelOwner == entry.owner.value,
-                                        child: ExcludeFocus(
-                                          excluding:
-                                              !(panelRoot &&
-                                                  panelOwner ==
-                                                      entry.owner.value),
-                                          child: InstanceSidebar(
-                                            key: ValueKey((
-                                              'mobile-panel',
-                                              entry.owner.value,
-                                              owner,
-                                            )),
-                                            mobile: true,
-                                            panelOwner: entry.owner.value,
+              child: ListenableBuilder(
+                listenable: _footerAction,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
+                  child: MobileHistoryGestures(
+                    tabIndex: tabOrder.indexOf(selected),
+                    navigationPreview: navigationPage,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Offstage(
+                          offstage: sidebarOpen,
+                          child: TickerMode(
+                            enabled: !sidebarOpen,
+                            child: ExcludeFocus(
+                              excluding: sidebarOpen,
+                              child: DPageSurface(
+                                key: const ValueKey('mobile-content-panel'),
+                                backgroundColor:
+                                    ForumWindowBackground.panelColor(context),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    for (final entry in panels)
+                                      Offstage(
+                                        offstage:
+                                            !(panelRoot &&
+                                                panelOwner ==
+                                                    entry.owner.value),
+                                        child: TickerMode(
+                                          enabled:
+                                              panelRoot &&
+                                              panelOwner == entry.owner.value,
+                                          child: ExcludeFocus(
+                                            excluding:
+                                                !(panelRoot &&
+                                                    panelOwner ==
+                                                        entry.owner.value),
+                                            child: InstanceSidebar(
+                                              key: ValueKey((
+                                                'mobile-panel',
+                                                entry.owner.value,
+                                                owner,
+                                              )),
+                                              mobile: true,
+                                              panelOwner: entry.owner.value,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  if (!panelRoot) widget.content,
-                                ],
+                                    if (!panelRoot) widget.content,
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      if (sidebarOpen) navigationPage,
-                    ],
+                        if (sidebarOpen) navigationPage,
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            DCollapsible(
-              open: !sidebarOpen,
-              child: DCollapsibleContent(
-                duration: DMotion.change,
-                curve: Curves.easeInOutCubic,
-                keepMounted: true,
-                child: ForumSidebarTheme(
-                  child: Padding(
-                    padding: const EdgeInsets.all(DSpacing.xs),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return ListenableBuilder(
-                          listenable: _footerAction,
-                          builder: (context, _) => _buildBottomBar(
-                            context,
-                            constraints,
-                            destinations: dockDestinations,
-                            selected: selected,
-                            moreDestinations: [
-                              for (final id in ['groups', 'badges'])
-                                ?destination(id),
-                              if (instance.isConnected)
-                                SidebarDestination(
-                                  id: 'user-bookmarks',
-                                  label: context.l10n.bookmarks,
-                                  icon: DIcons.bookmark,
-                                ),
-                            ],
-                            showReply: showReply,
-                            showNewMessage: showNewMessage,
-                            panelAction: panelAction,
-                            showNewTopic: showNewTopic,
-                            shell: shell,
-                          ),
-                        );
-                      },
+                builder: (context, content) => MobileScrollDock(
+                  identity: (
+                    owner,
+                    selected,
+                    shell.mobileNavigation.entryId,
+                    widget.boundary,
+                  ),
+                  visible: !sidebarOpen,
+                  keepActionVisible: _footerAction.action != null,
+                  body: content!,
+                  dockBuilder: (hidden) => ForumSidebarTheme(
+                    child: Padding(
+                      padding: const EdgeInsets.all(DSpacing.xs),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => _buildBottomBar(
+                          context,
+                          constraints,
+                          destinations: dockDestinations,
+                          selected: selected,
+                          moreDestinations: [
+                            for (final id in ['groups', 'badges'])
+                              ?destination(id),
+                            if (instance.isConnected)
+                              SidebarDestination(
+                                id: 'user-bookmarks',
+                                label: context.l10n.bookmarks,
+                                icon: DIcons.bookmark,
+                              ),
+                          ],
+                          showReply: showReply,
+                          showNewMessage: showNewMessage,
+                          panelAction: panelAction,
+                          showNewTopic: showNewTopic,
+                          shell: shell,
+                          hideDestinations: hidden,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -416,6 +419,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
+    required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
     final labelGrowth = MediaQuery.textScalerOf(context).scale(11) - 11;
@@ -522,64 +526,70 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       children: [
         SizedBox(
           width: dockWidth,
-          child: Row(
-            children: [
-              for (final item in shown)
+          child: Visibility(
+            visible: !hideDestinations,
+            maintainState: true,
+            maintainAnimation: true,
+            maintainSize: true,
+            child: Row(
+              children: [
+                for (final item in shown)
+                  Expanded(
+                    child: DMobileDockItem(
+                      key: ValueKey('mobile-mode-${item.tab.name}'),
+                      icon: DIcon(item.icon),
+                      label: item.label,
+                      badge: item.badge,
+                      selected: selected == item.tab,
+                      onPressed: item.onPressed,
+                    ),
+                  ),
                 Expanded(
-                  child: DMobileDockItem(
-                    key: ValueKey('mobile-mode-${item.tab.name}'),
-                    icon: DIcon(item.icon),
-                    label: item.label,
-                    badge: item.badge,
-                    selected: selected == item.tab,
-                    onPressed: item.onPressed,
-                  ),
-                ),
-              Expanded(
-                child: DDropdownMenu(
-                  content: DDropdownMenuContent(
-                    semanticLabel: context.l10n.moreDestinations,
-                    side: DPopoverSide.top,
-                    align: DPopoverAlign.end,
-                    children: [
-                      for (final item in spilled)
-                        DDropdownMenuItem(
-                          leading: DIcon(item.icon),
-                          onPressed: item.onPressed,
-                          child: Text(
-                            item.tab == MobileTab.messages
-                                ? context.l10n.messages
-                                : item.label,
+                  child: DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      semanticLabel: context.l10n.moreDestinations,
+                      side: DPopoverSide.top,
+                      align: DPopoverAlign.end,
+                      children: [
+                        for (final item in spilled)
+                          DDropdownMenuItem(
+                            leading: DIcon(item.icon),
+                            onPressed: item.onPressed,
+                            child: Text(
+                              item.tab == MobileTab.messages
+                                  ? context.l10n.messages
+                                  : item.label,
+                            ),
                           ),
-                        ),
-                      for (final entry in moreDestinations)
-                        DDropdownMenuItem(
-                          leading: DIcon(entry.icon),
-                          onPressed: () => shell.selectMobileDestination(
-                            MobileTab.more,
-                            entry,
+                        for (final entry in moreDestinations)
+                          DDropdownMenuItem(
+                            leading: DIcon(entry.icon),
+                            onPressed: () => shell.selectMobileDestination(
+                              MobileTab.more,
+                              entry,
+                            ),
+                            child: Text(entry.label),
                           ),
-                          child: Text(entry.label),
-                        ),
-                    ],
-                  ),
-                  child: DDropdownMenuTrigger(
-                    builder: (context, state) => DMobileDockItem(
-                      key: const ValueKey('mobile-mode-more'),
-                      icon: const DIcon(DIcons.ellipsisVertical),
-                      label: context.l10n.more,
-                      selected:
-                          selected == MobileTab.more ||
-                          spilled.any((item) => item.tab == selected),
-                      focusNode: state.focusNode,
-                      hasPopup: true,
-                      expanded: state.open,
-                      onPressed: state.toggle,
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DMobileDockItem(
+                        key: const ValueKey('mobile-mode-more'),
+                        icon: const DIcon(DIcons.ellipsisVertical),
+                        label: context.l10n.more,
+                        selected:
+                            selected == MobileTab.more ||
+                            spilled.any((item) => item.tab == selected),
+                        focusNode: state.focusNode,
+                        hasPopup: true,
+                        expanded: state.open,
+                        onPressed: state.toggle,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         SizedBox(
