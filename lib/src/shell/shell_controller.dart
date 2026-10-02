@@ -6912,6 +6912,7 @@ class ShellController extends FrameSafeNotifier
       hit.topicSlug,
       hit.topicTitle,
       postNumber: hit.postNumber,
+      resetScrollPosition: true,
     );
   }
 
@@ -7129,7 +7130,11 @@ class ShellController extends FrameSafeNotifier
       (instance) => instance.url == destination.siteUrl,
     );
     if (index != _instanceIndex) selectInstance(index);
-    return openContentInPanel(destination.route, panel: panel);
+    return openContentInPanel(
+      destination.route,
+      panel: panel,
+      resetScrollPosition: destination.route.postNumber != null,
+    );
   }
 
   ({ContentRoute route, String siteUrl})? _routeForLink(
@@ -7392,6 +7397,15 @@ class ShellController extends FrameSafeNotifier
       return TabOpenResult.unsupported;
     }
     if (source.panel == panel) {
+      if (resetScrollPosition && source.anchors.containsKey(route.id)) {
+        _replaceActiveTab(
+          source.copyWith(
+            anchors: Map<String, ForumTabAnchor>.of(source.anchors)
+              ..remove(route.id),
+          ),
+          persist: false,
+        );
+      }
       pushContent(route);
       _hydrateActiveTab(instance);
       return TabOpenResult.opened;
