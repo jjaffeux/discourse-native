@@ -912,46 +912,62 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              SizedBox(
-                width: 84,
-                child: TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  controller: _relative,
-                  keyboardType: TextInputType.number,
-                  enabled: !_busy,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.messageIn,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DSelect<_RelativeUnit>.controlled(
-                  isExpanded: true,
-                  value: _relativeUnit,
-                  entries: [
-                    for (final unit in _RelativeUnit.values)
-                      DSelectOption(
-                        value: unit,
-                        label: unit.label,
-                        child: Text(unit.label),
-                      ),
-                  ],
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _relativeUnit = value!),
-                  initialValue: _relativeUnit,
-                  enabled: !_busy,
-                ),
-              ),
-              const SizedBox(width: DSpacing.controlGap),
-              DButton(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final amount = DInput(
+                style: Theme.of(context).textTheme.bodyMedium,
+                controller: _relative,
+                keyboardType: TextInputType.number,
+                enabled: !_busy,
+                labelText: context.l10n.messageIn,
+              );
+              final unit = DSelect<_RelativeUnit>.controlled(
+                isExpanded: true,
+                value: _relativeUnit,
+                entries: [
+                  for (final unit in _RelativeUnit.values)
+                    DSelectOption(
+                      value: unit,
+                      label: unit.label,
+                      child: Text(unit.label),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _relativeUnit = value!),
+                initialValue: _relativeUnit,
+                enabled: !_busy,
+              );
+              final set = DButton(
                 label: Text(context.l10n.messageSet),
                 onPressed: _busy ? null : _setRelative,
-              ),
-            ],
+              );
+              if (constraints.maxWidth < 420) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    amount,
+                    const SizedBox(height: DSpacing.controlGap),
+                    unit,
+                    const SizedBox(height: DSpacing.controlGap),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: set,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SizedBox(width: 84, child: amount),
+                  const SizedBox(width: DSpacing.controlGap),
+                  Expanded(child: unit),
+                  const SizedBox(width: DSpacing.controlGap),
+                  set,
+                ],
+              );
+            },
           ),
           if (_reminder case final reminder?) ...[
             const SizedBox(height: 12),
@@ -969,14 +985,15 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             ),
           ],
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DSpacing.controlGap,
+            runSpacing: DSpacing.controlGap,
             children: [
               DButton(
                 label: Text(context.l10n.cancel),
                 onPressed: _busy ? null : () => Navigator.of(context).pop(),
               ),
-              const SizedBox(width: DSpacing.controlGap),
               DButton(
                 label: Text(context.l10n.save),
                 onPressed: _nameError == null ? _save : null,
