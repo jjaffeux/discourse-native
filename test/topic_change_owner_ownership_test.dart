@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_change_owner.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -28,6 +30,88 @@ final _forbidden = const WriteException(WriteFailure.forbidden).message;
 final _dialog = find.byKey(const ValueKey('topic-change-owner-dialog'));
 
 void main() {
+  testWidgets(
+    'Native owner dialog scrolls in a narrow window and holds a save',
+    (tester) async {
+      final gate = Completer<void>();
+      final api = _OwnerApi()..ownerWriteGate = gate;
+      await _openStandaloneDialog(
+        tester,
+        api,
+        _GatedAuthenticator(),
+        selected: false,
+      );
+      tester.view.physicalSize = const Size(390, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(tester.getRect(_dialog).left, greaterThanOrEqualTo(0));
+      expect(tester.getRect(_dialog).right, lessThanOrEqualTo(390));
+      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pump();
+      expect(api.writes, hasLength(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(_dialog, findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Cancel'))
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_dialog, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  for (final selected in [false, true]) {
+    testWidgets(
+      '${selected ? 'selected-post' : 'single-post'} rejects a radio result from the query edited before rebuild',
+      (tester) async {
+        final api = _ChoiceOwnerApi();
+        await _openDialog(tester, api, selected: selected);
+        final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+        expect(tester.widget<DButton>(submit).onPressed, isNull);
+
+        await tester.enterText(
+          find.byKey(const ValueKey('topic-change-owner-search')),
+          'bob',
+        );
+        // Input and radio callbacks can both run before the next frame hides
+        // the old results. Use the actual Native input and radio hit target.
+        await tester.tap(
+          find.byKey(const ValueKey('topic-change-owner-user-recipient')),
+        );
+        await tester.pump();
+        expect(find.text('Recipient'), findsNothing);
+        await tester.tap(submit);
+        await tester.pump();
+        expect(api.writes, isEmpty);
+        expect(tester.widget<DButton>(submit).onPressed, isNull);
+
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(api.userSearchesRequested.last.term, 'bob');
+        expect(tester.widget<DButton>(submit).onPressed, isNull);
+        api.nextUsers.complete(const [FoundUser(username: 'bob', name: 'Bob')]);
+        await tester.pumpAndSettle();
+        expect(find.text('Bob'), findsOneWidget);
+        await _submit(tester);
+        expect(api.writes.single.username, 'bob');
+        expect(api.writes.single.postIds, selected ? [1, 2] : [1]);
+        expect(_dialog, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+  }
+
   testWidgets('single-post dialog keeps its target across colliding forums', (
     tester,
   ) async {
@@ -686,5 +770,33 @@ class _OwnerApi extends FakeDiscourseApi {
     refreshes.add((siteUrl: siteUrl, topicId: topicId, ids: List.of(ids)));
     if (ownerRefreshGate case final gate?) return gate.future;
     return [for (final id in ids) postFor(siteUrl, id)];
+  }
+}
+
+class _ChoiceOwnerApi extends _OwnerApi {
+  final nextUsers = Completer<List<FoundUser>>();
+
+  @override
+  Future<List<FoundUser>> searchUsers({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (term == 'bob') {
+      userSearchesRequested.add((term: term, topicId: topicId));
+      return nextUsers.future;
+    }
+    final users = await super.searchUsers(
+      siteUrl: siteUrl,
+      term: term,
+      topicId: topicId,
+      limit: limit,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return [...users, const FoundUser(username: 'other', name: 'Other')];
   }
 }
