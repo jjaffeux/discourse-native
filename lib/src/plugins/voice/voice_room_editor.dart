@@ -14,12 +14,17 @@ Future<void> showVoiceRoomEditor(
   VoiceController? controller,
   VoiceController Function()? controllerResolver,
 }) async {
+  final originController =
+      controllerResolver?.call() ??
+      controller ??
+      PluginUiScope.require(context, voiceControllerService);
+  final ownsAccount = originController.captureSiteSession(siteUrl);
   final result = await showDDialog<VoiceRoomDraft>(
     context: context,
     builder: (context, dialog) =>
         _VoiceRoomEditorDialog(room: room, dialog: dialog),
   );
-  if (result == null || !context.mounted) return;
+  if (result == null || !context.mounted || !ownsAccount()) return;
   await (controllerResolver?.call() ??
           controller ??
           PluginUiScope.require(context, voiceControllerService))

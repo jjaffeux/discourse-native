@@ -2,15 +2,31 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show
+        PluginDescriptor,
+        PluginInstaller,
+        PluginManifest,
+        PluginModule,
+        PluginRegistrar,
+        PluginRequestHost,
+        PluginService,
+        PluginSessionContribution,
+        PluginSessionLifecycle,
+        PluginUiScope,
+        corePluginRequestPort,
+        corePluginRouteNavigationPort;
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart'
     show WriteException, WriteFailure;
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -23,8 +39,11 @@ import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
+import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +52,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
+import 'support/fakes.dart';
 import 'support/voice_fake_chat_conversations.dart';
 
 const _siteUrl = 'https://voice.example.com';
@@ -1866,6 +1886,121 @@ void main() {
   });
 
   group('editor and dialog lifecycle', () {
+    for (final rollback in [false, true]) {
+      for (final framed in [false, true]) {
+        testWidgets(
+          'room editor rejects ${rollback ? 'rollback' : 'replacement'} draft (framed: $framed)',
+          (tester) async {
+            final room = _room(
+              canManage: true,
+              participants: const [
+                VoiceParticipant(
+                  id: 1,
+                  username: 'sam',
+                  role: VoiceRole.moderator,
+                ),
+              ],
+            );
+            final transport = RecordingPluginTransport(
+              responses: {
+                'GET /voice/rooms.json': {
+                  'rooms': [_joinPayload(room)['room']],
+                  'can_create_room': true,
+                },
+                'POST /voice/rooms/7/join.json': _joinPayload(room),
+                'POST /voice/rooms/7/state.json': const {},
+                'DELETE /voice/rooms/7/leave.json': const {},
+                'PUT /voice/rooms/7.json': {'room': _joinPayload(room)['room']},
+              },
+            );
+            final module = _EditorSessionModule(transport);
+            final plugins = PluginInstaller.install(PluginManifest([module]));
+            addTearDown(plugins.close);
+            const user = DiscourseUser(id: 1, username: 'sam');
+            const replacement = DiscourseUser(
+              id: 8,
+              username: 'replacement',
+              staff: true,
+            );
+            final auth = _EditorAuthenticator(rollback: rollback)
+              ..keys[_siteUrl] = 'key';
+            final api = FakeDiscourseApi(
+              user: user,
+              feeds: const {'/latest.json': []},
+            )..accounts['replacement-key'] = replacement;
+            final shell = ShellController(
+              instanceStore: FakeInstanceStore([
+                instance('voice.example.com').copyWith(user: user),
+              ]),
+              api: api,
+              authenticator: auth,
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.reset(),
+              plugins: plugins,
+            );
+            var disposed = false;
+            addTearDown(() {
+              if (!disposed) shell.dispose();
+            });
+            await shell.load();
+            final controller = module.harness.controller;
+            await controller.ensureLoaded(_siteUrl);
+            await controller.join(
+              siteUrl: _siteUrl,
+              siteName: 'Voice',
+              room: room,
+            );
+            await tester.pumpWidget(
+              ShellScope(
+                controller: shell,
+                child: MaterialApp(
+                  home: Scaffold(
+                    body: PluginUiScope.own(
+                      voicePluginId,
+                      const VoiceRoomView(roomId: 7),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final trigger = tester.element(find.byTooltip('Edit room'));
+            await tester.tap(find.byTooltip('Edit room'));
+            await tester.pumpAndSettle();
+            final field = find.widgetWithText(DInput, 'Name');
+            final editor = tester.element(field);
+            await tester.enterText(field, 'Previous account private name');
+            await tester.pump();
+
+            await shell.connectCurrentInstance();
+            await controller.ensureLoaded(_siteUrl, force: true);
+            expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
+            expect(shell.currentInstance?.user, rollback ? user : replacement);
+            expect(controller.room(_siteUrl, 7)?.canManage, isTrue);
+            if (framed) await tester.pumpAndSettle();
+            expect(trigger.mounted, !framed);
+            expect(tester.element(field), same(editor));
+            await tester.tap(find.widgetWithText(DButton, 'Save changes'));
+            await tester.pumpAndSettle();
+            expect(
+              transport.writes.where(
+                (write) =>
+                    write.method == 'PUT' &&
+                    write.path == '/voice/rooms/7.json',
+              ),
+              isEmpty,
+            );
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.runAsync(() async {
+              disposed = true;
+              shell.dispose();
+              await shell.pluginTeardown;
+            });
+          },
+        );
+      }
+    }
+
     testWidgets('validates room names while the user types', (tester) async {
       final semantics = tester.ensureSemantics();
       try {
@@ -4200,7 +4335,7 @@ final class _Harness {
     VoiceTransport joinTransport = VoiceTransport.mesh,
     Set<int> speakingIds = const {},
     RecordingPluginTransport? discourseApi,
-    PluginTestRequestHost? requests,
+    PluginRequestHost? requests,
     _Preferences? preferences,
     FakeChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
@@ -4264,6 +4399,66 @@ final class _Harness {
   late final VoiceController controller;
 
   void dispose() => controller.dispose();
+}
+
+final class _EditorSessionModule implements PluginModule {
+  _EditorSessionModule(this.transport);
+  final RecordingPluginTransport transport;
+  late _Harness harness;
+
+  @override
+  PluginDescriptor get descriptor => const PluginDescriptor(id: voicePluginId);
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession((bindings, _) {
+      harness = _Harness(
+        discourseApi: transport,
+        requests: bindings.require(corePluginRequestPort),
+      );
+      final voice = VoiceShellService(
+        controller: harness.controller,
+        host: bindings.require(corePluginRouteNavigationPort),
+        recordingEnabled: (_) => false,
+      );
+      return PluginSessionContribution(
+        lifecycle: _EditorLifecycle(harness.controller),
+        services: [
+          PluginService<Object>(voiceControllerService, harness.controller),
+          PluginService<Object>(voiceShellService, voice),
+        ],
+      );
+    }, requires: const [corePluginRequestPort, corePluginRouteNavigationPort]);
+  }
+}
+
+final class _EditorLifecycle extends PluginSessionLifecycle {
+  _EditorLifecycle(this.controller);
+  final VoiceController controller;
+  @override
+  void forget(String siteUrl) => controller.forget(siteUrl);
+  @override
+  Future<void> close() => controller.close();
+}
+
+final class _EditorAuthenticator extends FakeAuthenticator {
+  _EditorAuthenticator({required this.rollback})
+    : super(
+        credentials: const UserApiCredentials(
+          key: 'replacement-key',
+          apiVersion: 4,
+          push: false,
+        ),
+      );
+  final bool rollback;
+  @override
+  Future<void> persistCredentials(
+    String siteUrl,
+    UserApiCredentials credentials,
+  ) async {
+    if (rollback) throw StateError('Keychain refused replacement credential');
+    await super.persistCredentials(siteUrl, credentials);
+  }
 }
 
 VoiceShellService _voiceShell(
