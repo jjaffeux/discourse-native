@@ -689,25 +689,39 @@ class MobileHistoryGestures extends StatelessWidget {
     final shell = ShellScope.of(context);
     final navigation = shell.mobileNavigation;
     final sidebarOpen = navigation.sidebarOpen;
+    final sidebarEntry = (navigation.historyId, 'sidebar');
+    final root = !navigation.canGoBack;
     return DHistoryTransition(
       history: navigation.historyId,
       tabIndex: sidebarOpen ? -1 : tabIndex,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
-      entry: sidebarOpen
-          ? (navigation.historyId, 'sidebar')
-          : navigation.entryId,
-      previousEntry: navigation.previousEntryId,
-      nextEntry: navigation.nextEntryId,
-      onBack: !sidebarOpen && navigation.canGoBack
+      entry: sidebarOpen ? sidebarEntry : navigation.entryId,
+      // Navigation is adjacent to the tab root without becoming a visit in
+      // its history. Deeper pages keep their normal Back/Forward targets.
+      previousEntry: sidebarOpen
+          ? null
+          : root
+          ? sidebarEntry
+          : navigation.previousEntryId,
+      nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
+      onBack: !sidebarOpen
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
-              shell.handleBack();
+              if (root) {
+                shell.toggleMobileSidebar();
+              } else {
+                shell.handleBack();
+              }
             }
           : null,
-      onForward: !sidebarOpen && navigation.canGoForward
+      onForward: sidebarOpen || navigation.canGoForward
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
-              shell.handleForward();
+              if (sidebarOpen) {
+                shell.closeMobileSidebar();
+              } else {
+                shell.handleForward();
+              }
             }
           : null,
       child: child,
