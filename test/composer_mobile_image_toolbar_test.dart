@@ -30,6 +30,44 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
+    'mobile image toolbar exposes undo and redo for image edits',
+    (tester) async {
+      final composer = await _pump(tester, width: 320);
+      await tester.tap(find.byType(ComposerImagePreview));
+      await tester.pumpAndSettle();
+      expect(_action('Undo'), findsNothing);
+      await tester.tap(_action('Decrease image size'));
+      await tester.pumpAndSettle();
+      expect(composer.text.imageBlocks.single.scale, 75);
+      expect(_action('Undo').hitTestable(), findsOneWidget);
+      expect(
+        tester.getRect(_toolbar).contains(tester.getCenter(_action('Undo'))),
+        isTrue,
+      );
+      await tester.tap(_action('Undo'));
+      await tester.pumpAndSettle();
+      expect(composer.raw, _source);
+      expect(_toolbar, findsOneWidget);
+      final redo = _action('Redo');
+      expect(redo.hitTestable(), findsOneWidget);
+      await tester.tap(redo);
+      await tester.pumpAndSettle();
+      expect(composer.text.imageBlocks.single.scale, 75);
+      expect(composer.focus.hasFocus, isTrue);
+      expect(redo, findsNothing);
+      await tester.tap(_action('Done'));
+      await tester.pumpAndSettle();
+      expect(_toolbar, findsNothing);
+      expect(find.byKey(const ValueKey('composer-undo')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
     'mobile image controls replace the toolbar and edit without losing focus',
     (tester) async {
       final composer = await _pump(tester, width: 320);

@@ -4156,6 +4156,7 @@ class _MobileComposerImageToolbar extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   runSpacing: DSpacing.controlGap,
                   children: [
+                    _ComposerHistoryControls(composer: media.composer),
                     if (state.selectedImageGallery == null)
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -4660,6 +4661,7 @@ class _Toolbar extends StatelessWidget {
     final uploadsEnabled = composer.imageUploader != null;
     return _ComposerToolbarOverflow(
       children: [
+        _ComposerHistoryControls(composer: composer),
         DButton.iconOnly(
           key: const ValueKey('composer-mention'),
           tooltip: context.l10n.mentionUsersOrGroups,
@@ -4797,6 +4799,95 @@ class _Toolbar extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ComposerHistoryControls extends StatefulWidget {
+  const _ComposerHistoryControls({required this.composer});
+
+  final ComposerController composer;
+
+  @override
+  State<_ComposerHistoryControls> createState() =>
+      _ComposerHistoryControlsState();
+}
+
+class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
+  bool _scheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.composer.history.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_ComposerHistoryControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.composer.history != widget.composer.history) {
+      oldWidget.composer.history.removeListener(_changed);
+      widget.composer.history.addListener(_changed);
+    }
+  }
+
+  void _changed() {
+    if (_scheduled) return;
+    _scheduled = true;
+    // Embedded editors can attach to history while the panel is building.
+    scheduleMicrotask(() {
+      _scheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.composer.history.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final composer = widget.composer;
+    final history = composer.history;
+    final composing = composer.text.value.composing;
+    if (!composer.isEditing ||
+        composer.loadingBody ||
+        (composing.isValid && !composing.isCollapsed) ||
+        (!history.canUndo && !history.canRedo)) {
+      return const SizedBox.shrink();
+    }
+    return TextFieldTapRegion(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 2,
+        children: [
+          for (final redo in [false, true])
+            if (redo ? history.canRedo : history.canUndo)
+              DButton.iconOnly(
+                key: ValueKey(redo ? 'composer-redo' : 'composer-undo'),
+                tooltip: redo ? context.l10n.redo : context.l10n.undo,
+                shortcut: DShortcut(
+                  SingleActivator(
+                    LogicalKeyboardKey.keyZ,
+                    meta: _usesCommandModifier,
+                    control: !_usesCommandModifier,
+                    shift: redo,
+                  ),
+                ),
+                variant: _composerToolbarVariant(context),
+                foregroundColor: _composerToolForeground(context),
+                size: _composerToolbarSize(context),
+                icon: DIcon(redo ? DIcons.share : DIcons.reply),
+                onPressed: () {
+                  if (!composer.isEditing || composer.loadingBody) return;
+                  final restored = redo ? history.redo() : history.undo();
+                  if (restored) composer.focus.requestFocus();
+                },
+              ),
+        ],
+      ),
     );
   }
 }

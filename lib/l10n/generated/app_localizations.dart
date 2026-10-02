@@ -6162,6 +6162,12 @@ abstract class AppLocalizations {
   /// **'Undo'**
   String get undo;
 
+  /// Composer toolbar action to restore the most recently undone edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Redo'**
+  String get redo;
+
   /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
