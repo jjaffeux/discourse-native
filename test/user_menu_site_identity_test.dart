@@ -345,6 +345,35 @@ void main() {
     );
 
     testWidgets(
+      'custom status opens above the touch profile and returns after saving',
+      (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
+        await _openNestedSection(tester, 'Profile');
+        await tester.tap(
+          find.byKey(const ValueKey('user-menu-row-user-status')),
+        );
+        await tester.pumpAndSettle();
+
+        final editor = find.byKey(const ValueKey('user-status-editor'));
+        expect(editor, findsOneWidget);
+        expect(
+          find
+              .descendant(of: editor, matching: find.byTooltip('Close'))
+              .hitTestable(),
+          findsOneWidget,
+        );
+        expect(find.text('Save').hitTestable(), findsOneWidget);
+        await tester.enterText(find.byType(TextField), 'Available');
+        await tester.tap(find.text('Save'));
+        await tester.pumpAndSettle();
+
+        expect(fixture.api.userStatusesSet.single.description, 'Available');
+        expect(editor, findsNothing);
+        expect(find.text('Profile'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }),
+    );
+
+    testWidgets(
       'open the custom-status editor from the profile row',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
