@@ -28,6 +28,24 @@ final class BookmarkReminderSuggestion {
 final class BookmarkReminderCalculator {
   const BookmarkReminderCalculator._();
 
+  /// Core advances ten calendar years in UTC, clamping February 29 to the
+  /// final day of February rather than normalizing it to March 1.
+  static DateTime maximumReminderAt({required DateTime now}) {
+    final utc = now.toUtc();
+    final year = utc.year + 10;
+    final lastDay = DateTime.utc(year, utc.month + 1, 0).day;
+    return DateTime.utc(
+      year,
+      utc.month,
+      utc.day > lastDay ? lastDay : utc.day,
+      utc.hour,
+      utc.minute,
+      utc.second,
+      utc.millisecond,
+      utc.microsecond,
+    );
+  }
+
   static List<BookmarkReminderSuggestion> quickSuggestions({
     required DateTime now,
     required tz.Location location,

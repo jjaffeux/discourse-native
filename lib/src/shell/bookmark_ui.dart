@@ -712,7 +712,15 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     );
     // Picker dates represent account-local calendar days, not instants.
     final firstDate = DateTime(wallNow.year, wallNow.month, wallNow.day);
-    final lastDate = DateTime(wallNow.year + 10, wallNow.month, wallNow.day);
+    final wallMaximum = tzDate(
+      BookmarkReminderCalculator.maximumReminderAt(now: now),
+      location,
+    );
+    final lastDate = DateTime(
+      wallMaximum.year,
+      wallMaximum.month,
+      wallMaximum.day,
+    );
     var initialDate = DateTime(
       wallInitial.year,
       wallInitial.month,
@@ -779,16 +787,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
       setState(() => _error = appL10n.chooseAReminderInTheFuture);
       return;
     }
-    final maximum = DateTime.utc(
-      now.year + 10,
-      now.month,
-      now.day,
-      now.hour,
-      now.minute,
-      now.second,
-      now.millisecond,
-      now.microsecond,
-    );
+    final maximum = BookmarkReminderCalculator.maximumReminderAt(now: now);
     if (reminder != null && reminder.isAfter(maximum)) {
       setState(() => _error = appL10n.chooseAReminderNoMoreThan10YearsAway);
       return;

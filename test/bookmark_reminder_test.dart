@@ -6,6 +6,52 @@ import 'package:timezone/timezone.dart' as tz;
 void main() {
   final environment = TimezoneEnvironment.instance..ensureDatabase();
 
+  for (final scenario in [
+    (
+      label: 'leap day with full clock precision',
+      now: DateTime.utc(2024, 2, 29, 12, 30, 40, 123, 456),
+      maximum: DateTime.utc(2034, 2, 28, 12, 30, 40, 123, 456),
+    ),
+    (
+      label: 'leap-day century boundary',
+      now: DateTime.utc(2092, 2, 29, 12),
+      maximum: DateTime.utc(2102, 2, 28, 12),
+    ),
+    (
+      label: 'ordinary February before a leap year',
+      now: DateTime.utc(2026, 2, 28, 12),
+      maximum: DateTime.utc(2036, 2, 28, 12),
+    ),
+    (
+      label: 'ordinary month end',
+      now: DateTime.utc(2026, 12, 31, 23, 59),
+      maximum: DateTime.utc(2036, 12, 31, 23, 59),
+    ),
+    (
+      label: 'offset input is advanced in UTC',
+      now: DateTime.parse('2024-02-29T01:30:00+02:00'),
+      maximum: DateTime.utc(2034, 2, 28, 23, 30),
+    ),
+  ]) {
+    test('maximum reminder preserves ${scenario.label}', () {
+      final maximum = BookmarkReminderCalculator.maximumReminderAt(
+        now: scenario.now,
+      );
+      expect(maximum, scenario.maximum);
+      expect(maximum.isUtc, isTrue);
+      expect(maximum, isNot(isA<tz.TZDateTime>()));
+    });
+  }
+
+  test('maximum reminder converts a reader-zone leap day to UTC first', () {
+    final location = environment.location('Pacific/Kiritimati')!;
+    final now = tz.TZDateTime(location, 2024, 2, 29, 13, 30);
+    expect(
+      BookmarkReminderCalculator.maximumReminderAt(now: now),
+      DateTime.utc(2034, 2, 28, 23, 30),
+    );
+  });
+
   test('quick reminders use absolute hours and account-zone mornings', () {
     final location = environment.location('Europe/Paris')!;
     final now = DateTime.utc(2026, 8, 24, 14);

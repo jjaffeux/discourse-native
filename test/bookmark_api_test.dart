@@ -1,13 +1,119 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugins/chat/chat_bookmark.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final create in [true, false]) {
+    for (final scenario in [
+      (
+        label: 'leap-day exact boundary',
+        now: DateTime.utc(2024, 2, 29, 12, 30, 40, 123, 456),
+        reminder: DateTime.utc(2034, 2, 28, 12, 30, 40, 123, 456),
+        valid: true,
+      ),
+      (
+        label: 'leap-day one microsecond beyond boundary',
+        now: DateTime.utc(2024, 2, 29, 12, 30, 40, 123, 456),
+        reminder: DateTime.utc(2034, 2, 28, 12, 30, 40, 123, 457),
+        valid: false,
+      ),
+      (
+        label: 'leap-day normalized March 1',
+        now: DateTime.utc(2024, 2, 29, 12),
+        reminder: DateTime.utc(2034, 3, 1, 12),
+        valid: false,
+      ),
+      (
+        label: 'ordinary exact boundary',
+        now: DateTime.utc(2026, 4, 15, 12),
+        reminder: DateTime.utc(2036, 4, 15, 12),
+        valid: true,
+      ),
+      (
+        label: 'ordinary one microsecond beyond boundary',
+        now: DateTime.utc(2026, 4, 15, 12),
+        reminder: DateTime.utc(2036, 4, 15, 12, 0, 0, 0, 1),
+        valid: false,
+      ),
+      (
+        label: 'offset reminder at exact UTC boundary',
+        now: DateTime.utc(2024, 2, 29, 12),
+        reminder: DateTime.parse('2034-02-28T14:00:00+02:00'),
+        valid: true,
+      ),
+    ]) {
+      test(
+        '${create ? 'create' : 'update'} bookmark preflight matches ${scenario.label}',
+        () async {
+          final requests = <http.Request>[];
+          final transport = DiscourseTransport.create(
+            client: MockClient((request) async {
+              requests.add(request);
+              return http.Response(create ? '{"id":81}' : '{}', 200);
+            }),
+          );
+          addTearDown(transport.close);
+          final api = DiscourseAccountApi(
+            transport,
+            const DiscourseModelCodec.core(),
+            clock: () => scenario.now,
+          );
+          final write = create
+              ? api.createBookmark(
+                  siteUrl: 'https://forum.example',
+                  apiKey: 'secret',
+                  targetType: BookmarkTargetType.post,
+                  targetId: 44,
+                  reminderAt: scenario.reminder,
+                )
+              : api.updateBookmark(
+                  siteUrl: 'https://forum.example',
+                  apiKey: 'secret',
+                  bookmarkId: 81,
+                  reminderAt: scenario.reminder,
+                  autoDeletePreference:
+                      BookmarkAutoDeletePreference.clearReminder,
+                );
+          if (scenario.valid) {
+            await write;
+            expect(requests, hasLength(1));
+            expect(requests.single.method, create ? 'POST' : 'PUT');
+            expect(requests.single.headers['User-Api-Key'], 'secret');
+            final body =
+                jsonDecode(requests.single.body) as Map<String, dynamic>;
+            expect(
+              body['reminder_at'],
+              scenario.reminder.toUtc().toIso8601String(),
+            );
+          } else {
+            await expectLater(
+              write,
+              throwsA(
+                isA<WriteException>()
+                    .having(
+                      (error) => error.failure,
+                      'failure',
+                      WriteFailure.validation,
+                    )
+                    .having((error) => error.errors, 'errors', [
+                      'Bookmark reminders cannot be more than 10 years away.',
+                    ]),
+              ),
+            );
+            expect(requests, isEmpty);
+          }
+        },
+      );
+    }
+  }
+
   test('bookmark writes use core routes and UTC wire fields', () async {
     final requests = <http.Request>[];
     final api = DiscourseApi(

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../diagnostics/diagnostics_redactor.dart';
 import '../models/bookmark.dart';
+import '../models/bookmark_reminder.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
