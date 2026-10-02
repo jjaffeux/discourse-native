@@ -7,8 +7,9 @@ import 'package:flutter/material.dart';
 /// for metadata, titleSmall for row titles, titleMedium for section titles,
 /// titleLarge for dialogs, and headlineSmall for page titles.
 ///
-/// Sizes are logical pixels at 100%. Only the root AppTextScaleRegion applies
-/// zoom; styles must never multiply their font size by the user's scale.
+/// Sizes use a 14px reference baseline. The root AppTextScaleRegion raises it
+/// to 17px on mobile, then applies platform accessibility scaling and app zoom;
+/// styles must never multiply their font size by these scales themselves.
 abstract final class DiscourseTypography {
   static const double micro = 11;
   static const double metadata = 11.5;
@@ -18,6 +19,7 @@ abstract final class DiscourseTypography {
   static const double compact = 13.5;
   static const double sm = 14;
   static const double base = sm;
+  static const double mobileBase = 17;
   static const double rowTitle = 14.5;
   static const double lg = 17;
   static const double xl = 18;

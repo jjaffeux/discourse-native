@@ -181,6 +181,8 @@ class HtmlWidgetState extends State<HtmlWidget> {
     }
 
     if (needsRebuild) {
+      // Rebuild triggers can include inherited text metrics, not just HTML.
+      _rootProperties = null;
       _buildGeneration++;
       _cache = null;
       _future = buildAsync ? _buildAsync() : null;

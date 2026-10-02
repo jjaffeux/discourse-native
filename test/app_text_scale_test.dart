@@ -45,6 +45,39 @@ void main() {
     );
   });
 
+  test(
+    'mobile baseline precedes nonlinear accessibility scaling and app zoom',
+    () {
+      const scaler = AppTextScaler(
+        platformScaler: _TestTextScaler(),
+        appScale: 1.25,
+        baselineScale: 17 / 14,
+      );
+
+      expect(scaler.scale(14), (17 + 4) * 1.25);
+      expect(scaler.scale(28), (34 + 4) * 1.25);
+      // ignore: deprecated_member_use
+      expect(scaler.textScaleFactor, scaler.scale(14) / 14);
+      expect(
+        scaler,
+        const AppTextScaler(
+          platformScaler: _TestTextScaler(),
+          appScale: 1.25,
+          baselineScale: 17 / 14,
+        ),
+      );
+      expect(
+        scaler,
+        isNot(
+          const AppTextScaler(
+            platformScaler: _TestTextScaler(),
+            appScale: 1.25,
+          ),
+        ),
+      );
+    },
+  );
+
   testWidgets('the region updates the inherited scaler without remounting', (
     tester,
   ) async {

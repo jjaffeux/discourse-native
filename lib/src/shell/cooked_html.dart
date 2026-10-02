@@ -425,10 +425,12 @@ class CookedHtml extends StatelessWidget {
         },
         // The builders close over the style and resolved site, and [HtmlWidget]
         // caches what they built — so a change to either has to say so to reach
-        // the inline code and the emoji.
+        // the inline code and the emoji. Text scaling must refresh cached spans
+        // as well when the system preference changes while a body stays mounted.
         rebuildTriggers: [
           renderMode,
           style,
+          MediaQuery.textScalerOf(context),
           linkStyle,
           resolvedSiteUrl,
           // Only a body plugin's own records reach the builders: a reaction or
