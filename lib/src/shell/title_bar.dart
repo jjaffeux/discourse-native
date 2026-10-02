@@ -22,7 +22,8 @@ class ShellTitleBar extends StatelessWidget {
 
   final bool showControls;
 
-  static const double height = 48;
+  // Desktop mockup chrome row, including its vertical control insets.
+  static const double height = 53;
 
   // Every platform keeps account and search controls above the topic list.
   static bool get isSupported => true;
@@ -49,6 +50,20 @@ class ShellTitleBar extends StatelessWidget {
       bottom: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final searchSize = DControlStyle.isTouch(context)
+              ? DControlSize.large
+              : DControlSize.field;
+          // Retain the mockup's clearance as the field grows with text.
+          final rowHeight =
+              height +
+              (showControls
+                  ? DControlStyle.scaledHeight(
+                          searchSize,
+                          MediaQuery.textScalerOf(context),
+                          context: context,
+                        ) -
+                        DControlStyle.height(searchSize, context: context)
+                  : 0);
           // Large-text count capsules keep their full labels. At narrow desktop
           // widths, give account actions a second row below the window controls.
           final stacked =
@@ -59,7 +74,7 @@ class ShellTitleBar extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 860),
-                child: const ForumSearch(dense: true),
+                child: ForumSearch(dense: true, size: searchSize),
               ),
             ),
           );
@@ -80,7 +95,7 @@ class ShellTitleBar extends StatelessWidget {
               ),
           ];
           return SizedBox(
-            height: stacked ? height * 2 : height,
+            height: stacked ? rowHeight * 2 : rowHeight,
             child: ColoredBox(
               color:
                   Theme.of(
@@ -104,7 +119,7 @@ class ShellTitleBar extends StatelessWidget {
                       Column(
                         children: [
                           SizedBox(
-                            height: height,
+                            height: rowHeight,
                             child: Row(
                               children: [
                                 SizedBox(width: _hasWindowChrome ? 88 : 8),
@@ -114,7 +129,7 @@ class ShellTitleBar extends StatelessWidget {
                             ),
                           ),
                           SizedBox(
-                            height: height,
+                            height: rowHeight,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               spacing: DSpacing.controlGap,
