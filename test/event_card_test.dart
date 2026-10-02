@@ -129,6 +129,52 @@ void main() {
     );
   }
 
+  testWidgets('malformed creator and invitee avatars keep the event usable', (
+    tester,
+  ) async {
+    installTestMediaPipeline(
+      client: MockClient((_) async => http.Response('', 404)),
+    );
+    await pump(
+      tester,
+      PostEvent.decode(
+        eventJson(
+          overrides: {
+            'creator': {
+              'id': 1,
+              'username': 'sam',
+              'name': 'Sam',
+              'avatar_template': 'https://[broken',
+            },
+            'sample_invitees': [
+              {
+                'user': {
+                  'id': 2,
+                  'username': 'lee',
+                  'avatar_template': '//[broken',
+                },
+              },
+            ],
+          },
+        ),
+      )!,
+      respond: (_, _) {},
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Engineering Managers Call'), findsOneWidget);
+    expect(find.text('Sam'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byTooltip('sam'), matching: find.text('S')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byTooltip('lee'), matching: find.text('L')),
+      findsOneWidget,
+    );
+    expect(find.text('Going'), findsOneWidget);
+  });
+
   for (final (username, initial) in [
     ('sam', 'S'),
     ('𐐨ser', '𐐀'),

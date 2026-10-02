@@ -134,12 +134,8 @@ final class EventPerson {
   final String username;
   final String? name;
   final String? avatarTemplate;
-  String? avatarUrl(String siteUrl) {
-    final path = avatarTemplate?.replaceAll('{size}', '80');
-    return path == null
-        ? null
-        : Uri.parse('$siteUrl/').resolve(path).toString();
-  }
+  String? avatarUrl(String siteUrl) =>
+      resolveAvatarUrl(avatarTemplate, siteUrl, size: 80);
 }
 
 @immutable
