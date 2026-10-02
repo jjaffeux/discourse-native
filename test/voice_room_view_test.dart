@@ -24,6 +24,7 @@ import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,6 +45,35 @@ void main() {
   _microphoneTests();
 
   group('room availability and layout', () {
+    testWidgets(
+      'participant avatar in a subfolder room uses its wire path once',
+      (tester) async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        final participant = VoiceParticipant.fromJson(const {
+          'id': 2,
+          'username': 'lee',
+          'role': 'participant',
+          'avatar_template':
+              '/forum/user_avatar/voice.example.com/lee/{size}/1_2.png',
+        });
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: _room(participants: [participant]),
+            siteUrl: '$_siteUrl/forum',
+          ),
+        );
+        final avatar = tester.widget<AvatarImage>(find.byType(AvatarImage));
+        expect(
+          avatar.url,
+          '$_siteUrl/forum/user_avatar/voice.example.com/lee/144/1_2.png',
+        );
+        expect(avatar.size, 72);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('renders unavailable and empty states without a shell', (
       tester,
     ) async {
@@ -4066,6 +4096,7 @@ Widget _app(
   VoiceController Function()? controllerResolver,
   DateTime Function() ringingClock = DateTime.now,
   bool showRoom = true,
+  String siteUrl = _siteUrl,
 }) => MaterialApp(
   builder: (context, child) =>
       DToaster(position: DToastPosition.topEnd, child: child!),
@@ -4079,11 +4110,11 @@ Widget _app(
           controller: controller,
           room: active?.room ?? room,
           call: active,
-          siteUrl: _siteUrl,
+          siteUrl: siteUrl,
           siteName: 'Voice',
           currentUserId: 1,
           recordingEnabled: true,
-          error: active?.error ?? controller.errorFor(_siteUrl),
+          error: active?.error ?? controller.errorFor(siteUrl),
           meshPrivacyWarningEnabled: meshPrivacyWarningEnabled,
           autoStatusAvailable: autoStatusAvailable,
           inviteLink: inviteLink,
