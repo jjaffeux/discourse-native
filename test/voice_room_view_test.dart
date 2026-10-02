@@ -58,6 +58,7 @@ import 'support/voice_fake_chat_conversations.dart';
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  _roomDialogSessionTests();
   _meshPrivacyTests();
   _roomSurfaceTests();
   _directCallTests();
@@ -1694,7 +1695,7 @@ void main() {
       await tester.tap(find.byTooltip('Manage members'));
       await tester.pumpAndSettle();
 
-      final membersDialog = find.byType(AlertDialog);
+      final membersDialog = find.byType(DDialogContent);
       expect(find.text('Members of Lounge'), findsOneWidget);
       expect(
         find.descendant(of: membersDialog, matching: find.text('sam')),
@@ -1710,7 +1711,7 @@ void main() {
       );
       expect(find.byTooltip('Remove member'), findsNWidgets(2));
 
-      final username = find.widgetWithText(TextField, 'Username');
+      final username = find.widgetWithText(DInput, 'Username');
       await tester.enterText(username, '   ');
       await tester.tap(find.byTooltip('Add member'));
       await tester.pumpAndSettle();
@@ -1734,9 +1735,9 @@ void main() {
       );
       expect(add.body['username'], 'jordan');
       expect(add.body['role'], 'moderator');
-      expect(tester.widget<TextField>(username).controller?.text, isEmpty);
+      expect(tester.widget<DInput>(username).controller?.text, isEmpty);
 
-      final leeTile = find.widgetWithText(ListTile, 'Lee Example');
+      final leeTile = find.widgetWithText(DItem, 'Lee Example');
       await tester.tap(
         find.descendant(of: leeTile, matching: find.byTooltip('Change role')),
       );
@@ -1784,7 +1785,7 @@ void main() {
       addTearDown(harness.dispose);
       await _openMembers(tester, harness);
 
-      final leeTile = find.widgetWithText(ListTile, 'Lee Example');
+      final leeTile = find.widgetWithText(DItem, 'Lee Example');
       await tester.tap(
         find.descendant(of: leeTile, matching: find.byTooltip('Change role')),
       );
@@ -1796,7 +1797,7 @@ void main() {
 
       expect(transport.writes.single.method, 'PUT');
       expect(reads, 2);
-      final membersDialog = find.byType(AlertDialog);
+      final membersDialog = find.byType(DDialogContent);
       for (final name in ['sam', 'Lee Example', 'User 3']) {
         expect(
           find.descendant(of: membersDialog, matching: find.text(name)),
@@ -1837,7 +1838,7 @@ void main() {
       });
       await _openMembers(tester, harness);
 
-      final username = find.widgetWithText(TextField, 'Username');
+      final username = find.widgetWithText(DInput, 'Username');
       await tester.enterText(username, 'lee');
       await tester.tap(find.byTooltip('Add member'));
       await tester.pump();
@@ -1846,7 +1847,7 @@ void main() {
       addGate.complete();
       await tester.pumpAndSettle();
 
-      expect(tester.widget<TextField>(username).controller?.text, 'lee');
+      expect(tester.widget<DInput>(username).controller?.text, 'lee');
       expect(find.text('There is no user named lee.'), findsOneWidget);
       expect(transport.writes, hasLength(1));
       expect(
@@ -1857,7 +1858,7 @@ void main() {
       );
       expect(
         find.descendant(
-          of: find.byType(AlertDialog),
+          of: find.byType(DDialogContent),
           matching: find.text('Lee Example'),
         ),
         findsOneWidget,
@@ -3494,8 +3495,8 @@ void _inviteTests() {
             );
           };
 
-      final field = find.widgetWithText(TextField, 'Invite by name');
-      final text = tester.widget<TextField>(field).controller!;
+      final field = find.widgetWithText(DInput, 'Invite by name');
+      final text = tester.widget<DInput>(field).controller!;
       await tester.enterText(field, 'lee');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pump();
@@ -3529,8 +3530,8 @@ void _inviteTests() {
             statusCode: 403,
           );
 
-      final field = find.widgetWithText(TextField, 'Invite by name');
-      final text = tester.widget<TextField>(field).controller!;
+      final field = find.widgetWithText(DInput, 'Invite by name');
+      final text = tester.widget<DInput>(field).controller!;
       await tester.enterText(field, 'lee');
       await tester.tap(find.text('Send invite'));
       await tester.pumpAndSettle();
@@ -4399,6 +4400,276 @@ final class _Harness {
   late final VoiceController controller;
 
   void dispose() => controller.dispose();
+}
+
+void _roomDialogSessionTests() {
+  group('room dialog account ownership', () {
+    for (final inviting in [false, true]) {
+      testWidgets(
+        'Native ${inviting ? 'invite' : 'members'} dialog works at narrow width',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final harness = inviting
+              ? await _openInvites(tester)
+              : _Harness(
+                  discourseApi: RecordingPluginTransport(
+                    responses: {
+                      'GET /voice/rooms/7/memberships.json': {
+                        'memberships': _membershipRows,
+                      },
+                      'POST /voice/rooms/7/memberships.json': const {},
+                    },
+                  ),
+                );
+          addTearDown(harness.dispose);
+          if (!inviting) {
+            await _openMembers(tester, harness);
+          }
+          final field = find.widgetWithText(
+            DInput,
+            inviting ? 'Invite by name' : 'Username',
+          );
+          await tester.enterText(field, 'lee');
+          final button = inviting
+              ? find.widgetWithText(DButton, 'Send invite')
+              : find.byTooltip('Add member');
+          final bounds = tester.getRect(button);
+          expect(bounds.left, greaterThanOrEqualTo(0));
+          expect(bounds.right, lessThanOrEqualTo(390));
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          expect(
+            harness.transport.writes.where(
+              (write) => write.path.endsWith(
+                inviting ? '/invites.json' : '/memberships.json',
+              ),
+            ),
+            hasLength(1),
+          );
+          expect(tester.takeException(), isNull);
+          await tester.tap(find.widgetWithText(DButton, 'Done'));
+          await tester.pumpAndSettle();
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        },
+      );
+    }
+    for (final rollback in [false, true]) {
+      for (final action in [
+        'typed invite',
+        'suggested invite',
+        'add',
+        'role',
+        'remove',
+        'suggestions completion',
+        'add completion',
+      ]) {
+        testWidgets(
+          '$action stops after ${rollback ? 'rollback' : 'reconnect'}',
+          (tester) async {
+            final room = _room(
+              canManage: true,
+              canInvite: true,
+              creatorId: 1,
+              participants: const [
+                VoiceParticipant(
+                  id: 1,
+                  username: 'sam',
+                  role: VoiceRole.moderator,
+                ),
+              ],
+            );
+            final transport = RecordingPluginTransport(
+              responses: {
+                'GET /voice/rooms.json': {
+                  'rooms': [_joinPayload(room)['room']],
+                  'can_create_room': true,
+                },
+                'POST /voice/rooms/7/join.json': _joinPayload(room),
+                'POST /voice/rooms/7/state.json': const {},
+                'DELETE /voice/rooms/7/leave.json': const {},
+                'GET /voice/rooms/7/invites/suggestions.json': {
+                  'suggestions': [
+                    {'id': 2, 'username': 'kim', 'total_seconds': 7200},
+                  ],
+                },
+                'POST /voice/rooms/7/invites.json': {
+                  'invited_usernames': ['lee', 'kim'],
+                },
+                'GET /voice/rooms/7/memberships.json': {
+                  'memberships': _membershipRows,
+                },
+                'POST /voice/rooms/7/memberships.json': const {},
+                'PUT /voice/rooms/7/memberships/9.json': const {},
+                'DELETE /voice/rooms/7/memberships/9.json': const {},
+              },
+            );
+            final module = _EditorSessionModule(transport);
+            final gate = Completer<void>();
+            final heldSuggestions = action == 'suggestions completion';
+            final heldAdd = action == 'add completion';
+            final heldPath = heldSuggestions
+                ? 'GET /voice/rooms/7/invites/suggestions.json'
+                : 'POST /voice/rooms/7/memberships.json';
+            if (heldSuggestions || heldAdd) {
+              transport.responders[heldPath] = (_) async {
+                await gate.future;
+                return transport.responses[heldPath]!;
+              };
+              addTearDown(() {
+                if (!gate.isCompleted) gate.complete();
+              });
+            }
+            final plugins = PluginInstaller.install(PluginManifest([module]));
+            addTearDown(plugins.close);
+            const user = DiscourseUser(id: 1, username: 'sam');
+            const replacement = DiscourseUser(
+              id: 8,
+              username: 'replacement',
+              staff: true,
+            );
+            final auth = _EditorAuthenticator(rollback: rollback)
+              ..keys[_siteUrl] = 'key';
+            final shell = ShellController(
+              instanceStore: FakeInstanceStore([
+                instance('voice.example.com').copyWith(user: user),
+              ]),
+              api: FakeDiscourseApi(
+                user: user,
+                feeds: const {'/latest.json': []},
+              )..accounts['replacement-key'] = replacement,
+              authenticator: auth,
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.reset(),
+              plugins: plugins,
+            );
+            var disposed = false;
+            addTearDown(() {
+              if (!disposed) shell.dispose();
+            });
+            await shell.load();
+            final controller = module.harness.controller;
+            await controller.ensureLoaded(_siteUrl);
+            await controller.join(
+              siteUrl: _siteUrl,
+              siteName: 'Voice',
+              room: room,
+            );
+            await tester.pumpWidget(
+              ShellScope(
+                controller: shell,
+                child: MaterialApp(
+                  home: Scaffold(
+                    body: PluginUiScope.own(
+                      voicePluginId,
+                      const VoiceRoomView(roomId: 7),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final inviting = action.endsWith('invite') || heldSuggestions;
+            final trigger = tester.element(
+              find.byTooltip(inviting ? 'Invite people' : 'Manage members'),
+            );
+            await tester.tap(
+              find.byTooltip(inviting ? 'Invite people' : 'Manage members'),
+            );
+            await tester.pumpAndSettle();
+            final field = find.byType(TextField);
+            final modal = tester.element(field);
+            if (action == 'typed invite' || action == 'add' || heldAdd) {
+              await tester.enterText(field, 'lee');
+            }
+            if (heldAdd) {
+              await tester.tap(find.byTooltip('Add member'));
+              await tester.pump();
+              expect(
+                transport.writes.where(
+                  (write) => write.path.contains('/memberships'),
+                ),
+                hasLength(1),
+              );
+            }
+            await shell.connectCurrentInstance();
+            await controller.ensureLoaded(_siteUrl, force: true);
+            await tester.pumpAndSettle();
+            expect(trigger.mounted, isFalse);
+            expect(tester.element(field), same(modal));
+            expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
+            expect(controller.room(_siteUrl, 7)?.canManage, isTrue);
+            switch (action) {
+              case 'typed invite':
+                await tester.tap(find.text('Send invite'));
+              case 'suggested invite':
+                await tester.tap(find.widgetWithText(DButton, 'Invite'));
+              case 'add':
+                await tester.tap(find.byTooltip('Add member'));
+              case 'role':
+                await tester.tap(
+                  find.descendant(
+                    of: find.widgetWithText(DItem, 'Lee Example'),
+                    matching: find.byTooltip('Change role'),
+                  ),
+                );
+                await tester.pumpAndSettle();
+                await tester.tap(
+                  find
+                      .widgetWithText(
+                        DDropdownMenuItem,
+                        VoiceRole.participant.name,
+                      )
+                      .last,
+                );
+              case 'remove':
+                await tester.tap(
+                  find.descendant(
+                    of: find.widgetWithText(DItem, 'Lee Example'),
+                    matching: find.byTooltip('Remove member'),
+                  ),
+                );
+              case 'suggestions completion':
+              case 'add completion':
+                gate.complete();
+            }
+            await tester.pumpAndSettle();
+            expect(
+              transport.writes.where(
+                (write) =>
+                    write.path.contains('/invites') ||
+                    write.path.contains('/memberships'),
+              ),
+              heldAdd ? hasLength(1) : isEmpty,
+            );
+            if (heldSuggestions) {
+              expect(find.text('kim'), findsNothing);
+            }
+            if (heldAdd) {
+              expect(
+                transport.reads.where(
+                  (read) => read.path.contains('/memberships'),
+                ),
+                hasLength(1),
+              );
+              expect(tester.widget<TextField>(field).controller?.text, 'lee');
+            }
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.runAsync(() async {
+              disposed = true;
+              shell.dispose();
+              await shell.pluginTeardown;
+            });
+          },
+        );
+      }
+    }
+  });
 }
 
 final class _EditorSessionModule implements PluginModule {
