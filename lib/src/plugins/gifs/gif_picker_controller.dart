@@ -60,6 +60,7 @@ final class GifPickerController extends ChangeNotifier {
   bool get loadingMore => _loadingMore;
   bool get isBusy => _loadingCategories || _searching || _loadingMore;
   bool get showingCategories => !hasActiveSearch && _categories.isNotEmpty;
+  bool get isCurrent => _isCurrent;
   bool get canLoadMore =>
       _isCurrent &&
       !_searching &&

@@ -260,7 +260,9 @@ class _GifPickerState extends State<GifPicker> {
               itemBuilder: (context, index) => _GifResultTile(
                 key: ValueKey('gif-result-$index'),
                 result: controller.results[index],
-                onPicked: widget.onPicked,
+                onPicked: (result) {
+                  if (controller.isCurrent) widget.onPicked(result);
+                },
               ),
             ),
           ),
@@ -434,22 +436,12 @@ class _GifResultTile extends StatelessWidget {
     final label = result.title.trim().isEmpty
         ? context.l10n.chooseGIF
         : context.l10n.chooseGIFGifpicker((result.title).toString());
-    return Semantics(
-      button: true,
-      label: label,
-      child: DTooltip(
-        message: label,
-        excludeFromSemantics: true,
-        child: Material(
-          clipBehavior: Clip.antiAlias,
-          borderRadius: BorderRadius.circular(8),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: InkWell(
-            onTap: () => onPicked(result),
-            child: _NetworkArtwork(url: result.url, fit: BoxFit.cover),
-          ),
-        ),
-      ),
+    return DButton(
+      onPressed: () => onPicked(result),
+      variant: DButtonVariant.secondary,
+      semanticLabel: label,
+      tooltip: label,
+      label: _NetworkArtwork(url: result.url, fit: BoxFit.cover),
     );
   }
 }
