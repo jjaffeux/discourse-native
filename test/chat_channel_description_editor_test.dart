@@ -65,8 +65,8 @@ void main() {
       await tester.tap(_save);
       await tester.pumpAndSettle();
       final sent = subject.api.chatChannelMetadataUpdates.single;
-      expect(sent.name, editSlug ? 'Bugs' : 'Renamed');
-      expect(sent.slug, editSlug ? 'renamed' : 'bugs');
+      expect(sent.name, editSlug ? isNull : 'Renamed');
+      expect(sent.slug, editSlug ? 'renamed' : isNull);
       expect(sent.description, isNull);
       expect(subject.chat.channel(_site, 9)!.description, description);
       expect(
