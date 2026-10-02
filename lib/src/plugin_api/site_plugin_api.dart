@@ -11,6 +11,7 @@ import '../models/group_route.dart';
 import '../models/notification_totals.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
+import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
@@ -783,6 +784,17 @@ abstract interface class GroupTabPlugin {
   Widget? groupContent(BuildContext context, PluginGroupContext group);
 
   Listenable? groupListenable(BuildContext context, PluginGroupContext group);
+}
+
+/// Resolves an available registered homepage without exposing plugin keys to core.
+abstract interface class HomepagePlugin {
+  String get homepageId;
+  ContentRoute? homepage(SiteConfig config, DiscourseUser? user);
+}
+
+/// A plugin-owned conversation list that should remain a PM's return location.
+abstract interface class PrivateMessageSourcePlugin {
+  bool ownsPrivateMessageSource(ContentRoute route);
 }
 
 abstract interface class ContentPlugin {

@@ -1867,11 +1867,23 @@ class ShellController extends FrameSafeNotifier
 
   final Set<String> _pendingHomepageTabs = {};
 
-  ContentRoute _homepageFor(DiscourseInstance instance) =>
-      ContentRoute.homepage(
-        siteConfigFor(instance.url),
-        connected: instance.isConnected,
-      );
+  HomepagePlugin? _registeredHomepage(String id) => plugins.registry.plugins
+      .whereType<HomepagePlugin>()
+      .where((plugin) => plugin.homepageId == id)
+      .firstOrNull;
+
+  ContentRoute _homepageFor(DiscourseInstance instance) {
+    final config = siteConfigFor(instance.url);
+    return ContentRoute.homepage(
+      config,
+      connected: instance.isConnected,
+      registeredHomepage: instance.isConnected
+          ? _registeredHomepage(
+              config.defaultHomepage,
+            )?.homepage(config, instance.user)
+          : null,
+    );
+  }
 
   ForumTab _newDefaultTab() {
     final id = _nextTabId();
@@ -7151,7 +7163,11 @@ class ShellController extends FrameSafeNotifier
         ? BadgeRoute.parse(absolute, siteUrl: instance.url)
         : null;
     final ContentRoute route;
-    if (_ownMessagesRoute(instance, target) case final messages?) {
+    if (const {'', '/'}.contains(instance.pathWithin(target)) &&
+        !target.hasQuery &&
+        !target.hasFragment) {
+      route = _homepageFor(instance);
+    } else if (_ownMessagesRoute(instance, target) case final messages?) {
       route = messages;
     } else if (instance.pathWithin(target) == '/u' &&
         !target.hasQuery &&
@@ -7755,6 +7771,7 @@ class ShellController extends FrameSafeNotifier
     final route = destination.route;
     // Topics, category and tag lists, badges and groups have their own openers.
     if (TopicListMode.fromRoute(route) == null &&
+        _registeredHomepage(route.id) == null &&
         !route.isMessages &&
         !const {'users', 'all-categories', 'all-tags'}.contains(route.id)) {
       return false;
@@ -7766,6 +7783,7 @@ class ShellController extends FrameSafeNotifier
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
     if (currentContent?.id == route.id) {
+      _pendingHomepageTabs.remove(activeTabId);
       if (rootChanged) _notify();
       return true;
     }
@@ -8162,7 +8180,13 @@ class ShellController extends FrameSafeNotifier
     final parent = tab.contentStack.reversed
         .where((route) => !route.isTopic)
         .firstOrNull;
-    if (parent?.isMessages == true) return;
+    if (parent?.isMessages == true ||
+        (parent != null &&
+            plugins.registry.plugins
+                .whereType<PrivateMessageSourcePlugin>()
+                .any((plugin) => plugin.ownsPrivateMessageSource(parent)))) {
+      return;
+    }
 
     final messages = ContentRoute.messages();
     _putWorkspace(
@@ -16428,6 +16452,11 @@ class ShellController extends FrameSafeNotifier
     ForumTab initialTab,
   ) async {
     await _presentation.ensureConfig(instance.url);
+    if (instance.isConnected &&
+        _registeredHomepage(siteConfigFor(instance.url).defaultHomepage) !=
+            null) {
+      await _refreshSessionUserFor(instance);
+    }
     if (isDisposed ||
         currentInstance?.url != instance.url ||
         !_pendingHomepageTabs.contains(initialTab.id) ||
@@ -16439,7 +16468,7 @@ class ShellController extends FrameSafeNotifier
       instance.url,
       initialTab.navigate(
         rootDestinationId: initialTab.rootDestinationId,
-        contentStack: [_homepageFor(instance)],
+        contentStack: [_homepageFor(_instanceAt(instance.url) ?? instance)],
       ),
     );
     _notify();
@@ -16471,7 +16500,7 @@ class ShellController extends FrameSafeNotifier
     if (tab == null || currentInstance?.url != instance.url) return;
 
     final root = tab.contentStack.first;
-    if (!root.isNewTab) {
+    if (!root.isNewTab && _registeredHomepage(root.id) == null) {
       if (root.id == 'all-categories') {
         unawaited(loadCategories(instance.url));
       } else if (root.isUsers) {
@@ -16627,7 +16656,7 @@ class ShellController extends FrameSafeNotifier
       unawaited(userDirectory.load(instance, refresh: refresh));
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
-    } else if (!content.isNewTab) {
+    } else if (!content.isNewTab && _registeredHomepage(content.id) == null) {
       if (content.id == 'all-categories') {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {
@@ -17578,9 +17607,7 @@ class ShellController extends FrameSafeNotifier
         ForumTab(
           id: tab.id,
           rootDestinationId: instance.defaultDestination.id,
-          contentStack: [
-            ContentRoute.fromDestination(instance.defaultDestination),
-          ],
+          contentStack: [_homepageFor(instance)],
         );
     _restorePluginPaneTab(
       instance,

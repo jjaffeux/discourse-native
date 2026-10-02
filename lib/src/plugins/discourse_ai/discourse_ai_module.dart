@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'ai_conversations_plugin.dart';
+import 'ai_conversations_service.dart';
 import 'ai_proofreading_api.dart';
 import 'ai_proofreading_controller.dart';
 import 'ai_proofreading_plugin.dart';
@@ -20,6 +22,7 @@ final class DiscourseAiModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
+    registrar.addCapability(const AiConversationsPlugin());
     registrar.addCapability(const AiSummaryPlugin());
     registrar.addCapability(const AiProofreadingPlugin());
     registrar.addLiveChannelScope(
@@ -41,16 +44,24 @@ final class DiscourseAiModule implements PluginModule {
           currentUserId: bindings.require(corePluginUserPort),
           diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
+        final conversations = AiConversationsService(
+          transport: bindings.require(corePluginTransportPort),
+          requests: bindings.require(corePluginRequestPort),
+          siteState: bindings.require(corePluginSiteStatePort),
+          navigation: bindings.require(corePluginRouteNavigationPort),
+          topicLists: bindings.require(corePluginTopicListNavigationPort),
+        );
         return PluginSessionContribution(
           lifecycle: _DiscourseAiSessionLifecycle(summary, proofreading),
           services: [
+            PluginService<Object>(aiConversationsService, conversations),
             PluginService<Object>(aiSummaryControllerService, summary),
             PluginService<Object>(
               aiProofreadingControllerService,
               proofreading,
             ),
           ],
-          capabilities: [proofreading],
+          capabilities: [proofreading, conversations],
         );
       },
       requires: const [
@@ -59,6 +70,8 @@ final class DiscourseAiModule implements PluginModule {
         corePluginRequestPort,
         corePluginTrackerPort,
         corePluginSiteStatePort,
+        corePluginRouteNavigationPort,
+        corePluginTopicListNavigationPort,
         corePluginFreshAccountPort,
         corePluginUserPort,
         pluginDiagnosticsReporterPort,
