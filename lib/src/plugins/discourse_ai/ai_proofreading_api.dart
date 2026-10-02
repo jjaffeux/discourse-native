@@ -23,7 +23,9 @@ final class AiProofreadingApi {
       body: {'text': text, 'mode': 'proofread'},
     );
     for (final suggestion in jsonArray(body['suggestions'])) {
-      if (jsonText(suggestion) case final text?) return text;
+      if (suggestion is String && suggestion.trim().isNotEmpty) {
+        return suggestion;
+      }
     }
     throw FormatException(appL10n.proofreadingResponseContainedNoSuggestion);
   }
