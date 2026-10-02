@@ -3028,6 +3028,28 @@
   "@dateAndTime": {
     "description": "English UI message used by plugins/local_dates/local_date_widget.dart. Keep placeholders intact."
   },
+  "localDatePreviousDay": "Previous day",
+  "@localDatePreviousDay": {
+    "description": "The time zone's calendar date is one day before the reader's date."
+  },
+  "localDateNextDay": "Next day",
+  "@localDateNextDay": {
+    "description": "The time zone's calendar date is one day after the reader's date."
+  },
+  "localDateDaysEarlier": "{count, plural, =1{1 day earlier} other{{count} days earlier}}",
+  "@localDateDaysEarlier": {
+    "description": "The time zone's calendar date is multiple days before the reader's date.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "localDateDaysLater": "{count, plural, =1{1 day later} other{{count} days later}}",
+  "@localDateDaysLater": {
+    "description": "The time zone's calendar date is multiple days after the reader's date.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "localDateUniversalTime": "Universal time",
+  "@localDateUniversalTime": {
+    "description": "Description of UTC in the local-date time zone preview."
+  },
   "dismissDateAndTime": "Dismiss date and time",
   "@dismissDateAndTime": {
     "description": "English UI message used by plugins/local_dates/local_date_widget.dart. Keep placeholders intact."

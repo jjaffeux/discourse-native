@@ -2267,6 +2267,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dateAndTime => 'Date and time';
 
   @override
+  String get localDatePreviousDay => 'Previous day';
+
+  @override
+  String get localDateNextDay => 'Next day';
+
+  @override
+  String localDateDaysEarlier(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days earlier',
+      one: '1 day earlier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String localDateDaysLater(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days later',
+      one: '1 day later',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get localDateUniversalTime => 'Universal time';
+
+  @override
   String get dismissDateAndTime => 'Dismiss date and time';
 
   @override
