@@ -110,44 +110,6 @@ void _registerShellNavigationTests() {
       }
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('is unavailable on Aggregate', (tester) async {
-      final previous = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        await pumpShell(tester, desktop);
-        final controller = ShellScope.read(
-          tester.element(find.byType(ShellTitleBar)),
-        );
-
-        expect(find.byType(ForumSearch), findsOneWidget);
-
-        controller.selectAggregate();
-        await tester.pumpAndSettle();
-
-        expect(find.byType(ForumSearch), findsNothing);
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isFalse);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-        await tester.pump();
-        expect(find.byKey(ForumSearch.panelKey), findsNothing);
-
-        controller.selectInstance(0);
-        await tester.pump();
-
-        expect(find.byType(ForumSearch), findsOneWidget);
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-        expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-        await tester.pump();
-        expect(
-          tester.widget<EditableText>(_searchEditor).focusNode.hasFocus,
-          isTrue,
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = previous;
-      }
-    });
-
     testWidgets('double clicking the macOS title strip toggles window zoom', (
       tester,
     ) async {
@@ -784,20 +746,6 @@ void _registerShellNavigationTests() {
 
     expect(controller.destinationId, 'latest');
     expect(sidebarDestination('Groups'), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-  testWidgets('uses a network icon for the aggregate route', (tester) async {
-    await pumpShell(tester, desktop);
-
-    final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
-
-    expect(
-      find.descendant(
-        of: aggregateButton,
-        matching: find.dIcon(DIcons.circleNodes),
-      ),
-      findsOneWidget,
-    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('places the UI Kit add control after forums', (tester) async {
@@ -2159,9 +2107,6 @@ void _registerShellNavigationTests() {
 
       await pumpShell(tester, desktop, store: store, api: api);
 
-      await tester.tap(find.text('Add a site'));
-      await tester.pumpAndSettle();
-
       await tester.enterText(find.byType(TextField), 'meta.discourse.org');
       await tester.tap(find.text('Connect'));
       await tester.pumpAndSettle();
@@ -2205,8 +2150,6 @@ void _registerShellNavigationTests() {
         authenticator: authenticator,
       );
 
-      await tester.tap(find.text('Add a site'));
-      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'meetup.discourse.org');
       await tester.tap(find.text('Connect'));
       await tester.pumpAndSettle();
@@ -2288,9 +2231,6 @@ void _registerShellNavigationTests() {
       final api = FakeDiscourseApi(failure: SiteLookupFailure.notDiscourse);
 
       await pumpShell(tester, desktop, store: store, api: api);
-
-      await tester.tap(find.text('Add a site'));
-      await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'example.com');
       await tester.tap(find.text('Connect'));

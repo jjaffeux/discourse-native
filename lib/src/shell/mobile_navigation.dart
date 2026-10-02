@@ -29,8 +29,8 @@ final class MobileNavigation {
   static const maximumPages = ForumTab.maximumHistoryEntries;
 
   Object? _owner;
-  List<({Object id, ForumTabLocation? content, bool aggregate})> _entries = [
-    (id: Object(), content: null, aggregate: false),
+  List<({Object id, ForumTabLocation? content})> _entries = [
+    (id: Object(), content: null),
   ];
   Object _historyId = Object();
   int _index = 0;
@@ -51,8 +51,7 @@ final class MobileNavigation {
 
   String? get panelOwner => _panelOwner;
   ForumTabLocation? get location => _entries[_index].content;
-  bool get aggregate => _entries[_index].aggregate;
-  bool get atRoot => location == null && !aggregate;
+  bool get atRoot => location == null;
   bool get canGoBack => _index > 0;
   bool get canGoForward => _index < _entries.length - 1;
 
@@ -67,34 +66,29 @@ final class MobileNavigation {
   void synchronize({
     required Object? owner,
     required ForumTabLocation? location,
-    bool aggregate = false,
     bool contentRoot = false,
   }) {
     if (_owner != owner) {
       _owner = owner;
       reset();
     }
-    final content = aggregate ? null : location;
+    final content = location;
     if (contentRoot && atRoot && _panelOwner == null && content != null) {
-      _entries = [(id: entryId, content: content, aggregate: false)];
+      _entries = [(id: entryId, content: content)];
       _index = 0;
       return;
     }
-    if (aggregate == _entries[_index].aggregate &&
-        _sameDestination(content, _entries[_index].content)) {
+    if (_sameDestination(content, _entries[_index].content)) {
       // Retain refreshed titles and other non-identity route metadata.
-      _entries[_index] = (id: entryId, content: content, aggregate: aggregate);
+      _entries[_index] = (id: entryId, content: content);
       return;
     }
     closeSidebar();
-    if (content == null && !aggregate) {
+    if (content == null) {
       _index = 0;
       return;
     }
-    _entries = [
-      ..._entries.take(_index + 1),
-      (id: Object(), content: content, aggregate: aggregate),
-    ];
+    _entries = [..._entries.take(_index + 1), (id: Object(), content: content)];
     if (_entries.length > maximumPages + 1) _entries.removeAt(1);
     _index = _entries.length - 1;
   }
@@ -103,10 +97,7 @@ final class MobileNavigation {
   /// A sidebar root opens its first page during synchronization.
   void replaceCurrent(ForumTabLocation location) {
     if (atRoot) return;
-    _entries = [
-      ..._entries.take(_index),
-      (id: Object(), content: location, aggregate: false),
-    ];
+    _entries = [..._entries.take(_index), (id: Object(), content: location)];
   }
 
   static bool _sameDestination(ForumTabLocation? a, ForumTabLocation? b) {
@@ -147,7 +138,7 @@ final class MobileNavigation {
   }
 
   void _resetHistory() {
-    _entries = [(id: Object(), content: null, aggregate: false)];
+    _entries = [(id: Object(), content: null)];
     _index = 0;
     _historyId = Object();
   }

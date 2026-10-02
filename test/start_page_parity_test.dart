@@ -5,8 +5,6 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/shell/aggregate_feed_controller.dart';
-import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -26,71 +24,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
-  });
-
-  testStartPage('All forums launches Latest, Settings and Preferences', (
-    tester,
-  ) async {
-    const user = DiscourseUser(username: 'reader');
-    final forum = instance('one.example').copyWith(user: user);
-    await pumpShell(
-      tester,
-      desktop,
-      instances: [forum],
-      authenticator: FakeAuthenticator()..keys[forum.url] = 'key',
-      api: FakeDiscourseApi(
-        user: user,
-        feeds: const {
-          '/latest.json': [],
-          '/filter.json?per_page=30': [
-            Topic(
-              id: 10,
-              title: 'Across forums',
-              slug: 'across',
-              excerpt: 'A real preview',
-            ),
-          ],
-          '/filter.json?per_page=30&q=in%3Anew-replies': [],
-        },
-      ),
-    );
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    shell.selectAggregate();
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('aggregate-start-page')), findsOneWidget);
-    expect(find.text('All forums'), findsOneWidget);
-    expect(find.text('1 forum'), findsOneWidget);
-    expect(find.text('Across forums'), findsOneWidget);
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-    expect(find.text('A real preview'), findsOneWidget);
-    await tester.tap(find.widgetWithText(DButton, 'Preferences'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('app-settings-modal')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('app-settings-close')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DButton, 'Settings'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ForumSettingsPage), findsOneWidget);
-    shell.closeAggregateSettings();
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(DButton, 'Latest topics'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('aggregate-start-page')), findsNothing);
-    expect(find.byKey(const ValueKey('aggregate-feed-mode')), findsOneWidget);
-    await tester.tap(find.text('Unread'));
-    await tester.pumpAndSettle();
-    expect(shell.aggregate.mode, AggregateFeedMode.unread);
-    expect(find.text('No matching topics'), findsOneWidget);
-    await tester.tap(find.byTooltip('Start page'));
-    await tester.pumpAndSettle();
-    expect(find.text('Across forums'), findsOneWidget);
-    expect(shell.aggregate.mode, AggregateFeedMode.latest);
-    await tester.tap(find.text('Across forums'));
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.topicId, 10);
   });
 
   testStartPage(

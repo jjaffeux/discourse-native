@@ -323,18 +323,6 @@ void main() {
     },
   );
 
-  test('hides the composer in Aggregate and restores it on return', () {
-    final composer = shell.visibleComposer!;
-
-    shell.selectAggregate();
-
-    expect(shell.visibleComposer, isNull);
-
-    shell.selectInstance(0);
-
-    expect(shell.visibleComposer, same(composer));
-  });
-
   test('a new topic submission navigates only its original tab', () async {
     final firstTab = shell.activeTabId!;
     final first = shell.visibleComposer!;

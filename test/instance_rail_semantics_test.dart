@@ -147,31 +147,4 @@ void main() {
       semantics.dispose();
     }
   }, variant: _desktopBridges);
-
-  testWidgets('All forums says when it is the current view', (tester) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await _pumpRail(tester);
-      final all = find.byKey(const ValueKey('aggregate-rail-button'));
-
-      expect(
-        tester.getSemantics(all),
-        isSemantics(label: 'All forums', isButton: true, isSelected: false),
-      );
-
-      await tester.tap(all);
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.getSemantics(all),
-        isSemantics(label: 'All forums', isButton: true, isSelected: true),
-      );
-      expect(
-        tester.getSemantics(_railItem(_meta)),
-        isSemantics(isButton: true, isSelected: false),
-      );
-    } finally {
-      semantics.dispose();
-    }
-  }, variant: _desktopBridges);
 }

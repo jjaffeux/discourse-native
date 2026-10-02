@@ -950,17 +950,17 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('settings-rail-button')));
       await tester.pumpAndSettle();
-      expect(shell.aggregateSettingsOpen, isTrue);
+      expect(shell.appSettingsModalOpen, isTrue);
       expect(
         find.byKey(const ValueKey('diagnostics-docked-slot')),
         findsOneWidget,
       );
       expect(diagnostics.isPanelOpen, isTrue);
 
-      shell.closeAggregateSettings();
+      await tester.tap(find.byKey(const ValueKey('app-settings-close')));
       await tester.pumpAndSettle();
 
-      expect(shell.aggregateSettingsOpen, isFalse);
+      expect(shell.appSettingsModalOpen, isFalse);
       expect(
         find.byKey(const ValueKey('diagnostics-docked-slot')),
         findsOneWidget,
@@ -1213,6 +1213,14 @@ Future<void> _pumpApp(
   );
   if (settle) {
     await tester.pumpAndSettle();
+    // Diagnostics tests exercise the shell after the empty-start add sheet.
+    if (find
+        .text('Enter the address of a Discourse forum.')
+        .evaluate()
+        .isNotEmpty) {
+      await tester.tap(find.byTooltip('Close').last);
+      await tester.pumpAndSettle();
+    }
   } else {
     await tester.pump();
   }

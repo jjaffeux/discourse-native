@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -6,9 +8,27 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'add_instance_sheet.dart';
 import 'forum_theme_surfaces.dart';
+import 'shell_scope.dart';
 
-class EmptyState extends StatelessWidget {
+class EmptyState extends StatefulWidget {
   const EmptyState({super.key});
+
+  @override
+  State<EmptyState> createState() => _EmptyStateState();
+}
+
+class _EmptyStateState extends State<EmptyState> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final shell = ShellScope.read(context);
+      if (shell.loaded && !shell.hasInstances) {
+        unawaited(showAddInstanceSheet(context));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) => ColoredBox(

@@ -59,7 +59,7 @@ class DiscourseApp extends StatefulWidget {
     this.diagnostics,
     this.plugins,
     this.pluginManifest = corePluginManifest,
-    this.initialRootMode = ShellRootMode.aggregate,
+    this.initialRootMode = ShellRootMode.forum,
     this.notificationOpenUrls,
   }) : assert(
          plugins == null || identical(pluginManifest, corePluginManifest),
@@ -792,11 +792,6 @@ final class _AppThemeSelection {
   const _AppThemeSelection(this.siteUrl, this.appearance);
 
   factory _AppThemeSelection.from(ShellController controller) {
-    // Aggregate is app-owned and does not inherit whichever forum happened to
-    // be selected last. Settings applies its neutral theme inside its modal.
-    if (controller.rootMode != ShellRootMode.forum) {
-      return const _AppThemeSelection(null, null);
-    }
     return _AppThemeSelection(
       controller.currentInstance?.url,
       controller.currentSiteAppearance,

@@ -49,7 +49,9 @@ void main() {
       tester.getTopLeft(toggle).dy,
       lessThan(
         tester
-            .getTopLeft(find.byKey(const ValueKey('aggregate-rail-button')))
+            .getTopLeft(
+              find.byKey(const ValueKey('https://meta.discourse.org')),
+            )
             .dy,
       ),
     );
@@ -112,37 +114,11 @@ void main() {
     expect(find.byType(InstanceSidebar), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('Home keeps the rail toggle visible until a forum is selected', (
-    tester,
-  ) async {
-    final controller = await _controller();
-    controller.selectAggregate();
-    await _pumpShell(tester, controller, const Size(1200, 800));
-    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
-    expect(toggle, findsOneWidget);
-    expect(tester.widget<DButton>(toggle).onPressed, isNull);
-    expect(
-      tester.getTopLeft(toggle).dy,
-      lessThan(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('aggregate-rail-button')))
-            .dy,
-      ),
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-
   testWidgets('uses compact desktop navigation metrics', (tester) async {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(1200, 800));
 
     expect(tester.getSize(find.byType(InstanceRail)).width, 48);
-
-    final aggregateButton = find.byKey(const ValueKey('aggregate-rail-button'));
-    expect(tester.widget<DButton>(aggregateButton).size, DButtonSize.large);
-    expect(
-      tester.widget<DButton>(aggregateButton).variant,
-      DButtonVariant.transparentBackground,
-    );
 
     final topics = find.descendant(
       of: find.byType(InstanceSidebar),
@@ -508,9 +484,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<DButton>(toggle).tooltip, 'Collapse sidebar');
 
-    controller.selectAggregate();
+    controller.selectInstance(0);
     await tester.pumpAndSettle();
-    expect(tester.widget<DButton>(toggle).onPressed, isNull);
+    expect(tester.widget<DButton>(toggle).onPressed, isNotNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live drag leaves the shell and pane content unrebuilt', (

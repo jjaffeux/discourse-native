@@ -105,13 +105,7 @@ void main() {
   }
 
   for (final beforeSubmit in [false, true]) {
-    for (final destination in [
-      'topic',
-      'forum',
-      'tab',
-      'reopened topic',
-      'aggregate',
-    ]) {
+    for (final destination in ['topic', 'forum', 'tab', 'reopened topic']) {
       testWidgets(
         'delete keeps its target without popping $destination ${beforeSubmit ? 'during confirmation' : 'during the request'}',
         (tester) async {
@@ -146,8 +140,6 @@ void main() {
               shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
               expect(shell.currentContent, openingRoute);
               expect(shell.currentContent, isNot(same(openingRoute)));
-            case 'aggregate':
-              shell.selectAggregate();
           }
           await tester.pump();
           final route = shell.currentContent;

@@ -99,19 +99,6 @@ void main() {
     expect(navigation.atRoot, isTrue);
   });
 
-  test('aggregate participates in the same back and forward history', () {
-    final navigation = MobileNavigation();
-    navigation.synchronize(owner: 'forum', location: null, aggregate: true);
-    expect(navigation.atRoot, isFalse);
-    expect(navigation.aggregate, isTrue);
-    navigation.goBack();
-    expect(navigation.atRoot, isTrue);
-    navigation.goForward();
-    expect(navigation.aggregate, isTrue);
-    navigation.synchronize(owner: 'forum', location: page('topic'));
-    navigation.goBack();
-    expect(navigation.aggregate, isTrue);
-  });
   test('root, content, back and forward form one mobile journey', () {
     final navigation = MobileNavigation();
     navigation.synchronize(owner: ('forum', 'user'), location: null);

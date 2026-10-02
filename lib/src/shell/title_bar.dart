@@ -8,11 +8,8 @@ import 'package:flutter/services.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import 'aggregate_branding.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
-import 'shell_controller.dart';
-import 'shell_scope.dart';
 import 'user_menu_button.dart';
 
 class ShellTitleBar extends StatelessWidget {
@@ -62,13 +59,7 @@ class ShellTitleBar extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 860),
-                child: ShellSelector<ShellRootMode>(
-                  select: (controller) => controller.rootMode,
-                  builder: (context, rootMode, _) => switch (rootMode) {
-                    ShellRootMode.forum => const ForumSearch(dense: true),
-                    ShellRootMode.aggregate => const SizedBox.shrink(),
-                  },
-                ),
+                child: const ForumSearch(dense: true),
               ),
             ),
           );
@@ -107,19 +98,6 @@ class ShellTitleBar extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       onDoubleTap: _toggleMaximized,
                       child: const SizedBox.expand(),
-                    ),
-                  if (showControls)
-                    ShellSelector<ShellRootMode>(
-                      select: (controller) => controller.rootMode,
-                      builder: (context, rootMode, _) =>
-                          rootMode == ShellRootMode.aggregate
-                          ? const IgnorePointer(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 88),
-                                child: Center(child: AggregateBranding()),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
                     ),
                   if (showControls)
                     if (stacked)

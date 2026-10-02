@@ -537,9 +537,7 @@ void _registerTopicReadingTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
-    testWidgets('C opens New Topic across forum routes but not Aggregate', (
-      tester,
-    ) async {
+    testWidgets('C opens New Topic across forum routes', (tester) async {
       const user = DiscourseUser(
         id: 7,
         username: 'joffreyj',
@@ -579,12 +577,6 @@ void _registerTopicReadingTests() {
 
       await tester.tap(find.byKey(const ValueKey('composer-cancel')));
       await tester.pumpAndSettle();
-      shell.selectAggregate();
-      await tester.pumpAndSettle();
-
-      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyC), isFalse);
-      await tester.pump();
-      expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('New Topic reuses categories already loaded by the sidebar', (

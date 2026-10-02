@@ -28,29 +28,6 @@ void main() {
     },
   );
 
-  test('Aggregate Settings is a separate closable tab', () async {
-    final shell = controller(
-      instances: const [
-        DiscourseInstance(url: 'https://a.example', title: 'A'),
-      ],
-    );
-    addTearDown(shell.dispose);
-    await shell.load();
-    shell.selectAggregate();
-    final feedTab = shell.activeAggregateTabId;
-    shell.openCurrentSettings();
-    expect(shell.rootMode, ShellRootMode.aggregate);
-    expect(shell.aggregateSettingsOpen, isTrue);
-    expect(shell.activeAggregateTabId, feedTab);
-    await shell.forumSettings.setThemeMode(
-      ForumSettingsController.homeSite,
-      shell.forumSettings.themeModeFor('https://a.example'),
-    );
-    shell.closeAggregateSettings();
-    expect(shell.aggregateSettingsOpen, isFalse);
-    expect(shell.activeAggregateTabId, feedTab);
-  });
-
   test('Home theme mode persists separately from forum mode', () async {
     final store = ForumSettingsStore.memory();
     final first = ForumSettingsController(store: store);
