@@ -419,7 +419,7 @@ void main() {
     },
   );
 
-  for (final platform in [TargetPlatform.macOS]) {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     _test(
       'forum title menu keeps actions on one line and opens externally on $platform',
       (tester) async {

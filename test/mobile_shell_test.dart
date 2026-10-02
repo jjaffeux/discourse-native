@@ -831,6 +831,35 @@ void main() {
     expect(find.byKey(const ValueKey('start-page-content')), findsOneWidget);
     expect(shell.canPopContent, isFalse);
 
+    final chromeLogo = find.descendant(
+      of: _header,
+      matching: find.byKey(const ValueKey('forum-identity-logo')),
+    );
+    final startHeading = find.byKey(const ValueKey('start-page-heading'));
+    final startOptions = find.descendant(
+      of: startHeading,
+      matching: find.byKey(const ValueKey('start-page-forum-options')),
+    );
+    expect(chromeLogo, findsOneWidget);
+    expect(startOptions, findsOneWidget);
+    expect(
+      find.descendant(of: startHeading, matching: find.text('Meta')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('start-page-forum-website')),
+      findsOneWidget,
+    );
+    await tester.tap(chromeLogo);
+    await tester.pumpAndSettle();
+    expect(find.text('Open forum in browser'), findsNothing);
+    await tester.tap(startOptions);
+    await tester.pumpAndSettle();
+    expect(find.text('Open forum in browser'), findsOneWidget);
+    expect(find.text('Remove forum'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.tab, MobileTab.topics);

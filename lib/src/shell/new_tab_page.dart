@@ -27,7 +27,6 @@ import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
-import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
@@ -355,70 +354,68 @@ class NewTabPage extends StatelessWidget {
         spacing: 10,
         children: [
           if (forum != null) ForumIcon(forum: forum, size: 28),
-          if (!context.isTouch || forum == null)
-            Flexible(
-              child: forum == null
-                  ? Text(
-                      context.l10n.startPage,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    )
-                  : DDropdownMenu(
-                      content: DDropdownMenuContent(
-                        width: 240,
-                        children: [
-                          DDropdownMenuItem(
-                            leading: const DIcon(DIcons.upRightFromSquare),
-                            child: Text(
-                              context.l10n.openForumInBrowser,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onPressed: () =>
-                                unawaited(openExternalLink(forum.url)),
-                          ),
-                          const DDropdownMenuSeparator(),
-                          DDropdownMenuItem(
-                            variant: DDropdownMenuItemVariant.destructive,
-                            leading: const DIcon(DIcons.trashCan),
-                            child: Text(
-                              context.l10n.removeForum,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onPressed: () => unawaited(
-                              confirmInstanceRemoval(context, forum),
-                            ),
-                          ),
-                        ],
-                      ),
-                      child: DDropdownMenuTrigger(
-                        builder: (context, state) => DButton(
-                          key: const ValueKey('start-page-forum-options'),
-                          variant: DButtonVariant.inline,
-                          semanticLabel: context.l10n.showForumActions,
-                          focusNode: state.focusNode,
-                          hasPopup: true,
-                          expanded: state.open,
-                          icon: const DIcon(DIcons.chevronDown, size: 10),
-                          iconPosition: DButtonIconPosition.end,
-                          label: SiteEmojiText.plain(
-                            forum.title,
-                            siteUrl: forum.url,
+          Flexible(
+            child: forum == null
+                ? Text(
+                    context.l10n.startPage,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  )
+                : DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      width: 240,
+                      children: [
+                        DDropdownMenuItem(
+                          leading: const DIcon(DIcons.upRightFromSquare),
+                          child: Text(
+                            context.l10n.openForumInBrowser,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.25,
-                                ),
                           ),
-                          onPressed: state.toggle,
+                          onPressed: () =>
+                              unawaited(openExternalLink(forum.url)),
                         ),
+                        const DDropdownMenuSeparator(),
+                        DDropdownMenuItem(
+                          variant: DDropdownMenuItemVariant.destructive,
+                          leading: const DIcon(DIcons.trashCan),
+                          child: Text(
+                            context.l10n.removeForum,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () =>
+                              unawaited(confirmInstanceRemoval(context, forum)),
+                        ),
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DButton(
+                        key: const ValueKey('start-page-forum-options'),
+                        variant: DButtonVariant.inline,
+                        semanticLabel: context.l10n.showForumActions,
+                        focusNode: state.focusNode,
+                        hasPopup: true,
+                        expanded: state.open,
+                        icon: const DIcon(DIcons.chevronDown, size: 10),
+                        iconPosition: DButtonIconPosition.end,
+                        label: SiteEmojiText.plain(
+                          forum.title,
+                          siteUrl: forum.url,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                              ),
+                        ),
+                        onPressed: state.toggle,
                       ),
                     ),
-            ),
-          if (forum != null && !context.isTouch)
+                  ),
+          ),
+          if (forum != null)
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth * .45),
               child: DButton(
