@@ -48,14 +48,26 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
     if (_opening) return;
     setState(() => _opening = true);
     try {
+      final siteUrl = widget.siteUrl;
+      final username = widget.user.username;
       final chat = PluginUiScope.require(context, chatControllerService);
-      final channel = await chat.upsertDirectMessageChannel(
-        widget.siteUrl,
-        widget.user.username,
-      );
-      if (!mounted || channel == null) return;
-
       final shell = PluginUiScope.require(context, chatShellService);
+      final channel = await chat.upsertDirectMessageChannel(siteUrl, username);
+      if (!mounted || channel == null) return;
+      if (widget.siteUrl != siteUrl ||
+          widget.user.username != username ||
+          shell.currentSiteUrl != siteUrl ||
+          !identical(
+            PluginUiScope.optional(context, chatControllerService),
+            chat,
+          ) ||
+          !identical(
+            PluginUiScope.optional(context, chatShellService),
+            shell,
+          )) {
+        return;
+      }
+
       if (shell.openChannel(channel.id)) widget.close();
     } catch (error) {
       if (!mounted) return;
