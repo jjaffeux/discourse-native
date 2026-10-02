@@ -22,6 +22,51 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  for (final width in [1000.0, 1440.0]) {
+    for (final chatEnabled in [false, true]) {
+      for (final count in [0, 128]) {
+        testWidgets(
+          'header uses standard gaps at $width, chat=$chatEnabled, count=$count',
+          (tester) async {
+            await _pump(
+              tester,
+              width: width,
+              chatEnabled: chatEnabled,
+              mentionCount: count,
+              bellCount: count,
+            );
+            final chatVisible =
+                chatEnabled && defaultTargetPlatform == TargetPlatform.fuchsia;
+            expect(
+              find.byKey(ChatHeaderButton.buttonKey),
+              chatVisible ? findsOneWidget : findsNothing,
+            );
+            final controls = [
+              find.byType(DInputGroup),
+              if (chatVisible) find.byKey(ChatHeaderButton.buttonKey),
+              find.byKey(UserMenuButton.bellKey),
+              find.byKey(UserMenuButton.avatarKey),
+            ];
+            for (var index = 1; index < controls.length; index++) {
+              final previous = tester.getRect(controls[index - 1]);
+              final current = tester.getRect(controls[index]);
+              expect(
+                current.left - previous.right,
+                closeTo(DSpacing.controlGap, .01),
+                reason: 'Gap before control $index',
+              );
+            }
+            expect(tester.takeException(), isNull);
+          },
+          variant: const TargetPlatformVariant({
+            TargetPlatform.macOS,
+            TargetPlatform.fuchsia,
+          }),
+        );
+      }
+    }
+  }
+
   for (final width in [320.0, 390.0]) {
     testWidgets(
       'real macOS header fits large notification counts at $width and 200%',
@@ -153,6 +198,7 @@ Future<void> _pump(
   int unreadCount = 0,
   int mentionCount = 0,
   int bellCount = 0,
+  bool chatEnabled = true,
   double width = 1440,
 }) async {
   tester.view.physicalSize = Size(width, 900);
@@ -174,7 +220,10 @@ Future<void> _pump(
   );
   final api = FakeDiscourseApi(
     user: user,
-    totals: chatNotificationTotals(unreadNotifications: bellCount),
+    totals: chatNotificationTotals(
+      unreadNotifications: bellCount,
+      available: chatEnabled,
+    ),
     feeds: const {'/latest.json': []},
     chatChannelsBySite: {
       _siteUrl: ChatChannels(

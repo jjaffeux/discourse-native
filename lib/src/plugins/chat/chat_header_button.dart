@@ -16,15 +16,26 @@ class ChatHeaderButton extends StatelessWidget {
     super.key,
     this.hideWhenChatActive = false,
     this.ringColor,
+    this.trailingSpacing = 0,
   });
 
   final bool hideWhenChatActive;
 
   final Color? ringColor;
 
+  /// Space after the visible shortcut, removed together with a hidden shortcut.
+  final double trailingSpacing;
+
   static const Key buttonKey = ValueKey('chat-header-button');
   static const Key unreadDotKey = ValueKey('chat-header-unread-dot');
   static const Key urgentBadgeKey = ValueKey('chat-header-urgent-badge');
+
+  Widget _withSpacing(Widget button) => trailingSpacing == 0
+      ? button
+      : Padding(
+          padding: EdgeInsetsDirectional.only(end: trailingSpacing),
+          child: button,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -55,12 +66,14 @@ class ChatHeaderButton extends StatelessWidget {
             shell.fullPageChatActive &&
             shell.separateSidebarMode != ChatSeparateSidebarMode.never;
         if (exitsChat) {
-          return DButton.iconOnly(
-            key: buttonKey,
-            tooltip: context.l10n.exitChat,
-            onPressed: shell.closeSidebarPanel,
-            variant: DButtonVariant.transparentBackground,
-            icon: const DIcon(DIcons.shuffle),
+          return _withSpacing(
+            DButton.iconOnly(
+              key: buttonKey,
+              tooltip: context.l10n.exitChat,
+              onPressed: shell.closeSidebarPanel,
+              variant: DButtonVariant.transparentBackground,
+              icon: const DIcon(DIcons.shuffle),
+            ),
           );
         }
         final preference =
@@ -79,40 +92,44 @@ class ChatHeaderButton extends StatelessWidget {
         void openChat() => unawaited(shell.openShortcut());
         final theme = Theme.of(context);
         if (urgentCount != null) {
-          return headerNotificationButton(
-            context,
-            key: buttonKey,
-            countKey: urgentBadgeKey,
-            icon: const DIcon(DIcons.comment, size: 20),
-            count: urgentCount,
-            color: theme.discourse.success,
-            surface: ringColor ?? theme.shell.content,
-            tooltip: tooltip,
-            semanticLabel: tooltip,
-            onPressed: openChat,
+          return _withSpacing(
+            headerNotificationButton(
+              context,
+              key: buttonKey,
+              countKey: urgentBadgeKey,
+              icon: const DIcon(DIcons.comment, size: 20),
+              count: urgentCount,
+              color: theme.discourse.success,
+              surface: ringColor ?? theme.shell.content,
+              tooltip: tooltip,
+              semanticLabel: tooltip,
+              onPressed: openChat,
+            ),
           );
         }
-        return DButton.iconOnly(
-          key: buttonKey,
-          tooltip: tooltip,
-          onPressed: openChat,
-          variant: DButtonVariant.transparentBackground,
-          icon: ExcludeSemantics(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const DIcon(DIcons.comment, size: 22),
-                if (indicator.unread)
-                  PositionedDirectional(
-                    top: -2,
-                    end: -3,
-                    child: DNotificationDot.overlay(
-                      key: unreadDotKey,
-                      color: theme.discourse.notificationIndicator,
-                      ringColor: ringColor,
+        return _withSpacing(
+          DButton.iconOnly(
+            key: buttonKey,
+            tooltip: tooltip,
+            onPressed: openChat,
+            variant: DButtonVariant.transparentBackground,
+            icon: ExcludeSemantics(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const DIcon(DIcons.comment, size: 22),
+                  if (indicator.unread)
+                    PositionedDirectional(
+                      top: -2,
+                      end: -3,
+                      child: DNotificationDot.overlay(
+                        key: unreadDotKey,
+                        color: theme.discourse.notificationIndicator,
+                        ringColor: ringColor,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );

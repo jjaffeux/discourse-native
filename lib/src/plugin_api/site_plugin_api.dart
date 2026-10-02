@@ -839,6 +839,8 @@ abstract interface class ContentHeaderTitlePlugin {
 enum PluginHeaderSurface { titleBar, content }
 
 abstract interface class ShellHeaderPlugin {
+  /// Title-bar actions include their trailing control gap while visible so a
+  /// hidden contribution does not reserve space between the remaining controls.
   List<Widget> shellHeaderActions(
     BuildContext context, {
     required PluginHeaderSurface surface,

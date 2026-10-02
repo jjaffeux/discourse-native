@@ -71,12 +71,7 @@ class ShellTitleBar extends StatelessWidget {
               constraints.maxWidth < 480 &&
               MediaQuery.textScalerOf(context).scale(12) > 18;
           final search = Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 860),
-                child: ForumSearch(dense: true, size: searchSize),
-              ),
-            ),
+            child: ForumSearch(dense: true, size: searchSize),
           );
           final actions = <Widget>[
             if (showControls)
@@ -132,7 +127,6 @@ class ShellTitleBar extends StatelessWidget {
                             height: rowHeight,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
-                              spacing: DSpacing.controlGap,
                               children: actions,
                             ),
                           ),
@@ -146,7 +140,6 @@ class ShellTitleBar extends StatelessWidget {
                           const SizedBox(width: DSpacing.controlGap),
                           Row(
                             mainAxisSize: MainAxisSize.min,
-                            spacing: DSpacing.controlGap,
                             children: actions,
                           ),
                         ],
