@@ -1222,6 +1222,58 @@ void _registerComposerAndDraftTests() {
     TextField field(WidgetTester tester) =>
         tester.widget<TextField>(_composerField);
 
+    for (final username in ['josé', '中文', 'jose\u0301', '𐐀name']) {
+      testWidgets('Unicode mention $username reaches search and inserts', (
+        tester,
+      ) async {
+        final fake = api();
+        fake.userSearches[username] = [
+          FoundUser(username: username, name: 'Unicode person'),
+        ];
+        await openComposer(tester, fake);
+        await tester.enterText(_composerField, '🧵 hello @$username');
+        await tester.pump(ComposerAutocomplete.debounce);
+        await tester.pump();
+        expect(fake.userSearchesRequested, hasLength(1));
+        expect(fake.userSearchesRequested.single.term, username);
+        expect(fake.userSearchesRequested.single.topicId, 7);
+        expect(find.text('Unicode person'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(field(tester).controller!.text, '🧵 hello @$username ');
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    }
+
+    for (final query in ['café', '父:子']) {
+      testWidgets('Unicode hashtag $query reaches search and inserts its ref', (
+        tester,
+      ) async {
+        final fake = api();
+        final ref = '$query::tag';
+        fake.hashtagSearches[query] = [
+          FoundHashtag(
+            type: 'tag',
+            ref: ref,
+            slug: 'different-slug',
+            text: 'Unicode tag',
+            id: 20,
+            styleType: 'icon',
+            icon: 'tag',
+          ),
+        ];
+        await openComposer(tester, fake);
+        await tester.enterText(_composerField, '🧵 see #$query');
+        await tester.pumpAndSettle();
+        expect(fake.hashtagSearchesRequested, [query]);
+        await tester.tap(find.text('Unicode tag'));
+        await tester.pumpAndSettle();
+        expect(field(tester).controller!.text, '🧵 see #$ref ');
+        expect(find.byType(HashtagPill), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    }
+
     testWidgets('offers mentionable groups and inserts their name', (
       tester,
     ) async {

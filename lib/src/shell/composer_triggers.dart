@@ -72,18 +72,26 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   final text = value.text;
   final caret = selection.baseOffset;
   if (caret < 0 || caret > text.length) return null;
+  if (caret > 0 &&
+      caret < text.length &&
+      _isHighSurrogate(text.codeUnitAt(caret - 1)) &&
+      _isLowSurrogate(text.codeUnitAt(caret))) {
+    return null;
+  }
 
   // The caret has to be at the end of the run. Clicking back into a word
   // already written is reading, and a completion accepted there would splice
   // itself into the middle of it.
-  if (caret < text.length && _isName(text[caret])) return null;
+  if (caret < text.length && _isName(_characterAt(text, caret))) return null;
 
   // Walk back over anything either kind would accept, then look at what
   // stopped us. Which characters are allowed depends on a kind that is not
   // known until the sigil is found, so the run is checked again below.
   var start = caret;
-  while (start > 0 && _isName(text[start - 1])) {
-    start--;
+  while (start > 0) {
+    final previous = _previousCharacterStart(text, start);
+    if (!_isName(text.substring(previous, start))) break;
+    start = previous;
     if (caret - start > runMaximum) return null;
   }
 
@@ -102,8 +110,11 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   // to recover the full hashtag ref. Emoji names cannot contain colons.
   if (kind == ComposerTriggerKind.emoji) {
     var scan = sigil;
-    while (scan > 0 && (_isName(text[scan - 1]) || text[scan - 1] == ':')) {
-      scan--;
+    while (scan > 0) {
+      final previous = _previousCharacterStart(text, scan);
+      final character = text.substring(previous, scan);
+      if (!_isName(character) && character != ':') break;
+      scan = previous;
       if (caret - scan > runMaximum) break;
     }
     if (scan > 0 && text[scan - 1] == '#') {
@@ -117,11 +128,16 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
   // keeps `me@example.com` from completing a username, what keeps the closing
   // colon of a finished `:smile:` from opening another list, and what keeps
   // `##foo` and `a#b` from opening one at all.
-  if (sigil > 0 && !_opensWord(text[sigil - 1])) return null;
+  if (sigil > 0 &&
+      !_opensWord(
+        text.substring(_previousCharacterStart(text, sigil), sigil),
+      )) {
+    return null;
+  }
 
   final query = text.substring(start, caret);
-  for (var index = 0; index < query.length; index++) {
-    if (!kind.accepts(query[index])) return null;
+  for (final rune in query.runes) {
+    if (!kind.accepts(String.fromCharCode(rune))) return null;
   }
 
   if (query.length < kind.minimum || query.length > kind.maximum) return null;
@@ -158,8 +174,35 @@ bool _isName(String character) => _nameCharacter.hasMatch(character);
 
 bool _opensWord(String character) => _wordOpeningCharacter.hasMatch(character);
 
-final RegExp _mentionCharacter = RegExp(r'[A-Za-z0-9_.-]');
-final RegExp _hashtagCharacter = RegExp(r'[A-Za-z0-9_:.-]');
+// Selection and replacement ranges use UTF-16 offsets, but name characters
+// must be tested as complete Unicode scalars.
+int _previousCharacterStart(String text, int end) {
+  final previous = end - 1;
+  return previous > 0 &&
+          _isLowSurrogate(text.codeUnitAt(previous)) &&
+          _isHighSurrogate(text.codeUnitAt(previous - 1))
+      ? previous - 1
+      : previous;
+}
+
+String _characterAt(String text, int start) {
+  final end = start + 1;
+  return text.substring(
+    start,
+    end < text.length &&
+            _isHighSurrogate(text.codeUnitAt(start)) &&
+            _isLowSurrogate(text.codeUnitAt(end))
+        ? end + 1
+        : end,
+  );
+}
+
+bool _isHighSurrogate(int unit) => unit >= 0xD800 && unit <= 0xDBFF;
+bool _isLowSurrogate(int unit) => unit >= 0xDC00 && unit <= 0xDFFF;
+
+const _unicodeName = r'\p{Alphabetic}\p{Mark}\p{Decimal_Number}';
+final RegExp _mentionCharacter = RegExp('[${_unicodeName}_.-]', unicode: true);
+final RegExp _hashtagCharacter = RegExp('[${_unicodeName}_:.-]', unicode: true);
 final RegExp _emojiCharacter = RegExp(r'[A-Za-z0-9_+-]');
-final RegExp _nameCharacter = RegExp(r'[A-Za-z0-9_.+-]');
+final RegExp _nameCharacter = RegExp('[${_unicodeName}_.+-]', unicode: true);
 final RegExp _wordOpeningCharacter = RegExp(r'''[\s([{<"'`]''');
