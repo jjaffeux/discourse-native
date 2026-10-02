@@ -1783,6 +1783,25 @@ void main() {
         expect(preferences.volumes[(firstSite, 7, 2)], 0.7);
       });
 
+      for (final (siteUrl, roomId) in [(firstSite, 8), (secondSite, 7)]) {
+        test('a different volume preference target leaves current media alone '
+            '($siteUrl room $roomId)', () async {
+          joinResponseLists([sam, lee]);
+          preferences.volumes[(firstSite, 7, 2)] = 0.4;
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          await pumpEventQueue();
+          final media = mediaFactory.sessions.single;
+          await controller.setParticipantVolume(siteUrl, roomId, 2, 0.7);
+          expect(media.participantVolumes, {2: 0.4});
+          expect(preferences.volumes[(siteUrl, roomId, 2)], 0.7);
+        });
+      }
+
       test('leaving during the read leaves the old media alone; rejoining '
           'applies them to the new one', () async {
         joinResponseLists([sam, lee]);

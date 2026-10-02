@@ -1067,9 +1067,123 @@ void main() {
   });
 
   group('settings and preferences', () {
+    for (final change in ['room', 'site', 'same-room']) {
+      for (final delayedRead in [false, true]) {
+        testWidgets('volume dialog keeps its call target '
+            '(change: $change, delayed read: $delayedRead)', (tester) async {
+          final preferences = _Preferences(participantVolume: 0.4);
+          final room = _room(
+            participants: const [
+              VoiceParticipant(
+                id: 1,
+                username: 'sam',
+                role: VoiceRole.participant,
+              ),
+              VoiceParticipant(
+                id: 2,
+                username: 'lee',
+                role: VoiceRole.participant,
+              ),
+            ],
+          );
+          const otherSite = 'https://another-voice.example.com';
+          final targetSite = change == 'site' ? otherSite : _siteUrl;
+          final replacement = _room(
+            id: change == 'room' ? 8 : 7,
+            participants: room.participants,
+          );
+          final harness = _Harness(
+            joinRoom: room,
+            preferences: preferences,
+            requests: PluginTestRequestHost(
+              apiKeys: const {_siteUrl: 'key', otherSite: 'other-key'},
+            ),
+          );
+          addTearDown(harness.dispose);
+          await _join(harness, room);
+          harness.transport.responses['GET /voice/rooms.json'] = {
+            'rooms': [_joinPayload(room)['room']],
+          };
+          await harness.controller.ensureLoaded(_siteUrl);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: VoiceRoomView(
+                roomId: 7,
+                controller: harness.controller,
+                shell: _voiceShell(
+                  harness.controller,
+                  site: const PluginRouteSite(
+                    url: _siteUrl,
+                    title: 'Voice',
+                    isConnected: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final gate = delayedRead ? Completer<void>() : null;
+          preferences.participantVolumeReadGate = gate;
+          addTearDown(() {
+            if (gate != null && !gate.isCompleted) gate.complete();
+          });
+          await tester.tap(find.byTooltip('Participant actions'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Local volume'));
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(DSlider),
+            delayedRead ? findsNothing : findsOneWidget,
+          );
+          harness.transport.responses.addAll({
+            'POST /voice/rooms/${replacement.id}/join.json': _joinPayload(
+              replacement,
+            ),
+            'POST /voice/rooms/${replacement.id}/state.json': const {},
+            'DELETE /voice/rooms/${replacement.id}/leave.json': const {},
+          });
+          await harness.controller.leave();
+          await harness.controller.join(
+            siteUrl: targetSite,
+            siteName: 'Replacement call',
+            room: replacement,
+          );
+          gate?.complete();
+          await tester.pumpAndSettle();
+          expect(harness.controller.call?.siteUrl, targetSite);
+          expect(harness.controller.call?.room.id, replacement.id);
+          if (delayedRead && change != 'same-room') {
+            expect(find.byType(DSlider), findsNothing);
+          } else {
+            final rect = tester.getRect(find.byType(DSlider));
+            await tester.tapAt(
+              Offset(rect.left + 6 + (rect.width - 12) * 0.7, rect.center.dy),
+            );
+            await tester.pumpAndSettle();
+          }
+          final expected = change == 'same-room' ? 0.7 : 0.4;
+          expect(
+            harness.media.sessions.last.participantVolumes.last.volume,
+            expected,
+          );
+          expect(
+            preferences.participantVolumeWrites,
+            change == 'same-room' ? hasLength(1) : isEmpty,
+          );
+          expect(tester.takeException(), isNull);
+          harness.dispose();
+        });
+      }
+    }
+
     testWidgets('applies participant volume locally and persists it', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final preferences = _Preferences(participantVolume: 0.4);
       final room = _room(
         participants: const [
@@ -1089,6 +1203,7 @@ void main() {
       await tester.tap(find.text('Local volume'));
       await tester.pumpAndSettle();
 
+      expect(find.byType(DDialogContent), findsOneWidget);
       final slider = tester.widget<DSlider>(find.byType(DSlider));
       expect(slider.value, 0.4);
       final sliderRect = tester.getRect(find.byType(DSlider));
@@ -1116,6 +1231,122 @@ void main() {
       await harness.controller.leave();
       await tester.pump();
     });
+
+    for (final rollback in [false, true]) {
+      testWidgets('volume dialog rejects retired account after public '
+          '${rollback ? 'rollback' : 'reconnect'}', (tester) async {
+        final room = _room(
+          participants: const [
+            VoiceParticipant(
+              id: 1,
+              username: 'sam',
+              role: VoiceRole.participant,
+            ),
+            VoiceParticipant(
+              id: 2,
+              username: 'lee',
+              role: VoiceRole.participant,
+            ),
+          ],
+        );
+        final preferences = _Preferences(participantVolume: 0.4);
+        final transport = RecordingPluginTransport(
+          responses: {
+            'GET /voice/rooms.json': {
+              'rooms': [_joinPayload(room)['room']],
+            },
+            'POST /voice/rooms/7/join.json': _joinPayload(room),
+            'POST /voice/rooms/7/state.json': const {},
+            'DELETE /voice/rooms/7/leave.json': const {},
+          },
+        );
+        final module = _EditorSessionModule(
+          transport,
+          preferences: preferences,
+        );
+        final plugins = PluginInstaller.install(PluginManifest([module]));
+        addTearDown(plugins.close);
+        const user = DiscourseUser(id: 1, username: 'sam');
+        const replacement = DiscourseUser(
+          id: 8,
+          username: 'replacement',
+          staff: true,
+        );
+        final auth = _EditorAuthenticator(rollback: rollback)
+          ..keys[_siteUrl] = 'key';
+        final api = FakeDiscourseApi(
+          user: user,
+          feeds: const {'/latest.json': []},
+        )..accounts['replacement-key'] = replacement;
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('voice.example.com').copyWith(user: user),
+          ]),
+          api: api,
+          authenticator: auth,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: plugins,
+        );
+        var disposed = false;
+        addTearDown(() {
+          if (!disposed) shell.dispose();
+        });
+        await shell.load();
+        final controller = module.harness.controller;
+        await controller.ensureLoaded(_siteUrl);
+        await controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              home: Scaffold(
+                body: PluginUiScope.own(
+                  voicePluginId,
+                  const VoiceRoomView(roomId: 7),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Participant actions'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Local volume'));
+        await tester.pumpAndSettle();
+        final dialog = tester.element(
+          find.byType(VoiceParticipantVolumeSlider),
+        );
+        await shell.connectCurrentInstance();
+        await controller.ensureLoaded(_siteUrl, force: true);
+        await controller.join(siteUrl: _siteUrl, siteName: 'Voice', room: room);
+        await tester.pumpAndSettle();
+        expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
+        expect(shell.currentInstance?.user, rollback ? user : replacement);
+        expect(
+          tester.element(find.byType(VoiceParticipantVolumeSlider)),
+          same(dialog),
+        );
+        final rect = tester.getRect(find.byType(DSlider));
+        await tester.tapAt(
+          Offset(rect.left + 6 + (rect.width - 12) * 0.7, rect.center.dy),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          module.harness.media.sessions.last.participantVolumes.last.volume,
+          0.4,
+        );
+        expect(preferences.participantVolumeWrites, isEmpty);
+        expect(tester.takeException(), isNull);
+        await controller.leave();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.runAsync(() async {
+          disposed = true;
+          shell.dispose();
+          await shell.pluginTeardown;
+        });
+      });
+    }
 
     testWidgets(
       'persists device and push-to-talk settings and verifies the microphone',
@@ -4788,8 +5019,9 @@ void _roomDialogSessionTests() {
 }
 
 final class _EditorSessionModule implements PluginModule {
-  _EditorSessionModule(this.transport);
+  _EditorSessionModule(this.transport, {this.preferences});
   final RecordingPluginTransport transport;
+  final _Preferences? preferences;
   late _Harness harness;
 
   @override
@@ -4800,6 +5032,7 @@ final class _EditorSessionModule implements PluginModule {
     registrar.addSession((bindings, _) {
       harness = _Harness(
         discourseApi: transport,
+        preferences: preferences,
         requests: bindings.require(corePluginRequestPort),
       );
       final voice = VoiceShellService(
@@ -5138,6 +5371,7 @@ final class _Preferences implements VoicePreferences {
   }
 
   final double? participantVolume;
+  Completer<void>? participantVolumeReadGate;
   final List<({VoiceDevicePreference preference, String value})> deviceWrites =
       [];
   final List<bool> pushToTalkWrites = [];
@@ -5152,7 +5386,11 @@ final class _Preferences implements VoicePreferences {
     String siteUrl,
     int roomId,
     int userId,
-  ) async => participantVolume;
+  ) async {
+    await participantVolumeReadGate?.future;
+    return participantVolume;
+  }
+
   @override
   Future<void> writeDevice(
     VoiceDevicePreference preference,
