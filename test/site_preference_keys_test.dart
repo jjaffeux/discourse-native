@@ -84,6 +84,39 @@ void main() {
 
     setUp(() => SharedPreferences.setMockInitialValues(_stored(everyForum)));
 
+    test(
+      'retirement precedes cached deletion even without stored keys',
+      () async {
+        final preferences = await SharedPreferences.getInstance();
+        final decisions = <ForgottenSites>[];
+        final key = SitePreferenceKey(
+          'test.retirement',
+          onForget: (sites) {
+            expect(preferences.containsKey(_perForum.of(_short)), isTrue);
+            decisions.add(sites);
+          },
+        );
+        await forgetSitePreferences([
+          ...shapes,
+          key,
+        ], () => ForgottenSites.removed(_short, keeping: const [_long]));
+        expect(decisions, hasLength(1));
+        expect(decisions.single.includes(_short), isTrue);
+        expect(decisions.single.includes(_long), isFalse);
+        expect(preferences.containsKey(_perForum.of(_short)), isFalse);
+      },
+    );
+
+    test('a declined removal keeps pending preference operations', () async {
+      var retired = false;
+      final key = SitePreferenceKey(
+        'test.retirement',
+        onForget: (_) => retired = true,
+      );
+      await forgetSitePreferences([key], () => null);
+      expect(retired, isFalse);
+    });
+
     test('a removed forum loses only its own values', () async {
       for (final removed in [_short, _subfolder]) {
         final keeping = everyForum.where((site) => site != removed);
