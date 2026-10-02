@@ -5658,7 +5658,7 @@ void _writeGroups() {
         expect(sent.method, 'PUT');
         expect(sent.url.path, '/posts/42/notice.json');
         expect(jsonDecode(sent.body), {
-          'notice': 'Please read this carefully.',
+          'notice': '  Please read this carefully.  ',
         });
       },
     );
@@ -5680,6 +5680,23 @@ void _writeGroups() {
 
       expect(sent.method, 'PUT');
       expect(sent.url.path, '/posts/42/notice.json');
+      expect(jsonDecode(sent.body), isEmpty);
+    });
+
+    test('omits a whitespace-only notice as a deletion', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response('', 204);
+        }),
+      );
+      await api.updatePostNotice(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        postId: 42,
+        notice: ' \t\n ',
+      );
       expect(jsonDecode(sent.body), isEmpty);
     });
   });

@@ -760,14 +760,13 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    final trimmed = notice?.trim();
     await _write(
       Uri.parse('$siteUrl/posts/$postId/notice.json'),
       siteUrl: siteUrl,
       method: 'PUT',
       apiKey: apiKey,
       clientId: clientId,
-      body: {if (trimmed != null && trimmed.isNotEmpty) 'notice': trimmed},
+      body: {if (notice != null && notice.trim().isNotEmpty) 'notice': notice},
     );
   }
 

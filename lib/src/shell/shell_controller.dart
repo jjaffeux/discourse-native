@@ -12365,8 +12365,7 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = target.siteUrl;
     final postId = target.postId;
     final lease = target._lease;
-    final trimmed = notice?.trim();
-    final next = trimmed == null || trimmed.isEmpty ? null : trimmed;
+    final next = notice == null || notice.trim().isEmpty ? null : notice;
     if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
     if (!_beginPostWrite(_postKey(siteUrl, postId))) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
