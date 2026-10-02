@@ -23,6 +23,7 @@ Future<void> showChatThreadSettings({
   )) {
     return;
   }
+  final session = chat.captureSession(siteUrl);
   await showShellSheet<void>(
     context: context,
     title: appL10n.threadSettings,
@@ -32,6 +33,7 @@ Future<void> showChatThreadSettings({
       siteUrl: siteUrl,
       target: target,
       thread: thread,
+      session: session,
     ),
   );
 }
@@ -42,12 +44,14 @@ class _ChatThreadSettingsEditor extends StatefulWidget {
     required this.siteUrl,
     required this.target,
     required this.thread,
+    required this.session,
   });
 
   final ChatController chat;
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatThread thread;
+  final PluginSiteLease session;
 
   @override
   State<_ChatThreadSettingsEditor> createState() =>
@@ -89,10 +93,12 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
     });
   }
 
-  bool get _canEdit => widget.chat.canEditThreadTitle(
-    widget.siteUrl,
-    widget.chat.thread(widget.siteUrl, widget.target.threadId),
-  );
+  bool get _canEdit =>
+      widget.session.isCurrent &&
+      widget.chat.canEditThreadTitle(
+        widget.siteUrl,
+        widget.chat.thread(widget.siteUrl, widget.target.threadId),
+      );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(

@@ -3,6 +3,7 @@ import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -1054,6 +1055,91 @@ void main() {
     );
   });
 
+  for (final rollback in [false, true]) {
+    for (final (width, platform) in [
+      (390.0, TargetPlatform.iOS),
+      (1000.0, TargetPlatform.macOS),
+    ]) {
+      testWidgets(
+        'open thread settings retire after ${rollback ? 'connection rollback' : 'account replacement'} at $width',
+        (tester) async {
+          final auth = _ThreadSettingsAuthenticator(failPersistence: rollback)
+            ..keys[_siteUrl] = 'api-key';
+          final fixture = await _fixture(
+            editableThread: true,
+            authenticator: auth,
+          );
+          addTearDown(fixture.shell.dispose);
+          const replacement = DiscourseUser(
+            id: 8,
+            username: 'replacement',
+            staff: true,
+          );
+          fixture.api.accounts['replacement-key'] = replacement;
+          await _pumpWorkspace(
+            tester,
+            fixture.shell,
+            width: width,
+            platform: platform,
+          );
+          await tester.tap(find.byTooltip('Thread settings'));
+          await tester.pumpAndSettle();
+          final field = find.byKey(const ValueKey('chat-thread-title-field'));
+          final element = tester.element(field);
+          final openingSave = tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('chat-thread-title-save')),
+              )
+              .onPressed!;
+          await tester.enterText(field, 'Private title from opening account');
+
+          await fixture.shell.connectCurrentInstance();
+          await fixture.shell.chat.loadChannels(_siteUrl);
+          fixture.shell.openChatThread(
+            siteUrl: _siteUrl,
+            channelId: _channelId,
+            threadId: _threadId,
+          );
+          await tester.pumpAndSettle();
+
+          expect(auth.keys[_siteUrl], rollback ? 'api-key' : 'replacement-key');
+          expect(
+            fixture.shell.currentInstance?.user,
+            rollback ? _reader : replacement,
+          );
+          expect(
+            fixture.shell.chat.canEditThreadTitle(
+              _siteUrl,
+              fixture.shell.chat.thread(_siteUrl, _threadId),
+            ),
+            isTrue,
+          );
+          expect(tester.element(field), same(element));
+          expect(
+            tester.widget<DInput>(field).controller!.text,
+            'Private title from opening account',
+          );
+          expect(
+            tester
+                .widget<DButton>(
+                  find.byKey(const ValueKey('chat-thread-title-save')),
+                )
+                .onPressed,
+            isNull,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('chat-thread-title-save')),
+          );
+          openingSave();
+          await tester.pumpAndSettle();
+
+          expect(fixture.api.chatThreadTitlesUpdated, isEmpty);
+          expect(fixture.api.titleKeys, isEmpty);
+        },
+      );
+    }
+  }
+
   testWidgets('original author can edit the thread title', (tester) async {
     final fixture = await _fixture(editableThread: true);
     addTearDown(fixture.shell.dispose);
@@ -1217,6 +1303,7 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   SiteConfig? siteConfig,
   Completer<void>? siteConfigGate,
   Completer<DiscourseUser>? sessionUser,
+  FakeAuthenticator? authenticator,
 }) async {
   final api = _WorkspaceApi(
     terminalThread: terminalThread,
@@ -1238,7 +1325,8 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
       ),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+    authenticator:
+        authenticator ?? (FakeAuthenticator()..keys[_siteUrl] = 'api-key'),
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     forumTabsEnabled: false,
@@ -1332,6 +1420,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
       super.currentUser(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   Completer<void>? titleResponse;
+  final List<String> titleKeys = [];
 
   @override
   Future<void> updateChatThreadTitle({
@@ -1342,6 +1431,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
     required String title,
     String? clientId,
   }) async {
+    titleKeys.add(apiKey);
     await super.updateChatThreadTitle(
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -1395,5 +1485,27 @@ final class _WorkspaceApi extends FakeDiscourseApi {
       threadId: threadId,
       messageId: messageId,
     ));
+  }
+}
+
+final class _ThreadSettingsAuthenticator extends FakeAuthenticator {
+  _ThreadSettingsAuthenticator({required this.failPersistence})
+    : super(
+        credentials: const UserApiCredentials(
+          key: 'replacement-key',
+          apiVersion: 4,
+          push: false,
+        ),
+      );
+
+  final bool failPersistence;
+
+  @override
+  Future<void> persistCredentials(
+    String siteUrl,
+    UserApiCredentials credentials,
+  ) async {
+    if (failPersistence) throw StateError('Keychain write failed');
+    await super.persistCredentials(siteUrl, credentials);
   }
 }
