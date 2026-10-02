@@ -43,6 +43,33 @@ void main() {
     });
   }
 
+  for (final anchor in ['outer `[inner` label', 'outer `]` label']) {
+    test('keeps cooked code-containing label raw: $anchor', () async {
+      for (final image in [false, true]) {
+        final source = '${image ? '!' : ''}[$anchor](https://example.test)';
+        final result = await cooking.cook(
+          CookingRequest(
+            raw: source,
+            snapshot: CookingSnapshot(
+              siteId: 'test-site',
+              accountId: 'test-account',
+            ),
+          ),
+        );
+        expect(result.failure, isNull);
+        final cooked = html.parseFragment(result.html);
+        if (image) {
+          expect(cooked.querySelectorAll('img'), hasLength(1));
+        } else {
+          final link = cooked.querySelectorAll('a').single;
+          expect(link.attributes['href'], 'https://example.test');
+          expect(link.querySelector('code'), isNotNull);
+        }
+        expect(parseComposerLinks(source), isEmpty);
+      }
+    });
+  }
+
   testWidgets('a nested label projects one pill spanning the entire link', (
     tester,
   ) async {

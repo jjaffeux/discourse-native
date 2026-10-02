@@ -145,6 +145,10 @@ Map<int, ({int bracket, int end})> _markdownLinkCandidates(
       offset += 1;
     } else if (unit == 0x0A) {
       labels.clear();
+    } else if ((unit == 0x5B || unit == 0x5D) && code.contains(offset)) {
+      // Code can contain unmatched brackets inside an otherwise valid label.
+      // Match its enclosing link so the full range stays excluded below.
+      continue;
     } else if (unit == 0x5B) {
       labels.add((start: offset, nestedLink: false));
     } else if (unit == 0x5D && labels.isNotEmpty) {
