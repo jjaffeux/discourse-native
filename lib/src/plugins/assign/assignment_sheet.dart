@@ -322,6 +322,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   Future<void> _save() async {
     final selected = _selected;
     if (_saving || _searching || selected == null) return;
+    final note = _noteController.text;
     setState(() {
       _saving = true;
       _error = null;
@@ -330,7 +331,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     try {
       error = await widget.save(
         selected,
-        note: _nullableText(_noteController.text),
+        note: note.trim().isEmpty ? null : note,
         // Preserve serialized status until independently loaded settings arrive.
         status: widget.statusesEnabled
             ? _nullableText(_status)
