@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -24,6 +25,7 @@ import 'group/group_page_types.dart';
 import 'group_flair.dart';
 import 'relative_time.dart';
 import 'shell_sheet.dart';
+import 'skeleton_fill.dart';
 
 export 'group/group_page_types.dart';
 
@@ -166,7 +168,12 @@ class _GroupPageState extends State<GroupPage> {
           onAction: widget.onRefresh,
         );
       }
-      return const SizedBox.shrink(key: ValueKey('group-loading'));
+      return _GroupLoadingSkeleton(
+        key: const ValueKey('group-loading'),
+        semanticsLabel: context.l10n.loadingDembed(
+          widget.route.groupName ?? context.l10n.group,
+        ),
+      );
     }
 
     final group = detail.group;
@@ -345,6 +352,96 @@ final class _OwnedPluginTab {
 
   final String owner;
   final PluginGroupTab tab;
+}
+
+class _GroupLoadingSkeleton extends StatelessWidget {
+  const _GroupLoadingSkeleton({super.key, required this.semanticsLabel});
+
+  final String semanticsLabel;
+
+  @override
+  Widget build(BuildContext context) => DSkeletonRegion(
+    semanticsLabel: semanticsLabel,
+    color: skeletonFill(context),
+    expand: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ContentReadingLaneBox(
+          padding: EdgeInsets.fromLTRB(16, 22, 16, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: DSpacing.lg,
+            children: [
+              Row(
+                spacing: DSpacing.md,
+                children: [
+                  DSkeleton.circle(diameter: 48),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: DSpacing.sm,
+                      children: [
+                        DSkeleton(width: 180, height: 24),
+                        DSkeleton(width: 100, height: 14),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              FractionallySizedBox(
+                widthFactor: .8,
+                child: DSkeleton(height: 12),
+              ),
+              DSkeleton(width: 180, height: 14),
+              DSkeleton(width: 240, height: 24),
+            ],
+          ),
+        ),
+        const DSeparator(space: 1),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Native items own row spacing. The avatar is a lower bound,
+              // so clip surplus placeholders at the content viewport.
+              final count = math.max(1, (constraints.maxHeight / 40).ceil());
+              return ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: 0,
+                  maxHeight: double.infinity,
+                  child: ContentReadingLaneBox(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var row = 0; row < count; row++) ...[
+                          if (row > 0) const DSeparator(space: 1),
+                          const DItem(
+                            shape: DItemShape.fullWidth,
+                            children: [
+                              DItemMedia(child: DSkeleton.circle(diameter: 40)),
+                              DItemContent(
+                                spacing: DSpacing.sm,
+                                children: [
+                                  DSkeleton(width: 100, height: 14),
+                                  DSkeleton(width: 150, height: 12),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _GroupHeader extends StatelessWidget {
