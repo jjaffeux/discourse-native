@@ -8311,9 +8311,15 @@ class ShellController extends FrameSafeNotifier
   void _updateTopicRouteMetadata(
     String siteUrl,
     int topicId,
-    String title,
+    String fallbackTitle,
     int? categoryId,
   ) {
+    // Category writes carry their opening title. A newer rename can finish
+    // before that response, so routes follow the title the store now holds.
+    final title =
+        store.read<TopicDetail>(siteUrl, topicId)?.title ??
+        store.read<Topic>(siteUrl, topicId)?.title ??
+        fallbackTitle;
     final category = categoryFor(categoryId, siteUrl: siteUrl);
     _rewriteTopicRoutes(siteUrl, topicId, (route) {
       return ContentRoute.topic(
