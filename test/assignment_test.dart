@@ -117,6 +117,46 @@ void main() {
     );
   });
 
+  test('notes preserve String source independently of normalized status', () {
+    for (final note in ['', '  ', '\tcode\r\n', '\n    code\n\n']) {
+      final direct = {
+        'assigned_to_user': {'username': 'sam'},
+        'assignment_note': note,
+        'assignment_status': '  Open  ',
+      };
+      final topic = Assignments.fromTopicJson({
+        ...direct,
+        'indirectly_assigned_to': {
+          '71': {
+            'assigned_to': {'username': 'sam'},
+            'assignment_note': note,
+          },
+        },
+      }, siteUrl)!;
+      expect(topic.direct!.note, note);
+      expect(topic.direct!.status, 'Open');
+      expect(topic.forPost(71)!.note, note);
+      expect(
+        Assignments.fromPostJson({...direct, 'id': 71}, siteUrl)!.direct!.note,
+        note,
+      );
+    }
+    for (final note in [null, 42, true, <Object>[]]) {
+      final topic = Assignments.fromTopicJson({
+        'assigned_to_user': {'username': 'sam'},
+        'assignment_note': note,
+        'indirectly_assigned_to': {
+          '71': {
+            'assigned_to': {'username': 'sam'},
+            'assignment_note': note,
+          },
+        },
+      }, siteUrl)!;
+      expect(topic.direct!.note, isNull);
+      expect(topic.forPost(71)!.note, isNull);
+    }
+  });
+
   test('a raised per-topic site limit keeps every real assignment', () {
     // max_assignments_per_topic is a raisable discourse-assign setting; the
     // parser bound must not silently drop assignments a real site can serve.

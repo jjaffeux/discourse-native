@@ -250,7 +250,7 @@ void main() {
 
   group('assignment submission', () {
     testWidgets(
-      'saves the selected assignee with a trimmed note and configured status',
+      'saves the selected assignee with a verbatim note and configured status',
       (tester) async {
         AssignmentAssignee? savedAssignee;
         String? savedNote;
@@ -291,7 +291,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(savedAssignee, const AssignmentGroup(name: 'support'));
-        expect(savedNote, 'Needs triage');
+        expect(savedNote, '  Needs triage  ');
         expect(savedStatus, 'In progress');
         expect(completed, isTrue);
       },

@@ -251,7 +251,7 @@ class Assignments {
         if (assignee == null) continue;
         indirect[postId] = Assignment(
           assignee: assignee,
-          note: jsonText(value['assignment_note']),
+          note: _rawNote(value['assignment_note']),
           status: jsonText(value['assignment_status']),
           postId: postId,
           postNumber: jsonIntOrNull(value['post_number']),
@@ -372,6 +372,9 @@ class AssignmentSuggestions {
   );
 }
 
+// Assignment notes are Markdown source, including meaningful indentation.
+String? _rawNote(Object? value) => value is String ? value : null;
+
 Assignment? _parseDirectAssignment(
   Map<String, dynamic> json,
   String siteUrl, {
@@ -384,7 +387,7 @@ Assignment? _parseDirectAssignment(
   if (assignee == null) return null;
   return Assignment(
     assignee: assignee,
-    note: jsonText(json['assignment_note']),
+    note: _rawNote(json['assignment_note']),
     status: jsonText(json['assignment_status']),
     postId: postId,
     postNumber: postNumber,
