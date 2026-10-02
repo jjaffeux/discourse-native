@@ -10,20 +10,29 @@ final historyTransitionExamples = ComponentExamples(
       'Open a page to populate history, then drag inward from the first or last '
       '48 pixels using touch. Travel at least 64 pixels or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
-      'The page underneath brightens as it is revealed, while a soft shadow '
-      'follows the front page’s edge. Forward navigation reverses that depth. '
-      'Only the current page stays live: previews use bounded in-memory images '
-      'of recently visited pages. Reduced motion disables page movement. '
+      'A shallow parallax and soft shadow follow the front page’s edge. '
+      'Forward navigation reverses that depth. History previews use bounded '
+      'in-memory images; navigation previews stay ready offstage for the first '
+      'reveal. Reduced motion disables page movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
   examples: [
     StyleguideExample(
       title: 'Ordered tabs',
       description:
-          'Select tabs in either direction. The destination pushes the previous card toward the opposite edge, including its border and rounded corners; the controls stay still.',
+          'Select tabs in either direction. A short slide and crossfade indicate the tab order while the controls stay still.',
       states: const ['Tab order', 'RTL', 'Reduced motion'],
       code:
           'DHistoryTransition(history: journeyId, entry: visitId, tabIndex: selectedIndex, tabOwner: accountId, child: currentPage)',
       builder: (_) => const _TabTransitionExample(),
+    ),
+    StyleguideExample(
+      title: 'Live navigation preview',
+      description:
+          'Drag inward from the left edge to reveal navigation immediately, even before its first visit. Cancel a short drag or release to open it. The preview cannot receive focus or interaction.',
+      states: const ['First reveal', 'Cancel', 'Preserved state'],
+      code:
+          'DHistoryTransition(history: journeyId, entry: pageId, previousEntry: navigationId, previousPreview: navigation, onBack: openNavigation, child: currentPage)',
+      builder: (_) => const _NavigationPreviewExample(),
     ),
     for (final direction in TextDirection.values)
       StyleguideExample(
@@ -48,6 +57,62 @@ final historyTransitionExamples = ComponentExamples(
       ),
   ],
 );
+
+class _NavigationPreviewExample extends StatefulWidget {
+  const _NavigationPreviewExample();
+
+  @override
+  State<_NavigationPreviewExample> createState() =>
+      _NavigationPreviewExampleState();
+}
+
+class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
+  final _history = Object();
+  final _navigationKey = GlobalKey();
+  bool _open = false;
+
+  void _toggle() => setState(() => _open = !_open);
+
+  @override
+  Widget build(BuildContext context) {
+    final navigation = DPageSurface(
+      key: _navigationKey,
+      child: Center(
+        child: DButton(label: const Text('Return to page'), onPressed: _toggle),
+      ),
+    );
+    return SizedBox(
+      height: 280,
+      child: Column(
+        spacing: DSpacing.md,
+        children: [
+          Expanded(
+            child: DHistoryTransition(
+              history: _history,
+              entry: _open ? 'navigation' : 'page',
+              previousEntry: _open ? null : 'navigation',
+              nextEntry: _open ? 'page' : null,
+              previousPreview: _open ? null : navigation,
+              onBack: _open ? null : _toggle,
+              onForward: _open ? _toggle : null,
+              tabIndex: _open ? -1 : 0,
+              tabOwner: _history,
+              child: _open
+                  ? navigation
+                  : const DPageSurface(
+                      child: Center(child: Text('Swipe to reveal navigation')),
+                    ),
+            ),
+          ),
+          DButton(
+            label: Text(_open ? 'Close navigation' : 'Open navigation'),
+            onPressed: _toggle,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _HistoryExample extends StatefulWidget {
   const _HistoryExample();

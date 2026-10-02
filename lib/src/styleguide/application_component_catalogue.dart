@@ -41,7 +41,12 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'history-transition',
     name: 'History transition',
-    sections: ['Back and forward', 'RTL'],
+    sections: [
+      'Ordered tabs',
+      'Live navigation preview',
+      'Back and forward',
+      'RTL',
+    ],
   ),
   ComponentReference(
     id: 'page-surface',

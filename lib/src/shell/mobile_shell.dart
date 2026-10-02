@@ -45,6 +45,7 @@ class MobileForumRoot extends StatefulWidget {
 }
 
 class _MobileForumRootState extends State<MobileForumRoot> {
+  final _navigationPageKey = GlobalKey();
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
@@ -72,6 +73,32 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
+        final navigationPage = CallbackShortcuts(
+          key: _navigationPageKey,
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape):
+                shell.closeMobileSidebar,
+          },
+          child: Focus(
+            autofocus: sidebarOpen,
+            child: Row(
+              key: const ValueKey('mobile-navigation-page'),
+              children: [
+                const SizedBox(width: 48, child: InstanceRail()),
+                Expanded(
+                  child: DPageSurface(
+                    border: false,
+                    child: InstanceSidebar(
+                      key: ValueKey(('mobile-navigation', owner)),
+                      mobile: true,
+                      onNavigate: shell.closeMobileSidebar,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
         final panels = registry
             .sidebarPanels(context)
             .where((entry) => entry.panel.showSwitch)
@@ -273,6 +300,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
                 child: MobileHistoryGestures(
                   tabIndex: tabOrder.indexOf(selected),
+                  navigationPreview: navigationPage,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -323,38 +351,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           ),
                         ),
                       ),
-                      if (sidebarOpen)
-                        CallbackShortcuts(
-                          bindings: {
-                            const SingleActivator(LogicalKeyboardKey.escape):
-                                shell.closeMobileSidebar,
-                          },
-                          child: Focus(
-                            autofocus: true,
-                            child: Row(
-                              key: const ValueKey('mobile-navigation-page'),
-                              children: [
-                                const SizedBox(
-                                  width: 48,
-                                  child: InstanceRail(),
-                                ),
-                                Expanded(
-                                  child: DPageSurface(
-                                    border: false,
-                                    child: InstanceSidebar(
-                                      key: ValueKey((
-                                        'mobile-navigation',
-                                        owner,
-                                      )),
-                                      mobile: true,
-                                      onNavigate: shell.closeMobileSidebar,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      if (sidebarOpen) navigationPage,
                     ],
                   ),
                 ),
@@ -680,9 +677,11 @@ class MobileHistoryGestures extends StatelessWidget {
     super.key,
     required this.child,
     required this.tabIndex,
+    required this.navigationPreview,
   });
   final Widget child;
   final int tabIndex;
+  final Widget navigationPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -704,6 +703,7 @@ class MobileHistoryGestures extends StatelessWidget {
           ? sidebarEntry
           : navigation.previousEntryId,
       nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
+      previousPreview: !sidebarOpen && root ? navigationPreview : null,
       onBack: !sidebarOpen
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();

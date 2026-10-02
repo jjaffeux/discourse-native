@@ -16,6 +16,7 @@ Future<_HistoryHarnessState> _pump(
   bool reducedMotion = false,
   bool tabTransitions = false,
   bool roundedPanel = false,
+  bool livePreviews = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -30,6 +31,7 @@ Future<_HistoryHarnessState> _pump(
         key: key,
         tabTransitions: tabTransitions,
         roundedPanel: roundedPanel,
+        livePreviews: livePreviews,
       ),
     ),
   );
@@ -81,7 +83,10 @@ void main() {
 
       final forward = await _drag(tester, fromRight: !rtl);
       expect(state.index, 0);
-      expect(tester.getTopLeft(_live).dx - origin.dx, rtl ? 35 : -35);
+      expect(
+        tester.getTopLeft(_live).dx - origin.dx,
+        closeTo(rtl ? 11.2 : -11.2, .001),
+      );
       expect(find.byType(RawImage), findsOneWidget);
       await forward.up();
       await tester.pumpAndSettle();
@@ -121,6 +126,48 @@ void main() {
       });
     }
   }
+
+  testWidgets('live previews are ready on first reveal and stay inert', (
+    tester,
+  ) async {
+    final state = await _pump(tester, livePreviews: true);
+    state.visit(1);
+    await tester.pumpAndSettle();
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(find.text('Previous preview'), findsNothing);
+      final preview = find.text('Previous preview', skipOffstage: false);
+      final element = tester.element(preview);
+      state.previewFocus.requestFocus();
+      await tester.pump();
+      expect(state.previewFocus.hasFocus, isFalse);
+
+      final back = await _drag(tester, distance: 260);
+      expect(find.text('Previous preview'), findsOneWidget);
+      expect(tester.element(preview), same(element));
+      expect(find.byType(RawImage), findsNothing);
+      expect(find.bySemanticsLabel('Previous preview'), findsNothing);
+      await tester.tapAt(tester.getCenter(preview));
+      expect(state.previewTaps, 0);
+      await back.cancel();
+      await tester.pumpAndSettle();
+      expect(find.text('Previous preview'), findsNothing);
+      expect(tester.element(preview), same(element));
+
+      state.visit(0);
+      await tester.pumpAndSettle();
+      final forward = await _drag(tester, fromRight: true, distance: 260);
+      expect(find.text('Next preview'), findsOneWidget);
+      expect(find.byType(RawImage), findsNothing);
+      expect(find.bySemanticsLabel('Next preview'), findsNothing);
+      await forward.up();
+      await tester.pumpAndSettle();
+      expect(state.index, 1);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('short drags and pointer cancellation restore the live page', (
     tester,
@@ -287,7 +334,7 @@ void main() {
   testWidgets('reduced motion navigates on release without moving the page', (
     tester,
   ) async {
-    final state = await _pump(tester, reducedMotion: true);
+    final state = await _pump(tester, reducedMotion: true, livePreviews: true);
     state.visit(1);
     await tester.pumpAndSettle();
     final gesture = await _drag(tester);
@@ -341,46 +388,58 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    testWidgets('ordered tabs push both pages in $direction', (tester) async {
-      final state = await _pump(
-        tester,
-        direction: direction,
-        tabTransitions: true,
-      );
-      final mirror = direction == TextDirection.rtl ? -1 : 1;
-      for (final (tab, sign) in [(3, 1), (1, -1), (4, 1)]) {
-        state.selectTab(tab);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 70));
-        final incoming = tester
-            .widget<Transform>(
-              find.byKey(const ValueKey('history-incoming-tab')),
-            )
-            .transform
-            .getTranslation()
-            .x;
-        final outgoing = tester
-            .widget<Transform>(
-              find.byKey(const ValueKey('history-outgoing-tab')),
-            )
-            .transform
-            .getTranslation()
-            .x;
-        expect(incoming * sign * mirror, greaterThan(0));
-        expect(outgoing * sign * mirror, lessThan(0));
-        expect((incoming - outgoing).abs(), 400);
-        expect(find.byKey(_page), findsOneWidget);
-        expect(find.byType(RawImage), findsOneWidget);
-        expect(find.text('Page $tab'), findsOneWidget);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(_live).dx, 0);
-        expect(find.byType(RawImage), findsNothing);
-      }
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'ordered tabs use a short directional crossfade in $direction',
+      (tester) async {
+        final state = await _pump(
+          tester,
+          direction: direction,
+          tabTransitions: true,
+        );
+        final mirror = direction == TextDirection.rtl ? -1 : 1;
+        for (final (tab, sign) in [(3, 1), (1, -1), (4, 1)]) {
+          state.selectTab(tab);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 70));
+          final incoming = tester
+              .widget<Transform>(
+                find.byKey(const ValueKey('history-incoming-tab')),
+              )
+              .transform
+              .getTranslation()
+              .x;
+          final outgoing = tester
+              .widget<Transform>(
+                find.byKey(const ValueKey('history-outgoing-tab')),
+              )
+              .transform
+              .getTranslation()
+              .x;
+          expect(incoming * sign * mirror, greaterThan(0));
+          expect(outgoing * sign * mirror, lessThan(0));
+          expect((incoming - outgoing).abs(), closeTo(24, .001));
+          final fade = tester.widget<Opacity>(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('history-incoming-tab')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          );
+          expect(fade.opacity, inExclusiveRange(0, 1));
+          expect(find.byKey(_page), findsOneWidget);
+          expect(find.byType(RawImage), findsOneWidget);
+          expect(find.text('Page $tab'), findsOneWidget);
+          await tester.pumpAndSettle();
+          expect(tester.getTopLeft(_live).dx, 0);
+          expect(find.byType(RawImage), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
-  testWidgets('rounded tab surfaces reveal the background at their seam', (
+  testWidgets('rounded tab snapshots preserve transparent corners', (
     tester,
   ) async {
     final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
@@ -403,25 +462,12 @@ void main() {
     state.selectTab(1);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 70));
-    final outgoing = tester
-        .widget<Transform>(find.byKey(const ValueKey('history-outgoing-tab')))
-        .transform
-        .getTranslation()
-        .x;
-    final seam = (400 + outgoing).round();
-    final boundary = tester.renderObject<RenderRepaintBoundary>(
-      find.byKey(const ValueKey('history-test-boundary')),
-    );
-    final image = boundary.toImageSync(pixelRatio: 1);
+    final image = tester.widget<RawImage>(find.byType(RawImage)).image!;
     final pixels = await tester.runAsync(
       () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
     );
     expect(pixels, isNotNull);
-    final offset = seam * 4;
-    expect(pixels!.getUint8(offset), 0);
-    expect(pixels.getUint8(offset + 1), 255);
-    expect(pixels.getUint8(offset + 2), 0);
-    image.dispose();
+    expect(pixels!.getUint8(3), 0);
     await tester.pumpAndSettle();
     await expectTransparentCorner();
   });
@@ -483,6 +529,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (example.title == 'Live navigation preview') {
+        expect(find.text('Return to page'), findsNothing);
+        await tester.tap(find.text('Open navigation'));
+        await tester.pumpAndSettle();
+        expect(find.text('Return to page'), findsOneWidget);
+        await tester.tap(find.text('Return to page'));
+        await tester.pumpAndSettle();
+        expect(find.text('Swipe to reveal navigation'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        continue;
+      }
       if (example.title == 'Ordered tabs') {
         await tester.tap(find.text('Messages'));
         await tester.pumpAndSettle();
@@ -505,9 +562,11 @@ class _HistoryHarness extends StatefulWidget {
     super.key,
     this.tabTransitions = false,
     this.roundedPanel = false,
+    this.livePreviews = false,
   });
   final bool tabTransitions;
   final bool roundedPanel;
+  final bool livePreviews;
 
   @override
   State<_HistoryHarness> createState() => _HistoryHarnessState();
@@ -515,6 +574,8 @@ class _HistoryHarness extends StatefulWidget {
 
 class _HistoryHarnessState extends State<_HistoryHarness> {
   final scroll = ScrollController();
+  final previewFocus = FocusNode();
+  int previewTaps = 0;
   Object history = Object();
   int index = 0;
   int furthest = 0;
@@ -550,6 +611,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   @override
   void dispose() {
     scroll.dispose();
+    previewFocus.dispose();
     super.dispose();
   }
 
@@ -565,6 +627,28 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
         entry: index,
         previousEntry: index > 0 ? index - 1 : null,
         nextEntry: index < furthest ? index + 1 : null,
+        previousPreview: widget.livePreviews && index > 0
+            ? DPageSurface(
+                child: Center(
+                  child: DButton(
+                    autofocus: true,
+                    focusNode: previewFocus,
+                    label: const Text('Previous preview'),
+                    onPressed: () => previewTaps++,
+                  ),
+                ),
+              )
+            : null,
+        nextPreview: widget.livePreviews && index < furthest
+            ? DPageSurface(
+                child: Center(
+                  child: DButton(
+                    label: const Text('Next preview'),
+                    onPressed: () => previewTaps++,
+                  ),
+                ),
+              )
+            : null,
         onBack: index > 0
             ? () {
                 swipes++;

@@ -14,14 +14,16 @@ import '../foundation/tokens.dart';
 /// or journey changes. Adjacent identities select visual previews; callbacks
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
-/// The covered page dims with overlap; the front page casts a soft edge shadow.
-/// Tab switches move the entire child surface, including its outline and
-/// transparent corners.
+/// A shallow parallax and soft edge shadow separate the pages during a drag.
+/// Tab switches use a short directional slide and crossfade.
 ///
-/// Previews are in-memory snapshots, never additional live pages. Up to eight
-/// recently visited pages are retained, at most one million pixels each.
+/// History previews are in-memory snapshots. Up to eight recently visited
+/// pages are retained, at most one million pixels each.
 /// Unvisited/evicted pages and platform views use the background as a fallback.
-/// Theme, viewport, history and app lifecycle changes discard the previews.
+/// Supply [previousPreview] or [nextPreview] for an adjacent navigation surface
+/// that must be ready on its first reveal. These remain mounted offstage, with
+/// focus, semantics and interaction excluded until they become the real page.
+/// Theme, viewport width, history and app lifecycle changes discard snapshots.
 /// Reduced motion keeps the page stationary while preserving the gestures.
 class DHistoryTransition extends StatefulWidget {
   const DHistoryTransition({
@@ -31,6 +33,8 @@ class DHistoryTransition extends StatefulWidget {
     required this.child,
     this.previousEntry,
     this.nextEntry,
+    this.previousPreview,
+    this.nextPreview,
     this.onBack,
     this.onForward,
     this.tabIndex,
@@ -45,7 +49,19 @@ class DHistoryTransition extends StatefulWidget {
   final VoidCallback? onForward;
   final Widget child;
 
-  /// The selected tab's visual order. A changed index pushes both pages in
+  /// A live previous navigation surface, kept ready before the first swipe.
+  ///
+  /// Do not supply a second renderer for a history page; its snapshot is used
+  /// automatically. A [GlobalKey] can preserve it when it becomes [child].
+  final Widget? previousPreview;
+
+  /// A live next navigation surface, kept ready before the first swipe.
+  ///
+  /// Like [previousPreview], this remains inert and mounted offstage until a
+  /// swipe reveals it. Use a snapshot for history pages with a live renderer.
+  final Widget? nextPreview;
+
+  /// The selected tab's visual order. A changed index slides and fades pages in
   /// that direction, mirrored in RTL, even when [history] resets for a new tab.
   /// Only the destination is live; the outgoing page uses a bounded snapshot.
   final int? tabIndex;
@@ -62,6 +78,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _edgeWidth = 48.0;
   static const _commitDistance = 64.0;
+  static const _parallax = .08;
+  static const _tabTravel = 24.0;
 
   final _boundary = GlobalKey();
   final _previews = <Object, ui.Image>{};
@@ -69,6 +87,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
   Object? _environment;
+  Object? _committedEntry;
   Size _size = Size.zero;
   bool _back = false;
   bool _dragging = false;
@@ -108,18 +127,26 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   @override
   void didUpdateWidget(DHistoryTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final committed = _committedEntry == widget.entry;
+    _committedEntry = null;
     if (oldWidget.tabOwner != widget.tabOwner) {
       _clear();
     } else if (oldWidget.tabIndex != null &&
         widget.tabIndex != null &&
         oldWidget.tabIndex != widget.tabIndex &&
+        !committed &&
         !MediaQuery.disableAnimationsOf(context) &&
         _routeIsCurrent) {
       final boundary = _boundary.currentContext?.findRenderObject();
       final image = boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
           : null;
-      _clear();
+      if (oldWidget.history == widget.history) {
+        _resetGesture();
+        if (image != null) _remember(oldWidget.entry, image.clone());
+      } else {
+        _clear();
+      }
       _preview = image;
       _tabSign =
           (widget.tabIndex! > oldWidget.tabIndex! ? 1 : -1) *
@@ -136,11 +163,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           !MediaQuery.disableAnimationsOf(context)) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
-          _previews.remove(oldWidget.entry)?.dispose();
-          _previews[oldWidget.entry] = image;
-          while (_previews.length > 8) {
-            _previews.remove(_previews.keys.first)!.dispose();
-          }
+          _remember(oldWidget.entry, image);
         }
       }
       _resetGesture();
@@ -177,12 +200,21 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   }
 
   void _clear() {
+    _committedEntry = null;
     _resetGesture();
     _pointers.clear();
     for (final image in _previews.values) {
       image.dispose();
     }
     _previews.clear();
+  }
+
+  void _remember(Object entry, ui.Image image) {
+    _previews.remove(entry)?.dispose();
+    _previews[entry] = image;
+    while (_previews.length > 8) {
+      _previews.remove(_previews.keys.first)!.dispose();
+    }
   }
 
   bool _allowsPointer(PointerDownEvent event) {
@@ -234,19 +266,32 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     final commit = velocity.abs() >= 650
         ? velocity > 0 && _progress.value > 0
         : _distance >= _commitDistance;
-    unawaited(_settle(commit));
+    unawaited(_settle(commit, velocity: velocity));
   }
 
-  Future<void> _settle(bool commit) async {
+  Future<void> _settle(bool commit, {double velocity = 0}) async {
     if (!_dragging) return;
     _dragging = false;
     _settling = true;
     final generation = ++_generation;
+    final remaining = commit ? 1 - _progress.value : _progress.value;
+    final milliseconds = velocity > 0 && commit
+        ? (remaining * _size.width / velocity * 1000).clamp(
+            DMotion.close.inMilliseconds,
+            DMotion.change.inMilliseconds,
+          )
+        : (DMotion.change.inMilliseconds * math.sqrt(remaining)).clamp(
+            DMotion.close.inMilliseconds,
+            DMotion.change.inMilliseconds,
+          );
     try {
       await _progress
           .animateTo(
             commit ? 1 : 0,
-            duration: DMotion.duration(context, DMotion.change),
+            duration: DMotion.duration(
+              context,
+              Duration(milliseconds: milliseconds.round()),
+            ),
             curve: Curves.easeOutCubic,
           )
           .orCancel;
@@ -255,6 +300,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     }
     if (!mounted || generation != _generation) return;
     final navigate = commit && _routeIsCurrent ? _navigate : null;
+    // A sidebar changes tabIndex as well as entry. The drag has already carried
+    // it into place, so its committed update must not start another animation.
+    _committedEntry = navigate != null ? _target : null;
     setState(_resetGesture);
     navigate?.call();
   }
@@ -291,13 +339,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     return LayoutBuilder(
       builder: (context, constraints) {
         if (_size != constraints.biggest) {
-          // Contextual actions may change the page height during a tab switch.
-          // The outgoing image stretches to the destination's viewport only
-          // for this transition; no resized history preview is retained.
-          final tabHeightChange =
-              _switchingTab && _size.width == constraints.maxWidth;
+          // The dock changes the viewport's height when navigation opens.
+          // Keep same-width previews at their original aspect ratio so closing
+          // navigation can reveal the page without stretching its text.
+          final widthChanged = _size.width != constraints.maxWidth;
           _size = constraints.biggest;
-          if (!tabHeightChange) _clear();
+          if (widthChanged) {
+            _clear();
+          } else if (_dragging || _settling) {
+            _resetGesture();
+          }
         }
         return Listener(
           behavior: HitTestBehavior.opaque,
@@ -330,42 +381,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 animation: _progress,
                 child: _HistoryBoundary(key: _boundary, child: widget.child),
                 builder: (context, child) {
-                  if (_switchingTab && !reducedMotion) {
-                    final progress = _progress.value;
-                    return IgnorePointer(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Transform.translate(
-                            key: const ValueKey('history-outgoing-tab'),
-                            offset: Offset(
-                              -_tabSign * _size.width * progress,
-                              0,
-                            ),
-                            child: ExcludeSemantics(
-                              child: RawImage(
-                                image: _preview,
-                                fit: BoxFit.fill,
-                              ),
-                            ),
-                          ),
-                          Transform.translate(
-                            key: const ValueKey('history-incoming-tab'),
-                            offset: Offset(
-                              _tabSign * _size.width * (1 - progress),
-                              0,
-                            ),
-                            child: child,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  final switching = _switchingTab && !reducedMotion;
                   final p = reducedMotion ? 0.0 : _progress.value;
-                  final active = p > 0;
+                  final active = !switching && p > 0;
                   final dim = BoxDecoration(
                     color: tokens.colors.scrim.withValues(
-                      alpha: active ? .20 * (_back ? 1 - p : p) : 0,
+                      alpha: active ? .06 * (_back ? 1 - p : p) : 0,
                     ),
                   );
                   final elevation = BoxDecoration(
@@ -373,45 +394,96 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         ? [
                             BoxShadow(
                               color: tokens.colors.shadow.withValues(
-                                alpha: .22,
+                                alpha: .12,
                               ),
-                              blurRadius: 18,
-                              offset: Offset(_rtl ? 4 : -4, 0),
+                              blurRadius: 12,
+                              offset: Offset(_rtl ? 3 : -3, 0),
                             ),
                           ]
                         : null,
                   );
-                  final preview = DecoratedBox(
-                    decoration: _back ? dim : elevation,
-                    position: _back
-                        ? DecorationPosition.foreground
-                        : DecorationPosition.background,
-                    child: ExcludeSemantics(
-                      child: IgnorePointer(
-                        child: ColoredBox(
-                          color: background,
-                          child: _preview == null
-                              ? null
-                              : RawImage(image: _preview, fit: BoxFit.fill),
-                        ),
+                  final preview = ExcludeSemantics(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: background,
+                        child: _preview == null
+                            ? null
+                            : RawImage(
+                                image: _preview,
+                                fit: BoxFit.fitWidth,
+                                alignment: Alignment.topCenter,
+                              ),
                       ),
                     ),
                   );
+                  Widget previewLayer(Widget preview, {required bool back}) =>
+                      Offstage(
+                        key: ValueKey(
+                          back
+                              ? 'history-previous-preview'
+                              : 'history-next-preview',
+                        ),
+                        offstage: !active || _back != back,
+                        child: Transform.translate(
+                          offset: Offset(
+                            back
+                                ? -_sign * _size.width * _parallax * (1 - p)
+                                : -_sign * _size.width * (1 - p),
+                            0,
+                          ),
+                          child: DecoratedBox(
+                            decoration: back ? dim : elevation,
+                            position: back
+                                ? DecorationPosition.foreground
+                                : DecorationPosition.background,
+                            child: ExcludeSemantics(
+                              child: IgnorePointer(
+                                child: ExcludeFocus(
+                                  child: TickerMode(
+                                    enabled: active && _back == back,
+                                    child: preview,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (active && _back)
+                      if (widget.previousPreview case final live?)
+                        previewLayer(live, back: true)
+                      else if (active && _back)
+                        previewLayer(preview, back: true),
+                      if (switching)
                         Transform.translate(
-                          offset: Offset(
-                            -_sign * _size.width * .25 * (1 - p),
-                            0,
+                          key: const ValueKey('history-outgoing-tab'),
+                          offset: Offset(-_tabSign * _tabTravel * p, 0),
+                          child: ExcludeSemantics(
+                            child: Opacity(
+                              opacity: 1 - p,
+                              child: RawImage(
+                                image: _preview,
+                                fit: BoxFit.fitWidth,
+                                alignment: Alignment.topCenter,
+                              ),
+                            ),
                           ),
-                          child: preview,
                         ),
                       Transform.translate(
-                        key: const ValueKey('history-live-page'),
+                        key: ValueKey(
+                          switching
+                              ? 'history-incoming-tab'
+                              : 'history-live-page',
+                        ),
                         offset: Offset(
-                          _sign * _size.width * p * (_back ? 1 : .25),
+                          switching
+                              ? _tabSign * _tabTravel * (1 - p)
+                              : _sign *
+                                    _size.width *
+                                    p *
+                                    (_back ? 1 : _parallax),
                           0,
                         ),
                         // Keep depth effects outside the capture boundary so
@@ -422,16 +494,18 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                               ? DecorationPosition.background
                               : DecorationPosition.foreground,
                           child: IgnorePointer(
-                            ignoring: _dragging || _settling,
-                            child: child,
+                            ignoring: _dragging || _settling || switching,
+                            child: Opacity(
+                              opacity: switching ? p : 1,
+                              child: child,
+                            ),
                           ),
                         ),
                       ),
-                      if (active && !_back)
-                        Transform.translate(
-                          offset: Offset(-_sign * _size.width * (1 - p), 0),
-                          child: preview,
-                        ),
+                      if (widget.nextPreview case final live?)
+                        previewLayer(live, back: false)
+                      else if (active && !_back)
+                        previewLayer(preview, back: false),
                     ],
                   );
                 },
