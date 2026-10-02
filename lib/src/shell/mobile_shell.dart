@@ -252,7 +252,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ?.panel
                   .mobileAction
             : null;
-        return Column(
+        Widget frame(BuildContext context, Widget page) => Column(
           key: const ValueKey('mobile-root'),
           children: [
             ForumSidebarTheme(
@@ -338,63 +338,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 listenable: _footerAction,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-                  child: MobileHistoryGestures(
-                    tabIndex: tabOrder.indexOf(selected),
-                    navigationPreview: navigationPage,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Offstage(
-                          offstage: sidebarOpen,
-                          child: TickerMode(
-                            enabled: !sidebarOpen,
-                            child: ExcludeFocus(
-                              excluding: sidebarOpen,
-                              child: DPageSurface(
-                                key: const ValueKey('mobile-content-panel'),
-                                backgroundColor:
-                                    ForumWindowBackground.panelColor(context),
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    for (final entry in panels)
-                                      Offstage(
-                                        offstage:
-                                            !(panelRoot &&
-                                                panelOwner ==
-                                                    entry.owner.value),
-                                        child: TickerMode(
-                                          enabled:
-                                              panelRoot &&
-                                              panelOwner == entry.owner.value,
-                                          child: ExcludeFocus(
-                                            excluding:
-                                                !(panelRoot &&
-                                                    panelOwner ==
-                                                        entry.owner.value),
-                                            child: InstanceSidebar(
-                                              key: ValueKey((
-                                                'mobile-panel',
-                                                entry.owner.value,
-                                                owner,
-                                              )),
-                                              mobile: true,
-                                              panelOwner: entry.owner.value,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    if (!panelRoot) widget.content,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (sidebarOpen) navigationPage,
-                      ],
-                    ),
-                  ),
+                  child: page,
                 ),
                 builder: (context, content) => MobileScrollDock(
                   identity: (
@@ -439,6 +383,63 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
           ],
+        );
+        return MobileHistoryGestures(
+          tabIndex: tabOrder.indexOf(selected),
+          navigationPreview: navigationPage,
+          frameBuilder: frame,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Offstage(
+                offstage: sidebarOpen,
+                child: TickerMode(
+                  enabled: !sidebarOpen,
+                  child: ExcludeFocus(
+                    excluding: sidebarOpen,
+                    child: DPageSurface(
+                      key: const ValueKey('mobile-content-panel'),
+                      backgroundColor: ForumWindowBackground.panelColor(
+                        context,
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          for (final entry in panels)
+                            Offstage(
+                              offstage:
+                                  !(panelRoot &&
+                                      panelOwner == entry.owner.value),
+                              child: TickerMode(
+                                enabled:
+                                    panelRoot &&
+                                    panelOwner == entry.owner.value,
+                                child: ExcludeFocus(
+                                  excluding:
+                                      !(panelRoot &&
+                                          panelOwner == entry.owner.value),
+                                  child: InstanceSidebar(
+                                    key: ValueKey((
+                                      'mobile-panel',
+                                      entry.owner.value,
+                                      owner,
+                                    )),
+                                    mobile: true,
+                                    panelOwner: entry.owner.value,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (!panelRoot) widget.content,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (sidebarOpen) navigationPage,
+            ],
+          ),
         );
       },
     );
@@ -649,10 +650,12 @@ class MobileHistoryGestures extends StatelessWidget {
     required this.child,
     required this.tabIndex,
     required this.navigationPreview,
+    required this.frameBuilder,
   });
   final Widget child;
   final int tabIndex;
   final Widget navigationPreview;
+  final Widget Function(BuildContext context, Widget page) frameBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -662,6 +665,7 @@ class MobileHistoryGestures extends StatelessWidget {
     final sidebarEntry = (navigation.historyId, 'sidebar');
     final root = !navigation.canGoBack;
     return DHistoryTransition(
+      frameBuilder: frameBuilder,
       history: navigation.historyId,
       tabIndex: sidebarOpen ? -1 : tabIndex,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),

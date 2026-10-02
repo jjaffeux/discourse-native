@@ -13,7 +13,8 @@ final historyTransitionExamples = ComponentExamples(
       'A shallow parallax and soft shadow follow the front page’s edge. '
       'Forward navigation reverses that depth. History previews use bounded '
       'in-memory images; navigation previews stay ready offstage for the first '
-      'reveal. Reduced motion disables page movement. '
+      'reveal. A frameBuilder includes stationary chrome and outer padding in '
+      'the gesture surface. Reduced motion disables page movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
   examples: [
     StyleguideExample(
@@ -33,6 +34,18 @@ final historyTransitionExamples = ComponentExamples(
       code:
           'DHistoryTransition(history: journeyId, entry: pageId, previousEntry: navigationId, previousPreview: navigation, onBack: openNavigation, child: currentPage)',
       builder: (_) => const _NavigationPreviewExample(),
+    ),
+    StyleguideExample(
+      title: 'Stationary chrome',
+      description:
+          'Open Topics, then swipe from either side beside the header, page or '
+          'footer. The page moves while the header and footer stay in place.',
+      states: const ['Full-height edges', 'Outer margins', 'Stationary chrome'],
+      code:
+          'DHistoryTransition(history: journeyId, entry: visitId, '
+          'frameBuilder: (context, page) => Column(children: [header, '
+          'Expanded(child: page), footer]), child: currentPage)',
+      builder: (_) => const _HistoryExample(framed: true),
     ),
     for (final direction in TextDirection.values)
       StyleguideExample(
@@ -115,7 +128,9 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
 }
 
 class _HistoryExample extends StatefulWidget {
-  const _HistoryExample();
+  const _HistoryExample({this.framed = false});
+
+  final bool framed;
 
   @override
   State<_HistoryExample> createState() => _HistoryExampleState();
@@ -136,8 +151,25 @@ class _HistoryExampleState extends State<_HistoryExample> {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 320,
+    height: widget.framed ? 380 : 320,
     child: DHistoryTransition(
+      frameBuilder: widget.framed
+          ? (context, page) => Column(
+              spacing: DSpacing.xs,
+              children: [
+                const Text('Forum header'),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DSpacing.xs,
+                    ),
+                    child: page,
+                  ),
+                ),
+                const Text('Navigation footer'),
+              ],
+            )
+          : null,
       history: _history,
       entry: _index,
       previousEntry: _index > 0 ? _index - 1 : null,

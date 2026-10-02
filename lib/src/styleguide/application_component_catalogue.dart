@@ -44,6 +44,7 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: [
       'Ordered tabs',
       'Live navigation preview',
+      'Stationary chrome',
       'Back and forward',
       'RTL',
     ],

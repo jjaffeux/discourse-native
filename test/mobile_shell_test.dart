@@ -2305,6 +2305,72 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('edge swipes cover the full mobile navigation surface', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(tester);
+    shell.pushContent(
+      const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+    );
+    await tester.pumpAndSettle();
+    final surface = tester.getRect(find.byKey(const ValueKey('mobile-root')));
+    final header = tester.getRect(_header);
+    final bar = tester.getRect(_bar);
+    final page = tester.getRect(
+      find.byKey(const ValueKey('mobile-content-panel')),
+    );
+    for (final y in [
+      page.center.dy,
+      surface.top + 1,
+      header.center.dy,
+      page.top + 1,
+      page.bottom - 1,
+      bar.center.dy,
+      surface.bottom - 1,
+    ]) {
+      for (final back in [true, false]) {
+        final live = find.byKey(const ValueKey('mobile-content-panel'));
+        final origin = tester.getTopLeft(live);
+        final gesture = await tester.startGesture(
+          Offset(back ? surface.left + 1 : surface.right - 1, y),
+        );
+        await gesture.moveBy(
+          Offset(back ? 120 : -120, 0),
+          timeStamp: const Duration(milliseconds: 200),
+        );
+        await tester.pump();
+        expect(
+          tester.getTopLeft(live).dx - origin.dx,
+          closeTo(back ? 120 : -9.6, .001),
+          reason: '${back ? "Back" : "Forward"} at height $y',
+        );
+        expect(tester.getRect(_header), header);
+        expect(tester.getRect(_bar), bar);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, back ? 'latest' : 'users');
+      }
+    }
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    for (final y in [surface.top + 1, surface.bottom - 1]) {
+      await tester.dragFrom(Offset(surface.left + 1, y), const Offset(120, 0));
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(tester.getRect(_header), header);
+      await tester.dragFrom(
+        Offset(surface.right - 1, y),
+        const Offset(-120, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(tester.getRect(_header), header);
+      expect(tester.getRect(_bar), bar);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('root edge swipes open and close navigation across mobile tabs', (
     tester,
   ) async {

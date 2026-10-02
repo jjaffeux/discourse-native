@@ -17,6 +17,7 @@ Future<_HistoryHarnessState> _pump(
   bool tabTransitions = false,
   bool roundedPanel = false,
   bool livePreviews = false,
+  bool framed = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -32,6 +33,7 @@ Future<_HistoryHarnessState> _pump(
         tabTransitions: tabTransitions,
         roundedPanel: roundedPanel,
         livePreviews: livePreviews,
+        framed: framed,
       ),
     ),
   );
@@ -56,6 +58,53 @@ Future<TestGesture> _drag(
 
 void main() {
   for (final direction in TextDirection.values) {
+    testWidgets('frame edges navigate without moving chrome in $direction', (
+      tester,
+    ) async {
+      final state = await _pump(tester, direction: direction, framed: true);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      final header = find.text('Header action');
+      final footer = find.text('Footer action');
+      final headerRect = tester.getRect(header);
+      final footerRect = tester.getRect(footer);
+      final page = tester.getRect(_live);
+      final rtl = direction == TextDirection.rtl;
+      for (final y in [1.0, page.center.dy, 599.0]) {
+        for (final back in [true, false]) {
+          final fromRight = back ? rtl : !rtl;
+          final gesture = await tester.startGesture(
+            Offset(fromRight ? 399 : 1, y),
+          );
+          await gesture.moveBy(
+            Offset(fromRight ? -140 : 140, 0),
+            timeStamp: const Duration(milliseconds: 200),
+          );
+          await tester.pump();
+          expect(
+            tester.getTopLeft(_live).dx - page.left,
+            closeTo((fromRight ? -1 : 1) * (back ? 140 : 11.2), .001),
+          );
+          expect(tester.getRect(header), headerRect);
+          expect(tester.getRect(footer), footerRect);
+          final preview = tester.widget<RawImage>(find.byType(RawImage)).image!;
+          expect(
+            preview.width / preview.height,
+            closeTo(page.width / page.height, .003),
+          );
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(state.index, back ? 0 : 1);
+        }
+      }
+      expect(state.swipes, 6);
+      expect(state.chromeTaps, 0);
+      await tester.tap(header);
+      await tester.tap(footer);
+      expect(state.chromeTaps, 2);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('back and forward follow the finger in $direction', (
       tester,
     ) async {
@@ -563,10 +612,12 @@ class _HistoryHarness extends StatefulWidget {
     this.tabTransitions = false,
     this.roundedPanel = false,
     this.livePreviews = false,
+    this.framed = false,
   });
   final bool tabTransitions;
   final bool roundedPanel;
   final bool livePreviews;
+  final bool framed;
 
   @override
   State<_HistoryHarness> createState() => _HistoryHarnessState();
@@ -576,6 +627,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   final scroll = ScrollController();
   final previewFocus = FocusNode();
   int previewTaps = 0;
+  int chromeTaps = 0;
   Object history = Object();
   int index = 0;
   int furthest = 0;
@@ -621,6 +673,32 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
     child: ColoredBox(
       color: const Color(0xFF00FF00),
       child: DHistoryTransition(
+        frameBuilder: widget.framed
+            ? (context, page) => Column(
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DButton(
+                      label: const Text('Header action'),
+                      onPressed: () => chromeTaps++,
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: page,
+                    ),
+                  ),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: DButton(
+                      label: const Text('Footer action'),
+                      onPressed: () => chromeTaps++,
+                    ),
+                  ),
+                ],
+              )
+            : null,
         history: history,
         tabIndex: tabIndex,
         tabOwner: tabOwner,
