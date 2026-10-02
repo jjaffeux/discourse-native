@@ -17,6 +17,39 @@ const _shortCategory = GifCategory(
 );
 
 void main() {
+  for (final terminalFirstPage in [true, false]) {
+    test('terminal zero does not restart the first page '
+        '(first page: $terminalFirstPage)', () async {
+      final api = FakeDiscourseApi(
+        gifSearchPages: {
+          FakeDiscourseApi.gifSearchKey('go'): GifSearchPage(
+            results: const [_catResult],
+            nextPosition: terminalFirstPage ? '0' : 'cursor/24',
+          ),
+          FakeDiscourseApi.gifSearchKey('go', position: 'cursor/24'):
+              GifSearchPage(results: const [_dogResult], nextPosition: '0'),
+        },
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+
+      await controller.selectCategory(_shortCategory);
+      if (!terminalFirstPage) await controller.loadMore();
+      await controller.loadMore();
+      await controller.loadMore();
+
+      expect(controller.canLoadMore, isFalse);
+      expect(
+        controller.results,
+        terminalFirstPage ? const [_catResult] : const [_catResult, _dogResult],
+      );
+      expect(
+        api.gifSearchRequests.map((request) => request.position),
+        terminalFirstPage ? ['0'] : ['0', 'cursor/24'],
+      );
+    });
+  }
+
   group('search admission and ordering', () {
     testWidgets('requires at least three typed characters', (tester) async {
       final api = _ControllableGifsApi();

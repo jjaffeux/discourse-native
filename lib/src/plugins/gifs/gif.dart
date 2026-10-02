@@ -99,10 +99,14 @@ final class GifSearchPage {
   factory GifSearchPage({
     required List<GifResult> results,
     String? nextPosition,
-  }) => GifSearchPage._(
-    results: List.unmodifiable(results),
-    nextPosition: jsonText(nextPosition),
-  );
+  }) {
+    final next = jsonText(nextPosition);
+    return GifSearchPage._(
+      results: List.unmodifiable(results),
+      // KLIPY's canonical zero is the initial position, not a continuation.
+      nextPosition: next == '0' ? null : next,
+    );
+  }
 
   const GifSearchPage._({required this.results, this.nextPosition});
 
