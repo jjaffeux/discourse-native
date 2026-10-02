@@ -24,6 +24,30 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  testWidgets('a 48-character emoji theme name saves through the editor', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
+    final name = '${'a' * 47}🧵';
+    await tester.enterText(find.byKey(const ValueKey('theme-name')), name);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('theme-save')))
+          .onPressed,
+      isNotNull,
+    );
+    await tapVisible(tester, find.byKey(const ValueKey('theme-save')));
+    expect(find.byType(ForumThemeEditor), findsNothing);
+    expect(shell.forumSettings.themesFor(site).customThemes.single.name, name);
+    final restored = await shell.forumSettings.store.loadThemes(site);
+    expect(restored.customThemes.single.name, name);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('theme mode and preset apply only to the current forum', (
     tester,
   ) async {

@@ -24,6 +24,31 @@ void main() {
     'name': 'My night',
   }, id: 'custom-night');
 
+  test(
+    'the 48-character theme name bound counts graphemes when restored',
+    () async {
+      final store = ForumSettingsStore.memory();
+      for (final character in ['a', '🧵', '🇫🇷', '👩🏽‍💻', 'e\u0301']) {
+        final name = character * 48;
+        final theme = ForumTheme.fromJson({
+          ...custom.toJson(),
+          'name': ' $name ',
+        }, id: 'custom-graphemes');
+        expect(theme.name, name);
+        final preferences = ForumThemePreferences().save(theme);
+        await store.writeThemes(site, preferences);
+        expect(await store.loadThemes(site), preferences);
+        expect(
+          () => ForumTheme.fromJson({
+            ...custom.toJson(),
+            'name': character * 49,
+          }, id: 'custom-too-long'),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
   test('the forum default keeps the chosen presets and saved theme', () {
     final chosen = ForumThemePreferences()
         .withPreset(Brightness.dark, 'dracula')
