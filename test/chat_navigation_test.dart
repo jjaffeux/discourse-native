@@ -774,6 +774,17 @@ void main() {
           chatChannelsById: const {21: _unlistedChannel},
           chatThreadsByKey: {
             FakeDiscourseApi.chatThreadKey(9, 3): _thread(9, 3),
+            FakeDiscourseApi.chatThreadKey(21, 3): _thread(21, 3),
+          },
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+              channels: [_unlistedChannel],
+            ),
+          },
+          chatChannelThreadPagesByKey: {
+            FakeDiscourseApi.chatChannelThreadPageKey(21, 0): ChatThreadPage(
+              threads: [_thread(21, 3)],
+            ),
           },
         );
         final gated = ShellController(
@@ -795,6 +806,126 @@ void main() {
         addTearDown(gated.dispose);
         await gated.load();
         return (gated, gatedApi);
+      }
+
+      for (final directory in [true, false]) {
+        for (final movement in [
+          'unchanged',
+          'tab before repaint',
+          'tab after repaint',
+          'route before repaint',
+        ]) {
+          final moved = movement != 'unchanged';
+          final switchedTab = movement.startsWith('tab');
+          testWidgets(
+            'held ${directory ? 'browse' : 'channel'} thread row $movement',
+            (tester) async {
+              final gate = Completer<void>();
+              addTearDown(() {
+                if (!gate.isCompleted) gate.complete();
+              });
+              final (gated, gatedApi) = await gatedShell(
+                channelDetailGate: gate,
+              );
+              await gated.chat.loadChannels(_site);
+              gated.accountActivity.applyCounts(
+                _site,
+                (_) => chatNotificationTotals(),
+              );
+              gated.desktopTopicTabs = true;
+              if (!directory) {
+                await gated.chat.loadChannelThreads(
+                  _site,
+                  21,
+                  directoryChannel: _unlistedChannel,
+                );
+              }
+              final routeId = directory
+                  ? ChatPlugin.myThreadsRouteId
+                  : ChatPlugin.channelThreadsRouteId(21);
+              void openList() => gated.selectDestination(
+                SidebarDestination(
+                  id: routeId,
+                  label: 'Threads',
+                  icon: DIcons.comments,
+                ),
+              );
+              openList();
+              final sourceTab = gated.activeTabId!;
+              gated.createTab();
+              final otherTab = gated.activeTabId!;
+              openList();
+              gated.selectTab(sourceTab);
+              tester.view.physicalSize = const Size(1000, 900);
+              tester.view.devicePixelRatio = 1;
+              addTearDown(tester.view.reset);
+              await tester.pumpWidget(
+                ShellScope(
+                  controller: gated,
+                  child: MaterialApp(
+                    theme: AppTheme.light.copyWith(
+                      platform: TargetPlatform.macOS,
+                    ),
+                    home: Scaffold(
+                      body: MainContent(layout: ShellLayout.forWidth(1000)),
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              final row = find.byKey(
+                ValueKey(
+                  directory ? 'chat-my-thread-3' : 'chat-channel-thread-3',
+                ),
+              );
+              expect(row, findsOneWidget);
+              final rowElement = tester.element(row);
+              await tester.tap(row);
+              await tester.pump();
+              expect(gatedApi.heldChannelDetails, [21]);
+              if (switchedTab) {
+                gated.selectTab(otherTab);
+                expect(gated.currentContent?.id, routeId);
+                if (movement == 'tab after repaint') {
+                  await tester.pumpAndSettle();
+                }
+              } else if (moved) {
+                gated.selectDestination(
+                  gated.currentInstance!.defaultDestination,
+                );
+              }
+              if (movement.endsWith('before repaint')) {
+                expect(rowElement.mounted, isTrue);
+              }
+              final destinationRoute = gated.currentContent!.id;
+              final before = gated.tabsForCurrentForum
+                  .map((tab) => (tab.id, tab.currentContent.id))
+                  .toList();
+              gate.complete();
+              await tester.pumpAndSettle();
+              expect(gated.activeTabId, switchedTab ? otherTab : sourceTab);
+              expect(
+                gated.currentContent?.id,
+                moved ? destinationRoute : 'chat-c-21-t-3',
+              );
+              if (moved) {
+                expect(
+                  gated.tabsForCurrentForum.map(
+                    (tab) => (tab.id, tab.currentContent.id),
+                  ),
+                  before,
+                );
+                expect(gated.chatNavigation.value, isNull);
+              } else {
+                expect(
+                  gated.currentWorkspace!.tabById(otherTab)!.currentContent.id,
+                  routeId,
+                );
+              }
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
       }
 
       test('a direct Chat URL opens full-page', () async {
@@ -2110,6 +2241,8 @@ final class _ChannelDetailGateApi extends FakeDiscourseApi {
     super.chatChannelsBySite,
     super.chatChannelsById,
     super.chatThreadsByKey,
+    super.chatBrowsePagesByKey,
+    super.chatChannelThreadPagesByKey,
     this.channelDetailGate,
   });
 

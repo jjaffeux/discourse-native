@@ -87,6 +87,7 @@ final class ChatShellService
   DiscourseUser? get currentUser => _host.currentInstance?.user;
   NotificationTotals? get currentTotals => _host.currentTotals;
   ContentRoute? get currentContent => _host.currentContent;
+  String? get activeTabId => _host.activeTabId;
   bool get fullPageChatActive =>
       ChatPlugin.ownsRouteId(_host.currentContent?.id);
   int? get visibleChannelId {
