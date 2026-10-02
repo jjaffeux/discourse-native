@@ -119,10 +119,6 @@ void main() {
         capture.start();
         position.pointerScroll(delta);
         await tester.pump(const Duration(milliseconds: 16));
-        expect(
-          position.viewportDimension,
-          closeTo(initialHeight + (delta > 0 ? delta : 0), 0.01),
-        );
         for (var frame = 0; frame < 16; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
         }
@@ -138,7 +134,7 @@ void main() {
         expect(position.pixels, initialPixels + (delta > 0 ? 40 : 0));
         expect(
           position.viewportDimension,
-          closeTo(initialHeight + (delta > 0 ? delta : 0), 0.01),
+          closeTo(initialHeight + (delta > 0 ? 104 : 0), 0.01),
         );
       }
       debugPrint('HEADER_SCROLL_COUNTS $totals repeated=${repeated.length}');

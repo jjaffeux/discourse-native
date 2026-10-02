@@ -8,8 +8,9 @@ final pageSurfaceExamples = ComponentExamples(
   description: 'The shared page frame, tabs, reading width and scroll header.',
   notes:
       'DPageSurface owns the Card border and clipping, persistent tabs and footer, '
-      'and the retracting header. The header follows scroll distance down and up '
-      'without easing, including in reversed chat lists. Reaching the top reveals it. '
+      'and the retracting header. A few pixels animate the header down or up; '
+      'hiding requires scroll speed, so slow reads keep the controls visible. '
+      'This also works in reversed chat lists. Reaching the top reveals it. '
       'Focused header controls remain visible. '
       'Programmatic restoration and '
       'nested or horizontal scrolling do not retract it. Changing identity resets '

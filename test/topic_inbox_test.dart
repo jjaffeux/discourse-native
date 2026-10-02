@@ -308,7 +308,7 @@ void main() {
           scrollDelta: Offset(0, delta),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
     }
 
     await wheel(reader, 240);
@@ -317,8 +317,9 @@ void main() {
     expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     final hiddenReaderTop = tester.getTopLeft(reader).dy;
     await wheel(reader, -20);
-    expect(tester.getTopLeft(reader).dy, closeTo(hiddenReaderTop + 20, 0.001));
-    expect(title.hitTestable(), findsNothing);
+    expect(tester.getTopLeft(reader).dy, greaterThan(hiddenReaderTop));
+    expect(tester.getTopLeft(reader).dy, readerTop);
+    expect(title.hitTestable(), findsOneWidget);
     await wheel(reader, -220);
     expect(title.hitTestable(), findsOneWidget);
     expect(tester.getTopLeft(reader).dy, readerTop);
