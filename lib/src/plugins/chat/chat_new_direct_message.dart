@@ -235,8 +235,11 @@ class _ChatNewDirectMessageDialogState
     });
   }
 
-  Future<void> _select(ChatDirectMessageSearchItem item) async {
-    if (!_checkSession() || _opening || !item.enabled) return;
+  bool _acceptsResult(int generation) =>
+      _checkSession() && !_opening && !_searching && generation == _generation;
+
+  Future<void> _select(ChatDirectMessageSearchItem item, int generation) async {
+    if (!_acceptsResult(generation) || !item.enabled) return;
     if (_composingGroup) {
       _addMember(item);
       return;
@@ -753,6 +756,7 @@ class _ChatNewDirectMessageDialogState
       };
 
   Widget _buildResults({required bool fill}) {
+    final generation = _generation;
     final query = _search.text.trim();
     final results = [
       if (!_opening && !_searching)
@@ -828,7 +832,9 @@ class _ChatNewDirectMessageDialogState
                   appL10n.createAGroupChat,
                   key: const ValueKey('chat-new-group-direct-message'),
                 ),
-                onSelected: (_) => _startGroup(),
+                onSelected: (_) {
+                  if (_acceptsResult(generation)) _startGroup();
+                },
               ),
             ],
           ),
@@ -844,6 +850,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   DCommandItem<String> _result(ChatDirectMessageSearchItem item) {
+    final generation = _generation;
     final (key, title, detail, leading) = switch (item) {
       final ChatDirectMessageUser user => (
         'chat-new-direct-message-user-${user.username}',
@@ -900,7 +907,7 @@ class _ChatNewDirectMessageDialogState
                 _ => const Text(''),
               },
       ),
-      onSelected: (_) => unawaited(_select(item)),
+      onSelected: (_) => unawaited(_select(item, generation)),
       child: Padding(
         key: ValueKey(key),
         padding: const EdgeInsets.symmetric(vertical: DSpacing.xs),
