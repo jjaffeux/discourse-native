@@ -19,6 +19,8 @@ class ComposerHeader extends StatelessWidget {
     required this.minimized,
     required this.onClose,
     required this.closeTooltip,
+    this.closeMenuOpen,
+    this.onCloseMenuOpenChanged,
     this.onMinimize,
     this.onRestore,
     this.placement = ComposerPlacement.right,
@@ -36,6 +38,8 @@ class ComposerHeader extends StatelessWidget {
   final bool minimized;
   final VoidCallback onClose;
   final String closeTooltip;
+  final bool? closeMenuOpen;
+  final ValueChanged<bool>? onCloseMenuOpenChanged;
   final VoidCallback? onMinimize;
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
@@ -226,6 +230,8 @@ class ComposerHeader extends StatelessWidget {
           spacing: DSpacing.controlGap,
           children: [
             DDropdownMenu(
+              open: closeMenuOpen,
+              onOpenChange: (open, _) => onCloseMenuOpenChanged?.call(open),
               content: DDropdownMenuContent(
                 semanticLabel: context.l10n.composerActions,
                 children: [

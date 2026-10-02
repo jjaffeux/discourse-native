@@ -67,6 +67,7 @@ class _ComposerEntry {
   _ComposerEntry(this.composer);
   final ComposerController composer;
   final surfaceKey = GlobalKey();
+  bool closeMenuOpen = false;
   bool minimized = false;
   bool moving = false;
   Size size = const Size(420, 380);
@@ -166,6 +167,19 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     unawaited(_place(entry, _previousDockPlacement, focusEditor: false));
   }
 
+  Future<void> _showMobileCloseMenu(_ComposerEntry entry) async {
+    final duration = DMotion.duration(context, DMotion.change);
+    // The retained sheet starts returning on the next frame. Open its anchored
+    // menu once the header is back, including when the keyboard is visible.
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(duration);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || _mobileSheetEntry != entry || entry.composer.isDisposed) {
+      return;
+    }
+    setState(() => entry.closeMenuOpen = true);
+  }
+
   Future<void> _place(
     _ComposerEntry entry,
     ComposerPlacement placement, {
@@ -222,6 +236,11 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!entry.composer.isDisposed) entry.composer.focus.requestFocus();
         });
+      },
+      onCloseMenuOpenChanged: (open) {
+        if (mounted && entry.closeMenuOpen != open) {
+          setState(() => entry.closeMenuOpen = open);
+        }
       },
     );
   }
@@ -287,12 +306,9 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                 },
                 child: DSheetViewport(
                   key: ObjectKey(mobileSheet.composer),
-                  onDismiss: () => unawaited(
-                    closeComposerFromPanel(
-                      context: context,
-                      composer: mobileSheet.composer,
-                    ),
-                  ),
+                  // Retain the sheet so a swipe restores it and asks the user
+                  // to choose an action, just like the header close button.
+                  onDismiss: () => unawaited(_showMobileCloseMenu(mobileSheet)),
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,
@@ -745,6 +761,7 @@ class _ComposerSurface extends StatelessWidget {
     required this.onExitFullScreen,
     required this.onMinimize,
     required this.onRestore,
+    required this.onCloseMenuOpenChanged,
   });
   final _ComposerEntry entry;
   final ComposerPlacement placement;
@@ -752,6 +769,7 @@ class _ComposerSurface extends StatelessWidget {
   final Size size;
   final ValueChanged<ComposerPlacement> onPlacement;
   final VoidCallback onMinimize, onRestore, onExitFullScreen;
+  final ValueChanged<bool> onCloseMenuOpenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -778,6 +796,8 @@ class _ComposerSurface extends StatelessWidget {
                   maxHeight: minimized ? entry.size.height : size.height,
                   child: ComposerPanel(
                     composer: composer,
+                    closeMenuOpen: mobile ? entry.closeMenuOpen : null,
+                    onCloseMenuOpenChanged: onCloseMenuOpenChanged,
                     height: minimized ? entry.size.height : size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,
