@@ -18,6 +18,7 @@ import 'bookmark_ui.dart';
 import 'hover_action_toolbar.dart';
 import 'platform.dart';
 import 'post_action.dart';
+import 'post_action_owner.dart';
 import 'post_flag_editor.dart';
 import 'post_notice_editor.dart';
 import 'post_permanent_delete.dart';
@@ -183,7 +184,18 @@ class _PostActionsState extends State<PostActions> {
     if (!open && !_pointerInside) _closeNow();
   }
 
-  void _invokeFrom(PostAction action, BuildContext anchorContext) {
+  void _invokeFrom(
+    PostAction action,
+    BuildContext anchorContext,
+    PostActionOwner owner,
+  ) {
+    if (!owner.isCurrent(
+      context,
+      siteUrl: widget.siteUrl,
+      postId: widget.post.id,
+    )) {
+      return;
+    }
     final anchored = action.onInvokeAnchored;
     final anchor = anchored == null
         ? null
@@ -774,12 +786,19 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Widget _buildActionList(BuildContext context, List<PostAction> actions) {
+    final owner = PostActionOwner.capture(
+      context,
+      siteUrl: widget.siteUrl,
+      postId: widget.post.id,
+    );
+    void invoke(PostAction action, BuildContext anchorContext) =>
+        _invokeFrom(action, anchorContext, owner);
     if (widget.persistent) {
       final child = _PostActionsScope(
         actions: actions,
         menu: _menu,
         firstFocus: _firstActionFocus,
-        onInvoke: _invokeFrom,
+        onInvoke: invoke,
         postNumber: widget.post.postNumber,
         child: CallbackShortcuts(
           bindings: {
@@ -829,7 +848,7 @@ class _PostActionsState extends State<PostActions> {
               actions: actions,
               firstActionFocus: _firstActionFocus,
               onOverflowChanged: _overflowChanged,
-              onInvoke: _invokeFrom,
+              onInvoke: invoke,
             ),
           ),
         ),
