@@ -98,11 +98,11 @@ final class GroupMemberAdditionController extends ChangeNotifier {
     if (_disposed) return;
     _query = value;
     _error = null;
+    _results = const [];
     _debounce?.cancel();
     final request = ++_sequence;
+    _searching = value.trim().length >= 2;
     if (value.trim().length < 2) {
-      _results = const [];
-      _searching = false;
       notifyListeners();
       return;
     }

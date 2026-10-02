@@ -104,6 +104,37 @@ void main() {
   });
 
   group('GroupMemberAdditionController', () {
+    test(
+      'query changes retire results before a replacement search runs',
+      () async {
+        final replacement = Completer<List<FoundUser>>();
+        final controller = GroupMemberAdditionController(
+          searchDebounce: Duration.zero,
+          searchUsers: (query) async => query == 'sam'
+              ? const [FoundUser(username: 'sam')]
+              : replacement.future,
+          addMembers: (_, _) async => const GroupMembershipMutationResult(),
+        );
+        addTearDown(controller.dispose);
+        controller.search('sam');
+        await _flushTimers();
+        controller.toggleUsername('sam', selected: true);
+        controller.toggleEmail('selected@example.com', selected: true);
+
+        controller.search('alice');
+        expect(controller.results, isEmpty);
+        expect(controller.searching, isTrue);
+        expect(controller.selectedUsernames, {'sam'});
+        expect(controller.selectedEmails, {'selected@example.com'});
+        await _flushTimers();
+        expect(controller.results, isEmpty);
+        replacement.complete(const [FoundUser(username: 'alice')]);
+        await _flushTimers();
+        expect(controller.results, const [FoundUser(username: 'alice')]);
+        expect(controller.searching, isFalse);
+      },
+    );
+
     test('a failed search clears progress and allows a retry', () async {
       var attempts = 0;
       final controller = GroupMemberAdditionController(
