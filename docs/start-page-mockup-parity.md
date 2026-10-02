@@ -30,7 +30,7 @@ The live reference was inspected at mobile width and in a narrow desktop panel.
 | Row appearance | Different card and row paths | One Native row path with footer fill, one-line reading-font title, tinted type/category mark, and trailing metadata; unread and Due badges use the accent |
 | Empty sections | Body shortcuts | Header shortcuts remain available without loading every directory |
 | Search on Start | Server search popup | Desktop chrome field filters cached Start contents in place and shows result / no-match text; queries belong to their tabs and matches are selected before trimming bookmark previews |
-| Header scrolling | Entire page header scrolls with the body | Retract the title on deliberate scroll while keeping the control bar visible |
+| Header scrolling | Entire page header scrolls with the body | Retract the title on deliberate scroll while keeping the control bar visible with 16px top padding; restore the title at both scroll limits |
 | First visit | Panel tutorial ahead of sections | Same launcher surface as subsequent visits; no tutorial card |
 
 The mobile logo-only Start heading follows the requested mobile treatment;
@@ -69,3 +69,11 @@ presentation cases failed identically on unchanged main (`b4924e909`):
 “Result dismissal clears filters from every search scope”. Both expect a chat
 search result absent from that baseline. These are existing failures; merged
 Start-page tests and targeted analysis remain clean.
+
+The control bar owns its 16px top spacing so it remains inset when the title
+retracts. Start enables `DPageSurface.revealHeaderAtEnd` to restore the title at
+the bottom, including when the returning mobile dock reduces the viewport.
+The owned page scroller does not inherit the shell's primary controller;
+otherwise multiple attached iOS scroll positions disable the 14px fade beneath
+the header. Regressions cover both scroll limits, wheel and touch input,
+light/dark renders, content anchoring, and the fade's rendered pixels.

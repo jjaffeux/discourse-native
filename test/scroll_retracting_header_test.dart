@@ -11,6 +11,7 @@ Future<void> _mount(
   ScrollController? controller,
   bool reducedMotion = false,
   bool reverse = false,
+  bool revealHeaderAtEnd = false,
   Object? identity,
   int count = 100,
   FocusNode? focusNode,
@@ -24,6 +25,7 @@ Future<void> _mount(
         child: Scaffold(
           body: DPageSurface(
             hideHeaderOnScroll: true,
+            revealHeaderAtEnd: revealHeaderAtEnd,
             framed: false,
             identity: identity,
             header: SizedBox(
@@ -231,6 +233,74 @@ void main() {
   );
 
   for (final reverse in [false, true]) {
+    testWidgets(
+      'optional bottom reveal stays visible through viewport changes (reverse: $reverse)',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 600);
+        addTearDown(controller.dispose);
+        await _mount(
+          tester,
+          controller: controller,
+          reverse: reverse,
+          revealHeaderAtEnd: true,
+        );
+        final body = find.byKey(_body);
+        await _wheel(tester, 100);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+
+        controller.jumpTo(
+          reverse ? 5 : controller.position.maxScrollExtent - 5,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+        await _wheel(tester, 1);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 80);
+
+        // Header/dock reappearance changes the available viewport. Continuing
+        // the same downward intent must not immediately retract the title.
+        await _mount(
+          tester,
+          controller: controller,
+          reverse: reverse,
+          revealHeaderAtEnd: true,
+          headerHeight: 120,
+        );
+        await _wheel(tester, 8);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 120);
+
+        await _wheel(tester, -200);
+        await tester.pumpAndSettle();
+        await _wheel(tester, 60);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+        await _wheel(tester, 10000);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 120);
+
+        // Programmatic restoration starts a new reading position.
+        controller.jumpTo(600);
+        await tester.pumpAndSettle();
+        await _wheel(tester, 60);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('bottom reveal remains opt-in (reverse: $reverse)', (
+      tester,
+    ) async {
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller, reverse: reverse);
+      await _wheel(tester, 10000);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+    });
+
     testWidgets(
       'reaching the physical top reveals below the trigger (reverse: $reverse)',
       (tester) async {

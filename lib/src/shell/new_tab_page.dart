@@ -454,6 +454,7 @@ class NewTabPage extends StatelessWidget {
     return DPageSurface(
       framed: false,
       hideHeaderOnScroll: true,
+      revealHeaderAtEnd: true,
       scrollBody: true,
       identity: (siteUrl, ForumTabScope.idOf(context)),
       header: Padding(
@@ -461,12 +462,12 @@ class NewTabPage extends StatelessWidget {
           16,
           shell?.desktopPanelsEnabled == true ? 4 : 16,
           16,
-          16,
+          0,
         ),
         child: title,
       ),
       headerControls: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 8,

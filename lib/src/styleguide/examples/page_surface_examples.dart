@@ -11,6 +11,8 @@ final pageSurfaceExamples = ComponentExamples(
       'and the retracting header. A few pixels animate the header down or up; '
       'hiding requires scroll speed, so slow reads keep the controls visible. '
       'This also works in reversed chat lists. Reaching the top reveals it. '
+      'revealHeaderAtEnd also reveals it at the physical bottom and keeps it '
+      'visible through viewport changes until scrolling back up. '
       'Focused header controls remain visible. '
       'headerControls places a persistent bar below a retracting title and '
       'reserves the full header space so the body does not move. '
@@ -41,6 +43,7 @@ final pageSurfaceExamples = ComponentExamples(
       ],
       code: '''DPageSurface(
   hideHeaderOnScroll: true,
+  revealHeaderAtEnd: true,
   scrollBody: true,
   identity: selectedPage,
   limitContentSize: limited,
@@ -70,6 +73,7 @@ class _PageExampleState extends State<_PageExample> {
   @override
   Widget build(BuildContext context) => DPageSurface(
     hideHeaderOnScroll: true,
+    revealHeaderAtEnd: true,
     scrollBody: true,
     identity: _page,
     limitContentSize: _limited,
