@@ -2,9 +2,11 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -57,6 +59,97 @@ void main() {
     expect(offsets(), [0, 20, 20]);
     expect(find.text('Try again'), findsOneWidget);
   });
+
+  for (final closeOriginal in [false, true]) {
+    testWidgets(
+      'same-site search rebinds its retained State while the old session is '
+      '${closeOriginal ? 'closed' : 'open'}',
+      (tester) async {
+        final originalApi = FakeDiscourseApi(
+          user: _user,
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('deploy'): ChatSearchPage(
+              hits: [_hit(1)],
+            ),
+          },
+        );
+        final replacementApi = FakeDiscourseApi(
+          user: _user,
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('saved'): ChatSearchPage(
+              hits: [_hit(2)],
+            ),
+            FakeDiscourseApi.chatSearchKey('next'): ChatSearchPage(
+              hits: [_hit(3)],
+            ),
+          },
+        );
+        final original = await _createController(originalApi);
+        final replacement = await _createController(replacementApi);
+        final selected = ValueNotifier(original);
+        addTearDown(selected.dispose);
+        await tester.pumpWidget(
+          ValueListenableBuilder<ShellController>(
+            valueListenable: selected,
+            builder: (_, shell, _) => _searchWidget(shell),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final viewState = tester.state(find.byType(ChatSearchView));
+        final field = find.byKey(const ValueKey('chat-search-field'));
+        await tester.enterText(field, 'deploy');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(find.text('deploy 1', findRichText: true), findsOneWidget);
+
+        final search = replacement.pluginSession.require(
+          chatSearchControllerService,
+        );
+        search.setGlobalQuery(_site, 'saved');
+        selected.value = replacement;
+        await tester.pumpAndSettle();
+        if (closeOriginal) await original.pluginSession.close();
+        expect(tester.state(find.byType(ChatSearchView)), same(viewState));
+        final editor = find.descendant(
+          of: field,
+          matching: find.byType(EditableText),
+        );
+        final reboundQuery = tester
+            .widget<EditableText>(editor)
+            .controller
+            .text;
+
+        await tester.enterText(field, 'next');
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(search.globalState(_site).query, 'next');
+        expect(reboundQuery, 'saved');
+        expect(search.globalState(_site).hits.map((hit) => hit.message.id), [
+          3,
+        ]);
+        expect(find.text('deploy 1', findRichText: true), findsNothing);
+        expect(find.text('deploy 3', findRichText: true), findsOneWidget);
+        expect(originalApi.chatSearchesRequested.map((query) => query.query), [
+          'deploy',
+        ]);
+
+        final requests = replacementApi.chatSearchesRequested.length;
+        await replacement.pluginSession
+            .require(chatShellService)
+            .hydratePluginRoute(_site, ChatPlugin.searchRouteId, force: true);
+        await tester.pumpAndSettle();
+        expect(replacementApi.chatSearchesRequested, hasLength(requests + 1));
+        expect(replacementApi.chatSearchesRequested.last.query, 'next');
+        if (!closeOriginal) {
+          await original.pluginSession
+              .require(chatShellService)
+              .hydratePluginRoute(_site, ChatPlugin.searchRouteId, force: true);
+          expect(originalApi.chatSearchesRequested, hasLength(1));
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 ChatSearchHit _hit(int id) => ChatSearchHit(
@@ -75,7 +168,7 @@ ChatSearchHit _hit(int id) => ChatSearchHit(
   excerpt: 'deploy $id',
 );
 
-Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+Future<ShellController> _createController(FakeDiscourseApi api) async {
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -88,17 +181,22 @@ Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
   );
   addTearDown(controller.dispose);
   await controller.load();
-  await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: PluginUiScope.own(
-        chatPluginId,
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(body: ChatSearchView(siteUrl: _site)),
-        ),
-      ),
+  return controller;
+}
+
+Widget _searchWidget(ShellController controller) => ShellScope(
+  controller: controller,
+  child: PluginUiScope.own(
+    chatPluginId,
+    MaterialApp(
+      theme: AppTheme.light,
+      home: const Scaffold(body: ChatSearchView(siteUrl: _site)),
     ),
-  );
+  ),
+);
+
+Future<void> _pump(WidgetTester tester, FakeDiscourseApi api) async {
+  final controller = await _createController(api);
+  await tester.pumpWidget(_searchWidget(controller));
   await tester.pumpAndSettle();
 }
