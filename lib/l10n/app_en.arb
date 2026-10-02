@@ -3435,6 +3435,10 @@
   "@inviteVoiceAgent": {
     "description": "English UI message used by plugins/voice/voice_agent_invite.dart. Keep placeholders intact."
   },
+  "voiceAgentDeployHint": "Ensure your LiveKit agent is deployed before adding it to this call.",
+  "@voiceAgentDeployHint": {
+    "description": "Reminder in the voice agent invitation dialog that the named LiveKit agent must already be deployed before it can join the call."
+  },
   "chooseADeployedAgentOrEnterItsDispatchName": "Choose a deployed agent or enter its dispatch name.",
   "@chooseADeployedAgentOrEnterItsDispatchName": {
     "description": "English UI message used by plugins/voice/voice_agent_invite.dart. Keep placeholders intact."

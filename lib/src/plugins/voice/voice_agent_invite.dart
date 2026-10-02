@@ -148,6 +148,9 @@ class _VoiceAgentInviteDialogState extends State<VoiceAgentInviteDialog> {
             children: [
               DDialogTitle(child: Text(context.l10n.inviteAgent)),
               DDialogDescription(
+                child: Text(context.l10n.voiceAgentDeployHint),
+              ),
+              DDialogDescription(
                 child: Text(
                   context.l10n.chooseADeployedAgentOrEnterItsDispatchName,
                 ),
