@@ -377,7 +377,10 @@ class VoiceRoom {
     id: jsonInt(json['id']),
     name: jsonText(json['name']) ?? appL10n.voiceRoom,
     slug: jsonText(json['slug']) ?? '',
-    description: jsonText(json['description']),
+    description: switch (json['description']) {
+      final String raw => raw,
+      _ => null,
+    },
     cookedDescription: jsonText(json['cooked_description']),
     descriptionExcerpt: jsonText(json['description_excerpt']),
     isPublic: json['public'] == true,

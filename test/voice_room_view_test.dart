@@ -1887,6 +1887,97 @@ void main() {
   });
 
   group('editor and dialog lifecycle', () {
+    for (final change in ['name', 'video']) {
+      testWidgets(
+        'room editor preserves untouched Markdown when changing $change',
+        (tester) async {
+          const description = '    code\n\nParagraph hard break  \nnext line\n';
+          final wireRoom =
+              _joinPayload(
+                    _room(
+                      canManage: true,
+                      participants: const [
+                        VoiceParticipant(
+                          id: 1,
+                          username: 'sam',
+                          role: VoiceRole.moderator,
+                        ),
+                      ],
+                    ),
+                  )['room']
+                  as Map<String, dynamic>;
+          wireRoom['description'] = description;
+          final transport = RecordingPluginTransport(
+            responses: {
+              'GET /voice/rooms.json': {
+                'rooms': [wireRoom],
+              },
+              'POST /voice/rooms/7/join.json': {
+                'room': wireRoom,
+                'transport': 'mesh',
+                'ice': {'servers': <Object?>[]},
+              },
+              'POST /voice/rooms/7/state.json': const {},
+              'DELETE /voice/rooms/7/leave.json': const {},
+              'PUT /voice/rooms/7.json': {'room': wireRoom},
+            },
+          );
+          final harness = _Harness(discourseApi: transport);
+          addTearDown(harness.dispose);
+          await harness.controller.ensureLoaded(_siteUrl);
+          final decoded = harness.controller.room(_siteUrl, 7)!;
+          await _join(harness, decoded);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: VoiceRoomView(
+                  roomId: 7,
+                  controller: harness.controller,
+                  shell: _voiceShell(
+                    harness.controller,
+                    site: const PluginRouteSite(
+                      url: _siteUrl,
+                      title: 'Voice',
+                      isConnected: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Edit room'));
+          await tester.pumpAndSettle();
+          if (change == 'name') {
+            await tester.enterText(
+              find.widgetWithText(DInput, 'Name'),
+              'New room name',
+            );
+          } else {
+            await tester.ensureVisible(find.text('Allow video'));
+            await tester.tap(find.text('Allow video'));
+          }
+          await tester.tap(find.widgetWithText(DButton, 'Save changes'));
+          await tester.pumpAndSettle();
+          final write = transport.writes.singleWhere(
+            (write) => write.method == 'PUT',
+          );
+          expect(write.apiKey, 'key');
+          expect(write.path, '/voice/rooms/7.json');
+          expect((write.body['room'] as Map)['description'], description);
+          expect(
+            (write.body['room'] as Map)['name'],
+            change == 'name' ? 'New room name' : 'Lounge',
+          );
+          if (change == 'video') {
+            expect((write.body['room'] as Map)['video_enabled'], isTrue);
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.dispose();
+        },
+      );
+    }
     for (final rollback in [false, true]) {
       for (final framed in [false, true]) {
         testWidgets(
@@ -2176,6 +2267,30 @@ void main() {
       await tester.ensureVisible(field);
       await tester.enterText(field, value);
       await tester.pumpAndSettle();
+    }
+
+    for (final description in [
+      '    code\n\nA hard break  \nnext line\n',
+      '  \n',
+    ]) {
+      testWidgets(
+        'new room description keeps its raw ${description.trim().isEmpty ? 'blank' : 'Markdown'} source',
+        (tester) async {
+          final harness = _Harness();
+          addTearDown(harness.dispose);
+          await openEditor(tester, harness);
+          await enter(tester, 'Name', '  Community lounge  ');
+          await tester.enterText(find.byType(DTextarea), description);
+          await tester.tap(find.widgetWithText(DButton, 'Create room'));
+          await tester.pumpAndSettle();
+          final write = harness.transport.writes.single;
+          expect(write.method, 'POST');
+          expect(write.path, '/voice/rooms.json');
+          expect((write.body['room'] as Map)['description'], description);
+          expect((write.body['room'] as Map)['name'], 'Community lounge');
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets('creates a room with defaults and no advanced setup', (

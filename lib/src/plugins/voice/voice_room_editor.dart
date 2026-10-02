@@ -352,7 +352,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
     widget.dialog.close(
       VoiceRoomDraft(
         name: _name.text.trim(),
-        description: _description.text.trim(),
+        description: _description.text,
         isPublic: _isPublic,
         type: _stage ? VoiceRoomType.stage : VoiceRoomType.open,
         videoEnabled: _video,
