@@ -51,8 +51,8 @@ class AiTopicSummary {
 
   static AiTopicSummary? fromJson(Map<String, dynamic> json) {
     final summary = jsonObject(json['ai_topic_summary']);
-    final text = jsonText(summary['summarized_text']);
-    if (text == null) return null;
+    final text = summary['summarized_text'];
+    if (text is! String || text.trim().isEmpty) return null;
     return AiTopicSummary(
       text: text,
       algorithm: jsonText(summary['algorithm']),
