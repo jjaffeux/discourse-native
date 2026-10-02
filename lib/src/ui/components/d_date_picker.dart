@@ -1103,6 +1103,7 @@ class DTimeInput extends StatefulWidget {
     super.key,
     this.initialValue,
     this.onChanged,
+    this.onValidityChanged,
     this.label,
     this.enabled = true,
     this.includeSeconds = true,
@@ -1110,6 +1111,10 @@ class DTimeInput extends StatefulWidget {
   });
   final DTimeValue? initialValue;
   final ValueChanged<DTimeValue?>? onChanged;
+
+  /// Reports whether the edited text is empty or a valid wall-clock time.
+  /// Invalid text keeps the last value and does not invoke [onChanged].
+  final ValueChanged<bool>? onValidityChanged;
   final String? label;
   final bool enabled, includeSeconds;
   final double width;
@@ -1127,6 +1132,7 @@ class _DTimeInputState extends State<DTimeInput> {
   void _changed(String text) {
     final value = text.trim().isEmpty ? null : DTimeValue.tryParse(text);
     setState(() => _invalid = text.trim().isNotEmpty && value == null);
+    widget.onValidityChanged?.call(!_invalid);
     if (!_invalid) widget.onChanged?.call(value);
   }
 

@@ -489,14 +489,30 @@ void main() {
     tester,
   ) async {
     final changes = <DTimeValue?>[];
-    await pump(tester, DTimeInput(onChanged: changes.add));
+    final validity = <bool>[];
+    await pump(
+      tester,
+      DTimeInput(onChanged: changes.add, onValidityChanged: validity.add),
+    );
     await tester.enterText(find.byType(TextField), '25:00:00');
     await tester.pump();
     expect(changes, isEmpty);
+    expect(validity, [false]);
     expect(find.text('Enter a valid time'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '08:30:15');
     await tester.pump();
     expect(changes.last, const DTimeValue(hour: 8, minute: 30, second: 15));
+    expect(validity, [false, true]);
+
+    await tester.enterText(find.byType(TextField), '08:30:99');
+    await tester.pump();
+    expect(changes, [const DTimeValue(hour: 8, minute: 30, second: 15)]);
+    expect(validity.last, isFalse);
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(changes.last, isNull);
+    expect(validity.last, isTrue);
   });
 }

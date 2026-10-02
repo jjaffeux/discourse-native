@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
@@ -419,32 +420,68 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
   );
 
   Future<void> _chooseDate(String name) async {
-    final held = DateTime.tryParse(_fields[name]!.text) ?? DateTime.now();
-    final first = DateTime(1900);
-    final last = DateTime(2200);
-    final day = await showDatePicker(
-      context: context,
-      initialDate: held.isBefore(first)
-          ? first
-          : held.isAfter(last)
-          ? last
-          : held,
-      firstDate: first,
-      lastDate: last,
-    );
-    if (day == null || !mounted) return;
+    final source = _fields[name]!.text;
+    final timezone = _fields['timezone']!.text.trim();
     final allDay = _booleans['all-day']!;
-    final time = allDay
-        ? null
-        : await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(held),
+    final zones = widget.controller?.zones;
+    final existing = allDay
+        ? eventCalendarDay(source.trim())
+        : zones == null
+        ? _literalPickerDate(source.trim())
+        : eventDate(
+            source.trim(),
+            zones: zones,
+            timezone: timezone,
+            showLocalTime: true,
           );
-    if (!mounted || (!allDay && time == null)) return;
-    String two(int value) => value.toString().padLeft(2, '0');
+    final location = zones?.location(timezone);
+    final now = DateTime.now();
+    final held =
+        existing ??
+        eventCalendarDay(source.trim()) ??
+        (location == null ? now : tz.TZDateTime.from(now, location));
+    final originalDay = DCalendarDate.fromDateTime(held);
+    final first = DCalendarDate(1900, 1, 1);
+    final last = DCalendarDate(2200, 1, 1);
+    final initialDay = originalDay.isBefore(first)
+        ? first
+        : originalDay.isAfter(last)
+        ? last
+        : originalDay;
+    final initialTime = allDay
+        ? null
+        : DTimeValue(hour: held.hour, minute: held.minute, second: held.second);
+    final selected = await showDDialog<_EventPickerSelection>(
+      context: context,
+      builder: (context, dialog) => _EventDateTimePicker(
+        day: initialDay,
+        time: initialTime,
+        first: first,
+        last: last,
+        allDay: allDay,
+        dialog: dialog,
+      ),
+    );
+    if (selected == null ||
+        !mounted ||
+        !widget.isCurrent() ||
+        _fields[name]!.text != source ||
+        _fields['timezone']!.text.trim() != timezone ||
+        _booleans['all-day'] != allDay) {
+      return;
+    }
+    // Keep seconds, fractional precision and the chosen side of a DST fold.
+    // Re-serializing an unchanged offset instant as a wall time loses these.
+    if (!allDay &&
+        existing != null &&
+        selected.day == originalDay &&
+        selected.time == initialTime) {
+      return;
+    }
+    final time = selected.time;
     _fields[name]!.text =
-        '${day.year}-${two(day.month)}-${two(day.day)}'
-        '${time == null ? '' : ' ${two(time.hour)}:${two(time.minute)}'}';
+        '${selected.day}'
+        '${time == null ? '' : ' ${time.format(includeSeconds: time.second != 0)}'}';
   }
 
   @override
@@ -632,6 +669,103 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
       actions: actions,
     );
   }
+}
+
+// Without a timezone host, retain the written calendar and clock fields rather
+// than letting DateTime.parse convert an explicit offset to the device clock.
+DateTime? _literalPickerDate(String source) {
+  final day = eventCalendarDay(source);
+  final clock = RegExp(
+    r'[T ](\d{2}:\d{2}(?::\d{2})?)(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$',
+    caseSensitive: false,
+  ).firstMatch(source);
+  final time = clock == null ? null : DTimeValue.tryParse(clock[1]!);
+  if (day == null || time == null) return null;
+  return DateTime.utc(
+    day.year,
+    day.month,
+    day.day,
+    time.hour,
+    time.minute,
+    time.second,
+  );
+}
+
+typedef _EventPickerSelection = ({DCalendarDate day, DTimeValue? time});
+
+class _EventDateTimePicker extends StatefulWidget {
+  const _EventDateTimePicker({
+    required this.day,
+    required this.time,
+    required this.first,
+    required this.last,
+    required this.allDay,
+    required this.dialog,
+  });
+
+  final DCalendarDate day;
+  final DTimeValue? time;
+  final DCalendarDate first, last;
+  final bool allDay;
+  final DDialogController<_EventPickerSelection> dialog;
+
+  @override
+  State<_EventDateTimePicker> createState() => _EventDateTimePickerState();
+}
+
+class _EventDateTimePickerState extends State<_EventDateTimePicker> {
+  late DCalendarDate? _day = widget.day;
+  late DTimeValue? _time = widget.time;
+  bool _timeValid = true;
+
+  @override
+  Widget build(BuildContext context) => DDialogContent(
+    semanticLabel: context.l10n.chooseDateAndTime,
+    children: [
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.chooseDateAndTime))],
+      ),
+      DDatePicker.controlled(
+        key: const ValueKey('event-picker-date'),
+        value: _day,
+        onChanged: (day) => setState(() => _day = day),
+        label: context.l10n.date,
+        width: double.infinity,
+        startMonth: widget.first,
+        endMonth: widget.last,
+        disabled: (day) =>
+            day.isBefore(widget.first) || day.isAfter(widget.last),
+        closeBehavior: DDatePickerCloseBehavior.onSelection,
+      ),
+      if (!widget.allDay)
+        DTimeInput(
+          key: const ValueKey('event-picker-time'),
+          initialValue: widget.time,
+          label: context.l10n.time,
+          width: double.infinity,
+          onChanged: (time) => setState(() => _time = time),
+          onValidityChanged: (valid) => setState(() => _timeValid = valid),
+        ),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: Text(context.l10n.cancel),
+            onPressed: widget.dialog.close,
+          ),
+          DButton(
+            key: const ValueKey('event-picker-apply'),
+            label: Text(context.l10n.apply),
+            variant: DButtonVariant.primary,
+            onPressed:
+                _day == null ||
+                    (!widget.allDay && (!_timeValid || _time == null))
+                ? null
+                : () => widget.dialog.close((day: _day!, time: _time)),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 final class EventSubmitPreparer implements PluginComposerSubmitPreparer {
