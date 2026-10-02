@@ -825,6 +825,7 @@ class _AddGroupMembersSheet extends StatefulWidget {
 
 class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
   late final GroupMemberAdditionController controller;
+  bool _rejectedSelection = false;
 
   @override
   void initState() {
@@ -861,11 +862,25 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
     final usernames = choices
         .where((choice) => choice.username != null)
         .map((choice) => choice.username!)
+        // The combobox can deliver its previous options before the rebuild
+        // for a query edit. Keep existing chips, but admit new usernames only
+        // from the controller's current search results.
+        .where(
+          (username) =>
+              controller.selectedUsernames.contains(username) ||
+              controller.results.any((user) => user.username == username),
+        )
         .toSet();
     final emails = choices
         .where((choice) => choice.email != null)
         .map((choice) => choice.email!)
+        .where(
+          (email) =>
+              controller.selectedEmails.contains(email) ||
+              (controller.queryIsEmail && email == controller.normalizedEmail),
+        )
         .toSet();
+    _rejectedSelection = choices.length != usernames.length + emails.length;
     for (final username in {...controller.selectedUsernames, ...usernames}) {
       controller.toggleUsername(
         username,
@@ -875,6 +890,18 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
     for (final email in {...controller.selectedEmails, ...emails}) {
       controller.toggleEmail(email, selected: emails.contains(email));
     }
+  }
+
+  void _queryChanged(String query, DComboboxChangeReason reason) {
+    // A rejected old option must not clear the replacement query or cancel
+    // its lookup when the combobox resets text after a selection attempt.
+    final rejectedReset =
+        _rejectedSelection &&
+        query.isEmpty &&
+        (reason == DComboboxChangeReason.keyboard ||
+            reason == DComboboxChangeReason.itemPress);
+    _rejectedSelection = false;
+    if (!rejectedReset) controller.search(query);
   }
 
   @override
@@ -892,6 +919,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
         children: [
           DCombobox<_GroupMemberChoice>.multipleControlled(
             value: _selectedChoices(),
+            query: controller.query,
             options: [
               for (final choice in choices)
                 DComboboxOption(
@@ -910,7 +938,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
             filterLocally: false,
             closeOnSelect: false,
             enabled: !controller.saving,
-            onQueryChanged: (query, _) => controller.search(query),
+            onQueryChanged: _queryChanged,
             onValuesChanged: (values, _) => _selectionChanged(values),
             anchor: DComboboxChips<_GroupMemberChoice>(
               input: DComboboxChipsInput<_GroupMemberChoice>(
