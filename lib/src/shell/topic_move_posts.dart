@@ -23,11 +23,15 @@ Future<void> showTopicMovePosts({
         (category) => category.permission == null || category.permission == 1,
       )
       .toList();
-  final destinationUrl = await showDialog<String>(
+  final dialogKey = GlobalKey<_TopicMovePostsDialogState>();
+  final destinationUrl = await showDDialog<String>(
     context: context,
-    barrierDismissible: false,
-    builder: (context) => _TopicMovePostsDialog(
+    dismissOnBarrier: false,
+    canDismiss: () => !(dialogKey.currentState?._saving ?? false),
+    builder: (context, dialog) => _TopicMovePostsDialog(
+      key: dialogKey,
       controller: controller,
+      onClose: dialog.close,
       target: target,
       topic: topic,
       selectedPosts: selectedPosts,
@@ -56,7 +60,9 @@ enum _MoveMode { newTopic, existingTopic }
 
 class _TopicMovePostsDialog extends StatefulWidget {
   const _TopicMovePostsDialog({
+    super.key,
     required this.controller,
+    required this.onClose,
     required this.target,
     required this.topic,
     required this.selectedPosts,
@@ -64,6 +70,7 @@ class _TopicMovePostsDialog extends StatefulWidget {
   });
 
   final ShellController controller;
+  final ValueChanged<String?> onClose;
   final TopicPostMoveTarget target;
   final TopicDetail topic;
   final List<Post> selectedPosts;
@@ -142,7 +149,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   }
 
   Future<void> _move() async {
-    if (_saving) return;
+    if (!_canSubmit) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -168,95 +175,107 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
       });
       return;
     }
-    Navigator.of(context).pop(result.destinationUrl);
+    _saving = false;
+    widget.onClose(result.destinationUrl);
   }
 
   bool get _canSubmit =>
       !_saving &&
       switch (_mode) {
         _MoveMode.newTopic => _title.text.trim().isNotEmpty,
-        _MoveMode.existingTopic => _destination != null,
+        _MoveMode.existingTopic =>
+          !_searching &&
+              _destination != null &&
+              _destinations.contains(_destination),
       };
 
   @override
   Widget build(BuildContext context) {
     final count = widget.selectedPosts.length;
-    return AlertDialog(
+    return DDialogContent(
       key: const ValueKey('topic-move-posts-dialog'),
-      title: Text(context.l10n.movePosts),
-      content: SizedBox(
-        width: 560,
-        height: 430,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      semanticLabel: context.l10n.movePosts,
+      showCloseButton: false,
+      maxWidth: 608,
+      children: [
+        DDialogHeader(
           children: [
-            Text(context.l10n.moveSelected(count)),
-            const SizedBox(height: 12),
-            DToggleGroup<_MoveMode>(
-              key: const ValueKey('topic-move-posts-mode'),
-              items: [
-                if (_canCreateNew)
-                  DToggleGroupItem(
-                    value: _MoveMode.newTopic,
-                    child: Text(
-                      _message
-                          ? context.l10n.newMessage
-                          : context.l10n.newTopic,
-                    ),
-                  ),
-                DToggleGroupItem(
-                  value: _MoveMode.existingTopic,
-                  child: Text(
-                    _message
-                        ? context.l10n.existingMessage
-                        : context.l10n.existingTopic,
-                  ),
-                ),
-              ],
-              values: [_mode],
-              allowEmptySelection: false,
-              variant: DToggleVariant.outline,
-              spacing: 0,
-              onChanged: _saving
-                  ? null
-                  : (selection) => setState(() {
-                      _mode = selection.single;
-                      _error = null;
-                    }),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: switch (_mode) {
-                _MoveMode.newTopic => _newTopicFields(),
-                _MoveMode.existingTopic => _existingTopicFields(),
-              },
-            ),
-            if (_error case final error?) ...[
-              const SizedBox(height: 8),
-              Text(
-                error,
-                key: const ValueKey('topic-move-posts-error'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
+            DDialogTitle(child: Text(context.l10n.movePosts)),
+            DDialogDescription(child: Text(context.l10n.moveSelected(count))),
           ],
         ),
-      ),
-      actions: [
-        DButton(
-          label: Text(context.l10n.cancel),
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-        ),
-        DButton(
-          key: const ValueKey('topic-move-posts-submit'),
-          label: Text(
-            _mode == _MoveMode.newTopic
-                ? context.l10n.createAndMove
-                : context.l10n.movePosts,
+        SizedBox(
+          height: 430,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DToggleGroup<_MoveMode>(
+                key: const ValueKey('topic-move-posts-mode'),
+                items: [
+                  if (_canCreateNew)
+                    DToggleGroupItem(
+                      value: _MoveMode.newTopic,
+                      child: Text(
+                        _message
+                            ? context.l10n.newMessage
+                            : context.l10n.newTopic,
+                      ),
+                    ),
+                  DToggleGroupItem(
+                    value: _MoveMode.existingTopic,
+                    child: Text(
+                      _message
+                          ? context.l10n.existingMessage
+                          : context.l10n.existingTopic,
+                    ),
+                  ),
+                ],
+                values: [_mode],
+                allowEmptySelection: false,
+                variant: DToggleVariant.outline,
+                spacing: 0,
+                onChanged: _saving
+                    ? null
+                    : (selection) => setState(() {
+                        _mode = selection.single;
+                        _error = null;
+                      }),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: switch (_mode) {
+                  _MoveMode.newTopic => _newTopicFields(),
+                  _MoveMode.existingTopic => _existingTopicFields(),
+                },
+              ),
+              if (_error case final error?)
+                DAlert(
+                  key: const ValueKey('topic-move-posts-error'),
+                  variant: DAlertVariant.destructive,
+                  description: DAlertDescription(child: Text(error)),
+                ),
+            ],
           ),
-          onPressed: _canSubmit ? () => unawaited(_move()) : null,
-          variant: DButtonVariant.primary,
-          loading: _saving,
+        ),
+        DDialogFooter(
+          children: [
+            DButton(
+              label: Text(context.l10n.cancel),
+              onPressed: _saving ? null : () => widget.onClose(null),
+              variant: DButtonVariant.outline,
+            ),
+            DButton(
+              key: const ValueKey('topic-move-posts-submit'),
+              label: Text(
+                _mode == _MoveMode.newTopic
+                    ? context.l10n.createAndMove
+                    : context.l10n.movePosts,
+              ),
+              onPressed: _canSubmit ? () => unawaited(_move()) : null,
+              variant: DButtonVariant.primary,
+              loading: _saving,
+            ),
+          ],
         ),
       ],
     );
@@ -342,9 +361,13 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
             : DRadioGroup<TopicMoveDestination>.controlled(
                 groupValue: _destination,
                 enabled: !_saving,
-                onChanged: _saving
-                    ? (_) {}
-                    : (value) => setState(() => _destination = value),
+                onChanged: (value) {
+                  // A query edit can retire a row before the next frame hides it.
+                  if (_saving || _searching || !_destinations.contains(value)) {
+                    return;
+                  }
+                  setState(() => _destination = value);
+                },
                 child: ListView(
                   key: const ValueKey('topic-move-posts-results'),
                   children: [

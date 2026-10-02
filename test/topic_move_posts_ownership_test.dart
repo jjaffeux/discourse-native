@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_move_posts.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -45,6 +46,140 @@ const _nonregularPost = Post(
 );
 
 void main() {
+  testWidgets(
+    'Native move dialog scrolls in a narrow window and holds a move',
+    (tester) async {
+      final gate = Completer<String>();
+      final api = _MoveApi()..moveResponse = gate;
+      await _openDialog(tester, api);
+      await _prepare(tester, newTopic: true);
+      tester.view.physicalSize = const Size(390, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsOneWidget);
+      final dialog = find.byKey(_dialog);
+      expect(tester.getRect(dialog).left, greaterThanOrEqualTo(0));
+      expect(tester.getRect(dialog).right, lessThanOrEqualTo(390));
+      final submit = find.byKey(_submit);
+      expect(
+        find.descendant(of: find.byType(DDialogFooter), matching: submit),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(submit);
+      await _pressSubmit(tester);
+      expect(api.writes, hasLength(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(dialog, findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(
+              find.descendant(
+                of: dialog,
+                matching: find.widgetWithText(DButton, 'Cancel'),
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+      gate.complete('/t/destination/99');
+      await tester.pumpAndSettle();
+      expect(dialog, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('new topic move remains available during destination search', (
+    tester,
+  ) async {
+    final api = _MoveApi()..searchResponse = Completer<SearchResults>();
+    await _openDialog(tester, api);
+    await _prepare(tester, newTopic: true);
+    await tester.tap(find.text('Existing topic'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(_search), 'Destination');
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(api.searches, hasLength(1));
+    await tester.tap(find.text('New topic'));
+    await tester.pump();
+    expect(tester.widget<DButton>(find.byKey(_submit)).onPressed, isNotNull);
+    await _pressSubmit(tester);
+    await tester.pumpAndSettle();
+    expect(api.movedTopicPosts.single.title, 'A new topic');
+    expect(api.movedTopicPosts.single.destinationTopicId, isNull);
+    expect(find.byKey(_dialog), findsNothing);
+    api.searchResponse!.complete(_searchResults());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  for (final clearQuery in [false, true]) {
+    testWidgets('query edit rejects an old destination radio before rebuild '
+        '(clear: $clearQuery)', (tester) async {
+      final api = _MoveApi()
+        ..searchResponse = (Completer<SearchResults>()
+          ..complete(
+            SearchResults(
+              hits: [
+                for (final id in [99, 100])
+                  SearchPostHit(
+                    postId: id,
+                    topicId: id,
+                    postNumber: 1,
+                    topicTitle: 'Old destination $id',
+                    topicSlug: 'destination',
+                    username: 'author',
+                    excerpt: const SearchExcerpt([]),
+                  ),
+              ],
+            ),
+          ));
+      final shell = await _openDialog(tester, api);
+      await tester.tap(find.text('Existing topic'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(_search), 'Old destination');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      final old = find.byKey(
+        const ValueKey('topic-move-posts-destination-100'),
+      );
+      expect(old, findsOneWidget);
+      expect(tester.widget<DButton>(find.byKey(_submit)).onPressed, isNull);
+      final next = api.searchResponse = Completer<SearchResults>();
+      await tester.enterText(
+        find.byKey(_search),
+        clearQuery ? '' : 'New destination',
+      );
+      // Both real Native callbacks can run before the frame removes the rows.
+      await tester.tap(old);
+      await tester.pump();
+      await _pressSubmit(tester);
+      expect(api.writes, isEmpty);
+      expect(tester.widget<DButton>(find.byKey(_submit)).onPressed, isNull);
+      expect(find.byKey(_dialog), findsOneWidget);
+
+      if (clearQuery) {
+        await tester.enterText(find.byKey(_search), 'New destination');
+      }
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(api.searches.last.term, 'New destination');
+      expect(api.writes, isEmpty);
+      next.complete(_searchResults());
+      await tester.pumpAndSettle();
+      expect(find.text('Destination topic'), findsOneWidget);
+      await _pressSubmit(tester);
+      await tester.pumpAndSettle();
+      expect(api.movedTopicPosts.single.destinationTopicId, 99);
+      expect(api.movedTopicPosts.single.postIds, [1]);
+      expect(shell.currentTopic?.id, 99);
+      expect(find.byKey(_dialog), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
   for (final newTopic in [true, false]) {
     final mode = newTopic ? 'new topic' : 'existing topic';
 
