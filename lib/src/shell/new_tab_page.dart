@@ -373,6 +373,7 @@ class _NewTabPageState extends State<NewTabPage> {
                       if (forum != null) ForumIcon(forum: forum, size: 46),
                       Expanded(
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (siteUrl == null)
@@ -386,6 +387,8 @@ class _NewTabPageState extends State<NewTabPage> {
                               SiteEmojiText.plain(
                                 forum!.title,
                                 siteUrl: siteUrl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.headlineSmall,
@@ -393,11 +396,14 @@ class _NewTabPageState extends State<NewTabPage> {
                             if (forum != null)
                               DButton(
                                 key: const ValueKey('start-page-forum-website'),
-                                variant: DButtonVariant.link,
-                                size: DButtonSize.small,
+                                variant: DButtonVariant.inline,
+                                size: DButtonSize.chip,
+                                foregroundColor: DTokens.of(context).primary,
                                 isLink: true,
                                 label: Text(
                                   Uri.tryParse(forum.url)?.host ?? forum.url,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 onPressed: () =>
                                     unawaited(openExternalLink(forum.url)),

@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -43,6 +44,57 @@ Finder startPageItem(Key key) => find.descendant(
 );
 
 void main() {
+  for (final (platform, size) in [
+    (TargetPlatform.macOS, desktop),
+    (TargetPlatform.iOS, phone),
+  ]) {
+    testWidgets(
+      'forum header aligns its logo, title and compact website on $platform',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'discourse_native.panel_tutorial_dismissed': true,
+        });
+        await pumpShell(
+          tester,
+          size,
+          instances: [instance('dev.discourse.org', title: 'Discourse Dev')],
+        );
+        final shell = ShellScope.read(
+          tester.element(find.byType(MainContent).first),
+        );
+        shell.pushContent(ContentRoute.newTab());
+        await tester.pumpAndSettle();
+
+        final page = find.byType(NewTabPage).first;
+        final logo = tester.getRect(
+          find.descendant(of: page, matching: find.byType(ForumIcon)),
+        );
+        final title = tester.getRect(startPageText('Discourse Dev'));
+        final website = startPageItem(
+          const ValueKey('start-page-forum-website'),
+        );
+        final address = tester.getRect(
+          find.descendant(
+            of: website,
+            matching: find.text('dev.discourse.org'),
+          ),
+        );
+        final websiteRect = tester.getRect(website);
+        expect(address.left, title.left);
+        expect(title.left - logo.right, DSpacing.md);
+        expect(title.height, lessThan(logo.height));
+        expect(websiteRect.height, lessThanOrEqualTo(24));
+        expect(address.top - title.bottom, inInclusiveRange(0, DSpacing.xs));
+        expect(
+          logo.center.dy,
+          closeTo((title.top + websiteRect.bottom) / 2, 0.01),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   testWidgets('the app width setting applies to tab content', (tester) async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
