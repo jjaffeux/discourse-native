@@ -176,6 +176,36 @@ void main() {
   });
 
   testWidgets(
+    'pulling the date preview content past its edge dismisses the sheet',
+    (tester) async {
+      await open(tester, width: 320, scale: 2);
+      final drawer = find.byType(DDrawerContent);
+      final bounds = tester.getRect(drawer);
+      final area = find.byType(DDrawerScrollArea);
+      final scrollable = find.descendant(
+        of: area,
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(60);
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(
+        tester.getTopLeft(area) + const Offset(100, 30),
+      );
+      final distance = bounds.height * .6 + 90;
+      for (var step = 0; step < 30; step++) {
+        await gesture.moveBy(Offset(0, distance / 30));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      expect(tester.getTopLeft(drawer).dy, greaterThan(bounds.top));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(LocalDatePreviewSheet), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'large RTL text remains scrollable with an accessible close action',
     (tester) async {
       final key = await open(tester, width: 320, scale: 2, rtl: true);
