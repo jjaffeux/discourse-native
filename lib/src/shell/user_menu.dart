@@ -745,7 +745,7 @@ class _SectionBody extends StatelessWidget {
                       siteUrl: siteUrl,
                       userId: row.userId,
                       status: row.status,
-                      size: 18,
+                      size: DControlStyle.iconDimension(DControlSize.regular),
                     )
                   : null,
               detail: row.isDrafts && siteUrl != null
@@ -781,17 +781,20 @@ class _SectionBody extends StatelessWidget {
                   : null,
             ),
       if (section.isProfile) ...[
-        DButton(
-          key: const ValueKey('user-menu-row-about'),
-          variant: DButtonVariant.transparentBackground,
-          size: DButtonSize.large,
-          alignment: AlignmentDirectional.centerStart,
-          icon: const DIcon(DIcons.circleInfo),
-          label: Text(context.l10n.about),
-          onPressed: onAbout,
+        _RowTile(
+          row: UserMenuRow(DIcons.circleInfo, context.l10n.about, id: 'about'),
+          onTap: onAbout,
         ),
         DSeparator(color: theme.shell.divider, space: 17),
-        _DisconnectTile(host: host, onTap: onDisconnect),
+        _RowTile(
+          row: UserMenuRow(
+            DIcons.rightFromBracket,
+            context.l10n.disconnect,
+            id: 'disconnect',
+          ),
+          destructive: true,
+          onTap: onDisconnect,
+        ),
       ],
     ];
 
@@ -1332,105 +1335,49 @@ class _HidePresenceTile extends StatelessWidget {
 }
 
 class _RowTile extends StatelessWidget {
-  const _RowTile({required this.row, this.detail, this.onTap, this.leading});
+  const _RowTile({
+    required this.row,
+    this.detail,
+    this.onTap,
+    this.leading,
+    this.destructive = false,
+  });
 
   final UserMenuRow row;
   final String? detail;
   final VoidCallback? onTap;
   final Widget? leading;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = onTap == null ? theme.shell.placeholder : null;
     final rowKey = ValueKey('user-menu-row-${row.id ?? row.title}');
-    final tile = InkWell(
-      key: rowKey,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            children: [
-              leading ??
-                  DIcon(
-                    row.icon,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  row.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
-                ),
-              ),
-              if (detail case final detail?)
-                Text(
-                  detail,
-                  style: theme.textTheme.labelMedium?.copyWith(color: color),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: onTap == null
-          ? tile
-          : Semantics(
-              button: true,
-              label: [row.title, ?detail].join(', '),
-              onTap: onTap,
-              excludeSemantics: true,
-              child: tile,
+      child: DButton(
+        key: rowKey,
+        onPressed: onTap,
+        variant: DButtonVariant.transparentBackground,
+        alignment: AlignmentDirectional.centerStart,
+        foregroundColor: destructive
+            ? theme.colorScheme.error
+            : DTokens.of(context).foreground,
+        semanticLabel: [row.title, ?detail].join(', '),
+        icon: leading ?? DIcon(row.icon),
+        label: Row(
+          spacing: DSpacing.controlGap,
+          children: [
+            Expanded(
+              child: Text(
+                row.title,
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-    );
-  }
-}
-
-class _DisconnectTile extends StatelessWidget {
-  const _DisconnectTile({required this.host, required this.onTap});
-
-  final String? host;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          child: Row(
-            children: [
-              DIcon(
-                DIcons.rightFromBracket,
-                size: 18,
-                color: theme.colorScheme.error,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  context.l10n.disconnect,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            if (detail case final detail?) Text(detail),
+          ],
         ),
       ),
     );
@@ -1464,13 +1411,15 @@ Future<T?> _showAccountSheet<T>({
 }) => showDSheet<T>(
   context: context,
   side: DSheetSide.bottom,
+  inset: true,
+  fillAvailableHeight: true,
   builder: (context, controller) => DSheetContent(
     key: const ValueKey('user-menu-sheet'),
     side: DSheetSide.bottom,
     semanticLabel: title,
     showCloseButton: false,
     scrollWholeSheet: false,
-    topBottomMaxHeightFactor: .85,
+    topBottomMaxHeightFactor: 1,
     children: [
       DSheetHeader(
         children: [
