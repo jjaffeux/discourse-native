@@ -20,7 +20,9 @@ final buttonExamples = ComponentExamples(
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
       'Buttons use the theme’s control radius and no shadows. General desktop controls use 24/34/40px surfaces; mobile uses 40/44/48px '
       'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
-      'with a separate keyboard focus ring. All colors follow the forum palette.',
+      'with a separate keyboard focus ring. All colors follow the forum palette. '
+      'The avatar density gives icon-only profile triggers a 32px circle with a '
+      '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
     StyleguideExample(
       title: 'Application control sizes',
@@ -116,6 +118,16 @@ final buttonExamples = ComponentExamples(
             icon: const DIcon(DIcons.xmark),
             tooltip: 'Close',
             variant: DButtonVariant.transparentBackground,
+            onPressed: () {},
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.avatar,
+            variant: DButtonVariant.transparentBackground,
+            icon: const DAvatar(
+              border: false,
+              fallback: DAvatarFallback(child: Text('U')),
+            ),
+            tooltip: 'Profile',
             onPressed: () {},
           ),
         ],

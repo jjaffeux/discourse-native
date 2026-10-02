@@ -8,6 +8,73 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'avatar trigger keeps its border flush and target visible on $platform',
+      (tester) async {
+        var presses = 0;
+        for (final scale in [1.0, 2.0]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Scaffold(
+                  body: Center(
+                    child: DButton.iconOnly(
+                      density: DButtonDensity.avatar,
+                      variant: DButtonVariant.transparentBackground,
+                      tooltip: 'Profile',
+                      icon: const DAvatar(
+                        border: false,
+                        fallback: DAvatarFallback(child: Text('U')),
+                      ),
+                      onPressed: () => presses++,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final button = find.byType(DButton);
+          final bounds = tester.getRect(button);
+          expect(bounds.size, Size.square(32 * scale));
+          expect(tester.getRect(find.byType(DAvatar)), bounds.deflate(2));
+          expect(buttonSurface(tester).strokeWidth, 2);
+          expect(
+            buttonSurface(tester).borderColor,
+            DTokens.of(tester.element(button)).border,
+          );
+          final before = presses;
+          for (final point in [
+            bounds.centerLeft - const Offset(1, 0),
+            bounds.centerRight + const Offset(1, 0),
+            bounds.topCenter - const Offset(0, 1),
+            bounds.bottomCenter + const Offset(0, 1),
+          ]) {
+            await tester.tapAt(point);
+          }
+          expect(presses, before);
+          await tester.tapAt(bounds.topCenter + const Offset(0, 1));
+          await tester.pump();
+          expect(presses, before + 1);
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(buttonSurface(tester).ringWidth, greaterThan(0));
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(presses, 3);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets('back link matches mockup artwork on $platform', (
       tester,

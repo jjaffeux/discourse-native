@@ -1826,7 +1826,6 @@ class UserMenuAvatar extends StatelessWidget {
     required this.avatarUrl,
     required this.initial,
     required this.connecting,
-    this.size = 30,
   });
 
   final String? avatarUrl;
@@ -1834,46 +1833,36 @@ class UserMenuAvatar extends StatelessWidget {
   final String? initial;
 
   final bool connecting;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     if (connecting) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: const Padding(padding: EdgeInsets.all(4), child: DSpinner()),
+      return const DAvatar(
+        border: false,
+        child: Padding(padding: EdgeInsets.all(4), child: DSpinner()),
       );
     }
 
-    final fallback = ColoredBox(
-      color: initial == null
+    final fallback = DAvatarFallback(
+      backgroundColor: initial == null
           ? theme.colorScheme.surfaceContainerHighest
           : theme.colorScheme.primary,
-      child: Center(
-        child: initial == null
-            ? DIcon(
-                DIcons.user,
-                size: size * 0.6,
-                color: theme.colorScheme.onSurfaceVariant,
-              )
-            : Text(
-                initial!,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-      ),
+      foregroundColor: initial == null
+          ? theme.colorScheme.onSurfaceVariant
+          : theme.colorScheme.onPrimary,
+      child: initial == null
+          ? const DIcon(DIcons.user, size: 18)
+          : Text(initial!, style: const TextStyle(fontWeight: FontWeight.w700)),
     );
 
-    return DAvatar.frame(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: AvatarImage(url: avatarUrl, size: size, fallback: fallback),
+    return DAvatar(
+      border: false,
+      child: AvatarImage(
+        url: avatarUrl,
+        size: DAvatarSize.standard.dimension,
+        fallback: fallback,
       ),
     );
   }

@@ -27,14 +27,7 @@ typedef _AccountAvatarSnapshot = ({
 });
 
 class UserMenuButton extends StatefulWidget {
-  const UserMenuButton({
-    super.key,
-    this.size = 30,
-    this.ringColor,
-    this.compact = false,
-  });
-
-  final double size;
+  const UserMenuButton({super.key, this.ringColor, this.compact = false});
 
   final Color? ringColor;
 
@@ -160,7 +153,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       avatarUrl: account.avatarUrl,
                       initial: account.username?.characters.first.toUpperCase(),
                       connecting: connecting,
-                      size: widget.size,
                     ),
                     if (account.userStatus != null && !connecting)
                       PositionedDirectional(
@@ -251,11 +243,11 @@ class _AccountMenuPopover extends StatelessWidget {
         tooltip: connecting ? context.l10n.connecting : tooltip,
         semanticLabel: semanticLabel,
         variant: DButtonVariant.transparentBackground,
+        density: isProfile ? DButtonDensity.avatar : DButtonDensity.standard,
         size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
         shape: isProfile ? DButtonShape.pill : DButtonShape.rounded,
         backgroundColor: Colors.transparent,
         interactiveBackgroundColor: Colors.transparent,
-        borderColor: isProfile ? DTokens.of(context).border : null,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
