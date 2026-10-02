@@ -564,21 +564,25 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Future<void> _flag(List<PostFlagType> flagTypes) async {
     final chat = PluginUiScope.require(context, chatControllerService);
+    final siteUrl = widget.siteUrl;
+    final messageId = widget.message.id;
+    final username = widget.message.author.username;
+    final lease = chat.captureSession(siteUrl);
     await showShellSheet<void>(
       context: context,
       title: appL10n.thanksForKeepingOurCommunityCivil,
       dialogOnDesktop: true,
       builder: (sheetContext) => PostFlagEditor(
-        siteUrl: widget.siteUrl,
-        targetUsername: widget.message.author.username,
+        siteUrl: siteUrl,
+        targetUsername: username,
         flagTypes: flagTypes,
-        minimumMessageLength: chat.flagMessageMinimumLength(widget.siteUrl),
-        save: (type, {message}) => chat.flagMessage(
-          widget.siteUrl,
-          widget.message.id,
-          type,
-          message: message,
-        ),
+        minimumMessageLength: chat.flagMessageMinimumLength(siteUrl),
+        save: (type, {message}) async {
+          if (!lease.isCurrent) {
+            return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
+          }
+          return chat.flagMessage(siteUrl, messageId, type, message: message);
+        },
         onComplete: () => Navigator.of(sheetContext).pop(),
         submitLabel: appL10n.flagMessage,
         targetNoun: 'message',
