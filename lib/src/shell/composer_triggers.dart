@@ -22,7 +22,9 @@ enum ComposerTriggerKind {
   };
 
   int get maximum => switch (this) {
-    ComposerTriggerKind.mention => 30,
+    // Core caps usernames at 60 scalars even when combining marks make fewer
+    // visible characters. This also bounds group-name lookup terms.
+    ComposerTriggerKind.mention => 60,
     // Core's own cap on a hashtag ref.
     ComposerTriggerKind.hashtag => 101,
     ComposerTriggerKind.emoji => 30,
@@ -140,7 +142,10 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
     if (!kind.accepts(String.fromCharCode(rune))) return null;
   }
 
-  if (query.length < kind.minimum || query.length > kind.maximum) return null;
+  final queryLength = kind == ComposerTriggerKind.mention
+      ? query.runes.length
+      : query.length;
+  if (queryLength < kind.minimum || queryLength > kind.maximum) return null;
 
   return ComposerTrigger(kind: kind, query: query, start: sigil, end: caret);
 }
