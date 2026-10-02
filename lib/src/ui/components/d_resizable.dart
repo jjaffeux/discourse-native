@@ -658,11 +658,21 @@ class _HandleBinding extends InheritedWidget {
 /// standalone mode shares all interaction/painting with grouped panels.
 /// [reverse] grows a trailing pane when moving toward the logical start.
 class DResizableHandle extends StatefulWidget {
-  /// Width of the visible divider or grip, perpendicular to the resize axis.
+  /// A grip without a divider fills the workspace gutter along its full length.
+  static const double workspaceGutterExtent = 12;
+  static const double gripThickness = 4;
+  static const double gripLength = 36;
+
+  /// Width of the divider or workspace gutter, perpendicular to the resize axis.
   static double visualExtent({
     bool withHandle = false,
     double dividerThickness = 1,
-  }) => math.max(withHandle ? 4 : 0, dividerThickness);
+  }) => math.max(
+    withHandle
+        ? (dividerThickness == 0 ? workspaceGutterExtent : gripThickness)
+        : 0,
+    dividerThickness,
+  );
 
   const DResizableHandle({
     super.key,
@@ -744,7 +754,7 @@ class DResizableHandle extends StatefulWidget {
 
 class _DResizableHandleState extends State<DResizableHandle> {
   late FocusNode _focus = widget.focusNode ?? FocusNode();
-  bool _focused = false, _pending = false;
+  bool _focused = false, _pending = false, _hovered = false;
   double? _pendingValue;
   _HandleBinding? get _binding =>
       context.getInheritedWidgetOfExactType<_HandleBinding>();
@@ -921,13 +931,14 @@ class _DResizableHandleState extends State<DResizableHandle> {
       withHandle: widget.withHandle,
       dividerThickness: widget.dividerThickness,
     );
-    final gripOnly = widget.withHandle && widget.dividerThickness == 0;
     return Align(
       alignment: widget.dividerAlignment,
       child: SizedBox(
-        width: horizontal ? extent : (gripOnly ? 24 : null),
-        height: horizontal ? (gripOnly ? 24 : null) : extent,
+        width: horizontal ? extent : null,
+        height: horizontal ? null : extent,
         child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
           cursor: !enabled
               ? SystemMouseCursors.basic
               : horizontal
@@ -994,13 +1005,21 @@ class _DResizableHandleState extends State<DResizableHandle> {
                     line,
                     if (widget.withHandle)
                       place(
-                        4,
+                        DResizableHandle.gripThickness,
                         Center(
                           child: Container(
-                            width: horizontal ? 4 : 24,
-                            height: horizontal ? 24 : 4,
+                            width: horizontal
+                                ? DResizableHandle.gripThickness
+                                : DResizableHandle.gripLength,
+                            height: horizontal
+                                ? DResizableHandle.gripLength
+                                : DResizableHandle.gripThickness,
                             decoration: BoxDecoration(
-                              color: t.border,
+                              color:
+                                  enabled &&
+                                      (_hovered || _pending || focusVisible)
+                                  ? t.primary
+                                  : t.border,
                               borderRadius: BorderRadius.circular(t.radius),
                             ),
                           ),

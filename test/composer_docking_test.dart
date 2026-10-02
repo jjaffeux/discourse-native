@@ -559,8 +559,10 @@ void main() {
 
           expect(gap(), 12);
           final before = tester.getSize(editor);
-          await tester.drag(
-            find.byType(DResizableHandle),
+          final gutter = tester.getRect(find.byType(DResizableHandle));
+          expect(placement.isSide ? gutter.width : gutter.height, 12);
+          await tester.dragFrom(
+            Offset(gutter.left + .5, gutter.top + .5),
             placement.isSide
                 ? Offset(placement == ComposerPlacement.left ? 40 : -40, 0)
                 : const Offset(0, -40),
