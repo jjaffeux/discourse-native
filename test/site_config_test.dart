@@ -123,6 +123,27 @@ Map<String, dynamic> settings({
 };
 
 void main() {
+  test('incoming mute policy survives storage and plugin replacement', () {
+    for (final policy in ['always', 'only_muted', 'never']) {
+      final config = SiteConfig.fromSettings({
+        'remove_muted_tags_from_latest': policy,
+        'mute_all_categories_by_default': true,
+      });
+      expect(config.removeMutedTagsFromLatest, policy);
+      expect(config.muteAllCategoriesByDefault, isTrue);
+      expect(SiteConfig.fromJson(config.toJson()), config);
+      expect(config.withPlugins(config.plugins), config);
+    }
+    for (final config in [
+      const SiteConfig.unknown(),
+      SiteConfig.fromSettings(const {}),
+      SiteConfig.fromJson(const {}),
+    ]) {
+      expect(config.removeMutedTagsFromLatest, 'never');
+      expect(config.muteAllCategoriesByDefault, isFalse);
+    }
+  });
+
   test('homepage settings survive storage and plugin replacement', () {
     final config = SiteConfig.fromSettings(const {
       'default_homepage': 'top',

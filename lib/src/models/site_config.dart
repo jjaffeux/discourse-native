@@ -45,6 +45,8 @@ class SiteConfig {
     this.mentionsEnabled = true,
     this.smtpEnabled = false,
     this.taggingEnabled = true,
+    this.removeMutedTagsFromLatest = 'never',
+    this.muteAllCategoriesByDefault = false,
     this.maxTagSearchResults = defaultMaxTagSearchResults,
     this.usePgHeadlinesForExcerpt = false,
     this.showTimeGapDays = defaultShowTimeGapDays,
@@ -203,6 +205,10 @@ class SiteConfig {
       mentionsEnabled: json['enable_mentions'] != false,
       smtpEnabled: json['enable_smtp'] == true,
       taggingEnabled: json['tagging_enabled'] != false,
+      removeMutedTagsFromLatest:
+          jsonText(json['remove_muted_tags_from_latest']) ?? 'never',
+      muteAllCategoriesByDefault:
+          json['mute_all_categories_by_default'] == true,
       maxTagSearchResults: _positiveInt(
         json['max_tag_search_results'],
         defaultMaxTagSearchResults,
@@ -311,6 +317,9 @@ class SiteConfig {
     mentionsEnabled: json['mentionsEnabled'] != false,
     smtpEnabled: json['smtpEnabled'] == true,
     taggingEnabled: json['taggingEnabled'] != false,
+    removeMutedTagsFromLatest:
+        jsonText(json['removeMutedTagsFromLatest']) ?? 'never',
+    muteAllCategoriesByDefault: json['muteAllCategoriesByDefault'] == true,
     maxTagSearchResults: _positiveInt(
       json['maxTagSearchResults'],
       defaultMaxTagSearchResults,
@@ -397,6 +406,8 @@ class SiteConfig {
       'mentionsEnabled': mentionsEnabled,
       'smtpEnabled': smtpEnabled,
       'taggingEnabled': taggingEnabled,
+      'removeMutedTagsFromLatest': removeMutedTagsFromLatest,
+      'muteAllCategoriesByDefault': muteAllCategoriesByDefault,
       'maxTagSearchResults': maxTagSearchResults,
       'usePgHeadlinesForExcerpt': usePgHeadlinesForExcerpt,
       'showTimeGapDays': showTimeGapDays,
@@ -497,6 +508,10 @@ class SiteConfig {
   final bool mentionsEnabled;
   final bool smtpEnabled;
   final bool taggingEnabled;
+
+  /// Missing or unknown policies retain arrivals until settings confirm a mute.
+  final String removeMutedTagsFromLatest;
+  final bool muteAllCategoriesByDefault;
 
   /// `/tags/filter/search.json` returns 400 when `limit` exceeds this value.
   final int maxTagSearchResults;
@@ -670,6 +685,8 @@ class SiteConfig {
         mentionsEnabled: mentionsEnabled,
         smtpEnabled: smtpEnabled,
         taggingEnabled: taggingEnabled,
+        removeMutedTagsFromLatest: removeMutedTagsFromLatest,
+        muteAllCategoriesByDefault: muteAllCategoriesByDefault,
         maxTagSearchResults: maxTagSearchResults,
         usePgHeadlinesForExcerpt: usePgHeadlinesForExcerpt,
         showTimeGapDays: showTimeGapDays,
@@ -738,6 +755,8 @@ class SiteConfig {
       other.mentionsEnabled == mentionsEnabled &&
       other.smtpEnabled == smtpEnabled &&
       other.taggingEnabled == taggingEnabled &&
+      other.removeMutedTagsFromLatest == removeMutedTagsFromLatest &&
+      other.muteAllCategoriesByDefault == muteAllCategoriesByDefault &&
       other.maxTagSearchResults == maxTagSearchResults &&
       other.usePgHeadlinesForExcerpt == usePgHeadlinesForExcerpt &&
       other.showTimeGapDays == showTimeGapDays &&
@@ -804,6 +823,8 @@ class SiteConfig {
     mentionsEnabled,
     smtpEnabled,
     taggingEnabled,
+    removeMutedTagsFromLatest,
+    muteAllCategoriesByDefault,
     maxTagSearchResults,
     usePgHeadlinesForExcerpt,
     showTimeGapDays,
