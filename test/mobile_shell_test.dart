@@ -2082,6 +2082,146 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('root edge swipes open and close navigation across mobile tabs', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final header = tester.getRect(_header);
+    for (final tab in ['topics', 'start', 'panel/chat', 'messages', 'users']) {
+      await _tapDockTab(tester, tab);
+      expect(shell.mobileNavigation.tab.name, tab);
+      expect(shell.canPopContent, isFalse);
+      final history = shell.mobileNavigation.historyId;
+      final visit = shell.mobileNavigation.entryId;
+      final content = shell.currentContent;
+      final panel = tester.element(
+        find.byKey(const ValueKey('mobile-content-panel')),
+      );
+
+      final open = await tester.startGesture(const Offset(8, 400));
+      await open.moveBy(
+        const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(tester.getRect(_header), header);
+      await open.up();
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isTrue, reason: tab);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      expect(_bar, findsNothing);
+
+      final page = tester.getRect(
+        find.byKey(const ValueKey('mobile-navigation-page')),
+      );
+      final close = await tester.startGesture(Offset(page.right - 4, 400));
+      await close.moveBy(
+        const Offset(-120, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(tester.getRect(_header), header);
+      await close.up();
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse, reason: tab);
+      expect(shell.mobileNavigation.tab.name, tab);
+      expect(shell.mobileNavigation.historyId, same(history));
+      expect(shell.mobileNavigation.entryId, same(visit));
+      expect(shell.currentContent, same(content));
+      expect(shell.canPopContent, isFalse);
+      expect(shell.canForwardContent, isFalse);
+      expect(
+        tester.element(find.byKey(const ValueKey('mobile-content-panel'))),
+        same(panel),
+      );
+      _expectPage();
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('rail swipes preserve Back and Forward visits', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final root = shell.mobileNavigation.entryId;
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    final topic = shell.mobileNavigation.entryId;
+    final page = tester.getRect(
+      find.byKey(const ValueKey('mobile-content-panel')),
+    );
+    Future<void> swipe(bool right) async {
+      final gesture = await tester.startGesture(
+        Offset(right ? page.right - 4 : page.left + 4, 400),
+      );
+      await gesture.moveBy(
+        Offset(right ? -120 : 120, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await swipe(false);
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.mobileNavigation.entryId, same(root));
+    expect(shell.currentContent?.id, 'latest');
+    expect(shell.canForwardContent, isTrue);
+    await swipe(false);
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    await swipe(true);
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.mobileNavigation.entryId, same(root));
+    expect(shell.currentContent?.id, 'latest');
+    expect(shell.canForwardContent, isTrue);
+    await swipe(true);
+    expect(shell.mobileNavigation.entryId, same(topic));
+    expect(shell.currentContent?.topicId, 7);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    await swipe(true);
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.mobileNavigation.entryId, same(topic));
+    expect(shell.currentContent?.topicId, 7);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('short and cancelled rail swipes retain the current surface', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    final visit = shell.mobileNavigation.entryId;
+    final page = tester.getRect(
+      find.byKey(const ValueKey('mobile-content-panel')),
+    );
+    for (final open in [false, true]) {
+      if (open) {
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+      }
+      for (final cancel in [false, true]) {
+        final gesture = await tester.startGesture(
+          Offset(open ? page.right - 4 : page.left + 4, 400),
+        );
+        await gesture.moveBy(
+          Offset(open ? -30 : 30, 0),
+          timeStamp: const Duration(milliseconds: 400),
+        );
+        await tester.pump();
+        if (cancel) {
+          await gesture.cancel();
+        } else {
+          await gesture.up();
+        }
+        await tester.pumpAndSettle();
+        expect(shell.mobileNavigation.sidebarOpen, open);
+        expect(shell.mobileNavigation.entryId, same(visit));
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('topic feed refreshes redraw the list without the chrome', (
     tester,
   ) async {
