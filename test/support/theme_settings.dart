@@ -16,6 +16,7 @@ const _site = 'https://a.example';
 
 ShellController controller({
   Iterable<DiscourseInstance> instances = const [],
+  ForumSettingsStore? forumSettingsStore,
 }) => ShellController(
   instanceStore: FakeInstanceStore(instances),
   api: FakeDiscourseApi(),
@@ -23,7 +24,7 @@ ShellController controller({
   drafts: FakeDraftStore(),
   trackers: FakeSiteTracker.reset(),
   updateStore: FakeUpdateStore(),
-  forumSettingsStore: ForumSettingsStore.memory(),
+  forumSettingsStore: forumSettingsStore ?? ForumSettingsStore.memory(),
 );
 
 Future<void> pumpSettings(

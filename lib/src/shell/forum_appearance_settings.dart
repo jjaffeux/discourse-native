@@ -262,9 +262,21 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
     );
   }
 
-  Future<void> _saveEdit(ForumTheme theme) async {
-    await settings.setThemes(widget.siteUrl, _preferences.save(theme));
-    if (mounted) _edit(null);
+  Future<void> _saveEdit(ForumTheme theme, ForumTheme editor) async {
+    if (!identical(_editing, editor)) return;
+    final owner = settings;
+    final site = widget.siteUrl;
+    final draft = _draft;
+    await owner.setThemes(site, _preferences.save(theme));
+    // Persistence belongs to the submitted theme; closing belongs to the
+    // editor and draft that submitted it, which may have changed meanwhile.
+    if (mounted &&
+        identical(settings, owner) &&
+        widget.siteUrl == site &&
+        identical(_editing, editor) &&
+        identical(_draft, draft)) {
+      _edit(null);
+    }
   }
 
   @override
@@ -350,7 +362,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
                         _draft = draft;
                         _preview();
                       },
-                      onSave: _saveEdit,
+                      onSave: (theme) => _saveEdit(theme, editing),
                       onCancel: () => _edit(null),
                     )
                   else
