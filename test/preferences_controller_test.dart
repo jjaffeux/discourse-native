@@ -578,6 +578,89 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    for (final oldWriteFails in [false, true]) {
+      test('a reconnected account saves independently when its previous save '
+          '${oldWriteFails ? 'fails' : 'finishes'} late', () async {
+        final oldResponse = Completer<UserPreferences>();
+        final newResponse = Completer<UserPreferences>();
+        final saved = <UserPreferences>[];
+        late final _PreferencesApi api;
+        api = _PreferencesApi(
+          onUpdate: (_) =>
+              api.updates.length == 1 ? oldResponse.future : newResponse.future,
+        );
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          api,
+          lifecycle: lifecycle,
+          onSaved: (_, _, preferences) => saved.add(preferences),
+        );
+        addTearDown(controller.dispose);
+        final tasks = <Future<Object?>>[];
+        addTearDown(() async {
+          if (!oldResponse.isCompleted) oldResponse.complete(_initial);
+          if (!newResponse.isCompleted) newResponse.complete(_initial);
+          await Future.wait(tasks);
+        });
+        await _seed(controller);
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Europe/Paris'),
+        );
+        final oldSave = controller.save(_accountA, PreferenceSection.profile);
+        tasks.add(oldSave);
+        await pumpEventQueue();
+        expect(api.updates, hasLength(1));
+
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        final reload = controller.load(_accountA);
+        tasks.add(reload);
+        await pumpEventQueue();
+
+        expect(api.loads, hasLength(2));
+        expect(controller.stateFor(_siteUrl)?.loaded, isTrue);
+        await reload;
+        controller.edit(
+          _siteUrl,
+          PreferenceSection.profile,
+          (current) => current.copyWith(timezone: 'Asia/Tokyo'),
+        );
+        final newSave = controller.save(_accountA, PreferenceSection.profile);
+        tasks.add(newSave);
+        await pumpEventQueue();
+        expect(api.updates, hasLength(2));
+        expect(controller.stateFor(_siteUrl)?.pendingWrites, 1);
+
+        if (oldWriteFails) {
+          oldResponse.completeError(
+            const WriteException(WriteFailure.unreachable),
+          );
+        } else {
+          oldResponse.complete(_initial.copyWith(timezone: 'Europe/Paris'));
+        }
+        expect(await oldSave, isFalse);
+
+        final state = controller.stateFor(_siteUrl)!;
+        expect(state.pendingWrites, 1);
+        expect(state.saving, isTrue);
+        expect(state.draft?.timezone, 'Asia/Tokyo');
+        expect(state.confirmed?.timezone, 'Etc/UTC');
+        expect(state.error, isNull);
+        expect(saved, isEmpty);
+
+        newResponse.complete(_initial.copyWith(timezone: 'Asia/Tokyo'));
+        expect(await newSave, isTrue);
+        expect(controller.stateFor(_siteUrl)?.pendingWrites, 0);
+        expect(
+          controller.stateFor(_siteUrl)?.confirmed?.timezone,
+          'Asia/Tokyo',
+        );
+        expect(saved.single.timezone, 'Asia/Tokyo');
+      });
+    }
+
     for (final forget in [false, true]) {
       test(
         'a queued refresh cannot dispatch after ${forget ? 'forgetting its state' : 'account rotation'}',

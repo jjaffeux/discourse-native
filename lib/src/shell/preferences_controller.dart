@@ -173,7 +173,7 @@ final class PreferencesController extends FrameSafeNotifier {
 
       final preferences = await _operations.read(
         owner: api,
-        key: lane,
+        key: (lane: lane, session: lease.session),
         operation: () async {
           if (!_isCurrentLoad(lease, lane, request)) return null;
           return api.loadUserPreferences(
@@ -290,7 +290,7 @@ final class PreferencesController extends FrameSafeNotifier {
     try {
       final updated = await _operations.write(
         owner: api,
-        key: lane,
+        key: (lane: lane, session: lease.session),
         operation: () async {
           if (!_isCurrentSave(lease, saveKey, request)) return null;
           final session = await _readCredentials(lease, instance.url);
@@ -349,6 +349,7 @@ final class PreferencesController extends FrameSafeNotifier {
     } finally {
       final current = _states[instance.url];
       if (!isDisposed &&
+          lease.isCurrent &&
           current != null &&
           current.accountIdentity == lane.accountIdentity) {
         _states[instance.url] = current.copyWith(
