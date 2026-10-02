@@ -86,7 +86,7 @@ class ShellTitleBar extends StatelessWidget {
                 padding: EdgeInsetsDirectional.only(
                   end: stacked ? DSpacing.xs : DSpacing.sm,
                 ),
-                child: UserMenuButton(size: 26, ringColor: surface),
+                child: UserMenuButton(ringColor: surface),
               ),
           ];
           return SizedBox(

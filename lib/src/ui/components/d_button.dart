@@ -57,6 +57,11 @@ enum DButtonShape { rounded, pill }
 enum DButtonDensity {
   standard,
 
+  /// A 32px circular profile trigger with a 2px border against its avatar.
+  /// Use an icon-only button with a borderless DAvatar. The image fills the
+  /// interior; artwork and hit bounds grow with text.
+  avatar,
+
   /// Text-sized 12px metadata actions and links with no visible insets.
   /// Pair with the inline variant; targets exactly follow the label bounds.
   inlineMetadata,
@@ -646,6 +651,7 @@ class DButton extends StatelessWidget {
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
     final inlineMetadata = density == DButtonDensity.inlineMetadata;
+    final avatar = density == DButtonDensity.avatar;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
         _iconOnly &&
@@ -656,7 +662,11 @@ class DButton extends StatelessWidget {
         ? DButtonSize.toolbar
         : compactToolbar
         ? DButtonSize.small
-        : mobileNavigation || mobileDock || mobileDockAction || composerBlock
+        : avatar ||
+              mobileNavigation ||
+              mobileDock ||
+              mobileDockAction ||
+              composerBlock
         ? DButtonSize.regular
         : size;
     final fontSize = inlineMetadata
@@ -689,7 +699,13 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = inlineMetadata
+    final visualDimension = avatar
+        ? 32.0 *
+              (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                1,
+                double.infinity,
+              )
+        : inlineMetadata
         ? MediaQuery.textScalerOf(context).scale(12) * 1.5
         : backLink
         ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5
@@ -706,7 +722,9 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          shape == DButtonShape.pill || variant == DButtonVariant.primary
+          avatar ||
+                  shape == DButtonShape.pill ||
+                  variant == DButtonVariant.primary
               ? DRadius.pill
               : chatMessageAction
               ? 6
@@ -817,7 +835,9 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (_iconOnly && !intrinsicIcon
+        (avatar
+            ? const EdgeInsets.all(2)
+            : _iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
             : mobileDock || backLink || inlineMetadata
             ? EdgeInsets.zero
@@ -909,6 +929,7 @@ class DButton extends StatelessWidget {
             : joined?.sharedOutline == true
             ? Colors.transparent
             : borderColor ??
+                  (avatar ? tokens.border : null) ??
                   (border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent
                       : border.color);
@@ -926,7 +947,7 @@ class DButton extends StatelessWidget {
             ringColor: ringColor,
             ringWidth: focused || invalid ? DControlStyle.focusWidth : 0,
             ringOffset: DControlStyle.focusOffset,
-            strokeWidth: 1,
+            strokeWidth: avatar ? 2 : 1,
             dashed: dashedTile,
             joinedAxis: joined?.omitsLeadingBorder ?? false
                 ? joined!.axis
@@ -986,6 +1007,9 @@ class DButton extends StatelessWidget {
                     ],
                   ),
           );
+    if (avatar && _iconOnly) {
+      child = SizedBox.expand(child: child);
+    }
     if (mobileNavigation ||
         mobileDock ||
         mobileDockAction ||
