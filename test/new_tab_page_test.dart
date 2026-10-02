@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kMiddleMouseButton, kSecondaryMouseButton;
@@ -80,15 +81,11 @@ void main() {
           ),
         );
         final websiteRect = tester.getRect(website);
-        expect(address.left, title.left);
-        expect(title.left - logo.right, DSpacing.md);
-        expect(title.height, lessThan(logo.height));
-        expect(websiteRect.height, lessThanOrEqualTo(24));
-        expect(address.top - title.bottom, inInclusiveRange(0, DSpacing.xs));
-        expect(
-          logo.center.dy,
-          closeTo((title.top + websiteRect.bottom) / 2, 0.01),
-        );
+        expect(logo.width, 28);
+        expect(title.left - logo.right, closeTo(10, .01));
+        expect(address.left, greaterThan(title.right));
+        expect(title.center.dy, closeTo(logo.center.dy, .01));
+        expect(websiteRect.center.dy, closeTo(logo.center.dy, .01));
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
@@ -172,8 +169,14 @@ void main() {
         buttons: kMiddleMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(shell.tabsForCurrentForum.last.panel, ForumPanel.main);
       expect(shell.tabsForCurrentForum.last.currentContent.id, 'groups');
+      expect(
+        shell.tabsForCurrentForum.where(
+          (tab) => tab.currentContent.categoryId == 12,
+        ),
+        hasLength(1),
+      );
+      expect(shell.currentContent?.id, 'new-tab');
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }
@@ -214,8 +217,15 @@ void main() {
 
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    expect(events, findsOneWidget);
-    await tester.tap(events);
+    if (events.evaluate().isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('start-page-more')).first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(DDropdownMenuItem, 'Upcoming events'),
+      );
+    } else {
+      await tester.tap(events);
+    }
     await tester.pumpAndSettle();
     expect(shell.destinationId, 'events-upcoming');
 
@@ -227,92 +237,84 @@ void main() {
     expect(events, findsNothing);
   });
 
-  testWidgets(
-    'cached category description and live activity appear without a request',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-      });
-      const site = 'https://meta.discourse.org';
-      const user = DiscourseUser(id: 7, username: 'reader');
-      final api = FakeDiscourseApi(
-        user: user,
-        categoryList: [
-          TopicCategory.fromJson(const {
-            'id': 12,
-            'name': 'Plants',
-            'slug': 'plants',
-            'color': '00aa44',
-            'description_excerpt': 'Growing things :seedling:',
-          }),
-        ],
-        trackingState: TopicTrackingState.fromJson(const [
-          {
-            'topic_id': 41,
-            'category_id': 12,
-            'highest_post_number': 1,
-            'created_in_new_period': true,
-          },
-        ]),
-        feeds: const {'/latest.json': []},
-      );
-      await pumpShell(
-        tester,
-        desktop,
-        instances: [instance('meta.discourse.org').copyWith(user: user)],
-        authenticator: FakeAuthenticator()..keys[site] = 'key',
-        api: api,
-      );
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      expect(shell.recentCategoriesFor(site), isEmpty);
-      final categoryRequests = api.categoryRequests.length;
-      final trackingRequests = api.topicTrackingRequests.length;
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Comfortable'));
-      await tester.pumpAndSettle();
-
-      final card = startPageItem(
-        const ValueKey('start-page-recent-list-/c/plants/12.json'),
-      );
-      expect(
-        find.descendant(of: card, matching: find.text('Plants')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: card,
-          matching: find.text('Growing things :seedling:'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: card, matching: find.text('1')),
-        findsOneWidget,
-      );
-      expect(api.categoryRequests, hasLength(categoryRequests));
-      expect(api.topicTrackingRequests, hasLength(trackingRequests));
-
-      FakeSiteTracker.built.single.deliver({
-        'topic_id': 42,
-        'message_type': 'new_topic',
-        'payload': {
+  testWidgets('recent category activity updates without another request', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'discourse_native.panel_tutorial_dismissed': true,
+    });
+    const site = 'https://meta.discourse.org';
+    const user = DiscourseUser(id: 7, username: 'reader');
+    final api = FakeDiscourseApi(
+      user: user,
+      categoryList: [
+        TopicCategory.fromJson(const {
+          'id': 12,
+          'name': 'Plants',
+          'slug': 'plants',
+          'color': '00aa44',
+          'description_excerpt': 'Growing things :seedling:',
+        }),
+      ],
+      trackingState: TopicTrackingState.fromJson(const [
+        {
+          'topic_id': 41,
           'category_id': 12,
           'highest_post_number': 1,
           'created_in_new_period': true,
         },
-      });
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: card, matching: find.text('2')),
-        findsOneWidget,
-      );
-      expect(api.categoryRequests, hasLength(categoryRequests));
-      expect(api.topicTrackingRequests, hasLength(trackingRequests));
-    },
-  );
+      ]),
+      feeds: const {'/latest.json': []},
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      authenticator: FakeAuthenticator()..keys[site] = 'key',
+      api: api,
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    expect(shell.recentCategoriesFor(site), isEmpty);
+    final categoryRequests = api.categoryRequests.length;
+    final trackingRequests = api.topicTrackingRequests.length;
+    shell.openListUrl('/c/plants/12', title: 'Plants');
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+
+    final card = startPageItem(
+      const ValueKey('start-page-recent-list-/c/plants/12.json'),
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('Plants')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.text('Growing things :seedling:'),
+      ),
+      findsNothing,
+    );
+    expect(find.descendant(of: card, matching: find.text('1')), findsOneWidget);
+    expect(api.categoryRequests, hasLength(categoryRequests));
+    expect(api.topicTrackingRequests, hasLength(trackingRequests));
+
+    FakeSiteTracker.built.single.deliver({
+      'topic_id': 42,
+      'message_type': 'new_topic',
+      'payload': {
+        'category_id': 12,
+        'highest_post_number': 1,
+        'created_in_new_period': true,
+      },
+    });
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: card, matching: find.text('2')), findsOneWidget);
+    expect(api.categoryRequests, hasLength(categoryRequests));
+    expect(api.topicTrackingRequests, hasLength(trackingRequests));
+  });
 
   testWidgets('Latest topics support middle, Shift, and right click', (
     tester,
@@ -385,7 +387,7 @@ void main() {
     }
   });
 
-  testWidgets('Start page has no search input and Cmd+F opens top bar search', (
+  testWidgets('Start page uses chrome search and Cmd+F focuses it', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -411,7 +413,7 @@ void main() {
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyF), isTrue);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
       await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
       expect(
         tester
             .widget<DInputGroupInput>(find.byKey(ForumSearch.inputKey))
@@ -445,78 +447,31 @@ void main() {
     }),
   );
 
-  testWidgets('panel guide keeps its close action at the top right', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(560, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    await tester.pumpWidget(
-      MaterialApp(
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: const TextScaler.linear(2)),
-          child: child!,
-        ),
-        home: Scaffold(body: NewTabPage(onBrowseTopics: () {})),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final dismiss = tester.getRect(
-      find.byKey(const ValueKey('dismiss-panel-tutorial')),
-    );
-    final title = tester.getRect(find.text('Work with two panels'));
-    expect(dismiss.top, lessThan(title.bottom));
-    expect(dismiss.right, greaterThan(title.right - 48));
-    expect(tester.takeException(), isNull);
-  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
-
-  testWidgets('the panel tutorial appears on new tabs until dismissed', (
+  testWidgets('first and subsequent tabs have the same launcher', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     var opened = 0;
+    for (final key in ['first', 'second']) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NewTabPage(
+              key: ValueKey(key),
+              onBrowseTopics: () => opened++,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Work with two panels'), findsNothing);
+      expect(find.byKey(const ValueKey('start-page-density')), findsNothing);
+      await tester.tap(find.text('Browse latest topics'));
+    }
+    expect(opened, 2);
+  });
 
-    Widget page(Key key) => MaterialApp(
-      home: Scaffold(
-        body: NewTabPage(key: key, onBrowseTopics: () => opened++),
-      ),
-    );
-
-    await tester.pumpWidget(page(const ValueKey('first-tab')));
-    await tester.pumpAndSettle();
-    expect(find.text('Work with two panels'), findsOneWidget);
-    expect(find.text('Opens a new tab in main panel'), findsOneWidget);
-    expect(find.text('Open in secondary panel'), findsOneWidget);
-    expect(find.text('Open in a new tab in secondary panel'), findsOneWidget);
-    expect(find.byKey(const ValueKey('panel-preview-line')), findsNWidgets(6));
-    expect(find.text('This page'), findsNothing);
-    expect(find.text('Opened link'), findsNothing);
-    expect(find.text("Don't show again"), findsNothing);
-    expect(find.text('Got it'), findsNothing);
-    expect(find.text('Read side by side'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('dismiss-panel-tutorial')));
-    await tester.pumpAndSettle();
-    expect(find.text('Work with two panels'), findsNothing);
-
-    await tester.pumpWidget(page(const ValueKey('next-tab')));
-    await tester.pumpAndSettle();
-    expect(find.text('Work with two panels'), findsNothing);
-    await tester.tap(find.text('Browse latest topics'));
-    expect(opened, 1);
-  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
-
-  testWidgets('empty recent sections become Everything else shortcuts', (
-    tester,
-  ) async {
+  testWidgets('empty recent sections become header shortcuts', (tester) async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
@@ -532,18 +487,20 @@ void main() {
       matching: find.widgetWithText(DButton, label),
     );
 
-    expect(find.text('Everything else'), findsOneWidget);
-    final groups = tester.widget<DButton>(shortcut('Groups'));
-    expect(groups.variant, DButtonVariant.secondary);
-    expect(groups.backgroundColor, isNot(Colors.transparent));
-    expect(groups.borderColor, Colors.transparent);
-    for (final label in ['Latest topics', 'Categories']) {
-      expect(
-        tester.widget<DButton>(shortcut(label)).variant,
-        DButtonVariant.secondary,
-        reason: label,
-      );
-    }
+    expect(find.text('Everything else'), findsNothing);
+    final categories = tester.widget<DButton>(shortcut('Categories').first);
+    expect(categories.variant, DButtonVariant.secondary);
+    expect(categories.backgroundColor, isNot(Colors.transparent));
+    expect(categories.borderColor, Colors.transparent);
+    expect(
+      tester.widget<DButton>(shortcut('Recent topics').first).variant,
+      DButtonVariant.secondary,
+    );
+    await tester.tap(startPageItem(const ValueKey('start-page-more')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(DDropdownMenuItem, 'Groups'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     expect(startPageText('Chat'), findsNothing);
 
     shell.openTopicUrl('/t/recent-topic/42');
@@ -551,16 +508,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       startPageItem(const ValueKey('start-page-recent-topic-42')),
-      findsNothing,
-    );
-    expect(
-      tester
-          .widget<DButton>(find.widgetWithText(DButton, 'Latest topics'))
-          .variant,
-      DButtonVariant.secondary,
+      findsOneWidget,
     );
     expect(find.text('Recently visited'), findsNothing);
-    expect(find.widgetWithText(DButton, 'Latest topics'), findsOneWidget);
+    expect(startPageText('Recent topics'), findsOneWidget);
     expect(shortcut('Categories'), findsOneWidget);
 
     await tester.tap(shortcut('Categories'));
@@ -568,41 +519,26 @@ void main() {
     expect(shell.currentContent?.id, 'all-categories');
   });
 
-  testWidgets('Start page loads Latest instead of showing visited topics', (
+  testWidgets('Start page shows recent visits without fetching Latest', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
-    final feeds = <String, List<Topic>>{};
-    final api = FakeDiscourseApi(feeds: feeds);
+    SharedPreferences.setMockInitialValues({});
+    final api = _apiWithLatestTopic();
     await pumpShell(tester, desktop, api: api);
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
-    final before = api.feedPaths.where((path) => path == '/latest.json').length;
-    feeds['/latest.json'] = const [
-      Topic(id: 77, title: 'Actual latest topic', slug: 'actual-latest-topic'),
-    ];
-    shell.openTopicUrl('/t/previously-visited/42');
+    shell.openTopicUrl('/t/recent-topic/42');
+    await tester.pumpAndSettle();
+    final before = api.feedPaths.length;
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-
-    expect(
-      api.feedPaths.where((path) => path == '/latest.json').length,
-      before + 1,
-    );
-    expect(find.text('Latest topics'), findsOneWidget);
-    expect(find.text('Actual latest topic'), findsOneWidget);
-    expect(
-      startPageItem(const ValueKey('start-page-recent-topic-77')),
-      findsOneWidget,
-    );
+    expect(api.feedPaths, hasLength(before));
+    expect(startPageText('Recent topics'), findsOneWidget);
     expect(
       startPageItem(const ValueKey('start-page-recent-topic-42')),
-      findsNothing,
+      findsOneWidget,
     );
-    expect(find.text('Recently visited'), findsNothing);
   });
 
   testWidgets('Latest topics opens its feed from a new start page tab', (
@@ -618,6 +554,7 @@ void main() {
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
+      shell.openTopicUrl('/t/recent-topic/42');
       shell.openContentInNewTab(ContentRoute.newTab(), select: true);
       await tester.pumpAndSettle();
 
@@ -629,7 +566,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.tap(startPageText('Latest topics'));
+      await tester.tap(startPageText('Recent topics'));
       await tester.pumpAndSettle();
 
       expect(shell.currentContent?.id, 'latest');
@@ -685,12 +622,17 @@ void main() {
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
+    shell.pushContent(
+      const ContentRoute(
+        id: 'chat-c-9',
+        title: 'General',
+        icon: DIcons.comment,
+      ),
+    );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(startPageText('Chat'), findsOneWidget);
     expect(find.text('General'), findsOneWidget);
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
     final channelCard = startPageItem(
       const ValueKey('start-page-recent-chat-c-9'),
     );
@@ -700,14 +642,14 @@ void main() {
     );
     expect(
       find.descendant(of: channelCard, matching: find.text('Back later.')),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.tap(find.text('General'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-c-9');
   });
 
-  testWidgets('Chat previews retain read conversations after unread ones', (
+  testWidgets('Chat previews follow visit order regardless of unread counts', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -764,6 +706,15 @@ void main() {
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
+    for (final (id, title) in [
+      (3, 'Newest unread'),
+      (2, 'Older unread'),
+      (1, 'Read channel'),
+    ]) {
+      shell.pushContent(
+        ContentRoute(id: 'chat-c-$id', title: title, icon: DIcons.comment),
+      );
+    }
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
@@ -775,17 +726,15 @@ void main() {
       startPageItem(const ValueKey('start-page-recent-chat-c-1')),
       findsOneWidget,
     );
-    expect(tester.getTopLeft(newest).dy, lessThan(tester.getTopLeft(older).dy));
+    expect(tester.getTopLeft(older).dy, lessThan(tester.getTopLeft(newest).dy));
     expect(api.chatChannelsRequested, hasLength(requestsBefore));
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
     expect(
       find.descendant(of: newest, matching: find.text('4')),
       findsOneWidget,
     );
     expect(
       find.descendant(of: newest, matching: find.text('Latest message')),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -832,8 +781,17 @@ void main() {
     );
     await shell.loadBookmarks(site);
     await tester.pumpAndSettle();
+    shell.openTopicUrl('/t/latest-from-the-forum/42');
+    await tester.pumpAndSettle();
     final beforeFeeds = api.feedPaths.length;
     final beforeBookmarks = api.bookmarksRequested.length;
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 42,
+        title: 'Latest from the forum',
+        slug: 'latest-from-the-forum',
+      ),
+    );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
@@ -842,13 +800,11 @@ void main() {
     expect(find.text('3'), findsWidgets);
     expect(api.feedPaths, hasLength(beforeFeeds));
     expect(api.bookmarksRequested, hasLength(beforeBookmarks));
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('2030'), findsOneWidget);
-    expect(find.text('Post #2'), findsOneWidget);
+    expect(find.text('Reminder'), findsOneWidget);
+    expect(find.text('Post #2'), findsNothing);
   });
 
-  testWidgets('bookmark reminders are dated in the account timezone', (
+  testWidgets('bookmark rows show reminder metadata in the single layout', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -888,7 +844,7 @@ void main() {
     expect(
       find.descendant(
         of: startPageItem(const ValueKey('start-page-recent-bookmark-18')),
-        matching: find.textContaining('Jan 3, 2030 at 1:45'),
+        matching: find.text('Reminder'),
       ),
       findsOneWidget,
     );
@@ -948,9 +904,7 @@ void main() {
     expect(label(use24HourClock: true), 'Sep 28, 2026 at 20:00');
   });
 
-  testWidgets('Start page renders emoji in titles and previews', (
-    tester,
-  ) async {
+  testWidgets('Start page renders emoji in single-line titles', (tester) async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
@@ -1026,6 +980,20 @@ void main() {
     );
     await shell.loadBookmarks(site);
     shell.openListUrl('/c/plants/12', title: 'Plants :tada:');
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 42,
+        title: 'Trip to :spain:',
+        slug: 'trip-to-spain',
+      ),
+    );
+    shell.pushContent(
+      const ContentRoute(
+        id: 'chat-c-11',
+        title: 'Alex :wave:',
+        icon: DIcons.user,
+      ),
+    );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
 
@@ -1043,20 +1011,27 @@ void main() {
     expect(emojiIn('topic-42'), ['spain']);
     expect(emojiIn('chat-c-11'), ['wave']);
     expect(emojiIn(shell.recentCategoriesFor(site).single.id), ['tada']);
-    expect(find.bySemanticsLabel('Meta :sparkles:'), findsOneWidget);
+    expect(
+      tester
+          .widget<ForumIcon>(
+            find.descendant(
+              of: find.byType(NewTabPage).first,
+              matching: find.byType(ForumIcon),
+            ),
+          )
+          .forum
+          .title,
+      'Meta :sparkles:',
+    );
 
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-    expect(emojiIn('bookmark-18'), ['tada', 'sparkles']);
-    expect(emojiIn('topic-42'), ['spain', 'wave']);
-    expect(emojiIn('chat-c-11'), ['wave', 'slight_smile']);
+    expect(find.text('Remember :sparkles:'), findsNothing);
   });
 
-  testWidgets('density control switches between compact and comfortable rows', (
+  testWidgets('legacy density preferences cannot bring back cards', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
+      'discourse_native.start_page_compact': false,
     });
     await pumpShell(tester, desktop, api: _apiWithLatestTopic());
     final shell = ShellScope.read(
@@ -1065,175 +1040,17 @@ void main() {
     shell.openTopicUrl('/t/recent-topic/42');
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-
-    final row = startPageItem(const ValueKey('start-page-recent-topic-42'));
-    expect(tester.widget<DItem>(row).size, DItemSize.xs);
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<DItem>(row).size, DItemSize.standard);
-    await tester.tap(find.byTooltip('Compact'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<DItem>(row).size, DItemSize.xs);
-  });
-
-  testWidgets('Start page remembers its density across page instances', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final density = find.byKey(const ValueKey('start-page-density'));
-    Future<void> showPage(String key) => tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: NewTabPage(key: ValueKey(key), onBrowseTopics: () {}),
-        ),
-      ),
-    );
-
-    await showPage('first');
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggleGroup<bool>>(density).values, [true]);
-
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggleGroup<bool>>(density).values, [false]);
     expect(
-      (await SharedPreferences.getInstance()).getBool(
-        'discourse_native.start_page_compact',
-      ),
-      false,
+      tester
+          .widget<DItem>(
+            startPageItem(const ValueKey('start-page-recent-topic-42')),
+          )
+          .size,
+      DItemSize.xs,
     );
-
-    await showPage('second');
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggleGroup<bool>>(density).values, [false]);
-
-    await tester.tap(find.byTooltip('Compact'));
-    await tester.pumpAndSettle();
-    await showPage('third');
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggleGroup<bool>>(density).values, [true]);
-  });
-
-  testWidgets('comfortable mode shows four cards across a full-width section', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
-    await pumpShell(
-      tester,
-      const Size(1800, 900),
-      api: FakeDiscourseApi(
-        categoryList: [
-          for (final (id, title) in [
-            (1, 'Baking'),
-            (2, 'Plants'),
-            (3, 'Keyboards'),
-            (4, 'Travel'),
-          ])
-            TopicCategory(
-              id: id,
-              name: title,
-              slug: title.toLowerCase(),
-              color: '0088cc',
-            ),
-        ],
-      ),
-    );
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    for (final (id, title) in [
-      (1, 'Baking'),
-      (2, 'Plants'),
-      (3, 'Keyboards'),
-      (4, 'Travel'),
-    ]) {
-      shell.openListUrl('/c/${title.toLowerCase()}/$id', title: title);
-    }
-    shell.pushContent(ContentRoute.newTab());
-    await shell.appSettings.setLimitContentSize(false);
-    await tester.pumpAndSettle();
-
-    final cards = [
-      for (final route in shell.recentCategoriesFor(shell.currentInstance!.url))
-        startPageItem(ValueKey('start-page-recent-${route.id}')),
-    ];
-    expect(cards, hasLength(4));
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-
-    final rects = [for (final card in cards) tester.getRect(card)];
-    expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
-    expect(rects.map((rect) => rect.left).toSet(), hasLength(4));
-    expect(
-      rects.every((rect) => rect.width >= 190 && rect.width < 230),
-      isTrue,
-    );
-    expect(
-      rects.every((rect) => rect.height >= 100 && rect.height < 120),
-      isTrue,
-    );
-    expect(tester.widget<DItem>(cards.first).shape, DItemShape.card);
-    final surface = find.ancestor(
-      of: cards.first,
-      matching: find.byType(DCard),
-    );
-    expect(
-      tester.widget<DCard>(surface.first).backgroundColor,
-      DTokens.of(tester.element(cards.first)).footerBackground,
-    );
-  });
-
-  testWidgets('clickable section headings match passive section headings', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
-    await pumpShell(
-      tester,
-      desktop,
-      api: FakeDiscourseApi(
-        categoryList: const [
-          TopicCategory(
-            id: 12,
-            name: 'Support',
-            slug: 'support',
-            color: '0088cc',
-          ),
-        ],
-      ),
-    );
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    shell.openListUrl('/c/support/12', title: 'Support');
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
-
-    final content = find.byKey(const ValueKey('start-page-content'));
-    final categories = find.descendant(
-      of: content,
-      matching: find.text('Categories'),
-    );
-    final everythingElse = find.descendant(
-      of: content,
-      matching: find.text('Everything else'),
-    );
-    expect(
-      tester.widget<Text>(categories).style,
-      tester.widget<Text>(everythingElse).style,
-    );
-    final button = tester.widget<DButton>(
-      find.ancestor(of: categories, matching: find.byType(DButton)),
-    );
-    expect(
-      button.foregroundColor,
-      DTokens.of(tester.element(categories)).foreground,
-    );
+    expect(find.byTooltip('Comfortable'), findsNothing);
+    expect(find.byTooltip('Compact'), findsNothing);
+    expect(find.byKey(const ValueKey('start-page-density')), findsNothing);
   });
 
   testWidgets('cached unread direct messages update on the Start page', (
@@ -1281,6 +1098,9 @@ void main() {
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
+    shell.pushContent(
+      const ContentRoute(id: 'chat-c-11', title: 'Alex', icon: DIcons.user),
+    );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(find.text('Alex'), findsOneWidget);
@@ -1292,8 +1112,6 @@ void main() {
       findsOneWidget,
     );
     expect(startPageText('Chat'), findsOneWidget);
-    await tester.tap(find.byTooltip('Comfortable'));
-    await tester.pumpAndSettle();
     final directCard = startPageItem(
       const ValueKey('start-page-recent-chat-c-11'),
     );
@@ -1306,7 +1124,7 @@ void main() {
         of: directCard,
         matching: find.text('Thanks for looking.'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     channelsBySite[site] = const ChatChannels(
@@ -1333,7 +1151,7 @@ void main() {
     );
     expect(
       find.descendant(of: directCard, matching: find.text('See you tomorrow.')),
-      findsOneWidget,
+      findsNothing,
     );
 
     channelsBySite[site] = const ChatChannels(
@@ -1418,6 +1236,7 @@ void main() {
             final shell = ShellScope.read(
               tester.element(find.byType(MainContent).first),
             );
+            shell.openTopicUrl('/t/recent-topic/42');
             shell.pushContent(ContentRoute.newTab());
             await tester.pumpAndSettle();
 

@@ -28,6 +28,82 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets(
+    'floating header releases space for scrolling rows without changing their anchor',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DPageSurface(
+            framed: false,
+            scrollBody: true,
+            hideHeaderOnScroll: true,
+            header: const SizedBox(
+              key: _header,
+              height: 64,
+              child: Text('Forum'),
+            ),
+            headerControls: const SizedBox(height: 36, child: Text('Filters')),
+            child: Column(
+              children: [
+                for (var i = 0; i < 100; i++)
+                  SizedBox(height: 50, child: Text('Row $i')),
+              ],
+            ),
+          ),
+        ),
+      );
+      final scroll = find.byType(SingleChildScrollView);
+      expect(tester.getTopLeft(find.text('Row 0')).dy, 100);
+      await _wheel(tester, scroll, 200);
+      expect(tester.getTopLeft(find.text('Filters')).dy, 0);
+      expect(tester.getTopLeft(find.text('Row 4')).dy, 100);
+      // Rows are visible in the title's former space below the 36px toolbar.
+      expect(find.text('Row 3').hitTestable(), findsOneWidget);
+      expect(tester.getRect(scroll).top, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('persistent header controls move while the body stays anchored', (
+    tester,
+  ) async {
+    var pressed = 0;
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DPageSurface(
+          framed: false,
+          hideHeaderOnScroll: true,
+          header: const SizedBox(
+            key: _header,
+            height: 64,
+            child: Text('Forum'),
+          ),
+          headerControls: DButton(
+            key: const ValueKey('persistent-controls'),
+            label: const Text('Filters'),
+            onPressed: () => pressed++,
+          ),
+          child: _list(controller: scroll),
+        ),
+      ),
+    );
+    final controls = find.byKey(const ValueKey('persistent-controls'));
+    final top = tester.getTopLeft(controls).dy;
+    final viewport = tester.getRect(find.byKey(_viewport));
+    await _wheel(tester, find.byKey(_viewport), 200);
+    expect(find.text('Forum').hitTestable(), findsNothing);
+    expect(tester.getTopLeft(controls).dy, closeTo(top - 64, .01));
+    expect(tester.getRect(find.byKey(_viewport)), viewport);
+    await tester.tap(controls);
+    await tester.pumpAndSettle();
+    expect(pressed, 1);
+    await _wheel(tester, find.byKey(_viewport), -200);
+    expect(tester.getTopLeft(find.byKey(_header)).dy, closeTo(0, .01));
+    expect(tester.getTopLeft(controls).dy, closeTo(top, .01));
+  });
+
   testWidgets('borderless page retains fill, clipping and footer divider', (
     tester,
   ) async {

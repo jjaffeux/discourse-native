@@ -87,54 +87,51 @@ void main() {
     );
   });
 
-  testStartPage(
-    'comfortable previews fill one row and compact previews show four',
-    (tester) async {
-      await pumpShell(
-        tester,
-        const Size(2400, 1000),
-        api: FakeDiscourseApi(
-          feeds: {
-            '/latest.json': [
-              for (var i = 1; i <= 8; i++)
-                Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
-            ],
-          },
-        ),
+  testStartPage('recent previews stay at four rows as the panel resizes', (
+    tester,
+  ) async {
+    await pumpShell(
+      tester,
+      const Size(2400, 1000),
+      api: FakeDiscourseApi(
+        feeds: {
+          '/latest.json': [
+            for (var i = 1; i <= 8; i++)
+              Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
+          ],
+        },
+      ),
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.appSettings.setLimitContentSize(false);
+    for (var i = 1; i <= 8; i++) {
+      shell.pushContent(
+        ContentRoute.topic(topicId: i, title: 'Topic $i', slug: 'topic-$i'),
       );
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      await shell.appSettings.setLimitContentSize(false);
-      shell.createTab(panel: ForumPanel.secondary);
+    }
+    shell.createTab(panel: ForumPanel.secondary);
+    await tester.pumpAndSettle();
+    final rows = find.byWidgetPredicate(
+      (widget) =>
+          widget is DItem &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'start-page-recent-topic-',
+          ),
+    );
+    for (final size in [const Size(2400, 1000), const Size(800, 1000)]) {
+      tester.view.physicalSize = size;
       await tester.pumpAndSettle();
-      final cards = find.byWidgetPredicate(
-        (widget) =>
-            widget is DItem &&
-            widget.key is ValueKey<String> &&
-            (widget.key! as ValueKey<String>).value.startsWith(
-              'start-page-recent-topic-',
-            ),
-      );
-      expect(cards, findsNWidgets(4));
-      await tester.tap(find.byTooltip('Comfortable'));
-      await tester.pumpAndSettle();
-      final wideCount = cards.evaluate().length;
-      expect(wideCount, greaterThan(4));
-      expect(wideCount, lessThanOrEqualTo(8));
+      expect(rows, findsNWidgets(4));
       expect({
-        for (var i = 0; i < wideCount; i++) tester.getTopLeft(cards.at(i)).dy,
-      }, hasLength(1));
-      tester.view.physicalSize = const Size(800, 1000);
-      await tester.pumpAndSettle();
-      final narrowCount = cards.evaluate().length;
-      expect(narrowCount, lessThan(wideCount));
-      expect({
-        for (var i = 0; i < narrowCount; i++) tester.getTopLeft(cards.at(i)).dy,
-      }, hasLength(1));
+        for (var i = 0; i < 4; i++) tester.getTopLeft(rows.at(i)).dy,
+      }, hasLength(4));
+      expect(find.byTooltip('Comfortable'), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
+    }
+  });
 
   testStartPage('category history cannot reintroduce unavailable categories', (
     tester,
@@ -157,6 +154,7 @@ void main() {
       tester.element(find.byType(MainContent).first),
     );
     expect(shell.recentCategoriesFor(shell.currentInstance!.url), isEmpty);
+    shell.openListUrl('/c/visible/1', title: 'Visible category');
     shell.openListUrl('/c/removed/99', title: 'Removed category');
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
@@ -181,7 +179,7 @@ void main() {
     final closed = <String>[];
     for (final (id, title) in [
       (41, 'Short'),
-      (42, 'A longer closed topic'),
+      (42, 'Longer topic'),
       (43, 'Third topic'),
       (44, 'Fourth topic'),
       (45, 'Fifth topic'),
@@ -335,18 +333,12 @@ void main() {
       shell.closeTab(shell.activeTabId!);
       shell.createTab(panel: ForumPanel.secondary);
       await tester.pumpAndSettle();
-      for (final (index, excerpt) in [
-        (0, 'Topic excerpt'),
-        (1, 'DM excerpt'),
-        (2, 'Category details'),
-      ]) {
-        final card = find.byKey(
+      for (final index in [0, 1, 2]) {
+        final chip = find.byKey(
           ValueKey('start-page-recent-closed-${closed[index]}'),
         );
-        expect(
-          find.descendant(of: card, matching: find.text(excerpt)),
-          findsOneWidget,
-        );
+        expect(chip, findsOneWidget);
+        expect(tester.widget<DItem>(chip).fitContent, isTrue);
       }
       expect(
         find.descendant(

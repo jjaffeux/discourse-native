@@ -18,6 +18,7 @@ class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
     this.header,
+    this.headerControls,
     this.tabs,
     this.footer,
     this.framed = true,
@@ -25,6 +26,7 @@ class DPageSurface extends StatefulWidget {
     this.backgroundColor,
     this.borderRadius,
     this.hideHeaderOnScroll = false,
+    this.scrollBody = false,
     this.limitContentSize,
     required this.child,
     this.identity,
@@ -32,6 +34,17 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
+
+  /// A control bar below the title that remains visible when [header] retracts.
+  /// The title's original space remains reserved above the scrolling body, so
+  /// retraction moves the bar without moving the content or its scroll anchor.
+  final Widget? headerControls;
+
+  /// Owns a vertical scroll view for [child]. The header floats above it and
+  /// reserves its full natural height inside the scroll content. Rows can
+  /// scroll into the space released by the retracting title without jumping.
+  /// Use non-scrolling content as [child] when enabled.
+  final bool scrollBody;
 
   /// Animate after a small vertical movement, requiring speed to retract, or
   /// reveal completely when scrolling reaches the top.
@@ -74,6 +87,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   static const _scrollPause = Duration(milliseconds: 200);
 
   final _headerFocus = FocusNode(canRequestFocus: false);
+  final _headerKey = GlobalKey();
   late final AnimationController _headerAnimation;
   bool _headerHidden = false;
   bool _userScrolling = false;
@@ -267,17 +281,18 @@ class _DPageSurfaceState extends State<DPageSurface>
         child: SizedBox(width: double.infinity, child: child),
       ),
     );
-    final page = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ?widget.tabs,
-        if (widget.header != null)
-          fixedContent(
+    final header = widget.header == null
+        ? widget.headerControls == null
+              ? null
+              : fixedContent(widget.headerControls!)
+        : fixedContent(
             ClipRect(
               child: _ScrollHeaderExtent(
+                key: _headerKey,
                 hiddenFraction: widget.hideHeaderOnScroll
                     ? _headerAnimation.value
                     : 0,
+                controls: widget.headerControls,
                 child: ExcludeSemantics(
                   excluding: _headerAnimation.value > 0,
                   child: ExcludeFocus(
@@ -297,24 +312,57 @@ class _DPageSurfaceState extends State<DPageSurface>
                 ),
               ),
             ),
-          ),
+          );
+    _RenderScrollHeaderExtent? headerBox() =>
+        _headerKey.currentContext?.findRenderObject()
+            as _RenderScrollHeaderExtent?;
+    final body = NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: Listener(
+        onPointerDown: (event) => _gestureStartTime = event.timeStamp,
+        onPointerPanZoomStart: (event) => _gestureStartTime = event.timeStamp,
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            _pointerScrollTime = event.timeStamp == Duration.zero
+                ? null
+                : event.timeStamp;
+          }
+        },
+        child: widget.scrollBody
+            ? SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.header != null)
+                      _HeaderGap(extent: () => headerBox()?.naturalHeight ?? 0),
+                    widget.child,
+                  ],
+                ),
+              )
+            : widget.child,
+      ),
+    );
+    final page = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ?widget.tabs,
+        if (!widget.scrollBody || widget.header == null) ?header,
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: Listener(
-              onPointerDown: (event) => _gestureStartTime = event.timeStamp,
-              onPointerPanZoomStart: (event) =>
-                  _gestureStartTime = event.timeStamp,
-              onPointerSignal: (event) {
-                if (event is PointerScrollEvent) {
-                  _pointerScrollTime = event.timeStamp == Duration.zero
-                      ? null
-                      : event.timeStamp;
-                }
-              },
-              child: widget.child,
-            ),
-          ),
+          child: widget.scrollBody && widget.header != null
+              ? Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRect(
+                        clipper: _HeaderBodyClipper(
+                          () => headerBox()?.visibleHeight ?? 0,
+                        ),
+                        child: body,
+                      ),
+                    ),
+                    header!,
+                  ],
+                )
+              : body,
         ),
         if (widget.footer case final footer?) fixedContent(footer),
       ],
@@ -336,11 +384,13 @@ class _DPageSurfaceState extends State<DPageSurface>
 
 // Keep the header at its natural height while animating the visible fraction.
 // Measuring here also handles header size changes during the transition.
-class _ScrollHeaderExtent extends SingleChildRenderObjectWidget {
-  const _ScrollHeaderExtent({
+class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
+  _ScrollHeaderExtent({
+    super.key,
     required this.hiddenFraction,
-    required super.child,
-  });
+    required Widget child,
+    Widget? controls,
+  }) : super(children: [child, ?controls]);
 
   final double hiddenFraction;
 
@@ -357,8 +407,23 @@ class _ScrollHeaderExtent extends SingleChildRenderObjectWidget {
   }
 }
 
-class _RenderScrollHeaderExtent extends RenderShiftedBox {
-  _RenderScrollHeaderExtent(this._hiddenFraction) : super(null);
+class _HeaderParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderScrollHeaderExtent extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _HeaderParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
+  _RenderScrollHeaderExtent(this._hiddenFraction);
+
+  double naturalHeight = 0;
+  double visibleHeight = 0;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _HeaderParentData) {
+      child.parentData = _HeaderParentData();
+    }
+  }
 
   double _hiddenFraction;
 
@@ -370,19 +435,91 @@ class _RenderScrollHeaderExtent extends RenderShiftedBox {
 
   @override
   Size computeDryLayout(BoxConstraints constraints) {
-    final childSize = child!.getDryLayout(constraints);
+    final natural = constraints.copyWith(
+      minHeight: 0,
+      maxHeight: double.infinity,
+    );
+    final childSize = firstChild!.getDryLayout(natural);
+    final controls = childCount > 1 ? lastChild!.getDryLayout(natural) : null;
     return constraints.constrain(
-      Size(childSize.width, childSize.height * (1 - _hiddenFraction)),
+      Size(
+        childSize.width,
+        controls == null
+            ? childSize.height * (1 - _hiddenFraction)
+            : childSize.height + controls.height,
+      ),
     );
   }
 
   @override
   void performLayout() {
-    child!.layout(constraints, parentUsesSize: true);
-    final hidden = _hiddenFraction * child!.size.height;
-    size = constraints.constrain(
-      Size(child!.size.width, child!.size.height - hidden),
+    final natural = constraints.copyWith(
+      minHeight: 0,
+      maxHeight: double.infinity,
     );
-    (child!.parentData! as BoxParentData).offset = Offset(0, -hidden);
+    firstChild!.layout(natural, parentUsesSize: true);
+    final controls = childCount > 1 ? lastChild : null;
+    controls?.layout(natural, parentUsesSize: true);
+    final hidden = _hiddenFraction * firstChild!.size.height;
+    naturalHeight = firstChild!.size.height + (controls?.size.height ?? 0);
+    visibleHeight = naturalHeight - hidden;
+    size = constraints.constrain(
+      Size(
+        firstChild!.size.width,
+        controls == null
+            ? firstChild!.size.height - hidden
+            : firstChild!.size.height + controls.size.height,
+      ),
+    );
+    (firstChild!.parentData! as BoxParentData).offset = Offset(0, -hidden);
+    if (controls != null) {
+      (controls.parentData! as BoxParentData).offset = Offset(
+        0,
+        firstChild!.size.height - hidden,
+      );
+    }
   }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
+class _HeaderGap extends LeafRenderObjectWidget {
+  const _HeaderGap({required this.extent});
+  final ValueGetter<double> extent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHeaderGap(extent);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderHeaderGap renderObject) {
+    renderObject.extent = extent;
+    renderObject.markNeedsLayout();
+  }
+}
+
+class _RenderHeaderGap extends RenderBox {
+  _RenderHeaderGap(this.extent);
+  ValueGetter<double> extent;
+
+  @override
+  void performLayout() => size = constraints.constrain(Size(0, extent()));
+}
+
+class _HeaderBodyClipper extends CustomClipper<Rect> {
+  _HeaderBodyClipper(this.extent);
+  final ValueGetter<double> extent;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, extent(), size.width, size.height);
+
+  @override
+  bool shouldReclip(_HeaderBodyClipper oldClipper) => true;
 }
