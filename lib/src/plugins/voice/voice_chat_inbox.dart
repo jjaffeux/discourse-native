@@ -39,6 +39,7 @@ final class VoiceChatInbox implements ChatInboxRoomProvider {
               id: room.id,
               name: room.name,
               people: room.participants.length,
+              loading: controller.isJoining(siteUrl, room.id),
               open: (context) async {
                 if (!available(siteUrl)) return;
                 await joinVoiceRoom(

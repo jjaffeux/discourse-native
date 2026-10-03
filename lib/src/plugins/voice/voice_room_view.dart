@@ -400,7 +400,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: active == null
+            child: active == null || active.status == VoiceCallStatus.joining
                 ? Wrap(
                     spacing: DSpacing.controlGap,
                     children: [
@@ -409,19 +409,23 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                         siteUrl: siteUrl,
                         roomId: room.id,
                       ),
-                      DButton(
-                        onPressed: () => joinVoiceRoom(
-                          context,
-                          controller: controller,
-                          siteUrl: siteUrl,
-                          siteName: siteName,
-                          room: room,
-                          meshPrivacyWarningEnabled:
-                              widget.meshPrivacyWarningEnabled,
+                      ListenableBuilder(
+                        listenable: controller,
+                        builder: (context, _) => DButton(
+                          loading: controller.isJoining(siteUrl, room.id),
+                          onPressed: () => joinVoiceRoom(
+                            context,
+                            controller: controller,
+                            siteUrl: siteUrl,
+                            siteName: siteName,
+                            room: room,
+                            meshPrivacyWarningEnabled:
+                                widget.meshPrivacyWarningEnabled,
+                          ),
+                          icon: const DIcon(DIcons.microphoneLines),
+                          label: Text(context.l10n.joinRoom),
+                          variant: DButtonVariant.primary,
                         ),
-                        icon: const DIcon(DIcons.microphoneLines),
-                        label: Text(context.l10n.joinRoom),
-                        variant: DButtonVariant.primary,
                       ),
                     ],
                   )
