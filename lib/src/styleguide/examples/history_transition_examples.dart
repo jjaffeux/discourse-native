@@ -11,7 +11,7 @@ final historyTransitionExamples = ComponentExamples(
       '48 pixels using touch. Travel at least 64 pixels or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
       'The incoming page grows from 94% to full size as the swipe progresses. '
-      'A 20% scrim lightens as the background page is revealed and darkens '
+      'A 40% scrim lightens as the background page is revealed and darkens '
       'as it is covered. '
       'A shallow parallax and soft shadow follow the front page’s edge. '
       'Forward navigation reverses that depth. History previews use bounded '

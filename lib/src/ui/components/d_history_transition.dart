@@ -410,7 +410,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               final active = !switching && p > 0;
               final dim = BoxDecoration(
                 color: tokens.colors.scrim.withValues(
-                  alpha: active ? .20 * (_back ? 1 - p : p) : 0,
+                  alpha: active ? .40 * (_back ? 1 - p : p) : 0,
                 ),
               );
               final elevation = BoxDecoration(
