@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -10,6 +11,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'voice_agent_invite.dart';
+import 'voice_call_port.dart';
+import 'voice_call_widget.dart';
 import 'voice_controller.dart';
 import 'voice_diagnostics.dart';
 import 'voice_icons.dart';
@@ -325,18 +328,53 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     return Column(
       children: [
         if (error != null)
-          MaterialBanner(
-            content: Text(error),
-            actions: [
-              DButton(
+          DAlert(
+            description: DAlertDescription(child: Text(error)),
+            action: DAlertAction(
+              child: DButton(
                 onPressed: () => controller.dismissCallError(siteUrl),
                 label: Text(context.l10n.dismiss),
                 variant: DButtonVariant.ghost,
               ),
-            ],
+            ),
           ),
         if (recording != null && recording.active)
           _RecordingBadge(recording: recording),
+        if (active != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: DSpacing.md,
+              runSpacing: DSpacing.sm,
+              children: [
+                DBadge(
+                  variant: DBadgeVariant.secondary,
+                  leading: DIcon(
+                    active.status == VoiceCallStatus.connected
+                        ? DIcons.circle
+                        : DIcons.arrowsRotate,
+                  ),
+                  child: Text(
+                    voiceCallStatusLabel(
+                      context,
+                      VoiceCallPresentationStatus.values.byName(
+                        active.status.name,
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  context.l10n.present(
+                    siteName,
+                    room.participants.length.toString(),
+                  ),
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: VoiceRingingClock(
             room: room,
@@ -347,17 +385,24 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                 if (participants.isEmpty && ringing.isEmpty) {
                   return _EmptyRoom(room: room);
                 }
+                final count = participants.length + ringing.length;
                 final columns = constraints.maxWidth >= 900
-                    ? 3
-                    : constraints.maxWidth >= 560
-                    ? 2
+                    ? math.min(3, count)
+                    : constraints.maxWidth >= 560 || count >= 3
+                    ? math.min(2, count)
                     : 1;
+                final rows = math.min(3, (count / columns).ceil());
+                final stageHeight = math.max(
+                  140.0,
+                  (constraints.maxHeight - 24 - (rows - 1) * 12) / rows,
+                );
                 return GridView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
+                    mainAxisExtent: active == null ? null : stageHeight,
                     childAspectRatio: 16 / 10,
                   ),
                   itemCount: participants.length + ringing.length,
@@ -531,32 +576,19 @@ class _RecordingBadge extends StatelessWidget {
   final VoiceRecording recording;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final startedBy = recording.startedByUsername;
-    return DTooltip(
-      message: startedBy == null
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: DSpacing.sm),
+    child: DTooltip(
+      message: recording.startedByUsername == null
           ? context.l10n.thisCallIsBeingRecorded
-          : context.l10n.recordingStartedBy((startedBy).toString()),
-      child: Container(
-        width: double.infinity,
-        color: theme.colorScheme.errorContainer,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            DIcon(DIcons.circle, size: 12, color: theme.colorScheme.error),
-            const SizedBox(width: 8),
-            Text(
-              context.l10n.recording,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-              ),
-            ),
-          ],
-        ),
+          : context.l10n.recordingStartedBy(recording.startedByUsername!),
+      child: DBadge(
+        variant: DBadgeVariant.destructive,
+        leading: const DIcon(DIcons.circle),
+        child: Text(context.l10n.recording),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _EmptyRoom extends StatelessWidget {
@@ -679,16 +711,10 @@ class _ParticipantTileState extends State<_ParticipantTile> {
         if (participant.muted) 'muted',
         if (participant.handRaisedAt != null) context.l10n.handRaised,
       ].join(', '),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: speaking
-              ? Border.all(color: theme.colorScheme.primary, width: 2)
-              : null,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(11),
+      child: DCard(
+        spacing: 0,
+        backgroundColor: DTokens.of(context).muted,
+        child: Expanded(
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -709,36 +735,43 @@ class _ParticipantTileState extends State<_ParticipantTile> {
                     ),
                   ),
                 ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.58),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+              PositionedDirectional(
+                bottom: DSpacing.sm,
+                start: DSpacing.sm,
+                end: DSpacing.sm,
+                child: DCard(
+                  spacing: DSpacing.xs,
+                  variant: DCardVariant.capsule,
+                  backgroundColor: DTokens.of(
+                    context,
+                  ).surface.withValues(alpha: .94),
                   child: Row(
                     children: [
+                      if (speaking) ...[
+                        DTooltip(
+                          message: context.l10n.voiceSpeaking,
+                          child: DIcon(
+                            DIcons.microphoneLines,
+                            color: DTokens.of(context).primary,
+                          ),
+                        ),
+                        const SizedBox(width: DSpacing.xs),
+                      ],
                       Expanded(
                         child: Text(
                           participant.name ?? participant.username,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white),
                         ),
                       ),
                       if (canManage && participant.handRaisedAt != null)
                         const Padding(
-                          padding: EdgeInsets.only(left: 6),
+                          padding: EdgeInsets.only(left: DSpacing.xs),
                           child: Text('✋'),
                         ),
                       if (participant.muted)
                         const Padding(
-                          padding: EdgeInsets.only(left: 6),
-                          child: DIcon(
-                            DIcons.microphoneSlash,
-                            size: 15,
-                            color: Colors.white,
-                          ),
+                          padding: EdgeInsets.only(left: DSpacing.xs),
+                          child: DIcon(DIcons.microphoneSlash),
                         ),
                     ],
                   ),
@@ -853,7 +886,7 @@ class _ParticipantTileState extends State<_ParticipantTile> {
   }
 }
 
-class _CallControls extends StatelessWidget {
+class _CallControls extends StatefulWidget {
   const _CallControls({
     required this.controller,
     required this.call,
@@ -874,7 +907,56 @@ class _CallControls extends StatelessWidget {
   final VoiceController Function()? controllerResolver;
 
   @override
+  State<_CallControls> createState() => _CallControlsState();
+}
+
+class _CallControlsState extends State<_CallControls> {
+  final _options = DPopoverController();
+
+  @override
+  void dispose() {
+    _options.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final call = widget.call;
+    final siteUrl = widget.siteUrl;
+    final currentUserId = widget.currentUserId;
+    final recordingEnabled = widget.recordingEnabled;
+    final autoStatusAvailable = widget.autoStatusAvailable;
+    final inviteLink = widget.inviteLink;
+    final controllerResolver = widget.controllerResolver;
+    Widget option({
+      required String label,
+      required DIconData icon,
+      required bool? selected,
+      required VoidCallback onPressed,
+    }) {
+      if (!context.isTouch) {
+        return VoiceToolbarControl(
+          label: label,
+          icon: icon,
+          selected: selected,
+          onPressed: onPressed,
+        );
+      }
+      return DButton(
+        label: Text(label),
+        tooltip: label,
+        icon: DIcon(icon),
+        variant: selected == true
+            ? DButtonVariant.primary
+            : DButtonVariant.secondary,
+        onPressed: () {
+          _options.close();
+          onPressed();
+        },
+      );
+    }
+
     final me = call.room.participants
         .where((participant) => participant.id == currentUserId)
         .firstOrNull;
@@ -886,155 +968,205 @@ class _CallControls extends StatelessWidget {
     final canPublishVideo = canPublish && call.room.videoAllowed;
     final cameraOn = call.cameraEnabled || controller.cameraStarting;
     final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (canPublish)
-          VoiceToolbarControl(
-            label: call.muted ? context.l10n.unmute : context.l10n.mute,
-            icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
-            selected: call.muted,
-            onPressed: () => controller.setMuted(!call.muted),
-          ),
-        VoiceToolbarControl(
-          label: call.deafened ? context.l10n.listen : context.l10n.deafen,
-          icon: DIcons.earListen,
-          selected: call.deafened,
-          onPressed: () => controller.setDeafened(!call.deafened),
+    final secondary = <Widget>[
+      if (context.isTouch && canPublishVideo && cameraOn && !call.screenSharing)
+        DButton.iconOnly(
+          onPressed: controller.cameraStarting
+              ? null
+              : () {
+                  _options.close();
+                  unawaited(controller.switchCamera());
+                },
+          variant: DButtonVariant.secondary,
+          tooltip: context.l10n.switchCamera,
+          icon: const DIcon(DIcons.arrowsRotate),
         ),
-        if (canPublishVideo)
-          VoiceToolbarControl(
-            label: cameraOn ? context.l10n.cameraOff : context.l10n.cameraOn,
-            icon: cameraOn ? DIcons.videoSlash : DIcons.video,
-            selected: cameraOn,
-            onPressed: () => controller.setCameraEnabled(!cameraOn),
-          ),
-        if (context.isTouch &&
-            canPublishVideo &&
-            cameraOn &&
-            !call.screenSharing)
-          DButton.iconOnly(
-            onPressed: controller.cameraStarting
-                ? null
-                : controller.switchCamera,
-            variant: DButtonVariant.secondary,
-            tooltip: context.l10n.switchCamera,
-            icon: const DIcon(DIcons.arrowsRotate),
-          ),
-        if (canShare)
-          VoiceToolbarControl(
-            label: call.screenSharing
-                ? context.l10n.stopSharing
-                : context.l10n.shareScreen,
-            icon: DIcons.display,
-            selected: call.screenSharing,
-            onPressed: () => controller.setScreenSharing(!call.screenSharing),
-          ),
-        if (call.room.type == VoiceRoomType.stage &&
-            role == VoiceRole.participant)
-          VoiceToolbarControl(
-            label: me?.handRaisedAt == null
-                ? context.l10n.raiseHand
-                : context.l10n.lowerHand,
-            icon: DIcons.hand,
-            selected: me?.handRaisedAt != null,
-            onPressed: () =>
-                controller.requestToSpeak(raised: me?.handRaisedAt == null),
-          ),
-        VoiceAgentInviteAction(
-          controller: controller,
-          siteUrl: siteUrl,
-          roomId: call.room.id,
+      if (canShare)
+        option(
+          label: call.screenSharing
+              ? context.l10n.stopSharing
+              : context.l10n.shareScreen,
+          icon: DIcons.display,
+          selected: call.screenSharing,
+          onPressed: () => controller.setScreenSharing(!call.screenSharing),
         ),
-        if (call.room.canInvite)
-          VoiceToolbarControl(
-            label: context.l10n.invitePeople,
-            icon: DIcons.userPlus,
-            selected: null,
-            onPressed: () => _showVoiceInvite(
-              context,
-              controller,
-              siteUrl: siteUrl,
-              room: call.room,
-              inviteLink: inviteLink,
-            ),
-          ),
-        if (call.room.chatAvailable)
-          VoiceToolbarControl(
-            label: context.l10n.roomChat,
-            icon: DIcons.comment,
-            selected: null,
-            onPressed: () => _showVoiceChat(
-              context,
-              controller,
-              siteUrl: siteUrl,
-              roomId: call.room.id,
-            ),
-          ),
-        if (call.room.canManage &&
-            call.media.transport == VoiceTransport.livekit &&
-            recordingEnabled)
-          VoiceToolbarControl(
-            label: call.room.recording?.active == true
-                ? context.l10n.stopRecording
-                : context.l10n.startRecording,
-            icon: DIcons.circle,
-            selected: call.room.recording?.active == true,
-            onPressed: () => _confirmRecording(
-              context,
-              controller,
-              siteUrl: call.siteUrl,
-              roomId: call.room.id,
-              active: call.room.recording?.active == true,
-              controllerResolver: controllerResolver,
-            ),
-          ),
-        VoiceToolbarControl(
-          label: context.l10n.mediaSettings,
-          icon: DIcons.gear,
+      if (call.room.type == VoiceRoomType.stage &&
+          role == VoiceRole.participant)
+        option(
+          label: me?.handRaisedAt == null
+              ? context.l10n.raiseHand
+              : context.l10n.lowerHand,
+          icon: DIcons.hand,
+          selected: me?.handRaisedAt != null,
+          onPressed: () =>
+              controller.requestToSpeak(raised: me?.handRaisedAt == null),
+        ),
+      VoiceAgentInviteAction(
+        controller: controller,
+        siteUrl: siteUrl,
+        roomId: call.room.id,
+      ),
+      if (call.room.canInvite)
+        option(
+          label: context.l10n.invitePeople,
+          icon: DIcons.userPlus,
           selected: null,
-          onPressed: () => _showMediaSettings(
+          onPressed: () => _showVoiceInvite(
             context,
             controller,
-            autoStatusAvailable: autoStatusAvailable,
+            siteUrl: siteUrl,
+            room: call.room,
+            inviteLink: inviteLink,
           ),
         ),
-        if (call.room.canManage)
-          VoiceToolbarControl(
-            label: context.l10n.editRoom,
-            icon: DIcons.gear,
-            selected: null,
-            onPressed: () => showVoiceRoomEditor(
-              context,
-              siteUrl: siteUrl,
-              room: call.room,
-              // A dialog can outlive the plugin session that opened it when
-              // the root app is replaced. Resolve at save time; the explicit
-              // controller remains the fallback for standalone widget hosts.
-              controllerResolver: () =>
-                  _resolveController(context, controller, controllerResolver),
+      if (call.room.chatAvailable)
+        option(
+          label: context.l10n.roomChat,
+          icon: DIcons.comment,
+          selected: null,
+          onPressed: () => _showVoiceChat(
+            context,
+            controller,
+            siteUrl: siteUrl,
+            roomId: call.room.id,
+          ),
+        ),
+      if (call.room.canManage &&
+          call.media.transport == VoiceTransport.livekit &&
+          recordingEnabled)
+        option(
+          label: call.room.recording?.active == true
+              ? context.l10n.stopRecording
+              : context.l10n.startRecording,
+          icon: DIcons.circle,
+          selected: call.room.recording?.active == true,
+          onPressed: () => _confirmRecording(
+            context,
+            controller,
+            siteUrl: call.siteUrl,
+            roomId: call.room.id,
+            active: call.room.recording?.active == true,
+            controllerResolver: controllerResolver,
+          ),
+        ),
+      option(
+        label: context.l10n.mediaSettings,
+        icon: DIcons.gear,
+        selected: null,
+        onPressed: () => _showMediaSettings(
+          context,
+          controller,
+          autoStatusAvailable: autoStatusAvailable,
+        ),
+      ),
+      if (call.room.canManage)
+        option(
+          label: context.l10n.editRoom,
+          icon: DIcons.gear,
+          selected: null,
+          onPressed: () => showVoiceRoomEditor(
+            context,
+            siteUrl: siteUrl,
+            room: call.room,
+            // A dialog can outlive the plugin session that opened it when
+            // the root app is replaced. Resolve at save time; the explicit
+            // controller remains the fallback for standalone widget hosts.
+            controllerResolver: () =>
+                _resolveController(context, controller, controllerResolver),
+          ),
+        ),
+      if (call.room.canManage)
+        option(
+          label: context.l10n.manageMembers,
+          icon: DIcons.users,
+          selected: null,
+          onPressed: () => _showVoiceMembers(
+            context,
+            controller,
+            siteUrl: siteUrl,
+            room: call.room,
+          ),
+        ),
+    ];
+    final primary = <Widget>[
+      if (canPublish)
+        VoiceToolbarControl(
+          label: call.muted ? context.l10n.unmute : context.l10n.mute,
+          icon: call.muted ? DIcons.microphoneSlash : DIcons.microphoneLines,
+          selected: call.muted,
+          onPressed: () => controller.setMuted(!call.muted),
+        ),
+      if (canPublishVideo)
+        VoiceToolbarControl(
+          label: cameraOn ? context.l10n.cameraOff : context.l10n.cameraOn,
+          icon: cameraOn ? DIcons.videoSlash : DIcons.video,
+          selected: cameraOn,
+          onPressed: () => controller.setCameraEnabled(!cameraOn),
+        ),
+      VoiceToolbarControl(
+        label: call.deafened ? context.l10n.listen : context.l10n.deafen,
+        icon: DIcons.earListen,
+        selected: call.deafened,
+        onPressed: () => controller.setDeafened(!call.deafened),
+      ),
+      if (context.isTouch)
+        DPopover(
+          controller: _options,
+          sheetOnMobile: true,
+          content: DPopoverContent(
+            semanticLabel: context.l10n.moreOptions,
+            child: Wrap(
+              spacing: DSpacing.controlGap,
+              runSpacing: DSpacing.controlGap,
+              children: secondary,
             ),
           ),
-        if (call.room.canManage)
-          VoiceToolbarControl(
-            label: context.l10n.manageMembers,
-            icon: DIcons.users,
-            selected: null,
-            onPressed: () => _showVoiceMembers(
-              context,
-              controller,
-              siteUrl: siteUrl,
-              room: call.room,
+          child: DPopoverTrigger(
+            builder: (context, state) => DButton.iconOnly(
+              tooltip: context.l10n.moreOptions,
+              icon: const DIcon(DIcons.ellipsis),
+              variant: DButtonVariant.secondary,
+              focusNode: state.focusNode,
+              expanded: state.open,
+              onPressed: state.toggle,
             ),
           ),
+        )
+      else
+        ...secondary,
+      if (context.isTouch)
+        DButton.iconOnly(
+          onPressed: controller.leave,
+          tooltip: context.l10n.leaveRoom,
+          icon: const DIcon(DIcons.phoneSlash),
+          variant: DButtonVariant.destructive,
+        )
+      else
         DButton(
           onPressed: controller.leave,
-          icon: const DIcon(DIcons.phoneSlash),
           label: Text(context.l10n.leaveRoom),
+          icon: const DIcon(DIcons.phoneSlash),
           variant: DButtonVariant.destructive,
+        ),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          call.deafened
+              ? context.l10n.voiceSoundOff
+              : call.muted
+              ? context.l10n.voiceMicrophoneMuted
+              : context.l10n.voiceMicrophoneOn,
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+        const SizedBox(height: DSpacing.md),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: primary,
         ),
       ],
     );
@@ -1074,6 +1206,7 @@ class VoiceToolbarControl extends StatelessWidget {
           message: label,
           excludeFromSemantics: true,
           child: DToggle.iconOnly(
+            variant: DToggleVariant.outline,
             pressed: selected,
             onPressedChanged: (_) => onPressed(),
             semanticLabel: label,

@@ -23096,6 +23096,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use {maximum} characters or fewer.'**
   String useAtMostCharacters(String maximum);
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide preview'**
+  String get floatingPanelHide;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Show call preview'**
+  String get floatingPanelRestore;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to left edge'**
+  String get floatingPanelMoveLeft;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to right edge'**
+  String get floatingPanelMoveRight;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Return to room'**
+  String get voiceReturnToRoom;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get voiceConnected;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting…'**
+  String get voiceReconnecting;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Call interrupted'**
+  String get voiceCallFailed;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Your microphone is on'**
+  String get voiceMicrophoneOn;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Your microphone is muted'**
+  String get voiceMicrophoneMuted;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound and microphone off'**
+  String get voiceSoundOff;
+
+  /// Voice call presentation and floating panel accessibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking'**
+  String get voiceSpeaking;
 }
 
 class _AppLocalizationsDelegate

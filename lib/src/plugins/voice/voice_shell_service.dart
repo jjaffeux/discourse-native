@@ -49,6 +49,23 @@ final class VoiceShellService
   PluginRouteSite? get currentInstance => _host.currentSite;
   ContentRoute? get currentContent => _host.currentContent;
 
+  Listenable? get navigationChanges => _host is PluginRoutePresentationHost
+      ? _host as PluginRoutePresentationHost
+      : null;
+
+  bool get usesMobileNavigation =>
+      _host is PluginRoutePresentationHost &&
+      (_host as PluginRoutePresentationHost).mobileNavigationEnabled;
+
+  bool get activeRoomVisible {
+    final call = controller.call;
+    return call != null &&
+        currentInstance?.url == call.siteUrl &&
+        currentContent?.id == 'voice-room-${call.room.id}' &&
+        (_host is! PluginRoutePresentationHost ||
+            (_host as PluginRoutePresentationHost).currentContentVisible);
+  }
+
   int? currentUserIdFor(String siteUrl) => controller.currentUserIdFor(siteUrl);
 
   bool enabledFor(String siteUrl) => _enabled(siteUrl);

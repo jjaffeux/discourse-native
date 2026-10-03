@@ -65,6 +65,13 @@ abstract interface class PluginRouteNavigationHost {
   });
 }
 
+/// Optional presentation observations for overlays that follow a content route.
+/// This exposes visibility, never the shell controller or unrelated state.
+abstract interface class PluginRoutePresentationHost implements Listenable {
+  bool get currentContentVisible;
+  bool get mobileNavigationEnabled;
+}
+
 abstract interface class PluginTopicListNavigationHost {
   /// The selected site must already serve the route's site-relative path.
   void openTopicList(ContentRoute route);
