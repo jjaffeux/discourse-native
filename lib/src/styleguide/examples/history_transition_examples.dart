@@ -13,6 +13,8 @@ final historyTransitionExamples = ComponentExamples(
       'The incoming page grows from 94% to full size as the swipe progresses. '
       'A 40% scrim lightens as the background page is revealed and darkens '
       'as it is covered. '
+      'Only painted page pixels are dimmed; transparent gutters and rounded '
+      'corners continue to show the surrounding canvas. '
       'A shallow parallax and soft shadow follow the front page’s edge. '
       'The background stays inside the viewport, keeping its leading edge '
       'visible. Forward navigation shrinks it as the incoming page covers it. '

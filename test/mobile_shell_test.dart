@@ -1209,8 +1209,8 @@ void main() {
         final navigation = tester.getRect(
           find.byKey(const ValueKey('mobile-navigation-page')),
         );
-        expect(navigation.left, content.left);
-        expect(navigation.right, content.right);
+        expect(navigation.left + DSpacing.xs, content.left);
+        expect(navigation.right - DSpacing.xs, content.right);
         expect(navigation.top, content.top);
         expect(navigation.bottom, greaterThan(content.bottom));
       }
@@ -1285,8 +1285,9 @@ void main() {
         find.byKey(const ValueKey('mobile-content-panel')),
       );
       final content = tester.getRect(find.byType(MainContent));
-      expect(panel.left, 0);
-      expect(panel.width, width);
+      expect(panel.left, DSpacing.xs);
+      expect(panel.right, width - DSpacing.xs);
+      expect(panel.width, width - 2 * DSpacing.xs);
       expect(content.left, greaterThanOrEqualTo(DSpacing.xs));
       expect(content.right, lessThanOrEqualTo(width - DSpacing.xs));
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
@@ -2502,11 +2503,18 @@ void main() {
           timeStamp: const Duration(milliseconds: 200),
         );
         await tester.pump();
-        expect(
-          tester.getTopLeft(live).dx - origin.dx,
-          closeTo(back ? 120 : 0, .001),
-          reason: '${back ? "Back" : "Forward"} at height $y',
-        );
+        final left = tester.getTopLeft(live).dx;
+        if (back) {
+          expect(left - origin.dx, closeTo(120, .001), reason: 'Back at $y');
+        } else {
+          // The inset shrinks with the background page while its outer
+          // viewport stays fixed, keeping a visible gutter at every edge.
+          expect(
+            left,
+            inExclusiveRange(surface.left, origin.dx),
+            reason: 'Forward at $y',
+          );
+        }
         expect(tester.getRect(_header), header);
         expect(tester.getRect(_bar), bar);
         await gesture.up();

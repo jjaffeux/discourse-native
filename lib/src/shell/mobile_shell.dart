@@ -383,14 +383,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   enabled: !sidebarOpen,
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
-                    child: DPageSurface(
-                      key: const ValueKey('mobile-content-panel'),
-                      backgroundColor: ForumWindowBackground.panelColor(
-                        context,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DSpacing.xs,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: DSpacing.xs,
+                      child: DPageSurface(
+                        key: const ValueKey('mobile-content-panel'),
+                        backgroundColor: ForumWindowBackground.panelColor(
+                          context,
                         ),
                         child: Stack(
                           fit: StackFit.expand,

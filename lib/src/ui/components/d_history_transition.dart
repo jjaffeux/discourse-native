@@ -411,10 +411,17 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               final switching = _switchingTab && !reducedMotion;
               final p = reducedMotion ? 0.0 : _progress.value;
               final active = !switching && p > 0;
-              final dim = BoxDecoration(
-                color: tokens.colors.scrim.withValues(
+              // Tint only painted pixels. A rectangular scrim would also
+              // darken transparent page gutters and rounded corners.
+              final dim = ColorFilter.mode(
+                tokens.colors.scrim.withValues(
                   alpha: active ? .40 * (_back ? 1 - p : p) : 0,
                 ),
+                BlendMode.srcATop,
+              );
+              const clear = ColorFilter.mode(
+                Colors.transparent,
+                BlendMode.srcATop,
               );
               final elevation = BoxDecoration(
                 boxShadow: active
@@ -429,16 +436,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               );
               final preview = ExcludeSemantics(
                 child: IgnorePointer(
-                  child: ColoredBox(
-                    color: background,
-                    child: _preview == null
-                        ? null
-                        : RawImage(
-                            image: _preview,
-                            fit: BoxFit.fitWidth,
-                            alignment: Alignment.topCenter,
-                          ),
-                  ),
+                  child: _preview == null
+                      ? ColoredBox(color: background)
+                      : RawImage(
+                          image: _preview,
+                          fit: BoxFit.fitWidth,
+                          alignment: Alignment.topCenter,
+                        ),
                 ),
               );
               Widget previewLayer(Widget preview, {required bool back}) =>
@@ -461,16 +465,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                             ? 1
                             : _previewScale + (1 - _previewScale) * p,
                         child: DecoratedBox(
-                          decoration: back ? dim : elevation,
-                          position: back
-                              ? DecorationPosition.foreground
-                              : DecorationPosition.background,
-                          child: ExcludeSemantics(
-                            child: IgnorePointer(
-                              child: ExcludeFocus(
-                                child: TickerMode(
-                                  enabled: active && _back == back,
-                                  child: preview,
+                          decoration: back ? const BoxDecoration() : elevation,
+                          child: ColorFiltered(
+                            colorFilter: back ? dim : clear,
+                            child: ExcludeSemantics(
+                              child: IgnorePointer(
+                                child: ExcludeFocus(
+                                  child: TickerMode(
+                                    enabled: active && _back == back,
+                                    child: preview,
+                                  ),
                                 ),
                               ),
                             ),
@@ -518,15 +522,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       // Keep depth effects outside the capture boundary so
                       // revisiting a page never reuses a transformed snapshot.
                       child: DecoratedBox(
-                        decoration: _back ? elevation : dim,
-                        position: _back
-                            ? DecorationPosition.background
-                            : DecorationPosition.foreground,
-                        child: IgnorePointer(
-                          ignoring: _dragging || _settling || switching,
-                          child: Opacity(
-                            opacity: switching ? p : 1,
-                            child: child,
+                        decoration: _back ? elevation : const BoxDecoration(),
+                        child: ColorFiltered(
+                          colorFilter: _back ? clear : dim,
+                          child: IgnorePointer(
+                            ignoring: _dragging || _settling || switching,
+                            child: Opacity(
+                              opacity: switching ? p : 1,
+                              child: child,
+                            ),
                           ),
                         ),
                       ),

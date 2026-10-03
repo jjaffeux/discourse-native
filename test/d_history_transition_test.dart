@@ -646,6 +646,87 @@ void main() {
     );
   }
 
+  for (final direction in TextDirection.values) {
+    for (final livePreviews in [false, true]) {
+      testWidgets(
+        '${livePreviews ? 'live' : 'snapshot'} swipe backgrounds preserve '
+        'rounded corners and gutters in $direction',
+        (tester) async {
+          final state = await _pump(
+            tester,
+            direction: direction,
+            roundedPanel: true,
+            livePreviews: livePreviews,
+          );
+          state.visit(1);
+          await tester.pumpAndSettle();
+          final rtl = direction == TextDirection.rtl;
+
+          for (final back in [true, false]) {
+            final gesture = await _drag(tester, fromRight: back ? rtl : !rtl);
+            final background = back
+                ? livePreviews
+                      ? find.descendant(
+                          of: find.byKey(
+                            const ValueKey('history-previous-preview'),
+                          ),
+                          matching: find.byType(DPageSurface),
+                        )
+                      : find.byType(RawImage)
+                : _live;
+            final rect = _paintedRect(tester, background);
+            // Snapshots include the transparent 16px gutter around the panel.
+            final inset = back && !livePreviews ? rect.width / 400 * 16 : 0.0;
+            final edge = rtl ? rect.right - inset : rect.left + inset;
+            final sign = rtl ? -1.0 : 1.0;
+            final corner = Offset(edge + sign, rect.top + 1);
+            final gutter = Offset(edge - sign * 8, rect.top + 50);
+            final body = Offset(edge + sign * 50, rect.top + 50);
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('history-test-boundary')),
+            );
+            final image = boundary.toImageSync(pixelRatio: 1);
+            final pixels = await tester.runAsync(
+              () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+            );
+            List<int> rgb(Offset point) {
+              final local = boundary.globalToLocal(point);
+              final offset =
+                  (local.dy.floor() * image.width + local.dx.floor()) * 4;
+              return List.generate(
+                3,
+                (channel) => pixels!.getUint8(offset + channel),
+              );
+            }
+
+            expect(rgb(corner), [
+              0,
+              255,
+              0,
+            ], reason: 'rounded corner, back: $back');
+            expect(rgb(gutter), [
+              0,
+              255,
+              0,
+            ], reason: 'outer gutter, back: $back');
+            final bodyColor = rgb(body);
+            expect(
+              bodyColor[0],
+              inExclusiveRange(0, 244),
+              reason: 'page is dimmed',
+            );
+            expect(bodyColor[1], inExclusiveRange(0, 67));
+            expect(bodyColor[2], inExclusiveRange(0, 54));
+            image.dispose();
+            await gesture.up();
+            await tester.pumpAndSettle();
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('rounded tab snapshots preserve transparent corners', (
     tester,
   ) async {
@@ -793,6 +874,14 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   late int? tabIndex = widget.tabTransitions ? 0 : null;
   Object tabOwner = Object();
 
+  Widget _previewSurface(Widget child) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: widget.roundedPanel ? 16 : 0),
+    child: DPageSurface(
+      backgroundColor: widget.roundedPanel ? Colors.red : null,
+      child: child,
+    ),
+  );
+
   void selectTab(int tab) => setState(() {
     history = Object();
     tabIndex = tab;
@@ -864,8 +953,8 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
         previousEntry: index > 0 ? index - 1 : null,
         nextEntry: index < furthest ? index + 1 : null,
         previousPreview: widget.livePreviews && index > 0
-            ? DPageSurface(
-                child: Center(
+            ? _previewSurface(
+                Center(
                   child: DButton(
                     autofocus: true,
                     focusNode: previewFocus,
@@ -876,8 +965,8 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
               )
             : null,
         nextPreview: widget.livePreviews && index < furthest
-            ? DPageSurface(
-                child: Center(
+            ? _previewSurface(
+                Center(
                   child: DButton(
                     label: const Text('Next preview'),
                     onPressed: () => previewTaps++,
@@ -898,10 +987,13 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
               }
             : null,
         child: widget.roundedPanel
-            ? const DPageSurface(
-                key: _page,
-                backgroundColor: Colors.red,
-                child: SizedBox.expand(),
+            ? const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: DPageSurface(
+                  key: _page,
+                  backgroundColor: Colors.red,
+                  child: SizedBox.expand(),
+                ),
               )
             : ColoredBox(
                 key: _page,
