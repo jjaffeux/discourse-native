@@ -1,0 +1,39 @@
+group 'org.discourse.video_optimizer'
+version '0.1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.11.1'
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'org.discourse.video_optimizer'
+    compileSdk 36
+    defaultConfig {
+        minSdk 23
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // Keep aligned with the pinned video_player_android playback backend.
+    implementation 'androidx.media3:media3-transformer:1.9.2'
+    implementation 'androidx.media3:media3-effect:1.9.2'
+    implementation 'androidx.media3:media3-common:1.9.2'
+    testImplementation 'junit:junit:4.13.2'
+}

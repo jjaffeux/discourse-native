@@ -36,7 +36,11 @@ class ComposerUploadAttachment extends StatelessWidget {
         : completed
         ? context.l10n.uploaded
         : processing
-        ? context.l10n.processingImage
+        ? upload.file.isVideo
+              ? context.l10n.optimizingVideo
+              : isImage
+              ? context.l10n.processingImage
+              : context.l10n.preparingUpload
         : context.l10n.messageComposeruploadattachment(
             (retrying).toString(),
             ((retrying) ? (context.l10n.retrying) : '').toString(),
@@ -102,6 +106,8 @@ class ComposerUploadAttachment extends StatelessWidget {
               icon: const Icon(Icons.close),
               tooltip: completed || failed
                   ? context.l10n.removeUpload
+                  : processing && upload.file.isVideo
+                  ? context.l10n.cancelVideoOptimization
                   : context.l10n.cancelUpload,
               onPressed: completed || failed
                   ? () => composer.removeUpload(upload.id)

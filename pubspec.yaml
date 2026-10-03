@@ -13,6 +13,8 @@ dependencies:
     path: packages/discourse_plugin_api
   discourse_voice:
     path: packages/discourse_voice
+  discourse_video_optimizer:
+    path: packages/discourse_video_optimizer
   flutter:
     sdk: flutter
   flutter_localizations:

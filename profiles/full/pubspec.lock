@@ -222,6 +222,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  discourse_video_optimizer:
+    dependency: transitive
+    description:
+      path: "../../packages/discourse_video_optimizer"
+      relative: true
+    source: path
+    version: "0.1.0"
   discourse_voice:
     dependency: transitive
     description:

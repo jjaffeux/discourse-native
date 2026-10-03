@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -18,6 +19,124 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://forum.example';
 
 void main() {
+  testWidgets(
+    'video optimization is distinct from uploading and can be cancelled',
+    (tester) async {
+      final preparation = Completer<PreparedComposerUpload>();
+      var aborted = false;
+      var uploads = 0;
+      var releases = 0;
+      final file = ComposerUploadFile(
+        name: 'Holiday.MOV',
+        length: () async => 10,
+        openRead: () => Stream.value([1]),
+      );
+      final composer = ComposerController(
+        const ComposerTarget(
+          siteUrl: _siteUrl,
+          topicId: 1,
+          slug: 'test',
+          topicTitle: 'Test',
+        ),
+        prepareUpload: (file, {required abortTrigger}) {
+          unawaited(abortTrigger.then((_) => aborted = true));
+          return preparation.future;
+        },
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async {
+              uploads++;
+              throw StateError('Cancelled videos must not upload');
+            },
+      );
+      addTearDown(composer.dispose);
+      composer.addFiles([file], 0);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: composer,
+              builder: (context, _) => Column(
+                children: [
+                  for (final upload in composer.uploads)
+                    ComposerUploadAttachment(
+                      composer: composer,
+                      upload: upload,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Optimizing video…'), findsOneWidget);
+      expect(find.text('Processing image'), findsNothing);
+      expect(find.textContaining('Uploading'), findsNothing);
+      expect(composer.hasActiveUploads, isTrue);
+      await tester.tap(find.byTooltip('Cancel video upload'));
+      await tester.pump();
+      expect(aborted, isTrue);
+      expect(composer.uploads, isEmpty);
+      expect(composer.hasActiveUploads, isFalse);
+      preparation.complete(
+        PreparedComposerUpload(
+          file,
+          release: () async {
+            releases++;
+          },
+        ),
+      );
+      await tester.pump();
+      expect(uploads, 0);
+      expect(releases, 1);
+    },
+  );
+
+  testWidgets('video preparation switches to network progress when ready', (
+    tester,
+  ) async {
+    final preparation = Completer<PreparedComposerUpload>();
+    final transfer = Completer<ComposerUploadResult>();
+    final file = ComposerUploadFile(
+      name: 'movie.mov',
+      length: () async => 10,
+      openRead: () => Stream.value([1]),
+    );
+    final composer = ComposerController(
+      const ComposerTarget(
+        siteUrl: _siteUrl,
+        topicId: 1,
+        slug: 'test',
+        topicTitle: 'Test',
+      ),
+      prepareUpload: (file, {required abortTrigger}) => preparation.future,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        onProgress(.4);
+        return transfer.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    composer.addFiles([file], 0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: composer,
+            builder: (context, _) => ComposerUploadAttachment(
+              composer: composer,
+              upload: composer.uploads.single,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Optimizing video…'), findsOneWidget);
+    preparation.complete(PreparedComposerUpload(file));
+    await tester.pump();
+    expect(find.text('Optimizing video…'), findsNothing);
+    expect(find.textContaining('40%'), findsOneWidget);
+    expect(find.byTooltip('Cancel upload'), findsOneWidget);
+  });
+
   testWidgets('an uploaded wide image decodes tall enough to cover its '
       'artwork', (tester) async {
     tester.view.devicePixelRatio = 2;

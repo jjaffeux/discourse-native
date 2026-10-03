@@ -170,6 +170,9 @@ jobs:
       - name: Test shared Apple coordinators
         run: swift test --package-path darwin
 
+      - name: Test Apple video optimization
+        run: swift test --package-path packages/discourse_video_optimizer
+
       - name: Test iOS native coordinator
         run: |
           set -euo pipefail
@@ -200,3 +203,33 @@ jobs:
             build/ios/iphonesimulator/Runner.app
           LC_ALL=C grep -aRqsF 'org.discourse.native/voice_callkit' \
             profiles/full/build/ios/iphonesimulator/Runner.app
+
+  android-video-optimizer:
+    # A disposable host checks the plugin until the app has an Android runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+
+      - name: Build and test Android video plugin
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          video_host="$RUNNER_TEMP/video_optimizer_host"
+          flutter create --platforms=android --project-name video_optimizer_host "$video_host"
+          cd "$video_host"
+          flutter pub add discourse_video_optimizer --path "$GITHUB_WORKSPACE/packages/discourse_video_optimizer"
+          flutter build apk --debug
+          cd android
+          ./gradlew :discourse_video_optimizer:testDebugUnitTest

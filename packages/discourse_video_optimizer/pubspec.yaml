@@ -1,0 +1,25 @@
+name: discourse_video_optimizer
+description: Optional native video preparation for Discourse uploads.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+  flutter: '>=3.38.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: org.discourse.video_optimizer
+        pluginClass: VideoOptimizerPlugin
+      ios:
+        pluginClass: VideoOptimizerPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: VideoOptimizerPlugin
+        sharedDarwinSource: true

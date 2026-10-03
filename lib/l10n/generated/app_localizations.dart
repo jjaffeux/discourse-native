@@ -10809,6 +10809,24 @@ abstract class AppLocalizations {
   /// **'Processing image'**
   String get processingImage;
 
+  /// Upload attachment status while a video is being prepared and compressed on the device, before network upload.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimizing video…'**
+  String get optimizingVideo;
+
+  /// Upload attachment status while a non-image file is being prepared before network upload.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing upload…'**
+  String get preparingUpload;
+
+  /// Attachment action that cancels video optimization and removes the pending upload.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel video upload'**
+  String get cancelVideoOptimization;
+
   /// English UI message used by shell/composer_upload_attachment.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
