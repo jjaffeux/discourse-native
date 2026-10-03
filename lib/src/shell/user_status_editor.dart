@@ -578,6 +578,9 @@ class _StatusExpiryPickerState extends State<_StatusExpiryPicker> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DCalendar(
+          responsiveCellSize: context.isTouch
+              ? (width) => (width - 16) / 7
+              : null,
           selection: DCalendarSingleSelection(_date),
           initialDisplayedMonth: widget.initialDate,
           startMonth: widget.firstDate,
@@ -593,6 +596,7 @@ class _StatusExpiryPickerState extends State<_StatusExpiryPicker> {
         DTimeInput(
           initialValue: widget.initialTime,
           includeSeconds: false,
+          mobilePicker: true,
           label: context.l10n.time,
           onChanged: (time) => setState(() => _time = time),
           onValidityChanged: (valid) => setState(() => _validTime = valid),

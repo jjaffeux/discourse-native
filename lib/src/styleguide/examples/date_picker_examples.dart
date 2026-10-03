@@ -92,7 +92,7 @@ final datePickerExamples = ComponentExamples(
     ),
     _example(
       'Time Picker',
-      'Separate typed date and wall-clock values.',
+      'Separate typed date and wall-clock values, with time wheels on mobile.',
       'DDatePicker.controlled(/* date */) + DTimeInput(/* wall clock */)',
       (_) => const _DateAndTimeExample(),
     ),
@@ -153,6 +153,7 @@ class _DateAndTimeExampleState extends State<_DateAndTimeExample> {
       ),
       DTimeInput(
         initialValue: time,
+        mobilePicker: true,
         label: 'Time',
         width: 128,
         onChanged: (value) => setState(() => time = value),
