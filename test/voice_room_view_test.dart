@@ -729,7 +729,10 @@ void main() {
           addTearDown(tester.view.resetPhysicalSize);
           addTearDown(tester.view.resetDevicePixelRatio);
         }
-        final harness = await _pumpJoinedManagedRoom(tester);
+        final harness = await _pumpJoinedManagedRoom(
+          tester,
+          theme: ThemeData(platform: platform),
+        );
         try {
           expect(find.byTooltip('Switch camera'), findsNothing);
           await tester.tap(find.byTooltip('Camera on'));
@@ -4777,7 +4780,10 @@ void _expectMicrophoneReleased(List<MethodCall> calls) {
   ]);
 }
 
-Future<_Harness> _pumpJoinedManagedRoom(WidgetTester tester) async {
+Future<_Harness> _pumpJoinedManagedRoom(
+  WidgetTester tester, {
+  ThemeData? theme,
+}) async {
   final activeRoom = _room(
     canManage: true,
     videoAllowed: true,
@@ -4802,7 +4808,7 @@ Future<_Harness> _pumpJoinedManagedRoom(WidgetTester tester) async {
   );
 
   await tester.pumpWidget(
-    _app(harness.controller, room: initialRoom, followCall: true),
+    _app(harness.controller, room: initialRoom, followCall: true, theme: theme),
   );
   await tester.tap(find.text('Join room'));
   await tester.pumpAndSettle();
