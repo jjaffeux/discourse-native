@@ -10,6 +10,7 @@ final historyTransitionExamples = ComponentExamples(
       'Open a page to populate history, then drag inward from the first or last '
       '48 pixels using touch. Travel at least 64 pixels or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
+      'The incoming page grows from 94% to full size as the swipe progresses. '
       'A shallow parallax and soft shadow follow the front page’s edge. '
       'Forward navigation reverses that depth. History previews use bounded '
       'in-memory images; navigation previews stay ready offstage for the first '
@@ -52,7 +53,9 @@ final historyTransitionExamples = ComponentExamples(
         title: direction == TextDirection.ltr ? 'Back and forward' : 'RTL',
         description:
             'Open Topics, then a Topic. Touch-drag from either edge to navigate '
-            'or cancel. The count changes only after a committed swipe.',
+            'or cancel. The incoming page grows with the drag, returning to '
+            'its smaller preview size on cancellation. The count changes only '
+            'after a committed swipe.',
         states: const ['Touch', 'Cancel', 'History limits', 'Reduced motion'],
         code: '''DHistoryTransition(
   history: journeyId,

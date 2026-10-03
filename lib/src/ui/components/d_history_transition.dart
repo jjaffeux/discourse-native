@@ -14,7 +14,8 @@ import '../foundation/tokens.dart';
 /// or journey changes. Adjacent identities select visual previews; callbacks
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
-/// A shallow parallax and soft edge shadow separate the pages during a drag.
+/// The incoming page grows from 94% to full size with the swipe. A shallow
+/// parallax and soft edge shadow separate the pages during a drag.
 /// Tab switches use a short directional slide and crossfade.
 ///
 /// History previews are in-memory snapshots. Up to eight recently visited
@@ -88,6 +89,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   static const _edgeWidth = 48.0;
   static const _commitDistance = 64.0;
   static const _parallax = .08;
+  static const _previewScale = .94;
   static const _tabTravel = 24.0;
 
   final _boundary = GlobalKey();
@@ -450,17 +452,22 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                             : -_sign * _size.width * (1 - p),
                         0,
                       ),
-                      child: DecoratedBox(
-                        decoration: back ? dim : elevation,
-                        position: back
-                            ? DecorationPosition.foreground
-                            : DecorationPosition.background,
-                        child: ExcludeSemantics(
-                          child: IgnorePointer(
-                            child: ExcludeFocus(
-                              child: TickerMode(
-                                enabled: active && _back == back,
-                                child: preview,
+                      child: Transform.scale(
+                        scale: reducedMotion
+                            ? 1
+                            : _previewScale + (1 - _previewScale) * p,
+                        child: DecoratedBox(
+                          decoration: back ? dim : elevation,
+                          position: back
+                              ? DecorationPosition.foreground
+                              : DecorationPosition.background,
+                          child: ExcludeSemantics(
+                            child: IgnorePointer(
+                              child: ExcludeFocus(
+                                child: TickerMode(
+                                  enabled: active && _back == back,
+                                  child: preview,
+                                ),
                               ),
                             ),
                           ),

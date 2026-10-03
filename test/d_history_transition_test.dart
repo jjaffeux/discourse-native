@@ -10,6 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 const _page = ValueKey('live-page');
 final _live = find.byKey(_page);
 
+Rect _paintedRect(WidgetTester tester, Finder finder) {
+  final box = tester.renderObject<RenderBox>(finder);
+  return Rect.fromPoints(
+    box.localToGlobal(Offset.zero),
+    box.localToGlobal(box.size.bottomRight(Offset.zero)),
+  );
+}
+
 Future<_HistoryHarnessState> _pump(
   WidgetTester tester, {
   TextDirection direction = TextDirection.ltr,
@@ -58,6 +66,101 @@ Future<TestGesture> _drag(
 
 void main() {
   for (final direction in TextDirection.values) {
+    for (final livePreviews in [false, true]) {
+      testWidgets(
+        '${livePreviews ? 'live' : 'snapshot'} previews grow with back and '
+        'forward swipes in $direction',
+        (tester) async {
+          final state = await _pump(
+            tester,
+            direction: direction,
+            livePreviews: livePreviews,
+            framed: true,
+          );
+          state.visit(1);
+          await tester.pumpAndSettle();
+          final pageRect = _paintedRect(tester, _live);
+          final header = tester.getRect(find.text('Header action'));
+          final footer = tester.getRect(find.text('Footer action'));
+
+          for (final back in [true, false]) {
+            final fromRight = back
+                ? direction == TextDirection.rtl
+                : direction != TextDirection.rtl;
+            final sign = fromRight ? -1.0 : 1.0;
+            final preview = livePreviews
+                ? find.descendant(
+                    of: find.byKey(
+                      ValueKey(
+                        back
+                            ? 'history-previous-preview'
+                            : 'history-next-preview',
+                      ),
+                    ),
+                    matching: find.byType(DPageSurface),
+                  )
+                : find.byType(RawImage);
+            final initialIndex = state.index;
+            var distance = 100.0;
+            final gesture = await _drag(
+              tester,
+              fromRight: fromRight,
+              distance: distance,
+            );
+
+            Rect previewRect() => _paintedRect(tester, preview);
+            void expectChromeUnchanged() {
+              expect(tester.getRect(find.text('Header action')), header);
+              expect(tester.getRect(find.text('Footer action')), footer);
+              expect(_paintedRect(tester, _live).size, pageRect.size);
+            }
+
+            final smaller = previewRect();
+            expect(smaller.width / pageRect.width, inExclusiveRange(.94, 1));
+            expect(
+              smaller.height / pageRect.height,
+              closeTo(smaller.width / pageRect.width, .001),
+            );
+            expect(smaller.center.dy, closeTo(pageRect.center.dy, .001));
+            expectChromeUnchanged();
+
+            await gesture.moveBy(Offset(sign * 140, 0));
+            distance += 140;
+            await tester.pump();
+            final larger = previewRect();
+            expect(larger.width, greaterThan(smaller.width));
+            expect(larger.width, lessThan(pageRect.width));
+
+            // Reversing the finger reverses the scale immediately.
+            await gesture.moveBy(Offset(-sign * 80, 0));
+            distance -= 80;
+            await tester.pump();
+            expect(
+              previewRect().width,
+              inExclusiveRange(smaller.width, larger.width),
+            );
+            expectChromeUnchanged();
+
+            // The preview exactly meets the live route before navigation fires.
+            await gesture.moveBy(Offset(sign * (pageRect.width - distance), 0));
+            await tester.pump();
+            final full = previewRect();
+            expect(full.left, closeTo(pageRect.left, .001));
+            expect(full.top, closeTo(pageRect.top, .001));
+            expect(full.width, closeTo(pageRect.width, .001));
+            expect(full.height, closeTo(pageRect.height, .001));
+            expect(state.index, initialIndex);
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(state.index, back ? 0 : 1);
+            expect(_paintedRect(tester, _live), pageRect);
+          }
+          expect(state.swipes, 2);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('frame edges navigate without moving chrome in $direction', (
       tester,
     ) async {
@@ -118,6 +221,7 @@ void main() {
       expect(state.swipes, 0);
       expect(tester.getTopLeft(_live).dx - origin.dx, rtl ? -140 : 140);
       expect(find.byType(RawImage), findsOneWidget);
+      final backWidth = _paintedRect(tester, find.byType(RawImage)).width;
       expect(find.text('Page 0'), findsNothing);
       expect(find.byKey(_page), findsOneWidget);
       await back.up();
@@ -125,6 +229,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 60));
       expect(state.index, 1);
       expect((tester.getTopLeft(_live).dx - origin.dx).abs(), greaterThan(140));
+      expect(
+        _paintedRect(tester, find.byType(RawImage)).width,
+        inExclusiveRange(backWidth, 400),
+      );
       await tester.pumpAndSettle();
       expect(state.index, 0);
       expect(state.swipes, 1);
@@ -137,7 +245,14 @@ void main() {
         closeTo(rtl ? 11.2 : -11.2, .001),
       );
       expect(find.byType(RawImage), findsOneWidget);
+      final forwardWidth = _paintedRect(tester, find.byType(RawImage)).width;
       await forward.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        _paintedRect(tester, find.byType(RawImage)).width,
+        inExclusiveRange(forwardWidth, 400),
+      );
       await tester.pumpAndSettle();
       expect(state.index, 1);
       expect(state.swipes, 2);
@@ -227,11 +342,18 @@ void main() {
     for (final cancel in [false, true]) {
       final gesture = await _drag(tester, distance: cancel ? 140 : 60);
       expect(tester.getTopLeft(_live).dx, greaterThan(0));
+      final previewWidth = _paintedRect(tester, find.byType(RawImage)).width;
       if (cancel) {
         await gesture.cancel();
       } else {
         await gesture.up();
       }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(
+        _paintedRect(tester, find.byType(RawImage)).width,
+        lessThan(previewWidth),
+      );
       await tester.pumpAndSettle();
       expect(state.index, 1);
       expect(state.swipes, 0);
@@ -388,6 +510,8 @@ void main() {
     await tester.pumpAndSettle();
     final gesture = await _drag(tester);
     expect(tester.getTopLeft(_live).dx, 0);
+    expect(_paintedRect(tester, _live).size, const Size(400, 600));
+    expect(find.text('Previous preview'), findsNothing);
     expect(find.byType(RawImage), findsNothing);
     expect(state.index, 1);
     await gesture.up();
