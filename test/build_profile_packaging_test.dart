@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xml/xml.dart';
 
 const _corePubspecPath = 'pubspec.yaml';
 const _coreLockPath = 'pubspec.lock';
@@ -152,6 +153,32 @@ void main() {
   });
 
   group('source and native ownership', () {
+    for (final path in [
+      'ios/Runner/Info.plist',
+      '$_fullProfilePath/ios/Runner/Info.plist',
+    ]) {
+      test('$path enables background audio and CallKit transactions', () {
+        final dict = XmlDocument.parse(
+          File(path).readAsStringSync(),
+        ).rootElement.childElements.single.childElements.toList();
+        final values = {
+          for (var i = 0; i + 1 < dict.length; i += 2)
+            dict[i].innerText: dict[i + 1],
+        };
+        final modes = values['UIBackgroundModes'];
+
+        expect(modes?.name.local, 'array');
+        expect(
+          modes!.findElements('string').map((mode) => mode.innerText),
+          containsAll(['audio', 'voip']),
+          reason:
+              'Voice needs audio to continue calls in the background and '
+              'voip to authorize CallKit start transactions. Without voip, '
+              'iOS rejects joining a room as unentitled.',
+        );
+      });
+    }
+
     test('Voice Dart sources are owned by the main application package', () {
       final sources = _filesUnder(
         'lib/src/plugins/voice',
