@@ -1833,7 +1833,7 @@ void main() {
                 .top,
           ),
         );
-        expect(find.text('Send'), findsOneWidget);
+        expect(find.byTooltip('Send message'), findsOneWidget);
         await tester.tap(_composerField());
         await tester.pump();
         expect(_field(tester).focusNode!.hasFocus, isTrue);
