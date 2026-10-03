@@ -72,6 +72,33 @@ void main() {
     });
   }
 
+  for (final (size, shouldOptimize) in [
+    (1024 * 1024 - 1, false),
+    (1024 * 1024, true),
+    (2 * 1024 * 1024, true),
+  ]) {
+    test('default video threshold at $size bytes', () async {
+      optimizer = ComposerVideoOptimizer(
+        native: encoder,
+        temporaryDirectory: () async => temporary,
+      );
+      final source = _file(size: size);
+
+      final result = await prepare(file: source);
+
+      expect(encoder.starts, shouldOptimize ? 1 : 0);
+      if (shouldOptimize) {
+        expect(result.file.name, 'movie.mp4');
+        expect(await result.file.length(), 2);
+      } else {
+        expect(result.file, same(source));
+        expect(encoder.availabilityChecks, 0);
+      }
+      await result.dispose();
+      expect(await temporary.list().length, 0);
+    });
+  }
+
   test(
     'Linux passes through without invoking the platform or reading data',
     () async {

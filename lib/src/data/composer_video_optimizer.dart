@@ -12,7 +12,7 @@ class ComposerVideoOptimizer {
   ComposerVideoOptimizer({
     Future<Directory> Function()? temporaryDirectory,
     this.native = const NativeVideoOptimizer(),
-    this.minimumBytes = 5 * 1024 * 1024,
+    this.minimumBytes = 1024 * 1024,
     this.maximumBytes = 2 * 1024 * 1024 * 1024,
     this.ioTimeout = const Duration(seconds: 30),
     this.encodingTimeout = const Duration(minutes: 11),
