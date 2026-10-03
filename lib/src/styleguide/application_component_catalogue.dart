@@ -52,7 +52,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'page-surface',
     name: 'Page surface',
-    sections: ['Virtualized body', 'Page structure'],
+    sections: ['Mobile navigation', 'Virtualized body', 'Page structure'],
   ),
   ComponentReference(
     id: 'sticky',
