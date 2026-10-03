@@ -52,6 +52,7 @@ import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -75,6 +76,7 @@ void main() {
   _directCallTests();
   _inviteTests();
   _microphoneTests();
+  _mobileVoiceFormTests();
 
   group('room availability and layout', () {
     testWidgets(
@@ -4131,6 +4133,8 @@ void _meshPrivacyTests() {
         await tester.tap(find.byTooltip('Media settings'));
         await tester.pumpAndSettle();
         expect(find.text('Show my status while in a call'), findsOneWidget);
+        await tester.ensureVisible(find.text('Show my status while in a call'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Show my status while in a call'));
         await tester.pumpAndSettle();
 
@@ -4140,6 +4144,245 @@ void _meshPrivacyTests() {
       },
     );
   });
+}
+
+void _mobileVoiceFormTests() {
+  group('mobile Voice inset forms', () {
+    for (final inviting in [false, true]) {
+      final name = inviting ? 'invite' : 'media settings';
+      for (final dark in [false, true]) {
+        testWidgets('$name pins Native actions in ${dark ? 'dark' : 'light'}', (
+          tester,
+        ) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+          tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+          addTearDown(tester.view.reset);
+          final calls = _mockMicrophone(tester);
+          final harness = await _openMobileVoiceForm(
+            tester,
+            inviting: inviting,
+            dark: dark,
+          );
+
+          expect(find.byType(DDialogContent), findsNothing);
+          expect(find.byType(AlertDialog), findsNothing);
+          expect(tester.testTextInput.isVisible, isFalse);
+          final sheet = find.byType(DSheetContent);
+          final bounds = tester.getRect(sheet);
+          expect(bounds.left, greaterThan(0));
+          expect(bounds.right, lessThan(390));
+          expect(bounds.top, greaterThan(59));
+          expect(bounds.top, lessThan(140));
+          expect(bounds.bottom, lessThanOrEqualTo(810));
+          expect(bounds.height, greaterThan(650));
+          final close = find.byTooltip('Close');
+          final closeButton = tester.widget<DButton>(
+            find.ancestor(of: close, matching: find.byType(DButton)),
+          );
+          expect(closeButton.variant, DButtonVariant.secondary);
+          expect(closeButton.shape, DButtonShape.pill);
+          expect(closeButton.size, DButtonSize.small);
+          expect(close.hitTestable(), findsOneWidget);
+          final footerButtons = find.descendant(
+            of: find.byType(DSheetFooter),
+            matching: find.byType(DButton),
+          );
+          expect(footerButtons, findsNWidgets(2));
+          for (final button in tester.widgetList<DButton>(footerButtons)) {
+            expect(button.expanded, isTrue);
+          }
+          final primary = find.widgetWithText(
+            DButton,
+            inviting ? 'Send invite' : 'Done',
+          );
+          expect(
+            tester.widget<DButton>(primary).variant,
+            DButtonVariant.primary,
+          );
+          final secondary = find.widgetWithText(
+            DButton,
+            inviting ? 'Done' : 'Test microphone',
+          );
+          expect(
+            tester.widget<DButton>(secondary).variant,
+            DButtonVariant.secondary,
+          );
+
+          if (inviting) {
+            await tester.enterText(find.byType(DInput), 'kim');
+            tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+            await tester.pumpAndSettle();
+            expect(
+              tester.getRect(find.byType(DSheetFooter)).bottom,
+              lessThanOrEqualTo(524),
+            );
+            expect(primary.hitTestable(), findsOneWidget);
+            await tester.tap(primary);
+            await tester.pumpAndSettle();
+            expect(
+              harness.transport.writes
+                  .where((write) => write.path.endsWith('/invites.json'))
+                  .single
+                  .body,
+              {
+                'usernames': ['kim'],
+              },
+            );
+            expect(
+              tester.widget<DInput>(find.byType(DInput)).controller!.text,
+              '',
+            );
+          } else {
+            expect(find.text('Push to talk'), findsNothing);
+            await tester.tap(find.byType(DSelect<String>).first);
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Travel microphone').last);
+            await tester.pumpAndSettle();
+            expect(harness.media.sessions.single.audioInputs, ['microphone-2']);
+            expect(sheet, findsOneWidget);
+            expect(find.text('Travel microphone'), findsOneWidget);
+            final status = find.text('Show my status while in a call');
+            await tester.ensureVisible(status);
+            await tester.pumpAndSettle();
+            await tester.tap(status);
+            await tester.pumpAndSettle();
+            expect(harness.preferences.autoStatusWrites, [false]);
+            await tester.tap(find.text('Test microphone'));
+            await tester.pumpAndSettle();
+            _expectMicrophoneReleased(calls);
+          }
+
+          final headerBounds = tester.getRect(find.byType(DSheetHeader));
+          final footerBounds = tester.getRect(find.byType(DSheetFooter));
+          await tester.drag(find.byType(DSheetBody), const Offset(0, -180));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(find.byType(DSheetHeader)), headerBounds);
+          expect(tester.getRect(find.byType(DSheetFooter)), footerBounds);
+          expect(primary.hitTestable(), findsOneWidget);
+          await tester.tap(find.widgetWithText(DButton, 'Done'));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+          harness.dispose();
+        });
+      }
+
+      testWidgets('$name stays usable with large text and a keyboard', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(320, 700);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final harness = await _openMobileVoiceForm(tester, inviting: inviting);
+        if (inviting) {
+          await tester.enterText(find.byType(DInput), 'kim');
+          tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+          await tester.pumpAndSettle();
+        }
+        final footer = tester.getRect(find.byType(DSheetFooter));
+        expect(footer.bottom, lessThanOrEqualTo(inviting ? 420 : 700));
+        final action = find.widgetWithText(
+          DButton,
+          inviting ? 'Send invite' : 'Test microphone',
+        );
+        expect(action.hitTestable(), findsOneWidget);
+        final bounds = tester.getRect(action);
+        expect(bounds.left, greaterThan(0));
+        expect(bounds.right, lessThan(320));
+        await tester.drag(find.byType(DSheetBody), const Offset(0, -500));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(find.byType(DSheetFooter)), footer);
+        await tester.ensureVisible(
+          find.text(inviting ? 'Copy' : 'Native noise suppression'),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find
+              .text(inviting ? 'Copy' : 'Native noise suppression')
+              .hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        harness.dispose();
+      });
+
+      testWidgets('$name only dismisses on a sufficient downward swipe', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final harness = await _openMobileVoiceForm(tester, inviting: inviting);
+        final header = find.byType(DSheetHeader);
+        await tester.drag(header, const Offset(0, -150));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        await tester.drag(header, const Offset(0, 80));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        await tester.drag(header, const Offset(0, 600));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+        harness.dispose();
+      });
+    }
+  });
+}
+
+Future<_Harness> _openMobileVoiceForm(
+  WidgetTester tester, {
+  required bool inviting,
+  bool dark = false,
+}) async {
+  final room = _room(
+    canInvite: true,
+    videoAllowed: true,
+    participants: const [
+      VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+    ],
+  );
+  final harness = _Harness(joinRoom: room);
+  addTearDown(harness.dispose);
+  await _join(harness, room);
+  harness.media.sessions.single.availableDevices = [
+    for (final (id, kind, label) in [
+      ('microphone-1', 'audioinput', 'Desk microphone'),
+      ('microphone-2', 'audioinput', 'Travel microphone'),
+      ('speaker-1', 'audiooutput', 'Speaker'),
+      ('camera-1', 'videoinput', 'Back Triple Camera'),
+    ])
+      rtc.MediaDeviceInfo(
+        deviceId: id,
+        groupId: kind,
+        kind: kind,
+        label: label,
+      ),
+  ];
+  await tester.pumpWidget(
+    _app(
+      harness.controller,
+      room: room,
+      call: harness.controller.call,
+      autoStatusAvailable: true,
+      inviteLink: 'https://voice.example.com/voice/r/lounge/invited-by/sam',
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: TargetPlatform.iOS,
+      ),
+    ),
+  );
+  await tester.tap(
+    find.byTooltip(inviting ? 'Invite people' : 'Media settings'),
+  );
+  await tester.pumpAndSettle();
+  return harness;
 }
 
 void _microphoneTests() {
@@ -4370,7 +4613,7 @@ void _microphoneTests() {
                   await tester.pumpAndSettle();
                 } else {
                   await tester.pump();
-                  expect(find.byType(AlertDialog), findsOneWidget);
+                  expect(find.byType(DDialogContent), findsOneWidget);
                 }
               case 'disposed room':
                 await tester.pumpWidget(
@@ -4382,7 +4625,7 @@ void _microphoneTests() {
                   ),
                 );
                 expect(find.byType(VoiceRoomContent), findsNothing);
-                expect(find.byType(AlertDialog), findsOneWidget);
+                expect(find.byType(DDialogContent), findsOneWidget);
               case 'disposed app':
                 await tester.pumpWidget(const SizedBox.shrink());
             }
@@ -4726,7 +4969,9 @@ Widget _app(
   DateTime Function() ringingClock = DateTime.now,
   bool showRoom = true,
   String siteUrl = _siteUrl,
+  ThemeData? theme,
 }) => MaterialApp(
+  theme: theme ?? ThemeData(platform: TargetPlatform.macOS),
   builder: (context, child) =>
       DToaster(position: DToastPosition.topEnd, child: child!),
   home: Scaffold(

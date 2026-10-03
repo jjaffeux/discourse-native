@@ -1185,6 +1185,84 @@ class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
   }
 }
 
+Future<void> _showVoiceRoomForm({
+  required BuildContext context,
+  required String title,
+  required Widget Function(BuildContext, DDialogController<void>) builder,
+}) {
+  if (context.isTouch) {
+    return showDSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      side: DSheetSide.bottom,
+      inset: true,
+      fillAvailableHeight: true,
+      builder: (context, sheet) => DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        showCloseButton: false,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
+        children: [Expanded(child: builder(context, sheet))],
+      ),
+    );
+  }
+  return showDDialog<void>(
+    context: context,
+    useRootNavigator: true,
+    builder: builder,
+  );
+}
+
+class _VoiceRoomFormLayout extends StatelessWidget {
+  const _VoiceRoomFormLayout({
+    required this.title,
+    required this.child,
+    required this.actions,
+    this.maxWidth = 520,
+  });
+
+  final String title;
+  final Widget child;
+  final List<Widget> actions;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.isTouch) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ComposerSheetHeader(title: title),
+          Expanded(
+            child: DSheetBody(
+              padding: const EdgeInsets.fromLTRB(
+                DSpacing.lg,
+                0,
+                DSpacing.lg,
+                DSpacing.lg,
+              ),
+              child: child,
+            ),
+          ),
+          const DSeparator(),
+          DSheetFooter(children: actions),
+        ],
+      );
+    }
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: maxWidth,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+        DDialogScrollArea(maxHeightFactor: .65, child: child),
+        DDialogFooter(children: actions),
+      ],
+    );
+  }
+}
+
 Future<void> _showVoiceInvite(
   BuildContext context,
   VoiceController controller, {
@@ -1193,9 +1271,9 @@ Future<void> _showVoiceInvite(
   required String? inviteLink,
 }) {
   final ownsAccount = controller.captureSiteSession(siteUrl);
-  return showDDialog<void>(
+  return _showVoiceRoomForm(
     context: context,
-    useRootNavigator: true,
+    title: context.l10n.inviteTo(room.name),
     builder: (context, dialog) => _VoiceInviteDialog(
       controller: controller,
       siteUrl: siteUrl,
@@ -1323,134 +1401,137 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
     final suggestions = _suggestions;
     final link = widget.inviteLink;
     final available = widget.ownsAccount() && !_sending;
-    return DDialogContent(
-      showCloseButton: false,
-      maxWidth: 520,
-      semanticLabel: context.l10n.inviteTo(widget.room.name),
-      children: [
-        DDialogHeader(
-          children: [
-            DDialogTitle(child: Text(context.l10n.inviteTo(widget.room.name))),
-          ],
+    final mobile = context.isTouch;
+    final username = DInput(
+      controller: _username,
+      autofocus: !mobile,
+      labelText: context.l10n.inviteByName,
+      hintText: context.l10n.usernameLowercase,
+      onSubmitted: (_) => unawaited(_inviteTyped()),
+    );
+    final send = DButton(
+      onPressed: available ? _inviteTyped : null,
+      icon: const DIcon(DIcons.paperPlane),
+      label: Text(context.l10n.sendInvite),
+      variant: DButtonVariant.primary,
+      expanded: mobile,
+      loading: _sending,
+    );
+    return _VoiceRoomFormLayout(
+      title: context.l10n.inviteTo(widget.room.name),
+      actions: [
+        if (mobile) send,
+        DButton(
+          onPressed: widget.dialog.close,
+          label: Text(context.l10n.done),
+          variant: mobile ? DButtonVariant.secondary : DButtonVariant.primary,
+          expanded: mobile,
         ),
-        DDialogScrollArea(
-          maxHeightFactor: .65,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (mobile)
+            username
+          else
+            Row(
+              children: [
+                Expanded(child: username),
+                const SizedBox(width: DSpacing.sm),
+                send,
+              ],
+            ),
+          if (suggestions != null && suggestions.isNotEmpty) ...[
+            const SizedBox(height: DSpacing.lg),
+            Text(context.l10n.peopleYouVeSharedThisRoomWith),
+            for (final suggestion in suggestions)
+              DItem(
                 children: [
-                  Expanded(
-                    child: DInput(
-                      controller: _username,
-                      autofocus: true,
-                      labelText: context.l10n.inviteByName,
-                      hintText: context.l10n.usernameLowercase,
-                      onSubmitted: (_) => unawaited(_inviteTyped()),
-                    ),
-                  ),
-                  const SizedBox(width: DSpacing.sm),
-                  DButton(
-                    onPressed: available ? _inviteTyped : null,
-                    icon: const DIcon(DIcons.paperPlane),
-                    label: Text(context.l10n.sendInvite),
-                    variant: DButtonVariant.primary,
-                    loading: _sending,
-                  ),
-                ],
-              ),
-              if (suggestions != null && suggestions.isNotEmpty) ...[
-                const SizedBox(height: DSpacing.lg),
-                Text(context.l10n.peopleYouVeSharedThisRoomWith),
-                for (final suggestion in suggestions)
-                  DItem(
-                    children: [
-                      DItemMedia(
-                        variant: DItemMediaVariant.avatar,
-                        child: DAvatar.frame(
-                          child: SizedBox.square(
-                            dimension: 36,
-                            child: AvatarImage(
-                              url: suggestion.user.avatarUrl(
-                                widget.siteUrl,
-                                size: 72,
-                              ),
-                              size: 36,
-                              fallback: ColoredBox(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHigh,
-                              ),
-                            ),
+                  DItemMedia(
+                    variant: DItemMediaVariant.avatar,
+                    child: DAvatar.frame(
+                      child: SizedBox.square(
+                        dimension: 36,
+                        child: AvatarImage(
+                          url: suggestion.user.avatarUrl(
+                            widget.siteUrl,
+                            size: 72,
+                          ),
+                          size: 36,
+                          fallback: ColoredBox(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
                           ),
                         ),
                       ),
-                      DItemContent(
-                        children: [
-                          DItemTitle(child: Text(suggestion.user.username)),
-                          DItemDescription(
-                            child: Text(
-                              context.l10n.togetherRecently(
-                                _timeTogether(suggestion.totalSeconds),
-                              ),
-                            ),
+                    ),
+                  ),
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text(suggestion.user.username)),
+                      DItemDescription(
+                        child: Text(
+                          context.l10n.togetherRecently(
+                            _timeTogether(suggestion.totalSeconds),
                           ),
-                        ],
-                      ),
-                      DItemActions(
-                        children: [
-                          if (_invited.contains(suggestion.user.username))
-                            Text(context.l10n.invited)
-                          else
-                            DButton(
-                              onPressed: available
-                                  ? () => _invite([suggestion.user.username])
-                                  : null,
-                              label: Text(context.l10n.invite),
-                            ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-              ],
-              if (link != null) ...[
-                const SizedBox(height: DSpacing.lg),
-                Text(context.l10n.orShareAnInviteLink),
-                const SizedBox(height: DSpacing.xs),
-                Row(
-                  children: [
-                    Expanded(child: SelectableText(link)),
-                    const SizedBox(width: DSpacing.sm),
-                    DButton(
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: link));
-                        if (context.mounted) {
-                          DToast.show(
-                            context,
-                            context.l10n.linkCopiedToClipboard,
-                            type: DToastType.success,
-                          );
-                        }
-                      },
-                      icon: const DIcon(DIcons.copy),
-                      label: Text(context.l10n.copy),
-                    ),
-                  ],
+                  DItemActions(
+                    children: [
+                      if (_invited.contains(suggestion.user.username))
+                        Text(context.l10n.invited)
+                      else
+                        DButton(
+                          onPressed: available
+                              ? () => _invite([suggestion.user.username])
+                              : null,
+                          label: Text(context.l10n.invite),
+                          variant: DButtonVariant.secondary,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+          ],
+          if (link != null) ...[
+            const SizedBox(height: DSpacing.lg),
+            Text(context.l10n.orShareAnInviteLink),
+            const SizedBox(height: DSpacing.xs),
+            Flex(
+              direction: mobile ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment: mobile
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.center,
+              children: [
+                if (mobile)
+                  SelectableText(link)
+                else
+                  Expanded(child: SelectableText(link)),
+                const SizedBox(width: DSpacing.sm, height: DSpacing.sm),
+                DButton(
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: link));
+                    if (context.mounted) {
+                      DToast.show(
+                        context,
+                        context.l10n.linkCopiedToClipboard,
+                        type: DToastType.success,
+                      );
+                    }
+                  },
+                  icon: const DIcon(DIcons.copy),
+                  label: Text(context.l10n.copy),
+                  variant: DButtonVariant.secondary,
                 ),
               ],
-            ],
-          ),
-        ),
-        DDialogFooter(
-          children: [
-            DButton(
-              onPressed: widget.dialog.close,
-              label: Text(context.l10n.done),
             ),
           ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1550,126 +1631,138 @@ Future<void> _showMediaSettings(
   var autoStatus = controller.autoStatusEnabled;
   var testing = false;
   final ownerContext = context;
-  await showDialog<void>(
+  await _showVoiceRoomForm(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(appL10n.mediaSettings),
-        content: SizedBox(
-          width: 430,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _DevicePicker(
-                  label: appL10n.microphone,
-                  devices: inputs,
-                  value: input,
-                  onChanged: (value) async {
-                    if (value == null) return;
-                    setState(() => input = value);
-                    await controller.selectAudioInput(value);
-                  },
-                ),
-                _DevicePicker(
-                  label: appL10n.speaker,
-                  devices: outputs,
-                  value: output,
-                  onChanged: (value) async {
-                    if (value == null) return;
-                    setState(() => output = value);
-                    await controller.selectAudioOutput(value);
-                  },
-                ),
-                _DevicePicker(
-                  label: appL10n.camera,
-                  devices: cameras,
-                  value: camera,
-                  onChanged: (value) async {
-                    if (value == null) return;
-                    setState(() => camera = value);
-                    await controller.selectCamera(value);
-                  },
-                ),
-                if (Platform.isMacOS || Platform.isLinux)
-                  DSwitchTile(
-                    value: pushToTalk,
-                    title: DLabel(child: Text(appL10n.pushToTalk)),
-                    subtitle: Text(appL10n.holdSpaceWhileTheRoomIsFocused),
-                    onChanged: (value) async {
-                      setState(() => pushToTalk = value);
-                      await controller.setPushToTalkEnabled(value);
-                    },
-                  ),
-                if (autoStatusAvailable)
-                  DSwitchTile(
-                    value: autoStatus,
-                    title: DLabel(
-                      child: Text(appL10n.showMyStatusWhileInACall),
-                    ),
-                    subtitle: Text(appL10n.setsYourUserStatusToTheRoomYouAreIn),
-                    onChanged: (value) async {
-                      setState(() => autoStatus = value);
-                      await controller.setAutoStatusEnabled(value);
-                    },
-                  ),
-                ListTile(
-                  title: Text(appL10n.nativeNoiseSuppression),
-                  subtitle: Text(
-                    appL10n
-                        .echoCancellationNoiseSuppressionAndAutomaticGainControlAreActive,
-                  ),
-                  trailing: const DIcon(DIcons.check, size: 18),
-                ),
-                DButton(
-                  onPressed: testing
-                      ? null
-                      : () async {
-                          if (testing) return;
-                          setState(() => testing = true);
-                          try {
-                            final available = await _testMicrophone(
-                              input,
-                              controller.diagnostics,
-                            );
-                            if (ownerContext.mounted &&
-                                context.mounted &&
-                                ModalRoute.of(context)?.isCurrent == true) {
-                              DToast.show(
-                                context,
-                                available
-                                    ? appL10n.microphoneIsAvailable
-                                    : appL10n
-                                          .couldnTTestTheMicrophonePleaseTryAgain,
-                                type: available
-                                    ? DToastType.success
-                                    : DToastType.error,
-                              );
-                            }
-                          } finally {
-                            if (ownerContext.mounted &&
-                                context.mounted &&
-                                ModalRoute.of(context)?.isActive == true) {
-                              setState(() => testing = false);
-                            }
-                          }
-                        },
-                  icon: const DIcon(DIcons.microphoneLines),
-                  label: Text(appL10n.testMicrophone),
-                  loading: testing,
-                  loadingLabel: Text(appL10n.testing),
-                ),
-              ],
+    title: context.l10n.mediaSettings,
+    builder: (context, dialog) => StatefulBuilder(
+      builder: (context, setState) {
+        final mobile = context.isTouch;
+        final testMicrophone = DButton(
+          variant: DButtonVariant.secondary,
+          expanded: mobile,
+          onPressed: testing
+              ? null
+              : () async {
+                  if (testing) return;
+                  setState(() => testing = true);
+                  try {
+                    final available = await _testMicrophone(
+                      input,
+                      controller.diagnostics,
+                    );
+                    if (ownerContext.mounted &&
+                        context.mounted &&
+                        ModalRoute.of(context)?.isCurrent == true) {
+                      DToast.show(
+                        context,
+                        available
+                            ? appL10n.microphoneIsAvailable
+                            : appL10n.couldnTTestTheMicrophonePleaseTryAgain,
+                        type: available ? DToastType.success : DToastType.error,
+                      );
+                    }
+                  } finally {
+                    if (ownerContext.mounted &&
+                        context.mounted &&
+                        ModalRoute.of(context)?.isActive == true) {
+                      setState(() => testing = false);
+                    }
+                  }
+                },
+          icon: const DIcon(DIcons.microphoneLines),
+          label: Text(appL10n.testMicrophone),
+          loading: testing,
+          loadingLabel: Text(appL10n.testing),
+        );
+        return _VoiceRoomFormLayout(
+          title: context.l10n.mediaSettings,
+          maxWidth: 480,
+          actions: [
+            if (mobile) testMicrophone,
+            DButton(
+              onPressed: dialog.close,
+              label: Text(context.l10n.done),
+              variant: DButtonVariant.primary,
+              expanded: mobile,
             ),
+          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: DSpacing.lg,
+            children: [
+              _DevicePicker(
+                label: appL10n.microphone,
+                devices: inputs,
+                value: input,
+                onChanged: (value) async {
+                  if (value == null) return;
+                  setState(() => input = value);
+                  await controller.selectAudioInput(value);
+                },
+              ),
+              _DevicePicker(
+                label: appL10n.speaker,
+                devices: outputs,
+                value: output,
+                onChanged: (value) async {
+                  if (value == null) return;
+                  setState(() => output = value);
+                  await controller.selectAudioOutput(value);
+                },
+              ),
+              _DevicePicker(
+                label: appL10n.camera,
+                devices: cameras,
+                value: camera,
+                onChanged: (value) async {
+                  if (value == null) return;
+                  setState(() => camera = value);
+                  await controller.selectCamera(value);
+                },
+              ),
+              if (!mobile && (Platform.isMacOS || Platform.isLinux))
+                DSwitchTile(
+                  value: pushToTalk,
+                  title: DLabel(child: Text(appL10n.pushToTalk)),
+                  subtitle: Text(appL10n.holdSpaceWhileTheRoomIsFocused),
+                  onChanged: (value) async {
+                    setState(() => pushToTalk = value);
+                    await controller.setPushToTalkEnabled(value);
+                  },
+                ),
+              if (autoStatusAvailable)
+                DSwitchTile(
+                  value: autoStatus,
+                  title: DLabel(child: Text(appL10n.showMyStatusWhileInACall)),
+                  subtitle: Text(appL10n.setsYourUserStatusToTheRoomYouAreIn),
+                  onChanged: (value) async {
+                    setState(() => autoStatus = value);
+                    await controller.setAutoStatusEnabled(value);
+                  },
+                ),
+              DItem(
+                padding: EdgeInsets.zero,
+                children: [
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text(appL10n.nativeNoiseSuppression)),
+                      DItemDescription(
+                        child: Text(
+                          appL10n
+                              .echoCancellationNoiseSuppressionAndAutomaticGainControlAreActive,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const DIcon(DIcons.check, size: 18),
+                ],
+              ),
+              if (!mobile) testMicrophone,
+            ],
           ),
-        ),
-        actions: [
-          DButton(
-            onPressed: () => Navigator.pop(context),
-            label: Text(appL10n.done),
-          ),
-        ],
-      ),
+        );
+      },
     ),
   );
 }
