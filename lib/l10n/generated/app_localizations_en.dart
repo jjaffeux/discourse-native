@@ -3113,6 +3113,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cameraOn => 'Camera on';
 
   @override
+  String get switchCamera => 'Switch camera';
+
+  @override
   String get stopSharing => 'Stop sharing';
 
   @override

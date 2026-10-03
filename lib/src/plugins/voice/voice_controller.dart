@@ -430,6 +430,7 @@ final class VoiceController extends ChangeNotifier {
   String? _audioInputDeviceId;
   String? _audioOutputDeviceId;
   String? _cameraDeviceId;
+  VoiceCameraFacing? _cameraFacing;
   bool _pushToTalkEnabled = false;
   bool _autoStatusEnabled = true;
   bool _foreground = true;
@@ -458,7 +459,7 @@ final class VoiceController extends ChangeNotifier {
       Platform.isIOS || Platform.isMacOS || Platform.isLinux;
   String? get audioInputDeviceId => _audioInputDeviceId;
   String? get audioOutputDeviceId => _audioOutputDeviceId;
-  String? get cameraDeviceId => _cameraDeviceId;
+  String? get cameraDeviceId => _cameraFacing == null ? _cameraDeviceId : null;
   bool get pushToTalkEnabled => _pushToTalkEnabled;
 
   /// Whether joining a room sets the user's status to it (when the site
@@ -2796,6 +2797,7 @@ final class VoiceController extends ChangeNotifier {
               await call.media.setCameraEnabled(
                 enabled,
                 deviceId: deviceId ?? _cameraDeviceId,
+                facing: deviceId == null ? _cameraFacing : null,
                 shouldContinue: isCurrent,
               );
               if (!isCurrent()) {
@@ -2927,6 +2929,7 @@ final class VoiceController extends ChangeNotifier {
                     await call.media.setCameraEnabled(
                       true,
                       deviceId: _cameraDeviceId,
+                      facing: _cameraFacing,
                       shouldContinue: isCurrent,
                     );
                     if (!isCurrent()) {
@@ -3045,7 +3048,33 @@ final class VoiceController extends ChangeNotifier {
     correlationId: _activeDiagnosticCorrelationId,
   );
 
-  Future<void> _selectCamera(String deviceId) async {
+  Future<void> switchCamera() => _runPublicOperation(
+    () async {
+      final call = _call;
+      if (_disposed ||
+          call == null ||
+          call.status != VoiceCallStatus.connected ||
+          !call.cameraEnabled ||
+          call.screenSharing ||
+          cameraStarting) {
+        return;
+      }
+      _userActed();
+      await _selectCamera(
+        null,
+        facing: call.media.cameraFacing == VoiceCameraFacing.front
+            ? VoiceCameraFacing.back
+            : VoiceCameraFacing.front,
+      );
+    },
+    'voice.media.switchCamera',
+    correlationId: _activeDiagnosticCorrelationId,
+  );
+
+  Future<void> _selectCamera(
+    String? deviceId, {
+    VoiceCameraFacing? facing,
+  }) async {
     if (_disposed) return;
     final call = _call;
     final switchCamera = call != null && (call.cameraEnabled || cameraStarting);
@@ -3061,7 +3090,8 @@ final class VoiceController extends ChangeNotifier {
         _userIdFor(call.siteUrl) == userId &&
         userId != null &&
         _canPublishCamera(_call!, userId);
-    _cameraDeviceId = deviceId;
+    if (facing == null) _cameraDeviceId = deviceId;
+    _cameraFacing = facing;
     _startingCamera = switchCamera
         ? (media: call.media, revision: revision, remember: remember)
         : null;
@@ -3073,17 +3103,19 @@ final class VoiceController extends ChangeNotifier {
       await _traceDeviceSelection(
         kind: 'camera',
         origin: 'user',
-        deviceId: deviceId,
+        deviceId: deviceId ?? facing!.name,
         applied: switchCamera,
         correlationId: correlationId,
         action: () async {
-          await _persistPreference(
-            () => _preferences.writeDevice(
-              VoiceDevicePreference.camera,
-              deviceId,
-            ),
-            'voice.preferences.camera',
-          );
+          if (deviceId != null) {
+            await _persistPreference(
+              () => _preferences.writeDevice(
+                VoiceDevicePreference.camera,
+                deviceId,
+              ),
+              'voice.preferences.camera',
+            );
+          }
           if (_disposed || revision != _cameraRevision) return;
           if (!switchCamera) {
             _restorePreferredCamera();
@@ -3104,6 +3136,7 @@ final class VoiceController extends ChangeNotifier {
               await media.setCameraEnabled(
                 true,
                 deviceId: deviceId,
+                facing: facing,
                 shouldContinue: isCurrent,
               );
               if (!isCurrent()) {
@@ -3120,6 +3153,12 @@ final class VoiceController extends ChangeNotifier {
           }
         },
       );
+    } catch (_) {
+      if (isCurrent()) {
+        _call = _call!.copyWith(error: appL10n.theMediaSettingWasNotApplied);
+        notifyListeners();
+      }
+      rethrow;
     } finally {
       if (call != null) {
         _finishStartingCamera(call.media, revision);

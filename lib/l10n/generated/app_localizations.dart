@@ -5463,6 +5463,12 @@ abstract class AppLocalizations {
   /// **'Camera on'**
   String get cameraOn;
 
+  /// Voice toolbar action that switches between the front and back cameras on a phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch camera'**
+  String get switchCamera;
+
   /// English UI message used by plugins/voice/voice_room_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
