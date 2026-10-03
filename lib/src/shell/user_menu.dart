@@ -1438,7 +1438,8 @@ Future<T?> _showAccountSheet<T>({
                 DButton.iconOnly(
                   onPressed: controller.close,
                   tooltip: appL10n.close,
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.secondary,
+                  shape: DButtonShape.pill,
                   icon: const DIcon(DIcons.xmark),
                 ),
             ],
