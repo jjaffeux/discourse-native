@@ -721,9 +721,7 @@ class ChatPlugin
   }) => [
     ChatHeaderButton(
       ringColor: ringColor,
-      trailingSpacing: surface == PluginHeaderSurface.titleBar
-          ? DSpacing.controlGap
-          : 0,
+      trailingSpacing: DSpacing.controlGap,
     ),
   ];
 

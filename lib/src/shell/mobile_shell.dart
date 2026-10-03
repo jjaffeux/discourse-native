@@ -295,16 +295,21 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                       ),
                       const ForumSearch(fullScreen: true),
-                      ...registry.shellHeaderActions(
-                        context,
-                        surface: PluginHeaderSurface.content,
-                        compact: true,
-                        ringColor: ForumWindowBackground.chromeColor(
-                          context,
-                          Theme.of(context).shell.sidebar,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...registry.shellHeaderActions(
+                            context,
+                            surface: PluginHeaderSurface.content,
+                            compact: true,
+                            ringColor: ForumWindowBackground.chromeColor(
+                              context,
+                              Theme.of(context).shell.sidebar,
+                            ),
+                          ),
+                          const UserMenuButton(compact: true),
+                        ],
                       ),
-                      const UserMenuButton(compact: true),
                     ],
                   ),
                 ),

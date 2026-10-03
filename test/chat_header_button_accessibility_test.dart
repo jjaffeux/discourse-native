@@ -69,6 +69,34 @@ void main() {
     }
   }
 
+  for (final width in [390.0, 430.0]) {
+    for (final chatEnabled in [false, true]) {
+      for (final count in [0, 128]) {
+        testWidgets(
+          'mobile header uses standard gaps at $width, chat=$chatEnabled, count=$count',
+          (tester) async {
+            await _pump(
+              tester,
+              width: width,
+              chatEnabled: chatEnabled,
+              mentionCount: count,
+              bellCount: count,
+            );
+            expect(
+              find.byKey(ChatHeaderButton.buttonKey),
+              chatEnabled ? findsOneWidget : findsNothing,
+            );
+            _expectMobileHeaderGaps(tester);
+          },
+          variant: const TargetPlatformVariant({
+            TargetPlatform.iOS,
+            TargetPlatform.android,
+          }),
+        );
+      }
+    }
+  }
+
   for (final width in [320.0, 390.0]) {
     testWidgets(
       'real macOS header fits large notification counts at $width and 200%',
@@ -266,10 +294,12 @@ void main() {
         );
         final button = find.byKey(ChatHeaderButton.buttonKey);
         expect(button, findsOneWidget);
+        _expectMobileHeaderGaps(tester);
         await tester.tap(button);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, 'chat-channels');
         expect(button, findsNothing);
+        _expectMobileHeaderGaps(tester);
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({
@@ -290,12 +320,46 @@ void main() {
           tester,
           siteEnabled: scenario.siteEnabled,
           userEnabled: scenario.userEnabled,
+          width: 390,
         );
         expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+        if (find
+            .byKey(const ValueKey('mobile-search-button'))
+            .evaluate()
+            .isNotEmpty) {
+          _expectMobileHeaderGaps(tester);
+        }
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
   }
+}
+
+void _expectMobileHeaderGaps(WidgetTester tester) {
+  final chat = find.byKey(ChatHeaderButton.buttonKey);
+  final controls = [
+    find.byKey(const ValueKey('mobile-search-button')),
+    if (chat.evaluate().isNotEmpty) chat,
+    find.byKey(UserMenuButton.bellKey),
+    find.byKey(UserMenuButton.avatarKey),
+  ];
+  for (var index = 1; index < controls.length; index++) {
+    final previous = tester.getRect(controls[index - 1]);
+    final current = tester.getRect(controls[index]);
+    expect(
+      current.left - previous.right,
+      closeTo(DSpacing.controlGap, .01),
+      reason: 'Gap before mobile control $index',
+    );
+  }
+  for (final control in controls) {
+    expect(control.hitTestable(), findsOneWidget);
+  }
+  expect(tester.takeException(), isNull);
 }
 
 Future<ShellController> _pump(
