@@ -39,6 +39,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
+import 'package:discourse_native/src/plugins/voice/voice_chat_inbox.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
@@ -69,6 +70,7 @@ import 'support/voice_fake_chat_conversations.dart';
 const _siteUrl = 'https://voice.example.com';
 
 void main() {
+  _joinLoadingTests();
   _preferenceRemovalTests();
   _roomDialogSessionTests();
   _meshPrivacyTests();
@@ -3104,6 +3106,199 @@ void main() {
   });
 }
 
+void _joinLoadingTests() {
+  for (final mobile in [true, false]) {
+    testWidgets(
+      'join loading covers request and connection on ${mobile ? 'mobile' : 'desktop'}',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = mobile
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        final room = _room(participants: const []);
+        final harness = _Harness(joinRoom: room);
+        addTearDown(harness.dispose);
+        final requestGate = Completer<Map<String, dynamic>>();
+        final connectGate = Completer<void>();
+        harness.media.nextConnectGate = connectGate;
+        harness.transport.responders['POST /voice/rooms/7/join.json'] = (_) =>
+            requestGate.future;
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [_joinPayload(room)['room']],
+        };
+        await harness.controller.ensureLoaded(_siteUrl);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(
+              platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+            ),
+            home: Scaffold(
+              body: VoiceRoomView(
+                roomId: room.id,
+                controller: harness.controller,
+                shell: _voiceShell(
+                  harness.controller,
+                  site: const PluginRouteSite(
+                    url: _siteUrl,
+                    title: 'Voice',
+                    isConnected: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final button = find.widgetWithText(DButton, 'Join room');
+        expect(tester.widget<DButton>(button).loading, isFalse);
+
+        await tester.tap(button);
+        await tester.pump();
+        expect(harness.controller.call, isNull);
+        expect(tester.widget<DButton>(button).loading, isTrue);
+        expect(
+          find.descendant(of: button, matching: find.byType(DSpinner)),
+          findsOneWidget,
+        );
+        await tester.tap(button);
+        await tester.pump();
+        expect(
+          harness.transport.writes.where((w) => w.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+
+        requestGate.complete(_joinPayload(room));
+        await tester.pump();
+        expect(harness.controller.call?.status, VoiceCallStatus.joining);
+        expect(tester.widget<DButton>(button).loading, isTrue);
+        expect(find.text('Leave room'), findsNothing);
+
+        connectGate.complete();
+        await tester.pumpAndSettle();
+        expect(harness.controller.call?.status, VoiceCallStatus.connected);
+        expect(button, findsNothing);
+        expect(find.text('Leave room'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        harness.dispose();
+      },
+    );
+  }
+
+  for (final compact in [false, true]) {
+    testWidgets(
+      'join loading is shared with ${compact ? 'sidebar' : 'inbox'} and clears for retry',
+      (tester) async {
+        final room = _room(participants: const []);
+        final harness = _Harness(joinRoom: room);
+        addTearDown(harness.dispose);
+        final requestGate = Completer<Map<String, dynamic>>();
+        harness.transport.responders['POST /voice/rooms/7/join.json'] = (_) =>
+            requestGate.future;
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': [_joinPayload(room)['room']],
+        };
+        await harness.controller.ensureLoaded(_siteUrl);
+        final inbox = VoiceChatInbox(
+          harness.controller,
+          _voiceShell(
+            harness.controller,
+            site: const PluginRouteSite(
+              url: _siteUrl,
+              title: 'Voice',
+              isConnected: true,
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  ListenableBuilder(
+                    listenable: inbox,
+                    builder: (context, _) => ChatInboxRoomRow(
+                      room: inbox.rooms(_siteUrl).single,
+                      compact: compact,
+                    ),
+                  ),
+                  Expanded(
+                    child: VoiceRoomContent(
+                      controller: harness.controller,
+                      room: room,
+                      call: null,
+                      siteUrl: _siteUrl,
+                      siteName: 'Voice',
+                      currentUserId: 1,
+                      recordingEnabled: false,
+                      error: null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        final row = find.byType(ChatInboxRoomRow);
+        final button = find.widgetWithText(DButton, 'Join room');
+        await tester.tap(
+          find.descendant(of: row, matching: find.text('Lounge')),
+        );
+        await tester.pump();
+        expect(tester.widget<DButton>(button).loading, isTrue);
+        expect(
+          find.descendant(of: row, matching: find.byType(DSpinner)),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<DItem>(
+                find.descendant(of: row, matching: find.byType(DItem)),
+              )
+              .enabled,
+          isFalse,
+        );
+        await tester.tap(row);
+        await tester.tap(button);
+        await tester.pump();
+        expect(
+          harness.transport.writes.where((w) => w.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+
+        requestGate.completeError(
+          const WriteException(
+            WriteFailure.forbidden,
+            errors: ['Room unavailable'],
+            statusCode: 403,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<DButton>(button).loading, isFalse);
+        expect(find.byType(DSpinner), findsNothing);
+        expect(
+          tester
+              .widget<DItem>(
+                find.descendant(of: row, matching: find.byType(DItem)),
+              )
+              .enabled,
+          isTrue,
+        );
+
+        harness.transport.responders.remove('POST /voice/rooms/7/join.json');
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(harness.controller.call?.status, VoiceCallStatus.connected);
+        expect(
+          harness.transport.writes.where((w) => w.path.endsWith('/join.json')),
+          hasLength(2),
+        );
+        harness.dispose();
+      },
+    );
+  }
+}
+
 void _roomSurfaceTests() {
   group('room surface', () {
     testWidgets('everyone sees that a call is being recorded', (tester) async {
@@ -5914,13 +6109,16 @@ final class _MediaFactory implements VoiceMediaFactory {
   final Set<int> speakingIds;
   final List<_MediaSession> sessions = [];
   Object? nextConnectFailure;
+  Completer<void>? nextConnectGate;
 
   _MediaSession createSession([
     VoiceTransport transport = VoiceTransport.mesh,
   ]) {
     final session = _MediaSession(transport, speakingIds)
-      ..connectFailure = nextConnectFailure;
+      ..connectFailure = nextConnectFailure
+      ..connectGate = nextConnectGate;
     nextConnectFailure = null;
+    nextConnectGate = null;
     sessions.add(session);
     return session;
   }
@@ -5949,6 +6147,7 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   int connectCount = 0;
   int disposeCount = 0;
   Object? connectFailure;
+  Completer<void>? connectGate;
   bool muted = false;
   bool failNextMute = false;
   List<rtc.MediaDeviceInfo> availableDevices = const [];
@@ -5988,6 +6187,7 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Future<void> connect() async {
     connectCount++;
+    await connectGate?.future;
     if (connectFailure case final failure?) throw failure;
   }
 

@@ -23,11 +23,13 @@ final class ChatInboxRoom {
     required this.name,
     required this.people,
     required this.open,
+    this.loading = false,
   });
   final int id;
   final String name;
   final int people;
   final Future<void> Function(BuildContext context) open;
+  final bool loading;
 }
 
 final class ChatInboxRooms extends FrameSafeNotifier {
@@ -94,6 +96,7 @@ class ChatInboxRoomRow extends StatelessWidget {
           ? const EdgeInsets.symmetric(vertical: DSpacing.md)
           : null,
       onPressed: () => unawaited(room.open(context)),
+      enabled: !room.loading,
       children: [
         DItemMedia(
           variant: DItemMediaVariant.avatar,
@@ -119,6 +122,7 @@ class ChatInboxRoomRow extends StatelessWidget {
             ),
           ],
         ),
+        if (room.loading) const DSpinner(),
       ],
     );
   }

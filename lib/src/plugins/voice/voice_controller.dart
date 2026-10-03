@@ -450,6 +450,14 @@ final class VoiceController extends ChangeNotifier {
 
   VoiceCallSnapshot? get call => _call;
 
+  bool isJoining(String siteUrl, int roomId) =>
+      !_disposed &&
+      ((_pendingJoinKey == '$siteUrl#$roomId' &&
+              identical(_pendingJoinSession, _siteSessions[siteUrl])) ||
+          (_call?.siteUrl == siteUrl &&
+              _call?.room.id == roomId &&
+              _call?.status == VoiceCallStatus.joining));
+
   /// Whether a camera capture for the current call can still be cancelled.
   bool get cameraStarting =>
       _startingCamera?.media == _call?.media &&
@@ -1951,12 +1959,14 @@ final class VoiceController extends ChangeNotifier {
         _pendingJoinKey = null;
         _pendingJoinCorrelationId = null;
         _pendingJoinSession = null;
+        if (!_disposed) notifyListeners();
       }
     });
     _pendingJoin = tracked;
     _pendingJoinKey = key;
     _pendingJoinCorrelationId = correlationId;
     _pendingJoinSession = siteSession;
+    if (!_disposed) notifyListeners();
     return tracked;
   }
 
