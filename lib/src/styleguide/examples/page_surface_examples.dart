@@ -15,6 +15,9 @@ final pageSurfaceExamples = ComponentExamples(
       'revealHeaderAtEnd also reveals it at the physical bottom and keeps it '
       'visible through viewport changes until scrolling back up. '
       'Focused header controls remain visible. '
+      'Inside DScrollChrome, mobile headers share the footer’s visibility and '
+      'animation. Hiding needs 16px at 180px/s; revealing needs 10px. Slow '
+      'reading, the first 48px and content shorter than two screens stay visible. '
       'headerControls places a persistent bar below a retracting title and '
       'reserves the full header space so the body does not move. '
       'scrollBody owns the scroll view and lets rows pass through the title’s '
@@ -31,6 +34,54 @@ final pageSurfaceExamples = ComponentExamples(
       'padding inside that shared column. This app composition is separate from the '
       'frozen upstream catalogue.',
   examples: [
+    StyleguideExample(
+      title: 'Mobile navigation',
+      description:
+          'Read slowly to keep both bars visible. Swipe forward to hide them '
+          'together, then move back slightly to restore navigation.',
+      states: const ['Slow scroll', 'Fast scroll', 'Reverse', 'Reduced motion'],
+      code: """DScrollChrome(
+  identity: pageId,
+  footerBuilder: (_) => navigation,
+  child: DPageSurface.scrollable(
+    hideHeaderOnScroll: true,
+    header: title,
+    bodyBuilder: (_, header) => CustomScrollView(
+      slivers: [SliverToBoxAdapter(child: header.spacer), rows],
+    ),
+  ),
+)""",
+      builder: (_) => SizedBox(
+        height: 460,
+        child: DScrollChrome(
+          identity: 'mobile-preview',
+          footerBuilder: (_) => Padding(
+            padding: const EdgeInsets.all(DSpacing.sm),
+            child: DButton(label: const Text('Navigation'), onPressed: () {}),
+          ),
+          child: DPageSurface.scrollable(
+            framed: false,
+            hideHeaderOnScroll: true,
+            header: const Padding(
+              padding: EdgeInsets.all(DSpacing.lg),
+              child: Text('Reading a topic'),
+            ),
+            bodyBuilder: (_, header) => CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: header.spacer),
+                SliverList.builder(
+                  itemCount: 100,
+                  itemBuilder: (_, index) => Padding(
+                    padding: const EdgeInsets.all(DSpacing.lg),
+                    child: Text('Post ${index + 1}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Virtualized body',
       description:

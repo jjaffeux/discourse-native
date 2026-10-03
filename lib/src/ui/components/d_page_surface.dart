@@ -7,6 +7,7 @@ import '../foundation/tokens.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
+import 'd_scroll_chrome.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
 /// header. The width policy aligns the header, body content, and footer while
@@ -158,6 +159,50 @@ class _DPageSurfaceState extends State<DPageSurface>
   Duration? _pointerScrollTime;
   Duration? _gestureStartTime;
   bool _updateScheduled = false;
+  DScrollChromeController? _scrollChrome;
+
+  double get _hiddenFraction => widget.hideHeaderOnScroll
+      ? _scrollChrome?.hiddenFraction ?? _headerAnimation.value
+      : 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chrome = DScrollChrome.maybeOf(context);
+    if (identical(chrome, _scrollChrome)) return;
+    _scrollChrome?.removeListener(_updateHeader);
+    _scrollChrome?.unregisterHeader(this);
+    _scrollChrome = chrome;
+    chrome?.addListener(_updateHeader);
+    chrome?.registerHeader(
+      this,
+      focus: _headerFocus,
+      layoutReduction: () {
+        if (!widget.hideHeaderOnScroll ||
+            widget.scrollBody ||
+            widget.bodyBuilder != null ||
+            widget.headerControls != null) {
+          return 0;
+        }
+        final header =
+            _headerKey.currentContext?.findRenderObject()
+                as _RenderScrollHeaderExtent?;
+        return header == null ? 0 : header.naturalHeight - header.size.height;
+      },
+      layoutExtent: () {
+        if (!widget.hideHeaderOnScroll ||
+            widget.scrollBody ||
+            widget.bodyBuilder != null ||
+            widget.headerControls != null) {
+          return 0;
+        }
+        final header =
+            _headerKey.currentContext?.findRenderObject()
+                as _RenderScrollHeaderExtent?;
+        return header?.naturalHeight ?? 0;
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -271,6 +316,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (_scrollChrome != null) return false;
     if (widget.header != null &&
         widget.hideHeaderOnScroll &&
         notification.metrics.axis == Axis.vertical &&
@@ -281,6 +327,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScroll(ScrollNotification notification) {
+    if (_scrollChrome != null) return false;
     if (widget.header == null || !widget.hideHeaderOnScroll) return false;
     if (!_isPageScroll(notification.depth, notification.context) ||
         notification.metrics.axis != Axis.vertical) {
@@ -382,6 +429,8 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   @override
   void dispose() {
+    _scrollChrome?.removeListener(_updateHeader);
+    _scrollChrome?.unregisterHeader(this);
     _headerAnimation.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
@@ -409,17 +458,15 @@ class _DPageSurfaceState extends State<DPageSurface>
             ClipRect(
               child: _ScrollHeaderExtent(
                 key: _headerKey,
-                hiddenFraction: widget.hideHeaderOnScroll
-                    ? _headerAnimation.value
-                    : 0,
+                hiddenFraction: _hiddenFraction,
                 controls: widget.headerControls,
                 child: ExcludeSemantics(
-                  excluding: _headerAnimation.value > 0,
+                  excluding: _hiddenFraction > 0,
                   child: ExcludeFocus(
-                    excluding: _headerAnimation.value > 0,
+                    excluding: _hiddenFraction > 0,
                     // The extent and clip restrict hits to the visible slice.
                     child: TickerMode(
-                      enabled: _headerAnimation.value == 0,
+                      enabled: _hiddenFraction == 0,
                       child: SizedBox(
                         width: double.infinity,
                         child: Focus(

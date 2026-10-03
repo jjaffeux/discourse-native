@@ -70,7 +70,7 @@ Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
       scrollDelta: Offset(0, delta),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(const Duration(milliseconds: 16));
 }
 
 void main() {
@@ -110,17 +110,17 @@ void main() {
       await _wheel(tester, 1);
       expect(find.byKey(_dock), findsOneWidget);
     }
-    await _wheel(tester, 1);
+    await _wheel(tester, 40);
     expect(find.byKey(_dock), findsNothing);
     expect(tester.getSize(find.byKey(_body)).height, originalHeight + 60);
-    expect(controller.offset, 217);
+    expect(controller.offset, 256);
     expect(tester.element(find.byKey(_body)), same(originalBody));
-    await _wheel(tester, -10);
+    await _wheel(tester, -9);
     expect(find.byKey(_dock), findsNothing);
     await _wheel(tester, -1);
     expect(find.byKey(_dock), findsOneWidget);
     expect(tester.getSize(find.byKey(_body)).height, originalHeight);
-    expect(controller.offset, 206);
+    expect(controller.offset, 246);
     expect(tester.element(find.byKey(_body)), same(originalBody));
   });
 
@@ -218,33 +218,36 @@ void main() {
   });
 
   for (final atEnd in [false, true]) {
-    testWidgets('dock returns after hiding reduces travel below its threshold '
-        '(at end: $atEnd)', (tester) async {
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      await _mount(tester, controller: controller, count: 14);
-      expect(controller.position.maxScrollExtent, 160);
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(_body)),
-      );
-      await gesture.moveBy(const Offset(0, -80));
-      await tester.pumpAndSettle();
-      expect(find.byKey(_dock), findsNothing);
-      expect(controller.position.maxScrollExtent, 100);
-
-      await gesture.moveBy(Offset(0, atEnd ? -80 : 30));
-      await tester.pumpAndSettle();
-      expect(find.byKey(_dock), findsOneWidget);
-      if (atEnd) {
-        // Returning the dock adds travel again. Continuing to that new end
-        // must not immediately hide it and start an extent feedback loop.
+    testWidgets(
+      'two-screen cutoff stays stable as the dock changes the viewport '
+      '(at end: $atEnd)',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await _mount(tester, controller: controller, count: 22);
+        expect(controller.position.maxScrollExtent, 560);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(_body)),
+        );
         await gesture.moveBy(const Offset(0, -80));
         await tester.pumpAndSettle();
+        expect(find.byKey(_dock), findsNothing);
+        expect(controller.position.maxScrollExtent, 500);
+
+        await gesture.moveBy(Offset(0, atEnd ? -600 : 30));
+        await tester.pumpAndSettle();
         expect(find.byKey(_dock), findsOneWidget);
-      }
-      await gesture.cancel();
-      await tester.pumpAndSettle();
-    });
+        if (atEnd) {
+          // Returning the dock adds travel again. Continuing to that new end
+          // must not immediately hide it and start an extent feedback loop.
+          await gesture.moveBy(const Offset(0, -80));
+          await tester.pumpAndSettle();
+          expect(find.byKey(_dock), findsOneWidget);
+        }
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+      },
+    );
   }
 
   testWidgets('elastic overscroll restores the dock at the top', (
@@ -423,7 +426,7 @@ void main() {
     expect(find.byKey(_dock), findsNothing);
   });
 
-  testWidgets('hidden and exiting dock controls cannot receive input', (
+  testWidgets('dock hits stay inside the visible bounds during retraction', (
     tester,
   ) async {
     var taps = 0;
@@ -442,11 +445,14 @@ void main() {
     expect(find.byType(DButton).hitTestable(), findsNothing);
     await tester.tapAt(dockCenter);
     expect(taps, 0);
+    final visibleTop = tester.getBottomLeft(find.byKey(_body)).dy;
+    await tester.tapAt(Offset(dockCenter.dx, visibleTop + 2));
+    expect(taps, 1);
     await tester.pumpAndSettle();
     expect(find.byKey(_dock), findsNothing);
     await _wheel(tester, -20);
     await tester.tap(find.byType(DButton));
-    expect(taps, 1);
+    expect(taps, 2);
   });
 
   testWidgets('reduced motion releases dock space immediately', (tester) async {
