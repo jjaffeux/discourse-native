@@ -4128,6 +4128,10 @@
   "@cameraOn": {
     "description": "English UI message used by plugins/voice/voice_room_view.dart. Keep placeholders intact."
   },
+  "switchCamera": "Switch camera",
+  "@switchCamera": {
+    "description": "Voice toolbar action that switches between the front and back cameras on a phone."
+  },
   "stopSharing": "Stop sharing",
   "@stopSharing": {
     "description": "English UI message used by plugins/voice/voice_room_view.dart. Keep placeholders intact."

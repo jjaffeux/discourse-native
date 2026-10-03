@@ -115,6 +115,59 @@ void main() {
   });
 
   group('MeshVoiceMediaSession', () {
+    test(
+      'front and back capture replace video without replacing the microphone',
+      () async {
+        final microphone = _FakeTrack('mic', 'audio');
+        final peer = _FakePeerConnection();
+        final captures = <Map<String, dynamic>>[];
+        final cameras = <_FakeTrack>[];
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: true,
+          getUserMedia: (constraints) async {
+            if (constraints['video'] == false) {
+              return _FakeStream('microphone-stream', [microphone]);
+            }
+            final video = constraints['video'] as Map<String, dynamic>;
+            captures.add(video);
+            final camera = _FakeTrack('camera-${cameras.length}', 'video')
+              ..settings = {'facingMode': video['facingMode']};
+            cameras.add(camera);
+            return _FakeStream('camera-stream-${cameras.length}', [camera]);
+          },
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        final microphoneSender = peer.addedTrackSenders.single;
+        final videoSender = peer.createdTransceivers.first.sender;
+        for (final facing in [
+          VoiceCameraFacing.back,
+          VoiceCameraFacing.front,
+        ]) {
+          await media.setCameraEnabled(
+            true,
+            deviceId: 'old-device',
+            facing: facing,
+          );
+          expect(media.cameraFacing, facing);
+          expect(videoSender.track, same(cameras.last));
+          expect(microphoneSender.track, same(microphone));
+          expect(microphone.stopped, isFalse);
+          await media.setCameraEnabled(false);
+          expect(cameras.last.stopped, isTrue);
+        }
+        expect(captures.map((capture) => capture['facingMode']), [
+          'environment',
+          'user',
+        ]);
+        expect(
+          captures.every((capture) => !capture.containsKey('deviceId')),
+          isTrue,
+        );
+      },
+    );
+
     test('classifies a denied microphone permission during capture', () async {
       final media = _meshSession(
         peer: _FakePeerConnection(),
@@ -2839,6 +2892,81 @@ void main() {
   });
 
   group('LiveKit camera capture', () {
+    test('reconnect retains the selected rear camera facing', () async {
+      final participant = _FakeLiveKitParticipant();
+      final adapter = _FakeLiveKitRoomAdapter(
+        room: _FakeLiveKitRoom(participant),
+      );
+      final options = <lk.CameraCaptureOptions>[];
+      final media = _liveKitSession(
+        adapter,
+        createCameraTrack: (value) async {
+          options.add(value);
+          return _FakeLiveKitVideoTrack();
+        },
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      await media.setCameraEnabled(
+        true,
+        facing: VoiceCameraFacing.back,
+        shouldContinue: () => true,
+      );
+      final reconnected = Completer<void>();
+      media.addListener(() {
+        if (media.connectionState == VoiceMediaConnectionState.connected &&
+            !reconnected.isCompleted) {
+          reconnected.complete();
+        }
+      });
+      adapter.onDisconnected!();
+      await reconnected.future;
+      expect(options.map((value) => value.cameraPosition), [
+        lk.CameraPosition.back,
+        lk.CameraPosition.back,
+      ]);
+      expect(media.cameraFacing, VoiceCameraFacing.back);
+      expect(media.cameraEnabled, isTrue);
+    });
+
+    test('front and back capture override a saved camera device', () async {
+      final participant = _FakeLiveKitParticipant();
+      final adapter = _FakeLiveKitRoomAdapter(
+        room: _FakeLiveKitRoom(participant),
+      );
+      final options = <lk.CameraCaptureOptions>[];
+      final media = _liveKitSession(
+        adapter,
+        createCameraTrack: (value) async {
+          options.add(value);
+          return _FakeLiveKitVideoTrack()
+            ..mediaStreamTrack.settings = {
+              'facingMode': value.cameraPosition == lk.CameraPosition.back
+                  ? 'environment'
+                  : 'user',
+            };
+        },
+      );
+      addTearDown(media.dispose);
+      for (final facing in [VoiceCameraFacing.back, VoiceCameraFacing.front]) {
+        await media.setCameraEnabled(
+          true,
+          deviceId: 'old-device',
+          facing: facing,
+          shouldContinue: () => true,
+        );
+        expect(media.cameraFacing, facing);
+        expect(media.cameraEnabled, isTrue);
+        await media.setCameraEnabled(false);
+      }
+      expect(options.map((value) => value.cameraPosition), [
+        lk.CameraPosition.back,
+        lk.CameraPosition.front,
+      ]);
+      expect(options.map((value) => value.deviceId), [null, null]);
+      expect(participant.published, hasLength(2));
+    });
+
     test(
       'publishes the selected camera only while it is still wanted',
       () async {
@@ -4463,6 +4591,9 @@ final class _FakeLiveKitVideoTrack implements lk.LocalVideoTrack {
   bool stopped = false;
 
   @override
+  final _FakeTrack mediaStreamTrack = _FakeTrack('livekit-camera', 'video');
+
+  @override
   Future<bool> stop() async {
     stopped = true;
     return true;
@@ -4709,6 +4840,10 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
   double volume = 1;
   bool _enabled = true;
   final List<bool> enabledWrites = [];
+  Map<String, dynamic> settings = {};
+
+  @override
+  Map<String, dynamic> getSettings() => settings;
 
   @override
   rtc.StreamTrackCallback? onEnded;

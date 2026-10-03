@@ -719,6 +719,56 @@ void main() {
       }
     });
 
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      testWidgets('camera switch uses a Native button on $platform', (
+        tester,
+      ) async {
+        if (platform == TargetPlatform.iOS) {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+        }
+        final harness = await _pumpJoinedManagedRoom(tester);
+        try {
+          expect(find.byTooltip('Switch camera'), findsNothing);
+          await tester.tap(find.byTooltip('Camera on'));
+          await tester.pumpAndSettle();
+          if (platform == TargetPlatform.macOS) {
+            expect(find.byTooltip('Switch camera'), findsNothing);
+            return;
+          }
+          final button = find.byWidgetPredicate(
+            (widget) => widget is DButton && widget.tooltip == 'Switch camera',
+          );
+          expect(button, findsOneWidget);
+          expect(find.bySemanticsLabel('Switch camera'), findsOneWidget);
+          final media = harness.media.sessions.single;
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          expect(media.cameraFacing, VoiceCameraFacing.back);
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          expect(media.cameraFacing, VoiceCameraFacing.front);
+          expect(harness.controller.call?.cameraEnabled, isTrue);
+          expect(tester.takeException(), isNull);
+
+          final captured = Completer<void>();
+          media.cameraGate = captured;
+          await tester.tap(button);
+          await tester.pump();
+          expect(tester.widget<DButton>(button).onPressed, isNull);
+          await tester.tap(find.byTooltip('Camera off'));
+          captured.complete();
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Switch camera'), findsNothing);
+          expect(harness.controller.call?.cameraEnabled, isFalse);
+        } finally {
+          harness.dispose();
+        }
+      }, variant: TargetPlatformVariant({platform}));
+    }
+
     for (final automatic in [false, true]) {
       for (final activation in ['pointer', 'Enter', 'Space']) {
         testWidgets(
@@ -5953,14 +6003,19 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   Completer<void>? cameraGate;
   @override
+  VoiceCameraFacing cameraFacing = VoiceCameraFacing.front;
+
+  @override
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) async {
     if (enabled) await cameraGate?.future;
     if (enabled && shouldContinue?.call() == false) return;
     cameraChanges.add((enabled: enabled, deviceId: deviceId));
+    if (enabled && facing != null) cameraFacing = facing;
   }
 
   @override

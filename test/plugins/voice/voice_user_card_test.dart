@@ -398,6 +398,8 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   VoiceMediaConnectionState get connectionState =>
       VoiceMediaConnectionState.connected;
   @override
+  Object? get connectionFailure => null;
+  @override
   Object? get localVideoTrack => null;
   @override
   bool get screenSharing => false;
@@ -418,9 +420,13 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Future<void> setAudioPublishingAllowed(bool allowed) async {}
   @override
+  VoiceCameraFacing cameraFacing = VoiceCameraFacing.front;
+
+  @override
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) async {}
   @override

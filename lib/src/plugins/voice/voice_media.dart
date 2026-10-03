@@ -31,6 +31,8 @@ typedef VoiceLiveKitRawStatsCollector =
 
 enum VoiceMicrophoneFailureKind { permissionDenied, unavailable }
 
+enum VoiceCameraFacing { front, back }
+
 final class VoiceMicrophoneException implements Exception {
   const VoiceMicrophoneException(this.kind);
 
@@ -109,6 +111,7 @@ abstract interface class VoiceMediaSession implements Listenable {
   /// The cause of a failed reconnect, cleared while reconnecting or connected.
   Object? get connectionFailure;
   Object? get localVideoTrack;
+  VoiceCameraFacing get cameraFacing;
   bool get screenSharing;
   Object? videoTrackFor(int participantId);
   Set<int> get speakingParticipantIds;
@@ -127,6 +130,7 @@ abstract interface class VoiceMediaSession implements Listenable {
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   });
   Future<void> setScreenShareEnabled(bool enabled);
@@ -645,6 +649,12 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       _localStream?.getAudioTracks().firstOrNull;
   rtc.MediaStreamTrack? get _cameraTrack =>
       _localStream?.getVideoTracks().firstOrNull;
+
+  @override
+  VoiceCameraFacing get cameraFacing =>
+      _cameraTrack?.getSettings()['facingMode'] == 'environment'
+      ? VoiceCameraFacing.back
+      : VoiceCameraFacing.front;
   rtc.MediaStreamTrack? get _screenVideoTrack =>
       _screenStream?.getVideoTracks().firstOrNull;
   rtc.MediaStreamTrack? get _screenAudioTrack =>
@@ -1872,6 +1882,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) {
     final revision = ++_cameraRevision;
@@ -1883,6 +1894,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         enabled,
         revision: revision,
         deviceId: deviceId,
+        facing: facing,
         shouldContinue: shouldContinue,
       ),
     );
@@ -1899,6 +1911,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     bool enabled, {
     required int revision,
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) async {
     // A newer request owns the camera: an enable that an off overtook neither
@@ -1934,7 +1947,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     final stream = await _getUserMedia({
       'audio': false,
       'video': {
-        'deviceId': ?deviceId,
+        if (facing == null) 'deviceId': ?deviceId,
+        if (facing != null)
+          'facingMode': facing == VoiceCameraFacing.front
+              ? 'user'
+              : 'environment',
         'width': {'ideal': width},
         'height': {'ideal': height},
         'frameRate': {'ideal': frameRate},
@@ -2487,6 +2504,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   /// must republish a camera the app still reports as enabled.
   bool _cameraEnabled = false;
   String? _cameraDeviceId;
+  VoiceCameraFacing? _cameraFacing;
 
   @visibleForTesting
   bool get cameraEnabled => _cameraEnabled;
@@ -2580,6 +2598,18 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Object? get localVideoTrack => _videoTrack(_room.localParticipant);
+
+  @override
+  VoiceCameraFacing get cameraFacing {
+    final track = _room.localParticipant
+        ?.getTrackPublicationBySource(lk.TrackSource.camera)
+        ?.track;
+    return switch (track?.mediaStreamTrack.getSettings()['facingMode']) {
+      'environment' => VoiceCameraFacing.back,
+      'user' => VoiceCameraFacing.front,
+      _ => _cameraFacing ?? VoiceCameraFacing.front,
+    };
+  }
 
   @override
   Object? videoTrackFor(int participantId) => participantId == localUserId
@@ -2859,6 +2889,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       await _setCameraEnabled(
         true,
         deviceId: _cameraDeviceId,
+        facing: _cameraFacing,
         shouldContinue: () =>
             !_reconnect.cancelled && cameraRevision == _cameraRevision,
         revision: cameraRevision,
@@ -3310,6 +3341,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) {
     // The camera tail can be waiting on OS consent, and the SDK mutes only
@@ -3318,6 +3350,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     return _setCameraEnabled(
       enabled,
       deviceId: deviceId,
+      facing: facing,
       shouldContinue: shouldContinue,
       revision: ++_cameraRevision,
     );
@@ -3326,6 +3359,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> _setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
     required int revision,
   }) {
@@ -3352,7 +3386,9 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         }
         _cameraEnabled = false;
         if (!wanted()) return;
-        final track = await _createCameraTrack(_cameraCaptureOptions(deviceId));
+        final track = await _createCameraTrack(
+          _cameraCaptureOptions(deviceId, facing),
+        );
         if (!wanted()) {
           await track.stop();
           return;
@@ -3368,11 +3404,14 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
           rethrow;
         }
       } else {
-        await _publishCamera(enabled, deviceId: deviceId);
+        await _publishCamera(enabled, deviceId: deviceId, facing: facing);
       }
       if (_closing || disposed) return;
       _cameraEnabled = enabled;
-      if (enabled) _cameraDeviceId = deviceId;
+      if (enabled) {
+        _cameraDeviceId = deviceId;
+        _cameraFacing = facing;
+      }
       changed();
     });
     _cameraTail = operation.then<void>(
@@ -3382,20 +3421,30 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     return operation;
   }
 
-  lk.CameraCaptureOptions _cameraCaptureOptions(String? deviceId) =>
-      lk.CameraCaptureOptions(
-        deviceId: deviceId,
-        params: switch (join.room.maxQualityProfile) {
-          VoiceQualityProfile.standard => lk.VideoParametersPresets.h360_169,
-          VoiceQualityProfile.high => lk.VideoParametersPresets.h720_169,
-          VoiceQualityProfile.maximum => lk.VideoParametersPresets.h1080_169,
-        },
-      );
+  lk.CameraCaptureOptions _cameraCaptureOptions(
+    String? deviceId,
+    VoiceCameraFacing? facing,
+  ) => lk.CameraCaptureOptions(
+    deviceId: facing == null ? deviceId : null,
+    cameraPosition:
+        (facing ?? VoiceCameraFacing.front) == VoiceCameraFacing.front
+        ? lk.CameraPosition.front
+        : lk.CameraPosition.back,
+    params: switch (join.room.maxQualityProfile) {
+      VoiceQualityProfile.standard => lk.VideoParametersPresets.h360_169,
+      VoiceQualityProfile.high => lk.VideoParametersPresets.h720_169,
+      VoiceQualityProfile.maximum => lk.VideoParametersPresets.h1080_169,
+    },
+  );
 
-  Future<void> _publishCamera(bool enabled, {String? deviceId}) =>
+  Future<void> _publishCamera(
+    bool enabled, {
+    String? deviceId,
+    VoiceCameraFacing? facing,
+  }) =>
       _room.localParticipant?.setCameraEnabled(
         enabled,
-        cameraCaptureOptions: _cameraCaptureOptions(deviceId),
+        cameraCaptureOptions: _cameraCaptureOptions(deviceId, facing),
       ) ??
       Future<void>.value();
 

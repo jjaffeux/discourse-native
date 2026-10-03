@@ -912,6 +912,18 @@ class _CallControls extends StatelessWidget {
             selected: cameraOn,
             onPressed: () => controller.setCameraEnabled(!cameraOn),
           ),
+        if (context.isTouch &&
+            canPublishVideo &&
+            cameraOn &&
+            !call.screenSharing)
+          DButton.iconOnly(
+            onPressed: controller.cameraStarting
+                ? null
+                : controller.switchCamera,
+            variant: DButtonVariant.secondary,
+            tooltip: context.l10n.switchCamera,
+            icon: const DIcon(DIcons.arrowsRotate),
+          ),
         if (canShare)
           VoiceToolbarControl(
             label: call.screenSharing

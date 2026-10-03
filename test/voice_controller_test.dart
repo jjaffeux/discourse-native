@@ -283,9 +283,13 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   }
 
   @override
+  VoiceCameraFacing cameraFacing = VoiceCameraFacing.front;
+
+  @override
   Future<void> setCameraEnabled(
     bool enabled, {
     String? deviceId,
+    VoiceCameraFacing? facing,
     bool Function()? shouldContinue,
   }) async {
     cameraRequests.add(enabled);
@@ -293,6 +297,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
     if (cameraFailure case final failure?) throw failure;
     if (enabled && shouldContinue?.call() == false) return;
     camera = enabled;
+    if (enabled && facing != null) cameraFacing = facing;
     afterSetCamera?.call(enabled);
     if (deviceId != null) selectedCamera = deviceId;
   }
@@ -4301,6 +4306,111 @@ void main() {
       });
       transport.responses['POST /voice/rooms/7/join.json'] = payload;
     });
+
+    test('switches front and back while preserving the audio call', () async {
+      await joinRoom();
+      await controller.setCameraEnabled(true);
+      final media = mediaFactory.sessions.single;
+      final muted = controller.call!.muted;
+
+      await controller.switchCamera();
+      expect(media.cameraFacing, VoiceCameraFacing.back);
+      await controller.switchCamera();
+      expect(media.cameraFacing, VoiceCameraFacing.front);
+      expect(media.cameraRequests, [true, false, true, false, true]);
+      expect(controller.call?.cameraEnabled, isTrue);
+      expect(controller.call?.muted, muted);
+      expect(controller.call?.status, VoiceCallStatus.connected);
+      expect(media.disposeCount, 0);
+    });
+
+    test(
+      'switches from the active rear camera and retains the new facing',
+      () async {
+        await joinRoom();
+        await controller.selectCamera('saved-rear-camera');
+        await controller.setCameraEnabled(true);
+        final media = mediaFactory.sessions.single;
+        media.cameraFacing = VoiceCameraFacing.back;
+
+        await controller.switchCamera();
+        expect(media.cameraFacing, VoiceCameraFacing.front);
+        expect(controller.cameraDeviceId, isNull);
+        await controller.setCameraEnabled(false);
+        media.cameraFacing = VoiceCameraFacing.back;
+        await controller.setCameraEnabled(true);
+        expect(media.cameraFacing, VoiceCameraFacing.front);
+
+        await controller.selectCamera('another-camera');
+        expect(controller.cameraDeviceId, 'another-camera');
+        expect(media.selectedCamera, 'another-camera');
+      },
+    );
+
+    test('switch camera does not enable an inactive camera', () async {
+      await controller.switchCamera();
+      await joinRoom();
+      await controller.switchCamera();
+      expect(mediaFactory.sessions.single.cameraRequests, isEmpty);
+      expect(controller.call?.cameraEnabled, isFalse);
+    });
+
+    for (final cancellation in ['camera off', 'leave']) {
+      test(
+        'a pending camera switch honors $cancellation and ignores repeat taps',
+        () async {
+          await joinRoom();
+          await controller.setCameraEnabled(true);
+          final media = mediaFactory.sessions.single;
+          final capturing = Completer<void>();
+          final captured = Completer<void>();
+          addTearDown(() {
+            if (!captured.isCompleted) captured.complete();
+          });
+          media.onSetCamera = (enabled) async {
+            if (!enabled) return;
+            capturing.complete();
+            await captured.future;
+          };
+          final switching = controller.switchCamera();
+          await capturing.future;
+          expect(controller.cameraStarting, isTrue);
+          await controller.switchCamera();
+          final cancelling = cancellation == 'leave'
+              ? controller.leave()
+              : controller.setCameraEnabled(false);
+          captured.complete();
+          await Future.wait([switching, cancelling]);
+          expect(
+            media.cameraRequests.where((enabled) => enabled),
+            hasLength(2),
+          );
+          expect(controller.call?.cameraEnabled ?? false, isFalse);
+          expect(controller.cameraStarting, isFalse);
+          if (cancellation == 'camera off') expect(media.camera, isFalse);
+        },
+      );
+    }
+
+    test(
+      'a failed camera switch leaves audio connected and reports the error',
+      () async {
+        await joinRoom();
+        await controller.setCameraEnabled(true);
+        final media = mediaFactory.sessions.single;
+        media.onSetCamera = (enabled) async {
+          if (enabled) throw StateError('camera unavailable');
+        };
+
+        await controller.switchCamera();
+
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.call?.cameraEnabled, isFalse);
+        expect(controller.call?.error, isNotNull);
+        expect(controller.cameraStarting, isFalse);
+        expect(media.disposeCount, 0);
+      },
+    );
 
     test(
       'starts with audio only until the account explicitly enables its camera',
