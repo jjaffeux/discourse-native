@@ -8225,6 +8225,28 @@ void main() {
   });
 
   group('jumping to the present', () {
+    test(
+      'anchors the latest page at its newest message, keeping the unread divider',
+      () async {
+        final subject = build(
+          store: Store()..put(site, channel(9, lastRead: 5)),
+          messages: {
+            key(9): page([message(5, minute: 5)], canLoadMoreFuture: true),
+            latestKey(9): page([message(5, minute: 5), message(9, minute: 9)]),
+          },
+        );
+        await subject.chat.openChannel(site, 9);
+        expect(subject.chat.stream(site, 9).anchorMessageId, 5);
+
+        await subject.chat.showLatest(site, 9);
+
+        final stream = subject.chat.stream(site, 9);
+        expect(stream.anchorMessageId, 9);
+        expect(stream.lastReadOnOpen, 5);
+        expect(stream.atPresent, isTrue);
+      },
+    );
+
     test('asks for the newest page rather than the anchored one', () async {
       final subject = build(
         messages: {
