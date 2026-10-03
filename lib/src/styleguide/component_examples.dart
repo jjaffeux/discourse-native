@@ -33,6 +33,7 @@ import 'examples/dropdown_menu_examples.dart';
 import 'examples/embed_examples.dart';
 import 'examples/empty_examples.dart';
 import 'examples/field_examples.dart';
+import 'examples/floating_panel_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/gradient_blur_examples.dart';
 import 'examples/history_transition_examples.dart';
@@ -148,6 +149,7 @@ final componentExamples = <String, ComponentExamples>{
   'label': labelExamples,
   'pagination': paginationExamples,
   'field': fieldExamples,
+  'floating-panel': floatingPanelExamples,
   'navigation-menu': navigationMenuExamples,
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,

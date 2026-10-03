@@ -21,6 +21,7 @@ final class VoiceCallPresentation {
     this.recording = false,
     this.localVideoPreview,
     this.failureMessage,
+    this.identity,
   });
 
   final String roomName;
@@ -32,8 +33,13 @@ final class VoiceCallPresentation {
   /// The call is being recorded server-side. Shown wherever the call is,
   /// so nobody can be in a recorded call without seeing it.
   final bool recording;
+
+  /// Selected remote speaker video, falling back to the local camera.
   final Widget? localVideoPreview;
   final String? failureMessage;
+
+  /// Stable for one call so a replacement starts with a visible preview.
+  final Object? identity;
 
   VoiceCallPresentation copyWith({
     String? roomName,
@@ -57,6 +63,7 @@ final class VoiceCallPresentation {
         ? null
         : localVideoPreview ?? this.localVideoPreview,
     failureMessage: clearFailure ? null : failureMessage ?? this.failureMessage,
+    identity: identity,
   );
 }
 
@@ -66,21 +73,33 @@ final class VoiceCallPortState {
     required this.supported,
     this.call,
     this.failureMessage,
+    this.roomVisible = false,
+    this.usesMobileNavigation = false,
+    this.pictureInPictureActive = false,
   });
 
   const VoiceCallPortState.unsupported()
     : supported = false,
       call = null,
-      failureMessage = null;
+      failureMessage = null,
+      roomVisible = false,
+      usesMobileNavigation = false,
+      pictureInPictureActive = false;
 
   const VoiceCallPortState.idle()
     : supported = true,
       call = null,
-      failureMessage = null;
+      failureMessage = null,
+      roomVisible = false,
+      usesMobileNavigation = false,
+      pictureInPictureActive = false;
 
   final bool supported;
   final VoiceCallPresentation? call;
   final String? failureMessage;
+  final bool roomVisible;
+  final bool usesMobileNavigation;
+  final bool pictureInPictureActive;
 }
 
 /// The complete runtime authority available to the app-global call overlay.

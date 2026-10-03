@@ -21,7 +21,7 @@ import 'voice_controller_test.dart'
 
 void main() {
   test(
-    'presents a server reconnect refusal and clears it after recovery',
+    'tracks route visibility, retains video off-route and recovers connection errors',
     () async {
       const site = 'https://voice.example.com';
       final transport = RecordingPluginTransport(
@@ -47,11 +47,12 @@ void main() {
         preferences: FakeVoicePreferences(),
         heartbeatInterval: const Duration(days: 1),
       );
+      final host = _RouteHost();
       final port = VoiceCallControllerPort(
         controller: controller,
         shell: VoiceShellService(
           controller: controller,
-          host: _RouteHost(),
+          host: host,
           recordingEnabled: (_) => false,
         ),
       );
@@ -64,6 +65,51 @@ void main() {
         siteUrl: site,
         siteName: 'meta',
         room: controller.room(site, 7)!,
+      );
+      expect(port.state.roomVisible, isFalse);
+      expect(port.state.usesMobileNavigation, isTrue);
+      host.currentSite = const PluginRouteSite(
+        url: site,
+        title: 'meta',
+        isConnected: true,
+      );
+      host.currentContent = const ContentRoute(
+        id: 'voice-room-7',
+        title: 'Room',
+        icon: DIcons.microphoneLines,
+      );
+      host.notifyListeners();
+      expect(port.state.roomVisible, isTrue);
+      host.currentContentVisible = false;
+      host.notifyListeners();
+      expect(port.state.roomVisible, isFalse);
+      host.currentContentVisible = true;
+      host.currentSite = const PluginRouteSite(
+        url: 'https://other.example.com',
+        title: 'Other',
+        isConnected: true,
+      );
+      host.notifyListeners();
+      expect(port.state.roomVisible, isFalse);
+      host.currentSite = const PluginRouteSite(
+        url: site,
+        title: 'meta',
+        isConnected: true,
+      );
+      host.currentContent = const ContentRoute(
+        id: 'voice-room-8',
+        title: 'Other room',
+        icon: DIcons.microphoneLines,
+      );
+      host.notifyListeners();
+      expect(port.state.roomVisible, isFalse);
+      await pumpEventQueue();
+      expect(
+        transport.requests
+            .where((request) => request.path == '/voice/rooms/7/state.json')
+            .last
+            .body['watching'],
+        isTrue,
       );
       final media = mediaFactory.sessions.single;
       media.connectionFailure = const WriteException(
@@ -85,6 +131,16 @@ void main() {
       media.notifyListeners();
       expect(port.state.call?.status, VoiceCallPresentationStatus.connected);
       expect(port.state.call?.failureMessage, isNull);
+      await port.close();
+      await pumpEventQueue();
+      expect(
+        transport.requests
+            .where((request) => request.path == '/voice/rooms/7/state.json')
+            .last
+            .body['watching'],
+        isFalse,
+      );
+      expect(media.disposeCount, 0);
     },
   );
 
@@ -199,7 +255,17 @@ VoiceCallPortState _state({String roomName = 'Planning'}) => VoiceCallPortState(
   ),
 );
 
-final class _RouteHost extends Fake implements PluginRouteNavigationHost {
+final class _RouteHost extends Fake
+    with ChangeNotifier
+    implements PluginRouteNavigationHost, PluginRoutePresentationHost {
   @override
   String? get activeTabId => null;
+  @override
+  PluginRouteSite? currentSite;
+  @override
+  ContentRoute? currentContent;
+  @override
+  bool currentContentVisible = true;
+  @override
+  bool get mobileNavigationEnabled => true;
 }

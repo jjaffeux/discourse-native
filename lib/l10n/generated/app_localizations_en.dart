@@ -14814,4 +14814,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String useAtMostCharacters(String maximum) {
     return 'Use $maximum characters or fewer.';
   }
+
+  @override
+  String get floatingPanelHide => 'Hide preview';
+
+  @override
+  String get floatingPanelRestore => 'Show call preview';
+
+  @override
+  String get floatingPanelMoveLeft => 'Move to left edge';
+
+  @override
+  String get floatingPanelMoveRight => 'Move to right edge';
+
+  @override
+  String get voiceReturnToRoom => 'Return to room';
+
+  @override
+  String get voiceConnected => 'Connected';
+
+  @override
+  String get voiceReconnecting => 'Reconnecting…';
+
+  @override
+  String get voiceCallFailed => 'Call interrupted';
+
+  @override
+  String get voiceMicrophoneOn => 'Your microphone is on';
+
+  @override
+  String get voiceMicrophoneMuted => 'Your microphone is muted';
+
+  @override
+  String get voiceSoundOff => 'Sound and microphone off';
+
+  @override
+  String get voiceSpeaking => 'Speaking';
 }

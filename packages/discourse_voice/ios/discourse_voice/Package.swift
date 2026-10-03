@@ -11,13 +11,16 @@ let package = Package(
     .library(name: "discourse-voice", targets: ["discourse_voice"])
   ],
   dependencies: [
-    .package(name: "FlutterFramework", path: "../FlutterFramework")
+    .package(name: "FlutterFramework", path: "../FlutterFramework"),
+    .package(name: "flutter_webrtc", path: "../flutter_webrtc")
   ],
   targets: [
     .target(
       name: "discourse_voice",
       dependencies: [
-        .product(name: "FlutterFramework", package: "FlutterFramework")
+        .product(name: "FlutterFramework", package: "FlutterFramework"),
+        .product(name: "flutter-webrtc", package: "flutter_webrtc"),
+        .product(name: "WebRTC", package: "flutter_webrtc")
       ]
     ),
     .testTarget(

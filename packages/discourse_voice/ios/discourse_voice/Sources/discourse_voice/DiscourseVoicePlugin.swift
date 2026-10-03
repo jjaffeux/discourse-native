@@ -9,14 +9,19 @@ import Flutter
 /// graph, and the registrar retains the instance for the engine lifetime.
 public final class DiscourseVoicePlugin: NSObject, FlutterPlugin {
   private let coordinator: VoiceCallKitCoordinator
+  private let pictureInPicture: VoicePictureInPicture
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let plugin = DiscourseVoicePlugin(messenger: registrar.messenger())
+    let plugin = DiscourseVoicePlugin(registrar: registrar)
     registrar.publish(plugin)
   }
 
-  private init(messenger: FlutterBinaryMessenger) {
-    coordinator = VoiceCallKitCoordinator(messenger: messenger)
+  private init(registrar: FlutterPluginRegistrar) {
+    coordinator = VoiceCallKitCoordinator(messenger: registrar.messenger())
+    // Resolve lazily: an implicit engine can register before its view attaches.
+    pictureInPicture = VoicePictureInPicture(messenger: registrar.messenger()) { [weak registrar] in
+      registrar?.viewController?.view
+    }
     super.init()
   }
 }

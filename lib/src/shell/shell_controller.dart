@@ -18453,10 +18453,27 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
 }
 
 final class _ShellPluginRouteNavigationHost
-    implements PluginRouteNavigationHost {
+    implements PluginRouteNavigationHost, PluginRoutePresentationHost {
   const _ShellPluginRouteNavigationHost(this._shell);
 
   final ShellController _shell;
+
+  @override
+  void addListener(VoidCallback listener) => _shell.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) => _shell.removeListener(listener);
+
+  @override
+  bool get mobileNavigationEnabled => _shell.mobileNavigationEnabled;
+
+  @override
+  bool get currentContentVisible =>
+      _shell.forumActive &&
+      (!_shell.mobileNavigationEnabled ||
+          (_shell.mobilePane == MobilePane.content &&
+              !_shell.mobileNavigation.sidebarOpen &&
+              _shell.mobileNavigation.panelOwner == null));
 
   @override
   String? get activeTabId => _shell.activeTabId;

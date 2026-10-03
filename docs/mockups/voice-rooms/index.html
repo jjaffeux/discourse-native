@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Discourse Native · Voice room directions</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="workbench">
+    <header class="intro">
+      <div class="eyebrow"><span class="brand-mark">d</span> DISCOURSE NATIVE <span class="slash">/</span> DESIGN EXPLORATION</div>
+      <div class="title-line"><h1>Voice room directions</h1><span class="edition">01 — 03</span></div>
+      <p>Stay present in the conversation. Take it with you when you browse.</p>
+    </header>
+    <section class="demo-controls" aria-label="Prototype controls">
+      <div class="control-set"><span class="control-label">View</span><div class="segmented" role="group" aria-label="Show all previews"><button data-global-route="room" aria-pressed="true">In the room</button><button data-global-route="browse" aria-pressed="false">Browsing elsewhere</button></div></div>
+      <div class="control-set"><label class="control-label" for="scenario">People</label><select id="scenario"><option value="1">Just you</option><option value="4">4 participants</option></select></div>
+      <div class="control-set"><label class="control-label" for="theme">Theme</label><select id="theme"><option value="dark">Solarized dark</option><option value="light">Solarized light</option></select></div>
+      <button class="reset" id="reset">Reset demo</button>
+    </section>
+    <section id="concepts" class="concept-grid" aria-label="Three interactive voice room concepts"></section>
+    <footer class="notes">
+      <div><span class="note-number">↗</span><p><strong>A call that follows your route.</strong> The floating widget appears only while a call is active and its room isn’t visible. Tap its title to return; mute and leave act independently.</p></div>
+      <div><span class="note-number">↳</span><p><strong>Clear space for navigation.</strong> Widgets sit above the bottom tabs with a visible gap. Microphone, camera and leave controls are simulated; no device access is requested.</p></div>
+    </footer>
+    <p class="prototype-note">HTML/CSS design prototypes · Shared Native control vocabulary · Sample participants and call duration</p>
+  </main>
+  <script src="mockups.js"></script>
+</body>
+</html>

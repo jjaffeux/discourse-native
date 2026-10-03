@@ -81,6 +81,52 @@ void main() {
   _mobileVoiceFormTests();
 
   group('room availability and layout', () {
+    testWidgets('video stage fills a solo call and fits a mobile group', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final media = harness.media.createSession();
+      for (final count in [1, 4]) {
+        final room = _room(
+          videoAllowed: true,
+          participants: [
+            for (var index = 1; index <= count; index++)
+              VoiceParticipant(
+                id: index,
+                username: index == 1 ? 'joffrey' : 'Guest $index',
+                role: VoiceRole.participant,
+              ),
+          ],
+        );
+        await tester.pumpWidget(
+          _app(
+            harness.controller,
+            room: room,
+            call: _call(room, media),
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final grid = tester.getRect(find.byType(GridView));
+        final tile = tester.getRect(find.byType(DCard).first);
+        expect(_columns(tester), count == 1 ? 1 : 2);
+        expect(
+          tile.height,
+          closeTo(
+            (grid.height - 24 - (count == 1 ? 0 : 12)) / (count == 1 ? 1 : 2),
+            .1,
+          ),
+        );
+        expect(find.byTooltip('More options'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets(
       'participant avatar in a subfolder room uses its wire path once',
       (tester) async {
@@ -142,6 +188,7 @@ void main() {
       addTearDown(harness.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: VoiceRoomView(
             roomId: 7,
             controller: harness.controller,
@@ -153,6 +200,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: VoiceRoomView(
             roomId: 7,
             controller: harness.controller,
@@ -203,7 +251,7 @@ void main() {
       final media = harness.media.createSession();
       final call = _call(room, media);
       await tester.pumpWidget(_app(harness.controller, room: room, call: call));
-      expect(_columns(tester), 3);
+      expect(_columns(tester), 2);
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -247,6 +295,7 @@ void main() {
         await _join(harness, room);
         await tester.pumpWidget(
           MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
             home: VoiceRoomView(
               roomId: room.id,
               controller: harness.controller,
@@ -484,6 +533,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: VoiceRoomView(
             roomId: 7,
             controller: harness.controller,
@@ -540,6 +590,7 @@ void main() {
             ),
           );
           Widget app({required bool roomOpen}) => MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
             home: Column(
               children: [
                 // The shell keeps drawing the call after its room closes.
@@ -618,6 +669,7 @@ void main() {
       await harness.controller.setPushToTalkEnabled(true);
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: VoiceRoomView(
             roomId: 7,
             controller: harness.controller,
@@ -743,6 +795,8 @@ void main() {
             expect(find.byTooltip('Switch camera'), findsNothing);
             return;
           }
+          await tester.tap(find.byTooltip('More options'));
+          await tester.pumpAndSettle();
           final button = find.byWidgetPredicate(
             (widget) => widget is DButton && widget.tooltip == 'Switch camera',
           );
@@ -752,6 +806,8 @@ void main() {
           await tester.tap(button);
           await tester.pumpAndSettle();
           expect(media.cameraFacing, VoiceCameraFacing.back);
+          await tester.tap(find.byTooltip('More options'));
+          await tester.pumpAndSettle();
           await tester.tap(button);
           await tester.pumpAndSettle();
           expect(media.cameraFacing, VoiceCameraFacing.front);
@@ -760,9 +816,12 @@ void main() {
 
           final captured = Completer<void>();
           media.cameraGate = captured;
+          await tester.tap(find.byTooltip('More options'));
+          await tester.pumpAndSettle();
           await tester.tap(button);
           await tester.pump();
-          expect(tester.widget<DButton>(button).onPressed, isNull);
+          await tester.pumpAndSettle();
+          expect(button, findsNothing);
           await tester.tap(find.byTooltip('Camera off'));
           captured.complete();
           await tester.pumpAndSettle();
@@ -801,6 +860,7 @@ void main() {
             });
             await tester.pumpWidget(
               MaterialApp(
+                theme: ThemeData(platform: TargetPlatform.macOS),
                 home: VoiceRoomView(
                   roomId: room.id,
                   controller: harness.controller,
@@ -1175,6 +1235,7 @@ void main() {
           await harness.controller.ensureLoaded(_siteUrl);
           await tester.pumpWidget(
             MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.macOS),
               home: VoiceRoomView(
                 roomId: 7,
                 controller: harness.controller,
@@ -1368,6 +1429,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.macOS),
               home: Scaffold(
                 body: PluginUiScope.own(
                   voicePluginId,
@@ -2302,6 +2364,7 @@ void main() {
           await _join(harness, decoded);
           await tester.pumpWidget(
             MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.macOS),
               home: Scaffold(
                 body: VoiceRoomView(
                   roomId: 7,
@@ -2419,6 +2482,7 @@ void main() {
               ShellScope(
                 controller: shell,
                 child: MaterialApp(
+                  theme: ThemeData(platform: TargetPlatform.macOS),
                   home: Scaffold(
                     body: PluginUiScope.own(
                       voicePluginId,
@@ -2558,6 +2622,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: Builder(
             builder: (context) => FilledButton(
               onPressed: () => unawaited(
@@ -2861,6 +2926,7 @@ void main() {
           }
           await tester.pumpWidget(
             MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.macOS),
               builder: (context, child) => DToaster(child: child!),
               home: VoiceRoomView(
                 roomId: 7,
@@ -3151,6 +3217,9 @@ void _joinLoadingTests() {
           ),
         );
         final button = find.widgetWithText(DButton, 'Join room');
+        final leave = mobile
+            ? find.byTooltip('Leave room')
+            : find.text('Leave room');
         expect(tester.widget<DButton>(button).loading, isFalse);
 
         await tester.tap(button);
@@ -3172,13 +3241,13 @@ void _joinLoadingTests() {
         await tester.pump();
         expect(harness.controller.call?.status, VoiceCallStatus.joining);
         expect(tester.widget<DButton>(button).loading, isTrue);
-        expect(find.text('Leave room'), findsNothing);
+        expect(leave, findsNothing);
 
         connectGate.complete();
         await tester.pumpAndSettle();
         expect(harness.controller.call?.status, VoiceCallStatus.connected);
         expect(button, findsNothing);
-        expect(find.text('Leave room'), findsOneWidget);
+        expect(leave, findsOneWidget);
         expect(tester.takeException(), isNull);
         harness.dispose();
       },
@@ -3803,6 +3872,7 @@ void _directCallTests() {
       await harness.controller.ensureLoaded(_siteUrl);
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: VoiceIncomingCallBanner(
               controller: harness.controller,
@@ -3879,6 +3949,7 @@ void _directCallTests() {
       await harness.controller.ensureLoaded(_siteUrl);
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: VoiceIncomingCallBanner(
               controller: harness.controller,
@@ -3949,6 +4020,7 @@ void _directCallTests() {
         await harness.controller.ensureLoaded(_siteUrl);
         await tester.pumpWidget(
           MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
             home: Builder(
               builder: (context) {
                 answerContext = context;
@@ -4019,6 +4091,7 @@ void _inviteTests() {
         await _join(harness, room);
         await tester.pumpWidget(
           MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
             home: Scaffold(
               body: VoiceRoomView(
                 roomId: room.id,
@@ -4626,6 +4699,8 @@ Future<_Harness> _openMobileVoiceForm(
       ),
     ),
   );
+  await tester.tap(find.byTooltip('More options'));
+  await tester.pumpAndSettle();
   await tester.tap(
     find.byTooltip(inviting ? 'Invite people' : 'Media settings'),
   );
@@ -5798,6 +5873,7 @@ void _roomDialogSessionTests() {
               ShellScope(
                 controller: shell,
                 child: MaterialApp(
+                  theme: ThemeData(platform: TargetPlatform.macOS),
                   home: Scaffold(
                     body: PluginUiScope.own(
                       voicePluginId,

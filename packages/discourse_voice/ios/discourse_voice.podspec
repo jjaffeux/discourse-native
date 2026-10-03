@@ -11,9 +11,10 @@ CallKit and audio-session integration for the always-bundled Voice feature.
   s.source           = { :path => '.' }
   s.source_files     = 'discourse_voice/Sources/discourse_voice/**/*'
   s.dependency 'Flutter'
+  s.dependency 'flutter_webrtc'
   s.platform         = :ios, '15.0'
   s.swift_version    = '5.0'
-  s.frameworks       = 'AVFoundation', 'CallKit'
+  s.frameworks       = 'AVFoundation', 'AVKit', 'CallKit', 'CoreImage'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

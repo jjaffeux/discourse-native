@@ -9,6 +9,83 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fake_voice_call_port.dart';
 
 void main() {
+  testWidgets('room and native PiP visibility preserve a tucked call', (
+    tester,
+  ) async {
+    final identity = Object();
+    final port = FakeVoiceCallPort(state: _state(identity: identity));
+    addTearDown(port.close);
+    await _pump(tester, port);
+    final panel = tester
+        .widget<DFloatingPanel>(find.byType(DFloatingPanel))
+        .controller!;
+    panel.tuck();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('floating-panel-restore')),
+      findsOneWidget,
+    );
+    for (final native in [false, true]) {
+      port.replaceState(
+        _state(identity: identity, roomVisible: !native, pipActive: native),
+      );
+      await tester.pump();
+      expect(find.byType(DFloatingPanel), findsNothing);
+      port.replaceState(_state(identity: identity));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('floating-panel-restore')),
+        findsOneWidget,
+      );
+    }
+    expect(port.actions, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('floating-panel-restore')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Mute'));
+    expect(port.actions, [VoiceCallAction.toggleMuted]);
+    panel.tuck();
+    await tester.pumpAndSettle();
+    port.replaceState(_state(identity: Object(), roomName: 'New call'));
+    await tester.pumpAndSettle();
+    expect(find.text('New call'), findsOneWidget);
+    expect(find.byKey(const ValueKey('floating-panel-restore')), findsNothing);
+    port.replaceState(_state(status: VoiceCallPresentationStatus.leaving));
+    await tester.pump();
+    expect(find.byType(DFloatingPanel), findsNothing);
+  });
+
+  testWidgets('mobile preview stays above the dock and fits large text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final port = FakeVoiceCallPort(state: _state(mobile: true));
+    addTearDown(port.close);
+    for (final scale in [1.0, 2.0, 3.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(390, 844),
+              textScaler: TextScaler.linear(scale),
+              padding: const EdgeInsets.only(top: 44, bottom: 34),
+            ),
+            child: Stack(children: [VoiceCallWidget(port: port)]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final card = tester.getRect(find.byType(DCard));
+      expect(card.left, greaterThanOrEqualTo(12));
+      expect(card.right, lessThanOrEqualTo(378));
+      expect(card.bottom, lessThanOrEqualTo(844 - 34 - 62 * scale));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   group('VoiceCallWidget platform availability', () {
     testWidgets('hides the overlay on unsupported platforms', (tester) async {
       final port = FakeVoiceCallPort(
@@ -29,7 +106,7 @@ void main() {
       await _pump(tester, port);
 
       expect(find.text('Planning'), findsOneWidget);
-      expect(find.text('meta · 2 present'), findsOneWidget);
+      expect(find.text('Connected'), findsOneWidget);
       expect(find.byTooltip('Mute'), findsOneWidget);
       expect(find.byTooltip('Leave room'), findsOneWidget);
       expect(find.byType(DToggle), findsOneWidget);
@@ -37,7 +114,7 @@ void main() {
   });
 
   testWidgets(
-    'keeps the current call card through joining, connected, leaving, and failed states',
+    'keeps the call card through joining, connected and failed states',
     (tester) async {
       final port = FakeVoiceCallPort(
         state: _state(status: VoiceCallPresentationStatus.joining),
@@ -48,7 +125,6 @@ void main() {
       for (final status in const [
         VoiceCallPresentationStatus.joining,
         VoiceCallPresentationStatus.connected,
-        VoiceCallPresentationStatus.leaving,
         VoiceCallPresentationStatus.failed,
       ]) {
         port.replaceState(_state(status: status));
@@ -76,7 +152,7 @@ void main() {
     port.replaceState(_state(recording: true));
     await tester.pump();
 
-    expect(find.byTooltip('Recording'), findsOneWidget);
+    expect(find.text('Recording'), findsOneWidget);
     expect(find.text('Planning'), findsOneWidget);
   });
 
@@ -202,10 +278,18 @@ VoiceCallPortState _state({
   String roomName = 'Planning',
   bool muted = false,
   bool recording = false,
+  bool roomVisible = false,
+  bool pipActive = false,
+  bool mobile = false,
+  Object? identity,
   Widget? preview,
 }) => VoiceCallPortState(
   supported: true,
+  roomVisible: roomVisible,
+  pictureInPictureActive: pipActive,
+  usesMobileNavigation: mobile,
   call: VoiceCallPresentation(
+    identity: identity,
     roomName: roomName,
     siteName: 'meta',
     participantCount: 2,

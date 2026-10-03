@@ -19794,6 +19794,53 @@
         "type": "String"
       }
     }
+  },
+  "floatingPanelHide": "Hide preview",
+  "@floatingPanelHide": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "floatingPanelRestore": "Show call preview",
+  "@floatingPanelRestore": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "floatingPanelMoveLeft": "Move to left edge",
+  "@floatingPanelMoveLeft": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "floatingPanelMoveRight": "Move to right edge",
+  "@floatingPanelMoveRight": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceReturnToRoom": "Return to room",
+  "@voiceReturnToRoom": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceConnected": "Connected",
+  "@voiceConnected": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceReconnecting": "Reconnecting…",
+  "@voiceReconnecting": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceCallFailed": "Call interrupted",
+  "@voiceCallFailed": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceMicrophoneOn": "Your microphone is on",
+  "@voiceMicrophoneOn": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceMicrophoneMuted": "Your microphone is muted",
+  "@voiceMicrophoneMuted": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceSoundOff": "Sound and microphone off",
+  "@voiceSoundOff": {
+    "description": "Voice call presentation and floating panel accessibility."
+  },
+  "voiceSpeaking": "Speaking",
+  "@voiceSpeaking": {
+    "description": "Voice call presentation and floating panel accessibility."
   }
-
 }
