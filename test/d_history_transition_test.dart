@@ -112,7 +112,34 @@ void main() {
             void expectChromeUnchanged() {
               expect(tester.getRect(find.text('Header action')), header);
               expect(tester.getRect(find.text('Footer action')), footer);
-              expect(_paintedRect(tester, _live).size, pageRect.size);
+              if (back) {
+                expect(_paintedRect(tester, _live).size, pageRect.size);
+              }
+            }
+
+            void expectBackgroundInsideViewport() {
+              final background = back
+                  ? previewRect()
+                  : _paintedRect(tester, _live);
+              expect(
+                background.left,
+                greaterThanOrEqualTo(pageRect.left - .001),
+              );
+              expect(
+                background.right,
+                lessThanOrEqualTo(pageRect.right + .001),
+              );
+              expect(
+                direction == TextDirection.ltr
+                    ? background.left
+                    : background.right,
+                closeTo(
+                  direction == TextDirection.ltr
+                      ? pageRect.left
+                      : pageRect.right,
+                  .001,
+                ),
+              );
             }
 
             final smaller = previewRect();
@@ -123,6 +150,7 @@ void main() {
             );
             expect(smaller.center.dy, closeTo(pageRect.center.dy, .001));
             expectChromeUnchanged();
+            expectBackgroundInsideViewport();
 
             await gesture.moveBy(Offset(sign * 140, 0));
             distance += 140;
@@ -130,6 +158,7 @@ void main() {
             final larger = previewRect();
             expect(larger.width, greaterThan(smaller.width));
             expect(larger.width, lessThan(pageRect.width));
+            expectBackgroundInsideViewport();
 
             // Reversing the finger reverses the scale immediately.
             await gesture.moveBy(Offset(-sign * 80, 0));
@@ -140,6 +169,7 @@ void main() {
               inExclusiveRange(smaller.width, larger.width),
             );
             expectChromeUnchanged();
+            expectBackgroundInsideViewport();
 
             // The preview exactly meets the live route before navigation fires.
             await gesture.moveBy(Offset(sign * (pageRect.width - distance), 0));
@@ -149,6 +179,7 @@ void main() {
             expect(full.top, closeTo(pageRect.top, .001));
             expect(full.width, closeTo(pageRect.width, .001));
             expect(full.height, closeTo(pageRect.height, .001));
+            expectBackgroundInsideViewport();
             expect(state.index, initialIndex);
             await gesture.up();
             await tester.pumpAndSettle();
@@ -184,9 +215,10 @@ void main() {
             timeStamp: const Duration(milliseconds: 200),
           );
           await tester.pump();
+          final live = _paintedRect(tester, _live);
           expect(
-            tester.getTopLeft(_live).dx - page.left,
-            closeTo((fromRight ? -1 : 1) * (back ? 140 : 11.2), .001),
+            rtl ? live.right - page.right : live.left - page.left,
+            closeTo(back ? (rtl ? -140 : 140) : 0, .001),
           );
           expect(tester.getRect(header), headerRect);
           expect(tester.getRect(footer), footerRect);
@@ -240,10 +272,12 @@ void main() {
 
       final forward = await _drag(tester, fromRight: !rtl);
       expect(state.index, 0);
+      final background = _paintedRect(tester, _live);
       expect(
-        tester.getTopLeft(_live).dx - origin.dx,
-        closeTo(rtl ? 11.2 : -11.2, .001),
+        rtl ? background.right : background.left,
+        closeTo(rtl ? 400 : 0, .001),
       );
+      expect(background.width, inExclusiveRange(400 * .94, 400));
       expect(find.byType(RawImage), findsOneWidget);
       final forwardWidth = _paintedRect(tester, find.byType(RawImage)).width;
       await forward.up();

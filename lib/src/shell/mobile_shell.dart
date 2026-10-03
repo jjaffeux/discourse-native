@@ -83,21 +83,24 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           },
           child: Focus(
             autofocus: sidebarOpen,
-            child: Row(
+            child: Padding(
               key: const ValueKey('mobile-navigation-page'),
-              children: [
-                const SizedBox(width: 48, child: InstanceRail()),
-                Expanded(
-                  child: DPageSurface(
-                    border: false,
-                    child: InstanceSidebar(
-                      key: ValueKey(('mobile-navigation', owner)),
-                      mobile: true,
-                      onNavigate: shell.closeMobileSidebar,
+              padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
+              child: Row(
+                children: [
+                  const SizedBox(width: 48, child: InstanceRail()),
+                  Expanded(
+                    child: DPageSurface(
+                      border: false,
+                      child: InstanceSidebar(
+                        key: ValueKey(('mobile-navigation', owner)),
+                        mobile: true,
+                        onNavigate: shell.closeMobileSidebar,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -318,10 +321,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             Expanded(
               child: ListenableBuilder(
                 listenable: _footerAction,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-                  child: page,
-                ),
+                // Keep the transition viewport full width. Each page owns its
+                // internal padding so animated content is only clipped at the
+                // screen edge.
+                child: page,
                 builder: (context, content) => MobileScrollDock(
                   identity: (
                     owner,
@@ -385,36 +388,41 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       backgroundColor: ForumWindowBackground.panelColor(
                         context,
                       ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          for (final entry in panels)
-                            Offstage(
-                              offstage:
-                                  !(panelRoot &&
-                                      panelOwner == entry.owner.value),
-                              child: TickerMode(
-                                enabled:
-                                    panelRoot &&
-                                    panelOwner == entry.owner.value,
-                                child: ExcludeFocus(
-                                  excluding:
-                                      !(panelRoot &&
-                                          panelOwner == entry.owner.value),
-                                  child: InstanceSidebar(
-                                    key: ValueKey((
-                                      'mobile-panel',
-                                      entry.owner.value,
-                                      owner,
-                                    )),
-                                    mobile: true,
-                                    panelOwner: entry.owner.value,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DSpacing.xs,
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            for (final entry in panels)
+                              Offstage(
+                                offstage:
+                                    !(panelRoot &&
+                                        panelOwner == entry.owner.value),
+                                child: TickerMode(
+                                  enabled:
+                                      panelRoot &&
+                                      panelOwner == entry.owner.value,
+                                  child: ExcludeFocus(
+                                    excluding:
+                                        !(panelRoot &&
+                                            panelOwner == entry.owner.value),
+                                    child: InstanceSidebar(
+                                      key: ValueKey((
+                                        'mobile-panel',
+                                        entry.owner.value,
+                                        owner,
+                                      )),
+                                      mobile: true,
+                                      panelOwner: entry.owner.value,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          if (!panelRoot) widget.content,
-                        ],
+                            if (!panelRoot) widget.content,
+                          ],
+                        ),
                       ),
                     ),
                   ),

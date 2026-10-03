@@ -15,7 +15,8 @@ import '../foundation/tokens.dart';
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
 /// The incoming page grows from 94% to full size with the swipe. A shallow
-/// parallax and soft edge shadow separate the pages during a drag.
+/// parallax and soft edge shadow separate the pages during a drag. Background
+/// pages stay inside the viewport, shrinking as a forward page covers them.
 /// The background page lightens as it is revealed and darkens as it is covered.
 /// Tab switches use a short directional slide and crossfade.
 ///
@@ -89,8 +90,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _edgeWidth = 48.0;
   static const _commitDistance = 64.0;
-  static const _parallax = .08;
   static const _previewScale = .94;
+  // Match the horizontal inset from centered scaling, so the background's
+  // leading edge stays visible instead of sliding outside the viewport.
+  static const _parallax = (1 - _previewScale) / 2;
   static const _tabTravel = 24.0;
 
   final _boundary = GlobalKey();
@@ -508,18 +511,23 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                           : _sign * _size.width * p * (_back ? 1 : _parallax),
                       0,
                     ),
-                    // Keep depth effects outside the capture boundary so
-                    // revisiting a page never reuses a darkened snapshot.
-                    child: DecoratedBox(
-                      decoration: _back ? elevation : dim,
-                      position: _back
-                          ? DecorationPosition.background
-                          : DecorationPosition.foreground,
-                      child: IgnorePointer(
-                        ignoring: _dragging || _settling || switching,
-                        child: Opacity(
-                          opacity: switching ? p : 1,
-                          child: child,
+                    child: Transform.scale(
+                      scale: switching || _back
+                          ? 1
+                          : 1 - (1 - _previewScale) * p,
+                      // Keep depth effects outside the capture boundary so
+                      // revisiting a page never reuses a transformed snapshot.
+                      child: DecoratedBox(
+                        decoration: _back ? elevation : dim,
+                        position: _back
+                            ? DecorationPosition.background
+                            : DecorationPosition.foreground,
+                        child: IgnorePointer(
+                          ignoring: _dragging || _settling || switching,
+                          child: Opacity(
+                            opacity: switching ? p : 1,
+                            child: child,
+                          ),
                         ),
                       ),
                     ),
