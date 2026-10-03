@@ -957,10 +957,16 @@ void main() {
     );
 
     testWidgets(
-      "the photo library resizes and encodes as the site's composer would",
+      'the photo library uploads videos and preserves photo export settings',
       (tester) async {
         final previousPicker = images.ImagePickerPlatform.instance;
         final picker = _RecordingImagePicker();
+        picker.files = [
+          images.XFile.fromData(
+            Uint8List.fromList([1, 2, 3]),
+            path: 'clip.MOV',
+          ),
+        ];
         images.ImagePickerPlatform.instance = picker;
         addTearDown(() => images.ImagePickerPlatform.instance = previousPicker);
         const config = SiteConfig(
@@ -979,11 +985,20 @@ void main() {
           trackers: FakeSiteTracker.reset(),
         );
         await shell.load();
+        final uploaded = <ComposerUploadFile>[];
         final composer = ComposerController(
           _target,
           simultaneousUploads: 6,
-          imageUploader: (_, {required onProgress, required abortTrigger}) =>
-              Completer<ComposerUploadResult>().future,
+          imageUploader:
+              (file, {required onProgress, required abortTrigger}) async {
+                uploaded.add(file);
+                return const ComposerUploadResult(
+                  id: 1,
+                  originalFilename: 'clip.MOV',
+                  shortUrl: 'upload://clip',
+                  url: 'https://meta.discourse.org/uploads/clip.MOV',
+                );
+              },
         );
         addTearDown(shell.dispose);
         addTearDown(composer.dispose);
@@ -999,7 +1014,13 @@ void main() {
         expect(options.imageOptions.maxWidth, 1280);
         expect(options.imageOptions.imageQuality, 75);
         expect(options.limit, 6);
+        expect(options.allowMultiple, isTrue);
+        expect(picker.imageOptions, isNull);
+        expect(uploaded.single.name, 'clip.MOV');
+        expect(uploaded.single.isVideo, isTrue);
+        expect(composer.text.text, '![clip|video](upload://clip)\n');
       },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
     );
 
     testWidgets('the upload button follows composer availability', (
@@ -2202,6 +2223,40 @@ void main() {
       expect(composer.text.text, isNot(contains('[grid')));
     });
 
+    testWidgets('adding gallery images keeps the native picker photo-only', (
+      tester,
+    ) async {
+      final previousPicker = images.ImagePickerPlatform.instance;
+      final picker = _RecordingImagePicker();
+      images.ImagePickerPlatform.instance = picker;
+      addTearDown(() => images.ImagePickerPlatform.instance = previousPicker);
+      final composer = ComposerController(
+        _target,
+        imageUploader: (_, {required onProgress, required abortTrigger}) =>
+            Completer<ComposerUploadResult>().future,
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '[grid]\n![inside](upload://inside)\n[/grid]';
+      composer.text.selection = TextSelection.collapsed(
+        offset: composer.text.galleryBlocks.single.end,
+      );
+      await _pumpPanel(tester, shell, composer, pickImages: null);
+      composer.focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Add images to gallery'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Upload new images'));
+      await tester.pumpAndSettle();
+
+      expect(picker.imageOptions, isNotNull);
+      expect(picker.options, isNull);
+    });
+
     testWidgets('gallery controls survive changes while its picker is open', (
       tester,
     ) async {
@@ -2698,15 +2753,25 @@ final _file = ComposerUploadFile(
 );
 
 final class _RecordingImagePicker extends images.ImagePickerPlatform {
-  images.MultiImagePickerOptions? options;
+  List<images.XFile> files = [];
+  images.MediaOptions? options;
+  images.MultiImagePickerOptions? imageOptions;
+
+  @override
+  Future<List<images.XFile>> getMedia({
+    required images.MediaOptions options,
+  }) async {
+    this.options = options;
+    return files;
+  }
 
   @override
   Future<List<images.XFile>> getMultiImageWithOptions({
     images.MultiImagePickerOptions options =
         const images.MultiImagePickerOptions(),
   }) async {
-    this.options = options;
-    return const [];
+    imageOptions = options;
+    return files;
   }
 }
 

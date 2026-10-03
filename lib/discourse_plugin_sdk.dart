@@ -134,7 +134,8 @@ export 'src/shell/composer_upload_picker.dart'
         ComposerFilePicker,
         ComposerImagePicker,
         pickComposerFiles,
-        pickComposerImages;
+        pickComposerImages,
+        pickComposerMedia;
 export 'src/shell/content_reading_lane.dart'
     show
         ContentReadingLane,

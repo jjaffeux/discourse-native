@@ -849,7 +849,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   Future<void> _pickImages() => _pickUpload(
     widget.pickImages ??
-        () => pickComposerImages(
+        () => pickComposerMedia(
           optimization:
               _host?.siteConfigFor(widget.siteUrl).composerImageOptimization ??
               const ComposerImageOptimization(),

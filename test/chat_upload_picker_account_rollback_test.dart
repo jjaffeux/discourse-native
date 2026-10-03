@@ -203,10 +203,8 @@ class _HeldImagePicker extends images.ImagePickerPlatform {
   final _HeldSelection selection;
 
   @override
-  Future<List<images.XFile>> getMultiImageWithOptions({
-    images.MultiImagePickerOptions options =
-        const images.MultiImagePickerOptions(),
-  }) => selection.pick();
+  Future<List<images.XFile>> getMedia({required images.MediaOptions options}) =>
+      selection.pick();
 }
 
 class _UploadApi extends FakeDiscourseApi {

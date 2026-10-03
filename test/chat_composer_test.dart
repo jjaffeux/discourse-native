@@ -2794,21 +2794,31 @@ void main() {
       expect(_field(tester).focusNode!.hasFocus, isTrue);
     });
 
-    testWidgets('the photo library follows the site optimisation policy', (
+    testWidgets('the photo library uploads videos with the site policy', (
       tester,
     ) async {
       final previousPicker = images.ImagePickerPlatform.instance;
       final picker = _RecordingImagePicker();
+      picker.files = [
+        images.XFile.fromData(Uint8List.fromList([1, 2, 3]), path: 'clip.mov'),
+      ];
       images.ImagePickerPlatform.instance = picker;
       addTearDown(() => images.ImagePickerPlatform.instance = previousPicker);
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
         config: const SiteConfig(
+          authorizedExtensions: ['mov'],
           simultaneousUploads: 5,
           composerImageOptimization: ComposerImageOptimization(
             enabled: false,
             imageQuality: 70,
           ),
+        ),
+        composerUploadResult: const ComposerUploadResult(
+          id: 73,
+          originalFilename: 'clip.mov',
+          shortUrl: 'upload://clip',
+          url: 'https://chat.example/uploads/clip.mov',
         ),
       );
       addTearDown(fixture.shell.dispose);
@@ -2826,7 +2836,16 @@ void main() {
       expect(options.imageOptions.maxWidth, isNull);
       expect(options.imageOptions.imageQuality, 70);
       expect(options.limit, 5);
-    });
+      expect(options.allowMultiple, isTrue);
+      expect(fixture.api.composerUploads.single.filename, 'clip.mov');
+      expect(
+        fixture.api.composerUploads.single.uploadType,
+        ChatPlugin.messageUploadType,
+      );
+      await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+      await tester.pumpAndSettle();
+      expect(fixture.api.chatMessagesSent.single.uploadIds, [73]);
+    }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
     testWidgets('reports file picker failures through the Chat session', (
       tester,
@@ -4081,15 +4100,15 @@ final class _ComposerView extends StatelessWidget {
 }
 
 final class _RecordingImagePicker extends images.ImagePickerPlatform {
-  images.MultiImagePickerOptions? options;
+  List<images.XFile> files = [];
+  images.MediaOptions? options;
 
   @override
-  Future<List<images.XFile>> getMultiImageWithOptions({
-    images.MultiImagePickerOptions options =
-        const images.MultiImagePickerOptions(),
+  Future<List<images.XFile>> getMedia({
+    required images.MediaOptions options,
   }) async {
     this.options = options;
-    return const [];
+    return files;
   }
 }
 

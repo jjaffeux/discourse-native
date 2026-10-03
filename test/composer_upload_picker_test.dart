@@ -62,6 +62,74 @@ void main() {
       expect(await pickComposerFiles(), isEmpty);
     });
 
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      test('media selection includes photos and videos on $platform', () async {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        imagePicker.files = [
+          for (final name in ['photo.jpg', 'alpha.png', 'clip.MOV', 'clip.mp4'])
+            images.XFile.fromData(Uint8List.fromList([4, 5]), path: name),
+        ];
+
+        final files = await pickComposerMedia(
+          optimization: const ComposerImageOptimization(
+            resizeWidthTarget: 1280,
+            encodeQuality: 75,
+          ),
+          limit: 4,
+        );
+
+        final options = imagePicker.mediaOptions!;
+        expect(options.allowMultiple, isTrue);
+        expect(options.limit, 4);
+        expect(options.imageOptions.maxWidth, 1280);
+        expect(options.imageOptions.maxHeight, isNull);
+        expect(options.imageOptions.imageQuality, 75);
+        expect(options.imageOptions.requestFullMetadata, isFalse);
+        expect(imagePicker.options, isNull);
+        expect(selector.acceptedTypeGroups, isNull);
+        expect(files.map((file) => file.name), [
+          'photo.jpg',
+          'alpha.png',
+          'clip.MOV',
+          'clip.mp4',
+        ]);
+        expect(files.map((file) => file.imageOptimizationApplied), [
+          true,
+          false,
+          false,
+          false,
+        ]);
+        expect(files.map((file) => file.isVideo), [false, false, true, true]);
+        expect(await files.last.length(), 2);
+        expect(await files.last.openRead().expand((chunk) => chunk).toList(), [
+          4,
+          5,
+        ]);
+      });
+    }
+
+    test('cancelling the media picker returns no uploads', () async {
+      expect(await pickComposerMedia(), isEmpty);
+      expect(imagePicker.mediaOptions, isNotNull);
+    });
+
+    test('media selection supports a one-file batch limit', () async {
+      imagePicker.files = [
+        images.XFile.fromData(Uint8List.fromList([1]), path: 'clip.mov'),
+      ];
+
+      expect((await pickComposerMedia(limit: 1)).single.name, 'clip.mov');
+      expect(imagePicker.mediaOptions!.allowMultiple, isFalse);
+    });
+
+    test('an unlimited media selection keeps the native limit unset', () async {
+      await pickComposerMedia(limit: 0);
+
+      expect(imagePicker.mediaOptions!.allowMultiple, isTrue);
+      expect(imagePicker.mediaOptions!.limit, isNull);
+    });
+
     test('only mobile photo JPEGs bypass a second lossy encoding', () async {
       imagePicker.files = [
         for (final name in ['photo.jpg', 'photo.JPEG', 'alpha.png'])
@@ -107,6 +175,7 @@ void main() {
         final files = await pickComposerImages();
 
         expect(imagePicker.options?.imageOptions.requestFullMetadata, isFalse);
+        expect(imagePicker.mediaOptions, isNull);
         expect(selector.acceptedTypeGroups, isNull);
         expect(files.single.name, 'photo.png');
         expect(
@@ -203,6 +272,15 @@ void main() {
 final class _ImagePicker extends images.ImagePickerPlatform {
   List<images.XFile> files = [];
   images.MultiImagePickerOptions? options;
+  images.MediaOptions? mediaOptions;
+
+  @override
+  Future<List<images.XFile>> getMedia({
+    required images.MediaOptions options,
+  }) async {
+    mediaOptions = options;
+    return files;
+  }
 
   @override
   Future<List<images.XFile>> getMultiImageWithOptions({

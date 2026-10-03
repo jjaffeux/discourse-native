@@ -16,15 +16,37 @@ Future<List<ComposerUploadFile>> pickComposerFiles() async {
   return composerUploadFilesFromSelection(files);
 }
 
-/// [optimization] is the site's; mobile pickers apply it during photo export.
-/// [limit] keeps a selection
-/// within the batch the composer accepts, which would otherwise refuse all
-/// of it.
+/// Picks only photos for image galleries.
 Future<List<ComposerUploadFile>> pickComposerImages({
   ComposerImageOptimization optimization = const ComposerImageOptimization(),
   int? limit,
+}) => _pickComposerLibrary(
+  optimization: optimization,
+  limit: limit,
+  imagesOnly: true,
+);
+
+/// Picks photos and videos for composer attachments.
+///
+/// [optimization] is the site's; mobile pickers apply it during photo export.
+/// [limit] keeps a selection within the batch the composer accepts.
+Future<List<ComposerUploadFile>> pickComposerMedia({
+  ComposerImageOptimization optimization = const ComposerImageOptimization(),
+  int? limit,
+}) => _pickComposerLibrary(
+  optimization: optimization,
+  limit: limit,
+  imagesOnly: false,
+);
+
+Future<List<ComposerUploadFile>> _pickComposerLibrary({
+  required ComposerImageOptimization optimization,
+  required int? limit,
+  required bool imagesOnly,
 }) async {
-  final files = await image_picker.ImagePicker().pickMultiImage(
+  final picker = image_picker.ImagePicker();
+  final pick = imagesOnly ? picker.pickMultiImage : picker.pickMultipleMedia;
+  final files = await pick(
     maxWidth: optimization
         .resizeWidth(ios: defaultTargetPlatform == TargetPlatform.iOS)
         ?.toDouble(),

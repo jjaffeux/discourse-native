@@ -79,15 +79,17 @@ SingleActivator _formattingShortcut(LogicalKeyboardKey key) => SingleActivator(
 
 ComposerImagePicker _sitePhotoLibrary(
   BuildContext context,
-  ComposerController composer,
-) {
+  ComposerController composer, {
+  bool imagesOnly = false,
+}) {
   final optimization =
       ShellScope.maybeRead(
         context,
       )?.siteConfigFor(composer.target.siteUrl).composerImageOptimization ??
       const ComposerImageOptimization();
   final limit = composer.simultaneousUploads;
-  return () => pickComposerImages(optimization: optimization, limit: limit);
+  final pick = imagesOnly ? pickComposerImages : pickComposerMedia;
+  return () => pick(optimization: optimization, limit: limit);
 }
 
 DButtonVariant _composerToolbarVariant(BuildContext context) => context.isTouch
@@ -3453,7 +3455,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
                 onUploadImages: () => unawaited(
                   _media.pickImagesForSelectedGallery(
                     widget.pickImages ??
-                        _sitePhotoLibrary(context, widget.composer),
+                        _sitePhotoLibrary(
+                          context,
+                          widget.composer,
+                          imagesOnly: true,
+                        ),
                   ),
                 ),
                 onAddExistingImages: () =>
