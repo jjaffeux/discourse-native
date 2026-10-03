@@ -16,6 +16,7 @@ import '../foundation/tokens.dart';
 /// spring back without invoking a callback. Null callbacks disable that edge.
 /// The incoming page grows from 94% to full size with the swipe. A shallow
 /// parallax and soft edge shadow separate the pages during a drag.
+/// The background page lightens as it is revealed and darkens as it is covered.
 /// Tab switches use a short directional slide and crossfade.
 ///
 /// History previews are in-memory snapshots. Up to eight recently visited
@@ -409,7 +410,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               final active = !switching && p > 0;
               final dim = BoxDecoration(
                 color: tokens.colors.scrim.withValues(
-                  alpha: active ? .06 * (_back ? 1 - p : p) : 0,
+                  alpha: active ? .20 * (_back ? 1 - p : p) : 0,
                 ),
               );
               final elevation = BoxDecoration(
