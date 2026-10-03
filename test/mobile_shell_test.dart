@@ -1262,7 +1262,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 600.0]) {
+  for (final width in [320.0, 430.0, 600.0]) {
     _mobileTest('navigation uses the full $width viewport with large text', (
       tester,
     ) async {
@@ -1270,12 +1270,28 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('mobile-content-panel')),
+      );
+      final content = tester.getRect(find.byType(MainContent));
+      expect(panel.left, 0);
+      expect(panel.width, width);
+      expect(content.left, greaterThanOrEqualTo(DSpacing.xs));
+      expect(content.right, lessThanOrEqualTo(width - DSpacing.xs));
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
       await tester.pumpAndSettle();
       final navigation = tester.getRect(
         find.byKey(const ValueKey('mobile-navigation-page')),
       );
-      expect(navigation.width, width - 2 * DSpacing.xs);
+      expect(navigation.left, 0);
+      expect(navigation.width, width);
+      final rail = tester.getRect(find.byType(InstanceRail));
+      expect(rail.left, DSpacing.xs);
+      final addButton = tester.getRect(
+        find.byKey(const ValueKey('add-instance-rail-outline')),
+      );
+      expect(addButton.left, greaterThan(rail.left));
+      expect(addButton.right, lessThan(rail.right));
       expect(_bar, findsNothing);
       expect(find.text('Shortcuts'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -2475,7 +2491,7 @@ void main() {
         await tester.pump();
         expect(
           tester.getTopLeft(live).dx - origin.dx,
-          closeTo(back ? 120 : -9.6, .001),
+          closeTo(back ? 120 : 0, .001),
           reason: '${back ? "Back" : "Forward"} at height $y',
         );
         expect(tester.getRect(_header), header);
@@ -2586,6 +2602,58 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 430.0, 600.0]) {
+    _mobileTest('rail stays inside the $width viewport during swipes', (
+      tester,
+    ) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        size: Size(width, 844),
+      );
+      final header = tester.getRect(_header);
+
+      void expectRailInsideViewport() {
+        for (final finder in [
+          find.byType(InstanceRail),
+          find.byKey(const ValueKey('add-instance-rail-outline')),
+        ]) {
+          final box = tester.renderObject<RenderBox>(finder);
+          final left = box.localToGlobal(Offset.zero).dx;
+          final right = box.localToGlobal(Offset(box.size.width, 0)).dx;
+          expect(left, greaterThan(0));
+          expect(right, lessThan(width));
+        }
+        expect(tester.getRect(_header), header);
+      }
+
+      for (final open in [true, false]) {
+        for (final cancel in [true, false]) {
+          final gesture = await tester.startGesture(
+            Offset(open ? 1 : width - 1, 400),
+          );
+          for (final fraction in [.1, .45, .8]) {
+            await gesture.moveTo(
+              Offset(
+                open ? 1 + width * fraction : width - 1 - width * fraction,
+                400,
+              ),
+            );
+            await tester.pump();
+            expectRailInsideViewport();
+          }
+          if (cancel) {
+            await gesture.cancel();
+          } else {
+            await gesture.up();
+          }
+          await tester.pumpAndSettle();
+          expect(shell.mobileNavigation.sidebarOpen, cancel ? !open : open);
+        }
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   _mobileTest('rail swipes preserve Back and Forward visits', (tester) async {
     final shell = await pumpMobileShellFixture(tester);
