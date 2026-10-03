@@ -14,7 +14,7 @@ Post placeholders and chat attachments use this same component.
 
 ## Policy
 
-- Consider MP4, MOV, M4V, WebM, MKV, AVI, and 3GP files between 5 MiB and 2 GiB.
+- Consider MP4, MOV, M4V, WebM, MKV, AVI, and 3GP files between 1 MiB and 2 GiB.
   Native codecs decide which of these containers they can actually decode.
 - The original extension must pass the normal composer allowlist. Only attempt
   optimization when the forum also allows the resulting `.mp4` filename.

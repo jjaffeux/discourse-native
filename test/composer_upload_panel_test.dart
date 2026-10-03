@@ -1023,6 +1023,69 @@ void main() {
       variant: const TargetPlatformVariant({TargetPlatform.iOS}),
     );
 
+    testWidgets(
+      'iPhone composer shows video optimization before network progress',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final preparation = Completer<PreparedComposerUpload>();
+        final transfer = Completer<ComposerUploadResult>();
+        var uploads = 0;
+        final video = ComposerUploadFile(
+          name: 'clip.mov',
+          length: () async => 10 * 1024 * 1024,
+          openRead: () => Stream.value([1]),
+        );
+        final composer = ComposerController(
+          _target,
+          prepareUpload: (_, {required abortTrigger}) => preparation.future,
+          imageUploader: (_, {required onProgress, required abortTrigger}) {
+            uploads++;
+            onProgress(.4);
+            return transfer.future;
+          },
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(
+          tester,
+          shell,
+          composer,
+          pickImages: () async => [video],
+        );
+        await tester.tap(find.byKey(const ValueKey('composer-upload')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.text('Optimizing video…'), findsOneWidget);
+        final editorBounds = tester.getRect(find.byType(ComposerEditor));
+        final statusBounds = tester.getRect(find.text('Optimizing video…'));
+        expect(editorBounds.contains(statusBounds.topLeft), isTrue);
+        expect(editorBounds.contains(statusBounds.bottomRight), isTrue);
+        expect(
+          find.byTooltip('Cancel video upload').hitTestable(),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Uploading'), findsNothing);
+        expect(uploads, 0);
+
+        preparation.complete(PreparedComposerUpload(video));
+        await tester.pump();
+        expect(find.text('Optimizing video…'), findsNothing);
+        expect(find.text('Uploading · 40%'), findsOneWidget);
+        expect(uploads, 1);
+        await tester.tap(find.byTooltip('Cancel upload'));
+        await tester.pump();
+        expect(composer.uploads, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
+
     testWidgets('the upload button follows composer availability', (
       tester,
     ) async {
