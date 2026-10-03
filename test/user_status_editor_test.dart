@@ -342,7 +342,7 @@ void main() {
 
   for (final reconnect in [false, true]) {
     testWidgets(
-      'emoji selection ${reconnect ? 'is ignored after reconnect' : 'is previewed and saved'}',
+      'emoji selection ${reconnect ? 'is ignored after reconnect' : 'is displayed in the picker button and saved'}',
       (tester) async {
         final api = _StatusApi();
         await _open(tester, api: api);
@@ -371,7 +371,7 @@ void main() {
           tester
               .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
               .map((image) => image.name),
-          [reconnect ? 'house' : 'smile', reconnect ? 'house' : 'smile'],
+          [reconnect ? 'house' : 'smile'],
         );
         await tester.tap(find.text('Save'));
         await tester.pumpAndSettle();
