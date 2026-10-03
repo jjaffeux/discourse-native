@@ -6,15 +6,21 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_header.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/media_pipeline.dart';
 
 const _site = 'https://meta.discourse.org';
 final _now = DateTime(2026, 9, 27, 12);
@@ -44,6 +50,46 @@ ChatMessage _message(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'one-to-one header displays the participant avatar on $platform',
+      (tester) async {
+        const avatarUrl = '$_site/user_avatar/sam/96/1.png';
+        final requests = <Uri>[];
+        installTestMediaPipeline(
+          client: MockClient((request) async {
+            requests.add(request.url);
+            return http.Response.bytes(blankPng(width: 32, height: 32), 200);
+          }),
+        );
+        await _pump(
+          tester,
+          channel: const ChatChannel(
+            id: 9,
+            title: 'sam',
+            kind: ChatChannelKind.directMessage,
+            users: [ChatUser(id: 2, username: 'sam', avatarUrl: avatarUrl)],
+          ),
+          platform: platform,
+        );
+
+        final avatar = find.byType(ChatUserAvatar);
+        expect(avatar, findsOneWidget);
+        expect(tester.getSize(avatar), const Size.square(32));
+        expect(requests, [Uri.parse(avatarUrl)]);
+        expect(
+          tester.widget<AvatarImage>(find.byType(AvatarImage)).url,
+          avatarUrl,
+        );
+        expect(
+          find.descendant(of: avatar, matching: find.byType(Image)),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'mockup identity, metadata, back and details with retained star',
     (tester) async {
@@ -185,6 +231,7 @@ void main() {
           id: 9,
           title: 'A very long direct message conversation name',
           kind: ChatChannelKind.directMessage,
+          users: [ChatUser(id: 2, username: 'sam')],
           membership: ChatMembership(following: true),
         ),
         messages: [_message(1, thread: 3)],
@@ -192,10 +239,12 @@ void main() {
         platform: TargetPlatform.iOS,
       );
       expect(find.text('Direct message', findRichText: true), findsOneWidget);
-      final marker = tester.widget<DAvatar>(
-        find.byKey(const ValueKey('chat-channel-header-marker')),
+      final avatar = find.byType(ChatUserAvatar);
+      expect(tester.getSize(avatar), const Size.square(32));
+      expect(
+        find.descendant(of: avatar, matching: find.byType(DAvatarFallback)),
+        findsOneWidget,
       );
-      expect(marker.borderRadius, BorderRadius.circular(6));
       expect(find.byTooltip('Add to starred channels'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
