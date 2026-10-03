@@ -2213,6 +2213,11 @@ void main() {
       testWidgets(
         '$platform long press highlights and haptically confirms message actions',
         (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+          addTearDown(tester.view.reset);
           final message = _message(_thread());
           final controller = await _controller(message);
           final replies = <ChatMessage>[];
@@ -2258,6 +2263,22 @@ void main() {
           await tester.pumpAndSettle();
           expect(background(), isNot(restingBackground));
           expect(find.byType(DSheetContent), findsOneWidget);
+          final sheetBounds = tester.getRect(find.byType(DSheetContent));
+          expect(sheetBounds.left, greaterThan(0));
+          expect(sheetBounds.right, lessThan(390));
+          expect(sheetBounds.top, greaterThan(47));
+          expect(sheetBounds.bottom, lessThan(844 - 34));
+          expect(sheetBounds.height, greaterThan(844 * .8));
+          final close = find.byKey(
+            const ValueKey('chat-message-actions-close-7'),
+          );
+          final closeButton = tester.widget<DButton>(close);
+          expect(closeButton.shape, DButtonShape.pill);
+          expect(closeButton.variant, DButtonVariant.secondary);
+          expect(closeButton.tooltip, 'Close');
+          final closeBounds = tester.getRect(close);
+          expect(closeBounds.width, closeBounds.height);
+          expect(sheetBounds.contains(closeBounds.center), isTrue);
 
           await tester.tap(find.text('Reply'));
           await tester.pumpAndSettle();
@@ -2268,6 +2289,13 @@ void main() {
           await tester.longPress(find.byKey(_messageTileKey));
           await tester.pumpAndSettle();
           expect(background(), isNot(restingBackground));
+          await tester.tap(close);
+          await tester.pumpAndSettle();
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(background(), restingBackground);
+          expect(replies, [same(message)]);
+          await tester.longPress(find.byKey(_messageTileKey));
+          await tester.pumpAndSettle();
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
           expect(find.byType(DSheetContent), findsNothing);
@@ -2275,10 +2303,76 @@ void main() {
           expect(haptics, [
             'HapticFeedbackType.lightImpact',
             'HapticFeedbackType.lightImpact',
+            'HapticFeedbackType.lightImpact',
           ]);
         },
       );
     }
+
+    testWidgets(
+      'mobile action sheet keeps its circular close visible while actions scroll',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 20);
+        tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 20);
+        addTearDown(tester.view.reset);
+        final controller = await _controller(
+          _message(null),
+          signedIn: true,
+          staff: true,
+          canDeleteOthers: true,
+          canModerate: true,
+          canManagePins: true,
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            onReply: (_) {},
+            platform: ThemeData().platform,
+            brightness: Brightness.dark,
+            textScaler: const TextScaler.linear(2),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.longPress(find.byKey(_messageTileKey));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final close = find.byKey(
+          const ValueKey('chat-message-actions-close-7'),
+        );
+        final closeBounds = tester.getRect(close);
+        final body = find.descendant(
+          of: find.byType(DSheetBody),
+          matching: find.byType(Scrollable),
+        );
+        final scroll = tester.state<ScrollableState>(body).position;
+        expect(scroll.maxScrollExtent, greaterThan(0));
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('chat-message-delete-7')),
+          150,
+          scrollable: body,
+        );
+        await tester.pumpAndSettle();
+        expect(scroll.pixels, greaterThan(0));
+        expect(tester.getRect(close), closeBounds);
+        expect(
+          find.byKey(const ValueKey('chat-message-delete-7')).hitTestable(),
+          findsOneWidget,
+        );
+        await tester.tap(close);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(controller.chat.message(_siteUrl, 7)!.isDeleted, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
 
     testWidgets('a desktop long press does not open message actions', (
       tester,
@@ -2453,6 +2547,8 @@ class _TestTile extends StatelessWidget {
     this.chained = false,
     this.platform = TargetPlatform.macOS,
     this.withToaster = false,
+    this.brightness = Brightness.light,
+    this.textScaler,
   });
 
   final ShellController controller;
@@ -2466,6 +2562,8 @@ class _TestTile extends StatelessWidget {
   final bool chained;
   final TargetPlatform platform;
   final bool withToaster;
+  final Brightness brightness;
+  final TextScaler? textScaler;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2473,11 +2571,17 @@ class _TestTile extends StatelessWidget {
     child: PluginUiScope.own(
       chatPluginId,
       MaterialApp(
-        theme: AppTheme.light.copyWith(platform: platform),
-        builder: withToaster
-            ? (context, child) =>
-                  DToaster(position: DToastPosition.topEnd, child: child!)
-            : null,
+        theme: (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+            .copyWith(platform: platform),
+        builder: (context, child) {
+          if (withToaster) {
+            child = DToaster(position: DToastPosition.topEnd, child: child!);
+          }
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          );
+        },
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

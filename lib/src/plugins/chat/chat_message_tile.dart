@@ -851,10 +851,18 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         trigger: DSheetTrigger(builder: (context, open) => childBuilder(null)),
         content: DSheetContent(
           side: DSheetSide.bottom,
-          topBottomMaxHeightFactor: .85,
+          inset: true,
+          fillAvailableHeight: true,
+          topBottomMaxHeightFactor: 1,
+          scrollWholeSheet: false,
+          showCloseButton: false,
+          semanticLabel: appL10n.messageActions,
           children: [
-            DSheetHeader(
-              children: [DSheetTitle(child: Text(appL10n.messageActions))],
+            ComposerSheetHeader(
+              title: appL10n.messageActions,
+              closeButtonKey: ValueKey(
+                'chat-message-actions-close-${widget.message.id}',
+              ),
             ),
             DSheetBody(
               child: Column(
