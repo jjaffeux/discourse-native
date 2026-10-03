@@ -1196,6 +1196,121 @@ void main() {
   });
 
   group('navigation and reading state', () {
+    testWidgets(
+      'jump to latest reaches the bottom when the latest page overlaps the read message',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final api = _ChatApi(
+          failNewer: true,
+          openPages: {
+            firstSite: [
+              _messagesPage(1, 40, canLoadMoreFuture: true),
+              _messagesPage(1, 80),
+            ],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+        await controller.chat.openChannel(firstSite, 9);
+        await tester.pumpWidget(
+          ValueListenableBuilder<ChatStreamState>(
+            valueListenable: controller.chat.streamListenable(firstSite, 9),
+            builder: (context, stream, _) => _TestStreamView(
+              controller: controller,
+              theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+              messages: [
+                for (final id in stream.messageIds)
+                  controller.chat.messageRef(firstSite, id).value!,
+              ],
+              lastReadMessageId: stream.lastReadOnOpen,
+              stream: stream,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(controller.chat.stream(firstSite, 9).atPresent, isFalse);
+        expect(controller.chat.stream(firstSite, 9).newestId, 40);
+        final button = find.bySemanticsLabel('Jump to latest messages');
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(controller.chat.stream(firstSite, 9).newestId, 80);
+        final position = tester
+            .state<ScrollableState>(_verticalChatScroll())
+            .position;
+        expect(position.pixels, 0);
+        expect(button, findsNothing);
+        expect(
+          find.text('Message 80', findRichText: true).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+
+    for (final moving in [false, true]) {
+      testWidgets(
+        'tapping jump to latest reaches the bottom after a '
+        '${moving ? 'fling' : 'drag'}',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 844));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final controller = await _controller(
+            _ChatApi(
+              openPages: {
+                firstSite: [_messagesPage(1, 80)],
+              },
+            ),
+            sites: const [firstSite],
+          );
+          addTearDown(controller.dispose);
+          controller.chatRecords.put(firstSite, _channel(lastRead: 80));
+          await tester.pumpWidget(
+            _TestView(
+              controller: controller,
+              theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final scrollable = _verticalChatScroll();
+          final position = tester.state<ScrollableState>(scrollable).position;
+          expect(position.pixels, 0);
+          if (moving) {
+            await tester.fling(scrollable, const Offset(0, 400), 1500);
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(position.isScrollingNotifier.value, isTrue);
+          } else {
+            await tester.drag(scrollable, const Offset(0, 400));
+            await tester.pumpAndSettle();
+          }
+          expect(position.pixels, greaterThan(120));
+          final button = find.bySemanticsLabel('Jump to latest messages');
+          expect(button.hitTestable(), findsOneWidget);
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          expect(position.pixels, 0);
+          expect(button, findsNothing);
+          expect(
+            find.text('Message 80', findRichText: true).hitTestable(),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+          TargetPlatform.macOS,
+        }),
+      );
+    }
+
     for (final target in const <ChatStreamTarget>[
       ChatChannelTarget(9),
       ChatThreadTarget(channelId: 9, threadId: 3),

@@ -1271,6 +1271,30 @@ void main() {
     },
   );
 
+  test('jump to latest in a thread lands after its read marker', () async {
+    final api = _AdversarialThreadApi(
+      detail: threadDetail(),
+      pages: {
+        'thread-9-22~target~17': threadPage([
+          16,
+          17,
+          18,
+        ], canLoadMoreFuture: true),
+        'thread-9-22': threadPage([17, 18, 40], targetMessageId: 17),
+      },
+    );
+    final subject = _controllerFor(api);
+    await subject.chat.openThread(site, target, targetMessageId: 17);
+    expect(subject.chat.streamFor(site, target).anchorMessageId, 17);
+
+    await subject.chat.showLatestFor(site, target);
+
+    final stream = subject.chat.streamFor(site, target);
+    expect(stream.anchorMessageId, 40);
+    expect(stream.lastReadOnOpen, 17);
+    expect(stream.atPresent, isTrue);
+  });
+
   test('thread history pages independently in both directions', () async {
     final api = _AdversarialThreadApi(
       detail: threadDetail(),

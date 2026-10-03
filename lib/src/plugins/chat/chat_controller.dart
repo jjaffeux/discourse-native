@@ -6268,7 +6268,8 @@ class ChatController extends FrameSafeNotifier {
     if (streamFor(siteUrl, target).atPresent) return;
     await reporter.runOperation(
       'chat.loadLatest',
-      () => _fetchWindow(siteUrl, target, fromLastRead: false),
+      () =>
+          _fetchWindow(siteUrl, target, fromLastRead: false, anchorAtEnd: true),
     );
   }
 
@@ -6277,6 +6278,7 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target, {
     required bool fromLastRead,
     int? targetMessageId,
+    bool anchorAtEnd = false,
   }) async {
     final key = _targetKey(siteUrl, target);
     // Replacement fetches are latest-wins; generations cancel stale targets.
@@ -6393,8 +6395,11 @@ class ChatController extends FrameSafeNotifier {
             fetchedOnce: true,
             fetches: held.fetches + 1,
             lastReadOnOpen: lastReadOnOpen,
-            anchorMessageId:
-                targetMessageId ?? page.targetMessageId ?? lastReadOnOpen,
+            // An explicit jump to latest must not return to the read marker
+            // when that message is also present in the newest page.
+            anchorMessageId: anchorAtEnd
+                ? messageIds.lastOrNull
+                : targetMessageId ?? page.targetMessageId ?? lastReadOnOpen,
           ),
           growth: _ChatWindowGrowth.replacement,
         );
