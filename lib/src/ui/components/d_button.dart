@@ -674,10 +674,11 @@ class DButton extends StatelessWidget {
         : dashedTile
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
+    // Both dock densities scale artwork with the 11px destination labels.
     final spacingUnit = backLink
         ? 11.0
         : mobileDock || mobileDockAction
-        ? 20.0
+        ? 20.0 + MediaQuery.textScalerOf(context).scale(11) - 11
         : mobileNavigation
         ? 18.0
         : chatMessageAction

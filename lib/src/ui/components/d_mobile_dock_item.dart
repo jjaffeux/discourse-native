@@ -71,7 +71,6 @@ class DMobileDockItem extends StatelessWidget {
               ),
               child: IconTheme.merge(
                 data: IconThemeData(
-                  size: 20 + scaleDelta,
                   color: selected ? accent.foreground : tokens.mutedForeground,
                 ),
                 child: Center(child: ExcludeSemantics(child: icon)),

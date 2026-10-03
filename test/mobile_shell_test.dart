@@ -645,12 +645,12 @@ void main() {
     expect(find.text('Recent'), findsOneWidget);
     expect(find.text('All'), findsOneWidget);
     expect(find.byKey(const ValueKey('user-presence-menu')), findsOneWidget);
-    // Check painted geometry separately from the invisible touch targets.
-    // A missing size on either custom trigger used to inflate it to 44px.
-    for (final (key, height) in [
-      ('chat-inbox-activity-filter', 30.75),
-      ('chat-inbox-kind-filter', 30.75),
-      ('user-presence-menu', 24.0),
+    // Compact presets grow with the mobile text baseline. Their hit areas
+    // must still match the painted controls exactly.
+    for (final (key, size) in [
+      ('chat-inbox-activity-filter', DControlSize.filter),
+      ('chat-inbox-kind-filter', DControlSize.filter),
+      ('user-presence-menu', DControlSize.chip),
     ]) {
       final control = find.byKey(ValueKey(key));
       final surface = find.descendant(
@@ -661,7 +661,12 @@ void main() {
               widget.decoration is DButtonDecoration,
         ),
       );
-      expect(tester.getSize(surface).height, height, reason: key);
+      final context = tester.element(control);
+      expect(
+        tester.getSize(surface).height,
+        DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)),
+        reason: key,
+      );
       expect(tester.getRect(control), tester.getRect(surface));
     }
     expect(find.text('Starred channels'), findsNothing);
@@ -992,12 +997,14 @@ void main() {
         );
         expect(tester.widget<DMobileDockItem>(button).label, isNotEmpty);
         final icon = find.descendant(of: button, matching: find.byType(DIcon));
-        expect(tester.getSize(icon), const Size(20, 20));
+        // The 17pt mobile baseline also scales the dock artwork.
+        expect(tester.getSize(icon).width, closeTo(22.36, .01));
+        expect(tester.getSize(icon).height, closeTo(22.36, .01));
         final glyph = find.descendant(
           of: icon,
           matching: find.byType(TintedIconGlyph),
         );
-        expect(tester.getSize(glyph).longestSide, 20);
+        expect(tester.getSize(glyph).longestSide, closeTo(22.36, .01));
       }
       expect(find.text('Start'), findsOneWidget);
       expect(find.text('Topics'), findsWidgets);
@@ -1008,6 +1015,7 @@ void main() {
         findsNothing,
       );
       for (final key in [
+        ChatHeaderButton.buttonKey,
         UserMenuButton.bellKey,
         UserMenuButton.avatarKey,
         const ValueKey('forum-identity-logo'),
@@ -1027,10 +1035,12 @@ void main() {
       final search = tester.getRect(
         find.byKey(const ValueKey('mobile-search-button')),
       );
+      final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
       final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
       final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
       expect(identity.left - menu.right, DSpacing.controlGap);
-      expect(bell.left - search.right, DSpacing.controlGap);
+      expect(chat.left - search.right, closeTo(DSpacing.controlGap, .001));
+      expect(bell.left - chat.right, closeTo(DSpacing.controlGap, .001));
       expect(avatar.left - bell.right, DSpacing.controlGap);
       final menuIcon = tester.getRect(
         find.descendant(
@@ -1095,7 +1105,8 @@ void main() {
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(fill(), isNot(Colors.transparent));
-      expect(tester.getSize(capsule), const Size(44, 30));
+      expect(tester.getSize(capsule).width, closeTo(46.36, .01));
+      expect(tester.getSize(capsule).height, closeTo(32.36, .01));
 
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
@@ -2401,11 +2412,13 @@ void main() {
     expect(find.text('Browse chats'), findsOneWidget);
     expect(peer('Channels'), findsOneWidget);
     expect(peer('Threads'), findsOneWidget);
+    await tester.ensureVisible(peer('Channels'));
     await tester.tap(peer('Channels'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-browse');
     shell.handleBack();
     await tester.pumpAndSettle();
+    await tester.ensureVisible(peer('Threads'));
     await tester.tap(peer('Threads'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-my-threads');
