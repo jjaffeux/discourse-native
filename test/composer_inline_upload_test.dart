@@ -653,9 +653,90 @@ void main() {
       await _type(tester, composer, '');
       expect(aborted, isTrue);
       expect(composer.raw, 'Keep');
+      expect(composer.text.selection, const TextSelection.collapsed(offset: 0));
       expect(find.byType(DAttachment), findsNothing);
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
   );
+
+  for (final (name, before, after, count) in [
+    ('between prose', 'Before\n', '\nAfter', 1),
+    ('before a blank line', 'Before\n', '\n\nAfter', 1),
+    ('at the end', 'Before\n', '', 1),
+    ('as a batch', '', '\nAfter', 2),
+  ]) {
+    testWidgets('deleting upload slots $name preserves surrounding text', (
+      tester,
+    ) async {
+      var aborted = 0;
+      final request = Completer<ComposerUploadResult>();
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) {
+          unawaited(abortTrigger.then((_) => aborted++));
+          return request.future;
+        },
+      );
+      addTearDown(composer.dispose);
+      await _pump(tester, composer);
+      composer.addImages(List.filled(count, _file), 0);
+      final markers = composer.uploadPlaceholders.values.join('\n');
+      composer.text.value = TextEditingValue(
+        text: '$before$markers$after',
+        selection: TextSelection(
+          baseOffset: before.length,
+          extentOffset: before.length + markers.length,
+        ),
+      );
+      await tester.pump();
+      await _type(tester, composer, '');
+      final expected = '$before${after.isEmpty ? '' : after.substring(1)}';
+      expect(composer.text.text, expected);
+      expect(aborted, count);
+      expect(composer.uploads, isEmpty);
+      expect(find.byType(DAttachment), findsNothing);
+      request.complete(_result);
+      await tester.pump();
+      expect(composer.text.text, expected);
+    });
+  }
+
+  testWidgets('deleting one upload keeps the adjacent upload intact', (
+    tester,
+  ) async {
+    final aborted = <String>[];
+    final secondFile = ComposerUploadFile(
+      name: 'second.png',
+      length: _file.length,
+      openRead: _file.openRead,
+    );
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        unawaited(abortTrigger.then((_) => aborted.add(file.name)));
+        return Completer<ComposerUploadResult>().future;
+      },
+    );
+    addTearDown(composer.dispose);
+    await _pump(tester, composer);
+    composer.addImages([_file, secondFile], 0);
+    await tester.pump();
+    await _type(tester, composer, 'Keep');
+    final markers = composer.uploadPlaceholders.values.toList();
+    composer.text.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: markers.first.length + 1,
+    );
+    await _type(tester, composer, '');
+    expect(aborted, [_file.name]);
+    expect(composer.text.text, '${markers.last}\nKeep');
+    expect(composer.uploads.single.file.name, secondFile.name);
+    expect(find.byType(DAttachment), findsOneWidget);
+  });
 
   testWidgets('deleting a batch cannot flush a deleted ready upload', (
     tester,

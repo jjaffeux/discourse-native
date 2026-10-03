@@ -210,19 +210,32 @@ final class _UploadInputFormatter extends TextInputFormatter {
     if (oldValue.text == newValue.text) return newValue;
     final blocks = policy.parse(oldValue.text);
     if (blocks.isEmpty) return newValue;
-    var start = 0;
-    while (start < oldValue.text.length &&
-        start < newValue.text.length &&
-        oldValue.text[start] == newValue.text[start]) {
-      start++;
-    }
-    var end = oldValue.text.length;
-    var newEnd = newValue.text.length;
-    while (end > start &&
-        newEnd > start &&
-        oldValue.text[end - 1] == newValue.text[newEnd - 1]) {
-      end--;
-      newEnd--;
+    final removedLength = oldValue.text.length - newValue.text.length;
+    final caret = newValue.selection.extentOffset;
+    final isDeletion =
+        removedLength > 0 &&
+        newValue.selection.isValid &&
+        newValue.selection.isCollapsed &&
+        caret + removedLength <= oldValue.text.length &&
+        newValue.text ==
+            oldValue.text.replaceRange(caret, caret + removedLength, '');
+    // Adjacent tokens share a prefix. Use the native deletion range when it
+    // is unambiguous, so a removed token is not mistaken for a partial edit.
+    var start = isDeletion ? caret : 0;
+    var end = isDeletion ? caret + removedLength : oldValue.text.length;
+    var newEnd = isDeletion ? caret : newValue.text.length;
+    if (!isDeletion) {
+      while (start < oldValue.text.length &&
+          start < newValue.text.length &&
+          oldValue.text[start] == newValue.text[start]) {
+        start++;
+      }
+      while (end > start &&
+          newEnd > start &&
+          oldValue.text[end - 1] == newValue.text[newEnd - 1]) {
+        end--;
+        newEnd--;
+      }
     }
     for (final block in blocks) {
       if (start == end) {
@@ -232,6 +245,16 @@ final class _UploadInputFormatter extends TextInputFormatter {
           (start > block.start || end < block.end)) {
         return oldValue;
       }
+    }
+    // A slot owns its following line break, just as when canceled through its
+    // attachment action. Consume it before the token disappears from source.
+    if (isDeletion &&
+        oldValue.text.startsWith('\n', end) &&
+        blocks.any((block) => start <= block.start && end == block.end)) {
+      return TextEditingValue(
+        text: oldValue.text.replaceRange(start, end + 1, ''),
+        selection: TextSelection.collapsed(offset: start),
+      );
     }
     return newValue;
   }
