@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -9,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_calendar.dart';
@@ -16,6 +18,7 @@ import 'd_field.dart';
 import 'd_input.dart';
 import 'd_input_group.dart';
 import 'd_popover.dart';
+import 'd_sheet.dart';
 
 final _dateFormattingInitialization = initializeDateFormatting();
 
@@ -1107,6 +1110,7 @@ class DTimeInput extends StatefulWidget {
     this.label,
     this.enabled = true,
     this.includeSeconds = true,
+    this.mobilePicker = false,
     this.width = 112,
   });
   final DTimeValue? initialValue;
@@ -1117,6 +1121,10 @@ class DTimeInput extends StatefulWidget {
   final ValueChanged<bool>? onValidityChanged;
   final String? label;
   final bool enabled, includeSeconds;
+
+  /// Opens time wheels in a Native sheet on touch platforms. Desktop retains
+  /// keyboard editing. Changes are published only when the user applies them.
+  final bool mobilePicker;
   final double width;
   @override
   State<DTimeInput> createState() => _DTimeInputState();
@@ -1128,7 +1136,94 @@ class _DTimeInputState extends State<DTimeInput> {
         widget.initialValue?.format(includeSeconds: widget.includeSeconds) ??
         '',
   );
+  late final FocusNode _focus = FocusNode(debugLabel: 'DTimeInput')
+    ..addListener(_focusChanged);
   bool _invalid = false;
+  bool _picking = false;
+
+  bool get _usesPicker => widget.mobilePicker && DControlStyle.isTouch(context);
+
+  void _focusChanged() {
+    if (_focus.hasPrimaryFocus && _usesPicker) unawaited(_pickTime());
+  }
+
+  Future<void> _pickTime() async {
+    if (_picking || !widget.enabled) return;
+    _picking = true;
+    final initial = DTimeValue.tryParse(_controller.text);
+    var draft = Duration(
+      hours: initial?.hour ?? 0,
+      minutes: initial?.minute ?? 0,
+      seconds: widget.includeSeconds ? initial?.second ?? 0 : 0,
+    );
+    try {
+      final picked = await showDSheet<Duration>(
+        context: context,
+        side: DSheetSide.bottom,
+        inset: true,
+        useRootNavigator: true,
+        finalFocusNode: _focus,
+        builder: (context, sheet) => DSheetContent(
+          side: DSheetSide.bottom,
+          semanticLabel: widget.label ?? context.l10n.time,
+          scrollWholeSheet: false,
+          children: [
+            DSheetHeader(
+              children: [
+                DSheetTitle(child: Text(widget.label ?? context.l10n.time)),
+              ],
+            ),
+            Flexible(
+              child: DSheetBody(
+                child: CupertinoTimerPicker(
+                  mode: widget.includeSeconds
+                      ? CupertinoTimerPickerMode.hms
+                      : CupertinoTimerPickerMode.hm,
+                  initialTimerDuration: draft,
+                  onTimerDurationChanged: (value) => draft = value,
+                ),
+              ),
+            ),
+            DSheetFooter(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DButton(
+                        label: Text(context.l10n.cancel),
+                        variant: DButtonVariant.secondary,
+                        onPressed: () => sheet.close(),
+                      ),
+                    ),
+                    const SizedBox(width: DSpacing.controlGap),
+                    Expanded(
+                      child: DButton(
+                        label: Text(context.l10n.apply),
+                        variant: DButtonVariant.primary,
+                        onPressed: () => sheet.close(draft),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      if (!mounted || !widget.enabled || picked == null) return;
+      final value = DTimeValue(
+        hour: picked.inHours,
+        minute: picked.inMinutes % 60,
+        second: picked.inSeconds % 60,
+      );
+      _controller.text = value.format(includeSeconds: widget.includeSeconds);
+      _changed(_controller.text);
+    } finally {
+      // Focus restoration must not immediately reopen the sheet.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _picking = false);
+    }
+  }
+
   void _changed(String text) {
     final value = text.trim().isEmpty ? null : DTimeValue.tryParse(text);
     setState(() => _invalid = text.trim().isNotEmpty && value == null);
@@ -1141,6 +1236,7 @@ class _DTimeInputState extends State<DTimeInput> {
     width: widget.width,
     child: DInput(
       controller: _controller,
+      focusNode: _focus,
       labelText: widget.label,
       semanticLabel: widget.label ?? context.l10n.time,
       hintText: widget.includeSeconds
@@ -1150,12 +1246,17 @@ class _DTimeInputState extends State<DTimeInput> {
       invalid: _invalid,
       errorText: _invalid ? context.l10n.enterAValidTime : null,
       enabled: widget.enabled,
+      readOnly: _usesPicker,
+      showCursor: _usesPicker ? false : null,
+      onTap: _usesPicker ? _pickTime : null,
+      onTapAlwaysCalled: _usesPicker,
       onChanged: _changed,
     ),
   );
   @override
   void dispose() {
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
   }
 }

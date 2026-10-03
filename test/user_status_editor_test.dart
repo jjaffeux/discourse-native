@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/user_status_editor.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -132,6 +133,93 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(api.userStatusesSet.single.emoji, 'smile');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (width, platform, scale) in [
+    (390.0, TargetPlatform.iOS, 1.0),
+    (320.0, TargetPlatform.android, 1.5),
+  ]) {
+    testWidgets('custom expiry calendar fills the mobile body at $width', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 844);
+      addTearDown(tester.view.reset);
+      await _open(tester, platform: platform, textScale: scale);
+      await _select(tester, 'Custom date and time');
+
+      final calendarFinder = find.byType(DCalendar);
+      final calendar = tester.widget<DCalendar>(calendarFinder);
+      final bounds = tester.getRect(calendarFinder);
+      final padding = calendar.padding.resolve(TextDirection.ltr);
+      final firstWeek = find.descendant(
+        of: calendarFinder,
+        matching: find.byType(DCalendarDayButton),
+      );
+      final firstDay = tester.getRect(firstWeek.at(0));
+      final lastDay = tester.getRect(firstWeek.at(6));
+      expect(firstDay.left, closeTo(bounds.left + padding.left, .01));
+      expect(lastDay.right, closeTo(bounds.right - padding.right, .01));
+      expect(
+        firstDay.width,
+        closeTo((bounds.width - padding.horizontal) / 7, .01),
+      );
+      final timeBounds = tester.getRect(find.byType(DTimeInput));
+      expect(bounds.left, timeBounds.left);
+      expect(bounds.right, timeBounds.right);
+
+      final nextDate = (calendar.selection! as DCalendarSingleSelection).date!
+          .addDays(1);
+      final nextDay = find.byWidgetPredicate(
+        (widget) =>
+            widget is DCalendarDayButton && widget.details.date == nextDate,
+      );
+      await tester.tap(nextDay);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DCalendar>(calendarFinder).selection,
+        DCalendarSingleSelection(nextDate),
+      );
+      expect(find.text('Apply').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('mobile time wheels save the account-local custom expiry', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    final api = await _open(
+      tester,
+      platform: TargetPlatform.iOS,
+      timezone: _zone,
+    );
+    await _select(tester, 'Custom date and time');
+    final date =
+        (tester.widget<DCalendar>(find.byType(DCalendar)).selection!
+                as DCalendarSingleSelection)
+            .date!;
+    await tester.tap(find.byType(DTimeInput));
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isFalse);
+    tester
+        .widget<CupertinoTimerPicker>(find.byType(CupertinoTimerPicker))
+        .onTimerDurationChanged(const Duration(hours: 12, minutes: 34));
+    await tester.tap(find.text('Apply').hitTestable());
+    await tester.pumpAndSettle();
+    expect(find.text('12:34'), findsOneWidget);
+    expect(find.byType(CupertinoTimerPicker), findsNothing);
+    await tester.tap(find.text('Apply').hitTestable());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(
+      api.userStatusesSet.single.endsAt,
+      DateTime.utc(date.year, date.month, date.day, 12 - 14, 34),
+    );
     expect(tester.takeException(), isNull);
   });
 
