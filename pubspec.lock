@@ -231,6 +231,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  discourse_video_optimizer:
+    dependency: "direct main"
+    description:
+      path: "packages/discourse_video_optimizer"
+      relative: true
+    source: path
+    version: "0.1.0"
   discourse_voice:
     dependency: "direct main"
     description:

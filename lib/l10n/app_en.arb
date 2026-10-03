@@ -8484,6 +8484,18 @@
     "description": "English UI message used by shell/composer_upload_attachment.dart. Keep placeholders intact."
   },
   "processingImage": "Processing image",
+  "optimizingVideo": "Optimizing video…",
+  "@optimizingVideo": {
+    "description": "Upload attachment status while a video is being prepared and compressed on the device, before network upload."
+  },
+  "preparingUpload": "Preparing upload…",
+  "@preparingUpload": {
+    "description": "Upload attachment status while a non-image file is being prepared before network upload."
+  },
+  "cancelVideoOptimization": "Cancel video upload",
+  "@cancelVideoOptimization": {
+    "description": "Attachment action that cancels video optimization and removes the pending upload."
+  },
   "@processingImage": {
     "description": "English UI message used by shell/composer_upload_attachment.dart. Keep placeholders intact."
   },

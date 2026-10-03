@@ -17,7 +17,7 @@ import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/bookmark_reminder_store.dart';
-import '../data/composer_image_optimizer.dart';
+import '../data/composer_media_optimizer.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
@@ -10059,10 +10059,10 @@ class ShellController extends FrameSafeNotifier
                   abortTrigger: abortTrigger,
                 ),
       prepareUpload: (file, {required abortTrigger}) =>
-          ComposerImageOptimizer().prepare(
+          ComposerMediaOptimizer().prepare(
             file,
-            settings: config.composerImageOptimization,
-            canUpload: (filename) => config.canUploadImage(
+            imageSettings: config.composerImageOptimization,
+            canUpload: (filename) => config.canUploadFile(
               filename,
               staff: currentUserFor(target.siteUrl)?.staff == true,
               privateMessage: _uploadsForPrivateMessage(target),

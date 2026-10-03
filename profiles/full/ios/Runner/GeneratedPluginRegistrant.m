@@ -18,6 +18,12 @@
 @import device_info_plus;
 #endif
 
+#if __has_include(<discourse_video_optimizer/VideoOptimizerPlugin.h>)
+#import <discourse_video_optimizer/VideoOptimizerPlugin.h>
+#else
+@import discourse_video_optimizer;
+#endif
+
 #if __has_include(<discourse_voice/DiscourseVoicePlugin.h>)
 #import <discourse_voice/DiscourseVoicePlugin.h>
 #else
@@ -113,6 +119,7 @@
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [ConnectivityPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"ConnectivityPlusPlugin"]];
   [FPPDeviceInfoPlusPlugin registerWithRegistrar:[registry registrarForPlugin:@"FPPDeviceInfoPlusPlugin"]];
+  [VideoOptimizerPlugin registerWithRegistrar:[registry registrarForPlugin:@"VideoOptimizerPlugin"]];
   [DiscourseVoicePlugin registerWithRegistrar:[registry registrarForPlugin:@"DiscourseVoicePlugin"]];
   [FileSelectorPlugin registerWithRegistrar:[registry registrarForPlugin:@"FileSelectorPlugin"]];
   [FlutterSecureStorageDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterSecureStorageDarwinPlugin"]];

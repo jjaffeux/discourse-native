@@ -6350,6 +6350,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processingImage => 'Processing image';
 
   @override
+  String get optimizingVideo => 'Optimizing video…';
+
+  @override
+  String get preparingUpload => 'Preparing upload…';
+
+  @override
+  String get cancelVideoOptimization => 'Cancel video upload';
+
+  @override
   String get retrying => 'Retrying';
 
   @override
