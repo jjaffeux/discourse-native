@@ -8,6 +8,7 @@ import 'chat_channel.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
+import 'chat_user_avatar.dart';
 
 /// Metadata accumulated alongside the transcript without rereading its window
 /// for read receipts, paging flags, or newly appended messages.
@@ -148,18 +149,28 @@ class ChatChannelHeader extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              DAvatar(
-                key: const ValueKey('chat-channel-header-marker'),
-                dimension: 12,
-                border: false,
-                decorative: true,
-                borderRadius: BorderRadius.circular(direct ? 6 : 3),
-                fallback: DAvatarFallback(
-                  backgroundColor:
-                      channel?.categoryColor ?? tokens.mutedForeground,
-                  child: const SizedBox.shrink(),
+              if (user != null && !channel!.isGroup)
+                ChatUserAvatar(
+                  key: const ValueKey('chat-channel-header-marker'),
+                  siteUrl: siteUrl,
+                  userId: user.id,
+                  url: user.avatarUrl,
+                  size: DAvatarSize.standard.dimension,
+                  fallback: const DAvatarFallback(child: DIcon(DIcons.user)),
+                )
+              else
+                DAvatar(
+                  key: const ValueKey('chat-channel-header-marker'),
+                  dimension: 12,
+                  border: false,
+                  decorative: true,
+                  borderRadius: BorderRadius.circular(direct ? 6 : 3),
+                  fallback: DAvatarFallback(
+                    backgroundColor:
+                        channel?.categoryColor ?? tokens.mutedForeground,
+                    child: const SizedBox.shrink(),
+                  ),
                 ),
-              ),
               const SizedBox(width: 10),
               Flexible(
                 child: DButton(
