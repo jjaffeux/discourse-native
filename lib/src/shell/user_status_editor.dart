@@ -291,8 +291,6 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final description = _description.text.trim();
-    final preview = description.isEmpty ? null : description;
     final customEndsAt = _expiry == _StatusExpiry.custom ? _customEndsAt : null;
     final until = customEndsAt == null
         ? null
@@ -431,37 +429,6 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
             contentPadding: EdgeInsets.zero,
             title: DLabel(child: Text(context.l10n.pauseNotifications)),
           ),
-          if (preview != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(context.l10n.preview),
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: SiteEmojiImage(
-                          siteUrl: widget.siteUrl,
-                          name: _emoji,
-                          size: 17,
-                          alt: preview,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          preview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
           if (_error case final error?) ...[
             const SizedBox(height: 10),
             DFieldError(child: Text(error)),
