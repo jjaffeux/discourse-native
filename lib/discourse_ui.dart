@@ -12,6 +12,7 @@ export 'src/ui/components/d_accordion.dart';
 export 'src/ui/components/d_action_transition.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';
+export 'src/ui/components/d_alphabet_index.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_attachment.dart';
 export 'src/ui/components/d_audio_player.dart';

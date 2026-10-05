@@ -273,7 +273,7 @@ class ContentRoute {
   }) => ContentRoute(
     id: route.id,
     title: title ?? route.groupName ?? appL10n.groups,
-    icon: DIcons.users,
+    icon: DIcons.userGroup,
     feedPath: feedPath,
     groupRoute: route,
   );
@@ -284,8 +284,11 @@ class ContentRoute {
     icon: DIcons.layerGroup,
   );
 
-  factory ContentRoute.userActivity() =>
-      ContentRoute(id: 'activity', title: appL10n.activity, icon: DIcons.list);
+  factory ContentRoute.userActivity() => ContentRoute(
+    id: 'activity',
+    title: appL10n.activity,
+    icon: DIcons.barsStaggered,
+  );
 
   factory ContentRoute.messages({
     String? groupName,
@@ -811,10 +814,18 @@ class ContentRoute {
       openInSecondaryPanel: json['open_in_secondary_panel'] == true,
       openInMainPanel: json['open_in_main_panel'] == true,
       title: id == 'new-tab' ? appL10n.startPage : title,
-      // Upgrade the speech bubble saved by older topic tabs without changing
-      // the durable icon of routes that deliberately chose another glyph.
+      // Upgrade legacy default glyphs while preserving other saved artwork.
       icon:
           (id == 'new-tab' ? DIcons.house : null) ??
+          (id == 'users' && iconName == DIcons.user.name
+              ? DIcons.users
+              : null) ??
+          (groupRoute != null && iconName == DIcons.users.name
+              ? DIcons.userGroup
+              : null) ??
+          (id == 'activity' && iconName == DIcons.list.name
+              ? DIcons.barsStaggered
+              : null) ??
           DNativeIcons.byName[iconName] ??
           (topicId != null && iconName == DIcons.comments.name
               ? DNativeIcons.topic

@@ -2,6 +2,7 @@ import 'examples/accordion_examples.dart';
 import 'examples/action_transition_examples.dart';
 import 'examples/alert_dialog_examples.dart';
 import 'examples/alert_examples.dart';
+import 'examples/alphabet_index_examples.dart';
 import 'examples/aspect_ratio_examples.dart';
 import 'examples/attachment_examples.dart';
 import 'examples/audio_player_examples.dart';
@@ -107,6 +108,7 @@ final componentExamples = <String, ComponentExamples>{
   'category-selector': categorySelectorExamples,
   'tag-selector': tagSelectorExamples,
   'date-picker': datePickerExamples,
+  'alphabet-index': alphabetIndexExamples,
   'accordion': accordionExamples,
   'alert': alertExamples,
   'alert-dialog': alertDialogExamples,

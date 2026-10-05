@@ -38,6 +38,9 @@ final class EventController extends FrameSafeNotifier
   final PluginTrackerReader trackers;
   final PluginTimezoneHost zones;
   final _entries = <(String, int), _EventEntry>{};
+  final _upcoming = <String, List<PostEvent>>{};
+
+  List<PostEvent> cachedUpcoming(String site) => _upcoming[site] ?? const [];
   final _trackers = <String, PluginLiveChannelHandle>{};
   bool _foreground = true;
   int _foregroundRevision = 0;
@@ -347,11 +350,19 @@ final class EventController extends FrameSafeNotifier
     if (!lease.isCurrent || isDisposed) {
       throw const WriteException(WriteFailure.forbidden);
     }
+    if (!mine &&
+        (search == null || search.isEmpty) &&
+        after == null &&
+        before == null) {
+      _upcoming[site] = List.unmodifiable(rows);
+      notifySafely();
+    }
     return rows;
   }
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) {
+    _upcoming.remove(siteUrl);
     _accountRevisions[siteUrl] = accountRevision(siteUrl) + 1;
     final entries = _entries.values.where((e) => e.site == siteUrl).toList();
     for (final entry in entries) {
@@ -392,6 +403,7 @@ final class EventController extends FrameSafeNotifier
   }
 
   void forget(String site) {
+    _upcoming.remove(site);
     _accountRevisions[site] = accountRevision(site) + 1;
     _trackers.remove(site);
     final entries = _entries.values.where((e) => e.site == site).toList();

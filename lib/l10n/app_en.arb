@@ -19842,5 +19842,11 @@
   "voiceSpeaking": "Speaking",
   "@voiceSpeaking": {
     "description": "Voice call presentation and floating panel accessibility."
-  }
+  },
+  "startPagePinnedSections": "Pinned sections",
+  "@startPagePinnedSections": {"description": "Start alphabet index shortcut for pinned sections."},
+  "pinStartSection": "Pin {title} to the top",
+  "@pinStartSection": {"placeholders": {"title": {"type": "String"}}},
+  "unpinStartSection": "Unpin {title}",
+  "@unpinStartSection": {"placeholders": {"title": {"type": "String"}}}
 }

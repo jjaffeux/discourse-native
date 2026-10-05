@@ -219,7 +219,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             (
               tab: MobileTab.users,
               label: context.l10n.users,
-              icon: DIcons.user,
+              icon: DIcons.users,
               badge: null,
               onPressed: () =>
                   shell.selectMobileDestination(MobileTab.users, users),

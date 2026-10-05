@@ -652,7 +652,7 @@ class _EmptyDirectory extends StatelessWidget {
             children: [
               const DEmptyMedia(
                 variant: DEmptyMediaVariant.icon,
-                child: DIcon(DIcons.users),
+                child: DIcon(DIcons.userGroup),
               ),
               DEmptyTitle(context.l10n.noGroupsMatchTheseFilters),
             ],

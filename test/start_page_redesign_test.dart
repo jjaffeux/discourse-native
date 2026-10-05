@@ -5,21 +5,22 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/gestures.dart'
-    show PointerDeviceKind, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -127,7 +128,15 @@ Future<ShellController> _start(
   return shell;
 }
 
-FakeDiscourseApi _api() => FakeDiscourseApi(
+FakeDiscourseApi _api({
+  List<UserDraft> drafts = const [],
+  Map<int, ChatThreadPage> threads = const {},
+}) => FakeDiscourseApi(
+  userDraftList: drafts,
+  chatChannelThreadPagesByKey: {
+    for (final entry in threads.entries)
+      FakeDiscourseApi.chatChannelThreadPageKey(entry.key, 0): entry.value,
+  },
   user: _reader,
   totals: chatNotificationTotals(available: true),
   categoryList: const [
@@ -164,6 +173,7 @@ FakeDiscourseApi _api() => FakeDiscourseApi(
         ChatChannel(
           id: 9,
           title: 'General',
+          threadingEnabled: true,
           kind: ChatChannelKind.category,
           membership: ChatMembership(following: true),
           tracking: ChatTracking(unreadCount: 3),
@@ -197,128 +207,139 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  _test('header chips share mockup styling and More follows available space', (
+  _test('Start keeps only Filters on its header bar at every width', (
     tester,
   ) async {
     final shell = await _start(tester, desktop);
     await shell.appSettings.setLimitContentSize(false);
-    Finder onActivePage(Finder finder) =>
-        find.descendant(of: find.byType(NewTabPage).last, matching: finder);
-    final filter = onActivePage(
-      find.byKey(const ValueKey('topic-list-filter')),
-    );
-    final more = onActivePage(find.byKey(const ValueKey('start-page-more')));
-    final shortcuts = onActivePage(
-      find.byKey(const ValueKey('start-page-shortcuts')),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    addTearDown(mouse.removePointer);
-
     for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
       await shell.forumSettings.setThemeMode(_site, mode);
       for (final width in [2400.0, 1000.0, 2400.0]) {
         tester.view.physicalSize = Size(width, 900);
         await tester.pumpAndSettle();
-        final chips = [
-          filter,
-          ...find
-              .descendant(of: shortcuts, matching: find.byType(DButton))
-              .evaluate()
-              .map((element) => find.byWidget(element.widget)),
-        ];
+        final filter = _onPage(find.byKey(const ValueKey('topic-list-filter')));
         final tokens = DTokens.of(tester.element(filter));
-        final expectedFill = Color.lerp(
-          tokens.background,
-          tokens.foreground,
-          .10,
-        );
-        final expectedBorder = Color.lerp(
-          tokens.background,
-          tokens.foreground,
-          .22,
-        );
-        for (final chip in chips) {
-          final surface = buttonSurface(tester, of: chip);
-          expect(surface.color, expectedFill);
-          expect(surface.borderColor, expectedBorder);
-          expect(surface.strokeWidth, 1);
-          expect(surface.borderRadius, BorderRadius.circular(DRadius.control));
-          expect(tester.getSize(chip).height, tester.getSize(filter).height);
-          await mouse.moveTo(tester.getCenter(chip));
-          await tester.pumpAndSettle();
-          expect(buttonSurface(tester, of: chip).color, expectedFill);
-          expect(
-            buttonSurface(tester, of: chip).borderColor,
-            tokens.buttonTheme.outline.hoverBorder,
-          );
-          await mouse.moveTo(Offset.zero);
-          await tester.pumpAndSettle();
-        }
-        expect(tester.takeException(), isNull);
-        await _capture(tester, 'header-${width.toInt()}-${mode.name}');
+        final surface = buttonSurface(tester, of: filter);
         expect(
-          more,
-          width == 1000 ? findsOneWidget : findsNothing,
-          reason: 'Shortcut bar width: ${tester.getSize(shortcuts).width}',
+          surface.color,
+          Color.lerp(tokens.background, tokens.foreground, .10),
         );
+        expect(surface.strokeWidth, 1);
+        expect(
+          _onPage(find.byKey(const ValueKey('start-page-more'))),
+          findsNothing,
+        );
+        expect(
+          _onPage(find.byKey(const ValueKey('start-page-shortcuts'))),
+          findsNothing,
+        );
+        expect(_section('Groups'), findsOneWidget);
+        expect(_section('Settings'), findsOneWidget);
+        expect(tester.takeException(), isNull);
       }
     }
   });
 
   _test(
-    'four wells balance rows, stretch surfaces, and preserve the 18px grid gap',
+    'Start is one alphabetic list with preferences and settings at the end',
     (tester) async {
       final shell = await _start(tester, const Size(1000, 900));
-      final gridPage = find.byType(NewTabPage).last;
-      Finder section(String title) => find.descendant(
-        of: gridPage,
-        matching: find.byKey(ValueKey('start-page-section-$title')),
-      );
-      final bookmarks = tester.getRect(section('Bookmarks'));
-      final categories = tester.getRect(section('Categories'));
-      final chat = tester.getRect(section('Chat'));
-      final topics = tester.getRect(section('Recent topics'));
-      expect(bookmarks.top, categories.top);
-      expect(bookmarks.height, categories.height);
-      expect(chat.top, topics.top);
-      expect(chat.height, topics.height);
-      expect(categories.left - bookmarks.right, closeTo(18, .01));
-      expect(chat.top - bookmarks.bottom, closeTo(18, .01));
+      final titles = [
+        'Activity',
+        'Badges',
+        'Bookmarks',
+        'Categories',
+        'Channels',
+        'Chat',
+        'Drafts',
+        'Groups',
+        'Messages',
+        'Recent topics',
+        'Summary',
+        'Threads',
+        'Users',
+        'Preferences',
+        'Settings',
+      ];
+      for (var i = 1; i < titles.length; i++) {
+        final previous = tester.getRect(_section(titles[i - 1]));
+        final next = tester.getRect(_section(titles[i]));
+        expect(previous.left, next.left);
+        expect(previous.right, next.right);
+        expect(previous.bottom, closeTo(next.top, .01));
+      }
       tester.view.physicalSize = const Size(2400, 1000);
       await shell.appSettings.setLimitContentSize(false);
       await tester.pumpAndSettle();
-      final wideWells = [
-        for (final title in [
-          'Bookmarks',
-          'Categories',
-          'Chat',
-          'Recent topics',
-        ])
-          tester.getRect(section(title)),
-      ];
-      expect(wideWells.map((rect) => rect.top).toSet(), hasLength(1));
-      expect(wideWells.map((rect) => rect.height).toSet(), hasLength(1));
-      tester.view.physicalSize = desktop;
+      expect(
+        tester.getRect(_section('Bookmarks')).left,
+        tester.getRect(_section('Categories')).left,
+      );
       for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
         await shell.forumSettings.setThemeMode(_site, mode);
         await tester.pumpAndSettle();
         await _capture(tester, 'desktop-${mode.name}');
       }
-      final heading = find.descendant(
-        of: gridPage,
-        matching: find.byKey(
-          const ValueKey('start-page-section-link-Categories'),
-        ),
+      final heading = _onPage(
+        find.byKey(const ValueKey('start-page-section-link-Categories')),
       );
+      await Scrollable.ensureVisible(tester.element(heading), alignment: .5);
+      await tester.pumpAndSettle();
       await tester.tapAt(
-        Offset(tester.getRect(heading).right - 2, tester.getCenter(heading).dy),
+        Offset(
+          tester.getRect(heading).right - 40,
+          tester.getCenter(heading).dy,
+        ),
       );
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'all-categories');
       expect(tester.takeException(), isNull);
     },
   );
+
+  _test('pinning moves a section into a card and survives reopening Start', (
+    tester,
+  ) async {
+    final shell = await _start(tester, desktop);
+    final pin = _onPage(
+      find.byKey(const ValueKey('start-page-pin-categories')),
+    );
+    await Scrollable.ensureVisible(tester.element(pin), alignment: .5);
+    await tester.pumpAndSettle();
+    // A touch platform keeps the independent pin action visible.
+    await tester.tap(pin);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isNewTab, isTrue);
+    expect(shell.startPage.pinsFor(_site), contains('categories'));
+    expect(
+      _onPage(find.byKey(const ValueKey('start-page-pinned-categories'))),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(_section('Categories')).top,
+      lessThan(tester.getRect(_section('Activity')).top),
+    );
+    shell.openUserSummary(_site);
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(
+      _onPage(find.byKey(const ValueKey('start-page-pinned-categories'))),
+      findsOneWidget,
+    );
+    final unpin = _onPage(
+      find.byKey(const ValueKey('start-page-pin-categories')),
+    );
+    await Scrollable.ensureVisible(tester.element(unpin), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(unpin);
+    await tester.pumpAndSettle();
+    expect(shell.startPage.pinsFor(_site), isNot(contains('categories')));
+    expect(
+      tester.getRect(_section('Bookmarks')).top,
+      lessThan(tester.getRect(_section('Categories')).top),
+    );
+    expect(tester.takeException(), isNull);
+  }, platform: TargetPlatform.iOS);
 
   _test(
     'chrome search filters cached titles, excerpts and tags with no network search',
@@ -377,6 +398,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(_onPage(find.text('Hidden bookmark')), findsOneWidget);
     expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
+    expect(api.searchesRequested, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  _test('topic search finds cached matches beyond the four preview rows', (
+    tester,
+  ) async {
+    final api = _api();
+    final shell = await _start(tester, desktop, api: api);
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 99,
+        title: 'Another recent topic',
+        slug: 'another',
+      ),
+    );
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(_onPage(find.text('Welcome to the community')), findsNothing);
+    final requests = api.feedPaths.toList();
+    await tester.enterText(find.byKey(ForumSearch.inputKey).first, 'Welcome');
+    await tester.pumpAndSettle();
+    expect(_onPage(find.text('Welcome to the community')), findsOneWidget);
+    expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
+    expect(api.feedPaths, requests);
     expect(api.searchesRequested, isEmpty);
     expect(tester.takeException(), isNull);
   });
@@ -486,184 +532,116 @@ void main() {
     );
   }
 
-  for (final atEnd in [false, true]) {
-    _test('short mobile Start restores its dock after the viewport grows '
-        '(at end: $atEnd)', (tester) async {
-      await _start(tester, phone);
-      addTearDown(() async {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pump();
-      });
-      final scroll = find
-          .descendant(
-            of: find.byType(NewTabPage).last,
-            matching: find.byType(SingleChildScrollView),
-          )
-          .first;
-      ScrollPosition position() => tester
-          .state<ScrollableState>(
-            find.descendant(of: scroll, matching: find.byType(Scrollable)),
-          )
-          .position;
-      // Keep the real Start content and put its viewport just above the dock's
-      // threshold, so hiding the dock moves the same page below that threshold.
-      tester.view.physicalSize = Size(
-        390,
-        phone.height + position().maxScrollExtent - 130,
-      );
-      await tester.pumpAndSettle();
-      expect(position().maxScrollExtent, closeTo(130, .01));
-      final initialHeight = tester.getSize(scroll).height;
-      final content = find.descendant(
-        of: find.byType(NewTabPage).last,
-        matching: find.byKey(const ValueKey('start-page-content')),
-      );
-      final initialContentTop = tester.getTopLeft(content).dy;
-      await _capture(tester, 'short-start-before-$atEnd');
-      final gesture = await tester.startGesture(tester.getCenter(scroll));
-      await gesture.moveBy(const Offset(0, -40));
-      await tester.pump();
-      await gesture.moveBy(const Offset(0, -70));
-      await tester.pumpAndSettle();
-      expect(position().maxScrollExtent, lessThan(120));
-      expect(tester.getSize(scroll).height, greaterThan(initialHeight));
-      expect(
-        tester.getTopLeft(content).dy,
-        closeTo(initialContentTop - position().pixels, .01),
-      );
-      await _capture(tester, 'short-start-hidden-$atEnd');
-      await gesture.moveBy(Offset(0, atEnd ? -60 : 30));
-      await tester.pumpAndSettle();
-      expect(tester.getSize(scroll).height, closeTo(initialHeight, .01));
-      if (atEnd) {
-        await gesture.moveBy(const Offset(0, -80));
-        await tester.pumpAndSettle();
-        expect(tester.getSize(scroll).height, closeTo(initialHeight, .01));
-      }
-      await gesture.cancel();
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(content).dy,
-        closeTo(initialContentTop - position().pixels, .01),
-      );
-      await _capture(tester, 'short-start-restored-$atEnd');
-      expect(tester.takeException(), isNull);
-    }, platform: TargetPlatform.iOS);
-  }
+  _test('Start shows cached drafts and threads without fetching on entry', (
+    tester,
+  ) async {
+    final api = _api(
+      drafts: const [
+        UserDraft(
+          key: 'new_topic',
+          sequence: 1,
+          data: ComposerDraft(
+            reply: 'A draft body',
+            title: 'An unfinished announcement',
+            action: 'createTopic',
+          ),
+        ),
+      ],
+      threads: const {
+        9: ChatThreadPage(
+          threads: [
+            ChatThread(
+              id: 71,
+              channelId: 9,
+              status: 'open',
+              lastMessageId: 78,
+              replyCount: 3,
+              title: 'A cached thread',
+            ),
+          ],
+        ),
+      },
+    );
+    final shell = await _start(tester, desktop, api: api);
+    expect(api.userDraftRequests, isEmpty);
+    expect(api.chatThreadPagesRequested, isEmpty);
+    await shell.draftList.load(shell.currentInstance!);
+    shell.pushContent(
+      const ContentRoute(
+        id: 'chat-c-9-threads',
+        title: 'Threads',
+        icon: DIcons.comments,
+      ),
+    );
+    await tester.pumpAndSettle();
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(_onPage(find.text('An unfinished announcement')), findsOneWidget);
+    expect(_onPage(find.text('A cached thread')), findsOneWidget);
+    expect(api.userDraftRequests, hasLength(1));
+    expect(api.chatChannelThreadPagesRequested, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  _test('alphabet press and drag land below the header without opening rows', (
+    tester,
+  ) async {
+    final shell = await _start(tester, phone);
+    final index = _onPage(find.byType(DAlphabetIndex<String>));
+    final u = find.descendant(of: index, matching: find.text('U'));
+    await tester.tap(u);
+    await tester.pumpAndSettle();
+    final filter = _onPage(find.byKey(const ValueKey('topic-list-filter')));
+    final users = _section('Users');
+    expect(
+      tester.getRect(users).top,
+      greaterThan(tester.getRect(filter).bottom),
+    );
+    expect(users.hitTestable(), findsOneWidget);
+    expect(shell.currentContent?.isNewTab, isTrue);
+    final b = find.descendant(of: index, matching: find.text('B'));
+    final gesture = await tester.startGesture(tester.getCenter(u));
+    await gesture.moveTo(tester.getCenter(b));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(_section('Badges').hitTestable(), findsOneWidget);
+    expect(shell.currentContent?.isNewTab, isTrue);
+    await tester.tapAt(tester.getTopLeft(index) + const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(_section('Activity').hitTestable(), findsOneWidget);
+    expect(shell.currentContent?.isNewTab, isTrue);
+    expect(tester.takeException(), isNull);
+  }, platform: TargetPlatform.iOS);
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-      _test('short Start keeps header spacing in $mode on $platform', (
-        tester,
-      ) async {
-        final shell = await _start(tester, const Size(390, 600));
-        addTearDown(() async {
-          await tester.pumpWidget(const SizedBox.shrink());
-          await tester.pump();
-        });
-        await shell.forumSettings.setThemeMode(_site, mode);
-        await tester.pumpAndSettle();
-        final page = find.byType(NewTabPage).last;
-        Finder onPage(Finder finder) =>
-            find.descendant(of: page, matching: finder);
-        final heading = onPage(
-          find.byKey(const ValueKey('start-page-heading')),
-        );
-        final filter = onPage(find.byKey(const ValueKey('topic-list-filter')));
-        final scroll = onPage(find.byType(SingleChildScrollView)).first;
-        Future<void> scrollBy(double delta) async {
-          if (platform == TargetPlatform.macOS) {
-            await tester.sendEventToBinding(
-              PointerScrollEvent(
-                position: tester.getCenter(scroll),
-                scrollDelta: Offset(0, delta),
-              ),
-            );
-          } else {
-            await tester.drag(scroll, Offset(0, -delta));
-          }
-          await tester.pumpAndSettle();
-        }
-
-        ScrollPosition position() => tester
-            .state<ScrollableState>(
-              find.descendant(of: scroll, matching: find.byType(Scrollable)),
-            )
-            .position;
-        final initialHeading = tester.getRect(heading);
-        final initialFilter = tester.getRect(filter);
-        expect(initialFilter.top - initialHeading.bottom, closeTo(16, .01));
-        final content = onPage(
-          find.byKey(const ValueKey('start-page-content')),
-        );
-        final initialContentTop = tester.getTopLeft(content).dy;
-        final extent = position().maxScrollExtent;
-        expect(extent, greaterThan(120));
-        expect(extent, lessThan(position().viewportDimension));
-
-        await scrollBy(100);
-        await _capture(tester, 'scroll-${platform.name}-${mode.name}');
-        expect(tester.getRect(heading), initialHeading);
-        expect(tester.getRect(filter), initialFilter);
-        expect(
-          tester.getTopLeft(content).dy,
-          closeTo(initialContentTop - position().pixels, .01),
-          reason: 'Scrolling must retain the content anchor',
-        );
-        // The phone dock can release more viewport space while scrolling.
-        expect(position().maxScrollExtent, lessThanOrEqualTo(extent));
-
-        await scrollBy(1000);
-        expect(tester.getRect(heading), initialHeading);
-        expect(tester.getRect(filter), initialFilter);
-        expect(filter.hitTestable(), findsOneWidget);
-        // Continue to the new bottom after the dock has taken its space back.
-        await scrollBy(1000);
-        expect(position().pixels, closeTo(position().maxScrollExtent, .01));
-        expect(tester.getRect(heading), initialHeading);
-        expect(tester.getRect(filter), initialFilter);
-        await _capture(tester, 'bottom-${platform.name}-${mode.name}');
-
-        await scrollBy(-1000);
-        expect(position().pixels, closeTo(0, .01));
-        expect(tester.getRect(heading), initialHeading);
-        expect(tester.getRect(filter), initialFilter);
-        await _capture(tester, 'top-${platform.name}-${mode.name}');
-        expect(tester.takeException(), isNull);
-      }, platform: platform);
-    }
-
-    _test(
-      'native Start wells and shortcuts fit phone and large text in $mode',
-      (tester) async {
-        final shell = await _start(tester, phone);
-        await shell.forumSettings.setThemeMode(_site, mode);
-        await tester.pumpAndSettle();
-        await _capture(tester, 'phone-${mode.name}');
-        final more = _onPage(find.byKey(const ValueKey('start-page-more')));
-        expect(more, findsOneWidget);
-        await tester.tap(more);
-        await tester.pumpAndSettle();
-        expect(
-          find.widgetWithText(DDropdownMenuItem, 'Settings'),
-          findsOneWidget,
-        );
-        await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Settings'));
-        await tester.pumpAndSettle();
-        expect(shell.currentContent?.id, 'appearance');
-        shell.pushContent(ContentRoute.newTab());
-        tester.view.physicalSize = const Size(320, 1000);
-        await shell.appSettings.setTextScale(AppTextScale.percent200);
-        await tester.pumpAndSettle();
-        expect(
-          _onPage(find.byKey(const ValueKey('start-page-more'))),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-        await _capture(tester, 'large-text-${mode.name}');
-      },
-      platform: TargetPlatform.iOS,
-    );
+    _test('native Start list fits phone and large text in $mode', (
+      tester,
+    ) async {
+      final shell = await _start(tester, phone);
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      await _capture(tester, 'phone-${mode.name}');
+      expect(
+        _onPage(find.byKey(const ValueKey('start-page-more'))),
+        findsNothing,
+      );
+      final settings = _onPage(
+        find.byKey(const ValueKey('start-page-section-link-Settings')),
+      );
+      await Scrollable.ensureVisible(tester.element(settings), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'appearance');
+      shell.pushContent(ContentRoute.newTab());
+      tester.view.physicalSize = const Size(320, 1000);
+      await shell.appSettings.setTextScale(AppTextScale.percent200);
+      await tester.pumpAndSettle();
+      expect(_section('Settings'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await _capture(tester, 'large-text-${mode.name}');
+    }, platform: TargetPlatform.iOS);
   }
 }
 

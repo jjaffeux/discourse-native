@@ -228,7 +228,7 @@ List<UserMenuSection> userMenuSections(
           id: 'do-not-disturb',
         ),
         UserMenuRow(DIcons.user, appL10n.summary, id: 'summary'),
-        UserMenuRow(DIcons.list, appL10n.activity, id: 'activity'),
+        UserMenuRow(DIcons.barsStaggered, appL10n.activity, id: 'activity'),
         UserMenuRow(DIcons.pencil, appL10n.drafts, id: 'drafts'),
         UserMenuRow(DIcons.gear, appL10n.preferences, id: 'preferences'),
       ],

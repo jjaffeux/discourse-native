@@ -14850,4 +14850,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceSpeaking => 'Speaking';
+
+  @override
+  String get startPagePinnedSections => 'Pinned sections';
+
+  @override
+  String pinStartSection(String title) {
+    return 'Pin $title to the top';
+  }
+
+  @override
+  String unpinStartSection(String title) {
+    return 'Unpin $title';
+  }
 }

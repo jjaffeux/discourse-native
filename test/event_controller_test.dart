@@ -49,6 +49,10 @@ void main() {
           );
 
           expect(rows.map((event) => event.id), [42]);
+          expect(
+            ports.controller.cachedUpcoming(eventSite),
+            !mine && search == null ? rows : isEmpty,
+          );
           expect(ports.transport.requests.map((r) => (r.method, r.path)), [
             ('GET', path),
           ]);
@@ -60,6 +64,29 @@ void main() {
       );
     }
   }
+
+  test('cached upcoming previews retire with the account session', () async {
+    final path = Uri(
+      path: '/discourse-post-event/events.json',
+      queryParameters: {
+        'include_details': 'true',
+        'include_ongoing': 'true',
+        'order': 'asc',
+        'limit': '200',
+        'after': '2026-09-08T08:00:00.000Z',
+      },
+    ).toString();
+    ports.transport.responses['GET $path'] = {
+      'events': [current],
+    };
+    await ports.controller.list(eventSite);
+    expect(ports.controller.cachedUpcoming(eventSite), hasLength(1));
+    ports.controller.pluginCurrentUserRefreshed(eventSite);
+    expect(ports.controller.cachedUpcoming(eventSite), isEmpty);
+    await ports.controller.list(eventSite);
+    ports.controller.forget(eventSite);
+    expect(ports.controller.cachedUpcoming(eventSite), isEmpty);
+  });
 
   test(
     'two cards share hydration and a reference-counted subscription',

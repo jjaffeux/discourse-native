@@ -56,6 +56,7 @@ class ChatPlugin
         CookingPlugin,
         IconCatalogPlugin,
         SidebarPlugin,
+        StartPagePlugin,
         SidebarPanelPlugin,
         SidebarPanelListenablePlugin,
         ContentPlugin,
@@ -446,6 +447,67 @@ class ChatPlugin
   @override
   Listenable sidebarListenable(BuildContext context) =>
       PluginUiScope.require(context, chatControllerService);
+
+  @override
+  Listenable startPageListenable(BuildContext context) =>
+      PluginUiScope.require(context, chatControllerService);
+
+  @override
+  List<StartPageSection> startPageSections(BuildContext context) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    final site = shell.currentSiteUrl;
+    if (site == null || !shell.chatAvailable(site)) return const [];
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final settings = chat.siteConfigFor(site).chatSettings;
+    final threads = {
+      for (final thread in chat.myThreads(site)) thread.id: thread,
+      for (final channel in [
+        ...chat.publicChannels(site),
+        ...chat.directChannels(site),
+      ])
+        for (final thread in chat.channelThreads(site, channel.id))
+          thread.id: thread,
+    };
+    return [
+      if (settings.publicChannelsEnabled)
+        StartPageSection(
+          destination: SidebarDestination(
+            id: browseRouteId,
+            label: context.l10n.channels,
+            icon: DIcons.hashtag,
+            onTap: shell.openBrowseChannels,
+          ),
+        ),
+      if (shell.isConnected(site) && settings.threadsEnabled)
+        StartPageSection(
+          destination: SidebarDestination(
+            id: myThreadsRouteId,
+            label: context.l10n.threads,
+            icon: DIcons.comments,
+            onTap: shell.openMyThreads,
+          ),
+          entries: [
+            for (final thread in threads.values)
+              if (chat.channel(site, thread.channelId) != null)
+                SidebarDestination(
+                  id: 'chat-t-${thread.id}',
+                  label:
+                      thread.title ??
+                      thread.originalMessage?.excerpt ??
+                      thread.originalMessage?.message ??
+                      context.l10n.threads,
+                  icon: DIcons.hashtag,
+                  unreadCount: thread.tracking.unreadCount,
+                  onTap: () => shell.openThread(
+                    siteUrl: site,
+                    channelId: thread.channelId,
+                    threadId: thread.id,
+                  ),
+                ),
+          ],
+        ),
+    ];
+  }
 
   @override
   SidebarDestination? forumTabDestination(

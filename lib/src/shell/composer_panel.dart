@@ -5510,9 +5510,9 @@ class _Footer extends StatelessWidget {
             : Border(top: BorderSide(color: tokens.footerBorder)),
       ),
       padding: EdgeInsets.fromLTRB(
-        DSpacing.lg,
+        context.isTouch ? DSpacing.lg : 14,
         context.isTouch ? 0 : 10,
-        DSpacing.lg,
+        context.isTouch ? DSpacing.lg : 14,
         10,
       ),
       child: Column(
