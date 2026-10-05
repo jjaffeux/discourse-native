@@ -470,6 +470,96 @@ void main() {
     expect(threadScroll.pixels, 0);
   });
 
+  for (final width in [1000.0, 1440.0]) {
+    testWidgets('chat pane headers follow their transcript at $width pixels', (
+      tester,
+    ) async {
+      final fixture = await _fixture(
+        channelPage: _workspaceMessagesPage(1),
+        threadPage: _workspaceMessagesPage(101, threadId: _threadId),
+      );
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(tester, fixture.shell, width: width);
+      final threadTitle = find.text(_threadTitle);
+      final channelTitle = find.text(_channelTitle);
+      final panes = [
+        (find.byType(ChatThreadView), threadTitle),
+        if (width == 1440) (find.byType(ChatChannelView), channelTitle),
+      ];
+      for (final (pane, title) in panes) {
+        final list = find.descendant(
+          of: pane,
+          matching: find.byType(SuperListView),
+        );
+        final stream = find.descendant(
+          of: pane,
+          matching: find.byType(ChatMessageStream),
+        );
+        final composer = find.descendant(
+          of: pane,
+          matching: find.byType(ChatComposer),
+        );
+        final position = tester
+            .widget<SuperListView>(list)
+            .controller!
+            .position;
+        final held = tester.element(stream);
+        final composerTop = tester.getTopLeft(composer).dy;
+        final viewport = tester.getRect(list);
+        // Each pane installs the topic's Native edge fades even in a host
+        // without an application-wide Native scroll behavior.
+        expect(
+          find.ancestor(
+            of: list,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is ScrollConfiguration &&
+                  widget.behavior is DScrollBehavior,
+            ),
+          ),
+          findsOneWidget,
+        );
+        position.jumpTo(700);
+        await tester.pumpAndSettle();
+        expect(title.hitTestable(), findsOneWidget);
+
+        Future<void> wheel(double delta) async {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(list),
+              scrollDelta: Offset(0, delta),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await wheel(200);
+        expect(title.hitTestable(), findsNothing);
+        expect(tester.element(stream), same(held));
+        expect(tester.getRect(list), viewport);
+        expect(tester.getTopLeft(composer).dy, composerTop);
+        if (width == 1440) {
+          expect(
+            (pane == panes.first.$1 ? channelTitle : threadTitle).hitTestable(),
+            findsOneWidget,
+          );
+        }
+        await wheel(-20);
+        expect(title.hitTestable(), findsOneWidget);
+        await wheel(100);
+        expect(title.hitTestable(), findsNothing);
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        position.jumpTo(position.maxScrollExtent - 40);
+        await tester.pumpAndSettle();
+        await wheel(-40);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(tester.getTopLeft(composer).dy, composerTop);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   for (final width in const [390.0, 1440.0]) {
     testWidgets(
       'a forum totals change does not rebuild held messages at $width pixels',

@@ -33,12 +33,14 @@ class ChatChannelView extends StatelessWidget {
     this.autofocusMessageStream = true,
     this.autofocusComposer = true,
     this.showHeader = true,
+    this.header,
   });
 
   final int channelId;
   final bool autofocusMessageStream;
   final bool autofocusComposer;
   final bool showHeader;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) =>
@@ -57,6 +59,7 @@ class ChatChannelView extends StatelessWidget {
             autofocusMessageStream: autofocusMessageStream,
             autofocusComposer: autofocusComposer,
             showHeader: showHeader,
+            header: header,
           );
         },
       );
@@ -101,6 +104,7 @@ class _ChatChannelBody extends StatefulWidget {
     required this.autofocusMessageStream,
     required this.autofocusComposer,
     required this.showHeader,
+    required this.header,
   });
 
   final String siteUrl;
@@ -110,6 +114,7 @@ class _ChatChannelBody extends StatefulWidget {
   final bool autofocusMessageStream;
   final bool autofocusComposer;
   final bool showHeader;
+  final Widget? header;
 
   @override
   State<_ChatChannelBody> createState() => _ChatChannelBodyState();
@@ -319,9 +324,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         (channel?.title ?? appL10n.chat).toString(),
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) => DPageSurface(
+        builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
           hideHeaderOnScroll: true,
+          identity: (widget.siteUrl, widget.channelId, widget.chat),
           // Large text can make the identity and metadata taller than the page
           // minus the composer. Keep the transcript reachable by letting the
           // header scroll within a share of the page instead of overflowing.
@@ -336,6 +342,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  ?widget.header,
                   if (widget.showHeader)
                     ChatChannelHeader(
                       siteUrl: widget.siteUrl,
@@ -390,7 +397,8 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                   onEditFinished: _finishEditing,
                 )
               : null,
-          child: content,
+          bodyBuilder: (_, header) =>
+              hasMessages ? content : header.inset(content, fullExtent: true),
         ),
       ),
     );
@@ -737,6 +745,7 @@ class _StreamState extends State<ChatMessageStream>
   final _recentMessages = _RecentChatMessages();
 
   final ScrollController _scroll = ScrollController();
+  DPageHeaderGeometry? _headerGeometry;
   final DMessageScrollerController _messageScroller =
       DMessageScrollerController();
 
@@ -944,6 +953,7 @@ class _StreamState extends State<ChatMessageStream>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _headerGeometry?.removeListener(_scheduleLook);
     _shell?.removeListener(_handleShellChanged);
     _channel?.removeListener(_channelChanged);
     _cancelReadDwell();
@@ -1321,8 +1331,8 @@ class _StreamState extends State<ChatMessageStream>
     _scheduleLook();
   }
 
-  /// In the reversed list, a separator floats after its bottom-relative top
-  /// crosses zero until the next newer separator pushes it out.
+  /// In the reversed list, a separator floats below the visible page header
+  /// until the next newer separator pushes it out.
   void _syncFloatingDay() {
     if (!_list.isAttached || !_scroll.hasClients) return;
 
@@ -1354,12 +1364,13 @@ class _StreamState extends State<ChatMessageStream>
         _scroll.position.viewportDimension -
         _streamPadding.bottom +
         _scroll.position.pixels;
+    final headerExtent = _headerGeometry?.visibleExtent ?? 0;
 
     double topOf(int row) => fromBottom - sums![row]!;
 
     var candidateIndex = -1;
     for (var index = 0; index < days.length; index++) {
-      if (topOf(days[index].row) > 0) break;
+      if (topOf(days[index].row) > headerExtent) break;
       candidateIndex = index;
     }
     if (candidateIndex < 0) {
@@ -1371,8 +1382,8 @@ class _StreamState extends State<ChatMessageStream>
     final nextIndex = candidateIndex + 1;
     if (nextIndex < days.length) {
       final nextTop = topOf(days[nextIndex].row);
-      if (nextTop < StreamDaySeparator.height) {
-        offset = nextTop - StreamDaySeparator.height;
+      if (nextTop < headerExtent + StreamDaySeparator.height) {
+        offset = nextTop - headerExtent - StreamDaySeparator.height;
       }
     }
     _setFloatingDay(days[candidateIndex].day, offset);
@@ -1576,6 +1587,12 @@ class _StreamState extends State<ChatMessageStream>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+    final header = DPageSurface.headerGeometryOf(context);
+    if (!identical(header, _headerGeometry)) {
+      _headerGeometry?.removeListener(_scheduleLook);
+      _headerGeometry = header;
+      header?.addListener(_scheduleLook);
+    }
     _chat = PluginUiScope.require(context, chatControllerService);
     _watchChannel();
     final shell = PluginUiScope.require(context, chatShellService);
@@ -1601,6 +1618,8 @@ class _StreamState extends State<ChatMessageStream>
 
     final leading = _leadingRows;
     final lastRow = leading + items.length - 1;
+    final header = _headerGeometry;
+    final contentRows = leading + items.length + (stream.loadingOlder ? 1 : 0);
 
     return DPageReadingLane(
       // Chat keeps a readable, centered transcript independently of the forum's
@@ -1622,8 +1641,12 @@ class _StreamState extends State<ChatMessageStream>
               preserveScrollOnPrepend: false,
               preserveReaderPositionOnResize: false,
               contentPadding: lane.padding,
-              itemCount: leading + items.length + (stream.loadingOlder ? 1 : 0),
-              itemIdBuilder: (row) => _rowId(row, lastRow: lastRow),
+              // Reversal puts the final spacer at the physical top. Its full
+              // header extent stays fixed while the visible header retracts.
+              itemCount: contentRows + (header == null ? 0 : 1),
+              itemIdBuilder: (row) => row == contentRows
+                  ? 'page-header-spacer'
+                  : _rowId(row, lastRow: lastRow),
               scrollAnchorBuilder: (row) =>
                   _itemAt(row) is ChatStreamNewDivider,
               scrollableBuilder: (context, controller, scrollable) =>
@@ -1677,6 +1700,7 @@ class _StreamState extends State<ChatMessageStream>
                 return false;
               },
               itemBuilder: (context, row) {
+                if (row == contentRows && header != null) return header.spacer;
                 if (_recording) {
                   _recordScrollEvent('chat.row.built', {'index': row});
                 }
@@ -1785,19 +1809,21 @@ class _StreamState extends State<ChatMessageStream>
             ),
             ValueListenableBuilder(
               valueListenable: _floatingDayState,
-              builder: (context, floating, _) => floating.day == null
-                  ? const SizedBox.shrink()
-                  : Positioned(
-                      left: lane.leftInset,
-                      right: lane.rightInset,
-                      top: floating.offset,
-                      child: StreamDaySeparator(
-                        key: ValueKey(('chat-floating-day', floating.day!)),
-                        day: floating.day!,
-                        floating: true,
-                        onTap: () => _jumpToDayStart(floating.day!),
-                      ),
-                    ),
+              builder: (context, floating, _) {
+                if (floating.day == null) return const SizedBox.shrink();
+                final separator = StreamDaySeparator(
+                  key: ValueKey(('chat-floating-day', floating.day!)),
+                  day: floating.day!,
+                  floating: true,
+                  onTap: () => _jumpToDayStart(floating.day!),
+                );
+                return Positioned(
+                  left: lane.leftInset,
+                  right: lane.rightInset,
+                  top: floating.offset,
+                  child: header?.inset(separator) ?? separator,
+                );
+              },
             ),
             ValueListenableBuilder(
               valueListenable: _presentState,

@@ -61,7 +61,6 @@ class ChatPlugin
         ContentPlugin,
         ContentSearchPlugin,
         ContentChromePlugin,
-        ContentMobileDockPlugin,
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
         ContentHeaderTitleTrailingPlugin,
@@ -620,10 +619,6 @@ class ChatPlugin
       route.id == inboxRouteId ||
       route.id == browseRouteId ||
       route.id == myThreadsRouteId ||
-      ChatRoute.parse(route.id)?.isInfo == false;
-
-  @override
-  bool keepsMobileDockVisible(BuildContext context, ContentRoute route) =>
       ChatRoute.parse(route.id)?.isInfo == false;
 
   @override
