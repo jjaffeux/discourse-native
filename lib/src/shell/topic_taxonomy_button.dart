@@ -39,6 +39,7 @@ class TopicTaxonomyButton extends StatelessWidget {
       child: DButton(
         key: buttonKey,
         size: size,
+        shape: DButtonShape.pill,
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'alphabet-index',
+    name: 'Alphabet index',
+    sections: ['Press, drag and keyboard'],
+  ),
+  ComponentReference(
     id: 'floating-panel',
     name: 'Floating panel',
     sections: ['Drag, tuck and restore'],

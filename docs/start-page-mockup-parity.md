@@ -1,89 +1,31 @@
-# Start page redesign parity
+# Start page parity
 
-Reference: `/Users/joffreyjaffeux/Code/discourse-native-mockups/src/App.tsx`
-(`homeViewFor`, `HomeScroller`, `HomeColumns`, `HomeSection`, `HomeCards`,
-`HomeCard`, `BarOverflow`, `ForumSwitcher`) and `src/app.css`.
-The live reference was inspected at mobile width and in a narrow desktop panel.
+Reference: `/Users/joffreyjaffeux/Code/discourse-native-mockups`, commits
+`67200bc`, `9285bb0`, and `f8f48f6` (2026-10-02). These are the three updates
+following the app's recorded mockup reference, `912027c`.
 
-| Area | Previous app | Redesigned mockup / implementation target |
-| --- | --- | --- |
-| Layout choice | Comfortable cards and compact rows, with a saved density toggle | One row layout on every platform; remove the toggle and ignore the old preference |
-| Forum heading | 46px logo and title above the website | 28px logo, 22px title, menu chevron, and muted website on one line |
-| Forum title action | Passive title | Native menu with Open forum in browser and Remove forum |
-| Header actions | Filters beside title and density | Filters and navigation shortcuts on their own bar below the title |
-| Filters action | Large icon-only filter trigger | Compact Native button with the Filters label |
-| Header button styling | Filled shortcuts beside outlined Filters and More | One raised chip treatment for Filters, shortcuts, and More: 10% foreground fill, Native 1px palette border, matching radius and height |
-| Shortcut location | Everything else section at the foot | Header bar; no Everything else section |
-| Shortcut overflow | All shortcuts wrap in the body | Keep fitting shortcuts in order, then a More menu containing the remainder; measure actual Native buttons |
-| Shortcut order | Bookmarks, Latest topics, Categories, Chat, other pages | Empty Bookmarks, Categories, Chat, Recent topics, then Messages, Groups, Badges, Upcoming events, Users, Preferences, Settings |
-| Sections | Headings over unframed row groups | Borderless rounded wells, 6px inset, darker fill from the active palette |
-| Well color | No shared section fill | Preserve hue/chroma and subtract 0.08 Oklch lightness on both light and dark palettes |
-| Section links | Label-sized action, chevron beside title | Whole visible heading row opens the section, with the chevron at the far edge |
-| Section heights | Each section ends after its own rows | All wells in a grid row have equal height, keeping shorter contents at the top |
-| Grid columns | Maximum fitting columns, including uneven 3+1 layouts | Prefer a fitting column count that divides the section count evenly, without reducing prime counts to one |
-| Grid gaps | 18px columns / 28px rows | 18px in both directions, plus 18px from the header bar to body |
-| Categories | First catalogue entries regardless of visits | Up to four recently visited, still permission-filtered against the current catalogue |
-| Chat | Followed conversations ordered by unread/activity | Up to four recently visited conversations in visit order, retaining live unread metadata and avatars |
-| Topics | Fetch Latest on entry; label Latest topics | Up to four recently visited topics; label Recent topics; read cached data without a request |
-| Bookmarks | Up to four rows, or a separate comfortable layout | Up to four cached bookmark rows with reminder/Due metadata |
-| Closed tabs | Chips or comfortable previews | One full-width well with naturally sized chips, capped at 280px; preserve restoration, context menus, and desktop drag |
-| Row appearance | Different card and row paths | One Native row path with footer fill, one-line reading-font title, tinted type/category mark, and trailing metadata; unread and Due badges use the accent |
-| Empty sections | Body shortcuts | Header shortcuts remain available without loading every directory |
-| Search on Start | Server search popup | Desktop chrome field filters cached Start contents in place and shows result / no-match text; queries belong to their tabs and matches are selected before trimming bookmark previews |
-| Header scrolling | Entire page header scrolls with the body | Retract the title on deliberate scroll while keeping the control bar visible with 16px top padding; restore the title at both scroll limits |
-| First visit | Panel tutorial ahead of sections | Same launcher surface as subsequent visits; no tutorial card |
+| Mockup change | Native implementation |
+| --- | --- |
+| One A–Z list in the reading column | All available destinations share one column. Preferences and Settings follow the alphabet. Only Filters remains on the header bar. |
+| Sections and items have the same row shape, with no gaps | Headings and previews use Native `DItem` rows. Preview rows are transparent and indented to the heading's label. Native sizing and text scaling remain authoritative. |
+| Pin any destination above the alphabet | Each heading has an independent Native `DToggle`. Pinned sections appear in separate Native cards, in pin order. Recently closed is pinned initially. Pins are shared by a forum's Start tabs for the account session. |
+| Press or drag the alphabet to jump | The approved `DAlphabetIndex` component supports press, drag, cancellation, keyboard navigation and semantic activation. It includes shortcuts for pinned sections and settings. Scrubbing suspends list interaction and scrolling leaves enough space for the last destination to reach the header. |
+| Drafts, Channels, Threads, Summary and Activity | Start shows authenticated destinations and enabled plugin destinations. Summary and Activity open the app's existing pages. Cached drafts resume through the existing draft lifecycle. |
+| Events and threads show their latest items | A generic `StartPagePlugin` capability supplies cached previews. Chat supplies cached thread lists; Events retains the last unfiltered upcoming result. Start does not load these directories on entry. Account retirement clears private previews and pins. |
+| Different marks for Summary, Activity, Users and Groups | Activity uses bars-staggered, Users uses users, and Groups uses user-group. Current navigation and restored default tab icons agree. |
+| Rounded composer selectors and an inset action bar | Category/tag triggers use the existing Native pill shape. The desktop footer has 14px horizontal and 10px vertical insets. |
+| Group Back, Forward and Reload in a pill; readable popup surfaces | Native already groups these controls in one pill with a separator before Reload. Native popup surfaces already use an opaque palette fill, so the mockup's browser-specific backdrop-filter workaround does not apply. |
 
-Mobile shell chrome uses a static logo beside the navigation button. The Start
-page retains its own forum name, options menu, and website below that row.
+Cached search continues to match titles, excerpts and tags before limiting
+previews to four rows. Rows retain existing link menus, topic restoration,
+unread/reminder metadata and desktop drag behavior. Destination availability
+continues to follow the current account, category permissions and installed
+plugins. Seeded mockup data is not copied into the app.
 
-The reference declares Drafts, Messages, Groups, Badges, Upcoming events, and
-Users preview renderers, but its active `homeFull` selection contains only
-Bookmarks, Categories, Chat, and Recent topics. Its arrangement helpers are
-not connected to any rendered controls. These unused renderers and helpers
-are not additional visible sections or interactions. The app continues to
-respect authentication and installed-plugin availability for destinations.
-The mockup's seeded sample histories are not production data: a new account
-has shortcuts until it actually visits destinations.
-
-The mockup's `BarOverflow` does render a labelled More button when header
-shortcuts do not fit. It disappears when all shortcuts fit and restores them
-in place as the panel widens. Filters, shortcuts, and More all use `toolChip`;
-their Native equivalents retain the same raised fill and thin palette border.
-The header parity regression checks the rendered fill, border, radius, height,
-and hover state in light/dark palettes across a wide/narrow/wide resize.
-
-Validation: all 103 focused tests pass across the Start page, page surface,
-search controllers/presentation/accessibility, and filter lifecycle. Targeted
-analysis reports no issues. Real-font renders were inspected on desktop and
-phone in light/dark themes and at 200% text. Tests cover balanced/equal-height
-wells, title retraction without scroll jumps, shortcut overflow, local filtering
-and tab isolation, forum actions, permission-filtered history, context menus,
-touch activation, dragging, closed-tab gaps, and restoration. Mobile retains
-the existing functional Native full-screen search; the reference's mobile
-search icon has no handler. Native component sizes, text scaling, keyboard
-behavior, context menus, and hit bounds remain owned by the UI kit.
-
-The final merged-main check passed 114 tests. Two recently added global-search
-presentation cases failed identically on unchanged main (`b4924e909`):
-“All results and dedicated scopes use the live query and keep conditions” and
-“Result dismissal clears filters from every search scope”. Both expect a chat
-search result absent from that baseline. These are existing failures; merged
-Start-page tests and targeted analysis remain clean.
-
-The control bar owns its 16px top spacing so it remains inset when the title
-retracts. Start enables `DPageSurface.revealHeaderAtEnd` to restore the title at
-the bottom, including when the returning mobile dock reduces the viewport.
-The owned page scroller does not inherit the shell's primary controller;
-otherwise multiple attached iOS scroll positions disable the 14px fade beneath
-the header. Regressions cover both scroll limits, wheel and touch input,
-light/dark renders, content anchoring, and the fade's rendered pixels.
-
-Short mobile pages must still restore their dock after hiding it enlarges the
-viewport. The mockup's shared scroll listener ignores ranges below 120px; that
-guard cannot apply to restoration in Native, since the dock's own animation can
-take a page below the threshold. `MobileScrollDock` now requires 120px only to
-hide. Upward gestures and either scroll limit can restore it at smaller ranges,
-and the existing end hold keeps it visible while scrolling through the space
-it takes back. Touch regressions reproduce the threshold crossing with both a
-bounded list and the full iOS Start page, checking upward/bottom restoration,
-continued scrolling at the bottom, and the content anchor.
+The Native alphabet index has a styleguide example. Focused checks cover list
+order and resize behavior, pin/unpin and navigation, cached drafts and threads,
+account invalidation, press/drag/keyboard/semantic index interaction, text
+scaling and RTL. Related composer, navigation, plugin and styleguide tests are
+run by file path. Real-font shell renders are inspected at phone and desktop
+sizes, in light/dark themes and at 200% text. These are widget renders; a
+physical-device deployment is not part of this change.

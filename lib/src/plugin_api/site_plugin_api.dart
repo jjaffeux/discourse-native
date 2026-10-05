@@ -606,6 +606,20 @@ abstract interface class CommunitySidebarPlugin {
   Listenable? communitySidebarListenable(BuildContext context);
 }
 
+/// Cached launcher destinations and previews. Building Start never fetches them.
+abstract interface class StartPagePlugin {
+  List<StartPageSection> startPageSections(BuildContext context);
+  Listenable? startPageListenable(BuildContext context);
+}
+
+@immutable
+final class StartPageSection {
+  const StartPageSection({required this.destination, this.entries = const []});
+
+  final SidebarDestination destination;
+  final List<SidebarDestination> entries;
+}
+
 /// A panel's creation action, such as starting a conversation.
 @immutable
 final class SidebarPanelAction {

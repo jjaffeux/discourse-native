@@ -30,6 +30,7 @@ final class DiscourseEventsPlugin
         ComposerToolbarPlugin,
         NotificationTypePlugin,
         CommunitySidebarPlugin,
+        StartPagePlugin,
         ContentPlugin,
         ContentChromePlugin {
   const DiscourseEventsPlugin();
@@ -185,6 +186,34 @@ final class DiscourseEventsPlugin
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       EventCalendarPage.readRoute(route.id) != null;
+
+  @override
+  Listenable startPageListenable(BuildContext context) =>
+      PluginUiScope.require(context, eventControllerKey);
+
+  @override
+  List<StartPageSection> startPageSections(BuildContext context) {
+    final destinations = communitySidebarDestinations(context);
+    if (destinations.isEmpty) return const [];
+    final controller = PluginUiScope.require(context, eventControllerKey);
+    final navigation = PluginUiScope.require(context, eventNavigationKey);
+    final site = navigation.host.currentSite!.url;
+    return [
+      StartPageSection(
+        destination: destinations.single,
+        entries: [
+          for (final event in controller.cachedUpcoming(site))
+            SidebarDestination(
+              id: 'event-${event.id}',
+              label: event.title,
+              icon: EventIcons.calendar,
+              lastActivityAt: DateTime.tryParse(event.startsAt ?? ''),
+              onTap: () => navigation.openEvent(site, event),
+            ),
+        ],
+      ),
+    ];
+  }
 
   @override
   Widget? content(BuildContext context, ContentRoute route) {

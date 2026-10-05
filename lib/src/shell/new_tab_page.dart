@@ -49,6 +49,11 @@ class NewTabPage extends StatelessWidget {
         shell.accountActivity.bookmarksListenable,
         shell.topicFeeds,
         shell.search,
+        shell.startPage,
+        shell.draftList,
+        ...?PluginScope.maybeOf(
+          context,
+        )?.registry.startPageListenables(context),
         TimezoneEnvironment.instance,
         ...?PluginScope.maybeOf(context)?.registry.sidebarListenables(context),
       ]),
@@ -141,6 +146,9 @@ class NewTabPage extends StatelessWidget {
       ),
     );
 
+    final accountLease = siteUrl == null
+        ? null
+        : shell!.lifecycle.capture(siteUrl);
     final query = siteUrl == null
         ? ''
         : shell!.search.startPageQueryFor(
@@ -161,7 +169,7 @@ class NewTabPage extends StatelessWidget {
     }
 
     final categoryRows = matching([
-      for (final route in categories.take(4))
+      for (final route in categories)
         _StartPageEntry.fromRoute(
           route,
           () => _openRoute(context, route),
@@ -175,18 +183,18 @@ class NewTabPage extends StatelessWidget {
               : shell!.categoryActivityCountFor(siteUrl!, route.categoryId!),
           description: categoryDetails[route.categoryId]?.descriptionExcerpt,
         ),
-    ]);
+    ]).take(4).toList();
     final chatRows = matching([
-      for (final destination in recentChats.take(4))
+      for (final destination in recentChats)
         _StartPageEntry.fromRoute(
           ContentRoute.fromDestination(destination),
           () => shell!.selectDestination(destination),
           siteUrl: siteUrl,
           destination: destination,
         ),
-    ]);
+    ]).take(4).toList();
     final topicRows = matching([
-      for (final route in recentTopics.take(4))
+      for (final route in recentTopics)
         _StartPageEntry.fromTopic(
           route,
           siteUrl!,
@@ -196,7 +204,7 @@ class NewTabPage extends StatelessWidget {
           categoryDetails,
           () => _openRoute(context, route),
         ),
-    ]);
+    ]).take(4).toList();
     final bookmarkRows = matching([
       for (final bookmark in bookmarks)
         _StartPageEntry(
@@ -231,123 +239,210 @@ class NewTabPage extends StatelessWidget {
       for (final tab in closed)
         _closedEntry(context, tab, siteUrl!, categoryDetails, conversations),
     ]).take(query.isEmpty ? 8 : 16).toList();
-    final found =
-        categoryRows.length +
-        chatRows.length +
-        topicRows.length +
-        bookmarkRows.length +
-        closedRows.length;
-    final primarySections = siteUrl == null
-        ? <_StartSection>[]
-        : <_StartSection>[
-            if (bookmarkRows.isNotEmpty)
-              _StartSection(
-                title: context.l10n.bookmarks,
-                icon: DIcons.bookmark,
-                rows: bookmarkRows,
-                siteUrl: siteUrl,
-                onHeading: openBookmarks,
-              ),
-            if (categoryRows.isNotEmpty)
-              _StartSection(
-                title: context.l10n.categories,
-                icon: DIcons.tag,
-                rows: categoryRows,
-                siteUrl: siteUrl,
-                onHeading: openCategories,
-              ),
-            if (hasChat && chatRows.isNotEmpty)
-              _StartSection(
-                title: context.l10n.chat,
-                icon: DIcons.comment,
-                rows: chatRows,
-                siteUrl: siteUrl,
-                onHeading: openChat,
-              ),
-            if (topicRows.isNotEmpty)
-              _StartSection(
-                title: context.l10n.recentTopics,
-                icon: DIcons.layerGroup,
-                rows: topicRows,
-                siteUrl: siteUrl,
-                onHeading: onBrowseTopics,
-              ),
-          ];
-
-    final links = <_LinkButton>[
-      if (bookmarkRows.isEmpty && forum?.user != null)
-        _LinkButton(
-          label: context.l10n.bookmarks,
-          icon: DIcons.bookmark,
-          onPressed: openBookmarks,
-        ),
-      if (categoryRows.isEmpty)
-        _LinkButton(
-          label: context.l10n.categories,
-          icon: DIcons.tag,
-          url: shell?.siteLink('/categories'),
-          onPressed: openCategories,
-        ),
-      if (hasChat && chatRows.isEmpty)
-        _LinkButton(
-          label: context.l10n.chat,
-          icon: DIcons.comment,
-          content: ContentRoute.fromDestination(chatDestination),
-          onPressed: openChat,
-        ),
-      if (topicRows.isEmpty)
-        _LinkButton(
-          label: context.l10n.recentTopics,
-          icon: DIcons.layerGroup,
-          url: shell?.siteLink('/latest'),
-          onPressed: onBrowseTopics,
-        ),
-      if (forum?.user != null)
-        _LinkButton(
-          label: context.l10n.messages,
-          icon: DIcons.inbox,
-          url: shell!.siteLink('/my/messages'),
-          onPressed: () => openLink(context, shell.siteLink('/my/messages')),
-        ),
-      if (shell != null && siteUrl != null) ...[
-        _LinkButton(
-          label: context.l10n.groups,
-          icon: DIcons.users,
-          url: shell.siteLink('/g'),
-          onPressed: () => openLink(context, shell.siteLink('/g')),
-        ),
-        _LinkButton(
-          label: context.l10n.badges,
-          icon: DIcons.certificate,
-          url: shell.siteLink('/badges'),
-          onPressed: () => openLink(context, shell.siteLink('/badges')),
-        ),
-        for (final shortcut in shortcuts)
-          _LinkButton(
-            label: shortcut.label,
-            icon: shortcut.icon,
-            content: ContentRoute.fromDestination(shortcut),
-            onPressed: () => shell.selectDestination(shortcut),
+    final draftRows = siteUrl == null || forum?.user == null
+        ? <_StartPageEntry>[]
+        : matching([
+            for (final draft in shell!.draftList.feedFor(siteUrl).drafts)
+              if (draft.canResume)
+                _StartPageEntry(
+                  id: 'draft-${draft.key}',
+                  title: draft.displayTitle,
+                  icon: DIcons.pen,
+                  description: draft.excerpt,
+                  activityAt: draft.createdAt,
+                  onPressed: () => unawaited(
+                    shell.resumeDraft(
+                      siteUrl,
+                      draft,
+                      sourceIsCurrent: () => accountLease?.isCurrent == true,
+                    ),
+                  ),
+                ),
+          ]).take(4).toList();
+    final contributed = registry?.startPageSections(context) ?? const [];
+    final contributedIds = {
+      for (final section in contributed) section.destination.id,
+    };
+    final sections = <_StartSection>[
+      if (siteUrl != null) ...[
+        if (closedRows.isNotEmpty)
+          _StartSection(
+            id: 'recently-closed',
+            title: context.l10n.recentlyClosedNewtabpage,
+            icon: DIcons.arrowRotateLeft,
+            rows: closedRows,
+            siteUrl: siteUrl,
+            fullWidth: true,
           ),
-        _LinkButton(
-          label: context.l10n.users,
-          icon: DIcons.user,
-          url: shell.siteLink('/u'),
-          onPressed: () => openLink(context, shell.siteLink('/u')),
-        ),
         if (forum?.user != null)
-          _LinkButton(
-            label: context.l10n.preferences,
-            icon: DNativeIcons.sliders,
-            onPressed: () => shell.openPreferences(siteUrl),
+          _StartSection(
+            id: 'bookmarks',
+            title: context.l10n.bookmarks,
+            icon: DIcons.bookmark,
+            rows: bookmarkRows,
+            siteUrl: siteUrl,
+            onHeading: openBookmarks,
           ),
-        _LinkButton(
-          label: context.l10n.settings,
+        _StartSection(
+          id: 'categories',
+          title: context.l10n.categories,
+          icon: DIcons.tag,
+          rows: categoryRows,
+          siteUrl: siteUrl,
+          onHeading: openCategories,
+        ),
+        if (hasChat)
+          _StartSection(
+            id: 'chat',
+            title: context.l10n.chat,
+            icon: DIcons.comment,
+            rows: chatRows,
+            siteUrl: siteUrl,
+            onHeading: openChat,
+          ),
+        _StartSection(
+          id: 'recent-topics',
+          title: context.l10n.recentTopics,
+          icon: DIcons.layerGroup,
+          rows: topicRows,
+          siteUrl: siteUrl,
+          onHeading: onBrowseTopics,
+        ),
+        if (forum?.user != null) ...[
+          _StartSection(
+            id: 'drafts',
+            title: context.l10n.drafts,
+            icon: DIcons.pen,
+            rows: draftRows,
+            siteUrl: siteUrl,
+            onHeading: () => shell!.openDrafts(siteUrl),
+          ),
+          _StartSection(
+            id: 'messages',
+            title: context.l10n.messages,
+            icon: DIcons.inbox,
+            rows: const [],
+            siteUrl: siteUrl,
+            onHeading: () => openLink(context, shell!.siteLink('/my/messages')),
+          ),
+          _StartSection(
+            id: 'summary',
+            title: context.l10n.summary,
+            icon: DIcons.user,
+            rows: const [],
+            siteUrl: siteUrl,
+            onHeading: () => shell!.openUserSummary(siteUrl),
+          ),
+          _StartSection(
+            id: 'activity',
+            title: context.l10n.activity,
+            icon: DIcons.barsStaggered,
+            rows: const [],
+            siteUrl: siteUrl,
+            onHeading: () => shell!.openUserActivity(siteUrl),
+          ),
+        ],
+        _StartSection(
+          id: 'groups',
+          title: context.l10n.groups,
+          icon: DIcons.userGroup,
+          rows: const [],
+          siteUrl: siteUrl,
+          onHeading: () => openLink(context, shell!.siteLink('/g')),
+        ),
+        _StartSection(
+          id: 'badges',
+          title: context.l10n.badges,
+          icon: DIcons.certificate,
+          rows: const [],
+          siteUrl: siteUrl,
+          onHeading: () => openLink(context, shell!.siteLink('/badges')),
+        ),
+        _StartSection(
+          id: 'users',
+          title: context.l10n.users,
+          icon: DIcons.users,
+          rows: const [],
+          siteUrl: siteUrl,
+          onHeading: () => openLink(context, shell!.siteLink('/u')),
+        ),
+        for (final section in contributed)
+          _StartSection(
+            id: section.destination.id,
+            title: section.destination.label,
+            icon: section.destination.icon,
+            rows: matching([
+              for (final entry in section.entries)
+                _StartPageEntry.fromRoute(
+                  ContentRoute.fromDestination(entry),
+                  () => shell!.selectDestination(entry),
+                  siteUrl: siteUrl,
+                  destination: entry,
+                ),
+            ]).take(4).toList(),
+            siteUrl: siteUrl,
+            onHeading: () => shell!.selectDestination(section.destination),
+          ),
+        for (final shortcut in shortcuts)
+          if (!contributedIds.contains(shortcut.id))
+            _StartSection(
+              id: shortcut.id,
+              title: shortcut.label,
+              icon: shortcut.icon,
+              rows: const [],
+              siteUrl: siteUrl,
+              onHeading: () => shell!.selectDestination(shortcut),
+            ),
+        if (forum?.user != null)
+          _StartSection(
+            id: 'preferences',
+            title: context.l10n.preferences,
+            icon: DNativeIcons.sliders,
+            rows: const [],
+            siteUrl: siteUrl,
+            onHeading: () => shell!.openPreferences(siteUrl),
+          ),
+        _StartSection(
+          id: 'settings',
+          title: context.l10n.settings,
           icon: DIcons.gear,
-          onPressed: () => shell.openForumSettings(siteUrl),
+          rows: const [],
+          siteUrl: siteUrl,
+          onHeading: () => shell!.openForumSettings(siteUrl),
         ),
       ],
     ];
+    final found = sections.fold(
+      0,
+      (count, section) => count + section.rows.length,
+    );
+    final pins = siteUrl == null
+        ? const <String>[]
+        : shell!.startPage.pinsFor(siteUrl);
+    final visibleSections = sections
+        .where(
+          (section) =>
+              query.trim().isEmpty ||
+              section.rows.isNotEmpty ||
+              section.title.toLowerCase().contains(query.trim().toLowerCase()),
+        )
+        .toList();
+    visibleSections.sort((a, b) {
+      final aPin = pins.indexOf(a.id), bPin = pins.indexOf(b.id);
+      if (aPin >= 0 || bPin >= 0) {
+        if (aPin < 0) return 1;
+        if (bPin < 0) return -1;
+        return aPin.compareTo(bPin);
+      }
+      const tail = ['preferences', 'settings'];
+      final aTail = tail.indexOf(a.id), bTail = tail.indexOf(b.id);
+      if (aTail >= 0 || bTail >= 0) {
+        if (aTail < 0) return -1;
+        if (bTail < 0) return 1;
+        return aTail.compareTo(bTail);
+      }
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
     final title = LayoutBuilder(
       builder: (context, constraints) => Row(
         key: const ValueKey('start-page-heading'),
@@ -445,14 +540,12 @@ class NewTabPage extends StatelessWidget {
             query: '',
             label: context.l10n.startPageFilters,
           ),
-        if (shell != null) Expanded(child: _ShortcutBar(links: links)),
       ],
     );
-    return DPageSurface(
+    return DPageSurface.scrollable(
       framed: false,
       hideHeaderOnScroll: true,
-      revealHeaderAtEnd: true,
-      scrollBody: true,
+      revealHeaderAtEnd: false,
       identity: (siteUrl, ForumTabScope.idOf(context)),
       header: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -481,32 +574,17 @@ class NewTabPage extends StatelessWidget {
           ],
         ),
       ),
-      child: DPageReadingLaneBox(
-        child: Padding(
-          key: const ValueKey('start-page-content'),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 18,
-            children: [
-              if (closedRows.isNotEmpty)
-                _StartSection(
-                  title: context.l10n.recentlyClosedNewtabpage,
-                  icon: DIcons.arrowRotateLeft,
-                  rows: closedRows,
-                  fullWidth: true,
-                  siteUrl: siteUrl!,
-                ),
-              if (primarySections.isNotEmpty)
-                _SectionGrid(sections: primarySections),
-              if (shell == null)
-                DButton(
-                  onPressed: onBrowseTopics,
-                  label: Text(context.l10n.browseLatestTopics),
-                ),
-            ],
-          ),
-        ),
+      bodyBuilder: (context, header) => _StartList(
+        key: ValueKey((siteUrl, ForumTabScope.idOf(context))),
+        sections: visibleSections,
+        pins: pins,
+        header: header,
+        fallback: shell == null
+            ? DButton(
+                onPressed: onBrowseTopics,
+                label: Text(context.l10n.browseLatestTopics),
+              )
+            : null,
       ),
     );
   }
@@ -604,6 +682,186 @@ String reminderDateLabel(
   return appL10n.atNewtabpage(
     (label).toString(),
     (clockTime(wall, use24HourClock: use24HourClock)).toString(),
+  );
+}
+
+class _StartList extends StatefulWidget {
+  const _StartList({
+    super.key,
+    required this.sections,
+    required this.pins,
+    required this.header,
+    this.fallback,
+  });
+  final List<_StartSection> sections;
+  final List<String> pins;
+  final DPageHeaderGeometry header;
+  final Widget? fallback;
+
+  @override
+  State<_StartList> createState() => _StartListState();
+}
+
+class _StartListState extends State<_StartList> {
+  final _scroll = ScrollController();
+  final _keys = <String, GlobalKey>{};
+  bool _scrubbing = false;
+  String? _target;
+  Timer? _settle;
+
+  void _jump(String id) {
+    _target = id;
+    if (id.isEmpty) {
+      _settle?.cancel();
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+      return;
+    }
+    void align() {
+      if (!_scroll.hasClients) return;
+      final box = _keys[id]?.currentContext?.findRenderObject();
+      if (box == null) return;
+      final offset = RenderAbstractViewport.of(
+        box,
+      ).getOffsetToReveal(box, 0).offset;
+      _scroll.jumpTo(
+        (offset - widget.header.visibleExtent - 8).clamp(
+          0,
+          _scroll.position.maxScrollExtent,
+        ),
+      );
+    }
+
+    align();
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 280), () {
+      if (mounted && _target == id) align();
+    });
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final letters = <String, _StartSection>{};
+      final pinned = widget.sections
+          .where((section) => widget.pins.contains(section.id))
+          .toList();
+      for (final section in widget.sections) {
+        if (widget.pins.contains(section.id) ||
+            section.id == 'preferences' ||
+            section.id == 'settings') {
+          continue;
+        }
+        final letter = section.title.characters.first.toUpperCase();
+        letters.putIfAbsent(letter, () => section);
+      }
+      final settings = widget.sections
+          .where(
+            (section) =>
+                !widget.pins.contains(section.id) &&
+                (section.id == 'preferences' || section.id == 'settings'),
+          )
+          .firstOrNull;
+      final entries = [
+        if (widget.sections.isNotEmpty)
+          DAlphabetIndexEntry(
+            value: pinned.firstOrNull?.id ?? '',
+            label: pinned.isEmpty
+                ? context.l10n.startPage
+                : context.l10n.startPagePinnedSections,
+            icon: DIcons.star,
+          ),
+        for (final letter in letters.entries)
+          DAlphabetIndexEntry(value: letter.value.id, label: letter.key),
+        if (settings != null)
+          DAlphabetIndexEntry(
+            value: settings.id,
+            label: context.l10n.settings,
+            icon: DIcons.gear,
+          ),
+      ];
+      return Stack(
+        children: [
+          IgnorePointer(
+            ignoring: _scrubbing,
+            child: DScrollBar(
+              controller: _scroll,
+              showScrollbar: false,
+              child: SingleChildScrollView(
+                controller: _scroll,
+                primary: false,
+                child: DPageReadingLaneBox(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      widget.header.spacer,
+                      Padding(
+                        key: const ValueKey('start-page-content'),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          16,
+                          18,
+                          36,
+                          24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final section in widget.sections)
+                              KeyedSubtree(
+                                key: _keys.putIfAbsent(
+                                  section.id,
+                                  GlobalKey.new,
+                                ),
+                                child: section,
+                              ),
+                            ?widget.fallback,
+                            SizedBox(
+                              height: math.max(
+                                0,
+                                constraints.maxHeight -
+                                    widget.header.naturalExtent -
+                                    64,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          PositionedDirectional(
+            end: 6,
+            top: 18,
+            bottom: 0,
+            child: widget.header.inset(
+              Align(
+                alignment: Alignment.topCenter,
+                child: SingleChildScrollView(
+                  primary: false,
+                  clipBehavior: Clip.none,
+                  child: DAlphabetIndex<String>(
+                    key: const ValueKey('start-page-alphabet-index'),
+                    entries: entries,
+                    onSelected: _jump,
+                    onScrubChanged: (active) =>
+                        setState(() => _scrubbing = active),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -745,6 +1003,7 @@ class _StartPageEntry {
 
 class _StartSection extends StatelessWidget {
   const _StartSection({
+    required this.id,
     required this.title,
     required this.icon,
     required this.rows,
@@ -753,6 +1012,7 @@ class _StartSection extends StatelessWidget {
     this.fullWidth = false,
   });
 
+  final String id;
   final String title;
   final DIconData icon;
   final List<_StartPageEntry> rows;
@@ -835,97 +1095,66 @@ class _StartSection extends StatelessWidget {
         ?metadata,
       ],
     );
-    final card = Stack(
-      children: [
-        Positioned.fill(
-          child: DCard(
-            spacing: 0,
-            border: false,
-            borderRadius: BorderRadius.circular(9),
-            backgroundColor: tokens.footerBackground,
-          ),
-        ),
-        row,
-      ],
-    );
     return entry.path == null
-        ? card
+        ? row
         : LinkTarget(
             url: entry.path!,
             bookmarkUrl: entry.bookmarkUrl,
             targetBookmark: entry.targetBookmark,
             title: entry.title,
             siteUrl: siteUrl,
-            child: card,
+            child: row,
           );
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      Positioned.fill(child: surface(context)),
-      contents(context),
-    ],
-  );
-
-  Widget surface(BuildContext context) => DCard(
-    key: ValueKey('start-page-section-$title'),
-    border: false,
-    spacing: 0,
-    borderRadius: BorderRadius.circular(14),
-    backgroundColor: _wellColor(DTokens.of(context).background),
-  );
-
-  Widget contents(BuildContext context) {
+  Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    final pinned = shell.startPage.pinsFor(siteUrl).contains(id);
     final tokens = DTokens.of(context);
-    final label = Text(
-      title,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: DiscourseTypography.control,
-        fontWeight: FontWeight.w700,
-        color: tokens.foreground,
-      ),
+    final pin = DToggle.iconOnly(
+      key: ValueKey('start-page-pin-$id'),
+      size: DControlSize.chip,
+      pressed: pinned,
+      semanticLabel: pinned
+          ? context.l10n.unpinStartSection(title)
+          : context.l10n.pinStartSection(title),
+      icon: const DIcon(DIcons.thumbtack, size: 11),
+      onPressedChanged: (_) => shell.startPage.togglePin(siteUrl, id),
     );
-    final heading = onHeading == null
-        ? Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-            child: Row(
-              spacing: 9,
-              children: [
-                DIcon(icon, size: 12, color: tokens.mutedForeground),
-                Flexible(child: label),
-              ],
+    final heading = DItem(
+      key: ValueKey('start-page-section-link-$title'),
+      size: DItemSize.xs,
+      onPressed: onHeading,
+      cornerAction: pinned ? null : pin,
+      children: [
+        DIcon(icon, size: 21, color: tokens.mutedForeground),
+        DItemContent(
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: DiscourseTypography.control,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          )
-        : DButton(
-            key: ValueKey('start-page-section-link-$title'),
-            variant: DButtonVariant.transparentBackground,
-            size: DButtonSize.filter,
-            foregroundColor: tokens.foreground,
-            icon: DIcon(icon, size: 12, color: tokens.mutedForeground),
-            label: Row(
-              children: [
-                Expanded(child: label),
-                DIcon(
-                  DIcons.chevronRight,
-                  size: 10,
-                  color: tokens.mutedForeground,
-                ),
-              ],
-            ),
-            onPressed: onHeading,
-          );
-    return Padding(
-      padding: const EdgeInsets.all(6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        spacing: 8,
-        children: [
-          heading,
-          if (fullWidth)
-            LayoutBuilder(
+          ],
+        ),
+        if (pinned) pin else const SizedBox(width: 24),
+      ],
+    );
+    final contents = Column(
+      key: ValueKey('start-page-section-$title'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        heading,
+        if (fullWidth && rows.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(6),
+            child: LayoutBuilder(
               builder: (context, constraints) => Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -939,135 +1168,36 @@ class _StartSection extends StatelessWidget {
                     ),
                 ],
               ),
-            )
-          else
-            Column(
+            ),
+          )
+        else if (rows.isNotEmpty)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 29),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 4,
               children: [for (final entry in rows) _row(context, entry)],
             ),
-        ],
-      ),
+          ),
+      ],
     );
-  }
-}
-
-class _SectionGrid extends StatelessWidget {
-  const _SectionGrid({required this.sections});
-  final List<_StartSection> sections;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      var columns = math.max(1, ((constraints.maxWidth + 18) / 256).floor());
-      for (var count = columns; count >= 2; count--) {
-        if (sections.length % count == 0) {
-          columns = count;
-          break;
-        }
-      }
-      return Column(
-        spacing: 18,
-        children: [
-          for (var start = 0; start < sections.length; start += columns)
-            _SectionRow(
-              direction: Directionality.of(context),
-              children: [
-                for (var column = 0; column < columns; column++) ...[
-                  if (start + column < sections.length) ...[
-                    sections[start + column].surface(context),
-                    sections[start + column].contents(context),
-                  ] else ...[
-                    const SizedBox.shrink(),
-                    const SizedBox.shrink(),
-                  ],
-                ],
-              ],
+    return pinned
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: DCard(
+              key: ValueKey('start-page-pinned-$id'),
+              border: false,
+              spacing: 0,
+              backgroundColor: _wellColor(tokens.background),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: contents,
+              ),
             ),
-        ],
-      );
-    },
-  );
-}
-
-// Measure section contents once at their actual width, then stretch the Native
-// surfaces behind them. Intrinsic estimates miss inline emoji height.
-class _SectionRow extends MultiChildRenderObjectWidget {
-  const _SectionRow({required this.direction, required super.children});
-  final TextDirection direction;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderSectionRow(direction);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderSectionRow renderObject,
-  ) {
-    renderObject.direction = direction;
+          )
+        : contents;
   }
 }
 
-class _SectionParentData extends ContainerBoxParentData<RenderBox> {}
-
-class _RenderSectionRow extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _SectionParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _SectionParentData> {
-  _RenderSectionRow(this._direction);
-  TextDirection _direction;
-  set direction(TextDirection value) {
-    if (_direction == value) return;
-    _direction = value;
-    markNeedsLayout();
-  }
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _SectionParentData) {
-      child.parentData = _SectionParentData();
-    }
-  }
-
-  @override
-  void performLayout() {
-    final columns = childCount ~/ 2;
-    final width = ((constraints.maxWidth - 18 * (columns - 1)) / columns).clamp(
-      0.0,
-      double.infinity,
-    );
-    final children = getChildrenAsList();
-    var height = 0.0;
-    for (var i = 1; i < children.length; i += 2) {
-      final child = children[i];
-      child.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-      height = math.max(height, child.size.height);
-    }
-    for (var i = 0; i < children.length; i += 2) {
-      children[i].layout(BoxConstraints.tightFor(width: width, height: height));
-      final x = (i ~/ 2) * (width + 18);
-      final offset = Offset(
-        _direction == TextDirection.ltr ? x : constraints.maxWidth - width - x,
-        0,
-      );
-      (children[i].parentData! as _SectionParentData).offset = offset;
-      (children[i + 1].parentData! as _SectionParentData).offset = offset;
-    }
-    size = constraints.constrain(Size(constraints.maxWidth, height));
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
-}
-
-// Matches the mockup's oklch(from secondary calc(l - 0.08) c h).
-// Changing only lightness is equivalent in Oklab and preserves hue/chroma.
 Color _wellColor(Color color) {
   double linear(double v) =>
       v <= .04045 ? v / 12.92 : math.pow((v + .055) / 1.055, 2.4).toDouble();
@@ -1098,178 +1228,3 @@ Color _wellColor(Color color) {
 
 /// Measures the Native buttons themselves so text scaling and localization
 /// determine which shortcuts fit beside the menu trigger.
-class _ShortcutBar extends StatefulWidget {
-  const _ShortcutBar({required this.links});
-  final List<_LinkButton> links;
-
-  @override
-  State<_ShortcutBar> createState() => _ShortcutBarState();
-}
-
-class _ShortcutBarState extends State<_ShortcutBar> {
-  List<GlobalKey> _measureKeys = [];
-  final _moreKey = GlobalKey();
-  List<double> _widths = [];
-  double _moreWidth = 0;
-  String? _signature;
-  bool _scheduled = false;
-
-  void _measure() {
-    _scheduled = false;
-    if (!mounted) return;
-    final widths = [
-      for (final key in _measureKeys)
-        (key.currentContext?.findRenderObject() as RenderBox?)?.size.width,
-    ];
-    if (widths.any((width) => width == null)) return;
-    final more =
-        (_moreKey.currentContext?.findRenderObject() as RenderBox?)?.size.width;
-    if (more == null) return;
-    final measured = widths.cast<double>();
-    if (_moreWidth != more ||
-        _widths.length != measured.length ||
-        [
-          for (var i = 0; i < measured.length; i++)
-            if (_widths[i] != measured[i]) i,
-        ].isNotEmpty) {
-      setState(() {
-        _widths = measured;
-        _moreWidth = more;
-      });
-    }
-  }
-
-  int _fitting(double width) {
-    if (_widths.length != widget.links.length) return 0;
-    var used = 0.0;
-    var shown = 0;
-    while (shown < _widths.length &&
-        used + (shown == 0 ? 0 : 8) + _widths[shown] <= width) {
-      used += (shown == 0 ? 0 : 8) + _widths[shown++];
-    }
-    while (shown > 0 &&
-        shown < _widths.length &&
-        used + 8 + _moreWidth > width) {
-      used -= _widths[--shown] + (shown == 0 ? 0 : 8);
-    }
-    return shown;
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final signature =
-          '${widget.links.map((link) => link.label).join('|')} ${MediaQuery.textScalerOf(context).scale(14)} ${Theme.of(context).textTheme}';
-      if (_signature != signature) {
-        _signature = signature;
-        _widths = [];
-      }
-      if (_measureKeys.length != widget.links.length) {
-        _measureKeys = [for (final _ in widget.links) GlobalKey()];
-      }
-      if (!_scheduled) {
-        _scheduled = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-      }
-      final shown = _fitting(constraints.maxWidth);
-      final rest = widget.links.skip(shown).toList();
-      Widget moreButton({Key? key, VoidCallback? onPressed}) => DButton(
-        key: key,
-        size: DButtonSize.filter,
-        variant: DButtonVariant.secondary,
-        backgroundColor: DTokens.of(context).buttonTheme.outline.hover,
-        icon: const DIcon(DIcons.ellipsis, size: 12),
-        label: Text(context.l10n.more),
-        onPressed: onPressed,
-      );
-      return Stack(
-        key: const ValueKey('start-page-shortcuts'),
-        children: [
-          Offstage(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < widget.links.length; i++)
-                    SizedBox(key: _measureKeys[i], child: widget.links[i]),
-                  moreButton(key: _moreKey, onPressed: () {}),
-                ],
-              ),
-            ),
-          ),
-          Row(
-            spacing: 8,
-            children: [
-              ...widget.links.take(shown),
-              if (rest.isNotEmpty)
-                Flexible(
-                  child: DDropdownMenu(
-                    content: DDropdownMenuContent(
-                      children: [
-                        for (final link in rest)
-                          DDropdownMenuItem(
-                            leading: DIcon(link.icon, size: 12),
-                            onPressed: link.onPressed,
-                            child: Text(link.label),
-                          ),
-                      ],
-                    ),
-                    child: DDropdownMenuTrigger(
-                      builder: (context, state) => DButton(
-                        key: const ValueKey('start-page-more'),
-                        size: DButtonSize.filter,
-                        variant: DButtonVariant.secondary,
-                        backgroundColor: DTokens.of(
-                          context,
-                        ).buttonTheme.outline.hover,
-                        focusNode: state.focusNode,
-                        hasPopup: true,
-                        expanded: state.open,
-                        icon: const DIcon(DIcons.ellipsis, size: 12),
-                        label: Text(context.l10n.more),
-                        onPressed: state.toggle,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      );
-    },
-  );
-}
-
-class _LinkButton extends StatelessWidget {
-  const _LinkButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    this.url,
-    this.content,
-  });
-  final String label;
-  final DIconData icon;
-  final VoidCallback onPressed;
-  final String? url;
-  final ContentRoute? content;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final button = DButton(
-      variant: DButtonVariant.secondary,
-      size: DButtonSize.filter,
-      backgroundColor: tokens.buttonTheme.outline.hover,
-      icon: DIcon(icon, size: 12),
-      label: Text(label),
-      onPressed: onPressed,
-    );
-    if (url case final url?) return LinkTarget(url: url, child: button);
-    if (content case final content?) {
-      return LinkTarget.content(content: content, child: button);
-    }
-    return button;
-  }
-}

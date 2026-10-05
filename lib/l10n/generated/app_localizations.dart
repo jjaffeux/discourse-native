@@ -23168,6 +23168,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Speaking'**
   String get voiceSpeaking;
+
+  /// Start alphabet index shortcut for pinned sections.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned sections'**
+  String get startPagePinnedSections;
+
+  /// No description provided for @pinStartSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin {title} to the top'**
+  String pinStartSection(String title);
+
+  /// No description provided for @unpinStartSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin {title}'**
+  String unpinStartSection(String title);
 }
 
 class _AppLocalizationsDelegate

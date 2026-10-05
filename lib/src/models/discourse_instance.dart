@@ -441,14 +441,14 @@ class DiscourseInstance {
               SidebarDestination(
                 id: 'users',
                 label: appL10n.users,
-                icon: DIcons.user,
+                icon: DIcons.users,
               ),
             ],
             moreDestinations: [
               SidebarDestination(
                 id: 'groups',
                 label: appL10n.groups,
-                icon: DIcons.users,
+                icon: DIcons.userGroup,
               ),
               SidebarDestination(
                 id: 'badges',
@@ -494,14 +494,14 @@ class DiscourseInstance {
               SidebarDestination(
                 id: 'users',
                 label: appL10n.users,
-                icon: DIcons.user,
+                icon: DIcons.users,
               ),
             ],
             moreDestinations: [
               SidebarDestination(
                 id: 'groups',
                 label: appL10n.groups,
-                icon: DIcons.users,
+                icon: DIcons.userGroup,
               ),
               SidebarDestination(
                 id: 'badges',

@@ -6,6 +6,18 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('restored directory tabs adopt updated default icons', () {
+    for (final (id, oldIcon, newIcon) in [
+      ('users', DIcons.user, DIcons.users),
+      ('activity', DIcons.list, DIcons.barsStaggered),
+    ]) {
+      final saved = ContentRoute(id: id, title: id, icon: oldIcon).toJson();
+      expect(ContentRoute.fromJson(saved).icon, newIcon);
+      final custom = ContentRoute(id: id, title: id, icon: DIcons.star);
+      expect(ContentRoute.fromJson(custom.toJson()).icon, DIcons.star);
+    }
+  });
+
   test('forum About is distinct from application About and persists', () {
     final route = ContentRoute.forumAbout();
     expect(route.isForumAbout, isTrue);
