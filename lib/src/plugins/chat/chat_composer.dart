@@ -1413,7 +1413,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.blockEnd,
                   child: Row(
-                    spacing: DSpacing.xs,
+                    spacing: DSpacing.controlGap,
                     children: [
                       ValueListenableBuilder<SiteConfig>(
                         valueListenable: host.siteConfigListenableFor(
@@ -1516,6 +1516,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                 child: DDropdownMenuTrigger(
                                   builder: (context, state) => DButton.iconOnly(
                                     key: const ValueKey('chat-composer-add'),
+                                    size: DButtonSize.large,
                                     onPressed: enabled ? state.toggle : null,
                                     focusNode: state.focusNode,
                                     hasPopup: true,
@@ -1551,6 +1552,7 @@ class _ChatComposerState extends State<ChatComposer> {
                                             key: const ValueKey(
                                               'chat-composer-emoji',
                                             ),
+                                            size: DButtonSize.large,
                                             onPressed:
                                                 _pickingGif ||
                                                     _pickingFiles ||

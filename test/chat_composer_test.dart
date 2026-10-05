@@ -40,7 +40,9 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -446,6 +448,99 @@ void main() {
     expect(find.text('Emoji'), findsNothing);
     expect(find.text('Insert GIF'), findsNothing);
   });
+
+  testWidgets(
+    'insertion actions have larger artwork and consistent control spacing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+
+      for (final dark in [false, true]) {
+        for (final direction in TextDirection.values) {
+          await tester.pumpWidget(
+            _TestView(shell: fixture.shell, dark: dark, direction: direction),
+          );
+          for (final scale in [
+            AppTextScale.percent100,
+            AppTextScale.percent200,
+          ]) {
+            await fixture.shell.appSettings.setTextScale(scale);
+            await tester.pumpAndSettle();
+
+            final add = find.byKey(const ValueKey('chat-composer-add'));
+            final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
+            final addBounds = tester.getRect(add);
+            final emojiBounds = tester.getRect(emoji);
+            final minimumDimension = switch (defaultTargetPlatform) {
+              TargetPlatform.iOS || TargetPlatform.android => 48.0,
+              _ => 40.0,
+            };
+            for (final action in [add, emoji]) {
+              final bounds = tester.getRect(action);
+              expect(bounds.width, greaterThanOrEqualTo(minimumDimension));
+              expect(bounds.height, bounds.width);
+              expect(
+                tester.getRect(
+                  find.descendant(
+                    of: action,
+                    matching: find.byType(DControlArtwork),
+                  ),
+                ),
+                bounds,
+              );
+              final icon = find.descendant(
+                of: action,
+                matching: find.byType(DIcon),
+              );
+              expect(tester.getSize(icon), const Size(16, 16));
+              expect(
+                tester
+                    .widget<TintedIconGlyph>(
+                      find.descendant(
+                        of: icon,
+                        matching: find.byType(TintedIconGlyph),
+                      ),
+                    )
+                    .height,
+                14,
+              );
+            }
+            expect(addBounds.center.dy, emojiBounds.center.dy);
+            final gap = direction == TextDirection.ltr
+                ? emojiBounds.left - addBounds.right
+                : addBounds.left - emojiBounds.right;
+            expect(gap, DSpacing.controlGap);
+            final bar = tester.getRect(
+              find.byKey(const ValueKey('chat-composer')),
+            );
+            expect(bar.contains(addBounds.topLeft), isTrue);
+            expect(bar.contains(emojiBounds.bottomRight), isTrue);
+
+            // The space between actions belongs to the editor, not a button.
+            await tester.tapAt(
+              Offset(
+                (addBounds.center.dx + emojiBounds.center.dx) / 2,
+                addBounds.center.dy,
+              ),
+            );
+            await tester.pump();
+            expect(find.byType(DDropdownMenuContent), findsNothing);
+            expect(_field(tester).focusNode!.hasFocus, isTrue);
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   for (final width in [360.0, 1024.0]) {
     for (final dark in [false, true]) {
@@ -4000,11 +4095,17 @@ Future<void> _closeGifPicker(WidgetTester tester, [GifResult? result]) async {
 }
 
 final class _TestView extends StatelessWidget {
-  const _TestView({required this.shell, this.dark = false, this.platform});
+  const _TestView({
+    required this.shell,
+    this.dark = false,
+    this.platform,
+    this.direction = TextDirection.ltr,
+  });
 
   final ShellController shell;
   final bool dark;
   final TargetPlatform? platform;
+  final TextDirection direction;
 
   @override
   Widget build(BuildContext context) {
@@ -4013,7 +4114,10 @@ final class _TestView extends StatelessWidget {
         platform: platform,
       ),
       builder: (context, child) => DToaster(
-        child: AppTextScaleRegion(controller: shell.appSettings, child: child!),
+        child: AppTextScaleRegion(
+          controller: shell.appSettings,
+          child: Directionality(textDirection: direction, child: child!),
+        ),
       ),
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
     );
