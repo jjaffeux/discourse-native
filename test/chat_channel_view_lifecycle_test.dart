@@ -1615,9 +1615,12 @@ void main() {
         expect(bar.hitTestable(), findsOneWidget);
 
         Future<void> wheel(double delta) async {
+          // The floating header shares the viewport's upper area; send input
+          // through the exposed transcript below it.
+          final viewport = tester.getRect(scroll);
           await tester.sendEventToBinding(
             PointerScrollEvent(
-              position: tester.getCenter(scroll),
+              position: Offset(viewport.center.dx, viewport.bottom - 8),
               scrollDelta: Offset(0, delta),
             ),
           );

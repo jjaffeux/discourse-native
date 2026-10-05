@@ -39,6 +39,7 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,6 +64,20 @@ final _user = DiscourseUser(
 );
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
+
+Future<void> _chatWheel(
+  WidgetTester tester,
+  Finder messages,
+  double delta,
+) async {
+  await tester.sendEventToBinding(
+    PointerScrollEvent(
+      position: tester.getCenter(messages),
+      scrollDelta: Offset(0, delta),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
 
 Future<void> _tapDockTab(
   WidgetTester tester,
@@ -486,74 +501,83 @@ void main() {
     },
   );
 
-  _mobileTest('channel scrolling keeps destinations and Send in place', (
-    tester,
-  ) async {
-    await pumpMobileShellFixture(
-      tester,
-      chatMessages: [
-        for (var id = 1; id <= 50; id++)
-          ChatMessage(
-            id: id,
-            channelId: 10,
-            cooked: '<p>Scrollable chat message $id</p>',
-            author: ChatMessageAuthor(
-              id: id % 2 + 1,
-              username: 'reader${id % 2}',
+  _mobileTest(
+    'channel scrolling retracts navigation and keeps Send available',
+    (tester) async {
+      await pumpMobileShellFixture(
+        tester,
+        chatMessages: [
+          for (var id = 1; id <= 50; id++)
+            ChatMessage(
+              id: id,
+              channelId: 10,
+              cooked: '<p>Scrollable chat message $id</p>',
+              author: ChatMessageAuthor(
+                id: id % 2 + 1,
+                username: 'reader${id % 2}',
+              ),
+              createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
             ),
-            createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
-          ),
-      ],
-    );
-    await _tapDockTab(tester, 'panel/chat');
-    await _selectChatKind(tester, 'Direct messages');
-    await tester.tap(find.text('sam').first);
-    await tester.pumpAndSettle();
-    final messages = find.byType(DMessageScrollerViewport);
-    final start = find.byKey(const ValueKey('mobile-mode-start'));
-    final send = find.byKey(const ValueKey('chat-composer-send'));
-    final originalSend = tester.getRect(send);
-    final originalBar = tester.getRect(_bar);
-    // Chat begins at its newest messages. Read older messages, then down again.
-    await tester.drag(messages, const Offset(0, 320));
-    await tester.pumpAndSettle();
-    await tester.drag(messages, const Offset(0, -160));
-    await tester.pumpAndSettle();
-    expect(start.hitTestable(), findsOneWidget);
-    expect(send.hitTestable(), findsOneWidget);
-    expect(tester.getRect(send), originalSend);
-    expect(tester.getRect(_bar), originalBar);
-    await tester.enterText(
-      find.descendant(
-        of: find.byType(ComposerEditor),
-        matching: find.byType(TextField),
-      ),
-      'Send remains available',
-    );
-    await tester.pumpAndSettle();
-    expect(start.hitTestable(), findsOneWidget);
-    expect(tester.widget<DButton>(send).onPressed, isNotNull);
-    await tester.tap(send);
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<ComposerEditor>(find.byType(ComposerEditor))
-          .composer
-          .text
-          .text,
-      isEmpty,
-    );
-    await tester.drag(messages, const Offset(0, 80));
-    await tester.pumpAndSettle();
-    expect(start.hitTestable(), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+        ],
+      );
+      await _tapDockTab(tester, 'panel/chat');
+      await _selectChatKind(tester, 'Direct messages');
+      await tester.tap(find.text('sam').first);
+      await tester.pumpAndSettle();
+      final messages = find.byType(DMessageScrollerViewport);
+      final start = find.byKey(const ValueKey('mobile-mode-start'));
+      final send = find.byKey(const ValueKey('chat-composer-send'));
+      final originalSend = tester.getRect(send);
+      final originalBar = tester.getRect(_bar);
+      final scroll = tester
+          .widget<DMessageScrollerViewport>(messages)
+          .scrollController!;
+      scroll.jumpTo(700);
+      await tester.pumpAndSettle();
+      await _chatWheel(tester, messages, 160);
+      expect(start.hitTestable(), findsNothing);
+      expect(
+        find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
+        findsNothing,
+      );
+      expect(send.hitTestable(), findsOneWidget);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerEditor),
+          matching: find.byType(TextField),
+        ),
+        'Send remains available',
+      );
+      await tester.pumpAndSettle();
+      expect(send.hitTestable(), findsOneWidget);
+      expect(tester.widget<DButton>(send).onPressed, isNotNull);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ComposerEditor>(find.byType(ComposerEditor))
+            .composer
+            .text
+            .text,
+        isEmpty,
+      );
+      await _chatWheel(tester, messages, -20);
+      expect(start.hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.getRect(send), originalSend);
+      expect(tester.getRect(_bar), originalBar);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final thread in [false, true]) {
     for (final readOnly in [false, true]) {
       _mobileTest(
-        '${thread ? 'thread' : 'public channel'} scrolling keeps the tab bar '
-        'visible (read only: $readOnly)',
+        '${thread ? 'thread' : 'public channel'} scrolling shares topic header '
+        'visibility (read only: $readOnly)',
         (tester) async {
           final shell = await pumpMobileShellFixture(
             tester,
@@ -611,20 +635,34 @@ void main() {
           final start = find.byKey(const ValueKey('mobile-mode-start'));
           final panel = find.byKey(const ValueKey('mobile-content-panel'));
           final originalBar = tester.getRect(_bar);
+          final title = find.text(thread ? 'Support thread' : 'Support');
           final originalPanel = tester.getRect(panel);
           final send = find.byKey(const ValueKey('chat-composer-send'));
           expect(send, readOnly ? findsNothing : findsOneWidget);
-
-          // Start at the newest messages, read back, then scroll down again.
-          for (final delta in [320.0, -160.0, 80.0]) {
-            final offset = scroll.offset;
-            await tester.drag(messages, Offset(0, delta));
-            await tester.pumpAndSettle();
-            expect(scroll.offset, isNot(offset));
-            expect(start.hitTestable(), findsOneWidget);
-            expect(tester.getRect(_bar), originalBar);
-            expect(tester.getRect(panel), originalPanel);
-          }
+          final streamElement = tester.element(messages);
+          scroll.jumpTo(700);
+          await tester.pumpAndSettle();
+          expect(title.hitTestable(), findsOneWidget);
+          await _chatWheel(tester, messages, 160);
+          expect(start.hitTestable(), findsNothing);
+          expect(title.hitTestable(), findsNothing);
+          expect(send.hitTestable(), readOnly ? findsNothing : findsOneWidget);
+          expect(
+            tester.getRect(panel).bottom,
+            readOnly ? greaterThan(originalPanel.bottom) : originalPanel.bottom,
+          );
+          expect(tester.element(messages), same(streamElement));
+          await _chatWheel(tester, messages, -20);
+          expect(start.hitTestable(), findsOneWidget);
+          expect(title.hitTestable(), findsOneWidget);
+          expect(tester.getRect(_bar), originalBar);
+          // The physical bottom reveals navigation even without reversing.
+          await _chatWheel(tester, messages, 100);
+          expect(title.hitTestable(), findsNothing);
+          await _chatWheel(tester, messages, 2000);
+          expect(scroll.offset, 0);
+          expect(title.hitTestable(), findsOneWidget);
+          expect(start.hitTestable(), findsOneWidget);
           await tester.tap(start);
           await tester.pumpAndSettle();
           expect(shell.currentContent?.isNewTab, isTrue);

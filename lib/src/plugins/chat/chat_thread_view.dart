@@ -58,22 +58,16 @@ class ChatThreadWorkspace extends StatelessWidget {
                     ShellLayout.expanded &&
                 constraints.maxWidth >= _ChatThreadSplit.minimumTotalWidth;
             if (!expanded) {
-              return Column(
-                children: [
-                  _ThreadHeader(
-                    siteUrl: siteUrl,
-                    target: target,
-                    leading: _HeaderAction.back,
-                  ),
-                  Expanded(
-                    child: ChatThreadView(
-                      siteUrl: siteUrl,
-                      target: target,
-                      chat: chat,
-                      showTimeGapDays: pane.showTimeGapDays,
-                    ),
-                  ),
-                ],
+              return ChatThreadView(
+                siteUrl: siteUrl,
+                target: target,
+                chat: chat,
+                showTimeGapDays: pane.showTimeGapDays,
+                header: _ThreadHeader(
+                  siteUrl: siteUrl,
+                  target: target,
+                  leading: _HeaderAction.back,
+                ),
               );
             }
             return _ChatThreadSplit(
@@ -159,44 +153,32 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
               children: [
                 Expanded(
                   key: const ValueKey('chat-channel-pane'),
-                  child: Column(
-                    children: [
-                      _ChannelPaneHeader(
-                        siteUrl: widget.siteUrl,
-                        channelId: widget.target.channelId,
-                      ),
-                      Expanded(
-                        child: ChatChannelView(
-                          channelId: widget.target.channelId,
-                          showHeader: false,
-                          autofocusMessageStream: false,
-                          autofocusComposer: false,
-                        ),
-                      ),
-                    ],
+                  child: ChatChannelView(
+                    channelId: widget.target.channelId,
+                    showHeader: false,
+                    autofocusMessageStream: false,
+                    autofocusComposer: false,
+                    header: _ChannelPaneHeader(
+                      siteUrl: widget.siteUrl,
+                      channelId: widget.target.channelId,
+                    ),
                   ),
                 ),
                 const SizedBox(width: _ChatThreadSplit.dividerWidth),
                 SizedBox(
                   key: const ValueKey('chat-thread-pane'),
                   width: threadWidth,
-                  child: Column(
-                    children: [
-                      _ThreadHeader(
-                        siteUrl: widget.siteUrl,
-                        target: widget.target,
-                        leading: _HeaderAction.none,
-                        showClose: true,
-                      ),
-                      Expanded(
-                        child: ChatThreadView(
-                          siteUrl: widget.siteUrl,
-                          target: widget.target,
-                          chat: widget.chat,
-                          showTimeGapDays: widget.showTimeGapDays,
-                        ),
-                      ),
-                    ],
+                  child: ChatThreadView(
+                    siteUrl: widget.siteUrl,
+                    target: widget.target,
+                    chat: widget.chat,
+                    showTimeGapDays: widget.showTimeGapDays,
+                    header: _ThreadHeader(
+                      siteUrl: widget.siteUrl,
+                      target: widget.target,
+                      leading: _HeaderAction.none,
+                      showClose: true,
+                    ),
                   ),
                 ),
               ],
@@ -269,12 +251,14 @@ class ChatThreadView extends StatefulWidget {
     required this.target,
     required this.chat,
     required this.showTimeGapDays,
+    this.header,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatController chat;
   final int showTimeGapDays;
+  final Widget? header;
 
   @override
   State<ChatThreadView> createState() => _ChatThreadViewState();
@@ -454,55 +438,63 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     return ChatUploadDropRegion(
       controller: _uploadDropController,
       title: appL10n.dropFilesToUploadToThisThread,
-      child: Column(
-        children: [
-          if (stream.notice case final notice?)
-            Semantics(
-              liveRegion: true,
-              child: Container(
-                key: const ValueKey('chat-thread-notice'),
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                child: Text(
-                  notice,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+      child: DPageSurface.scrollable(
+        framed: false,
+        hideHeaderOnScroll: true,
+        identity: (widget.siteUrl, widget.target, widget.chat),
+        header: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ?widget.header,
+            if (stream.notice case final notice?)
+              Semantics(
+                liveRegion: true,
+                child: Container(
+                  key: const ValueKey('chat-thread-notice'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: Text(
+                    notice,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
                   ),
                 ),
               ),
-            ),
-          Expanded(child: content),
-          if (_selectingMessages)
-            ChatMessageSelectionBar(
-              siteUrl: widget.siteUrl,
-              channelId: widget.target.channelId,
-              messageIds: _selectedMessageIds,
-              chat: widget.chat,
-              onCancel: _cancelSelecting,
-            )
-          else if (!stream.threadUnavailable &&
-              (stream.error == null || hasMessages))
-            ChatComposer(
-              key: ValueKey((
-                widget.siteUrl,
-                widget.target.channelId,
-                widget.target.threadId,
-                'composer',
-              )),
-              siteUrl: widget.siteUrl,
-              channelId: widget.target.channelId,
-              threadId: widget.target.threadId,
-              focusRequest: context.isTouch ? 0 : _focusComposerRequest,
-              uploadDropController: _uploadDropController,
-              editingMessage: _editingMessage,
-              onEditMessage: _editMessage,
-              onEditFinished: _finishEditing,
-            ),
-        ],
+          ],
+        ),
+        footer: _selectingMessages
+            ? ChatMessageSelectionBar(
+                siteUrl: widget.siteUrl,
+                channelId: widget.target.channelId,
+                messageIds: _selectedMessageIds,
+                chat: widget.chat,
+                onCancel: _cancelSelecting,
+              )
+            : !stream.threadUnavailable && (stream.error == null || hasMessages)
+            ? ChatComposer(
+                key: ValueKey((
+                  widget.siteUrl,
+                  widget.target.channelId,
+                  widget.target.threadId,
+                  'composer',
+                )),
+                siteUrl: widget.siteUrl,
+                channelId: widget.target.channelId,
+                threadId: widget.target.threadId,
+                focusRequest: context.isTouch ? 0 : _focusComposerRequest,
+                uploadDropController: _uploadDropController,
+                editingMessage: _editingMessage,
+                onEditMessage: _editMessage,
+                onEditFinished: _finishEditing,
+              )
+            : null,
+        bodyBuilder: (_, header) =>
+            hasMessages ? content : header.inset(content, fullExtent: true),
       ),
     );
   }
