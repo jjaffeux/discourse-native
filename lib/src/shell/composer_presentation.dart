@@ -49,6 +49,13 @@ class ComposerPresentationHost extends StatefulWidget {
       .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()!
       .hasMobileSheet;
 
+  static bool hasVisibleComposerOf(BuildContext context) {
+    final owner = context
+        .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()
+        ?.owner;
+    return owner?._entries[owner._presentableComposer]?.minimized == false;
+  }
+
   /// Reveals sidebar destinations while retaining the current draft and dock.
   static void redockForNavigation(BuildContext context) {
     if (context.isTouch) return;

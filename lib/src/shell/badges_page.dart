@@ -496,16 +496,10 @@ class BadgeRow extends StatelessWidget {
       children: [
         DItemMedia(
           variant: DItemMediaVariant.avatar,
-          child: DAvatar(
+          child: BadgeMedal(
+            badge: badge,
+            siteUrl: siteUrl,
             size: DAvatarSize.lg,
-            decorative: true,
-            fallback: DAvatarFallback(
-              backgroundColor: _tierColor(
-                context,
-                badge.tier,
-              ).withValues(alpha: .22),
-              child: BadgeSymbol(badge: badge, siteUrl: siteUrl, size: 20),
-            ),
           ),
         ),
         DItemContent(
@@ -535,6 +529,34 @@ class BadgeRow extends StatelessWidget {
       ],
     );
   }
+}
+
+class BadgeMedal extends StatelessWidget {
+  const BadgeMedal({
+    super.key,
+    required this.badge,
+    required this.siteUrl,
+    this.size = DAvatarSize.sm,
+  });
+  final DiscourseBadge badge;
+  final String siteUrl;
+  final DAvatarSize size;
+
+  @override
+  Widget build(BuildContext context) => DAvatar(
+    size: size,
+    decorative: true,
+    ring: true,
+    ringColor: _tierColor(context, badge.tier).withValues(alpha: .45),
+    fallback: DAvatarFallback(
+      backgroundColor: _tierColor(context, badge.tier).withValues(alpha: .18),
+      child: BadgeSymbol(
+        badge: badge,
+        siteUrl: siteUrl,
+        size: size == DAvatarSize.lg ? 20 : 12,
+      ),
+    ),
+  );
 }
 
 class BadgeSymbol extends StatelessWidget {

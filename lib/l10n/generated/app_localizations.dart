@@ -23186,6 +23186,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unpin {title}'**
   String unpinStartSection(String title);
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Person'**
+  String get summaryPerson;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Posted in'**
+  String get summaryPostedIn;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Clicks'**
+  String get summaryClicks;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Started a topic'**
+  String get activityStartedTopic;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Replied'**
+  String get activityReplied;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Show split view'**
+  String get showSplitView;
+
+  /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide split view'**
+  String get hideSplitView;
 }
 
 class _AppLocalizationsDelegate

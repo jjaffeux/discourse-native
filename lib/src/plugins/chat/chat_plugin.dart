@@ -476,6 +476,16 @@ class ChatPlugin
             icon: DIcons.hashtag,
             onTap: shell.openBrowseChannels,
           ),
+          entries: [
+            for (final channel in chat.publicChannels(site))
+              SidebarDestination(
+                id: 'chat-c-${channel.id}',
+                label: channel.title,
+                icon: DIcons.hashtag,
+                unreadCount: channel.tracking.unreadCount,
+                onTap: () => shell.openChannel(channel.id),
+              ),
+          ],
         ),
       if (shell.isConnected(site) && settings.threadsEnabled)
         StartPageSection(

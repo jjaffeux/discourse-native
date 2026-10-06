@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/frame_safe_notifier.dart';
 import '../models/forum_workspace.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
@@ -25,7 +26,7 @@ enum _WindowResizeEdge { left, right }
 /// Both belong to the window rather than to the panels showing them, so they
 /// outlive views that replace the panels for a while, such as a forum's sign-in
 /// gate. Neither is persisted.
-final class DesktopPanelsLayout {
+final class DesktopPanelsLayout extends FrameSafeNotifier {
   final mainWidth = PanelWidthController(
     initialWidth: 400 + workspacePanelGap,
     minimumWidth: 320 + workspacePanelGap,
@@ -34,8 +35,29 @@ final class DesktopPanelsLayout {
   // Only one panel stands down at a time, or there would be nothing left to
   // read.
   ForumPanel? _minimized;
+  VoidCallback? _toggle;
+  bool _splitVisible = false;
+  bool _canToggleSplit = false;
 
-  void dispose() => mainWidth.dispose();
+  bool get splitVisible => _splitVisible;
+  bool get canToggleSplit => _canToggleSplit && _toggle != null;
+
+  void toggleSplit() {
+    if (canToggleSplit) _toggle!();
+  }
+
+  void _present({required bool visible, required bool enabled}) {
+    if (_splitVisible == visible && _canToggleSplit == enabled) return;
+    _splitVisible = visible;
+    _canToggleSplit = enabled;
+    notifySafely();
+  }
+
+  @override
+  void dispose() {
+    mainWidth.dispose();
+    super.dispose();
+  }
 }
 
 /// Two document panels whose identities survive either one being minimized.
@@ -72,6 +94,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
   double? _anchoredWindowWidth;
   double? _lastSplitMainWidth;
   double? _lastSplitTotalWidth;
+  ForumPanel? _effectiveMinimized;
 
   PanelWidthController get _mainWidth => _layout.mainWidth;
 
@@ -82,6 +105,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
   void initState() {
     super.initState();
     _layout = widget.layout ?? (_ownedLayout = DesktopPanelsLayout());
+    _layout._toggle = _toggleSplit;
     _windowFrame = widget.windowFrame ?? (_ownedWindowFrame = WindowFrame());
     _previousWindowFrame = _windowFrame.value;
     _windowFrame.addListener(_frameChanged);
@@ -92,10 +116,13 @@ class _DesktopPanelsState extends State<DesktopPanels>
   void didUpdateWidget(DesktopPanels oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.layout != widget.layout) {
+      _layout._toggle = null;
+      _layout._present(visible: false, enabled: false);
       _mainWidth.removeListener(_preferredWidthChanged);
       _ownedLayout?.dispose();
       _ownedLayout = null;
       _layout = widget.layout ?? (_ownedLayout = DesktopPanelsLayout());
+      _layout._toggle = _toggleSplit;
       _mainWidth.addListener(_preferredWidthChanged);
     }
     if (oldWidget.windowFrame == widget.windowFrame) return;
@@ -137,7 +164,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
     setState(() => _resizeEdge = nextEdge);
   }
 
-  // The panel still folding into its rail or back out of it. The motion is
+  // The panel still folding away or back into view. The motion is
   // painted only: that panel slides and fades while the other one reveals
   // itself beside it, so no frame of it lays a document out again.
   final _moving = ValueNotifier<({ForumPanel panel, bool away})?>(null);
@@ -154,6 +181,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
 
   static ForumPanel _other(ForumPanel panel) =>
       panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main;
+
+  void _toggleSplit() {
+    if (_effectiveMinimized case final panel?) {
+      _restore(panel);
+    } else {
+      _minimize(ForumPanel.secondary);
+    }
+  }
 
   void _minimize(ForumPanel panel) {
     final shell = ShellScope.read(context);
@@ -236,6 +271,8 @@ class _DesktopPanelsState extends State<DesktopPanels>
 
   @override
   void dispose() {
+    _layout._toggle = null;
+    _layout._present(visible: false, enabled: false);
     _windowFrame.removeListener(_frameChanged);
     _ownedWindowFrame?.dispose();
     _mainWidth.removeListener(_preferredWidthChanged);
@@ -303,6 +340,11 @@ class _DesktopPanelsState extends State<DesktopPanels>
             total >= 640 + workspacePanelGap ||
             (minimized != null &&
                 total >= 320 + PanelRail.width + workspacePanelGap);
+        _effectiveMinimized = minimized;
+        _layout._present(
+          visible: horizontal && minimized == null,
+          enabled: total >= 640 + workspacePanelGap,
+        );
         final mainWidth = requestedMainWidth
             .clamp(
               minimumMainWidth,
@@ -426,20 +468,17 @@ class _DesktopPanelsState extends State<DesktopPanels>
               minimizable: shell.selectedTabIn(_other(target)) != null,
             ),
         };
-        final rail = minimized == null
+        final rail = minimized != ForumPanel.main
             ? null
             : Align(
                 alignment: AlignmentDirectional.topStart,
                 child: CurrentForumTabsRail(
-                  key: ValueKey('panel-rail-${minimized.name}'),
-                  panel: minimized,
-                  semanticLabel: minimized == ForumPanel.main
-                      ? context.l10n.mainPanelMinimized
-                      : context.l10n.secondaryPanelMinimized,
-                  opensTowardStart: minimized == ForumPanel.secondary,
-                  onRestore: () => _restore(minimized),
-                  onSelect: (id) => _restore(minimized, tabId: id),
-                  onNewTab: () => _restore(minimized, newTab: true),
+                  key: const ValueKey('panel-rail-main'),
+                  panel: ForumPanel.main,
+                  semanticLabel: context.l10n.mainPanelMinimized,
+                  onRestore: () => _restore(ForumPanel.main),
+                  onSelect: (id) => _restore(ForumPanel.main, tabId: id),
+                  onNewTab: () => _restore(ForumPanel.main, newTab: true),
                 ),
               );
         return ListenableBuilder(
@@ -457,10 +496,10 @@ class _DesktopPanelsState extends State<DesktopPanels>
               child: const SizedBox.shrink(),
             );
             const docked = PanelRail.width + workspacePanelGap;
-            // How far each panel travels toward its own edge to fold into the
-            // rail there, measured from where it stands beside the other.
+            // Main folds into its rail; secondary leaves the workspace entirely,
+            // including the gap, so the revealed document reaches the edge.
             final mainTravel = mainWidth - workspacePanelGap - PanelRail.width;
-            final secondaryTravel = total - PanelRail.width - mainWidth;
+            final secondaryTravel = total + workspacePanelGap - mainWidth;
             final ltr = direction == TextDirection.ltr ? 1.0 : -1.0;
             // Both panels keep one place in the tree in every layout, at rest
             // and in motion. Moving a document under another parent would
@@ -477,10 +516,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
               // A minimized panel keeps the place it returns to, so it is laid
               // out again only when the window changes.
               final (start, width) = switch ((target, placed)) {
-                (ForumPanel.main, ForumPanel.secondary) => (
-                  0.0,
-                  total - docked,
-                ),
+                (ForumPanel.main, ForumPanel.secondary) => (0.0, total),
                 (ForumPanel.secondary, ForumPanel.main) => (
                   docked,
                   total - docked,
@@ -566,7 +602,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
             return Stack(
               children: [
                 for (final target in ForumPanel.values) slot(target),
-                if (rail == null && moving == null)
+                if (minimized == null && moving == null)
                   // The pane carries only the seam's handle; the panels sit
                   // beside it in their own places.
                   PositionedDirectional(
@@ -575,7 +611,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     bottom: 0,
                     child: seam,
                   )
-                else if (minimized != null)
+                else if (rail != null)
                   PositionedDirectional(
                     start: minimized == ForumPanel.main ? 0 : null,
                     end: minimized == ForumPanel.secondary ? 0 : null,

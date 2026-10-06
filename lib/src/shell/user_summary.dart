@@ -15,7 +15,6 @@ import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
-import 'external_link.dart';
 import 'global_search_models.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -186,145 +185,122 @@ class _SummaryContentState extends State<_SummaryContent> {
   }
 
   @override
-  Widget build(BuildContext context) => _SummaryLayout(
-    profile: _ProfileCard(instance: widget.instance, summary: widget.summary),
-    content: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.error case final error?)
-          _SummaryErrorBanner(
-            error: error,
-            refreshing: widget.refreshing,
-            onRetry: widget.onRefresh,
+  Widget build(BuildContext context) => DTabs<_SummaryTab>.controlled(
+    value: _tab,
+    onChanged: _selectTab,
+    children: [
+      Expanded(
+        child: _SummaryLayout(
+          profile: _ProfileCard(
+            instance: widget.instance,
+            summary: widget.summary,
           ),
-        DTabs<_SummaryTab>.controlled(
-          value: _tab,
-          onChanged: _selectTab,
-          children: [
-            DTabList<_SummaryTab>(
-              variant: DTabListVariant.line,
-              children: [
-                DTabTrigger(
-                  value: _SummaryTab.highlights,
-                  child: Text(context.l10n.highlights),
-                ),
-                DTabTrigger(
-                  value: _SummaryTab.connections,
-                  child: Text(context.l10n.connections),
-                ),
-                DTabTrigger(
-                  value: _SummaryTab.reading,
-                  child: Text(context.l10n.reading),
-                ),
-              ],
-            ),
-            const SizedBox(height: DSpacing.sm),
-            DTabPanel(
-              value: _SummaryTab.highlights,
-              child: _Highlights(
-                instance: widget.instance,
-                summary: widget.summary,
+          controls: DTabList<_SummaryTab>(
+            variant: DTabListVariant.line,
+            children: [
+              DTabTrigger(
+                value: _SummaryTab.highlights,
+                child: Text(context.l10n.highlights),
               ),
-            ),
-            DTabPanel(
-              value: _SummaryTab.connections,
-              child: _Connections(
-                siteUrl: widget.instance.url,
-                summary: widget.summary,
+              DTabTrigger(
+                value: _SummaryTab.connections,
+                child: Text(context.l10n.connections),
               ),
-            ),
-            DTabPanel(
-              value: _SummaryTab.reading,
-              child: _Reading(
-                instance: widget.instance,
-                summary: widget.summary,
+              DTabTrigger(
+                value: _SummaryTab.reading,
+                child: Text(context.l10n.reading),
               ),
-            ),
-          ],
+            ],
+          ),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.error case final error?)
+                _SummaryErrorBanner(
+                  error: error,
+                  refreshing: widget.refreshing,
+                  onRetry: widget.onRefresh,
+                ),
+              Stack(
+                alignment: AlignmentDirectional.topStart,
+                children: [
+                  DTabPanel(
+                    value: _SummaryTab.highlights,
+                    child: _Highlights(
+                      instance: widget.instance,
+                      summary: widget.summary,
+                    ),
+                  ),
+                  DTabPanel(
+                    value: _SummaryTab.connections,
+                    child: _Connections(
+                      siteUrl: widget.instance.url,
+                      summary: widget.summary,
+                    ),
+                  ),
+                  DTabPanel(
+                    value: _SummaryTab.reading,
+                    child: _Reading(
+                      instance: widget.instance,
+                      summary: widget.summary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ],
-    ),
+      ),
+    ],
   );
 }
 
-// These are application compositions of Native components, not new kit owners.
+// Profile, line tabs and content share the Start page's reading column.
 class _SummaryLayout extends StatelessWidget {
-  const _SummaryLayout({required this.profile, required this.content});
-
+  const _SummaryLayout({
+    required this.profile,
+    required this.content,
+    this.controls,
+  });
   final Widget profile;
   final Widget content;
+  final Widget? controls;
 
   @override
-  Widget build(BuildContext context) => ContentReadingLane(
-    widthLimit: 1136,
-    basePadding: const EdgeInsets.fromLTRB(16, 24, 16, 36),
-    builder: (context, lane) {
-      final width = ContentReadingLane.breakpointWidthOf(context, lane.width);
-      final wide =
-          width >= 760 && MediaQuery.textScalerOf(context).scale(14) <= 21;
-      if (!wide) {
-        return DScrollArea(
-          key: const PageStorageKey('user-summary-scroll'),
-          padding: lane.padding,
-          thumbVisibility: false,
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              profile,
-              const SizedBox(height: DSpacing.xl),
-              content,
-            ],
+  Widget build(BuildContext context) => DPageSurface.scrollable(
+    framed: false,
+    limitContentSize: false,
+    hideHeaderOnScroll: true,
+    header: ContentReadingLaneBox(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: profile,
+    ),
+    headerControls: controls == null
+        ? null
+        : ContentReadingLaneBox(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: controls!,
           ),
-        );
-      }
-      final rtl = Directionality.of(context) == TextDirection.rtl;
-      return Padding(
-        padding: EdgeInsets.only(
-          left: rtl ? 0 : lane.padding.left,
-          right: rtl ? lane.padding.right : 0,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    bodyBuilder: (context, header) => ContentReadingLane(
+      basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      builder: (context, lane) => DScrollArea(
+        key: const PageStorageKey('user-summary-scroll'),
+        thumbVisibility: false,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: width >= 1040 ? 248 : 208,
-              child: DScrollArea(
-                thumbVisibility: false,
-                padding: EdgeInsets.only(
-                  top: lane.padding.top,
-                  bottom: lane.padding.bottom,
-                  left: 1,
-                  right: 1,
-                ),
-                child: profile,
-              ),
-            ),
-            const SizedBox(width: DSpacing.xxl),
-            Expanded(
-              child: DScrollArea(
-                key: const PageStorageKey('user-summary-scroll'),
-                padding: EdgeInsets.only(
-                  top: lane.padding.top,
-                  bottom: lane.padding.bottom,
-                  left: rtl ? lane.padding.left + 1 : 1,
-                  right: rtl ? 1 : lane.padding.right + 1,
-                ),
-                thumbVisibility: false,
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: content,
-              ),
-            ),
+            header.spacer,
+            Padding(padding: lane.padding, child: content),
           ],
         ),
-      );
-    },
+      ),
+    ),
   );
 }
 
 class _ProfileCard extends StatelessWidget {
   const _ProfileCard({required this.instance, required this.summary});
-
   final DiscourseInstance instance;
   final UserSummary summary;
 
@@ -332,85 +308,39 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = instance.user!;
     final name = user.name?.trim();
-    final time = durationLabel(summary.timeRead);
-    return DCard(
-      key: const ValueKey('user-summary-profile'),
-      spacing: DSpacing.xl,
-      children: [
-        DCardContent(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SummaryAvatar(
-                username: user.username,
-                avatarUrl: user.avatarUrl,
-                size: DAvatarSize.lg,
-              ),
-              const SizedBox(height: DSpacing.lg),
-              DText(
-                name == null || name.isEmpty ? user.username : name,
-                variant: DTextVariant.h3,
-                headingLevel: 1,
-                style: const TextStyle(
-                  fontSize: DiscourseTypography.xxl,
-                  height: 32 / 24,
-                  fontWeight: FontWeight.w600,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+        return Row(
+          key: const ValueKey('user-summary-profile'),
+          spacing: DSpacing.sm,
+          children: [
+            _SummaryAvatar(username: user.username, avatarUrl: user.avatarUrl),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  name == null || name.isEmpty ? user.username : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
-              const SizedBox(height: DSpacing.xs),
+            ),
+            if (constraints.maxWidth > 520 * scale)
               _Caption('@${user.username}'),
-              const SizedBox(height: DSpacing.lg),
-              Row(
-                children: [
-                  const ExcludeSemantics(child: DIcon(DIcons.globe, size: 14)),
-                  const SizedBox(width: DSpacing.sm),
-                  Expanded(
-                    child: DText(
-                      instance.title,
-                      variant: DTextVariant.small,
-                      style: const TextStyle(
-                        fontSize: DiscourseTypography.xs,
-                        height: DiscourseTypography.lineHeightCaption,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (summary.canSeeSummaryStats) ...[
-                const SizedBox(height: DSpacing.xl),
-                const DSeparator(),
-                _DetailStats(
-                  values: [
-                    (
-                      label: context.l10n.daysVisited,
-                      value: _number(summary.daysVisited),
-                      semantics: null,
-                    ),
-                    (
-                      label: context.l10n.timeReading,
-                      value: time.short,
-                      semantics: context.l10n.readTimeAllTime(
-                        (time.long).toString(),
-                      ),
-                    ),
-                    (
-                      label: context.l10n.likesGiven,
-                      value: _number(summary.likesGiven),
-                      semantics: null,
-                    ),
-                    if (summary.bookmarkCount > 0)
-                      (
-                        label: context.l10n.bookmarks,
-                        value: _number(summary.bookmarkCount),
-                        semantics: null,
-                      ),
-                  ],
-                ),
-              ],
+            if (constraints.maxWidth > 680 * scale) ...[
+              const DIcon(DIcons.globe, size: 12),
+              Flexible(child: _Caption(instance.title)),
             ],
-          ),
-        ),
-      ],
+            if (constraints.maxWidth > 800 * scale &&
+                summary.canSeeSummaryStats)
+              _Caption(
+                '${_number(summary.daysVisited)} ${context.l10n.daysVisited.toLowerCase()}',
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -582,12 +512,11 @@ class _Reading extends StatelessWidget {
                       value: _number(summary.postsReadCount),
                       semantics: null,
                     ),
-                    if (summary.bookmarkCount > 0)
-                      (
-                        label: context.l10n.bookmarks,
-                        value: _number(summary.bookmarkCount),
-                        semantics: null,
-                      ),
+                    (
+                      label: context.l10n.bookmarks,
+                      value: _number(summary.bookmarkCount),
+                      semantics: null,
+                    ),
                   ],
                 ),
               ],
@@ -627,6 +556,10 @@ class _HeadlineStats extends StatelessWidget {
                 value: _number(summary.likesReceived),
               ),
               _Stat(
+                label: context.l10n.likesGiven,
+                value: _number(summary.likesGiven),
+              ),
+              _Stat(
                 label: context.l10n.repliesWritten,
                 value: _number(summary.postCount),
               ),
@@ -635,24 +568,36 @@ class _HeadlineStats extends StatelessWidget {
                 value: _number(summary.topicCount),
               ),
             ];
-            if (MediaQuery.textScalerOf(context).scale(12) > 18 ||
-                constraints.maxWidth < 240) {
-              return _SectionStack(children: stats);
-            }
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var index = 0; index < stats.length; index++) ...[
-                    if (index > 0)
-                      const DSeparator(
-                        orientation: Axis.vertical,
-                        space: DSpacing.lg,
-                      ),
-                    Expanded(child: stats[index]),
-                  ],
+            final columns =
+                constraints.maxWidth < 440 ||
+                    MediaQuery.textScalerOf(context).scale(12) > 18
+                ? 2
+                : 4;
+            return Column(
+              children: [
+                for (var start = 0; start < stats.length; start += columns) ...[
+                  if (start > 0) const SizedBox(height: DSpacing.lg),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (
+                          var index = start;
+                          index < start + columns;
+                          index++
+                        ) ...[
+                          if (index > start)
+                            const DSeparator(
+                              orientation: Axis.vertical,
+                              space: DSpacing.lg,
+                            ),
+                          Expanded(child: stats[index]),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
-              ),
+              ],
             );
           },
         ),
@@ -800,25 +745,7 @@ class _PairedSections extends StatelessWidget {
   final Widget right;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final width = ContentReadingLane.breakpointWidthOf(
-        context,
-        constraints.maxWidth,
-      );
-      if (width < 680 || MediaQuery.textScalerOf(context).scale(14) > 21) {
-        return _SectionStack(children: [left, right]);
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: left),
-          const SizedBox(width: DSpacing.xl),
-          Expanded(child: right),
-        ],
-      );
-    },
-  );
+  Widget build(BuildContext context) => _SectionStack(children: [left, right]);
 }
 
 class _SummarySection extends StatelessWidget {
@@ -828,6 +755,10 @@ class _SummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DCard(
+    backgroundColor: Color.alphaBlend(
+      DTokens.of(context).muted.withValues(alpha: .5),
+      DTokens.of(context).background,
+    ),
     children: [
       DCardHeader(title: DCardTitle(child: Text(title))),
       DCardContent(child: child),
@@ -959,73 +890,82 @@ class _LinkRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) => links.isEmpty
       ? _EmptySection(message: context.l10n.noLinksYet)
-      : DItemGroup(
-          spacing: DSpacing.sm,
-          children: [
-            for (final link in links)
-              _SummaryLinkRow(siteUrl: siteUrl, link: link),
-          ],
+      : LayoutBuilder(
+          builder: (context, constraints) {
+            final showSource =
+                constraints.maxWidth >= 520 &&
+                MediaQuery.textScalerOf(context).scale(12) <= 18;
+            return DTable(
+              columnWidths: {
+                0: const FlexColumnWidth(),
+                if (showSource) 1: const FlexColumnWidth(),
+                (showSource ? 2 : 1): const IntrinsicColumnWidth(),
+              },
+              header: DTableHeader(
+                rows: [
+                  DTableRow(
+                    cells: [
+                      DTableHead(child: Text(context.l10n.link)),
+                      if (showSource)
+                        DTableHead(child: Text(context.l10n.summaryPostedIn)),
+                      DTableHead(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Text(context.l10n.summaryClicks),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              body: DTableBody(
+                rows: [
+                  for (final link in links)
+                    DTableRow(
+                      cells: [
+                        DTableCell(
+                          softWrap: true,
+                          child: DButton(
+                            variant: DButtonVariant.inline,
+                            semanticLabel: context.l10n.openUsersummaryValue(
+                              link.topic.title,
+                            ),
+                            onPressed: () =>
+                                ShellScope.read(context).openSummaryTopic(
+                                  link.topic,
+                                  postNumber: link.postNumber,
+                                ),
+                            label: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  link.title ?? _shortUrl(link.url),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                _Caption(_shortUrl(link.url)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (showSource)
+                          DTableCell(
+                            softWrap: true,
+                            child: TopicTitle(
+                              link.topic.title,
+                              siteUrl: siteUrl,
+                              maxLines: 1,
+                            ),
+                          ),
+                        DTableCell(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: Text(_number(link.clicks)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            );
+          },
         );
-}
-
-class _SummaryLinkRow extends StatelessWidget {
-  const _SummaryLinkRow({required this.siteUrl, required this.link});
-  final String siteUrl;
-  final UserSummaryLink link;
-
-  @override
-  Widget build(BuildContext context) => DItem(
-    size: DItemSize.xs,
-    padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-    semanticLabel: context.l10n.openExternalLink(
-      (_shortUrl(link.url)).toString(),
-      (countLabel(link.clicks, CountNoun.click)).toString(),
-    ),
-    link: true,
-    onPressed: () => unawaited(openExternalLink(link.url)),
-    footer: DItemFooter(
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: DButton(
-          variant: DButtonVariant.link,
-          semanticLabel: context.l10n.openUsersummaryValue(
-            (link.topic.title).toString(),
-          ),
-          onPressed: () => ShellScope.read(
-            context,
-          ).openSummaryTopic(link.topic, postNumber: link.postNumber),
-          label: TopicTitle(link.topic.title, siteUrl: siteUrl, maxLines: 2),
-        ),
-      ),
-    ),
-    children: [
-      const DItemMedia(
-        child: ExcludeSemantics(child: DIcon(DIcons.link, size: 14)),
-      ),
-      DItemContent(
-        children: [
-          ExcludeSemantics(
-            child: DItemTitle(
-              maxLines: null,
-              child: Text(link.title ?? _shortUrl(link.url)),
-            ),
-          ),
-          ExcludeSemantics(
-            child: DItemDescription(child: Text(_shortUrl(link.url))),
-          ),
-        ],
-      ),
-      ExcludeSemantics(
-        child: _Caption(
-          countLabel(
-            link.clicks,
-            CountNoun.click,
-            number: _number(link.clicks),
-          ),
-        ),
-      ),
-    ],
-  );
 }
 
 class _UserRows extends StatelessWidget {
@@ -1043,48 +983,69 @@ class _UserRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) => users.isEmpty
       ? _EmptySection(message: emptyMessage)
-      : DItemGroup(
-          spacing: DSpacing.xs,
-          children: [
-            for (final user in users)
-              UserCardTarget(
-                username: user.username,
-                siteUrl: siteUrl,
-                semanticLabel: context.l10n.viewProfileForUsersummary(
-                  (user.displayName).toString(),
-                  (countLabel(user.count, noun)).toString(),
-                ),
-                child: DItem(
-                  size: DItemSize.xs,
-                  padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-                  children: [
-                    DItemMedia(
-                      child: _SummaryAvatar(
+      : DTable(
+          minimumWidth: MediaQuery.textScalerOf(context).scale(280),
+          columnWidths: const {0: FlexColumnWidth(), 1: IntrinsicColumnWidth()},
+          header: DTableHeader(
+            rows: [
+              DTableRow(
+                cells: [
+                  DTableHead(child: Text(context.l10n.summaryPerson)),
+                  DTableHead(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Text(
+                      noun == CountNoun.reply
+                          ? context.l10n.replies
+                          : context.l10n.likes,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          body: DTableBody(
+            rows: [
+              for (final user in users)
+                DTableRow(
+                  cells: [
+                    DTableCell(
+                      softWrap: true,
+                      child: UserCardTarget(
                         username: user.username,
-                        avatarUrl: user.avatarUrl,
+                        siteUrl: siteUrl,
+                        semanticLabel: context.l10n.viewProfileForUsersummary(
+                          user.displayName,
+                          countLabel(user.count, noun),
+                        ),
+                        child: DItem(
+                          size: DItemSize.xs,
+                          children: [
+                            _SummaryAvatar(
+                              username: user.username,
+                              avatarUrl: user.avatarUrl,
+                              size: DAvatarSize.sm,
+                            ),
+                            DItemContent(
+                              children: [
+                                DItemTitle(child: Text(user.displayName)),
+                                if (user.name != null)
+                                  DItemDescription(
+                                    child: Text('@${user.username}'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    DItemContent(
-                      children: [
-                        DItemTitle(
-                          maxLines: null,
-                          child: Text(user.displayName),
-                        ),
-                        if (user.name != null)
-                          DItemDescription(child: Text('@${user.username}')),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        DText(_number(user.count), variant: DTextVariant.small),
-                        _Caption(countNoun(user.count, noun)),
-                      ],
+                    DTableCell(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Text(_number(user.count)),
                     ),
                   ],
                 ),
-              ),
-          ],
+            ],
+          ),
         );
 }
 

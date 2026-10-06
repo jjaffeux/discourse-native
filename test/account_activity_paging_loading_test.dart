@@ -24,6 +24,61 @@ enum _Page { activity, bookmarks }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('Activity filters retain pagination and open the exact reply', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      userActivityItems: [
+        for (var i = 1; i <= 30; i++)
+          UserActivityItem(
+            actionType: 4,
+            topicId: i,
+            postNumber: 1,
+            title: 'Started $i',
+            slug: 'started',
+            username: 'reader',
+            excerpt: '',
+          ),
+        const UserActivityItem(
+          actionType: 5,
+          topicId: 50,
+          postNumber: 8,
+          title: 'A later reply',
+          slug: 'later',
+          username: 'reader',
+          excerpt: 'Answer',
+        ),
+      ],
+    );
+    await pumpShell(
+      tester,
+      phone,
+      instances: [instance('meta.discourse.org').copyWith(user: _user)],
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.openUserActivity(_site);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('activity-kind-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Replies').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Started 1'), findsNothing);
+    await tester.tap(find.text('Load more'));
+    await tester.pumpAndSettle();
+    expect(find.text('A later reply'), findsOneWidget);
+    expect(find.text('Replied'), findsOneWidget);
+    await tester.tap(find.text('A later reply'));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.topicId, 50);
+    expect(shell.currentContent?.postNumber, 8);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   for (final page in _Page.values) {
     testWidgets(
       'mobile ${page.name} retains rows with a visible next-page skeleton',

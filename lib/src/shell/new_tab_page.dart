@@ -11,20 +11,26 @@ import 'package:timezone/timezone.dart' as tz;
 import '../foundation/calendar_day.dart';
 import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
+import '../models/badge.dart';
+import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
+import '../models/group.dart';
 import '../models/list_link.dart';
 import '../models/sidebar.dart';
 import '../models/topic.dart';
+import '../models/user_summary.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
+import 'badges_page.dart';
 import 'external_link.dart';
 import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
+import 'groups_controller.dart';
 import 'instance_actions.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
@@ -47,6 +53,10 @@ class NewTabPage extends StatelessWidget {
     return ForumTabListenableBuilder(
       listenable: Listenable.merge([
         shell.accountActivity.bookmarksListenable,
+        shell.accountActivity.userActivityListenable,
+        shell.userSummary,
+        shell.groups,
+        shell.badges,
         shell.topicFeeds,
         shell.search,
         shell.startPage,
@@ -259,6 +269,126 @@ class NewTabPage extends StatelessWidget {
                   ),
                 ),
           ]).take(4).toList();
+    final activityRows = siteUrl == null || forum?.isConnected != true
+        ? <_StartPageEntry>[]
+        : matching([
+            for (final item
+                in shell!.accountActivity.userActivityFor(siteUrl).items)
+              _StartPageEntry(
+                id: 'activity-${item.identity}',
+                title: item.title,
+                icon: item.isTopic ? DIcons.layerGroup : DIcons.reply,
+                activityAt: item.createdAt,
+                description: item.plainExcerpt,
+                path: resolveSiteRootPath(
+                  siteUrl,
+                  '/t/${item.topicId}/${item.postNumber}',
+                ),
+                onPressed: () => shell.openUserActivityItem(item),
+              ),
+          ]).take(4).toList();
+    final groups = siteUrl == null
+        ? null
+        : shell!.groups.directoryState(siteUrl, const GroupDirectoryQuery());
+    final hasMembership =
+        groups?.groups.any((group) => group.isGroupUser) == true;
+    final groupRows = matching([
+      for (final group in groups?.groups ?? <Group>[])
+        if (!hasMembership || group.isGroupUser)
+          _StartPageEntry(
+            id: 'group-${group.id}',
+            title: group.displayName ?? group.name,
+            icon: DIcons.userGroup,
+            description: group.bioExcerpt,
+            count: group.userCount,
+            path: resolveSiteRootPath(
+              siteUrl!,
+              '/g/${Uri.encodeComponent(group.name)}',
+            ),
+            onPressed: () => openLink(
+              context,
+              shell!.siteLink('/g/${Uri.encodeComponent(group.name)}'),
+            ),
+          ),
+    ]).take(4).toList();
+    final catalog = siteUrl == null || forum?.config.badgesEnabled != true
+        ? null
+        : shell!.badges.stateFor(siteUrl, const BadgeRoute.directory()).catalog;
+    final badgeRows = matching([
+      for (final group in catalog?.groups ?? <BadgeGroup>[])
+        for (final badge in group.badges)
+          if (badge.hasBadge == true)
+            _StartPageEntry(
+              id: 'badge-${badge.id}',
+              title: badge.name,
+              icon: DIcons.certificate,
+              description: badge.description,
+              path: resolveSiteRootPath(
+                siteUrl!,
+                BadgeRoute.detail(badge.id).path,
+              ),
+              prefixBuilder: (context, size) =>
+                  BadgeMedal(badge: badge, siteUrl: siteUrl),
+              onPressed: () => openLink(
+                context,
+                shell!.siteLink(BadgeRoute.detail(badge.id).path),
+              ),
+            ),
+    ]).take(4).toList();
+    final summary = siteUrl == null || forum?.isConnected != true
+        ? null
+        : shell!.userSummary.stateFor(siteUrl).summary;
+    final people = <String, (UserSummaryUser, int)>{};
+    for (final person in [
+      ...?summary?.mostRepliedToUsers,
+      ...?summary?.mostLikedByUsers,
+      ...?summary?.mostLikedUsers,
+    ]) {
+      people[person.username] = (
+        person,
+        (people[person.username]?.$2 ?? 0) + person.count,
+      );
+    }
+    final rankedPeople = people.values.toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    final userRows = matching([
+      for (final (person, _) in rankedPeople)
+        _StartPageEntry(
+          id: 'user-${person.username}',
+          title: person.displayName,
+          description: '@${person.username}',
+          icon: DIcons.user,
+          avatarUrl: person.avatarUrl,
+          path: resolveSiteRootPath(
+            siteUrl!,
+            '/u/${Uri.encodeComponent(person.username)}',
+          ),
+          onPressed: () => openLink(
+            context,
+            shell!.siteLink('/u/${Uri.encodeComponent(person.username)}'),
+          ),
+        ),
+    ]).take(4).toList();
+    final messageRows = siteUrl == null || forum?.isConnected != true
+        ? <_StartPageEntry>[]
+        : matching([
+            for (final id
+                in shell!.topicFeeds
+                        .feedFor(siteUrl, ContentRoute.messages().id)
+                        ?.topicIds ??
+                    <int>[])
+              if (shell.store.read<Topic>(siteUrl, id) case final topic?)
+                _StartPageEntry(
+                  id: 'message-$id',
+                  title: topic.title,
+                  icon: DIcons.envelope,
+                  description: topic.excerpt,
+                  activityAt: topic.bumpedAt,
+                  count: topic.unreadCount,
+                  path: resolveSiteRootPath(siteUrl, '/t/$id'),
+                  onPressed: () => shell.openTopicFromList(topic),
+                ),
+          ]).take(4).toList();
     final contributed = registry?.startPageSections(context) ?? const [];
     final contributedIds = {
       for (final section in contributed) section.destination.id,
@@ -321,7 +451,7 @@ class NewTabPage extends StatelessWidget {
             id: 'messages',
             title: context.l10n.messages,
             icon: DIcons.inbox,
-            rows: const [],
+            rows: messageRows,
             siteUrl: siteUrl,
             onHeading: () => openLink(context, shell!.siteLink('/my/messages')),
           ),
@@ -337,7 +467,7 @@ class NewTabPage extends StatelessWidget {
             id: 'activity',
             title: context.l10n.activity,
             icon: DIcons.barsStaggered,
-            rows: const [],
+            rows: activityRows,
             siteUrl: siteUrl,
             onHeading: () => shell!.openUserActivity(siteUrl),
           ),
@@ -346,7 +476,7 @@ class NewTabPage extends StatelessWidget {
           id: 'groups',
           title: context.l10n.groups,
           icon: DIcons.userGroup,
-          rows: const [],
+          rows: groupRows,
           siteUrl: siteUrl,
           onHeading: () => openLink(context, shell!.siteLink('/g')),
         ),
@@ -354,7 +484,7 @@ class NewTabPage extends StatelessWidget {
           id: 'badges',
           title: context.l10n.badges,
           icon: DIcons.certificate,
-          rows: const [],
+          rows: badgeRows,
           siteUrl: siteUrl,
           onHeading: () => openLink(context, shell!.siteLink('/badges')),
         ),
@@ -362,7 +492,7 @@ class NewTabPage extends StatelessWidget {
           id: 'users',
           title: context.l10n.users,
           icon: DIcons.users,
-          rows: const [],
+          rows: userRows,
           siteUrl: siteUrl,
           onHeading: () => openLink(context, shell!.siteLink('/u')),
         ),

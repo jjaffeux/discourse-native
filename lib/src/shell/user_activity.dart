@@ -8,15 +8,12 @@ import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
-import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
-import 'cooked_html.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'skeleton_fill.dart';
@@ -112,7 +109,9 @@ class _UserActivityBody extends StatelessWidget {
   }
 }
 
-class _ActivityList extends StatelessWidget {
+enum _ActivityKind { all, topics, replies }
+
+class _ActivityList extends StatefulWidget {
   const _ActivityList({
     required this.siteUrl,
     required this.feed,
@@ -126,6 +125,24 @@ class _ActivityList extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLoadMore;
   final ValueChanged<UserActivityItem> onOpen;
+
+  @override
+  State<_ActivityList> createState() => _ActivityListState();
+}
+
+class _ActivityListState extends State<_ActivityList> {
+  _ActivityKind _kind = _ActivityKind.all;
+  UserActivityFeed get feed => widget.feed;
+  String get siteUrl => widget.siteUrl;
+  Future<void> Function() get onLoadMore => widget.onLoadMore;
+  Future<void> Function() get onRefresh => widget.onRefresh;
+  ValueChanged<UserActivityItem> get onOpen => widget.onOpen;
+
+  @override
+  void didUpdateWidget(_ActivityList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl) _kind = _ActivityKind.all;
+  }
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
@@ -142,55 +159,117 @@ class _ActivityList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasFooter = feed.loading || feed.error != null;
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) => NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (_nearEnd(notification)) unawaited(onLoadMore());
-          return false;
-        },
-        child: ListView.separated(
-          key: const PageStorageKey('user-activity-list'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
-          itemCount: feed.items.length + (hasFooter ? 1 : 0),
-          separatorBuilder: (context, index) => index < feed.items.length - 1
-              ? const Center(
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: DSeparator(space: 1),
-                  ),
-                )
-              : const SizedBox.shrink(),
-          itemBuilder: (context, index) {
-            if (index < feed.items.length) {
-              final item = feed.items[index];
-              return Center(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: UserActivityRow(
-                    siteUrl: siteUrl,
-                    item: item,
-                    category: feed.categoryFor(item.categoryId),
-                    onTap: () => onOpen(item),
+    final items = feed.items
+        .where(
+          (item) => switch (_kind) {
+            _ActivityKind.all => true,
+            _ActivityKind.topics => item.isTopic,
+            _ActivityKind.replies => item.isReply,
+          },
+        )
+        .toList();
+    final hasFooter = feed.loading || feed.error != null || feed.hasMore;
+    return Column(
+      children: [
+        ContentReadingLaneBox(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DSelect<_ActivityKind>.controlled(
+                key: const ValueKey('activity-kind-filter'),
+                value: _kind,
+                semanticLabel: context.l10n.activity,
+                onChanged: (value) {
+                  if (value != null) setState(() => _kind = value);
+                },
+                entries: [
+                  for (final (value, label) in [
+                    (_ActivityKind.all, context.l10n.allActivity),
+                    (_ActivityKind.topics, context.l10n.topics),
+                    (_ActivityKind.replies, context.l10n.replies),
+                  ])
+                    DSelectOption(
+                      value: value,
+                      label: label,
+                      child: Text(label),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ContentReadingLane(
+            basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            builder: (context, lane) =>
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (_nearEnd(notification)) unawaited(onLoadMore());
+                    return false;
+                  },
+                  child: ListView.separated(
+                    key: const PageStorageKey('user-activity-list'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: lane.padding,
+                    itemCount:
+                        items.length +
+                        (hasFooter ? 1 : 0) +
+                        (items.isEmpty ? 1 : 0),
+                    separatorBuilder: (context, index) =>
+                        index < items.length - 1
+                        ? const Center(
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: DSeparator(space: 1),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                    itemBuilder: (context, index) {
+                      if (items.isEmpty && index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(context.l10n.noActivityYet),
+                        );
+                      }
+                      if (index < items.length) {
+                        final item = items[index];
+                        return Center(
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: UserActivityRow(
+                              siteUrl: siteUrl,
+                              item: item,
+                              category: feed.categoryFor(item.categoryId),
+                              onTap: () => onOpen(item),
+                            ),
+                          ),
+                        );
+                      }
+                      if (feed.error case final error?) {
+                        return _LoadMoreError(
+                          message: error,
+                          onRetry: () => unawaited(
+                            feed.retryFromStart ? onRefresh() : onLoadMore(),
+                          ),
+                        );
+                      }
+                      return feed.loading
+                          ? AccountActivityPagingSkeleton(
+                              semanticsLabel: context.l10n.loadingMoreActivity,
+                            )
+                          : Align(
+                              child: DButton(
+                                label: Text(context.l10n.loadMore),
+                                onPressed: () => unawaited(onLoadMore()),
+                              ),
+                            );
+                    },
                   ),
                 ),
-              );
-            }
-            if (feed.error case final error?) {
-              return _LoadMoreError(
-                message: error,
-                onRetry: () =>
-                    unawaited(feed.retryFromStart ? onRefresh() : onLoadMore()),
-              );
-            }
-            return AccountActivityPagingSkeleton(
-              semanticsLabel: context.l10n.loadingMoreActivity,
-            );
-          },
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -234,123 +313,60 @@ class UserActivityRow extends StatelessWidget {
       if (item.plainExcerpt.isNotEmpty) item.plainExcerpt,
     ].join(', ');
 
-    return Semantics(
+    return DItem(
       key: ValueKey('user-activity-row-${item.identity}'),
-      button: true,
-      label: semanticLabel,
-      onTap: onTap,
-      excludeSemantics: true,
-      child: InkWell(
-        key: ValueKey('user-activity-row-target-${item.identity}'),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 88),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DAvatar.frame(
-                  child: AvatarImage(
-                    url: item.avatarUrl,
-                    size: 44,
-                    fallback: DAvatarFallback(
-                      backgroundColor:
-                          theme.colorScheme.surfaceContainerHighest,
-                      child: Text(
-                        item.username.isEmpty
-                            ? '?'
-                            : item.username.characters.first.toUpperCase(),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Opacity(
-                    opacity: item.deleted || item.hidden ? 0.68 : 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            if (item.closed || item.archived) ...[
-                              DIcon(
-                                DIcons.lock,
-                                size: 13,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 6),
-                            ],
-                            Expanded(
-                              child: TopicTitle(
-                                item.title,
-                                siteUrl: siteUrl,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (category != null ||
-                            when != null ||
-                            item.deleted ||
-                            item.hidden) ...[
-                          const SizedBox(height: 5),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (category != null)
-                                _ActivityCategory(
-                                  siteUrl: siteUrl,
-                                  category: category,
-                                ),
-                              if (when != null)
-                                Text(
-                                  when,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              if (item.deleted || item.hidden)
-                                Text(
-                                  item.deleted
-                                      ? context.l10n.deleted
-                                      : context.l10n.hidden,
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                        if (item.excerpt.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          CookedHtml(
-                            html: item.excerpt,
-                            siteUrl: siteUrl,
-                            textStyle: theme.textTheme.bodyLarge?.copyWith(
-                              height: theme.textTheme.bodyMedium?.height,
-                              color: theme.discourse.primaryHigh,
-                            ),
-                            compactParagraphs: true,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+      shape: DItemShape.fullWidth,
+      semanticLabel: semanticLabel,
+      onPressed: onTap,
+      header: DItemHeader(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: DSpacing.xs,
+          children: [
+            DIcon(item.isTopic ? DIcons.layerGroup : DIcons.reply, size: 12),
+            Text(
+              item.isTopic
+                  ? context.l10n.activityStartedTopic
+                  : context.l10n.activityReplied,
             ),
-          ),
+          ],
         ),
       ),
+      children: [
+        DItemContent(
+          children: [
+            DItemTitle(
+              maxLines: 2,
+              child: TopicTitle(item.title, siteUrl: siteUrl),
+            ),
+            if (item.excerpt.isNotEmpty)
+              DItemDescription(
+                child: Text(
+                  item.plainExcerpt,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            Wrap(
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (item.closed || item.archived)
+                  const DIcon(DIcons.lock, size: 12),
+                if (category != null)
+                  _ActivityCategory(siteUrl: siteUrl, category: category),
+                if (when != null)
+                  Text(when, style: theme.textTheme.labelMedium),
+                if (item.deleted || item.hidden)
+                  Text(
+                    item.deleted ? context.l10n.deleted : context.l10n.hidden,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

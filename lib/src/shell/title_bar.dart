@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,12 +9,20 @@ import 'package:flutter/services.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
+import 'composer_presentation.dart';
+import 'desktop_panels.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
+import 'message_archive_button.dart';
+import 'message_create_button.dart';
+import 'shell_scope.dart';
+import 'topic_create_button.dart';
 import 'user_menu_button.dart';
 
 class ShellTitleBar extends StatelessWidget {
-  const ShellTitleBar({super.key, this.showControls = true});
+  const ShellTitleBar({super.key, this.showControls = true, this.panelsLayout});
 
   static const _windowChannel = MethodChannel('org.discourse.native/window');
 
@@ -21,6 +30,7 @@ class ShellTitleBar extends StatelessWidget {
   static const maximizeGestureKey = ValueKey('shell-title-bar-maximize');
 
   final bool showControls;
+  final DesktopPanelsLayout? panelsLayout;
 
   // Desktop mockup chrome row, including its vertical control insets.
   static const double height = 53;
@@ -68,12 +78,42 @@ class ShellTitleBar extends StatelessWidget {
           // widths, give account actions a second row below the window controls.
           final stacked =
               showControls &&
-              constraints.maxWidth < 480 &&
-              MediaQuery.textScalerOf(context).scale(12) > 18;
+              (constraints.maxWidth < 700 ||
+                  (constraints.maxWidth < 1000 &&
+                      MediaQuery.textScalerOf(context).scale(12) > 18));
           final search = Expanded(
             child: ForumSearch(dense: true, size: searchSize),
           );
           final actions = <Widget>[
+            if (showControls) const _DesktopPrimaryAction(),
+            if (showControls && panelsLayout != null)
+              ListenableBuilder(
+                listenable: panelsLayout!,
+                builder: (context, _) {
+                  if (!panelsLayout!.canToggleSplit) {
+                    return const SizedBox.shrink();
+                  }
+                  final label = panelsLayout!.splitVisible
+                      ? context.l10n.hideSplitView
+                      : context.l10n.showSplitView;
+                  return Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      end: DSpacing.controlGap,
+                    ),
+                    child: DTooltip(
+                      message: label,
+                      child: DToggle.iconOnly(
+                        key: const ValueKey('title-bar-split-view'),
+                        icon: const DIcon(DNativeIcons.columns),
+                        semanticLabel: label,
+                        size: DToggleSize.action,
+                        pressed: panelsLayout!.splitVisible,
+                        onPressedChanged: (_) => panelsLayout!.toggleSplit(),
+                      ),
+                    ),
+                  );
+                },
+              ),
             if (showControls)
               ...PluginScope.of(context).registry.shellHeaderActions(
                 context,
@@ -150,6 +190,57 @@ class ShellTitleBar extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _DesktopPrimaryAction extends StatelessWidget {
+  const _DesktopPrimaryAction();
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.maybeOf(context);
+    if (shell == null ||
+        !shell.forumActive ||
+        ComposerPresentationHost.hasVisibleComposerOf(context)) {
+      return const SizedBox.shrink();
+    }
+    final route = shell.currentContent;
+    Widget? action;
+    if (route?.isTopic == true) {
+      if (shell.canReplyHere) {
+        action = DButton(
+          key: const ValueKey('title-bar-reply'),
+          icon: const DIcon(DIcons.reply),
+          label: Text(context.l10n.reply),
+          variant: DButtonVariant.primary,
+          shape: DButtonShape.pill,
+          size: DButtonSize.action,
+          onPressed: shell.openReply,
+        );
+      }
+    } else if (route?.isMessages == true) {
+      action = const MessageCreateButton(showLabel: true, pill: true);
+    } else if (shell.canCreateTopicFromSidebar) {
+      action = TopicCreateButton(
+        onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+      );
+    }
+    final topic = shell.currentTopic;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: DSpacing.controlGap,
+      children: [
+        ?action,
+        if (route?.isTopic == true &&
+            topic?.privateMessage == true &&
+            shell.currentInstance?.user?.canSendPrivateMessages == true)
+          MessageArchiveButton(
+            siteUrl: shell.currentInstance!.url,
+            topic: topic!,
+          ),
+        if (action != null) const SizedBox(width: DSpacing.controlGap),
+      ],
     );
   }
 }

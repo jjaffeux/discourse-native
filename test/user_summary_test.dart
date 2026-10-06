@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' show SemanticsAction;
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_filters.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
@@ -20,7 +26,9 @@ import 'package:discourse_native/src/shell/user_summary.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
-    show Semantics, Size, SizedBox, ValueKey, PageStorageKey;
+    show Semantics, Size, SizedBox, ValueKey, PageStorageKey, RepaintBoundary;
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -94,6 +102,18 @@ const _summary = UserSummary(
 );
 
 void main() {
+  setUpAll(() async {
+    final manifest =
+        jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
+    for (final entry in manifest.cast<Map<String, dynamic>>()) {
+      final loader = FontLoader(entry['family'] as String);
+      for (final face
+          in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+        loader.addFont(rootBundle.load(face['asset'] as String));
+      }
+      await loader.load();
+    }
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('route lifecycle', () {
@@ -120,7 +140,11 @@ void main() {
               'summary',
             ]);
 
-            await tester.tap(find.byTooltip('Back'));
+            await tester.tap(
+              layout.name == 'compact'
+                  ? find.byTooltip('Back')
+                  : find.byKey(ContentNavigationControls.backKey),
+            );
             await tester.pumpAndSettle();
             expect(find.byType(UserSummaryView), findsNothing);
             // Mobile navigation keeps its content root rather than falling
@@ -290,7 +314,7 @@ void main() {
     testWidgets(
       'scrollbar stays at the page edge with and without the content size limit',
       (tester) async {
-        final fixture = await _pump(tester, size: const Size(2200, 650));
+        final fixture = await _pump(tester, size: const Size(2200, 480));
         // The main panel is a list column beside the secondary one; the page
         // gets the window's width once the main panel has it to itself.
         await tester.tap(
@@ -304,25 +328,25 @@ void main() {
           const PageStorageKey('user-summary-scroll'),
         );
         final profile = find.byKey(const ValueKey('user-summary-profile'));
-        final table = find.byType(DTable);
+        final table = find.byType(DTable).first;
         for (final alignment in [false, true]) {
           await fixture.controller.appSettings.setLimitContentSize(alignment);
           await tester.pumpAndSettle();
           final pageBounds = tester.getRect(page);
           final contentWidth = alignment ? 825.0 : pageBounds.width - 32;
           final left = pageBounds.center.dx - contentWidth / 2;
-          expect(tester.getRect(profile).left, closeTo(left + 1, 0.001));
+          expect(tester.getRect(profile).left, closeTo(left, 0.001));
           expect(
             tester.getSize(table).width,
-            closeTo(
-              contentWidth - (alignment ? 208 : 248) - DSpacing.xxl - 34,
-              0.001,
-            ),
+            closeTo(contentWidth - 32, 0.001),
           );
           await expectPageEdgeScrolling(
             tester,
             viewport: viewport,
             right: pageBounds.right,
+            topInset: () => DPageSurface.headerGeometryOf(
+              tester.element(viewport),
+            )!.visibleExtent,
           );
         }
       },
@@ -337,10 +361,8 @@ void main() {
       try {
         await _openSummaryFromMenu(tester);
 
-        expect(
-          find.bySemanticsLabel('read time: 1 day, all time'),
-          findsOneWidget,
-        );
+        expect(find.text('Likes received'), findsOneWidget);
+        expect(find.text('Likes given'), findsOneWidget);
         expect(
           find.bySemanticsLabel('Open Top native topic, 5 likes'),
           findsOneWidget,
@@ -351,12 +373,15 @@ void main() {
           find.bySemanticsLabel('Helpful, earned 2 times'),
           findsOneWidget,
         );
+        await _captureReview(tester, 'highlights');
         await _selectSummaryTab(tester, 'Connections');
+        await _captureReview(tester, 'connections');
         expect(
           find.bySemanticsLabel('View profile for Sam Example, 4 replies'),
           findsOneWidget,
         );
         await _selectSummaryTab(tester, 'Reading');
+        await _captureReview(tester, 'reading');
         expect(
           find.bySemanticsLabel(
             'recent read time: 17 mins, in the last 60 days',
@@ -427,7 +452,6 @@ void main() {
       await _pump(tester, summary: const UserSummary(canSeeSummaryStats: true));
       await _openSummaryFromMenu(tester);
 
-      expect(find.text('<1m'), findsOneWidget);
       expect(
         find.text('Your story starts with a conversation.'),
         findsOneWidget,
@@ -438,13 +462,14 @@ void main() {
       expect(find.text('No connections yet.'), findsOneWidget);
       await _selectSummaryTab(tester, 'Reading');
       expect(find.text('No links yet.'), findsOneWidget);
+      expect(find.text('<1m'), findsOneWidget);
       expect(find.text('recent read time'), findsNothing);
       expect(
         find.descendant(
           of: find.byType(UserSummaryView),
           matching: find.text('Bookmarks'),
         ),
-        findsNothing,
+        findsOneWidget,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -467,6 +492,7 @@ void main() {
       await _selectSummaryTab(tester, 'Reading');
       expect(find.text('Time well spent'), findsNothing);
       expect(find.text('No links yet.'), findsOneWidget);
+      expect(find.text('<1m'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
@@ -500,6 +526,19 @@ void main() {
         await _openSummaryFromMenu(tester);
         for (final tab in ['Connections', 'Reading', 'Highlights']) {
           await _selectSummaryTab(tester, tab);
+          if (tab == 'Connections') {
+            final person = find
+                .descendant(
+                  of: find.byType(UserSummaryView),
+                  matching: find.text('Sam Example'),
+                )
+                .first;
+            expect(
+              tester.getSize(person).height,
+              lessThan(80),
+              reason: 'Person names must not wrap one character per line.',
+            );
+          }
           if (tab == 'Reading') {
             final category = find.descendant(
               of: find.byType(DTable),
@@ -512,6 +551,7 @@ void main() {
             );
           }
           expect(tester.takeException(), isNull);
+          await _captureReview(tester, 'large-${size.width}-$tab');
         }
         expect(find.text('Your summary'), findsNothing);
         expect(
@@ -545,6 +585,28 @@ void main() {
 }
 
 typedef _Fixture = ({FakeDiscourseApi api, ShellController controller});
+
+Future<void> _captureReview(WidgetTester tester, String name) async {
+  final directory = Platform.environment['SUMMARY_REVIEW_DIR'];
+  if (directory == null) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find
+        .ancestor(
+          of: find.byType(UserSummaryView),
+          matching: find.byType(RepaintBoundary),
+        )
+        .first,
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    await Directory(directory).create(recursive: true);
+    await File(
+      '$directory/$name.png',
+    ).writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
+}
 
 Future<_Fixture> _pump(
   WidgetTester tester, {
@@ -591,6 +653,13 @@ Future<_Fixture> _pump(
   final controller = ShellScope.read(
     tester.element(find.byKey(UserMenuButton.avatarKey)),
   );
+  await controller.forumSettings.setShared(
+    const SharedAppearance(
+      font: ForumFont.openSans,
+      interfaceFont: ForumFont.openSans,
+    ),
+  );
+  await tester.pumpAndSettle();
   return (api: api, controller: controller);
 }
 
@@ -602,7 +671,10 @@ Future<void> _openSummaryFromMenu(
   await tester.pumpAndSettle();
   final summaryRow = find.byKey(const ValueKey('user-menu-row-summary'));
   expect(summaryRow, findsOneWidget);
-  expect(find.bySemanticsLabel('Summary'), findsOneWidget);
+  expect(
+    find.descendant(of: summaryRow, matching: find.bySemanticsLabel('Summary')),
+    findsWidgets,
+  );
   await tester.tap(summaryRow);
   if (settle) {
     await tester.pumpAndSettle();

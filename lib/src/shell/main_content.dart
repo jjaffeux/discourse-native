@@ -249,7 +249,8 @@ class _MainContentBody extends StatelessWidget {
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
-        ((route.isAppearance || route.isUsers) && !context.isTouch) ||
+        ((route.isAppearance || route.isUsers || route.id == 'summary') &&
+            !context.isTouch) ||
         (pageOwnsTitle &&
             !state.canPop &&
             (ShellScope.read(context).mobileNavigationEnabled ||
@@ -324,6 +325,7 @@ class _MainContentBody extends StatelessWidget {
                       siteUrl: state.siteUrl,
                       canPop: state.canPop,
                       showCreateTopicAction:
+                          context.isTouch &&
                           pluginContent == null &&
                           !usesTopicToolbar &&
                           !ShellScope.read(context).mobileNavigationEnabled,
@@ -627,7 +629,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                                   (!topicOpen || split)
                               ? const TopicPanelTabs()
                               : null,
-                          footer: controller.mobileNavigationEnabled
+                          footer:
+                              (controller.mobileNavigationEnabled ||
+                                  !context.isTouch)
                               ? null
                               : ShellSelector<bool>(
                                   select: (shell) {

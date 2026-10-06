@@ -14863,4 +14863,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String unpinStartSection(String title) {
     return 'Unpin $title';
   }
+
+  @override
+  String get summaryPerson => 'Person';
+
+  @override
+  String get summaryPostedIn => 'Posted in';
+
+  @override
+  String get summaryClicks => 'Clicks';
+
+  @override
+  String get activityStartedTopic => 'Started a topic';
+
+  @override
+  String get activityReplied => 'Replied';
+
+  @override
+  String get showSplitView => 'Show split view';
+
+  @override
+  String get hideSplitView => 'Hide split view';
 }

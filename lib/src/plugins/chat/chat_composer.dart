@@ -1278,7 +1278,7 @@ class _ChatComposerState extends State<ChatComposer> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DCard(
-            border: false,
+            border: !mobile,
             spacing: 0,
             backgroundColor: DTokens.of(context).footerBackground,
             child: DInputGroup(

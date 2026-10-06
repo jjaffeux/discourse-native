@@ -1,5 +1,26 @@
 # Start page parity
 
+## Latest account pages and desktop shell
+
+The latest four mockup changes are implemented from `c0313acc`, `4e0e388b`,
+`aedd6a65`, and `8d94d099` (through 2026-10-06).
+
+| Mockup change | Native implementation |
+| --- | --- |
+| Summary tabs and stacked content | The profile heading and line tabs share the reading column. Highlights has four statistics and stacked topic/reply sections. Connections and Reading use boxed Native tables. Tables retain horizontal scrolling where large text needs more room. |
+| Activity topic rows and filter | Native rows show the user's contribution, date, category, and whether they started a topic or replied. The All activity, Topics, and Replies filter retains pagination and exact-post navigation. |
+| More Start previews | Cached activity, group memberships, earned badges, ranked summary connections, messages, and public channels populate the existing standard rows. Start does not fetch these directories on entry. Badge rows share the Native avatar medal composition. |
+| Actions in the desktop title bar | New topic, New message, and Reply follow the focused panel. Expanded composers hide the action; minimizing restores it for the focused reader. The existing topic draft menu remains available. |
+| Split view from the title bar | The secondary panel and divider disappear completely when hidden. The title-bar toggle restores its retained tabs, reader, and split width. The main panel retains its minimized rail. The toggle uses the approved existing Native styling. |
+| Chat input and topic progress | The desktop chat input has an outlined well inside its page. Topic progress floats at the reader's lower trailing corner, and desktop topic/list footers no longer duplicate title-bar actions. |
+
+Focused checks cover account-page navigation and pagination, cached previews,
+large text, title-bar actions, retained panel state, fold animations, resizing,
+RTL rail placement, composer docking, and chat composition. Summary and Start
+were reviewed with rendered widget images; no physical-device run was made.
+
+## Previous Start page changes
+
 Reference: `/Users/joffreyjaffeux/Code/discourse-native-mockups`, commits
 `67200bc`, `9285bb0`, and `f8f48f6` (2026-10-02). These are the three updates
 following the app's recorded mockup reference, `912027c`.

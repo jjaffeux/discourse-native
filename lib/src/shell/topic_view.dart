@@ -2071,7 +2071,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       stream: null,
       skeleton: true,
       lanePadding: lanePadding,
-      footer: controller.mobileNavigationEnabled
+      footer: (controller.mobileNavigationEnabled || !context.isTouch)
           ? null
           : _buildTopicBottomBar(
               controller,
@@ -2680,7 +2680,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         lanePadding: readingLane.padding,
         overlays: [
           _buildFloatingDayOverlay(readingLane.padding, header),
-          if (controller.mobileNavigationEnabled)
+          if (controller.mobileNavigationEnabled || !context.isTouch)
             PositionedDirectional(
               start: DSpacing.sm,
               end: DSpacing.sm,
@@ -2705,7 +2705,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               ),
             ),
         ],
-        footer: controller.mobileNavigationEnabled
+        footer: (controller.mobileNavigationEnabled || !context.isTouch)
             ? null
             : _buildTopicBottomBar(
                 controller,

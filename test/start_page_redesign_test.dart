@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -11,11 +12,15 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/shell/badges_page.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/groups_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -131,7 +136,13 @@ Future<ShellController> _start(
 FakeDiscourseApi _api({
   List<UserDraft> drafts = const [],
   Map<int, ChatThreadPage> threads = const {},
+  UserSummary? summary,
+  List<UserActivityItem> activity = const [],
+  Map<String, Map<String, dynamic>> responses = const {},
 }) => FakeDiscourseApi(
+  summary: summary,
+  userActivityItems: activity,
+  pluginResponses: responses,
   userDraftList: drafts,
   chatChannelThreadPagesByKey: {
     for (final entry in threads.entries)
@@ -582,6 +593,94 @@ void main() {
     expect(api.chatChannelThreadPagesRequested, hasLength(1));
     expect(tester.takeException(), isNull);
   });
+
+  _test(
+    'Start previews use cached membership, earned badges, connections and activity',
+    (tester) async {
+      final api = _api(
+        summary: const UserSummary(
+          mostRepliedToUsers: [
+            UserSummaryUser(id: 1, username: 'sam', name: 'Sam', count: 2),
+          ],
+          mostLikedByUsers: [
+            UserSummaryUser(id: 2, username: 'alex', name: 'Alex', count: 3),
+          ],
+          mostLikedUsers: [
+            UserSummaryUser(id: 1, username: 'sam', name: 'Sam', count: 4),
+          ],
+        ),
+        activity: const [
+          UserActivityItem(
+            actionType: 5,
+            topicId: 1,
+            postNumber: 7,
+            title: 'A recent reply',
+            slug: 'recent',
+            username: 'reader',
+            excerpt: 'Searchable answer',
+          ),
+        ],
+        responses: const {
+          'GET /groups.json?asc=true': {
+            'groups': [
+              {'id': 1, 'name': 'sailors', 'is_group_user': true},
+              {'id': 2, 'name': 'staff'},
+            ],
+          },
+          'GET /badges.json?only_listable=true': {
+            'badges': [
+              {
+                'id': 1,
+                'name': 'First Like',
+                'has_badge': true,
+                'badge_type_id': 3,
+              },
+              {
+                'id': 2,
+                'name': 'Unseen badge',
+                'has_badge': false,
+                'badge_type_id': 1,
+              },
+            ],
+          },
+        },
+      );
+      final shell = await _start(tester, desktop, api: api);
+      final site = shell.currentInstance!;
+      await shell.userSummary.load(site);
+      await shell.accountActivity.loadUserActivity(site);
+      await shell.groups.loadDirectory(site, const GroupDirectoryQuery());
+      await shell.badges.load(site, const BadgeRoute.directory());
+      await tester.pumpAndSettle();
+      expect(_onPage(find.text('A recent reply')), findsOneWidget);
+      expect(_onPage(find.text('sailors')), findsOneWidget);
+      expect(_onPage(find.text('staff')), findsNothing);
+      expect(_onPage(find.text('First Like')), findsOneWidget);
+      expect(_onPage(find.text('Unseen badge')), findsNothing);
+      expect(_onPage(find.byType(BadgeMedal)), findsOneWidget);
+      expect(
+        tester.getTopLeft(_onPage(find.text('Sam'))).dy,
+        lessThan(tester.getTopLeft(_onPage(find.text('Alex'))).dy),
+      );
+      final channels = find.descendant(
+        of: _section('Channels'),
+        matching: find.text('General'),
+      );
+      expect(channels, findsOneWidget);
+      final calls = api.pluginReadPaths.length;
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      expect(api.pluginReadPaths, hasLength(calls));
+      final activity = _onPage(find.text('A recent reply'));
+      await Scrollable.ensureVisible(tester.element(activity), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(activity);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      expect(shell.currentContent?.postNumber, 7);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _test('alphabet press and drag land below the header without opening rows', (
     tester,

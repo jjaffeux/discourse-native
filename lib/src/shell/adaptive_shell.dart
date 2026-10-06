@@ -549,7 +549,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 Positioned.fill(
                   child: Column(
                     children: [
-                      if (!mobile) const ShellTitleBar(),
+                      if (!mobile) ShellTitleBar(panelsLayout: _panelsLayout),
                       Expanded(child: body),
                     ],
                   ),

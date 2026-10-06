@@ -19848,5 +19848,33 @@
   "pinStartSection": "Pin {title} to the top",
   "@pinStartSection": {"placeholders": {"title": {"type": "String"}}},
   "unpinStartSection": "Unpin {title}",
-  "@unpinStartSection": {"placeholders": {"title": {"type": "String"}}}
+  "@unpinStartSection": {"placeholders": {"title": {"type": "String"}}},
+  "summaryPerson": "Person",
+  "@summaryPerson": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "summaryPostedIn": "Posted in",
+  "@summaryPostedIn": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "summaryClicks": "Clicks",
+  "@summaryClicks": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "activityStartedTopic": "Started a topic",
+  "@activityStartedTopic": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "activityReplied": "Replied",
+  "@activityReplied": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "showSplitView": "Show split view",
+  "@showSplitView": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "hideSplitView": "Hide split view",
+  "@hideSplitView": {
+    "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  }
 }
