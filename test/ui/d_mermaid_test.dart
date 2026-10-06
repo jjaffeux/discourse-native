@@ -35,8 +35,8 @@ void main() {
     () async {
       const assets = 'packages/discourse_native/src/ui/assets/mermaid';
       expect(
-        await rootBundle.loadString('$assets/mermaid-11.15.0.min.js'),
-        contains('11.15.0'),
+        await rootBundle.loadString('$assets/mermaid-11.17.2.min.js'),
+        contains('11.17.2'),
       );
       expect(
         await rootBundle.loadString('$assets/render.js'),

@@ -33,7 +33,7 @@ final mermaidExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Offline diagrams with source access and an expanded view.',
   notes:
-      'Uses bundled Mermaid 11.15.0 in a temporary, network-blocked WebView. '
+      'Uses bundled Mermaid 11.17.2 in a temporary, network-blocked WebView. '
       'The result is a Flutter image; normal scrolling remains with its parent. '
       'Expand enables pinch/drag and keyboard-accessible zoom buttons; arrow keys pan. '
       'Native SVG labels replace HTML labels. Diagram links are inactive. '

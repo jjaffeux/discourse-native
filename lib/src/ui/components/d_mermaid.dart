@@ -180,7 +180,7 @@ class _DMermaidState extends State<DMermaid> {
       );
       if (!_current(generation)) return;
       final assets = await Future.wait([
-        key.bundle.loadString('$_assets/mermaid-11.15.0.min.js'),
+        key.bundle.loadString('$_assets/mermaid-11.17.2.min.js'),
         key.bundle.loadString('$_assets/render.js'),
       ]);
       if (!_current(generation)) return;

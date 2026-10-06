@@ -27,7 +27,7 @@ topic](https://meta.discourse.org/t/discourse-mermaid/218242).
 
 ## Renderer and limits
 
-`DMermaid` bundles Mermaid 11.15.0 and uses the existing `webview_all` platform
+`DMermaid` bundles Mermaid 11.17.2 and uses the existing `webview_all` platform
 support. A temporary 1-pixel local WebView renders into a 1200-pixel measurement
 container, exports a PNG, then unloads its document and removes the JavaScript
 channel. Flutter owns the displayed image and interactions. No site URL, cookies,

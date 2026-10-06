@@ -1,10 +1,19 @@
 # Bundled Mermaid runtime
 
-`mermaid-11.15.0.min.js` is the unmodified `dist/mermaid.min.js` from the official
-[`mermaid` npm package](https://www.npmjs.com/package/mermaid/v/11.15.0).
+`mermaid-11.17.2.min.js` is the unmodified `dist/mermaid.min.js` from the official
+[`mermaid` npm package](https://www.npmjs.com/package/mermaid/v/11.17.2).
 The package's MIT `LICENSE` is bundled and registered with Flutter's license
 registry. `provenance.json` records the npm tarball, verified SHA-512 integrity,
 bundle SHA-256, and corresponding Discourse compatibility commit.
+
+Keep the runtime on Mermaid 11 while the application supports iOS 15.
+[Mermaid 12 requires Safari 17.4 or newer](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4012.0.0).
+
+The 11.17.2 upgrade passed all 46 fixture cases in a native macOS `WKWebView`
+with a 1-pixel viewport, using the production document and PNG renderer.
+Visual review covered flowchart, Gantt, mindmap, Journey, C4, and Unicode
+labels in both palettes. C4's dark relationship-label contrast was also
+checked against 11.15.0 and remains an upstream limitation.
 
 `render.js` is the native adapter. It selects strict security and SVG labels,
 renders in a fixed measurement container, and exports a bounded PNG. Mermaid
