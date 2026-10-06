@@ -104,9 +104,11 @@ class ShellTitleBar extends StatelessWidget {
                       message: label,
                       child: DToggle.iconOnly(
                         key: const ValueKey('title-bar-split-view'),
-                        icon: const DIcon(DNativeIcons.columns),
+                        icon: const DIcon(DNativeIcons.openTopicPane),
+                        selectedIcon: const DIcon(DNativeIcons.closeTopicPane),
                         semanticLabel: label,
-                        size: DToggleSize.action,
+                        density: DToggleDensity.chrome,
+                        variant: DToggleVariant.inline,
                         pressed: panelsLayout!.splitVisible,
                         onPressedChanged: (_) => panelsLayout!.toggleSplit(),
                       ),

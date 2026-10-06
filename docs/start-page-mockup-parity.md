@@ -11,7 +11,7 @@ The latest four mockup changes are implemented from `c0313acc`, `4e0e388b`,
 | Activity topic rows and filter | Native rows show the user's contribution, date, category, and whether they started a topic or replied. The All activity, Topics, and Replies filter retains pagination and exact-post navigation. |
 | More Start previews | Cached activity, group memberships, earned badges, ranked summary connections, messages, and public channels populate the existing standard rows. Start does not fetch these directories on entry. Badge rows share the Native avatar medal composition. |
 | Actions in the desktop title bar | New topic, New message, and Reply follow the focused panel. Expanded composers hide the action; minimizing restores it for the focused reader. The existing topic draft menu remains available. |
-| Split view from the title bar | The secondary panel and divider disappear completely when hidden. The title-bar toggle restores its retained tabs, reader, and split width. The main panel retains its minimized rail. The toggle uses the approved existing Native styling. |
+| Split view from the title bar | The secondary panel and divider disappear completely when hidden. The title-bar toggle restores its retained tabs, reader, and split width. The main panel retains its minimized rail. The Native toggle uses 18px open/close icons in a 32px control, a transparent background, color-only hover and press, and an accent color when selected. |
 | Chat input and topic progress | The desktop chat input has an outlined well inside its page. Topic progress floats at the reader's lower trailing corner, and desktop topic/list footers no longer duplicate title-bar actions. |
 
 Focused checks cover account-page navigation and pagination, cached previews,

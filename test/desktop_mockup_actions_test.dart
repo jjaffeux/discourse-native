@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,11 +81,20 @@ void main() {
         const ValueKey('desktop-panel-secondary'),
       );
       final panels = find.byType(DesktopPanels);
+      final splitIcon = find.descendant(
+        of: split,
+        matching: find.byType(DIcon),
+      );
+      expect(tester.getSize(split), const Size.square(32));
+      expect(tester.getSize(splitIcon), const Size.square(18));
+      expect(tester.widget<DIcon>(splitIcon).icon, DNativeIcons.closeTopicPane);
+      expect(tester.widget<DToggle>(split).variant, DToggleVariant.inline);
       expect(tester.widget<DToggle>(split).pressed, isTrue);
       final splitWidth = tester.getSize(mainPanel).width;
       await tester.tap(split);
       await tester.pumpAndSettle();
       expect(tester.widget<DToggle>(split).pressed, isFalse);
+      expect(tester.widget<DIcon>(splitIcon).icon, DNativeIcons.openTopicPane);
       expect(secondaryPanel, findsNothing);
       expect(find.byKey(const ValueKey('panel-rail-secondary')), findsNothing);
       expect(

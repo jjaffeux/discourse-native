@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_native_icons.dart';
 import '../styleguide_example.dart';
 import 'toggle_reference_icons.dart';
 
@@ -15,6 +16,7 @@ final toggleExamples = ComponentExamples(
       'Long press never toggles the value and is suppressed when disabled. '
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '
       'Visual surfaces are 24/28/32px with hit areas matching their surfaces, 12/14/16px icons, exact icon-side padding, '
+      'and an inline window control with a 32px surface and 18px icon. Inline hover and press change only color; selection uses the accent color. '
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
@@ -43,6 +45,26 @@ final toggleExamples = ComponentExamples(
         semanticLabel: '1 heart reaction',
         icon: Icon(Icons.favorite),
         child: Text('1'),
+      ),
+    ),
+    StyleguideExample(
+      title: 'Window control',
+      description:
+          'An 18px icon in a 32px control. Hover and press change only the icon color; selection uses the accent, and keyboard focus retains its ring.',
+      states: const ['Inline', 'Hover', 'Pressed', 'Focus', 'Icon only'],
+      code: '''DToggle.iconOnly(
+  density: DToggleDensity.chrome,
+  variant: DToggleVariant.inline,
+  semanticLabel: 'Split view',
+  icon: const DIcon(DNativeIcons.openTopicPane),
+  selectedIcon: const DIcon(DNativeIcons.closeTopicPane),
+)''',
+      builder: (_) => const DToggle.iconOnly(
+        density: DToggleDensity.chrome,
+        variant: DToggleVariant.inline,
+        semanticLabel: 'Split view',
+        icon: DIcon(DNativeIcons.openTopicPane),
+        selectedIcon: DIcon(DNativeIcons.closeTopicPane),
       ),
     ),
     StyleguideExample(

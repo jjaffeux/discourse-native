@@ -9,11 +9,19 @@ import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
-enum DToggleVariant { standard, outline, segmented }
+enum DToggleVariant { standard, outline, segmented, inline }
 
 /// Application artwork presets use matching hit areas.
 /// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
-enum DToggleDensity { standard, reaction, chatReaction, tile, compactInset }
+/// [chrome] provides 18px icons in a 32px window control.
+enum DToggleDensity {
+  standard,
+  reaction,
+  chatReaction,
+  tile,
+  compactInset,
+  chrome,
+}
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -241,12 +249,23 @@ class _DToggleState extends State<DToggle> {
     final dark = theme.brightness == Brightness.dark;
     final outlined = widget.variant == DToggleVariant.outline;
     final segmented = widget.variant == DToggleVariant.segmented;
+    final inline = widget.variant == DToggleVariant.inline;
     final outline = tokens.buttonTheme.outline;
     final reaction = widget.density == DToggleDensity.reaction;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     final tile = widget.density == DToggleDensity.tile;
     final compactInset = widget.density == DToggleDensity.compactInset;
-    final foreground = segmented
+    final chrome = widget.density == DToggleDensity.chrome;
+    final interacting = _enabled && (_hovered || _pointerPressed);
+    final foreground = inline
+        ? _current
+              ? interacting
+                    ? Color.lerp(tokens.primary, tokens.foreground, .25)!
+                    : tokens.primary
+              : interacting || _focusVisible
+              ? tokens.foreground
+              : tokens.buttonTheme.accent.foreground
+        : segmented
         ? (_current
               ? tokens.foreground
               : Color.lerp(tokens.background, tokens.foreground, .5)!)
@@ -258,7 +277,9 @@ class _DToggleState extends State<DToggle> {
         ? tokens.mutedForeground
         : tokens.foreground;
     final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = compactInset
+    final visualDimension = chrome
+        ? 32.0 + math.max(0, scaler.scale(13) - 13)
+        : compactInset
         ? 26.0
         : tile
         ? 54.0
@@ -268,7 +289,9 @@ class _DToggleState extends State<DToggle> {
         ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
         : DControlStyle.scaledHeight(widget.size, scaler, context: context);
     final visualWidth = compactInset ? 30.0 : visualDimension;
-    final iconDimension = tile
+    final iconDimension = chrome
+        ? 18.0
+        : tile
         ? 20.0
         : chatReaction
         ? 12.0
@@ -291,8 +314,7 @@ class _DToggleState extends State<DToggle> {
         : reaction
         ? 16.0
         : DControlStyle.lineHeight(widget.size, context: context);
-    final activeSurface =
-        _current || (_enabled && (_hovered || _pointerPressed));
+    final activeSurface = _current || interacting;
     final borderColor = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
@@ -402,7 +424,7 @@ class _DToggleState extends State<DToggle> {
       child: content,
     );
 
-    if (DControlStyle.isApplicationSize(widget.size)) {
+    if (chrome || DControlStyle.isApplicationSize(widget.size)) {
       content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
     }
 
@@ -427,7 +449,9 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             )),
       decoration: BoxDecoration(
-        color: segmented
+        color: inline
+            ? Colors.transparent
+            : segmented
             ? activeSurface
                   ? Color.lerp(
                       Color.lerp(tokens.background, Colors.black, .14)!,

@@ -663,6 +663,143 @@ void main() {
     await mouse.removePointer();
   });
 
+  for (final dark in [false, true]) {
+    testWidgets(
+      'inline chrome uses only color for hover and press (dark: $dark)',
+      (tester) async {
+        final strategy = FocusManager.instance.highlightStrategy;
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
+        addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: TargetPlatform.macOS,
+        );
+        final tokens = DTokens.fromTheme(theme);
+        var changes = 0;
+        await mount(
+          tester,
+          UnconstrainedBox(
+            child: DToggle.iconOnly(
+              density: DToggleDensity.chrome,
+              variant: DToggleVariant.inline,
+              icon: const Icon(Icons.view_sidebar_outlined),
+              selectedIcon: const Icon(Icons.view_sidebar),
+              semanticLabel: 'Split view',
+              focusNode: focus,
+              onPressedChanged: (_) => changes++,
+            ),
+          ),
+          theme: theme,
+        );
+        final toggle = find.byType(DToggle);
+        final art = find.descendant(
+          of: toggle,
+          matching: find.byType(AnimatedContainer),
+        );
+        BoxDecoration surface() =>
+            tester.widget<AnimatedContainer>(art).decoration! as BoxDecoration;
+        Color? color() => IconTheme.of(
+          tester.element(
+            find.descendant(of: toggle, matching: find.byType(Icon)),
+          ),
+        ).color;
+        expect(tester.getSize(art), const Size.square(32));
+        expect(
+          tester.getRect(
+            find.descendant(of: toggle, matching: find.byType(GestureDetector)),
+          ),
+          tester.getRect(art),
+        );
+        expect(
+          tester.getSize(find.byIcon(Icons.view_sidebar_outlined)),
+          const Size.square(18),
+        );
+        expect(surface().color, Colors.transparent);
+        final resting = color();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        final center = tester.getCenter(toggle);
+        await mouse.moveTo(center);
+        await tester.pump();
+        expect(color(), tokens.foreground);
+        expect(color(), isNot(resting));
+        expect(surface().color, Colors.transparent);
+        await mouse.down(center);
+        await tester.pump();
+        expect(surface().color, Colors.transparent);
+        await mouse.up();
+        await mouse.moveTo(Offset.zero);
+        await tester.pump();
+        expect(changes, 1);
+        expect(find.byIcon(Icons.view_sidebar), findsOneWidget);
+        expect(color(), tokens.primary);
+        expect(surface().color, Colors.transparent);
+        final selected = color();
+        await mouse.moveTo(center);
+        await mouse.down(center);
+        await tester.pump();
+        expect(color(), isNot(selected));
+        expect(surface().color, Colors.transparent);
+        await mouse.cancel();
+        await mouse.moveTo(Offset.zero);
+        await tester.pump();
+        expect(changes, 1);
+        focus.requestFocus();
+        await tester.pump();
+        expect(
+          (tester.widget<AnimatedContainer>(art).foregroundDecoration!
+                  as DControlDecoration)
+              .ringColor,
+          tokens.focusRing,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(changes, 2);
+        expect(surface().color, Colors.transparent);
+        expect(
+          tester
+              .getSemantics(controlSemantics())
+              .getSemanticsData()
+              .flagsCollection
+              .isToggled,
+          Tristate.isFalse,
+        );
+
+        // The control must not react to a click in the surrounding gap.
+        final outside = tester.getRect(art).topLeft - const Offset(1, 1);
+        await tester.tapAt(outside);
+        await tester.pump();
+        expect(changes, 2);
+        await mount(
+          tester,
+          DToggle.iconOnly(
+            key: const ValueKey('disabled-inline'),
+            enabled: false,
+            density: DToggleDensity.chrome,
+            variant: DToggleVariant.inline,
+            icon: const Icon(Icons.view_sidebar_outlined),
+            semanticLabel: 'Split view',
+            onPressedChanged: (_) => changes++,
+          ),
+          theme: theme,
+        );
+        final disabledColor = color();
+        await mouse.moveTo(tester.getCenter(toggle));
+        await mouse.down(tester.getCenter(toggle));
+        await tester.pump();
+        expect(color(), disabledColor);
+        expect(surface().color, Colors.transparent);
+        await mouse.up();
+        await tester.pump();
+        expect(changes, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('icon-side padding and content gap match current base-nova', (
     tester,
   ) async {
@@ -802,6 +939,7 @@ void main() {
     expect(toggleExamples.examples.map((example) => example.title), [
       'Reaction',
       'Chat reaction',
+      'Window control',
       'Default',
       'Outline',
       'With Text',
