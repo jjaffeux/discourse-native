@@ -23,7 +23,13 @@ npm run build
 npm test
 ```
 
-The importer uses `git show REV:path`, never modifies the reference checkout, and retains the original directory/per-feature layout without editing upstream files. `provenance.json` pins Discourse revision `07a0e7b94717b45207749578df1f0bd2dd4d12e1` and SHA-256 for the source closure, upstream `pnpm-lock.yaml`, package manifest, headless build/Ruby-interface reference, chat profile reference, and license. `bundle-manifest.json` additionally pins the bundle and all actual build inputs. No absolute checkout path appears in application code.
+The importer uses `git show REV:path`, never modifies the reference checkout, and retains the original directory/per-feature layout without editing upstream files. It checks the complete source list, including Chat, local dates, details, polls, and events, and reads every source before replacing the snapshot. If the revision is omitted, it reuses the current provenance pin. `provenance.json` pins Discourse revision `f18a1985b22e5d4c0a0fffd6f91812105467afdb` and SHA-256 for the source closure, upstream `pnpm-lock.yaml`, package manifest, headless build/Ruby-interface reference, chat profile reference, and license. `bundle-manifest.json` additionally pins the bundle and all actual build inputs. No absolute checkout path appears in application code.
+
+The October 6 snapshot corrects gender and skin-tone emoji mappings and escapes
+chat transcript channel URLs upstream. The local translation adapter consumes
+that escaped URL without escaping it again. Shared JavaScript/native fixtures
+cover all 40 corrected emoji sequences, URL ampersands, literal entity text,
+and quotes that must not become HTML attributes.
 
 ## Request and result
 

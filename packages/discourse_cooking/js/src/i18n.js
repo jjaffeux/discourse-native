@@ -8,7 +8,9 @@ const labels={
 let currentLocale='en';
 export function setLocale(locale){currentLocale=locale || 'en';}
 export function i18n(key,values={},locale=currentLocale) {
- if(key==='chat.quote.original_channel') return `<a href="${escape(values.channelLink || '')}">#${values.channel || ''}</a> · ${ {fr:'Canal d’origine',de:'Ursprünglicher Kanal',es:'Canal original'}[locale] || 'Original channel'}`;
+ // The pinned transcript renderer supplies an escaped URL and channel markup.
+ // Escaping the URL again changes literal ampersands in Discourse base paths.
+ if(key==='chat.quote.original_channel') return `<a href="${values.channelLink || ''}">#${values.channel || ''}</a> · ${ {fr:'Canal d’origine',de:'Ursprünglicher Kanal',es:'Canal original'}[locale] || 'Original channel'}`;
  return labels[locale]?.[key] || labels.en[key] || escape(key.split('.').at(-1).replaceAll('_',' '));
 }
 export default {t:i18n};

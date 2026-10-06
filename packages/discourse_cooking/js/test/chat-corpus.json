@@ -1113,5 +1113,171 @@
       "data-orig-src=",
       "data-video-src="
     ]
+  },
+  {
+    "name": "post gender and skin tone emoji mappings",
+    "raw": "🕵🏻‍♂️ 🕵🏼‍♂️ 🕵🏽‍♂️ 🕵🏾‍♂️ 🕵🏿‍♂️ 🕵🏻‍♀️ 🕵🏼‍♀️ 🕵🏽‍♀️ 🕵🏾‍♀️ 🕵🏿‍♀️ 🏌🏻‍♂️ 🏌🏼‍♂️ 🏌🏽‍♂️ 🏌🏾‍♂️ 🏌🏿‍♂️ 🏌🏻‍♀️ 🏌🏼‍♀️ 🏌🏽‍♀️ 🏌🏾‍♀️ 🏌🏿‍♀️ ⛹🏻‍♂️ ⛹🏼‍♂️ ⛹🏽‍♂️ ⛹🏾‍♂️ ⛹🏿‍♂️ ⛹🏻‍♀️ ⛹🏼‍♀️ ⛹🏽‍♀️ ⛹🏾‍♀️ ⛹🏿‍♀️ 🏋🏻‍♂️ 🏋🏼‍♂️ 🏋🏽‍♂️ 🏋🏾‍♂️ 🏋🏿‍♂️ 🏋🏻‍♀️ 🏋🏼‍♀️ 🏋🏽‍♀️ 🏋🏾‍♀️ 🏋🏿‍♀️",
+    "profile": "post",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      ":man_detective:t2:",
+      ":man_detective:t3:",
+      ":man_detective:t4:",
+      ":man_detective:t5:",
+      ":man_detective:t6:",
+      ":woman_detective:t2:",
+      ":woman_detective:t3:",
+      ":woman_detective:t4:",
+      ":woman_detective:t5:",
+      ":woman_detective:t6:",
+      ":man_golfing:t2:",
+      ":man_golfing:t3:",
+      ":man_golfing:t4:",
+      ":man_golfing:t5:",
+      ":man_golfing:t6:",
+      ":woman_golfing:t2:",
+      ":woman_golfing:t3:",
+      ":woman_golfing:t4:",
+      ":woman_golfing:t5:",
+      ":woman_golfing:t6:",
+      ":man_bouncing_ball:t2:",
+      ":man_bouncing_ball:t3:",
+      ":man_bouncing_ball:t4:",
+      ":man_bouncing_ball:t5:",
+      ":man_bouncing_ball:t6:",
+      ":woman_bouncing_ball:t2:",
+      ":woman_bouncing_ball:t3:",
+      ":woman_bouncing_ball:t4:",
+      ":woman_bouncing_ball:t5:",
+      ":woman_bouncing_ball:t6:",
+      ":man_lifting_weights:t2:",
+      ":man_lifting_weights:t3:",
+      ":man_lifting_weights:t4:",
+      ":man_lifting_weights:t5:",
+      ":man_lifting_weights:t6:",
+      ":woman_lifting_weights:t2:",
+      ":woman_lifting_weights:t3:",
+      ":woman_lifting_weights:t4:",
+      ":woman_lifting_weights:t5:",
+      ":woman_lifting_weights:t6:"
+    ],
+    "excludes": [
+      "‍"
+    ]
+  },
+  {
+    "name": "post transcript metadata URL escapes ampersands once",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channel=\"General\" channelId=\"2\" multiQuote=\"true\"]\nHi\n[/chat]",
+    "profile": "post",
+    "context": {},
+    "snapshot": {
+      "baseUrl": "https://a.test/community&friends"
+    },
+    "includes": [
+      "href=\"https://a.test/community&amp;friends/chat/c/-/2\">#General</a>"
+    ],
+    "excludes": [
+      "&amp;amp;"
+    ]
+  },
+  {
+    "name": "chat gender and skin tone emoji mappings",
+    "raw": "🕵🏻‍♂️ 🕵🏼‍♂️ 🕵🏽‍♂️ 🕵🏾‍♂️ 🕵🏿‍♂️ 🕵🏻‍♀️ 🕵🏼‍♀️ 🕵🏽‍♀️ 🕵🏾‍♀️ 🕵🏿‍♀️ 🏌🏻‍♂️ 🏌🏼‍♂️ 🏌🏽‍♂️ 🏌🏾‍♂️ 🏌🏿‍♂️ 🏌🏻‍♀️ 🏌🏼‍♀️ 🏌🏽‍♀️ 🏌🏾‍♀️ 🏌🏿‍♀️ ⛹🏻‍♂️ ⛹🏼‍♂️ ⛹🏽‍♂️ ⛹🏾‍♂️ ⛹🏿‍♂️ ⛹🏻‍♀️ ⛹🏼‍♀️ ⛹🏽‍♀️ ⛹🏾‍♀️ ⛹🏿‍♀️ 🏋🏻‍♂️ 🏋🏼‍♂️ 🏋🏽‍♂️ 🏋🏾‍♂️ 🏋🏿‍♂️ 🏋🏻‍♀️ 🏋🏼‍♀️ 🏋🏽‍♀️ 🏋🏾‍♀️ 🏋🏿‍♀️",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {},
+    "includes": [
+      ":man_detective:t2:",
+      ":man_detective:t3:",
+      ":man_detective:t4:",
+      ":man_detective:t5:",
+      ":man_detective:t6:",
+      ":woman_detective:t2:",
+      ":woman_detective:t3:",
+      ":woman_detective:t4:",
+      ":woman_detective:t5:",
+      ":woman_detective:t6:",
+      ":man_golfing:t2:",
+      ":man_golfing:t3:",
+      ":man_golfing:t4:",
+      ":man_golfing:t5:",
+      ":man_golfing:t6:",
+      ":woman_golfing:t2:",
+      ":woman_golfing:t3:",
+      ":woman_golfing:t4:",
+      ":woman_golfing:t5:",
+      ":woman_golfing:t6:",
+      ":man_bouncing_ball:t2:",
+      ":man_bouncing_ball:t3:",
+      ":man_bouncing_ball:t4:",
+      ":man_bouncing_ball:t5:",
+      ":man_bouncing_ball:t6:",
+      ":woman_bouncing_ball:t2:",
+      ":woman_bouncing_ball:t3:",
+      ":woman_bouncing_ball:t4:",
+      ":woman_bouncing_ball:t5:",
+      ":woman_bouncing_ball:t6:",
+      ":man_lifting_weights:t2:",
+      ":man_lifting_weights:t3:",
+      ":man_lifting_weights:t4:",
+      ":man_lifting_weights:t5:",
+      ":man_lifting_weights:t6:",
+      ":woman_lifting_weights:t2:",
+      ":woman_lifting_weights:t3:",
+      ":woman_lifting_weights:t4:",
+      ":woman_lifting_weights:t5:",
+      ":woman_lifting_weights:t6:"
+    ],
+    "excludes": [
+      "‍"
+    ]
+  },
+  {
+    "name": "chat transcript metadata URL escapes ampersands once",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channel=\"General\" channelId=\"2\" multiQuote=\"true\"]\nHi\n[/chat]",
+    "profile": "chat",
+    "context": {},
+    "snapshot": {
+      "baseUrl": "https://a.test/community&friends"
+    },
+    "includes": [
+      "href=\"https://a.test/community&amp;friends/chat/c/-/2\">#General</a>"
+    ],
+    "excludes": [
+      "&amp;amp;"
+    ]
+  },
+  {
+    "name": "transcript metadata preserves literal entity text in URLs",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channel=\"General\" channelId=\"2\" multiQuote=\"true\"]\nHi\n[/chat]",
+    "profile": "post",
+    "context": {},
+    "snapshot": {
+      "baseUrl": "https://a.test/community&amp;friends"
+    },
+    "includes": [
+      "href=\"https://a.test/community&amp;amp;friends/chat/c/-/2\">#General</a>"
+    ],
+    "excludes": [
+      "&amp;amp;amp;"
+    ]
+  },
+  {
+    "name": "transcript metadata URL quotes cannot create attributes",
+    "raw": "[chat quote=\"Alice;1;2026-01-01\" channel=\"General\" channelId=\"2\" multiQuote=\"true\"]\nHi\n[/chat]",
+    "profile": "post",
+    "context": {},
+    "snapshot": {
+      "baseUrl": "https://a.test/community\" onclick=\"bad"
+    },
+    "includes": [
+      "chat-transcript-meta",
+      "#General</a>"
+    ],
+    "excludes": [
+      " onclick=\"",
+      "<script"
+    ]
   }
 ]

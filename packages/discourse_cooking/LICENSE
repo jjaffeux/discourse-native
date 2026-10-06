@@ -349,7 +349,7 @@ Public License instead of this License.
 
 Discourse offline cooking bundle
 
-Discourse source: https://github.com/discourse/discourse at 07a0e7b94717b45207749578df1f0bd2dd4d12e1
+Discourse source: https://github.com/discourse/discourse at f18a1985b22e5d4c0a0fffd6f91812105467afdb
 GPL-2.0-only. Complete bundled source is in vendor/. Full license: vendor/LICENSE.txt.
 
 Local adapters and final output policy are in src/. They replace Ruby/browser lookups with per-request memory snapshots. No upstream source files are edited.
