@@ -53,18 +53,22 @@ class TopicTitle extends StatelessWidget {
         textAlign: textAlign,
         leading: leading,
         trailing: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: SiteEmojiText.plain(
-                  tail,
-                  siteUrl: siteUrl,
-                  style: style,
+          // The outer WidgetSpan scales this entire group with the title.
+          // Its nested text must not apply the MediaQuery scaler again.
+          MediaQuery.withNoTextScaling(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: SiteEmojiText.plain(
+                    tail,
+                    siteUrl: siteUrl,
+                    style: style,
+                  ),
                 ),
-              ),
-              ...trailing,
-            ],
+                ...trailing,
+              ],
+            ),
           ),
         ],
       );

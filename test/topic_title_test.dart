@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -37,6 +38,83 @@ void main() {
     expect(find.text('An ordinary topic'), findsOneWidget);
     expect(find.byType(SiteEmojiImage), findsNothing);
   });
+
+  for (final (platform, width) in [
+    (TargetPlatform.iOS, 390.0),
+    (TargetPlatform.android, 390.0),
+    (TargetPlatform.macOS, 1200.0),
+  ]) {
+    for (final scale in [1.0, 1.25, 2.0]) {
+      testWidgets('unread title text scales once on $platform at $scale', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 720));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        for (final (title, tail) in [
+          ('Deal: LEGO Bricklink', 'Bricklink'),
+          ("Kudzai's Weekly Updates - 2026", '2026'),
+          ('A community guide to', 'guide to'),
+        ]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark.copyWith(platform: platform),
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Scaffold(
+                  body: TopicListRow(
+                    siteUrl: 'https://meta.example',
+                    topic: Topic(
+                      id: 1,
+                      title: title,
+                      slug: 'title',
+                      unreadPosts: 7,
+                    ),
+                    onTap: () {},
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final headParagraph = tester.renderObject<RenderParagraph>(
+            find
+                .descendant(
+                  of: find.byType(TopicTitle),
+                  matching: find.byType(RichText),
+                )
+                .first,
+          );
+          final tailParagraph = tester.renderObject<RenderParagraph>(
+            find.descendant(
+              of: find.text(tail),
+              matching: find.byType(RichText),
+            ),
+          );
+          final headGlyph = _paintedFirstGlyph(headParagraph);
+          final tailGlyph = _paintedFirstGlyph(tailParagraph);
+          expect(
+            tailGlyph.height,
+            closeTo(headGlyph.height, .01),
+            reason: 'The badge-adjacent words must match the title text size.',
+          );
+          final badge = tester.renderObject<RenderBox>(
+            find.byKey(const ValueKey('inbox-row-unread-1')),
+          );
+          final badgeBounds = MatrixUtils.transformRect(
+            badge.getTransformTo(null),
+            Offset.zero & badge.size,
+          );
+          expect(
+            badgeBounds.center.dy,
+            closeTo(tailGlyph.center.dy, 2),
+            reason: 'The unread badge stays beside the final title words.',
+          );
+          expect(tester.takeException(), isNull);
+        }
+      });
+    }
+  }
 
   testWidgets('draws shortcodes using the site emoji artwork', (tester) async {
     final controller = _controller();
@@ -462,6 +540,16 @@ void main() {
       'Lightning :high_voltage: talks',
     );
   });
+}
+
+Rect _paintedFirstGlyph(RenderParagraph paragraph) {
+  final box = paragraph
+      .getBoxesForSelection(const TextSelection(baseOffset: 0, extentOffset: 1))
+      .first;
+  return MatrixUtils.transformRect(
+    paragraph.getTransformTo(null),
+    box.toRect(),
+  );
 }
 
 ShellController _controller() => ShellController(
