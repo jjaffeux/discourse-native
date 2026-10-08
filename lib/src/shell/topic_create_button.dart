@@ -18,6 +18,8 @@ class TopicCreateButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.compact = false,
+    this.primaryAction,
+    this.alwaysShowDrafts = false,
   });
 
   static const Key buttonKey = ValueKey('new-topic-button');
@@ -25,6 +27,8 @@ class TopicCreateButton extends StatelessWidget {
 
   final bool compact;
   final VoidCallback onPressed;
+  final Widget? primaryAction;
+  final bool alwaysShowDrafts;
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +40,11 @@ class TopicCreateButton extends StatelessWidget {
         final instance = controller.currentInstance;
         final hasDrafts =
             instance?.isConnected == true &&
-            controller.draftCountFor(instance!.url) > 0;
+            (alwaysShowDrafts || controller.draftCountFor(instance!.url) > 0);
 
         return _TopicCreateControl(
           compact: compact,
+          primaryAction: primaryAction,
           onPressed: onPressed,
           draftsInstance: hasDrafts ? instance : null,
           controller: controller,
@@ -52,22 +57,23 @@ class TopicCreateButton extends StatelessWidget {
 class _TopicCreateControl extends StatelessWidget {
   const _TopicCreateControl({
     required this.compact,
+    required this.primaryAction,
     required this.onPressed,
     required this.draftsInstance,
     required this.controller,
   });
 
   final bool compact;
+  final Widget? primaryAction;
   final VoidCallback onPressed;
   final DiscourseInstance? draftsInstance;
   final ShellController controller;
 
   @override
   Widget build(BuildContext context) {
-    final mainButton = TopicCreateAction(
-      compact: compact,
-      onPressed: onPressed,
-    );
+    final mainButton =
+        primaryAction ??
+        TopicCreateAction(compact: compact, onPressed: onPressed);
     final instance = draftsInstance;
     if (instance == null) return mainButton;
 
@@ -80,7 +86,11 @@ class _TopicCreateControl extends StatelessWidget {
           DButtonGroupExpanded(child: mainButton),
           DButtonGroupSeparator(color: tokens.buttonTheme.primary.background),
           DDropdownMenu(
-            key: ValueKey((instance.url, instance.user?.id)),
+            key: ValueKey((
+              instance.url,
+              instance.user?.id,
+              controller.lifecycle.capture(instance.url).session,
+            )),
             onOpenChange: (open, _) {
               if (open) {
                 unawaited(controller.draftList.load(instance, refresh: true));
@@ -91,7 +101,11 @@ class _TopicCreateControl extends StatelessWidget {
               builder: (context, state) {
                 final button = DButton.iconOnly(
                   key: TopicCreateButton.draftsButtonKey,
-                  icon: const DIcon(DIcons.chevronDown, size: 10),
+                  icon: DIcon(
+                    primaryAction == null
+                        ? DIcons.chevronDown
+                        : DIcons.fileLines,
+                  ),
                   tooltip: context.l10n.openTheLatestDraftsMenu,
                   semanticLabel: context.l10n.openTheLatestDraftsMenu,
                   onPressed: state.toggle,
@@ -99,6 +113,9 @@ class _TopicCreateControl extends StatelessWidget {
                   hasPopup: true,
                   expanded: state.open,
                   variant: DButtonVariant.primary,
+                  shape: primaryAction == null
+                      ? DButtonShape.rounded
+                      : DButtonShape.pill,
                   size: DButtonSize.action,
                 );
                 return button;

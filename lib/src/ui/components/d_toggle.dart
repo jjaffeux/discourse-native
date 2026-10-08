@@ -81,6 +81,7 @@ class DToggle extends StatefulWidget {
     required this.child,
     this.icon,
     this.selectedIcon,
+    this.interactiveIcon,
     this.iconPosition = DToggleIconPosition.start,
     this.pressed,
     this.initialPressed = false,
@@ -105,6 +106,7 @@ class DToggle extends StatefulWidget {
     super.key,
     required this.icon,
     this.selectedIcon,
+    this.interactiveIcon,
     required this.semanticLabel,
     this.pressed,
     this.initialPressed = false,
@@ -131,6 +133,10 @@ class DToggle extends StatefulWidget {
 
   /// Optional replacement artwork while toggled on.
   final Widget? selectedIcon;
+
+  /// Replacement artwork while enabled and hovered, pressed or keyboard focused.
+  /// The toggle retains its normal size, semantics and activation behavior.
+  final Widget? interactiveIcon;
   final DToggleIconPosition iconPosition;
 
   /// Non-null values are parent-owned. Null uses [initialPressed].
@@ -365,7 +371,12 @@ class _DToggleState extends State<DToggle> {
           : noBorder,
     );
 
-    final effectiveIcon = _current
+    final effectiveIcon =
+        _enabled &&
+            (interacting || _focus.hasFocus) &&
+            widget.interactiveIcon != null
+        ? widget.interactiveIcon
+        : _current
         ? widget.selectedIcon ?? widget.icon
         : widget.icon;
     Widget content = widget._iconOnly
@@ -527,7 +538,10 @@ class _DToggleState extends State<DToggle> {
             onShowFocusHighlight: (value) {
               if (_focusVisible != value) setState(() => _focusVisible = value);
             },
-            onFocusChange: widget.onFocusChanged,
+            onFocusChange: (focused) {
+              if (widget.interactiveIcon != null) setState(() {});
+              widget.onFocusChanged?.call(focused);
+            },
             shortcuts: const {
               SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
               SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),

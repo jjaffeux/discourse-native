@@ -9,8 +9,10 @@ import '../plugin_api/notification_types.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'account_activity_loader.dart';
 import 'adaptive_dialog_action.dart';
+import 'desktop_header_menu.dart';
 import 'external_link.dart';
 import 'open_link.dart';
+import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
@@ -622,7 +624,7 @@ class NotificationRow extends StatelessWidget {
         ? context.l10n.unreadNotificationlist((line).toString())
         : line;
 
-    final row = Padding(
+    Widget row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Container(
         constraints: const BoxConstraints(minHeight: 44),
@@ -684,6 +686,39 @@ class NotificationRow extends StatelessWidget {
         ),
       ),
     );
+    if (DesktopHeaderMenu.isActiveOf(context)) {
+      row = DesktopHeaderMenuRow(
+        key: ValueKey('notification-row-${notification.id}'),
+        title: SiteEmojiText.plain(
+          line,
+          siteUrl: siteUrl,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        description:
+            notification.title.isEmpty ||
+                description.phrase.contains(notification.title)
+            ? null
+            : SiteEmojiText.plain(
+                notification.title,
+                siteUrl: siteUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        leading: DAvatar(
+          size: DAvatarSize.standard,
+          fallback: DAvatarFallback(child: DIcon(description.icon)),
+        ),
+        time: notification.createdAt == null
+            ? null
+            : relativeTime(notification.createdAt!),
+        unread: notification.isUnread,
+        semanticLabel: accessibilityLabel,
+        onPressed: () {
+          if (ownsSource()) onTap();
+        },
+      );
+    }
     final interactive = GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,

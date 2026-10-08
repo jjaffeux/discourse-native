@@ -10,7 +10,6 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'composer_presentation.dart';
 import 'desktop_panels.dart';
 import 'forum_search.dart';
@@ -22,7 +21,12 @@ import 'topic_create_button.dart';
 import 'user_menu_button.dart';
 
 class ShellTitleBar extends StatelessWidget {
-  const ShellTitleBar({super.key, this.showControls = true, this.panelsLayout});
+  const ShellTitleBar({
+    super.key,
+    this.showControls = true,
+    this.panelsLayout,
+    this.leadingInset,
+  });
 
   static const _windowChannel = MethodChannel('org.discourse.native/window');
 
@@ -30,6 +34,9 @@ class ShellTitleBar extends StatelessWidget {
   static const maximizeGestureKey = ValueKey('shell-title-bar-maximize');
 
   final bool showControls;
+
+  /// Clearance already supplied by the rail and docked sidebar.
+  final double? leadingInset;
   final DesktopPanelsLayout? panelsLayout;
 
   // Desktop mockup chrome row, including its vertical control insets.
@@ -38,10 +45,28 @@ class ShellTitleBar extends StatelessWidget {
   // Every platform keeps account and search controls above the topic list.
   static bool get isSupported => true;
 
-  static bool get _hasWindowChrome =>
+  static bool get hasWindowChrome =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   static bool get columnsCarryUserMenu => !isSupported;
+
+  static double heightFor(BuildContext context, double width) {
+    final searchSize = DControlStyle.isTouch(context)
+        ? DControlSize.large
+        : DControlSize.field;
+    final rowHeight =
+        height +
+        DControlStyle.scaledHeight(
+          searchSize,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ) -
+        DControlStyle.height(searchSize, context: context);
+    final stacked =
+        width < 560 ||
+        (width < 760 && MediaQuery.textScalerOf(context).scale(12) > 18);
+    return stacked ? rowHeight * 2 : rowHeight;
+  }
 
   static void _toggleMaximized() {
     unawaited(_windowChannel.invokeMethod<void>('toggleMaximized'));
@@ -49,7 +74,7 @@ class ShellTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!showControls && !_hasWindowChrome) return const SizedBox.shrink();
+    if (!showControls && !hasWindowChrome) return const SizedBox.shrink();
 
     final surface = ForumWindowBackground.chromeColor(
       context,
@@ -78,44 +103,14 @@ class ShellTitleBar extends StatelessWidget {
           // widths, give account actions a second row below the window controls.
           final stacked =
               showControls &&
-              (constraints.maxWidth < 700 ||
-                  (constraints.maxWidth < 1000 &&
+              (constraints.maxWidth < 560 ||
+                  (constraints.maxWidth < 760 &&
                       MediaQuery.textScalerOf(context).scale(12) > 18));
           final search = Expanded(
             child: ForumSearch(dense: true, size: searchSize),
           );
           final actions = <Widget>[
             if (showControls) const _DesktopPrimaryAction(),
-            if (showControls && panelsLayout != null)
-              ListenableBuilder(
-                listenable: panelsLayout!,
-                builder: (context, _) {
-                  if (!panelsLayout!.canToggleSplit) {
-                    return const SizedBox.shrink();
-                  }
-                  final label = panelsLayout!.splitVisible
-                      ? context.l10n.hideSplitView
-                      : context.l10n.showSplitView;
-                  return Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      end: DSpacing.controlGap,
-                    ),
-                    child: DTooltip(
-                      message: label,
-                      child: DToggle.iconOnly(
-                        key: const ValueKey('title-bar-split-view'),
-                        icon: const DIcon(DNativeIcons.openTopicPane),
-                        selectedIcon: const DIcon(DNativeIcons.closeTopicPane),
-                        semanticLabel: label,
-                        density: DToggleDensity.chrome,
-                        variant: DToggleVariant.inline,
-                        pressed: panelsLayout!.splitVisible,
-                        onPressedChanged: (_) => panelsLayout!.toggleSplit(),
-                      ),
-                    ),
-                  );
-                },
-              ),
             if (showControls)
               ...PluginScope.of(context).registry.shellHeaderActions(
                 context,
@@ -144,7 +139,7 @@ class ShellTitleBar extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (_hasWindowChrome)
+                  if (hasWindowChrome)
                     GestureDetector(
                       key: maximizeGestureKey,
                       behavior: HitTestBehavior.opaque,
@@ -159,7 +154,11 @@ class ShellTitleBar extends StatelessWidget {
                             height: rowHeight,
                             child: Row(
                               children: [
-                                SizedBox(width: _hasWindowChrome ? 88 : 8),
+                                SizedBox(
+                                  width:
+                                      leadingInset ??
+                                      (hasWindowChrome ? 94 : 8),
+                                ),
                                 search,
                                 const SizedBox(width: 8),
                               ],
@@ -177,7 +176,9 @@ class ShellTitleBar extends StatelessWidget {
                     else
                       Row(
                         children: [
-                          SizedBox(width: _hasWindowChrome ? 88 : 8),
+                          SizedBox(
+                            width: leadingInset ?? (hasWindowChrome ? 94 : 8),
+                          ),
                           search,
                           const SizedBox(width: DSpacing.controlGap),
                           Row(
@@ -211,10 +212,10 @@ class _DesktopPrimaryAction extends StatelessWidget {
     Widget? action;
     if (route?.isTopic == true) {
       if (shell.canReplyHere) {
-        action = DButton(
+        action = DButton.iconOnly(
           key: const ValueKey('title-bar-reply'),
           icon: const DIcon(DIcons.reply),
-          label: Text(context.l10n.reply),
+          tooltip: context.l10n.reply,
           variant: DButtonVariant.primary,
           shape: DButtonShape.pill,
           size: DButtonSize.action,
@@ -222,10 +223,30 @@ class _DesktopPrimaryAction extends StatelessWidget {
         );
       }
     } else if (route?.isMessages == true) {
-      action = const MessageCreateButton(showLabel: true, pill: true);
+      if (shell.currentInstance?.isConnected == true &&
+          shell.currentInstance?.user?.canSendPrivateMessages == true) {
+        action = TopicCreateButton(
+          onPressed: () {},
+          alwaysShowDrafts: true,
+          primaryAction: const MessageCreateButton(
+            showLabel: false,
+            pill: true,
+          ),
+        );
+      }
     } else if (shell.canCreateTopicFromSidebar) {
       action = TopicCreateButton(
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+        alwaysShowDrafts: true,
+        primaryAction: DButton.iconOnly(
+          key: TopicCreateButton.buttonKey,
+          icon: const DIcon(DIcons.farPenToSquare),
+          tooltip: context.l10n.newTopic,
+          shape: DButtonShape.pill,
+          variant: DButtonVariant.primary,
+          size: DButtonSize.action,
+          onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+        ),
       );
     }
     final topic = shell.currentTopic;

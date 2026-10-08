@@ -19943,5 +19943,13 @@
         "type": "int"
       }
     }
+  },
+  "markAllRead": "Mark all read",
+  "@markAllRead": {
+    "description": "Desktop notification menu action to mark all notifications read."
+  },
+  "openChatMenu": "Open chat",
+  "@openChatMenu": {
+    "description": "Desktop chat menu action to open the full chat page."
   }
 }

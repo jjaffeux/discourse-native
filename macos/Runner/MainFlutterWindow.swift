@@ -70,6 +70,7 @@ class MainFlutterWindow: NSWindow {
       window.sendWindowFrame()
     }
     observeWindowFrame(NSWindow.didResizeNotification) { window in
+      window.positionTrafficLights()
       window.sendWindowFrame()
     }
     observeWindowFrame(NSWindow.didMoveNotification) { window in
@@ -86,6 +87,7 @@ class MainFlutterWindow: NSWindow {
     )
 
     super.awakeFromNib()
+    positionTrafficLights()
   }
 
   deinit {
@@ -250,6 +252,24 @@ class MainFlutterWindow: NSWindow {
       "width": Double(frame.width),
       "height": Double(frame.height),
     ]
+  }
+
+  private func positionTrafficLights() {
+    guard !styleMask.contains(.fullScreen),
+      let close = standardWindowButton(.closeButton),
+      let container = close.superview,
+      let parent = container.superview
+    else { return }
+    // Native controls share the Flutter chrome's 53pt row. Keep the title-bar
+    // container at the window's top, including after live resizing.
+    var frame = container.frame
+    frame.size.height = 53
+    frame.origin.y = parent.bounds.height - frame.height
+    container.frame = frame
+    for (index, type) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
+      guard let button = standardWindowButton(type) else { continue }
+      button.setFrameOrigin(NSPoint(x: 20 + CGFloat(index) * 20, y: (53 - button.frame.height) / 2))
+    }
   }
 
   private func sendWindowFrame() {

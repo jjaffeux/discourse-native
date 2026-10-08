@@ -955,6 +955,9 @@ class ChatController extends FrameSafeNotifier {
     return List.unmodifiable(channels);
   }
 
+  /// Captures the account that owns a menu gesture or other synchronous UI action.
+  PluginSiteLease captureAccount(String siteUrl) => _requests.capture(siteUrl);
+
   bool channelsLoaded(String siteUrl) =>
       _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
 

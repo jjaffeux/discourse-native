@@ -6,12 +6,13 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_controller.dart';
+import 'chat_header_menu.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
-class ChatHeaderButton extends StatelessWidget {
+class ChatHeaderButton extends StatefulWidget {
   const ChatHeaderButton({super.key, this.ringColor, this.trailingSpacing = 0});
 
   final Color? ringColor;
@@ -23,10 +24,23 @@ class ChatHeaderButton extends StatelessWidget {
   static const Key unreadDotKey = ValueKey('chat-header-unread-dot');
   static const Key urgentBadgeKey = ValueKey('chat-header-urgent-badge');
 
-  Widget _withSpacing(Widget button) => trailingSpacing == 0
+  @override
+  State<ChatHeaderButton> createState() => _ChatHeaderButtonState();
+}
+
+class _ChatHeaderButtonState extends State<ChatHeaderButton> {
+  final _menu = DDropdownMenuController();
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
+
+  Widget _withSpacing(Widget button) => widget.trailingSpacing == 0
       ? button
       : Padding(
-          padding: EdgeInsetsDirectional.only(end: trailingSpacing),
+          padding: EdgeInsetsDirectional.only(end: widget.trailingSpacing),
           child: button,
         );
 
@@ -54,22 +68,7 @@ class ChatHeaderButton extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final exitsChat =
-            !mobile &&
-            shell.fullPageChatActive &&
-            shell.separateSidebarMode != ChatSeparateSidebarMode.never;
         void openChat() => unawaited(shell.openHeaderShortcut(mobile: mobile));
-        if (exitsChat) {
-          return _withSpacing(
-            DButton.iconOnly(
-              key: buttonKey,
-              tooltip: context.l10n.exitChat,
-              onPressed: openChat,
-              variant: DButtonVariant.transparentBackground,
-              icon: const DIcon(DIcons.shuffle),
-            ),
-          );
-        }
         final preference =
             user.chatCurrentUser?.headerIndicatorPreference ??
             ChatHeaderIndicatorPreference.allNew;
@@ -86,27 +85,35 @@ class ChatHeaderButton extends StatelessWidget {
             : context.l10n.chat;
 
         final theme = Theme.of(context);
-        if (urgentCount != null) {
-          return _withSpacing(
-            headerNotificationButton(
+        Widget button({
+          required VoidCallback onPressed,
+          FocusNode? focusNode,
+          bool expanded = false,
+        }) {
+          if (urgentCount != null) {
+            return headerNotificationButton(
               context,
-              key: buttonKey,
-              countKey: urgentBadgeKey,
+              key: ChatHeaderButton.buttonKey,
+              countKey: ChatHeaderButton.urgentBadgeKey,
               icon: const DIcon(DIcons.comment, size: 20),
               count: urgentCount,
               color: theme.discourse.success,
-              surface: ringColor ?? theme.shell.content,
+              surface: widget.ringColor ?? theme.shell.content,
               tooltip: tooltip,
               semanticLabel: tooltip,
-              onPressed: openChat,
-            ),
-          );
-        }
-        return _withSpacing(
-          DButton.iconOnly(
-            key: buttonKey,
+              onPressed: onPressed,
+              focusNode: focusNode,
+              hasPopup: !mobile,
+              expanded: expanded,
+            );
+          }
+          return DButton.iconOnly(
+            key: ChatHeaderButton.buttonKey,
             tooltip: tooltip,
-            onPressed: openChat,
+            onPressed: onPressed,
+            focusNode: focusNode,
+            hasPopup: !mobile,
+            expanded: expanded,
             variant: DButtonVariant.transparentBackground,
             icon: ExcludeSemantics(
               child: Stack(
@@ -118,12 +125,36 @@ class ChatHeaderButton extends StatelessWidget {
                       top: -2,
                       end: -3,
                       child: DNotificationDot.overlay(
-                        key: unreadDotKey,
+                        key: ChatHeaderButton.unreadDotKey,
                         color: theme.discourse.notificationIndicator,
-                        ringColor: ringColor,
+                        ringColor: widget.ringColor,
                       ),
                     ),
                 ],
+              ),
+            ),
+          );
+        }
+
+        if (mobile) return _withSpacing(button(onPressed: openChat));
+        return _withSpacing(
+          DDropdownMenu(
+            key: ValueKey((siteUrl, user.id)),
+            controller: _menu,
+            content: DDropdownMenuContent(
+              semanticLabel: context.l10n.chat,
+              align: DPopoverAlign.end,
+              width: DesktopHeaderMenu.width,
+              autofocus: false,
+              children: [
+                ChatHeaderMenu(siteUrl: siteUrl, onDismiss: _menu.close),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, trigger) => button(
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                onPressed: trigger.toggle,
               ),
             ),
           ),

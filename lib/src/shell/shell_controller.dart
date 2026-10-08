@@ -3183,6 +3183,17 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await accountActivity.loadNotifications(instance);
   }
 
+  Future<void> markAllNotificationsRead(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null || !instance.isConnected) return;
+    final lease = lifecycle.capture(siteUrl);
+    final key = await credentials.apiKeyFor(siteUrl);
+    if (!lease.isCurrent || key == null) return;
+    final types = await _siteNotificationTypesFor(instance, key);
+    if (!lease.isCurrent) return;
+    await accountActivity.markAllNotificationsRead(instance, types);
+  }
+
   NotificationFeed replyNotificationsFor(String siteUrl) =>
       accountActivity.replyNotificationsFor(siteUrl);
 

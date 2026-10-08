@@ -14929,4 +14929,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String headerPixels(int value) {
     return '$value px';
   }
+
+  @override
+  String get markAllRead => 'Mark all read';
+
+  @override
+  String get openChatMenu => 'Open chat';
 }

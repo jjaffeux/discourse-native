@@ -23306,6 +23306,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{value} px'**
   String headerPixels(int value);
+
+  /// Desktop notification menu action to mark all notifications read.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get markAllRead;
+
+  /// Desktop chat menu action to open the full chat page.
+  ///
+  /// In en, this message translates to:
+  /// **'Open chat'**
+  String get openChatMenu;
 }
 
 class _AppLocalizationsDelegate

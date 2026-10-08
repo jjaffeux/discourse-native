@@ -17,12 +17,14 @@ class DesktopNavigation extends StatefulWidget {
     this.showTrigger = true,
     required this.sidebar,
     required this.child,
+    this.header,
   });
 
   final bool compact;
   final bool showTrigger;
   final Widget sidebar;
   final Widget child;
+  final Widget? header;
 
   @override
   State<DesktopNavigation> createState() => _DesktopNavigationState();
@@ -96,6 +98,7 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
           Expanded(
             child: Column(
               children: [
+                ?widget.header,
                 Offstage(
                   offstage: !widget.compact || !widget.showTrigger,
                   child: ExcludeFocus(

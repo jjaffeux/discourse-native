@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'desktop_header_menu.dart';
 import 'external_link.dart';
 import 'header_notification_button.dart';
 import 'platform.dart';
@@ -263,6 +264,25 @@ class _AccountMenuPopover extends StatelessWidget {
           align: DPopoverAlign.end,
           width: 216,
           children: [UserProfileMenuItems(onDismiss: controller.close)],
+        ),
+        child: DDropdownMenuTrigger(builder: buildTrigger),
+      );
+    }
+    if (!context.isTouch) {
+      final shell = ShellScope.read(context);
+      final siteUrl = shell.currentInstance?.url;
+      return DDropdownMenu(
+        key: ValueKey((
+          siteUrl,
+          siteUrl == null ? null : shell.lifecycle.capture(siteUrl).session,
+        )),
+        controller: controller,
+        content: DDropdownMenuContent(
+          semanticLabel: tooltip,
+          align: DPopoverAlign.end,
+          width: DesktopHeaderMenu.width,
+          autofocus: false,
+          children: [UserMenuPanel(onDismiss: controller.close)],
         ),
         child: DDropdownMenuTrigger(builder: buildTrigger),
       );

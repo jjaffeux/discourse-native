@@ -68,6 +68,29 @@ final toggleExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Panel layout preview',
+      description:
+          'The window layout at rest, and the result of activation under the pointer or keyboard focus.',
+      code:
+          "DToggle.iconOnly(icon: DLayoutGlyph(mainVisible: true, secondaryVisible: true, changingPanel: 0), interactiveIcon: DLayoutGlyph(mainVisible: false, secondaryVisible: true, changingPanel: 0), semanticLabel: 'Hide split view')",
+      builder: (_) => const DToggle.iconOnly(
+        density: DToggleDensity.chrome,
+        variant: DToggleVariant.inline,
+        semanticLabel: 'Hide split view',
+        pressed: true,
+        icon: DLayoutGlyph(
+          mainVisible: true,
+          secondaryVisible: true,
+          changingPanel: 0,
+        ),
+        interactiveIcon: DLayoutGlyph(
+          mainVisible: false,
+          secondaryVisible: true,
+          changingPanel: 0,
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Default',
       description:
           'The frozen lead example: a small outline bookmark toggle with a filled pressed icon.',

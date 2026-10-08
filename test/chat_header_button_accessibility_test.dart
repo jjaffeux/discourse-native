@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
+import 'package:discourse_native/src/plugins/chat/chat_header_menu.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -201,7 +202,11 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(controller.currentContent?.id, 'chat-c-9');
+      expect(find.byType(ChatHeaderMenu), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatHeaderMenu), findsNothing);
+      expect(controller.currentContent?.id, 'latest');
     } finally {
       semantics.dispose();
     }
@@ -265,16 +270,18 @@ void main() {
 
       await tester.tap(button);
       await tester.pumpAndSettle();
+      expect(find.byType(ChatHeaderMenu), findsOneWidget);
+      await tester.tap(find.text('Open chat'));
+      await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'chat-c-9');
       expect(button, findsOneWidget);
       expect(find.byKey(ChatHeaderButton.urgentBadgeKey), findsNothing);
       expect(find.byKey(ChatHeaderButton.unreadDotKey), findsNothing);
-      expect(
-        tester.widget<DButton>(button).tooltip,
-        mode == ChatSeparateSidebarMode.never ? 'Chat' : 'Exit chat',
-      );
+      expect(tester.widget<DButton>(button).tooltip, 'Chat');
 
       await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open chat'));
       await tester.pumpAndSettle();
       expect(
         shell.currentContent?.id,

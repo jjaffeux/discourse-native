@@ -547,12 +547,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             Widget framedShell(Widget body) => Stack(
               children: [
                 Positioned.fill(
-                  child: Column(
-                    children: [
-                      if (!mobile) ShellTitleBar(panelsLayout: _panelsLayout),
-                      Expanded(child: body),
-                    ],
-                  ),
+                  child: Column(children: [Expanded(child: body)]),
                 ),
                 ...PluginScope.of(context).registry.shellOverlays(context),
               ],
@@ -1028,33 +1023,72 @@ class _WideShellState extends State<_WideShell> {
         );
         final sidebarExpanded =
             sidebarChoice ?? (context.isTouch || constraints.maxWidth >= 1100);
+        final sidebarInset =
+            !context.isTouch && sidebarExpanded && ShellTitleBar.hasWindowChrome
+            ? 40.0
+            : 0.0;
+        final sidebarWidth = sidebarExpanded
+            ? widget.sidebarWidth.effectiveWidth(maximum: windowMaximum) +
+                  sidebarInset
+            : 0.0;
+        final chromeHeight = ShellTitleBar.heightFor(
+          context,
+          sidebarExpanded
+              ? constraints.maxWidth - AdaptiveShell.railWidth - sidebarWidth
+              : constraints.maxWidth,
+        );
         return Row(
           children: [
             SizedBox(
               width: AdaptiveShell.railWidth,
-              child: sidebarExpanded ? _expandedRail : _collapsedRail,
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: chromeHeight + MediaQuery.paddingOf(context).top,
+                  ),
+                  Expanded(
+                    child: sidebarExpanded ? _expandedRail : _collapsedRail,
+                  ),
+                ],
+              ),
             ),
             Expanded(
-              child: ShellWorkspace(
-                atWindowEdge: widget.atWindowEdge,
-                child:
-                    ShellSelector<
-                      ({InstanceLoadStatus loadStatus, bool hasInstances})
-                    >(
-                      select: (controller) => (
-                        loadStatus: controller.loadStatus,
-                        hasInstances: controller.hasInstances,
-                      ),
-                      builder: (context, state, _) => switch (state
-                          .loadStatus) {
-                        InstanceLoadStatus.loading =>
-                          const _ShellLoadProgress(),
-                        InstanceLoadStatus.failed => const _ShellLoadFailure(),
-                        InstanceLoadStatus.ready when state.hasInstances =>
-                          DesktopNavigation(
-                            compact: !sidebarExpanded,
-                            showTrigger: sidebarChoice == null,
-                            sidebar: ResizablePane(
+              child:
+                  ShellSelector<
+                    ({InstanceLoadStatus loadStatus, bool hasInstances})
+                  >(
+                    select: (controller) => (
+                      loadStatus: controller.loadStatus,
+                      hasInstances: controller.hasInstances,
+                    ),
+                    builder: (context, state, _) => switch (state.loadStatus) {
+                      InstanceLoadStatus.loading => const _ShellLoadProgress(),
+                      InstanceLoadStatus.failed => const _ShellLoadFailure(),
+                      InstanceLoadStatus.ready when state.hasInstances =>
+                        DesktopNavigation(
+                          compact: !sidebarExpanded,
+                          showTrigger: sidebarChoice == null,
+                          header: SizedBox(
+                            height: chromeHeight,
+                            child: OverflowBox(
+                              alignment: AlignmentDirectional.centerEnd,
+                              minWidth: sidebarExpanded
+                                  ? null
+                                  : constraints.maxWidth,
+                              maxWidth: sidebarExpanded
+                                  ? null
+                                  : constraints.maxWidth,
+                              child: ShellTitleBar(
+                                panelsLayout: widget.panelsLayout,
+                                leadingInset: sidebarExpanded ? 12 : null,
+                              ),
+                            ),
+                          ),
+                          sidebar: Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              start: sidebarInset,
+                            ),
+                            child: ResizablePane(
                               controller: widget.sidebarWidth,
                               edge: ResizablePaneEdge.trailing,
                               resizeKey: 'sidebar',
@@ -1069,6 +1103,9 @@ class _WideShellState extends State<_WideShell> {
                                 child: Expanded(child: InstanceSidebar()),
                               ),
                             ),
+                          ),
+                          child: ShellWorkspace(
+                            atWindowEdge: widget.atWindowEdge,
                             child: _PageComposerDock(
                               child:
                                   !context.isTouch &&
@@ -1085,10 +1122,15 @@ class _WideShellState extends State<_WideShell> {
                                     ),
                             ),
                           ),
-                        InstanceLoadStatus.ready => const EmptyState(),
-                      },
-                    ),
-              ),
+                        ),
+                      InstanceLoadStatus.ready => const Column(
+                        children: [
+                          ShellTitleBar(),
+                          Expanded(child: EmptyState()),
+                        ],
+                      ),
+                    },
+                  ),
             ),
           ],
         );

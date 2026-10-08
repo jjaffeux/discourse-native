@@ -56,6 +56,7 @@ export 'src/ui/components/d_input_otp.dart';
 export 'src/ui/components/d_item.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
+export 'src/ui/components/d_layout_glyph.dart';
 export 'src/ui/components/d_marker.dart';
 export 'src/ui/components/d_menubar.dart';
 export 'src/ui/components/d_mermaid.dart';

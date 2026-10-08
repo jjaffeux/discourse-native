@@ -10,7 +10,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
-import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -75,26 +74,31 @@ void main() {
       );
       final main = shell.activeTabId!;
       final title = find.byType(ShellTitleBar);
-      final split = find.byKey(const ValueKey('title-bar-split-view'));
+      var split = find.byKey(const ValueKey('panel-split-view-secondary'));
       final mainPanel = find.byKey(const ValueKey('desktop-panel-main'));
       final secondaryPanel = find.byKey(
         const ValueKey('desktop-panel-secondary'),
       );
       final panels = find.byType(DesktopPanels);
-      final splitIcon = find.descendant(
+      var splitIcon = find.descendant(
         of: split,
-        matching: find.byType(DIcon),
+        matching: find.byType(DLayoutGlyph),
       );
       expect(tester.getSize(split), const Size.square(32));
       expect(tester.getSize(splitIcon), const Size.square(18));
-      expect(tester.widget<DIcon>(splitIcon).icon, DNativeIcons.closeTopicPane);
+      expect(tester.widget<DLayoutGlyph>(splitIcon).mainVisible, isTrue);
       expect(tester.widget<DToggle>(split).variant, DToggleVariant.inline);
       expect(tester.widget<DToggle>(split).pressed, isTrue);
       final splitWidth = tester.getSize(mainPanel).width;
       await tester.tap(split);
       await tester.pumpAndSettle();
+      split = find.byKey(const ValueKey('panel-split-view-main'));
+      splitIcon = find.descendant(
+        of: split,
+        matching: find.byType(DLayoutGlyph),
+      );
       expect(tester.widget<DToggle>(split).pressed, isFalse);
-      expect(tester.widget<DIcon>(splitIcon).icon, DNativeIcons.openTopicPane);
+      expect(tester.widget<DLayoutGlyph>(splitIcon).secondaryVisible, isFalse);
       expect(secondaryPanel, findsNothing);
       expect(find.byKey(const ValueKey('panel-rail-secondary')), findsNothing);
       expect(
@@ -104,13 +108,15 @@ void main() {
       expect(tester.getRect(mainPanel), tester.getRect(panels));
       await tester.tap(split);
       await tester.pumpAndSettle();
+      split = find.byKey(const ValueKey('panel-split-view-secondary'));
       expect(tester.widget<DToggle>(split).pressed, isTrue);
       expect(secondaryPanel, findsOneWidget);
       expect(tester.getSize(mainPanel).width, splitWidth);
-      await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
+      await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
       await tester.pumpAndSettle();
       expect(tester.widget<DToggle>(split).pressed, isFalse);
-      expect(find.byKey(const ValueKey('panel-rail-main')), findsOneWidget);
+      expect(find.byKey(const ValueKey('panel-rail-main')), findsNothing);
+      expect(tester.getRect(secondaryPanel), tester.getRect(panels));
       await tester.tap(split);
       await tester.pumpAndSettle();
       expect(tester.widget<DToggle>(split).pressed, isTrue);
@@ -129,7 +135,10 @@ void main() {
       shell.openTopicFromList(topic);
       await tester.pumpAndSettle();
       expect(
-        find.descendant(of: title, matching: find.text('Reply')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('title-bar-reply')),
+        ),
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('topic-bottom-bar')), findsNothing);
@@ -142,26 +151,41 @@ void main() {
       shell.selectTab(main);
       await tester.pumpAndSettle();
       expect(
-        find.descendant(of: title, matching: find.text('Reply')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('title-bar-reply')),
+        ),
         findsNothing,
       );
       expect(
-        find.descendant(of: title, matching: find.text('New topic')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(TopicCreateButton.buttonKey),
+        ),
         findsOneWidget,
       );
       shell.pushContent(ContentRoute.messages());
       await tester.pumpAndSettle();
       expect(
-        find.descendant(of: title, matching: find.text('New message')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('new-message-button')),
+        ),
         findsOneWidget,
       );
       await tester.tap(
-        find.descendant(of: title, matching: find.text('New message')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('new-message-button')),
+        ),
       );
       await tester.pumpAndSettle();
       expect(shell.visibleComposer, isNotNull);
       expect(
-        find.descendant(of: title, matching: find.text('New message')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('new-message-button')),
+        ),
         findsNothing,
       );
       await tester.tap(find.byKey(const ValueKey('composer-minimize')));
@@ -169,13 +193,19 @@ void main() {
       // The composer occupies the secondary workspace. Minimizing it focuses
       // that panel's topic; the title action follows that focused reader.
       expect(
-        find.descendant(of: title, matching: find.text('Reply')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('title-bar-reply')),
+        ),
         findsOneWidget,
       );
       shell.selectTab(main);
       await tester.pumpAndSettle();
       expect(
-        find.descendant(of: title, matching: find.text('New message')),
+        find.descendant(
+          of: title,
+          matching: find.byKey(const ValueKey('new-message-button')),
+        ),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);

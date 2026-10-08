@@ -548,10 +548,26 @@ final class AccountActivityController extends FrameSafeNotifier {
     return task;
   }
 
+  /// Marks every server-defined notification type read for this account.
+  Future<void> markAllNotificationsRead(
+    DiscourseInstance instance,
+    List<NotificationWireType> types,
+  ) => _dismissNotificationTypes(instance, types: types);
+
   Future<void> _dismissPluginNotifications(
     DiscourseInstance instance,
     PluginNotificationFeedSource source,
-  ) async {
+  ) => _dismissNotificationTypes(
+    instance,
+    source: source,
+    types: source.dismissal!.notificationTypes,
+  );
+
+  Future<void> _dismissNotificationTypes(
+    DiscourseInstance instance, {
+    PluginNotificationFeedSource? source,
+    required List<NotificationWireType> types,
+  }) async {
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
     final lease = lifecycle.capture(siteUrl);
@@ -561,11 +577,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     // are stale as well, including when the local bucket is absent or zero.
     onGroupedUnreadAuthorityAdvanced?.call(siteUrl);
     final dismissedTypeNames = List<NotificationTypeName>.unmodifiable(
-      source.filterByTypes,
+      source?.filterByTypes ??
+          [for (final type in types) NotificationTypeName(type.wireName)],
     );
     final dismissedTypeIds = <NotificationTypeId>{
-      for (final type in source.dismissal!.notificationTypes)
-        NotificationTypeId(type.wireId),
+      for (final type in types) NotificationTypeId(type.wireId),
     };
     final authority = _captureGroupedUnreadAuthority(siteUrl, dismissedTypeIds);
     final cachedNotificationIds = _cachedPluginDismissNotificationIds(
@@ -607,7 +623,11 @@ final class AccountActivityController extends FrameSafeNotifier {
       // list authoritatively after the write. Only the pre-write cache snapshot
       // is locally pinned read, so a newer row received during the write stays
       // unread while this fetch resolves the final list.
-      await _refreshLoadedPluginNotifications(instance, source, lease);
+      if (source != null) {
+        await _refreshLoadedPluginNotifications(instance, source, lease);
+      } else {
+        await loadNotifications(instance);
+      }
 
       // `/notifications/totals.json` does not currently return grouped type
       // counts. It is still useful for the aggregate unread total, while the
@@ -619,7 +639,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       _report(
         error,
         stackTrace,
-        'account.dismissPluginNotifications.${source.id.id}',
+        'account.dismissPluginNotifications.${source?.id.id ?? 'all'}',
       );
       Error.throwWithStackTrace(error, stackTrace);
     }
@@ -1317,12 +1337,12 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   Set<int> _cachedPluginDismissNotificationIds(
     String siteUrl,
-    PluginNotificationFeedSource source,
+    PluginNotificationFeedSource? source,
   ) {
-    final names = source.filterByTypes.toSet();
+    final names = source?.filterByTypes.toSet() ?? <NotificationTypeName>{};
     final typeIds = <NotificationTypeId>{
       for (final type
-          in source.dismissal?.notificationTypes ??
+          in source?.dismissal?.notificationTypes ??
               const <NotificationWireType>[])
         NotificationTypeId(type.wireId),
     };
@@ -1333,7 +1353,8 @@ final class AccountActivityController extends FrameSafeNotifier {
       bool trustedServerFilter = false,
     }) {
       for (final notification in notifications) {
-        if (!trustedServerFilter &&
+        if (source != null &&
+            !trustedServerFilter &&
             !names.contains(notification.typeName) &&
             !typeIds.contains(notification.typeId)) {
           continue;
@@ -1346,10 +1367,12 @@ final class AccountActivityController extends FrameSafeNotifier {
       }
     }
 
-    if (_pluginNotificationState(source.id).feeds[siteUrl] case final feed?) {
-      // This feed was fetched with exactly [source.filterByTypes], so its rows
-      // remain useful even on servers which omit `notification_type_name`.
-      collect(feed.notifications, trustedServerFilter: true);
+    if (source != null) {
+      if (_pluginNotificationState(source.id).feeds[siteUrl] case final feed?) {
+        // This feed was fetched with exactly [source.filterByTypes], so its rows
+        // remain useful even on servers which omit `notification_type_name`.
+        collect(feed.notifications, trustedServerFilter: true);
+      }
     }
     if (_notifications[siteUrl] case final feed?) {
       collect(feed.notifications);

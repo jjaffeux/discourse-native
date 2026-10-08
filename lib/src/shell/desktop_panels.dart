@@ -6,12 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../models/composer_placement.dart';
 import '../models/forum_workspace.dart';
-import '../theme/d_icons.dart';
 import 'adaptive_shell.dart';
-import 'forum_tabs_bar.dart';
+import 'composer_presentation.dart';
 import 'main_content.dart';
-import 'panel_rail.dart';
 import 'resizable_pane.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
@@ -182,11 +181,11 @@ class _DesktopPanelsState extends State<DesktopPanels>
   static ForumPanel _other(ForumPanel panel) =>
       panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main;
 
-  void _toggleSplit() {
+  void _toggleSplit([ForumPanel target = ForumPanel.secondary]) {
     if (_effectiveMinimized case final panel?) {
       _restore(panel);
     } else {
-      _minimize(ForumPanel.secondary);
+      _minimize(target);
     }
   }
 
@@ -269,6 +268,26 @@ class _DesktopPanelsState extends State<DesktopPanels>
     if (!status.isAnimating) _moving.value = null;
   }
 
+  Widget _layoutGlyph(
+    BuildContext context,
+    ForumPanel? hidden,
+    ForumPanel changing,
+  ) {
+    final placement = ComposerDock.workspacePlacementOf(context);
+    return DLayoutGlyph(
+      mainVisible: hidden != ForumPanel.main,
+      secondaryVisible: hidden != ForumPanel.secondary,
+      changingPanel: changing.index,
+      dock: switch (placement) {
+        ComposerPlacement.left => DLayoutGlyphDock.left,
+        ComposerPlacement.right => DLayoutGlyphDock.right,
+        ComposerPlacement.bottom => DLayoutGlyphDock.bottom,
+        ComposerPlacement.fullScreen => DLayoutGlyphDock.full,
+        null => null,
+      },
+    );
+  }
+
   @override
   void dispose() {
     _layout._toggle = null;
@@ -338,8 +357,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
         final minimized = _minimized ?? autoCollapsed;
         final horizontal =
             total >= 640 + workspacePanelGap ||
-            (minimized != null &&
-                total >= 320 + PanelRail.width + workspacePanelGap);
+            (minimized != null && total >= 320);
         _effectiveMinimized = minimized;
         _layout._present(
           visible: horizontal && minimized == null,
@@ -382,7 +400,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
           // unchanged it keeps the same widget, so a change elsewhere, such
           // as a tab settling while a panel folds, does not rebuild its frame
           // and header.
-          final inputs = (tab?.id, content, horizontal, minimizable);
+          final inputs = (
+            tab?.id,
+            content,
+            horizontal,
+            minimizable,
+            minimized,
+            ComposerDock.workspacePlacementOf(context),
+          );
           if (_panelWidgets[target] case (
             :final key,
             :final widget,
@@ -397,15 +422,31 @@ class _DesktopPanelsState extends State<DesktopPanels>
             showHeader: horizontal,
             action: minimizable == null
                 ? null
-                : DButton.iconOnly(
-                    key: ValueKey('minimize-panel-${target.name}'),
-                    icon: const DIcon(DIcons.downLeftAndUpRightToCenter),
-                    tooltip: minimizable
-                        ? context.l10n.minimizePanel
-                        : context.l10n.openATabInTheOtherPanelFirst,
-                    variant: DButtonVariant.transparentBackground,
-                    size: DButtonSize.tabAction,
-                    onPressed: minimizable ? () => _minimize(target) : null,
+                : DTooltip(
+                    message: minimized == null
+                        ? context.l10n.hideSplitView
+                        : context.l10n.showSplitView,
+                    child: DToggle.iconOnly(
+                      key: ValueKey('panel-split-view-${target.name}'),
+                      icon: _layoutGlyph(
+                        context,
+                        minimized,
+                        minimized ?? target,
+                      ),
+                      interactiveIcon: _layoutGlyph(
+                        context,
+                        minimized == null ? target : null,
+                        minimized ?? target,
+                      ),
+                      semanticLabel: minimized == null
+                          ? context.l10n.hideSplitView
+                          : context.l10n.showSplitView,
+                      density: DToggleDensity.chrome,
+                      variant: DToggleVariant.inline,
+                      pressed: minimized == null,
+                      enabled: minimizable || minimized != null,
+                      onPressedChanged: (_) => _toggleSplit(target),
+                    ),
                   ),
           );
           _panelWidgets[target] = (key: inputs, widget: widget);
@@ -468,19 +509,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
               minimizable: shell.selectedTabIn(_other(target)) != null,
             ),
         };
-        final rail = minimized != ForumPanel.main
-            ? null
-            : Align(
-                alignment: AlignmentDirectional.topStart,
-                child: CurrentForumTabsRail(
-                  key: const ValueKey('panel-rail-main'),
-                  panel: ForumPanel.main,
-                  semanticLabel: context.l10n.mainPanelMinimized,
-                  onRestore: () => _restore(ForumPanel.main),
-                  onSelect: (id) => _restore(ForumPanel.main, tabId: id),
-                  onNewTab: () => _restore(ForumPanel.main, newTab: true),
-                ),
-              );
         return ListenableBuilder(
           listenable: Listenable.merge([_mainWidth, _moving]),
           builder: (context, _) {
@@ -495,10 +523,8 @@ class _DesktopPanelsState extends State<DesktopPanels>
               gap: workspacePanelGap,
               child: const SizedBox.shrink(),
             );
-            const docked = PanelRail.width + workspacePanelGap;
-            // Main folds into its rail; secondary leaves the workspace entirely,
-            // including the gap, so the revealed document reaches the edge.
-            final mainTravel = mainWidth - workspacePanelGap - PanelRail.width;
+            // Either panel leaves the workspace entirely, including the gap.
+            final mainTravel = mainWidth;
             final secondaryTravel = total + workspacePanelGap - mainWidth;
             final ltr = direction == TextDirection.ltr ? 1.0 : -1.0;
             // Both panels keep one place in the tree in every layout, at rest
@@ -517,10 +543,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
               // out again only when the window changes.
               final (start, width) = switch ((target, placed)) {
                 (ForumPanel.main, ForumPanel.secondary) => (0.0, total),
-                (ForumPanel.secondary, ForumPanel.main) => (
-                  docked,
-                  total - docked,
-                ),
+                (ForumPanel.secondary, ForumPanel.main) => (0.0, total),
                 (ForumPanel.main, _) => (0.0, mainWidth - workspacePanelGap),
                 (ForumPanel.secondary, _) => (
                   mainWidth,
@@ -610,20 +633,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     top: 0,
                     bottom: 0,
                     child: seam,
-                  )
-                else if (rail != null)
-                  PositionedDirectional(
-                    start: minimized == ForumPanel.main ? 0 : null,
-                    end: minimized == ForumPanel.secondary ? 0 : null,
-                    top: 0,
-                    bottom: 0,
-                    width: PanelRail.width,
-                    child: FadeTransition(
-                      opacity: moving?.panel == minimized
-                          ? _folded
-                          : kAlwaysCompleteAnimation,
-                      child: rail,
-                    ),
                   ),
               ],
             );

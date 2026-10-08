@@ -17,10 +17,12 @@ import '../theme/d_native_icons.dart';
 import 'about_dialog.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
+import 'desktop_header_menu.dart';
 import 'do_not_disturb_dialog.dart';
 import 'external_link.dart';
 import 'invite_list.dart';
 import 'notification_list.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_menu_message.dart';
@@ -268,6 +270,7 @@ class UserMenuPanel extends StatefulWidget {
 
 class _UserMenuPanelState extends State<UserMenuPanel> {
   String _sectionId = 'all';
+  bool _markingRead = false;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_UserMenuPanelSnapshot>(
@@ -379,6 +382,46 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
           final notificationSections = sections
               .where((section) => !section.isProfile)
               .toList();
+          if (!context.isTouch && widget.view == UserMenuView.notifications) {
+            return DesktopHeaderMenu<String>(
+              title: context.l10n.notifications,
+              action: context.l10n.markAllRead,
+              busy: _markingRead,
+              onAction: _markingRead || siteUrl == null
+                  ? null
+                  : () async {
+                      final lease = controller.lifecycle.capture(siteUrl);
+                      setState(() => _markingRead = true);
+                      try {
+                        await controller.markAllNotificationsRead(siteUrl);
+                      } catch (_) {
+                        if (context.mounted && lease.isCurrent) {
+                          DToast.show(
+                            context,
+                            appL10n.couldnTMarkNotificationsAsReadTryAgain,
+                            type: DToastType.error,
+                          );
+                        }
+                      } finally {
+                        if (mounted && lease.isCurrent) {
+                          setState(() => _markingRead = false);
+                        }
+                      }
+                    },
+              filters: [
+                for (final item in notificationSections)
+                  DesktopHeaderMenuFilter(
+                    item.id,
+                    item.isNotifications ? context.l10n.all : item.label,
+                    unread: item.badge,
+                    key: ValueKey('user-menu-tab-${item.id}'),
+                  ),
+              ],
+              value: section.id,
+              onChanged: selectSection,
+              child: body,
+            );
+          }
           return SizedBox(
             width: widget.view == UserMenuView.profile
                 ? UserMenuPanel.profileWidth

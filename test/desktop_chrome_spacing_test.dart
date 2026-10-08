@@ -38,7 +38,11 @@ void main() {
           expect(tester.getRect(find.byWidget(panel.widget)).top, 59);
         }
         if (find.byType(InstanceSidebar).evaluate().isNotEmpty) {
-          expect(tester.getRect(find.byType(InstanceSidebar)).top, 59);
+          expect(tester.getRect(find.byType(InstanceSidebar)).top, 0);
+          expect(
+            titleBar.left,
+            greaterThan(tester.getRect(find.byType(InstanceSidebar)).left),
+          );
         }
         await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
         await tester.pumpAndSettle();
@@ -46,12 +50,13 @@ void main() {
         for (final panel in panels.evaluate()) {
           expect(tester.getRect(find.byWidget(panel.widget)).top, 59);
         }
+        final collapsedField = tester.getRect(find.byType(DInputGroup));
         await tester.tap(find.byKey(ForumSearch.inputKey));
         await tester.pumpAndSettle();
-        expect(tester.getRect(find.byType(DInputGroup)), field);
+        expect(tester.getRect(find.byType(DInputGroup)), collapsedField);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
-        expect(tester.getRect(find.byType(DInputGroup)), field);
+        expect(tester.getRect(find.byType(DInputGroup)), collapsedField);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.desktop(),

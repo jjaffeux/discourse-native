@@ -10,7 +10,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
-import 'package:discourse_native/src/shell/panel_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -441,7 +440,7 @@ void main() {
       expect(find.byType(TopicListView), findsOneWidget);
       expect(find.byType(TopicView), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
-      expect(find.byTooltip('Minimize panel'), findsNWidgets(2));
+      expect(find.byTooltip('Hide split view'), findsNWidgets(2));
       expect(find.byTooltip('Switch panel positions'), findsNothing);
       final reader = tester.state(find.byType(TopicView));
       final main = shell.selectedTabIn(ForumPanel.main)!.id;
@@ -451,7 +450,9 @@ void main() {
       expect(tester.state(find.byType(TopicView)), same(reader));
       final list = tester.getRect(_mainPanel);
 
-      await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(TopicView), findsNothing);
       expect(
@@ -489,9 +490,9 @@ void main() {
     );
     expect(shell.activeTabId, main.id);
 
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
     await tester.pumpAndSettle();
-    expect(_rail(ForumPanel.main), findsOneWidget);
+    expect(_rail(ForumPanel.main), findsNothing);
     expect(shell.activeTabId, start.id);
     expect(find.byType(NewTabPage), findsOneWidget);
     expect(shell.currentWorkspace!.tabById(main.id), main);
@@ -529,7 +530,7 @@ void main() {
     final readerTab = shell.activeTabId!;
     shell.selectTab(shell.selectedTabIn(ForumPanel.main)!.id);
     await _pump(tester, shell);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
     await tester.pumpAndSettle();
     expect(find.byType(TopicView), findsNothing);
 
@@ -543,85 +544,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a tab picked from the rail restores its panel on that tab', (
-    tester,
-  ) async {
-    _openTopicTab(shell, _topic, panel: ForumPanel.main);
-    final first = shell.activeTabId!;
-    _openTopicTab(shell, _otherTopic, panel: ForumPanel.main);
-    final second = shell.activeTabId!;
-    final other = shell.selectedTabIn(ForumPanel.secondary)!.id;
-    await _pump(tester, shell);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
-    await tester.pumpAndSettle();
-    expect(shell.activeTabId, other);
-    expect(
-      tester
-          .widgetList<DButton>(
-            find.descendant(
-              of: _rail(ForumPanel.main),
-              matching: find.byType(DButton),
-            ),
-          )
-          .map((button) => button.tooltip),
-      ['Restore panel', 'Latest', 'Panel topic', 'Another topic', 'New tab'],
-    );
-
-    await tester.tap(find.byKey(ValueKey('panel-rail-tab-$first')));
-    await tester.pumpAndSettle();
-
-    expect(_rail(ForumPanel.main), findsNothing);
-    expect(shell.activeTabId, first);
-    expect(shell.selectedTabIn(ForumPanel.main)?.id, first);
-    expect(shell.currentWorkspace?.tabById(second), isNotNull);
-    expect(find.text('Content for 42', findRichText: true), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
   for (final direction in TextDirection.values) {
-    testWidgets('a minimized main panel docks at its start and reads out '
-        'over the reader in $direction', (tester) async {
-      _openTopicTab(shell, _topic);
-      await _pump(tester, shell, direction: direction);
-      final list = tester.state(find.byType(TopicListView));
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: const Offset(600, 500));
-      addTearDown(mouse.removePointer);
-
-      await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
-      await tester.pumpAndSettle();
-      final rail = tester.getRect(_rail(ForumPanel.main));
-      final reader = tester.getRect(_secondaryPanel);
-      if (direction == TextDirection.ltr) {
-        expect(rail.left, 0);
-        expect(reader.left, PanelRail.width + workspacePanelGap);
-      } else {
-        expect(rail.right, 1200);
-        expect(reader.right, 1200 - PanelRail.width - workspacePanelGap);
-      }
-      expect(find.byType(TopicListView), findsNothing);
-
-      await mouse.moveTo(rail.center);
-      await tester.pumpAndSettle();
-      final readOut = find.byKey(const ValueKey('panel-rail-read-out'));
-      expect(
-        find.descendant(of: readOut, matching: find.text('Restore panel')),
-        findsOneWidget,
-      );
-      expect(
-        tester.getRect(readOut).overlaps(reader),
-        isTrue,
-        reason: 'the read-out opens over the panel beside the rail',
-      );
-      await mouse.moveTo(reader.center);
-      await tester.pumpAndSettle();
-      expect(readOut, findsNothing);
-
-      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
-      await tester.pumpAndSettle();
-      expect(tester.state(find.byType(TopicListView)), same(list));
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'either panel disappears fully and restores retained tabs in $direction',
+      (tester) async {
+        _openTopicTab(shell, _topic, panel: ForumPanel.main);
+        final first = shell.activeTabId!;
+        _openTopicTab(shell, _otherTopic, panel: ForumPanel.main);
+        final second = shell.activeTabId!;
+        await _pump(tester, shell, direction: direction);
+        final reader = tester.state(find.byType(TopicView).first);
+        final before = tester.getRect(_mainPanel);
+        await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
+        await tester.pumpAndSettle();
+        expect(_rail(ForumPanel.main), findsNothing);
+        expect(
+          tester.getRect(_secondaryPanel),
+          const Rect.fromLTWH(0, 0, 1200, 850),
+        );
+        expect(
+          find.byKey(const ValueKey('main-panel-resize-handle')),
+          findsNothing,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('panel-split-view-secondary')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel), before);
+        expect(shell.selectedTabIn(ForumPanel.main)?.id, second);
+        expect(tester.state(find.byType(TopicView).first), same(reader));
+        shell.selectTab(first);
+        await tester.pumpAndSettle();
+        expect(find.text('Content for 42', findRichText: true), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('hiding the secondary panel leaves no rail or hover read-out', (
@@ -630,7 +587,7 @@ void main() {
     _openTopicTab(shell, _topic);
     await _pump(tester, shell);
     final button = tester.getCenter(
-      find.byKey(const ValueKey('minimize-panel-secondary')),
+      find.byKey(const ValueKey('panel-split-view-secondary')),
     );
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: button);
@@ -674,10 +631,10 @@ void main() {
       for (final panel in ForumPanel.values) panel: ancestry(panel),
     };
     for (final action in [
-      'minimize-panel-secondary',
+      'panel-split-view-secondary',
       'toggle-split',
-      'minimize-panel-main',
-      'panel-rail-restore',
+      'panel-split-view-main',
+      'panel-split-view-secondary',
     ]) {
       if (action == 'toggle-split') {
         _toggleSplit(tester);
@@ -706,7 +663,7 @@ void main() {
     _openTopicTab(shell, _topic);
     await _pump(tester, shell);
     final reader = tester.getRect(_secondaryPanel);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
     // The frame that lays the panels out anew, then the motion's first tick:
     // nothing has moved yet.
     await tester.pump();
@@ -741,7 +698,7 @@ void main() {
     final reader = tester.getRect(_secondaryPanel);
     final seam = find.byKey(const ValueKey('main-panel-resize-handle'));
     expect(seam, findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
     await tester.pumpAndSettle();
     expect(seam, findsNothing);
 
@@ -778,7 +735,7 @@ void main() {
     _openTopicTab(shell, _topic);
     await _pump(tester, shell, reduceMotion: true);
     final reader = tester.getRect(_secondaryPanel);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
     await tester.pump();
     expect(find.byType(TopicView), findsNothing);
     expect(tester.getRect(_mainPanel).right, 1200);
@@ -1397,7 +1354,7 @@ void main() {
     },
   );
 
-  testWidgets('right-edge resize shrinks main to 320 then docks its rail', (
+  testWidgets('right-edge resize shrinks main to 320 then hides it entirely', (
     tester,
   ) async {
     final frame = ValueNotifier<Rect?>(const Rect.fromLTWH(100, 0, 1200, 850));
@@ -1429,20 +1386,15 @@ void main() {
     tester.view.physicalSize = const Size(1119, 850);
     await tester.pumpAndSettle();
     expect(_mainPanel, findsNothing);
-    final mainRail = tester.getRect(_rail(ForumPanel.main));
-    expect(mainRail.left, 0);
-    expect(mainRail.width, PanelRail.width);
+    expect(_rail(ForumPanel.main), findsNothing);
     expect(
       tester.getRect(_secondaryPanel),
-      const Rect.fromLTWH(
-        PanelRail.width + workspacePanelGap,
-        0,
-        1119 - PanelRail.width - workspacePanelGap,
-        850,
-      ),
+      const Rect.fromLTWH(0, 0, 1119, 850),
     );
-    expect(find.byKey(const ValueKey('panel-rail-restore')), findsOneWidget);
-    expect(find.byKey(const ValueKey('panel-rail-new-tab')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('panel-split-view-secondary')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('main-panel-resize-handle')),
       findsNothing,
@@ -1455,7 +1407,7 @@ void main() {
     tester.view.physicalSize = const Size(1051, 850);
     await tester.pumpAndSettle();
     expect(_mainPanel, findsNothing);
-    expect(_rail(ForumPanel.main), findsOneWidget);
+    expect(_rail(ForumPanel.main), findsNothing);
 
     frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
     tester.view.physicalSize = const Size(1200, 850);
@@ -1550,13 +1502,15 @@ void main() {
       frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
       tester.view.physicalSize = const Size(1119, 850);
       await tester.pumpAndSettle();
-      expect(_rail(ForumPanel.main), findsOneWidget);
+      expect(_rail(ForumPanel.main), findsNothing);
       expect(
         find.byKey(const ValueKey('main-panel-resize-handle')),
         findsNothing,
       );
 
-      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
       await tester.pumpAndSettle();
       expect(_rail(ForumPanel.main), findsNothing);
       expect(tester.getRect(_mainPanel).width, 400);
@@ -1598,7 +1552,7 @@ void main() {
       expect(find.byType(TopicView), findsNothing);
 
       // One panel is all a narrow window shows, so neither stands down.
-      expect(find.byTooltip('Minimize panel'), findsNothing);
+      expect(find.byTooltip('Hide split view'), findsNothing);
 
       tester.view.physicalSize = const Size(1200, 850);
       await tester.pumpAndSettle();

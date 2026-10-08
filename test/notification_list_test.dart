@@ -278,6 +278,10 @@ void main() {
       (tester) async {
         final (controller, api) = await _pumpMenu(tester, type: type);
         if (section != 'all') {
+          await tester.ensureVisible(
+            find.byKey(ValueKey('user-menu-tab-$section')),
+          );
+          await tester.pumpAndSettle();
           await tester.tap(find.byKey(ValueKey('user-menu-tab-$section')));
           await tester.pumpAndSettle();
         }

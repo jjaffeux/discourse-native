@@ -940,6 +940,7 @@ void main() {
       'Reaction',
       'Chat reaction',
       'Window control',
+      'Panel layout preview',
       'Default',
       'Outline',
       'With Text',

@@ -145,6 +145,7 @@ export 'src/shell/content_reading_lane.dart'
 export 'src/shell/cooked_dom.dart'
     show childWhere, childrenWhere, descendantWhere, descendantsWhere;
 export 'src/shell/cooked_html.dart';
+export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/diagnostics_text.dart';
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_composer.dart' show openEmojiPickerForComposer;
