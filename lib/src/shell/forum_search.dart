@@ -73,7 +73,6 @@ class _ForumSearchState extends State<ForumSearch> {
   Size? _layoutViewport;
   String? _selectedResultId;
   TextEditingValue? _draftEditingValue;
-  (String?, String?, String?)? _openingPage;
   String? _openingExpression;
   final _panelKey = GlobalKey<GlobalSearchPanelState>();
 
@@ -216,16 +215,10 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _retireClosedDraftIfScopeChanged() {
-    final page = (
-      _search.siteUrl,
-      _shell?.activeTabId,
-      _shell?.currentContent?.id,
-    );
     if (!_open &&
-        _openingPage != null &&
-        (_openingPage != page || _openingExpression != _listExpression)) {
+        _openingExpression != null &&
+        _openingExpression != _listExpression) {
       _draftEditingValue = null;
-      _openingPage = page;
       _openingExpression = _listExpression;
       _global.clearAllConditions();
       _global.setQuery('');
@@ -302,11 +295,6 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
       _openingExpression = _listExpression;
-      _openingPage = (
-        _search.siteUrl,
-        _shell?.activeTabId,
-        _shell?.currentContent?.id,
-      );
       final route = _shell!.currentContent;
       final preferred = route?.isMessages == true
           ? GlobalSearchScope.messages

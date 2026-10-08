@@ -311,12 +311,14 @@ void main() {
         expect(shell.currentContent?.isTopicList, isTrue);
         await open();
         await _finishSearch(tester);
+        // Both pages have the same empty list expression. The final mockup
+        // keeps a search in progress until that expression changes.
         expect(
           shell.globalSearch.scope,
-          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.users,
         );
         expect(shell.globalSearch.conditions, isEmpty);
-        expect(shell.globalSearch.query, isEmpty);
+        expect(shell.globalSearch.query, 'design');
         expect(tester.takeException(), isNull);
       },
     );
