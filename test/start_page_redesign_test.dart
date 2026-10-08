@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
@@ -26,6 +27,7 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -74,6 +76,7 @@ Future<ShellController> _start(
   WidgetTester tester,
   Size size, {
   FakeDiscourseApi? api,
+  bool visitTopics = true,
 }) async {
   const notifications = MethodChannel(
     'org.discourse.native/notification_opens',
@@ -109,7 +112,7 @@ Future<ShellController> _start(
   );
   await shell.loadBookmarks(_site);
   shell.openListUrl('/c/support/12', title: 'Support');
-  for (final topic in _topics) {
+  for (final topic in visitTopics ? _topics : const <Topic>[]) {
     shell.pushContent(
       ContentRoute.topic(
         topicId: topic.id,
@@ -134,6 +137,7 @@ Future<ShellController> _start(
 }
 
 FakeDiscourseApi _api({
+  List<Topic> topics = _topics,
   List<UserDraft> drafts = const [],
   Map<int, ChatThreadPage> threads = const {},
   UserSummary? summary,
@@ -160,7 +164,7 @@ FakeDiscourseApi _api({
       descriptionExcerpt: 'Ask for help',
     ),
   ],
-  feeds: const {'/latest.json': _topics},
+  feeds: {'/latest.json': topics},
   bookmarkList: [
     Bookmark(
       id: 18,
@@ -252,9 +256,13 @@ void main() {
   });
 
   _test(
-    'Start is one alphabetic list with preferences and settings at the end',
+    'Start pins Topics above the alphabet with preferences and settings at the end',
     (tester) async {
       final shell = await _start(tester, const Size(1000, 900));
+      expect(
+        tester.getRect(_section('Topics')).bottom,
+        lessThan(tester.getRect(_section('Activity')).top),
+      );
       final titles = [
         'Activity',
         'Badges',
@@ -265,7 +273,6 @@ void main() {
         'Drafts',
         'Groups',
         'Messages',
-        'Recent topics',
         'Summary',
         'Threads',
         'Users',
@@ -307,6 +314,199 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _test(
+    'Topics previews follow the cached forum list, including unvisited topics',
+    (tester) async {
+      final api = _api();
+      final shell = await _start(tester, desktop, api: api, visitTopics: false);
+      final requests = api.feedPaths.toList();
+      expect(shell.recentTopicsFor(_site), isEmpty);
+      for (var i = 0; i < _topics.length; i++) {
+        final row = _onPage(
+          find.byKey(ValueKey('start-page-recent-topic-${_topics[i].id}')),
+        );
+        expect(row, findsOneWidget);
+        if (i > 0) {
+          expect(
+            tester.getRect(row).top,
+            greaterThan(
+              tester
+                  .getRect(
+                    _onPage(
+                      find.byKey(
+                        ValueKey(
+                          'start-page-recent-topic-${_topics[i - 1].id}',
+                        ),
+                      ),
+                    ),
+                  )
+                  .top,
+            ),
+          );
+        }
+      }
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 4,
+          slug: 'meet',
+          title: 'Where shall we meet?',
+        ),
+      );
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 99,
+          slug: 'outside',
+          title: 'Viewed outside Latest',
+        ),
+      );
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      expect(_onPage(find.text('Viewed outside Latest')), findsNothing);
+      expect(_section('Recent topics'), findsNothing);
+      expect(_section('Recently viewed'), findsNothing);
+      final index = tester.widget<DAlphabetIndex<String>>(
+        _onPage(find.byType(DAlphabetIndex<String>)),
+      );
+      expect(
+        index.entries.map((entry) => entry.value),
+        isNot(contains('recent-topics')),
+      );
+      expect(index.entries.first.value, 'topics');
+      expect(api.feedPaths, requests);
+      await tester.tap(
+        _onPage(find.byKey(const ValueKey('start-page-recent-topic-1'))),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1);
+      expect(
+        shell.activeTab?.contentStack.any((route) => route.isNewTab),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _test(
+    'empty Topics stays a pinned destination without fetching or visit placeholders',
+    (tester) async {
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final shell = await _start(tester, desktop, api: api);
+      final requests = api.feedPaths.toList();
+      expect(_section('Topics'), findsOneWidget);
+      expect(
+        _onPage(find.byKey(const ValueKey('start-page-pinned-topics'))),
+        findsOneWidget,
+      );
+      expect(_section('Recent topics'), findsNothing);
+      expect(_section('Recently viewed'), findsNothing);
+      expect(_onPage(find.text('Welcome to the community')), findsNothing);
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      expect(api.feedPaths, requests);
+      await tester.tap(
+        _onPage(find.byKey(const ValueKey('start-page-section-link-Topics'))),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _test(
+    'Recently closed leads after repinning and Topics unpins independently',
+    (tester) async {
+      final shell = await _start(tester, desktop);
+      shell.createTab(panel: ForumPanel.secondary);
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 1,
+          slug: 'welcome',
+          title: 'Welcome to the community',
+        ),
+      );
+      shell.closeTab(shell.activeTabId!);
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      Future<void> pin(String id) async {
+        final control = _onPage(find.byKey(ValueKey('start-page-pin-$id')));
+        await Scrollable.ensureVisible(tester.element(control), alignment: .5);
+        await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: tester.getCenter(control));
+        await mouse.moveTo(tester.getCenter(control));
+        await tester.pumpAndSettle();
+        await tester.tap(control);
+        await tester.pumpAndSettle();
+        await mouse.removePointer();
+        expect(shell.currentContent?.isNewTab, isTrue);
+      }
+
+      await pin('recently-closed');
+      await pin('categories');
+      await pin('recently-closed');
+      expect(shell.startPage.pinsFor(_site), [
+        'recently-closed',
+        'topics',
+        'categories',
+      ]);
+      expect(
+        tester.getRect(_section('Recently closed')).top,
+        lessThan(tester.getRect(_section('Topics')).top),
+      );
+      expect(
+        tester.getRect(_section('Topics')).top,
+        lessThan(tester.getRect(_section('Categories')).top),
+      );
+      final index = tester.widget<DAlphabetIndex<String>>(
+        _onPage(find.byType(DAlphabetIndex<String>)),
+      );
+      expect(index.entries.first.value, 'recently-closed');
+      await _capture(tester, 'repinned-closed');
+      await pin('topics');
+      expect(shell.startPage.pinsFor(_site), ['recently-closed', 'categories']);
+      expect(
+        tester.getRect(_section('Threads')).top,
+        lessThan(tester.getRect(_section('Topics')).top),
+      );
+      expect(
+        tester.getRect(_section('Topics')).top,
+        lessThan(tester.getRect(_section('Users')).top),
+      );
+      await pin('topics');
+      expect(shell.startPage.pinsFor(_site), [
+        'recently-closed',
+        'categories',
+        'topics',
+      ]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _test('account retirement clears cached Topics and restores default pins', (
+    tester,
+  ) async {
+    final api = _api();
+    final shell = await _start(tester, desktop, api: api);
+    expect(_onPage(find.text('Welcome to the community')), findsOneWidget);
+    shell.startPage.togglePin(_site, 'topics');
+    shell.startPage.togglePin(_site, 'categories');
+    await tester.pumpAndSettle();
+    // The anonymous account's latest response does not contain the old data.
+    api.feeds['/latest.json'] = const [];
+    await shell.disconnectCurrentInstance();
+    await tester.pumpAndSettle();
+    expect(shell.currentInstance?.user, isNull);
+    expect(shell.cachedLatestTopicsFor(_site), isEmpty);
+    expect(_onPage(find.text('Welcome to the community')), findsNothing);
+    expect(shell.startPage.pinsFor(_site), ['recently-closed', 'topics']);
+    expect(
+      _onPage(find.byKey(const ValueKey('start-page-pinned-topics'))),
+      findsOneWidget,
+    );
+    expect(_section('Drafts'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   _test('pinning moves a section into a card and survives reopening Start', (
     tester,
@@ -376,13 +576,13 @@ void main() {
         _onPage(find.text('Nothing matches “does not exist”')),
         findsOneWidget,
       );
-      expect(_section('Recent topics'), findsNothing);
+      expect(_section('Topics'), findsNothing);
       expect(shell.globalSearch.query, isEmpty);
       expect(api.searchesRequested, isEmpty);
       expect(api.feedPaths, feedRequests);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(_section('Recent topics'), findsOneWidget);
+      expect(_section('Topics'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('start-page-search-results')),
         findsNothing,
@@ -416,22 +616,18 @@ void main() {
   _test('topic search finds cached matches beyond the four preview rows', (
     tester,
   ) async {
-    final api = _api();
-    final shell = await _start(tester, desktop, api: api);
-    shell.pushContent(
-      ContentRoute.topic(
-        topicId: 99,
-        title: 'Another recent topic',
-        slug: 'another',
-      ),
+    final api = _api(
+      topics: [
+        ..._topics,
+        const Topic(id: 99, title: 'Another forum topic', slug: 'another'),
+      ],
     );
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
-    expect(_onPage(find.text('Welcome to the community')), findsNothing);
+    await _start(tester, desktop, api: api);
+    expect(_onPage(find.text('Another forum topic')), findsNothing);
     final requests = api.feedPaths.toList();
-    await tester.enterText(find.byKey(ForumSearch.inputKey).first, 'Welcome');
+    await tester.enterText(find.byKey(ForumSearch.inputKey).first, 'Another');
     await tester.pumpAndSettle();
-    expect(_onPage(find.text('Welcome to the community')), findsOneWidget);
+    expect(_onPage(find.text('Another forum topic')), findsOneWidget);
     expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
     expect(api.feedPaths, requests);
     expect(api.searchesRequested, isEmpty);

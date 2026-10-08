@@ -316,9 +316,7 @@ void main() {
     expect(api.topicTrackingRequests, hasLength(trackingRequests));
   });
 
-  testWidgets('Latest topics support middle, Shift, and right click', (
-    tester,
-  ) async {
+  testWidgets('Topics support middle, Shift, and right click', (tester) async {
     SharedPreferences.setMockInitialValues({
       'discourse_native.panel_tutorial_dismissed': true,
     });
@@ -471,60 +469,42 @@ void main() {
     expect(opened, 2);
   });
 
-  testWidgets('empty recent sections become header shortcuts', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
-    await pumpShell(tester, desktop);
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'empty sections retain Native destination rows and default Topics pin',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      await pumpShell(tester, desktop);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('start-page-shortcuts')), findsNothing);
+      expect(find.byKey(const ValueKey('start-page-more')), findsNothing);
+      final topics = startPageItem(
+        const ValueKey('start-page-section-link-Topics'),
+      );
+      expect(tester.widget<DItem>(topics).size, DItemSize.xs);
+      expect(
+        startPageItem(const ValueKey('start-page-pinned-topics')),
+        findsOneWidget,
+      );
+      expect(startPageText('Recent topics'), findsNothing);
+      expect(startPageText('Recently viewed'), findsNothing);
+      final categories = startPageItem(
+        const ValueKey('start-page-section-link-Categories'),
+      );
+      await Scrollable.ensureVisible(tester.element(categories), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(categories);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'all-categories');
+    },
+  );
 
-    Finder shortcut(String label) => find.descendant(
-      of: find.byKey(const ValueKey('start-page-shortcuts')),
-      matching: find.widgetWithText(DButton, label),
-    );
-
-    expect(find.text('Everything else'), findsNothing);
-    final categories = tester.widget<DButton>(shortcut('Categories').first);
-    expect(categories.variant, DButtonVariant.secondary);
-    expect(
-      categories.backgroundColor,
-      DTokens.of(
-        tester.element(shortcut('Categories').first),
-      ).buttonTheme.outline.hover,
-    );
-    expect(categories.borderColor, isNull);
-    expect(
-      tester.widget<DButton>(shortcut('Recent topics').first).variant,
-      DButtonVariant.secondary,
-    );
-    await tester.tap(startPageItem(const ValueKey('start-page-more')));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(DDropdownMenuItem, 'Groups'), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(startPageText('Chat'), findsNothing);
-
-    shell.openTopicUrl('/t/recent-topic/42');
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
-    expect(
-      startPageItem(const ValueKey('start-page-recent-topic-42')),
-      findsOneWidget,
-    );
-    expect(find.text('Recently visited'), findsNothing);
-    expect(startPageText('Recent topics'), findsOneWidget);
-    expect(shortcut('Categories'), findsOneWidget);
-
-    await tester.tap(shortcut('Categories'));
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, 'all-categories');
-  });
-
-  testWidgets('Start page shows recent visits without fetching Latest', (
+  testWidgets('Start page shows cached Topics without fetching Latest', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -539,14 +519,14 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(api.feedPaths, hasLength(before));
-    expect(startPageText('Recent topics'), findsOneWidget);
+    expect(startPageText('Topics'), findsOneWidget);
     expect(
       startPageItem(const ValueKey('start-page-recent-topic-42')),
       findsOneWidget,
     );
   });
 
-  testWidgets('Latest topics opens its feed from a new start page tab', (
+  testWidgets('Topics opens its feed from a new start page tab', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -571,7 +551,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.tap(startPageText('Recent topics'));
+      await tester.tap(startPageText('Topics'));
       await tester.pumpAndSettle();
 
       expect(shell.currentContent?.id, 'latest');

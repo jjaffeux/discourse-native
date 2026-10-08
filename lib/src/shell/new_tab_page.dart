@@ -120,9 +120,9 @@ class NewTabPage extends StatelessWidget {
                   color: Color(category.colorValue),
                 ),
           ];
-    final recentTopics = siteUrl == null
-        ? <ContentRoute>[]
-        : shell!.recentTopicsFor(siteUrl);
+    final latestTopics = siteUrl == null
+        ? <Topic>[]
+        : shell!.cachedLatestTopicsFor(siteUrl);
     final recentChats = siteUrl == null
         ? <SidebarDestination>[]
         : [
@@ -204,15 +204,17 @@ class NewTabPage extends StatelessWidget {
         ),
     ]).take(4).toList();
     final topicRows = matching([
-      for (final route in recentTopics)
+      for (final topic in latestTopics)
         _StartPageEntry.fromTopic(
-          route,
+          ContentRoute.topic(
+            topicId: topic.id,
+            title: topic.title,
+            slug: topic.slug,
+          ),
           siteUrl!,
-          route.topicId == null
-              ? null
-              : shell!.store.read<Topic>(siteUrl, route.topicId!),
+          topic,
           categoryDetails,
-          () => _openRoute(context, route),
+          () => shell!.openTopicFromList(topic),
         ),
     ]).take(4).toList();
     final bookmarkRows = matching([
@@ -431,8 +433,8 @@ class NewTabPage extends StatelessWidget {
             onHeading: openChat,
           ),
         _StartSection(
-          id: 'recent-topics',
-          title: context.l10n.recentTopics,
+          id: 'topics',
+          title: context.l10n.topics,
           icon: DIcons.layerGroup,
           rows: topicRows,
           siteUrl: siteUrl,
