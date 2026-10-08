@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 
 enum DCardSize { normal, small }
@@ -71,57 +72,79 @@ class DCard extends StatelessWidget {
       size: size,
       child: Semantics(
         container: true,
-        child: DecoratedBox(
-          // Panels clip to their bounds and edge-to-edge children can be opaque.
-          // Paint the outline inside those bounds, above the child surface.
-          position: DecorationPosition.foreground,
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: border ? Border.all(color: tokens.border) : null,
-          ),
-          child: Material(
-            animationDuration: Duration.zero,
-            color:
-                backgroundColor ??
-                (capsule
-                    ? Color.alphaBlend(
-                        tokens.foreground.withValues(alpha: 0.04),
-                        tokens.background,
-                      )
-                    : tokens.background),
-            borderRadius: radius,
-            clipBehavior: Clip.antiAlias,
-            textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
-              fontSize: DiscourseTypography.sm,
-              height: 20 / 14,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0,
-              color: tokens.foreground,
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: capsule ? DSpacing.sm : 0,
-                right: capsule ? DSpacing.sm : 0,
-                top: leading == null ? inset : 0,
-                bottom:
-                    footer == null &&
-                        !children.any((part) => part is DCardFooter) &&
-                        trailing == null
-                    ? inset
-                    : 0,
+        child: DMaterialSurface(
+          depth: capsule
+              ? DSurfaceDepth.recessed
+              : child is Expanded
+              ? DSurfaceDepth.panel
+              : DSurfaceDepth.card,
+          radius: radius,
+          color:
+              backgroundColor ??
+              (capsule
+                  ? DMaterialSurface.active(context)
+                        ? Color.lerp(tokens.background, Colors.black, .14)!
+                        : Color.alphaBlend(
+                            tokens.foreground.withValues(alpha: .04),
+                            tokens.background,
+                          )
+                  : tokens.background),
+          child: DMaterialBatch(
+            child: DecoratedBox(
+              // Panels clip to their bounds and edge-to-edge children can be opaque.
+              // Paint the outline inside those bounds, above the child surface.
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: border ? Border.all(color: tokens.border) : null,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < parts.length; i++) ...[
-                    if (i > 0 &&
-                        !(parts[i - 1] is DCardContent &&
-                            (parts[i - 1] as DCardContent).joinNext))
-                      SizedBox(height: inset),
-                    parts[i],
-                  ],
-                ],
+              child: Material(
+                animationDuration: Duration.zero,
+                color: DMaterialSurface.fill(
+                  context,
+                  backgroundColor ??
+                      (capsule
+                          ? Color.alphaBlend(
+                              tokens.foreground.withValues(alpha: 0.04),
+                              tokens.background,
+                            )
+                          : tokens.background),
+                ),
+                borderRadius: radius,
+                clipBehavior: Clip.antiAlias,
+                textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                  fontSize: DiscourseTypography.sm,
+                  height: 20 / 14,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  color: tokens.foreground,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: capsule ? DSpacing.sm : 0,
+                    right: capsule ? DSpacing.sm : 0,
+                    top: leading == null ? inset : 0,
+                    bottom:
+                        footer == null &&
+                            !children.any((part) => part is DCardFooter) &&
+                            trailing == null
+                        ? inset
+                        : 0,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < parts.length; i++) ...[
+                        if (i > 0 &&
+                            !(parts[i - 1] is DCardContent &&
+                                (parts[i - 1] as DCardContent).joinNext))
+                          SizedBox(height: inset),
+                        parts[i],
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

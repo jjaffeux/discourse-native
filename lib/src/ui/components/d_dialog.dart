@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -747,7 +748,7 @@ class DDialogContent extends StatelessWidget {
     final radius = BorderRadius.circular(DRadius.panel);
     final body = Material(
       animationDuration: Duration.zero,
-      color: tokens.surface,
+      color: DMaterialSurface.fill(context, tokens.surface),
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -814,7 +815,12 @@ class DDialogContent extends StatelessWidget {
                 ),
               ],
             ),
-            child: body,
+            child: DMaterialSurface(
+              depth: DSurfaceDepth.menu,
+              radius: radius,
+              color: tokens.surface,
+              child: body,
+            ),
           ),
         ),
       ),

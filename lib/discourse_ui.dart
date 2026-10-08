@@ -103,4 +103,5 @@ export 'src/ui/foundation/control_theme.dart';
 export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;
+export 'src/ui/foundation/material_theme.dart';
 export 'src/ui/foundation/tokens.dart';

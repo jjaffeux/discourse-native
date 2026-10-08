@@ -1534,14 +1534,23 @@ class _InstanceIcon extends StatelessWidget {
       ),
     );
 
-    return DAvatar.frame(
+    return DCard(
+      spacing: 0,
       border: false,
-      borderRadius: BorderRadius.circular(8),
-      child: AvatarImage(
-        url: instance.iconUrl,
-        size: _railVisualSize,
-        fit: BoxFit.contain,
-        fallback: monogram,
+      backgroundColor: selected ? background : Colors.transparent,
+      borderRadius: BorderRadius.circular(selected ? 10 : _railVisualSize / 2),
+      child: SizedBox.square(
+        dimension: _railVisualSize,
+        child: DAvatar.frame(
+          border: false,
+          borderRadius: BorderRadius.circular(8),
+          child: AvatarImage(
+            url: instance.iconUrl,
+            size: _railVisualSize,
+            fit: BoxFit.contain,
+            fallback: monogram,
+          ),
+        ),
       ),
     );
   }

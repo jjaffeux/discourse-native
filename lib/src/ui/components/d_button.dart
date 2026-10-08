@@ -8,6 +8,7 @@ import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 import 'd_spinner.dart';
@@ -942,7 +943,7 @@ class DButton extends StatelessWidget {
           expanded: expanded,
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
-            color: state.backgroundColor,
+            color: DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
             borderRadius: radius,
             ringColor: ringColor,
@@ -956,7 +957,16 @@ class DButton extends StatelessWidget {
           ),
           child: child,
         );
-        final artwork = DControlArtwork(child: surface);
+        final artwork = DControlArtwork(
+          child: DMaterialSurface(
+            radius: radius,
+            color: state.backgroundColor,
+            accented:
+                _visualVariant == DButtonVariant.primary ||
+                _visualVariant == DButtonVariant.destructive,
+            child: surface,
+          ),
+        );
         return joined == null ? artwork : DJoinedControlSurface(child: artwork);
       },
     );

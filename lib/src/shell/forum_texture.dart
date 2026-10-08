@@ -43,7 +43,9 @@ class _ForumTextureState extends State<ForumTexture>
   bool _loading = false;
 
   void _loadIfNeeded() {
-    if (_loading || widget.background.effect == ForumBackgroundEffect.normal) {
+    if (_loading ||
+        (widget.background.effect == ForumBackgroundEffect.normal ||
+            widget.background.effect == ForumBackgroundEffect.hatch)) {
       return;
     }
     _loading = true;
@@ -108,10 +110,17 @@ class _ForumTextureState extends State<ForumTexture>
   @override
   Widget build(BuildContext context) => IgnorePointer(
     child: ExcludeSemantics(
-      child:
-          _shader == null ||
-              widget.background.effect == ForumBackgroundEffect.normal ||
-              widget.background.noiseIntensity == 0
+      child: widget.background.effect == ForumBackgroundEffect.hatch
+          ? CustomPaint(
+              key: const ValueKey('forum-hatch-texture'),
+              painter: _HatchPainter(
+                widget.accent,
+                widget.background.noiseIntensity,
+              ),
+            )
+          : _shader == null ||
+                widget.background.effect == ForumBackgroundEffect.normal ||
+                widget.background.noiseIntensity == 0
           ? const SizedBox.expand()
           : CustomPaint(
               key: const ValueKey('forum-reference-texture'),
@@ -153,4 +162,31 @@ class _TexturePainter extends CustomPainter {
       shader != oldDelegate.shader ||
       background != oldDelegate.background ||
       accent != oldDelegate.accent;
+}
+
+class _HatchPainter extends CustomPainter {
+  const _HatchPainter(this.ink, this.intensity);
+  final Color ink;
+  final double intensity;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (intensity == 0) return;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    final paint = Paint()
+      ..color = ink.withValues(alpha: intensity * .22)
+      ..strokeWidth = .5;
+    for (double x = -size.height; x < size.width; x += 6) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HatchPainter old) =>
+      old.ink != ink || old.intensity != intensity;
 }

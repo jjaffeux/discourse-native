@@ -19972,5 +19972,13 @@
         "type": "int"
       }
     }
-  }
+  },
+  "appearanceStyle": "Style",
+  "@appearanceStyle": {"description": "Appearance material and texture setting."},
+  "standardMaterial": "Standard",
+  "@standardMaterial": {"description": "Appearance material and texture setting."},
+  "liquidGlassMaterial": "Liquid glass",
+  "@liquidGlassMaterial": {"description": "Appearance material and texture setting."},
+  "hatchTexture": "Hatch",
+  "@hatchTexture": {"description": "Appearance material and texture setting."}
 }

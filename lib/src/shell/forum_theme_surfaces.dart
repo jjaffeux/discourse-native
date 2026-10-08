@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
@@ -49,11 +51,15 @@ class ForumWindowBackground extends StatefulWidget {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     if (canvas == null || !canvas.continuous) return null;
     final tokens = DTokens.of(context);
-    return Color.lerp(
-      tokens.background,
-      tokens.foreground,
-      .03,
-    )!.withValues(alpha: 1 - (canvas.transparency * 100).round() / 100);
+    return Color.lerp(tokens.background, tokens.foreground, .03)!.withValues(
+      alpha:
+          1 -
+          (canvas.transparency /
+                      .3 *
+                      (DMaterialTheme.glassOf(context) ? 40 : 30))
+                  .round() /
+              100,
+    );
   }
 
   /// Footers stay opaque so their fixed actions remain distinct.
@@ -94,6 +100,27 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     }
   }
 
+  String? _nativeMaterial;
+  void _syncNativeMaterial(bool glass) {
+    if (Theme.of(context).platform != TargetPlatform.macOS) return;
+    final material = glass ? 'liquidGlass' : 'standard';
+    if (_nativeMaterial == material) return;
+    _nativeMaterial = material;
+    unawaited(_setNativeMaterial(material));
+  }
+
+  Future<void> _setNativeMaterial(String material) async {
+    try {
+      await const MethodChannel(
+        'org.discourse.native/window',
+      ).invokeMethod<void>('setMaterial', material);
+    } on MissingPluginException {
+      // Embedded/preview shells have no native window.
+    } on PlatformException {
+      // The readable Flutter material remains available without AppKit.
+    }
+  }
+
   @override
   void dispose() {
     _motion.dispose();
@@ -112,22 +139,54 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final background = effects?.background;
     final gradient = background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
+    final glass = DMaterialTheme.glassOf(context);
+    final transparency = DMaterialTheme.reducedOf(context)
+        ? 0.0
+        : background?.transparency ?? 0;
+    _syncNativeMaterial(glass);
     return _ForumCanvas(
-      continuous: background != null,
-      transparency: background?.transparency ?? 0,
+      continuous: background != null || glass,
+      transparency: DMaterialTheme.reducedOf(context)
+          ? 0
+          : background?.transparency ?? 0,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
-          color: background == null
+          color: glass
+              ? (theme.brightness == Brightness.dark
+                        ? Color.lerp(tokens.background, Colors.black, .14)!
+                        : _plainWindowColor(theme, tokens))
+                    .withValues(
+                      alpha: 1 - (transparency / .3 * 65).round() / 100,
+                    )
+              : background == null
               ? _plainWindowColor(theme, tokens)
               : Color.lerp(tokens.background, Colors.black, .14)!.withValues(
-                  alpha: 1 - (background.transparency / .3 * 38).round() / 100,
+                  alpha: 1 - (transparency / .3 * 38).round() / 100,
                 ),
           gradient: background == null ? effects?.windowGradient : null,
         ),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
+            if (glass)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _PalettePools(
+                      tokens.primary,
+                      theme.colorScheme.secondary,
+                    ),
+                  ),
+                ),
+              ),
+            if (background?.effect == ForumBackgroundEffect.hatch)
+              Positioned.fill(
+                child: ForumTexture(
+                  background: background!,
+                  accent: tokens.foreground,
+                ),
+              ),
             if (gradient)
               Positioned.fill(
                 child: IgnorePointer(
@@ -149,7 +208,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
               key: const ValueKey('forum-window-content'),
               child: widget.child,
             ),
-            if (!gradient)
+            if (!gradient && background?.effect != ForumBackgroundEffect.hatch)
               Positioned.fill(
                 child: ForumTexture(
                   background: background ?? const ForumBackground.appearance(),
@@ -236,9 +295,51 @@ class ForumSidebarTheme extends StatelessWidget {
     final sidebar = theme.extension<ForumThemeEffects>()?.sidebarTheme;
     if (sidebar == null) return child;
     return Theme(
-      data: sidebar.copyWith(platform: theme.platform),
+      data: DMaterialTheme.apply(
+        sidebar.copyWith(platform: theme.platform),
+        DMaterialTheme.of(context)?.material ?? DAppearanceMaterial.standard,
+      ),
       // Dark navigation needs its own opaque surface over a custom canvas.
-      child: _ForumCanvas(continuous: false, child: child),
+      child: _ForumCanvas(
+        continuous: DMaterialTheme.glassOf(context),
+        child: child,
+      ),
     );
   }
+}
+
+class _PalettePools extends CustomPainter {
+  const _PalettePools(this.accent, this.secondary);
+  final Color accent;
+  final Color secondary;
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final (x, y, radius, color, alpha) in [
+      (.1, .06, .6, accent, .30),
+      (.92, .94, .6, secondary, .24),
+      (.8, .14, .4, accent, .16),
+    ]) {
+      final center = Offset(size.width * x, size.height * y);
+      final rect = Rect.fromCircle(
+        center: center,
+        radius: size.longestSide * radius,
+      );
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = RadialGradient(
+            center: Alignment.center,
+            colors: [
+              color.withValues(alpha: alpha),
+              color.withValues(alpha: 0),
+            ],
+            stops: const [0, .7],
+          ).createShader(rect),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PalettePools old) =>
+      old.accent != accent || old.secondary != secondary;
 }

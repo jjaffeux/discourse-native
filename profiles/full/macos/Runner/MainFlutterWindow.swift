@@ -9,18 +9,25 @@ class MainFlutterWindow: NSWindow {
   private var youtubeScrollChannel: FlutterMethodChannel?
   private var pasteboardChannel: FlutterMethodChannel?
   private var launchScreen: LaunchScreenView?
+  private var materialBackdrop: NSView?
+  private var glassRequested = false
+  private var systemGlassBackdrop: NSView?
+  private var vibrancyBackdropView: NSView?
+  private var accessibilityObserver: NSObjectProtocol?
+  private var materialAccessibilityChannel: FlutterMethodChannel?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     flutterViewController.backgroundColor = .clear
     flutterController = flutterViewController
     self.contentViewController = flutterViewController
-    let backdrop = NSVisualEffectView(frame: flutterViewController.view.bounds)
-    backdrop.autoresizingMask = [.width, .height]
-    backdrop.material = .underWindowBackground
-    backdrop.blendingMode = .behindWindow
-    backdrop.state = .active
-    flutterViewController.view.addSubview(backdrop, positioned: .below, relativeTo: nil)
+    accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+      object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.updateMaterialBackdrop()
+      self?.materialAccessibilityChannel?.invokeMethod("reduceTransparencyChanged", arguments: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
+    }
     self.isOpaque = false
 
     // The shell wants room for rail + sidebar + content + details panel, so the
@@ -36,6 +43,7 @@ class MainFlutterWindow: NSWindow {
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden
     self.backgroundColor = .clear
+    updateMaterialBackdrop()
     // desktop_drop installs a transparent native view across this entire
     // content view. AppKit considers transparent views draggable window
     // background, which can make it consume a click instead of forwarding the
@@ -64,6 +72,51 @@ class MainFlutterWindow: NSWindow {
     )
 
     super.awakeFromNib()
+  }
+
+  private func updateMaterialBackdrop() {
+    guard let flutterView = flutterController?.view else { return }
+    if materialBackdrop == nil {
+      // Install once outside Flutter's input hierarchy. Changing style only
+      // changes visibility; it never detaches native views or resets focus.
+      let host = flutterView.superview ?? flutterView
+      let frame = flutterView.superview == nil ? flutterView.bounds : flutterView.frame
+      let backing = PassiveBackdropContainer(frame: frame)
+      backing.autoresizingMask = [.width, .height]
+      let vibrancy = vibrancyBackdrop(frame: backing.bounds)
+      vibrancy.autoresizingMask = [.width, .height]
+      backing.addSubview(vibrancy)
+      vibrancyBackdropView = vibrancy
+      if #available(macOS 26.0, *) {
+        let glass = PassiveGlassBackdrop(frame: backing.bounds)
+        glass.autoresizingMask = [.width, .height]
+        glass.style = .regular
+        glass.cornerRadius = 0
+        let content = NSView(frame: backing.bounds)
+        content.autoresizingMask = [.width, .height]
+        glass.contentView = content
+        backing.addSubview(glass)
+        systemGlassBackdrop = glass
+      }
+      host.addSubview(backing, positioned: .below, relativeTo: flutterView.superview == nil ? nil : flutterView)
+      materialBackdrop = backing
+    }
+    let glass = glassRequested && systemGlassBackdrop != nil
+      && !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    systemGlassBackdrop?.isHidden = !glass
+    vibrancyBackdropView?.isHidden = glass
+  }
+
+  private func vibrancyBackdrop(frame: NSRect) -> NSView {
+    let view = PassiveVibrancyBackdrop(frame: frame)
+    view.material = .underWindowBackground
+    view.blendingMode = .behindWindow
+    view.state = .active
+    return view
+  }
+
+  deinit {
+    if let accessibilityObserver { NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver) }
   }
 
   override func sendEvent(_ event: NSEvent) {
@@ -145,6 +198,10 @@ class MainFlutterWindow: NSWindow {
         return
       }
       switch call.method {
+      case "setMaterial":
+        self.glassRequested = (call.arguments as? String) == "liquidGlass"
+        self.updateMaterialBackdrop()
+        result(nil)
       case "getWindowCornerRadius":
         if self.styleMask.contains(.fullScreen) {
           result(0.0)
@@ -182,6 +239,13 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
+    let accessibility = FlutterMethodChannel(name: "org.discourse.native/material_accessibility", binaryMessenger: messenger)
+    accessibility.setMethodCallHandler { call, result in
+      if call.method == "reduceTransparency" {
+        result(NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
+      } else { result(FlutterMethodNotImplemented) }
+    }
+    materialAccessibilityChannel = accessibility
   }
 
   /// The pasteboard plugin reads every URL as a file path, so a copied web
@@ -268,4 +332,16 @@ func disableContentViewWindowDragging(_ window: NSWindow) {
 
 func toggleWindowZoom(_ window: NSWindow) {
   window.zoom(nil)
+}
+// The backdrop is rendering only; Flutter owns every visible control target.
+@available(macOS 26.0, *)
+final class PassiveGlassBackdrop: NSGlassEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+final class PassiveVibrancyBackdrop: NSVisualEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+final class PassiveBackdropContainer: NSView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

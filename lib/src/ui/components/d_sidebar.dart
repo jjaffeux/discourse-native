@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/control_style.dart';
+import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
@@ -255,7 +257,13 @@ class _DSidebarState extends State<DSidebar> {
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
     final floating = widget.variant == DSidebarVariant.floating && !mobile;
-    final background = widget.backgroundColor ?? t.muted;
+    final background =
+        widget.backgroundColor ??
+        (DMaterialTheme.glassOf(context) &&
+                !mobile &&
+                widget.variant == DSidebarVariant.sidebar
+            ? Colors.transparent
+            : t.muted);
     return Material(
       type: MaterialType.transparency,
       child: _PanelScope(
@@ -1231,105 +1239,116 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
             onTapUp: (_) => setState(() => pressed = false),
             child: Opacity(
               opacity: enabled ? 1 : .5,
-              child: Container(
-                constraints: BoxConstraints(minHeight: minHeight),
-                padding: EdgeInsetsDirectional.only(
-                  start: collapsedLarge
-                      ? 0
-                      : !iconOnly && widget.icon != null
-                      ? math.min(
-                          8,
-                          math.max(
-                            verticalPadding,
-                            (minHeight - widget.iconSize) / 2,
-                          ),
-                        )
-                      : 8,
-                  end: collapsedLarge ? 0 : 8,
-                  top: verticalPadding,
-                  bottom: verticalPadding,
-                ),
-                decoration: BoxDecoration(
-                  color: active
-                      ? t.hover
-                      : widget.variant == DSidebarMenuButtonVariant.outline
-                      ? t.background
-                      : null,
-                  borderRadius: BorderRadius.circular(t.radius * .8),
-                ),
-                foregroundDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(t.radius * .8),
-                  border: focus
-                      ? Border.all(color: t.focusRing, width: 2)
-                      : widget.variant == DSidebarMenuButtonVariant.outline
-                      ? Border.all(color: t.border)
-                      : null,
-                ),
-                child: _SidebarTrailingInset(
-                  metrics: _ItemScope.of(context)?.metrics,
-                  direction: Directionality.of(context),
-                  child: IconTheme(
-                    data: IconThemeData(size: 16, color: t.foreground),
-                    child: DefaultTextStyle(
-                      maxLines:
-                          iconOnly ||
-                              MediaQuery.textScalerOf(context).scale(14) <= 14
-                          ? 1
-                          : null,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        fontSize: fontSize,
-                        height:
-                            DControlStyle.lineHeight(
-                              widget.size,
-                              context: context,
-                            ) /
-                            fontSize,
-                        color: t.foreground,
-                        fontWeight: widget.isActive
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                      ),
-                      child: Row(
-                        children: [
-                          if (widget.icon != null)
-                            ExcludeSemantics(
-                              child: SizedBox(
-                                width: widget.iconSize,
-                                height: widget.iconSize,
-                                child: widget.icon,
-                              ),
+              child: DMaterialSurface(
+                radius: BorderRadius.circular(t.radius * .8),
+                color: active
+                    ? t.hover
+                    : widget.variant == DSidebarMenuButtonVariant.outline
+                    ? t.background
+                    : Colors.transparent,
+                child: Container(
+                  constraints: BoxConstraints(minHeight: minHeight),
+                  padding: EdgeInsetsDirectional.only(
+                    start: collapsedLarge
+                        ? 0
+                        : !iconOnly && widget.icon != null
+                        ? math.min(
+                            8,
+                            math.max(
+                              verticalPadding,
+                              (minHeight - widget.iconSize) / 2,
                             ),
-                          if (iconOnly &&
-                              widget.icon != null &&
-                              widget.semanticLabel == null &&
-                              widget.tooltip == null)
-                            SizedBox.shrink(
-                              child: Opacity(
-                                opacity: 0,
-                                alwaysIncludeSemantics: true,
-                                child: widget.child,
+                          )
+                        : 8,
+                    end: collapsedLarge ? 0 : 8,
+                    top: verticalPadding,
+                    bottom: verticalPadding,
+                  ),
+                  decoration: BoxDecoration(
+                    color: DMaterialSurface.fill(
+                      context,
+                      active
+                          ? t.hover
+                          : widget.variant == DSidebarMenuButtonVariant.outline
+                          ? t.background
+                          : Colors.transparent,
+                    ),
+                    borderRadius: BorderRadius.circular(t.radius * .8),
+                  ),
+                  foregroundDecoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(t.radius * .8),
+                    border: focus
+                        ? Border.all(color: t.focusRing, width: 2)
+                        : widget.variant == DSidebarMenuButtonVariant.outline
+                        ? Border.all(color: t.border)
+                        : null,
+                  ),
+                  child: _SidebarTrailingInset(
+                    metrics: _ItemScope.of(context)?.metrics,
+                    direction: Directionality.of(context),
+                    child: IconTheme(
+                      data: IconThemeData(size: 16, color: t.foreground),
+                      child: DefaultTextStyle(
+                        maxLines:
+                            iconOnly ||
+                                MediaQuery.textScalerOf(context).scale(14) <= 14
+                            ? 1
+                            : null,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          fontSize: fontSize,
+                          height:
+                              DControlStyle.lineHeight(
+                                widget.size,
+                                context: context,
+                              ) /
+                              fontSize,
+                          color: t.foreground,
+                          fontWeight: widget.isActive
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                        ),
+                        child: Row(
+                          children: [
+                            if (widget.icon != null)
+                              ExcludeSemantics(
+                                child: SizedBox(
+                                  width: widget.iconSize,
+                                  height: widget.iconSize,
+                                  child: widget.icon,
+                                ),
                               ),
-                            ),
-                          if (!iconOnly) ...[
-                            if (widget.icon != null) const SizedBox(width: 8),
-                            Flexible(
-                              child: ExcludeSemantics(
-                                excluding: widget.semanticLabel != null,
-                                child: widget.child,
+                            if (iconOnly &&
+                                widget.icon != null &&
+                                widget.semanticLabel == null &&
+                                widget.tooltip == null)
+                              SizedBox.shrink(
+                                child: Opacity(
+                                  opacity: 0,
+                                  alwaysIncludeSemantics: true,
+                                  child: widget.child,
+                                ),
                               ),
-                            ),
+                            if (!iconOnly) ...[
+                              if (widget.icon != null) const SizedBox(width: 8),
+                              Flexible(
+                                child: ExcludeSemantics(
+                                  excluding: widget.semanticLabel != null,
+                                  child: widget.child,
+                                ),
+                              ),
+                            ],
+                            if (iconOnly && widget.icon == null)
+                              Expanded(
+                                child: ExcludeSemantics(
+                                  excluding:
+                                      widget.semanticLabel != null ||
+                                      widget.tooltip != null,
+                                  child: widget.child,
+                                ),
+                              ),
                           ],
-                          if (iconOnly && widget.icon == null)
-                            Expanded(
-                              child: ExcludeSemantics(
-                                excluding:
-                                    widget.semanticLabel != null ||
-                                    widget.tooltip != null,
-                                child: widget.child,
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

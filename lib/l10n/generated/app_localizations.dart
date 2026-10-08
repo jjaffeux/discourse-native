@@ -23342,6 +23342,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =0{Nothing written yet} =1{1 word} other{{count} words}}'**
   String composerWordCount(int count);
+
+  /// Appearance material and texture setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get appearanceStyle;
+
+  /// Appearance material and texture setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get standardMaterial;
+
+  /// Appearance material and texture setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquid glass'**
+  String get liquidGlassMaterial;
+
+  /// Appearance material and texture setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Hatch'**
+  String get hatchTexture;
 }
 
 class _AppLocalizationsDelegate

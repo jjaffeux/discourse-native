@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-enum ForumBackgroundEffect { normal, lava, paper, gradient }
+enum ForumBackgroundEffect { normal, lava, paper, gradient, hatch }
 
 /// The window effects: an accent tint, panel transparency and a texture.
 ///

@@ -5,6 +5,8 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let pushNotifications = IOSPushNotifications()
+  private var materialAccessibilityChannel: FlutterMethodChannel?
+  private var materialAccessibilityObserver: NSObjectProtocol?
 
   override func application(
     _ application: UIApplication,
@@ -16,11 +18,27 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeMaterialAccessibility") {
+      let channel = FlutterMethodChannel(name: "org.discourse.native/material_accessibility", binaryMessenger: registrar.messenger())
+      channel.setMethodCallHandler { call, result in
+        if call.method == "reduceTransparency" { result(UIAccessibility.isReduceTransparencyEnabled) }
+        else { result(FlutterMethodNotImplemented) }
+      }
+      materialAccessibilityChannel = channel
+      materialAccessibilityObserver = NotificationCenter.default.addObserver(
+        forName: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+        object: nil, queue: .main
+      ) { _ in channel.invokeMethod("reduceTransparencyChanged", arguments: UIAccessibility.isReduceTransparencyEnabled) }
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "NativePushRegistration"
     ) {
       pushNotifications.attach(to: registrar.messenger())
     }
+  }
+
+  deinit {
+    if let materialAccessibilityObserver { NotificationCenter.default.removeObserver(materialAccessibilityObserver) }
   }
 
   override func application(

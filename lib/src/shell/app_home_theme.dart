@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -17,7 +18,10 @@ class AppHomeTheme extends StatelessWidget {
       readingFontFamily: shared.readingFamily,
     );
     return Theme(
-      data: homeTheme.copyWith(platform: Theme.of(context).platform),
+      data: DMaterialTheme.apply(
+        homeTheme.copyWith(platform: Theme.of(context).platform),
+        shared.material,
+      ),
       child: child,
     );
   }

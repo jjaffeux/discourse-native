@@ -87,7 +87,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('new-theme')));
     await tester.pumpAndSettle();
 
-    for (final label in ['Paper', 'Gradient', 'Lava lamp', 'Gradient']) {
+    for (final label in ['Paper', 'Hatch', 'Lava lamp', 'Hatch']) {
       final choice = find.text(label);
       await tester.ensureVisible(choice);
       await tester.tap(choice);
@@ -100,7 +100,7 @@ void main() {
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('desktop sidebar starts with mode tabs and no forum placard', (
+  testWidgets('desktop sidebar keeps forum identity above its mode tabs', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -113,12 +113,24 @@ void main() {
       ]),
       api: FakeDiscourseApi(),
     );
-    expect(find.byType(ForumIdentityHeader), findsNothing);
+    expect(find.byType(ForumIdentityHeader), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('sidebar-community-switcher')),
+      findsOneWidget,
+    );
     final sidebar = tester.getRect(find.byType(InstanceSidebar));
+    final identity = tester.getRect(find.byType(ForumIdentityHeader));
     final tabs = tester.getRect(
       find.byKey(const ValueKey('sidebar-panel-tabs')),
     );
-    expect(tabs.top, sidebar.top + DSpacing.sm);
+    expect(identity.top, greaterThanOrEqualTo(sidebar.top + DSpacing.sm));
+    expect(
+      identity.center.dy,
+      tester
+          .getCenter(find.byKey(const ValueKey('sidebar-community-switcher')))
+          .dy,
+    );
+    expect(tabs.top, greaterThanOrEqualTo(identity.bottom));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('desktop sidebar fill follows the darker sidebar preference', (
@@ -368,7 +380,7 @@ void main() {
     for (final (label, effect) in [
       ('Paper', ForumBackgroundEffect.paper),
       ('Lava lamp', ForumBackgroundEffect.lava),
-      ('Gradient', ForumBackgroundEffect.gradient),
+      ('Hatch', ForumBackgroundEffect.hatch),
     ]) {
       final choice = find.text(label);
       await tester.ensureVisible(choice);

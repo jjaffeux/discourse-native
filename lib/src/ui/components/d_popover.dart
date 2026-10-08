@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
 
@@ -1034,21 +1035,30 @@ class DPopoverContent extends StatelessWidget {
     final content = scrollable
         ? SingleChildScrollView(primary: false, padding: padding, child: child)
         : Padding(padding: padding, child: child);
-    Widget decorate(Widget content) => CustomPaint(
-      foregroundPainter: _PopoverRingPainter(
-        color: DControlStyle.outlineBorder(
-          tokens,
-          dark: Theme.of(context).brightness == Brightness.dark,
+    Widget decorate(Widget content) => DMaterialSurface(
+      depth: DSurfaceDepth.menu,
+      radius: BorderRadius.circular(radius),
+      color: tokens.surface,
+      child: CustomPaint(
+        foregroundPainter: _PopoverRingPainter(
+          color: DControlStyle.outlineBorder(
+            tokens,
+            dark: Theme.of(context).brightness == Brightness.dark,
+          ),
+          radius: radius,
         ),
-        radius: radius,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: tokens.surface,
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: shadow == DPopoverShadow.none ? const [] : shadows,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: DMaterialSurface.fill(context, tokens.surface),
+            borderRadius: BorderRadius.circular(radius),
+            boxShadow:
+                DMaterialSurface.active(context) ||
+                    shadow == DPopoverShadow.none
+                ? const []
+                : shadows,
+          ),
+          child: content,
         ),
-        child: content,
       ),
     );
 

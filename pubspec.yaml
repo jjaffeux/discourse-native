@@ -123,6 +123,7 @@ dependencies:
   # Keep upload codecs portable across mobile and desktop. Lossy WebP starts
   # in 4.10; encoding runs in a bounded background isolate before upload.
   image: 4.10.1
+  liquid_glass_easy: 4.3.4
 
 dependency_overrides:
   # Reuse parsed default styles within each HTML body. See the bounded cache

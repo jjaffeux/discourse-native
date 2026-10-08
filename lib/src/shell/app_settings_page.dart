@@ -202,6 +202,23 @@ class _EffectsSetting extends StatelessWidget {
 
   final ForumSettingsController settings;
 
+  Future<void> _material(
+    BuildContext context,
+    DAppearanceMaterial material,
+  ) async {
+    try {
+      await settings.setShared(settings.shared.copyWith(material: material));
+    } catch (_) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          appL10n.couldNotSaveTheEffects,
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
   Future<void> _change(
     BuildContext context,
     ForumBackground Function(ForumBackground) change,
@@ -250,10 +267,40 @@ class _EffectsSetting extends StatelessWidget {
           DCardContent(
             child: ListenableBuilder(
               listenable: settings,
-              builder: (context, _) => ForumAppearanceEffects(
-                key: const ValueKey('appearance-effects'),
-                effects: settings.shared.effects,
-                onChanged: (change) => unawaited(_change(context, change)),
+              builder: (context, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 16,
+                children: [
+                  DField(
+                    children: [
+                      DFieldLabel(child: Text(context.l10n.appearanceStyle)),
+                      DToggleGroup<DAppearanceMaterial>(
+                        key: const ValueKey('appearance-material'),
+                        values: [settings.shared.material],
+                        allowEmptySelection: false,
+                        expanded: true,
+                        inset: true,
+                        items: [
+                          DToggleGroupItem(
+                            value: DAppearanceMaterial.standard,
+                            child: Text(context.l10n.standardMaterial),
+                          ),
+                          DToggleGroupItem(
+                            value: DAppearanceMaterial.liquidGlass,
+                            child: Text(context.l10n.liquidGlassMaterial),
+                          ),
+                        ],
+                        onChanged: (values) =>
+                            unawaited(_material(context, values.single)),
+                      ),
+                    ],
+                  ),
+                  ForumAppearanceEffects(
+                    key: const ValueKey('appearance-effects'),
+                    effects: settings.shared.effects,
+                    onChanged: (change) => unawaited(_change(context, change)),
+                  ),
+                ],
               ),
             ),
           ),

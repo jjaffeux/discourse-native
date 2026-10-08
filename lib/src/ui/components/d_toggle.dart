@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
@@ -439,67 +440,72 @@ class _DToggleState extends State<DToggle> {
       content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
     }
 
-    final artwork = AnimatedContainer(
-      duration: Duration.zero,
-      curve: const Cubic(.4, 0, .2, 1),
-      constraints: BoxConstraints(
-        minWidth: visualWidth,
-        minHeight: visualDimension,
-      ),
-      padding: (widget._iconOnly
-          ? EdgeInsets.zero
-          : tile
-          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
-          : chatReaction
-          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
-          : reaction
-          ? const EdgeInsets.symmetric(horizontal: 8)
-          : DToggle._paddingFor(
-              widget.size,
-              hasIcon: effectiveIcon != null,
-              iconPosition: widget.iconPosition,
-            )),
-      decoration: BoxDecoration(
-        color: inline
-            ? Colors.transparent
-            : segmented
-            ? activeSurface
-                  ? Color.lerp(
-                      Color.lerp(tokens.background, Colors.black, .14)!,
-                      tokens.foreground,
-                      _current ? .13 : .08,
-                    )
-                  : Colors.transparent
-            : chatReaction && outlined
-            ? Color.lerp(
-                tokens.background,
-                tokens.foreground,
-                activeSurface ? .15 : .10,
-              )
-            : outlined
-            ? (activeSurface ? outline.hover : outline.background)
-            : activeSurface
-            ? tile
-                  ? tokens.foreground.withValues(alpha: .13)
-                  : DControlStyle.rowHover(tokens)
-            : Colors.transparent,
-        borderRadius: radius,
-        border: border,
-      ),
-      foregroundDecoration: DControlDecoration(
-        color: Colors.transparent,
-        borderColor: Colors.transparent,
-        borderRadius: radius,
-        ringColor: ringColor,
-        ringWidth: DControlStyle.focusWidth,
-        ringOffset: DControlStyle.focusOffset,
-      ),
-      child: Center(
-        widthFactor: tile || widget.visualStyle?.expandArtwork == true
-            ? null
-            : 1,
-        heightFactor: 1,
-        child: content,
+    final surfaceColor = inline
+        ? Colors.transparent
+        : segmented
+        ? activeSurface
+              ? Color.lerp(
+                  Color.lerp(tokens.background, Colors.black, .14)!,
+                  tokens.foreground,
+                  _current ? .13 : .08,
+                )!
+              : Colors.transparent
+        : chatReaction && outlined
+        ? Color.lerp(
+            tokens.background,
+            tokens.foreground,
+            activeSurface ? .15 : .10,
+          )!
+        : outlined
+        ? (activeSurface ? outline.hover : outline.background)
+        : activeSurface
+        ? tile
+              ? tokens.foreground.withValues(alpha: .13)
+              : DControlStyle.rowHover(tokens)
+        : Colors.transparent;
+    final artwork = DMaterialSurface(
+      radius: radius,
+      color: surfaceColor,
+      child: AnimatedContainer(
+        duration: Duration.zero,
+        curve: const Cubic(.4, 0, .2, 1),
+        constraints: BoxConstraints(
+          minWidth: visualWidth,
+          minHeight: visualDimension,
+        ),
+        padding: (widget._iconOnly
+            ? EdgeInsets.zero
+            : tile
+            ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
+            : chatReaction
+            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
+            : reaction
+            ? const EdgeInsets.symmetric(horizontal: 8)
+            : DToggle._paddingFor(
+                widget.size,
+                hasIcon: effectiveIcon != null,
+                iconPosition: widget.iconPosition,
+              )),
+        decoration: BoxDecoration(
+          color: DMaterialSurface.fill(context, surfaceColor),
+          borderRadius: radius,
+          border: border,
+        ),
+        foregroundDecoration: DControlDecoration(
+          color: Colors.transparent,
+          borderColor: Colors.transparent,
+          borderRadius: radius,
+          ringColor: ringColor,
+          ringWidth: DControlStyle.focusWidth,
+          ringOffset: DControlStyle.focusOffset,
+        ),
+        child: Center(
+          widthFactor: tile || widget.visualStyle?.expandArtwork == true
+              ? null
+              : 1,
+          heightFactor: 1,
+          child: content,
+        ),
       ),
     );
 

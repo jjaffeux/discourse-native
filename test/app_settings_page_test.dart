@@ -152,6 +152,30 @@ void main() {
     expect(persistence.rawMarkdownComposers, isFalse);
   });
 
+  testWidgets('material choice persists without replacing opacity or texture', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    await _pumpPage(tester, controller, size: const Size(1100, 1400));
+    final settings = controller.forumSettings;
+    final effects = settings.shared.effects;
+    final style = find.text('Liquid glass');
+    await tester.ensureVisible(style);
+    await tester.tap(style);
+    await tester.pumpAndSettle();
+    expect(settings.shared.material, DAppearanceMaterial.liquidGlass);
+    expect(
+      (await settings.store.loadAppearance()).material,
+      DAppearanceMaterial.liquidGlass,
+    );
+    expect(settings.shared.effects, effects);
+    await tester.tap(find.text('Standard'));
+    await tester.pumpAndSettle();
+    expect(settings.shared.material, DAppearanceMaterial.standard);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'opacity and texture are in Settings and apply to every forum, and the '
     'tint is left to themes',

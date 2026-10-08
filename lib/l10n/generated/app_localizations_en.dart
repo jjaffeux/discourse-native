@@ -14957,4 +14957,16 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get appearanceStyle => 'Style';
+
+  @override
+  String get standardMaterial => 'Standard';
+
+  @override
+  String get liquidGlassMaterial => 'Liquid glass';
+
+  @override
+  String get hatchTexture => 'Hatch';
 }

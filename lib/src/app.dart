@@ -131,6 +131,7 @@ class _DiscourseAppState extends State<DiscourseApp>
           String?,
           String?,
           ForumBackground,
+          DAppearanceMaterial,
         ),
         ThemeData
       >(32);
@@ -150,6 +151,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       fontFamily,
       readingFontFamily,
       effects,
+      _controller.forumSettings.shared.material,
     );
     final cached = _themes.read(key);
     if (cached != null) return cached;
@@ -165,8 +167,12 @@ class _DiscourseAppState extends State<DiscourseApp>
             readingFontFamily: readingFontFamily,
             background: effects,
           );
-    _themes.put(key, theme);
-    return theme;
+    final materialTheme = DMaterialTheme.apply(
+      theme,
+      _controller.forumSettings.shared.material,
+    );
+    _themes.put(key, materialTheme);
+    return materialTheme;
   }
 
   ShellController _createController() => ShellController(
@@ -720,19 +726,21 @@ class _DiscourseAppState extends State<DiscourseApp>
     ],
     supportedLocales: AppLocalizations.supportedLocales,
     localeListResolutionCallback: resolveAppLocale,
-    builder: (context, child) => DFocusHighlight(
-      child: DToaster(
-        key: ObjectKey(_controller),
-        child: AppTextScaleRegion(
-          controller: _controller.appSettings,
-          child: _MouseNavigationRegion(
-            navigatorKey: _navigatorKey,
-            child: child ?? const SizedBox.shrink(),
+    home: const AdaptiveShell(),
+    builder: (context, child) => DMaterialAccessibility(
+      child: DFocusHighlight(
+        child: DToaster(
+          key: ObjectKey(_controller),
+          child: AppTextScaleRegion(
+            controller: _controller.appSettings,
+            child: _MouseNavigationRegion(
+              navigatorKey: _navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       ),
     ),
-    home: const AdaptiveShell(),
   );
 }
 

@@ -40,11 +40,11 @@ class ForumAppearanceEffects extends StatelessWidget {
               Expanded(
                 child: ForumTintField(value: tint, onChanged: onTintChanged!),
               ),
-              Expanded(child: _opacityField(tokens)),
+              Expanded(child: _opacityField(tokens, context)),
             ],
           )
         else
-          _opacityField(tokens),
+          _opacityField(tokens, context),
         DField(
           children: [
             DFieldLabel(child: Text(context.l10n.texture)),
@@ -73,9 +73,9 @@ class ForumAppearanceEffects extends StatelessWidget {
                   child: Text(context.l10n.lavaLamp),
                 ),
                 DToggleGroupItem(
-                  value: ForumBackgroundEffect.gradient,
+                  value: ForumBackgroundEffect.hatch,
                   icon: const ThemeIcon(ThemeIcons.gradient),
-                  child: Text(context.l10n.gradient),
+                  child: Text(context.l10n.hatchTexture),
                 ),
               ],
               onChanged: (values) =>
@@ -98,13 +98,14 @@ class ForumAppearanceEffects extends StatelessWidget {
     );
   }
 
-  Widget _opacityField(DTokens tokens) => _RampField(
+  Widget _opacityField(DTokens tokens, BuildContext context) => _RampField(
     label: appL10n.opacity,
     value: 1 - effects.transparency / ForumBackground.maxTransparency,
-    readout: '${((1 - effects.transparency) * 100).round()}%',
+    readout:
+        '${(100 - effects.transparency / ForumBackground.maxTransparency * (DMaterialTheme.glassOf(context) ? 65 : 30)).round()}%',
     ramp: DSliderRamp(
       startColor: tokens.background.withValues(
-        alpha: 1 - ForumBackground.maxTransparency,
+        alpha: DMaterialTheme.glassOf(context) ? .35 : .7,
       ),
       endColor: tokens.background,
       pattern: DSliderRampPattern.checkerboard,

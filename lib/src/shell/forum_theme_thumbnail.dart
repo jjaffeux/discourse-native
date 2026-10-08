@@ -13,23 +13,32 @@ class ThemeThumbnail extends StatelessWidget {
     child: SizedBox(
       width: 34,
       height: 34,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.shell.content,
-          border: Border.all(color: DTokens.of(context).border),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 3,
-            children: [
-              _line(20, 3, theme.colorScheme.primary),
-              _line(10, 2, theme.colorScheme.onSurface.withValues(alpha: .45)),
-              _line(16, 2, theme.colorScheme.onSurface.withValues(alpha: .45)),
-            ],
+      child: DCard(
+        spacing: 0,
+        backgroundColor: theme.shell.content,
+        borderRadius: BorderRadius.circular(9),
+        child: SizedBox(
+          height: 34,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 3,
+              children: [
+                _line(20, 3, theme.colorScheme.primary),
+                _line(
+                  10,
+                  2,
+                  theme.colorScheme.onSurface.withValues(alpha: .45),
+                ),
+                _line(
+                  16,
+                  2,
+                  theme.colorScheme.onSurface.withValues(alpha: .45),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -75,12 +84,11 @@ class ThemePaletteStrip extends StatelessWidget {
             child: SizedBox(
               width: 24,
               height: 24,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: DTokens.of(context).border),
-                ),
+              child: DCard(
+                spacing: 0,
+                backgroundColor: color,
+                borderRadius: BorderRadius.circular(12),
+                child: const SizedBox(height: 24),
               ),
             ),
           ),

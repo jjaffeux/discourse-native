@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -1196,89 +1197,95 @@ class DSheetContent extends StatelessWidget {
         : extendBehindKeyboard
         ? const BorderRadius.vertical(top: Radius.circular(DRadius.panel * 2))
         : BorderRadius.zero;
-    Widget surface = DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .1),
-            blurRadius: 15,
-            offset: const Offset(0, 10),
-            spreadRadius: -3,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .1),
-            blurRadius: 6,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
+    final surfaceColor =
+        backgroundColor ??
+        (fillAvailableHeight
+            ? tokens.background.withValues(alpha: 1)
+            : tokens.surface);
+    Widget surface = DMaterialSurface(
+      depth: DSurfaceDepth.menu,
+      radius: radius,
+      color: surfaceColor,
       child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(border: border, borderRadius: radius),
-        child: Material(
-          animationDuration: Duration.zero,
+        decoration: BoxDecoration(
           borderRadius: radius,
-          clipBehavior: inset || extendBehindKeyboard
-              ? Clip.antiAlias
-              : Clip.none,
-          color:
-              backgroundColor ??
-              (fillAvailableHeight
-                  ? tokens.background.withValues(alpha: 1)
-                  : tokens.surface),
-          textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: DiscourseTypography.sm,
-            height: 20 / 14,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            color: tokens.foreground,
-          ),
-          child: SafeArea(
-            bottom: !extendBehindKeyboard,
-            minimum: EdgeInsets.only(
-              bottom: extendBehindKeyboard
-                  ? 0
-                  : MediaQuery.viewInsetsOf(context).bottom,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .1),
+              blurRadius: 15,
+              offset: const Offset(0, 10),
+              spreadRadius: -3,
             ),
-            child: Stack(
-              children: [
-                if (scrollWholeSheet)
-                  SingleChildScrollView(
-                    primary: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .1),
+              blurRadius: 6,
+              offset: const Offset(0, 4),
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(border: border, borderRadius: radius),
+          child: Material(
+            animationDuration: Duration.zero,
+            borderRadius: radius,
+            clipBehavior: inset || extendBehindKeyboard
+                ? Clip.antiAlias
+                : Clip.none,
+            color: DMaterialSurface.fill(context, surfaceColor),
+            textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: DiscourseTypography.sm,
+              height: 20 / 14,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              color: tokens.foreground,
+            ),
+            child: SafeArea(
+              bottom: !extendBehindKeyboard,
+              minimum: EdgeInsets.only(
+                bottom: extendBehindKeyboard
+                    ? 0
+                    : MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Stack(
+                children: [
+                  if (scrollWholeSheet)
+                    SingleChildScrollView(
+                      primary: false,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: parts,
+                      ),
+                    )
+                  else
+                    Column(
+                      mainAxisSize: fillsHeight
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: parts,
                     ),
-                  )
-                else
-                  Column(
-                    mainAxisSize: fillsHeight
-                        ? MainAxisSize.max
-                        : MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: parts,
-                  ),
-                if (showCloseButton)
-                  Positioned(
-                    top: DSpacing.md,
-                    right: DSpacing.md,
-                    child:
-                        closeButton ??
-                        DSheetClose<void>(
-                          builder: (context, close) => DButton.iconOnly(
-                            onPressed: close,
-                            size: DButtonSize.small,
-                            variant: DButtonVariant.ghost,
-                            icon: const _DSheetCloseIcon(),
-                            tooltip: closeSemanticLabel,
-                            semanticLabel: closeSemanticLabel,
+                  if (showCloseButton)
+                    Positioned(
+                      top: DSpacing.md,
+                      right: DSpacing.md,
+                      child:
+                          closeButton ??
+                          DSheetClose<void>(
+                            builder: (context, close) => DButton.iconOnly(
+                              onPressed: close,
+                              size: DButtonSize.small,
+                              variant: DButtonVariant.ghost,
+                              icon: const _DSheetCloseIcon(),
+                              tooltip: closeSemanticLabel,
+                              semanticLabel: closeSemanticLabel,
+                            ),
                           ),
-                        ),
-                  ),
-              ],
+                    ),
+                ],
+              ),
             ),
           ),
         ),
