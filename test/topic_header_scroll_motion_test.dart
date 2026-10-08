@@ -95,7 +95,7 @@ void main() {
           await tester.pumpWidget(
             TopicScrollFixture(controller: controller, inbox: inbox),
           );
-          for (var frame = 0; frame < 8; frame++) {
+          for (var frame = 0; frame < 32; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
           }
           final viewport = topicPostListFinder();
@@ -113,15 +113,16 @@ void main() {
                 scrollDelta: const Offset(0, 80),
               ),
             );
-            for (var frame = 0; frame < 8; frame++) {
+            for (var frame = 0; frame < 32; frame++) {
               await tester.pump(const Duration(milliseconds: 16));
             }
             expect(header.visibleExtent, 0);
+            await tester.pump(const Duration(milliseconds: 500));
           }
           await tester.sendEventToBinding(
             PointerScrollEvent(
               position: topicReadingViewportRect(tester).center,
-              scrollDelta: Offset(0, revealing ? -8 : 8),
+              scrollDelta: Offset(0, revealing ? -100 : 40),
             ),
           );
           await tester.pump();
@@ -144,6 +145,7 @@ void main() {
               reason: 'frame $frame',
             );
           }
+          await tester.pumpAndSettle();
           expect(header.visibleExtent, revealing ? header.naturalExtent : 0);
           expect(tester.takeException(), isNull);
         },

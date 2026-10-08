@@ -125,6 +125,7 @@ import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
+import 'header_preferences.dart';
 import 'mobile_navigation.dart';
 import 'plugin_background_retention.dart';
 import 'post_checklist_write.dart';
@@ -176,6 +177,7 @@ const _coreSitePreferenceKeys = [
   SharedPreferencesEmojiPickerPersistence.keys,
   ForumSettingsStore.themeModeKeys,
   ForumSettingsStore.themesKeys,
+  HeaderPreferencesController.keys,
   SharedPreferencesSidebarSectionPersistence.keys,
   SharedPreferencesTopicSidebarPersistence.keys,
   SharedPreferencesTopicRecommendationsTabPersistence.keys,

@@ -8,16 +8,18 @@ final pageSurfaceExamples = ComponentExamples(
   description: 'The shared page frame, tabs, reading width and scroll header.',
   notes:
       'DPageSurface owns the Card border and clipping, persistent tabs and footer, '
-      'and the retracting header. A few pixels animate the header down or up; '
-      'hiding requires scroll speed, so slow reads keep the controls visible. '
+      'and the retracting header. Scroll distance moves one continuous target; '
+      '40ms smoothing follows it once per frame. Reversals consume 40px slack. '
       'Pages shorter than twice the viewport keep the header visible. '
       'This also works in reversed chat lists. Reaching the top reveals it. '
       'revealHeaderAtEnd also reveals it at the physical bottom and keeps it '
       'visible through viewport changes until scrolling back up. '
       'Focused header controls remain visible. '
       'Inside DScrollChrome, mobile headers share the footer’s visibility and '
-      'animation. Hiding needs 16px at 180px/s; revealing needs 10px. Slow '
-      'reading, the first 48px and content shorter than two screens stay visible. '
+      'progress. Fully shown or hidden chrome holds for 400ms; after a 120ms '
+      'pause a partial header settles in the last accepted direction. '
+      'DHeaderMotionSettings selects the settling rule, threshold and timing. '
+      'The first 48px and content shorter than two screens stay visible. '
       'headerControls places a persistent bar below a retracting title and '
       'reserves the full header space so the body does not move. '
       'scrollBody owns the scroll view and lets rows pass through the title’s '
@@ -37,9 +39,9 @@ final pageSurfaceExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile navigation',
       description:
-          'Read slowly to keep both bars visible. Swipe forward to hide them '
-          'together, then move back slightly to restore navigation.',
-      states: const ['Slow scroll', 'Fast scroll', 'Reverse', 'Reduced motion'],
+          'Scroll forward to move both bars together. Reverse past the slack '
+          'to reveal them, or stop partway to let them settle.',
+      states: const ['Partial scroll', 'Settle', 'Reverse', 'Reduced motion'],
       code: """DScrollChrome(
   identity: pageId,
   footerBuilder: (_) => navigation,

@@ -160,96 +160,86 @@ Future<void> _wheel(WidgetTester tester, double delta) async {
 void main() {
   for (final reverse in [false, true]) {
     for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.trackpad]) {
-      testWidgets('slow $kind reads stay visible; acceleration hides both '
-          '(reverse: $reverse)', (tester) async {
-        final controller = ScrollController(initialScrollOffset: 2000);
-        addTearDown(controller.dispose);
-        await _mount(tester, controller: controller, reverse: reverse);
-        final drag = await _Drag.start(tester, kind: kind);
-        await drag.move(-30, const Duration(seconds: 1));
-        for (var i = 0; i < 40; i++) {
-          await drag.move(-10, const Duration(milliseconds: 100));
-          _expectShown(tester);
-        }
-        expect((controller.offset - 2000).abs(), greaterThan(400));
-        await drag.move(-20, const Duration(milliseconds: 16));
-        await tester.pumpAndSettle();
-        _expectHidden(tester);
-        await drag.move(5, const Duration(milliseconds: 100));
-        _expectHidden(tester);
-        await drag.move(5, const Duration(milliseconds: 100));
-        await tester.pumpAndSettle();
-        _expectShown(tester);
-        await drag.cancel();
-      });
-    }
-  }
-
-  for (final reverse in [false, true]) {
-    for (final floating in [false, true]) {
-      testWidgets('chrome animation preserves the reading anchor '
-          '(reverse: $reverse, floating: $floating)', (tester) async {
-        final controller = ScrollController(initialScrollOffset: 2000);
-        addTearDown(controller.dispose);
-        await _mount(
-          tester,
-          controller: controller,
-          reverse: reverse,
-          floating: floating,
-        );
-        final drag = await _Drag.start(tester);
-        await drag.move(-80, const Duration(milliseconds: 80));
-        final anchor = tester.getTopLeft(find.byKey(_content)).dy;
-        await tester.pump(const Duration(milliseconds: 32));
-        expect(
-          tester.getTopLeft(find.byKey(_content)).dy,
-          closeTo(anchor, .01),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          tester.getTopLeft(find.byKey(_content)).dy,
-          closeTo(anchor, .01),
-        );
-        _expectHidden(tester);
-        await drag.move(10, const Duration(milliseconds: 20));
-        final restoredAnchor = tester.getTopLeft(find.byKey(_content)).dy;
-        await tester.pumpAndSettle();
-        expect(
-          tester.getTopLeft(find.byKey(_content)).dy,
-          closeTo(restoredAnchor, .01),
-        );
-        _expectShown(tester);
-        await drag.cancel();
-      });
-    }
-  }
-
-  for (final hz in [60, 120]) {
-    for (final velocity in [150.0, 240.0]) {
-      testWidgets('$velocity pixels/second has the same outcome at $hz Hz', (
+      testWidgets('$kind moves both bars by distance (reverse: $reverse)', (
         tester,
       ) async {
         final controller = ScrollController(initialScrollOffset: 400);
         addTearDown(controller.dispose);
-        await _mount(tester, controller: controller);
-        final drag = await _Drag.start(tester);
+        await _mount(tester, controller: controller, reverse: reverse);
+        final drag = await _Drag.start(tester, kind: kind);
         await drag.move(-30, const Duration(seconds: 1));
-        final frame = Duration(microseconds: (1000000 / hz).round());
-        for (var i = 0; i < hz ~/ 3; i++) {
-          await drag.move(-velocity * frame.inMicroseconds / 1000000, frame);
-        }
+        await drag.move(-80, const Duration(milliseconds: 500));
         await tester.pumpAndSettle();
-        if (velocity < 180) {
-          _expectShown(tester);
-        } else {
-          _expectHidden(tester);
-        }
+        _expectHidden(tester);
+        await tester.pump(const Duration(milliseconds: 500));
+        await drag.move(120, const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        _expectShown(tester);
         await drag.cancel();
       });
     }
+    for (final floating in [false, true]) {
+      testWidgets(
+        'chrome motion preserves the post anchor (reverse: $reverse, floating: $floating)',
+        (tester) async {
+          final controller = ScrollController(initialScrollOffset: 400);
+          addTearDown(controller.dispose);
+          await _mount(
+            tester,
+            controller: controller,
+            reverse: reverse,
+            floating: floating,
+          );
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(find.byKey(_body)),
+              scrollDelta: const Offset(0, 80),
+            ),
+          );
+          await tester.pump();
+          final anchor = tester.getTopLeft(find.byKey(_content));
+          for (var i = 0; i < 30; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(
+              tester.getTopLeft(find.byKey(_content)).dy,
+              closeTo(anchor.dy, .01),
+            );
+          }
+          _expectHidden(tester);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+    testWidgets(
+      'top reveals and navigation resets a panel (reverse: $reverse)',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 400);
+        addTearDown(controller.dispose);
+        await _mount(tester, controller: controller, reverse: reverse);
+        await _wheel(tester, 80);
+        _expectHidden(tester);
+        controller.jumpTo(
+          reverse ? controller.position.maxScrollExtent - 1 : 1,
+        );
+        await tester.pumpAndSettle();
+        await _wheel(tester, -1);
+        _expectShown(tester);
+        controller.jumpTo(400);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 500));
+        await _wheel(tester, 80);
+        _expectHidden(tester);
+        await _mount(
+          tester,
+          controller: controller,
+          reverse: reverse,
+          identity: 'next page',
+        );
+        _expectShown(tester);
+      },
+    );
   }
-
-  testWidgets('pause, reversal and slow input discard pending hide distance', (
+  testWidgets('coupled header and dock reverse the same partial progress', (
     tester,
   ) async {
     final controller = ScrollController(initialScrollOffset: 400);
@@ -257,138 +247,43 @@ void main() {
     await _mount(tester, controller: controller);
     final drag = await _Drag.start(tester);
     await drag.move(-30, const Duration(seconds: 1));
-    await drag.move(-12, const Duration(milliseconds: 16));
-    await drag.move(-4, const Duration(milliseconds: 200));
-    _expectShown(tester);
-    for (var i = 0; i < 6; i++) {
-      await drag.move(-8, const Duration(milliseconds: 16));
-      await drag.move(8, const Duration(milliseconds: 16));
-      _expectShown(tester);
-    }
-    await drag.move(-12, const Duration(milliseconds: 16));
-    await drag.move(-1, const Duration(milliseconds: 100));
-    await drag.move(-4, const Duration(milliseconds: 16));
-    _expectShown(tester);
-    await drag.move(-20, const Duration(milliseconds: 16));
-    await tester.pumpAndSettle();
-    _expectHidden(tester);
-    await drag.cancel();
-  });
-
-  testWidgets('a fresh drag does not inherit pending distance', (tester) async {
-    final controller = ScrollController(initialScrollOffset: 400);
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    for (var i = 0; i < 2; i++) {
-      final drag = await _Drag.start(tester);
-      await drag.move(-30, const Duration(seconds: 1));
-      await drag.move(-12, const Duration(milliseconds: 16));
-      await drag.cancel();
-      _expectShown(tester);
-    }
-  });
-
-  testWidgets(
-    'ballistic scrolling cannot initiate a hide after a short flick',
-    (tester) async {
-      final controller = ScrollController(initialScrollOffset: 400);
-      addTearDown(controller.dispose);
-      await _mount(tester, controller: controller);
-      final drag = await _Drag.start(tester);
-      await drag.move(-30, const Duration(seconds: 1));
-      for (var i = 0; i < 3; i++) {
-        await drag.move(-3, const Duration(milliseconds: 8));
-      }
-      final releaseOffset = controller.offset;
-      // Supply release velocity explicitly: fling recognition below 16 pixels
-      // varies by platform. Keep the real user direction and scroll simulation.
-      (controller.position as ScrollPositionWithSingleContext).goBallistic(800);
-      await tester.pumpAndSettle();
-      expect(controller.offset, greaterThan(releaseOffset));
-      _expectShown(tester);
-      await drag.cancel();
-    },
-  );
-
-  testWidgets('both bars share animation progress and reverse together', (
-    tester,
-  ) async {
-    final controller = ScrollController(initialScrollOffset: 400);
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    final drag = await _Drag.start(tester);
-    await drag.move(-80, const Duration(milliseconds: 80));
-    await tester.pump(const Duration(milliseconds: 32));
-    void expectMatchingProgress() {
+    await drag.move(-40, const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 40));
+    void matching() {
       final rect = tester.getRect(find.byKey(_body));
-      final header = rect.top / 80;
-      final footer = (600 - rect.bottom) / 60;
-      expect(header, inExclusiveRange(0, 1));
-      expect(footer, closeTo(header, .001));
+      final shown = rect.top / 80;
+      expect(shown, inExclusiveRange(0, 1));
+      expect((600 - rect.bottom) / 60, closeTo(shown, .001));
     }
 
-    expectMatchingProgress();
-    await drag.move(10, const Duration(milliseconds: 20));
-    await tester.pump(const Duration(milliseconds: 32));
-    expectMatchingProgress();
+    matching();
+    await drag.move(60, const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    matching();
     await tester.pumpAndSettle();
     _expectShown(tester);
     await drag.cancel();
   });
-
   for (final floating in [false, true]) {
-    testWidgets('short content and two-screen cutoff stay stable '
-        '(floating: $floating)', (tester) async {
-      final controller = ScrollController(initialScrollOffset: 100);
-      addTearDown(controller.dispose);
-      final viewport = floating ? 540.0 : 460.0;
-      await _mount(
-        tester,
-        controller: controller,
-        floating: floating,
-        contentHeight: viewport * 1.99,
-      );
-      await _wheel(tester, 40);
-      _expectShown(tester);
-      await _mount(
-        tester,
-        controller: controller,
-        floating: floating,
-        contentHeight: viewport * 2,
-      );
-      await _wheel(tester, 40);
-      _expectHidden(tester);
-      await _wheel(tester, 40);
-      _expectHidden(tester);
-      await _wheel(tester, 10000);
-      _expectShown(tester);
-      await _wheel(tester, 40);
-      _expectShown(tester);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'short content keeps navigation reachable (floating: $floating)',
+      (tester) async {
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await _mount(
+          tester,
+          controller: controller,
+          floating: floating,
+          contentHeight: 750,
+        );
+        await _wheel(tester, 80);
+        _expectShown(tester);
+      },
+    );
   }
-
-  testWidgets('near the top and after navigation both bars stay visible', (
-    tester,
-  ) async {
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    await _wheel(tester, 40);
-    _expectShown(tester);
-    await _wheel(tester, 120);
-    _expectHidden(tester);
-    await _mount(tester, controller: controller, identity: 'next');
-    _expectShown(tester);
-    await _wheel(tester, 120);
-    _expectHidden(tester);
-    await _wheel(tester, -10000);
-    _expectShown(tester);
-  });
-
   for (final header in [false, true]) {
     testWidgets(
-      'a focused ${header ? 'header' : 'footer'} keeps both reachable',
+      'focused ${header ? 'header' : 'dock'} action prevents retraction',
       (tester) async {
         final controller = ScrollController(initialScrollOffset: 400);
         final focus = FocusNode();
@@ -402,55 +297,85 @@ void main() {
         );
         focus.requestFocus();
         await tester.pump();
-        await _wheel(tester, 40);
+        await _wheel(tester, 80);
         _expectShown(tester);
-        expect(focus.hasFocus, isTrue);
+        expect(focus.hasFocus, true);
       },
     );
   }
-
-  testWidgets('composer Send stays reachable as navigation retracts', (
+  testWidgets('composer Send remains reachable as its header retracts', (
     tester,
   ) async {
     final controller = ScrollController(initialScrollOffset: 400);
     addTearDown(controller.dispose);
     await _mount(tester, controller: controller, keepActionVisible: true);
-    await _wheel(tester, 40);
+    await _wheel(tester, 80);
     expect(find.byKey(_header).hitTestable(), findsNothing);
     expect(find.text('Send').hitTestable(), findsOneWidget);
-    await _wheel(tester, -10);
+    await tester.pump(const Duration(milliseconds: 500));
+    await _wheel(tester, -120);
     _expectShown(tester);
   });
-
-  testWidgets(
-    'disabling the policy restores both bars and preserves scrolling',
-    (tester) async {
-      final controller = ScrollController(initialScrollOffset: 400);
-      addTearDown(controller.dispose);
-      await _mount(tester, controller: controller);
-      await _wheel(tester, 40);
-      _expectHidden(tester);
-      await _mount(tester, controller: controller, enabled: false);
-      _expectShown(tester);
-      final offset = controller.offset;
-      await _wheel(tester, 100);
-      expect(controller.offset, offset + 100);
-      _expectShown(tester);
-    },
-  );
-
-  testWidgets(
-    'reduced motion switches both bars without intermediate geometry',
-    (tester) async {
-      final controller = ScrollController(initialScrollOffset: 400);
-      addTearDown(controller.dispose);
-      await _mount(tester, controller: controller, reducedMotion: true);
-      await _wheel(tester, 40);
-      _expectHidden(tester);
-      expect(tester.hasRunningAnimations, isFalse);
-      await _wheel(tester, -10);
-      _expectShown(tester);
-      expect(tester.hasRunningAnimations, isFalse);
-    },
-  );
+  testWidgets('disabling the policy restores chrome and keeps scrolling', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 400);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller);
+    await _wheel(tester, 80);
+    _expectHidden(tester);
+    await _mount(tester, controller: controller, enabled: false);
+    _expectShown(tester);
+    final offset = controller.offset;
+    await _wheel(tester, 100);
+    expect(controller.offset, offset + 100);
+    _expectShown(tester);
+  });
+  testWidgets('reduced motion settles both bars without animated geometry', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 400);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller, reducedMotion: true);
+    await _wheel(tester, 80);
+    _expectHidden(tester);
+    expect(tester.hasRunningAnimations, false);
+    await tester.pump(const Duration(milliseconds: 500));
+    await _wheel(tester, -120);
+    _expectShown(tester);
+    expect(tester.hasRunningAnimations, false);
+  });
+  for (final header in [false, true]) {
+    testWidgets(
+      'focus acquired during motion reveals both bars (header: $header)',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 400);
+        final focus = FocusNode();
+        addTearDown(controller.dispose);
+        addTearDown(focus.dispose);
+        await _mount(
+          tester,
+          controller: controller,
+          headerFocus: header ? focus : null,
+          footerFocus: header ? null : focus,
+        );
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(find.byKey(_body)),
+            scrollDelta: const Offset(0, 40),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        expect(
+          tester.getTopLeft(find.byKey(_body)).dy,
+          inExclusiveRange(0, 80),
+        );
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        _expectShown(tester);
+        expect(focus.hasFocus, true);
+      },
+    );
+  }
 }

@@ -12,6 +12,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'content_reading_lane.dart';
+import 'header_preferences.dart';
 import 'preferences_controller.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -225,6 +226,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
               ),
               const SizedBox(height: 22),
             ],
+            const HeaderTuningPreferences(),
+            const SizedBox(height: 22),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: DButton(

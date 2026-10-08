@@ -608,15 +608,12 @@ void main() {
         findsNothing,
       );
       expect(find.text('Chat'), findsNothing);
-      expect(
-        tester.widget<DSelect<int>>(find.byType(DSelect<int>)).onChanged,
-        isNull,
+      final likeNotifications = find.byKey(
+        const ValueKey(('like-notification-frequency', 1)),
       );
-      expect(
-        tester.widget<DSelect<int>>(find.byType(DSelect<int>)).enabled,
-        isFalse,
-      );
-      await tester.tap(find.byType(DSelect<int>));
+      expect(tester.widget<DSelect<int>>(likeNotifications).onChanged, isNull);
+      expect(tester.widget<DSelect<int>>(likeNotifications).enabled, isFalse);
+      await tester.tap(likeNotifications);
       await tester.pumpAndSettle();
       expect(find.byType(DPopoverContent), findsNothing);
       expect(

@@ -23228,6 +23228,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hide split view'**
   String get hideSplitView;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll headers'**
+  String get scrollHeaders;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'When scrolling stops partway'**
+  String get headerSettleLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Direction'**
+  String get headerSettleDirection;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Halfway'**
+  String get headerSettleHalfway;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay where left'**
+  String get headerSettleStay;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Halfway point'**
+  String get headerHalfwayLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause before settling'**
+  String get headerPauseLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Change of direction ignored for'**
+  String get headerSlackLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Once fully in or out, hold for'**
+  String get headerHoldLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Smoothing'**
+  String get headerSmoothingLabel;
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}%'**
+  String headerPercentage(int value);
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} ms'**
+  String headerMilliseconds(int value);
+
+  /// Account-local scroll header tuning preference.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} px'**
+  String headerPixels(int value);
 }
 
 class _AppLocalizationsDelegate

@@ -72,194 +72,121 @@ Future<void> _wheel(
 }
 
 void main() {
-  testWidgets('a few wheel pixels start a complete short animation', (
-    tester,
-  ) async {
-    final controller = ScrollController(initialScrollOffset: 600);
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    final body = find.byKey(_body);
-    final element = tester.element(body);
-    await _wheel(tester, 4);
-    expect(tester.getTopLeft(body).dy, 80);
-    await _wheel(tester, 4);
-    await tester.pump(const Duration(milliseconds: 32));
-    expect(tester.getTopLeft(body).dy, inExclusiveRange(0, 80));
-    await tester.pump(const Duration(milliseconds: 68));
-    expect(tester.getTopLeft(body).dy, 0);
-    expect(controller.offset, 608);
-    expect(find.byKey(_header).hitTestable(), findsNothing);
-    expect(tester.element(body), same(element));
-
-    // Revealing is distance-only, even with very slow input.
-    await _wheel(tester, -3, elapsed: const Duration(milliseconds: 100));
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -3, elapsed: const Duration(milliseconds: 100));
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(tester.getTopLeft(body).dy, inExclusiveRange(0, 80));
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(tester.getTopLeft(body).dy, 80);
-    expect(controller.offset, 602);
-    expect(tester.element(body), same(element));
-  });
-
-  testWidgets('slow wheel movement never accumulates into a hide', (
-    tester,
-  ) async {
-    final controller = ScrollController(initialScrollOffset: 600);
-    addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    for (var i = 0; i < 12; i++) {
-      await _wheel(tester, 2, elapsed: const Duration(milliseconds: 100));
-      expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
-    }
-    expect(controller.offset, 624);
-    await _wheel(tester, 6);
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
-  });
-
   testWidgets(
-    'direction changes discard tiny movements and reverse animations',
+    'floating motion updates geometry without rebuilding or laying out its content',
     (tester) async {
       final controller = ScrollController(initialScrollOffset: 600);
       addTearDown(controller.dispose);
-      await _mount(tester, controller: controller);
-      final body = find.byKey(_body);
-      for (var i = 0; i < 4; i++) {
-        await _wheel(tester, 4);
-        await _wheel(tester, -4);
-        expect(tester.getTopLeft(body).dy, 80);
-      }
-      await _wheel(tester, 8);
-      await tester.pump(const Duration(milliseconds: 32));
-      final partial = tester.getTopLeft(body).dy;
-      expect(partial, inExclusiveRange(0, 80));
-      await _wheel(tester, -6);
-      await tester.pump(const Duration(milliseconds: 32));
-      expect(tester.getTopLeft(body).dy, greaterThan(partial));
-      await tester.pump(const Duration(milliseconds: 108));
-      expect(tester.getTopLeft(body).dy, 80);
-    },
-  );
-
-  for (final reverse in [false, true]) {
-    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.trackpad]) {
-      testWidgets(
-        'slow $kind keeps the header visible then fast input hides (reverse: $reverse)',
-        (tester) async {
-          final controller = ScrollController(initialScrollOffset: 600);
-          addTearDown(controller.dispose);
-          await _mount(tester, controller: controller, reverse: reverse);
-          final body = find.byKey(_body);
-          final location = tester.getCenter(body);
-          final gesture = await tester.createGesture(kind: kind);
-          if (kind == PointerDeviceKind.trackpad) {
-            await gesture.panZoomStart(location);
-          } else {
-            await gesture.down(location);
-          }
-          var time = Duration.zero;
-          var pan = 0.0;
-          Future<void> move(double dy, Duration elapsed) async {
-            time += elapsed;
-            await tester.pump(elapsed);
-            if (kind == PointerDeviceKind.trackpad) {
-              pan += dy;
-              await gesture.panZoomUpdate(
-                location,
-                pan: Offset(0, pan),
-                timeStamp: time,
+      var headerLayouts = 0;
+      var bodyBuilds = 0;
+      DPageHeaderGeometry? geometry;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DPageSurface.scrollable(
+            framed: false,
+            hideHeaderOnScroll: true,
+            header: LayoutBuilder(
+              builder: (context, constraints) {
+                headerLayouts++;
+                return const SizedBox(height: 80, child: Text('Header'));
+              },
+            ),
+            bodyBuilder: (context, header) {
+              geometry = header;
+              bodyBuilds++;
+              return CustomScrollView(
+                key: _body,
+                controller: controller,
+                slivers: [
+                  SliverToBoxAdapter(child: header.spacer),
+                  const SliverToBoxAdapter(child: SizedBox(height: 5000)),
+                ],
               );
-            } else {
-              await gesture.moveBy(Offset(0, dy), timeStamp: time);
-            }
-            await tester.pump();
-          }
-
-          // Cross gesture slop slowly, then continue well beyond the distance
-          // trigger at low velocity. Neither should retract the header.
-          await move(-30, const Duration(seconds: 1));
-          for (var i = 0; i < 8; i++) {
-            await move(-2, const Duration(milliseconds: 100));
-            expect(tester.getTopLeft(body).dy, 80);
-          }
-          await move(-8, const Duration(milliseconds: 16));
-          await tester.pump(const Duration(milliseconds: 100));
-          expect(tester.getTopLeft(body).dy, 0);
-          // A slow reversal reveals after just a few pixels.
-          await move(6, const Duration(milliseconds: 100));
-          await tester.pump(const Duration(milliseconds: 140));
-          expect(tester.getTopLeft(body).dy, 80);
-          if (kind == PointerDeviceKind.trackpad) {
-            await gesture.panZoomEnd(timeStamp: time);
-          } else {
-            await gesture.cancel();
-          }
-          await tester.pumpAndSettle();
-        },
+            },
+          ),
+        ),
       );
-    }
-  }
-
-  testWidgets(
-    'visible header buttons accept taps during animation within their bounds',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      var taps = 0;
-      await _mount(tester, onHeaderPressed: () => taps++);
-      final body = find.byKey(_body);
-      await _wheel(tester, 8);
-      await tester.pump(const Duration(milliseconds: 24));
-      var visibleHeight = tester.getTopLeft(body).dy;
-      expect(visibleHeight, inExclusiveRange(0, 80));
-      await tester.tapAt(Offset(195, visibleHeight / 2));
-      expect(taps, 1);
-      await tester.tapAt(Offset(195, visibleHeight + 1));
-      expect(taps, 1);
       await tester.pumpAndSettle();
-      expect(find.byType(DButton).hitTestable(), findsNothing);
-      await tester.tapAt(const Offset(195, 1));
-      expect(taps, 1);
-      await _wheel(tester, -6);
-      await tester.pump(const Duration(milliseconds: 48));
-      visibleHeight = tester.getTopLeft(body).dy;
-      expect(visibleHeight, inExclusiveRange(0, 80));
-      await tester.tapAt(Offset(195, visibleHeight / 2));
-      expect(taps, 2);
+      final layouts = headerLayouts;
+      final builds = bodyBuilds;
+      final viewport = tester.getRect(find.byKey(_body));
+      await _wheel(tester, 40);
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(geometry!.visibleExtent, inExclusiveRange(0, 80));
+      expect(headerLayouts, layouts);
+      expect(bodyBuilds, builds);
+      expect(tester.getRect(find.byKey(_body)), viewport);
       await tester.pumpAndSettle();
+      expect(geometry!.visibleExtent, 0);
+      expect(headerLayouts, layouts);
+      expect(bodyBuilds, builds);
+      expect(tester.getRect(find.byKey(_body)), viewport);
     },
   );
-
   for (final reverse in [false, true]) {
     testWidgets(
-      'optional bottom reveal stays visible through viewport changes (reverse: $reverse)',
+      'distance follows scroll through reversal slack (reverse: $reverse)',
       (tester) async {
         final controller = ScrollController(initialScrollOffset: 600);
         addTearDown(controller.dispose);
+        await _mount(tester, controller: controller, reverse: reverse);
+        final body = find.byKey(_body);
+        final element = tester.element(body);
+        await _wheel(tester, 40);
+        await tester.pump(const Duration(milliseconds: 40));
+        final partial = tester.getTopLeft(body).dy;
+        expect(partial, inExclusiveRange(0, 80));
+        await _wheel(tester, -40);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          tester.getTopLeft(body).dy,
+          lessThan(partial),
+          reason: 'slack leaves the hide target unchanged',
+        );
+        await _wheel(tester, -24);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 80);
+        expect(tester.element(body), same(element));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'top overrides hold and bottom reveal remains opt-in (reverse: $reverse)',
+      (tester) async {
+        final controller = ScrollController(initialScrollOffset: 600);
+        addTearDown(controller.dispose);
+        await _mount(tester, controller: controller, reverse: reverse);
+        final body = find.byKey(_body);
+        await _wheel(tester, 80);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
+        controller.jumpTo(
+          reverse ? controller.position.maxScrollExtent - 1 : 1,
+        );
+        await tester.pumpAndSettle();
+        await _wheel(tester, -1);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 80);
+        controller.jumpTo(600);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 500));
+        await _wheel(tester, 10000);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(body).dy, 0);
         await _mount(
           tester,
           controller: controller,
           reverse: reverse,
           revealHeaderAtEnd: true,
         );
-        final body = find.byKey(_body);
-        await _wheel(tester, 100);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-
         controller.jumpTo(
           reverse ? 5 : controller.position.maxScrollExtent - 5,
         );
         await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
         await _wheel(tester, 1);
         await tester.pumpAndSettle();
         expect(tester.getTopLeft(body).dy, 80);
-
-        // Header/dock reappearance changes the available viewport. Continuing
-        // the same downward intent must not immediately retract the title.
         await _mount(
           tester,
           controller: controller,
@@ -270,61 +197,70 @@ void main() {
         await _wheel(tester, 8);
         await tester.pumpAndSettle();
         expect(tester.getTopLeft(body).dy, 120);
-
-        await _wheel(tester, -200);
-        await tester.pumpAndSettle();
-        await _wheel(tester, 60);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-        await _wheel(tester, 10000);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 120);
-
-        // Programmatic restoration starts a new reading position.
-        controller.jumpTo(600);
-        await tester.pumpAndSettle();
-        await _wheel(tester, 60);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-        expect(tester.takeException(), isNull);
-      },
-    );
-
-    testWidgets('bottom reveal remains opt-in (reverse: $reverse)', (
-      tester,
-    ) async {
-      final controller = ScrollController(initialScrollOffset: 600);
-      addTearDown(controller.dispose);
-      await _mount(tester, controller: controller, reverse: reverse);
-      await _wheel(tester, 10000);
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
-    });
-
-    testWidgets(
-      'reaching the physical top reveals below the trigger (reverse: $reverse)',
-      (tester) async {
-        final controller = ScrollController(initialScrollOffset: 600);
-        addTearDown(controller.dispose);
-        await _mount(tester, controller: controller, reverse: reverse);
-        final body = find.byKey(_body);
-        await _wheel(tester, 8);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-        controller.jumpTo(
-          reverse ? controller.position.maxScrollExtent - 1 : 1,
-        );
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 0);
-        await _wheel(tester, -1);
-        await tester.pumpAndSettle();
-        expect(tester.getTopLeft(body).dy, 80);
       },
     );
   }
 
+  testWidgets('slow distance also retracts, without a velocity threshold', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 600);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller);
+    await _wheel(tester, 16, elapsed: const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+  });
+
   testWidgets(
-    'restoration stays visible and identity resets an in-flight animation',
+    'endpoint hold ignores a reversal until fresh slack is consumed',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller);
+      await _wheel(tester, 80);
+      await tester.pumpAndSettle();
+      await _wheel(tester, -80);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+      await tester.pump(const Duration(milliseconds: 500));
+      await _wheel(tester, -40);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
+      await _wheel(tester, -24);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
+    },
+  );
+
+  testWidgets(
+    'visible header actions retain their exact hit bounds during movement',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      var taps = 0;
+      await _mount(
+        tester,
+        controller: controller,
+        onHeaderPressed: () => taps++,
+      );
+      await _wheel(tester, 40);
+      await tester.pump(const Duration(milliseconds: 24));
+      final visible = tester.getTopLeft(find.byKey(_body)).dy;
+      expect(visible, inExclusiveRange(0, 80));
+      await tester.tapAt(Offset(195, visible / 2));
+      expect(taps, 1);
+      await tester.tapAt(Offset(195, visible + 1));
+      expect(taps, 1);
+      await tester.pumpAndSettle();
+      expect(find.byType(DButton).hitTestable(), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'restoration stays visible, navigation cancels motion, and height is remeasured',
     (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
@@ -333,55 +269,45 @@ void main() {
       controller.jumpTo(400);
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(body).dy, 80);
-      await _wheel(tester, 8);
+      await _wheel(tester, 40);
       await tester.pump(const Duration(milliseconds: 32));
       expect(tester.getTopLeft(body).dy, inExclusiveRange(0, 80));
-      await _mount(tester, controller: controller, identity: 'another feed');
-      expect(tester.getTopLeft(body).dy, 80);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(tester.getTopLeft(body).dy, 80);
+      await _mount(
+        tester,
+        controller: controller,
+        identity: 'another feed',
+        headerHeight: 120,
+      );
+      expect(tester.getTopLeft(body).dy, 120);
+      await _wheel(tester, 120);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 0);
+      await tester.pump(const Duration(milliseconds: 500));
+      await _wheel(tester, -160);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(body).dy, 120);
     },
   );
 
-  testWidgets('header height changes retain a complete hide and reveal', (
+  testWidgets('reduced motion applies scroll progress immediately', (
     tester,
   ) async {
     final controller = ScrollController(initialScrollOffset: 600);
     addTearDown(controller.dispose);
-    await _mount(tester, controller: controller);
-    final body = find.byKey(_body);
-    await _wheel(tester, 8);
+    await _mount(tester, controller: controller, reducedMotion: true);
+    await _wheel(tester, 40);
+    expect(tester.getTopLeft(find.byKey(_body)).dy, 40);
     await tester.pumpAndSettle();
-    await _mount(tester, controller: controller, headerHeight: 120);
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -6);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(body).dy, 120);
+    expect(tester.getTopLeft(find.byKey(_body)).dy, 0);
   });
 
-  testWidgets('reduced motion switches completely after the same trigger', (
+  testWidgets('short pages and focused controls stay reachable', (
     tester,
   ) async {
-    await _mount(tester, reducedMotion: true);
-    final body = find.byKey(_body);
-    await _wheel(tester, 4);
-    expect(tester.getTopLeft(body).dy, 80);
-    await _wheel(tester, 4);
-    expect(tester.getTopLeft(body).dy, 0);
-    await _wheel(tester, -6);
-    expect(tester.getTopLeft(body).dy, 80);
-  });
-
-  testWidgets('short pages retain reachable controls', (tester) async {
     await _mount(tester, count: 11);
     await _wheel(tester, 80);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
-  });
-
-  testWidgets('focused header controls stay visible while scrolling', (
-    tester,
-  ) async {
     final focus = FocusNode();
     addTearDown(focus.dispose);
     await _mount(tester, focusNode: focus);
@@ -390,6 +316,74 @@ void main() {
     await _wheel(tester, 100);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
-    expect(focus.hasFocus, isTrue);
+    expect(focus.hasFocus, true);
   });
+  testWidgets('acquiring focus while moving cancels pending hiding', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 600);
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    await _mount(tester, controller: controller, focusNode: focus);
+    await _wheel(tester, 40);
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(tester.getTopLeft(find.byKey(_body)).dy, inExclusiveRange(0, 80));
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byKey(_body)).dy, 80);
+    expect(focus.hasFocus, true);
+  });
+  testWidgets(
+    'compact header remeasurement preserves progress and the full spacer',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 600);
+      addTearDown(controller.dispose);
+      DPageHeaderGeometry? geometry;
+      Future<void> mount(double height) => tester.pumpWidget(
+        MaterialApp(
+          home: DPageSurface.scrollable(
+            framed: false,
+            hideHeaderOnScroll: true,
+            identity: 'same topic',
+            header: SizedBox(height: height, child: const Text('Header')),
+            bodyBuilder: (context, header) {
+              geometry = header;
+              return CustomScrollView(
+                key: _body,
+                controller: controller,
+                slivers: [
+                  SliverToBoxAdapter(child: header.spacer),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(
+                      key: ValueKey('compact-post'),
+                      height: 5000,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+      await mount(120);
+      await tester.pumpAndSettle();
+      await _wheel(tester, 60);
+      await tester.pump(const Duration(milliseconds: 40));
+      final visible = geometry!.visibleExtent;
+      final anchor = tester.getTopLeft(
+        find.byKey(const ValueKey('compact-post')),
+      );
+      expect(visible, inExclusiveRange(0, 120));
+      await mount(60);
+      expect(geometry!.naturalExtent, 120);
+      expect(geometry!.visibleExtent, closeTo(visible / 2, .01));
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('compact-post'))),
+        anchor,
+      );
+      await tester.pumpAndSettle();
+      expect(geometry!.visibleExtent, 0);
+    },
+  );
 }

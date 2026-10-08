@@ -14884,4 +14884,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hideSplitView => 'Hide split view';
+
+  @override
+  String get scrollHeaders => 'Scroll headers';
+
+  @override
+  String get headerSettleLabel => 'When scrolling stops partway';
+
+  @override
+  String get headerSettleDirection => 'Direction';
+
+  @override
+  String get headerSettleHalfway => 'Halfway';
+
+  @override
+  String get headerSettleStay => 'Stay where left';
+
+  @override
+  String get headerHalfwayLabel => 'Halfway point';
+
+  @override
+  String get headerPauseLabel => 'Pause before settling';
+
+  @override
+  String get headerSlackLabel => 'Change of direction ignored for';
+
+  @override
+  String get headerHoldLabel => 'Once fully in or out, hold for';
+
+  @override
+  String get headerSmoothingLabel => 'Smoothing';
+
+  @override
+  String headerPercentage(int value) {
+    return '$value%';
+  }
+
+  @override
+  String headerMilliseconds(int value) {
+    return '$value ms';
+  }
+
+  @override
+  String headerPixels(int value) {
+    return '$value px';
+  }
 }

@@ -19876,5 +19876,72 @@
   "hideSplitView": "Hide split view",
   "@hideSplitView": {
     "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
+  },
+  "scrollHeaders": "Scroll headers",
+  "@scrollHeaders": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSettleLabel": "When scrolling stops partway",
+  "@headerSettleLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSettleDirection": "Direction",
+  "@headerSettleDirection": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSettleHalfway": "Halfway",
+  "@headerSettleHalfway": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSettleStay": "Stay where left",
+  "@headerSettleStay": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerHalfwayLabel": "Halfway point",
+  "@headerHalfwayLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerPauseLabel": "Pause before settling",
+  "@headerPauseLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSlackLabel": "Change of direction ignored for",
+  "@headerSlackLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerHoldLabel": "Once fully in or out, hold for",
+  "@headerHoldLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerSmoothingLabel": "Smoothing",
+  "@headerSmoothingLabel": {
+    "description": "Account-local scroll header tuning preference."
+  },
+  "headerPercentage": "{value}%",
+  "@headerPercentage": {
+    "description": "Account-local scroll header tuning preference.",
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "headerMilliseconds": "{value} ms",
+  "@headerMilliseconds": {
+    "description": "Account-local scroll header tuning preference.",
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "headerPixels": "{value} px",
+  "@headerPixels": {
+    "description": "Account-local scroll header tuning preference.",
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
   }
 }

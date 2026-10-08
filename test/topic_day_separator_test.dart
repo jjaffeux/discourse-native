@@ -383,11 +383,7 @@ void main() {
     );
     expect(floatingFirst, findsOneWidget);
     expect(tester.getSize(floatingFirst).height, StreamDaySeparator.height);
-    final expectedBackground = Color.lerp(
-      theme.shell.content,
-      theme.colorScheme.onSurface,
-      .10,
-    )!;
+    final expectedBackground = theme.shell.content;
     final expectedBorder = Color.lerp(
       theme.shell.content,
       theme.colorScheme.onSurface,

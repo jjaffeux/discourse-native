@@ -1,16 +1,15 @@
-import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../foundation/header_motion.dart';
 import 'd_scroll_behavior.dart';
 
 /// Coordinates a page's retracting headers and navigation footer. Slow reading
-/// never accumulates into hiding; a deliberate reversal restores navigation.
+/// moves a continuous target; reversal slack and holds prevent accidental flips.
 /// Only direct input in the primary vertical scroll view can hide the chrome.
 class DScrollChrome extends StatefulWidget {
   const DScrollChrome({
@@ -40,10 +39,11 @@ class DScrollChrome extends StatefulWidget {
 }
 
 /// Shared animation and header geometry for [DScrollChrome] participants.
-class DScrollChromeController extends ChangeNotifier {
+class DScrollChromeController extends ChangeNotifier
+    implements ValueListenable<double> {
   DScrollChromeController._(this._animation);
 
-  final AnimationController _animation;
+  final HeaderMotion _animation;
   final _headers =
       <
         Object,
@@ -51,10 +51,13 @@ class DScrollChromeController extends ChangeNotifier {
           FocusNode focus,
           double Function() reduction,
           double Function() extent,
+          double Function() motionExtent,
         })
       >{};
 
   double get hiddenFraction => _animation.value;
+  @override
+  double get value => hiddenFraction;
 
   /// The reduction is space released from the viewport's surrounding layout;
   /// floating headers report zero because their viewport does not change size.
@@ -63,15 +66,27 @@ class DScrollChromeController extends ChangeNotifier {
     required FocusNode focus,
     required double Function() layoutReduction,
     required double Function() layoutExtent,
+    required double Function() motionExtent,
   }) {
+    unregisterHeader(owner);
+    focus.addListener(_focusChanged);
     _headers[owner] = (
       focus: focus,
       reduction: layoutReduction,
       extent: layoutExtent,
+      motionExtent: motionExtent,
     );
   }
 
-  void unregisterHeader(Object owner) => _headers.remove(owner);
+  void unregisterHeader(Object owner) {
+    _headers.remove(owner)?.focus.removeListener(_focusChanged);
+  }
+
+  void _focusChanged() {
+    if (_hasFocus) {
+      _animation.reveal(fresh: true);
+    }
+  }
 
   bool get _hasFocus => _headers.values.any((header) => header.focus.hasFocus);
   double get _layoutReduction =>
@@ -79,13 +94,28 @@ class DScrollChromeController extends ChangeNotifier {
   double get _layoutExtent =>
       _headers.values.fold(0.0, (sum, header) => sum + header.extent());
 
+  double get _motionExtent {
+    final span = _headers.values.fold(
+      0.0,
+      (span, header) => math.max(span, header.motionExtent()),
+    );
+    return span > 0 ? span : 64;
+  }
+
   void _changed() => notifyListeners();
+  @override
+  void dispose() {
+    for (final header in _headers.values) {
+      header.focus.removeListener(_focusChanged);
+    }
+    _headers.clear();
+    super.dispose();
+  }
 }
 
 class _DScrollChromeState extends State<DScrollChrome>
     with SingleTickerProviderStateMixin {
-  late final _animation = AnimationController(vsync: this)
-    ..addListener(_update);
+  late final _animation = HeaderMotion(this)..addListener(_update);
   late final _controller = DScrollChromeController._(_animation);
   final _footerFocus = FocusNode(canRequestFocus: false);
   final _footerKey = GlobalKey();
@@ -95,11 +125,20 @@ class _DScrollChromeState extends State<DScrollChrome>
   ScrollableState? _activeSource;
   bool _hidden = false;
   bool _updateScheduled = false;
-  bool _panZoomActive = false;
-  Duration? _gestureStart;
-  Duration? _wheelTime;
   double _shownFooterHeight = 0;
   Widget? _footerContent;
+
+  @override
+  void initState() {
+    super.initState();
+    _footerFocus.addListener(_revealFocusedFooter);
+  }
+
+  void _revealFocusedFooter() {
+    if (_footerFocus.hasFocus) {
+      _animation.reveal(fresh: true);
+    }
+  }
 
   @override
   void didUpdateWidget(DScrollChrome oldWidget) {
@@ -112,11 +151,8 @@ class _DScrollChromeState extends State<DScrollChrome>
       _hidden = false;
       _intents = Expando();
       _activeSource = null;
-      _gestureStart = null;
-      _wheelTime = null;
-      _panZoomActive = false;
       _shownFooterHeight = 0;
-      _animation.value = 0;
+      _animation.reset();
     }
   }
 
@@ -150,47 +186,38 @@ class _DScrollChromeState extends State<DScrollChrome>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
-      _animation.value = _hidden ? 1 : 0;
-    }
+    _animation.configure(
+      DHeaderMotionSettings.of(context),
+      disableAnimations: MediaQuery.disableAnimationsOf(context),
+    );
   }
 
   void _update() {
+    _controller._changed();
+    final hidden = _animation.value >= .5;
+    final gone = _animation.value == 1;
+    if (_hidden == hidden && _gone == gone) return;
+    _hidden = hidden;
+    _gone = gone;
+    _footerContent = null;
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       if (_updateScheduled) return;
       _updateScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateScheduled = false;
-        if (mounted) _update();
+        if (mounted) setState(() {});
       });
-      return;
+    } else {
+      setState(() {});
     }
-    setState(() {});
-    _controller._changed();
   }
 
+  bool _gone = false;
+
   void _setHidden(bool hidden) {
-    if (_hidden == hidden ||
-        (hidden && (_footerFocus.hasFocus || _controller._hasFocus))) {
-      return;
-    }
-    _hidden = hidden;
-    _footerContent = null;
-    final duration = DMotion.duration(
-      context,
-      hidden ? DMotion.exit : DMotion.enter,
-    );
-    if (duration == Duration.zero) {
-      _animation.value = hidden ? 1 : 0;
-    } else {
-      _animation.animateTo(
-        hidden ? 1 : 0,
-        duration: duration,
-        curve: Curves.easeOutCubic,
-      );
-    }
-    _update();
+    if (hidden && (_footerFocus.hasFocus || _controller._hasFocus)) return;
+    if (!hidden) _animation.reveal(fresh: true);
   }
 
   ScrollableState? _pageScroll(BuildContext? context, Axis axis) {
@@ -247,24 +274,17 @@ class _DScrollChromeState extends State<DScrollChrome>
     final metrics = notification.metrics;
     final source = _pageScroll(notification.context, metrics.axis);
     if (source == null) {
-      if (notification is ScrollUpdateNotification) _wheelTime = null;
       return false;
     }
     final intent = _intents[source] ??= _ScrollIntent();
-    if (notification is ScrollStartNotification) {
-      if (notification.dragDetails != null) {
-        intent.reset(
-          _gestureStart ?? notification.dragDetails?.sourceTimeStamp,
-        );
-        _gestureStart = null;
-      } else if (!intent.userScrolling) {
-        intent.holdAtEnd = false;
-      }
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails == null &&
+        !intent.userScrolling) {
+      intent.holdAtEnd = false;
     }
     if (notification is UserScrollNotification) {
       intent.userScrolling = notification.direction != ScrollDirection.idle;
       if (intent.userScrolling && intent.direction != notification.direction) {
-        intent.clearDistance();
         intent.direction = notification.direction;
       }
     }
@@ -284,46 +304,24 @@ class _DScrollChromeState extends State<DScrollChrome>
         : metrics.pixels - metrics.minScrollExtent;
     final travel = metrics.maxScrollExtent - metrics.minScrollExtent;
     final down = reversed ? delta < 0 : delta > 0;
-    final wheelTime = _wheelTime;
-    _wheelTime = null;
-    final direct =
-        notification.dragDetails != null || wheelTime != null || _panZoomActive;
-    final time =
-        notification.dragDetails?.sourceTimeStamp ??
-        wheelTime ??
-        SchedulerBinding.instance.currentSystemFrameTimeStamp;
 
     if (_shortContent(metrics) || top <= 48) {
-      intent.reset(time);
       intent.holdAtEnd = false;
       _setHidden(false);
     } else if (travel - top <= 4) {
-      intent.reset(time);
       intent.holdAtEnd = true;
       _setHidden(false);
-    } else if (!metrics.outOfRange && direct) {
-      final distance = intent.add(
-        delta.abs(),
-        time,
-        wheel: wheelTime != null,
-        hiding: down,
-      );
-      if (!down && distance >= 10) {
-        intent.holdAtEnd = false;
-        _setHidden(false);
-      } else if (down && !intent.holdAtEnd && distance >= 16) {
-        // Retraction must leave enough scroll range to preserve the reading
-        // anchor. In a column page the disappearing title releases top space;
-        // a reversed list instead releases space beneath its content.
-        final extent = reversed
-            ? (widget.keepFooterVisible ? 0.0 : _shownFooterHeight)
-            : _controller._layoutExtent;
-        final remaining = extent * (1 - _animation.value);
-        if (metrics.pixels - metrics.minScrollExtent - remaining <
-            (reversed ? 4 : 48)) {
-          return false;
-        }
-        _setHidden(true);
+    } else if (!metrics.outOfRange) {
+      if (_footerFocus.hasFocus || _controller._hasFocus) {
+        _animation.reveal(fresh: true);
+      } else if (!down || !intent.holdAtEnd) {
+        if (!down) intent.holdAtEnd = false;
+        _animation.scroll(
+          down && top - delta.abs() < 48
+              ? top - 48
+              : (reversed ? -delta : delta),
+          span: _controller._motionExtent,
+        );
       }
     }
     return false;
@@ -339,8 +337,6 @@ class _DScrollChromeState extends State<DScrollChrome>
 
   @override
   Widget build(BuildContext context) {
-    final fraction = widget.keepFooterVisible ? 0.0 : _animation.value;
-    final gone = !widget.visible || fraction == 1;
     return _ChromeScope(
       controller: _controller,
       child: Column(
@@ -350,56 +346,45 @@ class _DScrollChromeState extends State<DScrollChrome>
               onNotification: _onMetrics,
               child: NotificationListener<ScrollNotification>(
                 onNotification: _onScroll,
-                child: Listener(
-                  onPointerDown: (event) => _gestureStart = event.timeStamp,
-                  onPointerPanZoomStart: (event) {
-                    _panZoomActive = true;
-                    _gestureStart = event.timeStamp;
-                  },
-                  onPointerPanZoomEnd: (_) => _panZoomActive = false,
-                  onPointerSignal: (event) {
-                    if (event is PointerScrollEvent) {
-                      _wheelTime = event.timeStamp == Duration.zero
-                          ? SchedulerBinding
-                                .instance
-                                .currentSystemFrameTimeStamp
-                          : event.timeStamp;
-                      // Resolution of a wheel event is synchronous. An event
-                      // that hit an edge must not authorize a later animation.
-                      scheduleMicrotask(() => _wheelTime = null);
-                    }
-                  },
-                  child: ScrollConfiguration(
-                    behavior: _ChromeScrollBehavior(
-                      delegate: ScrollConfiguration.of(context),
-                      anchorFor: _anchorFor,
-                    ),
-                    child: widget.child,
+                child: ScrollConfiguration(
+                  behavior: _ChromeScrollBehavior(
+                    delegate: ScrollConfiguration.of(context),
+                    anchorFor: _anchorFor,
                   ),
+                  child: widget.child,
                 ),
               ),
             ),
           ),
-          SizedBox(
-            key: _footerKey,
-            child: Offstage(
-              offstage: gone,
-              child: ExcludeSemantics(
-                excluding: gone,
-                child: ExcludeFocus(
-                  excluding: gone,
-                  child: TickerMode(
-                    enabled: !gone,
-                    child: ClipRect(
-                      child: Align(
-                        heightFactor: 1 - fraction,
-                        alignment: Alignment.topCenter,
-                        child: Focus(
-                          focusNode: _footerFocus,
-                          child: SizedBox(
-                            key: _footerContentKey,
-                            child: _footerContent ??= widget.footerBuilder(
-                              _hidden,
+          AnimatedBuilder(
+            animation: _animation,
+            builder: (context, _) {
+              final fraction = widget.keepFooterVisible
+                  ? 0.0
+                  : _animation.value;
+              final gone = !widget.visible || fraction == 1;
+              return SizedBox(
+                key: _footerKey,
+                child: Offstage(
+                  offstage: gone,
+                  child: ExcludeSemantics(
+                    excluding: gone,
+                    child: ExcludeFocus(
+                      excluding: gone,
+                      child: TickerMode(
+                        enabled: !gone,
+                        child: ClipRect(
+                          child: Align(
+                            heightFactor: 1 - fraction,
+                            alignment: Alignment.topCenter,
+                            child: Focus(
+                              focusNode: _footerFocus,
+                              child: SizedBox(
+                                key: _footerContentKey,
+                                child: _footerContent ??= widget.footerBuilder(
+                                  _hidden,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -407,8 +392,8 @@ class _DScrollChromeState extends State<DScrollChrome>
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -487,60 +472,7 @@ class _ChromeScope extends InheritedWidget {
 }
 
 class _ScrollIntent {
-  static const _window = Duration(milliseconds: 80);
-  static const _pause = Duration(milliseconds: 200);
-  static const _frame = Duration(microseconds: 16667);
-  final _samples = <({Duration start, Duration end, double distance})>[];
   bool userScrolling = false;
   ScrollDirection direction = ScrollDirection.idle;
   bool holdAtEnd = false;
-  double distance = 0;
-  Duration? _time;
-
-  void clearDistance() {
-    distance = 0;
-    _samples.clear();
-  }
-
-  void reset(Duration? time) {
-    clearDistance();
-    _time = time;
-  }
-
-  double add(
-    double delta,
-    Duration time, {
-    required bool wheel,
-    required bool hiding,
-  }) {
-    var elapsed = _time == null ? _frame : time - _time!;
-    if (elapsed >= _pause) {
-      clearDistance();
-      // A wheel packet has no gesture start time; an idle gap isn't its speed.
-      if (wheel) elapsed = _frame;
-    }
-    if (elapsed < Duration.zero) clearDistance();
-    if (elapsed <= Duration.zero) elapsed = _frame;
-    _time = time;
-    _samples.add((start: time - elapsed, end: time, distance: delta));
-    final cutoff = time - _window;
-    _samples.removeWhere((sample) => sample.end <= cutoff);
-    final start = _samples.first.start > cutoff ? _samples.first.start : cutoff;
-    final duration = (time - start).inMicroseconds;
-    final travel = _samples.fold(0.0, (sum, sample) {
-      final overlap =
-          sample.end - (sample.start > cutoff ? sample.start : cutoff);
-      return sum +
-          sample.distance *
-              overlap.inMicroseconds /
-              (sample.end - sample.start).inMicroseconds;
-    });
-    final velocity = travel * Duration.microsecondsPerSecond / duration;
-    if (hiding && velocity < 180) {
-      distance = 0;
-    } else {
-      distance += delta;
-    }
-    return distance;
-  }
 }

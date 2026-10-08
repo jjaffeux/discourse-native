@@ -26,18 +26,19 @@ class StreamDaySeparator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = dayLabel(day, now: DateTime.now());
-    // Match the mockup's raised pill and subtle rule using the live forum
-    // palette, including custom themes.
-    final background = Color.lerp(
-      theme.shell.content,
-      theme.colorScheme.onSurface,
-      .10,
-    )!;
-    final border = Color.lerp(
-      theme.shell.content,
-      theme.colorScheme.onSurface,
-      .12,
-    )!;
+    // Pinning switches the kit surface from resting to raised. The day rule
+    // stays at its original row; the floating copy carries only the pill.
+    final background = floating
+        ? theme.shell.content
+        : Color.alphaBlend(
+            Colors.black.withValues(
+              alpha: theme.brightness == Brightness.dark ? .16 : .045,
+            ),
+            theme.shell.content,
+          );
+    final border = floating
+        ? Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .12)!
+        : Colors.transparent;
     final foreground = Color.lerp(
       theme.shell.content,
       theme.colorScheme.onSurface,
@@ -61,22 +62,12 @@ class StreamDaySeparator extends StatelessWidget {
         borderColor: border,
       );
     } else {
-      date = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
-        decoration: BoxDecoration(
-          color: background,
-          border: Border.all(color: border),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+      date = DBadge(
+        variant: DBadgeVariant.outline,
+        backgroundColor: background,
+        foregroundColor: foreground,
+        borderColor: border,
+        child: Text(label),
       );
     }
 

@@ -1,9 +1,9 @@
-import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../foundation/header_motion.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
@@ -14,8 +14,8 @@ import 'd_scroll_chrome.dart';
 /// leaving the scrolling viewport at the pane edge. DPageReadingLane constrains
 /// content inside that viewport. Only deliberate
 /// scrolling in the body retracts the header; restoration and nested scrolls
-/// leave it alone. A few pixels trigger a short reveal or retraction animation;
-/// retraction also requires enough scroll speed to avoid hiding during slow reads.
+/// leave it alone. Scroll distance moves a continuous target; one frame loop
+/// smooths all coupled chrome toward it, with reversal slack and endpoint holds.
 class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
@@ -72,8 +72,8 @@ class DPageSurface extends StatefulWidget {
   /// Use non-scrolling content as [child] when enabled.
   final bool scrollBody;
 
-  /// Animate after a small vertical movement, requiring speed to retract, or
-  /// reveal completely when scrolling reaches the top. Content shorter than
+  /// Follow vertical scroll distance, or reveal when scrolling reaches the
+  /// top. Content shorter than
   /// twice the viewport height keeps the header visible.
   final bool hideHeaderOnScroll;
 
@@ -140,34 +140,43 @@ class DPageSurface extends StatefulWidget {
 
 class _DPageSurfaceState extends State<DPageSurface>
     with SingleTickerProviderStateMixin {
-  static const _triggerDistance = 6.0;
-  static const _hideVelocity = 180.0;
-  static const _sampleInterval = Duration(microseconds: 16667);
-  static const _scrollPause = Duration(milliseconds: 200);
-
   final _headerFocus = FocusNode(canRequestFocus: false);
   final _headerKey = GlobalKey();
   final _headerGeometry = DPageHeaderGeometry._();
   Widget? _builtBody;
-  late final AnimationController _headerAnimation;
-  bool _headerHidden = false;
+  late final HeaderMotion _motion = HeaderMotion(this)
+    ..addListener(_updateHeader);
   bool _headerHeldAtEnd = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
-  double _directionDistance = 0;
-  Duration? _lastScrollTime;
-  Duration? _pointerScrollTime;
-  Duration? _gestureStartTime;
+  bool _gone = false;
   bool _updateScheduled = false;
   DScrollChromeController? _scrollChrome;
 
-  double get _hiddenFraction => widget.hideHeaderOnScroll
-      ? _scrollChrome?.hiddenFraction ?? _headerAnimation.value
-      : 0;
+  ValueListenable<double> get _progress => _scrollChrome ?? _motion;
+  double get _hiddenFraction => widget.hideHeaderOnScroll ? _progress.value : 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerFocus.addListener(_revealFocusedHeader);
+  }
+
+  void _revealFocusedHeader() {
+    if (_headerFocus.hasFocus &&
+        _scrollChrome == null &&
+        widget.hideHeaderOnScroll) {
+      _motion.reveal(fresh: true);
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _motion.configure(
+      DHeaderMotionSettings.of(context),
+      disableAnimations: MediaQuery.disableAnimationsOf(context),
+    );
     final chrome = DScrollChrome.maybeOf(context);
     if (identical(chrome, _scrollChrome)) return;
     _scrollChrome?.removeListener(_updateHeader);
@@ -177,6 +186,11 @@ class _DPageSurfaceState extends State<DPageSurface>
     chrome?.registerHeader(
       this,
       focus: _headerFocus,
+      motionExtent: () =>
+          (_headerKey.currentContext?.findRenderObject()
+                  as _RenderScrollHeaderExtent?)
+              ?.naturalHeight ??
+          64,
       layoutReduction: () {
         if (!widget.hideHeaderOnScroll ||
             widget.scrollBody ||
@@ -196,19 +210,12 @@ class _DPageSurfaceState extends State<DPageSurface>
             widget.headerControls != null) {
           return 0;
         }
-        final header =
-            _headerKey.currentContext?.findRenderObject()
-                as _RenderScrollHeaderExtent?;
-        return header?.naturalHeight ?? 0;
+        return (_headerKey.currentContext?.findRenderObject()
+                    as _RenderScrollHeaderExtent?)
+                ?.naturalHeight ??
+            0;
       },
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _headerAnimation = AnimationController(vsync: this)
-      ..addListener(_updateHeader);
   }
 
   @override
@@ -220,51 +227,30 @@ class _DPageSurfaceState extends State<DPageSurface>
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
         (oldWidget.header != null && widget.header == null)) {
-      _headerHidden = false;
       _headerHeldAtEnd = false;
-      _headerAnimation.value = 0;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
-      _directionDistance = 0;
-      _lastScrollTime = null;
-      _pointerScrollTime = null;
-      _gestureStartTime = null;
-    }
-  }
-
-  void _animateHeader({required bool hidden}) {
-    if (_headerHidden == hidden || (hidden && _headerFocus.hasFocus)) return;
-    _headerHidden = hidden;
-    final duration = DMotion.duration(
-      context,
-      hidden ? DMotion.exit : DMotion.enter,
-    );
-    if (duration == Duration.zero) {
-      _headerAnimation.value = hidden ? 1 : 0;
-    } else {
-      _headerAnimation.animateTo(
-        hidden ? 1 : 0,
-        duration: duration,
-        curve: Curves.easeOutCubic,
-      );
+      _headerGeometry._update(0, 0);
+      _motion.reset();
     }
   }
 
   void _updateHeader() {
-    // Reduced-motion changes can be raised during layout; animation ticks and
-    // ordinary pointer input can update immediately.
+    // Only accessibility boundaries rebuild widgets. Motion goes straight to
+    // the render objects, including the body mask and sticky-day geometry.
+    final gone = _hiddenFraction == 1;
+    if (_gone == gone) return;
+    _gone = gone;
     if (SchedulerBinding.instance.schedulerPhase !=
         SchedulerPhase.persistentCallbacks) {
       setState(() {});
-      return;
+    } else if (!_updateScheduled) {
+      _updateScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateScheduled = false;
+        if (mounted) setState(() {});
+      });
     }
-    if (_updateScheduled) return;
-    _updateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateScheduled = false;
-      if (mounted) setState(() {});
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   bool _isPageScroll(int depth, BuildContext? context) {
@@ -309,9 +295,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         metrics.viewportDimension;
     if (viewport > 0 && contentHeight >= 2 * viewport) return false;
     _headerHeldAtEnd = false;
-    _directionDistance = 0;
-    _lastScrollTime = null;
-    _animateHeader(hidden: false);
+    _motion.reveal(fresh: true);
     return true;
   }
 
@@ -327,8 +311,11 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (_scrollChrome != null) return false;
-    if (widget.header == null || !widget.hideHeaderOnScroll) return false;
+    if (_scrollChrome != null ||
+        widget.header == null ||
+        !widget.hideHeaderOnScroll) {
+      return false;
+    }
     if (!_isPageScroll(notification.depth, notification.context) ||
         notification.metrics.axis != Axis.vertical) {
       return false;
@@ -338,91 +325,44 @@ class _DPageSurfaceState extends State<DPageSurface>
         !_userScrolling) {
       _headerHeldAtEnd = false;
     }
-    if (notification is ScrollStartNotification &&
-        notification.dragDetails != null) {
-      _directionDistance = 0;
-      _lastScrollTime =
-          _gestureStartTime ?? notification.dragDetails?.sourceTimeStamp;
-      _gestureStartTime = null;
-    }
     if (notification is UserScrollNotification) {
       _userScrolling = notification.direction != ScrollDirection.idle;
-      if (_userScrolling && _direction != notification.direction) {
-        _direction = notification.direction;
-        _directionDistance = 0;
-      }
+      if (_userScrolling) _direction = notification.direction;
     }
     if (_keepHeaderVisibleForShortContent(notification.metrics)) return false;
-    if (notification is ScrollUpdateNotification && _userScrolling) {
-      final metrics = notification.metrics;
-      final reversed = metrics.axisDirection == AxisDirection.up;
-      final atTop = reversed
-          ? metrics.pixels >= metrics.maxScrollExtent
-          : metrics.pixels <= metrics.minScrollExtent;
-      final atEnd =
-          widget.revealHeaderAtEnd &&
-          (reversed
-              ? metrics.pixels <= metrics.minScrollExtent + 4
-              : metrics.pixels >= metrics.maxScrollExtent - 4);
-      if (atTop) {
-        _headerHeldAtEnd = false;
-        _directionDistance = 0;
-        _animateHeader(hidden: false);
-      } else if (atEnd) {
-        // Returning a mobile dock can reduce the viewport while a fling is
-        // still moving. Keep the header revealed through that extra travel.
-        _headerHeldAtEnd = true;
-        _directionDistance = 0;
-        _animateHeader(hidden: false);
-      } else if (!metrics.outOfRange) {
-        final delta = notification.scrollDelta ?? 0;
-        // Ignore extent corrections and elastic rebound against the user's
-        // direction, including when the header changes the viewport height.
-        if ((_direction == ScrollDirection.reverse && delta > 0) ||
-            (_direction == ScrollDirection.forward && delta < 0)) {
-          final revealing = reversed
-              ? _direction == ScrollDirection.reverse
-              : _direction == ScrollDirection.forward;
-          if (_headerHeldAtEnd && !revealing) return false;
-          final headerHeight = _headerFocus.context?.size?.height ?? 0;
-          final canRetract =
-              _headerHidden ||
-              metrics.maxScrollExtent - metrics.minScrollExtent > headerHeight;
-          if (revealing || canRetract) {
-            final time =
-                notification.dragDetails?.sourceTimeStamp ??
-                _pointerScrollTime ??
-                SchedulerBinding.instance.currentSystemFrameTimeStamp;
-            var elapsed = _lastScrollTime == null
-                ? _sampleInterval
-                : time - _lastScrollTime!;
-            _lastScrollTime = time;
-            _pointerScrollTime = null;
-            // A wheel packet after a pause starts a fresh burst. The idle gap
-            // is not its velocity; touch drags retain their actual event timing.
-            if (notification.dragDetails == null && elapsed > _scrollPause) {
-              _directionDistance = 0;
-              elapsed = _sampleInterval;
-            }
-            // Wheel packets and synthetic input can share a timestamp. Treat
-            // them as one frame rather than dividing by zero.
-            final micros = elapsed.inMicroseconds > 0
-                ? elapsed.inMicroseconds
-                : _sampleInterval.inMicroseconds;
-            final velocity =
-                delta.abs() * Duration.microsecondsPerSecond / micros;
-            if (!revealing && velocity < _hideVelocity) {
-              _directionDistance = 0;
-            } else {
-              _directionDistance += delta.abs();
-              if (_directionDistance >= _triggerDistance) {
-                if (revealing) _headerHeldAtEnd = false;
-                _animateHeader(hidden: !revealing);
-              }
-            }
-          }
-        }
+    if (notification is! ScrollUpdateNotification || !_userScrolling) {
+      return false;
+    }
+    final metrics = notification.metrics;
+    final reversed = metrics.axisDirection == AxisDirection.up;
+    final top = reversed
+        ? metrics.maxScrollExtent - metrics.pixels
+        : metrics.pixels - metrics.minScrollExtent;
+    final atEnd =
+        widget.revealHeaderAtEnd &&
+        metrics.maxScrollExtent - metrics.minScrollExtent - top <= 4;
+    if (top <= 48 || _headerFocus.hasFocus) {
+      _headerHeldAtEnd = false;
+      _motion.reveal(fresh: true);
+    } else if (atEnd) {
+      _headerHeldAtEnd = true;
+      _motion.reveal();
+    } else if (!metrics.outOfRange) {
+      final delta = notification.scrollDelta ?? 0;
+      // Layout corrections against user intent must not reveal a paged reader.
+      if ((_direction == ScrollDirection.reverse && delta <= 0) ||
+          (_direction == ScrollDirection.forward && delta >= 0)) {
+        return false;
       }
+      final down = reversed ? -delta : delta;
+      if (_headerHeldAtEnd && down > 0) return false;
+      if (down < 0) _headerHeldAtEnd = false;
+      final span =
+          (_headerKey.currentContext?.findRenderObject()
+                  as _RenderScrollHeaderExtent?)
+              ?.naturalHeight ??
+          64;
+      _motion.scroll(down > 0 && top - down < 48 ? top - 48 : down, span: span);
     }
     return false;
   }
@@ -431,7 +371,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   void dispose() {
     _scrollChrome?.removeListener(_updateHeader);
     _scrollChrome?.unregisterHeader(this);
-    _headerAnimation.dispose();
+    _motion.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
     super.dispose();
@@ -458,20 +398,23 @@ class _DPageSurfaceState extends State<DPageSurface>
             ClipRect(
               child: _ScrollHeaderExtent(
                 key: _headerKey,
-                hiddenFraction: _hiddenFraction,
+                progress: _progress,
+                enabled: widget.hideHeaderOnScroll,
+                floating: widget.scrollBody || widget.bodyBuilder != null,
+                geometry: _headerGeometry,
                 controls: widget.headerControls,
                 child: ExcludeSemantics(
-                  excluding: _hiddenFraction > 0,
+                  excluding: _gone,
                   child: ExcludeFocus(
-                    excluding: _hiddenFraction > 0,
+                    excluding: _gone,
                     // The extent and clip restrict hits to the visible slice.
                     child: TickerMode(
-                      enabled: _hiddenFraction == 0,
+                      enabled: !_gone,
                       child: SizedBox(
                         width: double.infinity,
                         child: Focus(
                           focusNode: _headerFocus,
-                          child: widget.header!,
+                          child: RepaintBoundary(child: widget.header!),
                         ),
                       ),
                     ),
@@ -491,43 +434,31 @@ class _DPageSurfaceState extends State<DPageSurface>
       onNotification: _onScrollMetrics,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
-        child: Listener(
-          onPointerDown: (event) => _gestureStartTime = event.timeStamp,
-          onPointerPanZoomStart: (event) => _gestureStartTime = event.timeStamp,
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              _pointerScrollTime = event.timeStamp == Duration.zero
-                  ? null
-                  : event.timeStamp;
-            }
-          },
-          child: floating
-              ? DScrollFadeScope(
-                  topInset: _headerGeometry._readVisibleExtent,
-                  repaint: _headerGeometry,
-                  child: ScrollConfiguration(
-                    behavior: DScrollBehavior(
-                      delegate: ScrollConfiguration.of(context),
-                    ),
-                    child: widget.bodyBuilder != null
-                        ? scrollableBody()
-                        : SingleChildScrollView(
-                            // A page owns this viewport. Sharing the shell's primary
-                            // controller with another page disables its edge fade.
-                            primary: false,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (widget.header != null)
-                                  _headerGeometry.spacer,
-                                widget.child!,
-                              ],
-                            ),
-                          ),
+        child: floating
+            ? DScrollFadeScope(
+                topInset: _headerGeometry._readVisibleExtent,
+                repaint: _headerGeometry,
+                child: ScrollConfiguration(
+                  behavior: DScrollBehavior(
+                    delegate: ScrollConfiguration.of(context),
                   ),
-                )
-              : widget.child!,
-        ),
+                  child: widget.bodyBuilder != null
+                      ? scrollableBody()
+                      : SingleChildScrollView(
+                          // A page owns this viewport. Sharing the shell's primary
+                          // controller with another page disables its edge fade.
+                          primary: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (widget.header != null) _headerGeometry.spacer,
+                              widget.child!,
+                            ],
+                          ),
+                        ),
+                ),
+              )
+            : widget.child!,
       ),
     );
     final page = Column(
@@ -579,24 +510,25 @@ class _DPageSurfaceState extends State<DPageSurface>
 class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
   _ScrollHeaderExtent({
     super.key,
-    required this.hiddenFraction,
+    required this.progress,
+    required this.enabled,
+    required this.floating,
+    required this.geometry,
     required Widget child,
     Widget? controls,
   }) : super(children: [child, ?controls]);
-
-  final double hiddenFraction;
-
+  final ValueListenable<double> progress;
+  final bool enabled;
+  final bool floating;
+  final DPageHeaderGeometry geometry;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderScrollHeaderExtent(hiddenFraction);
-
+      _RenderScrollHeaderExtent(progress, enabled, floating, geometry);
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderScrollHeaderExtent renderObject,
-  ) {
-    renderObject.hiddenFraction = hiddenFraction;
-  }
+  ) => renderObject.update(progress, enabled, floating);
 }
 
 class _HeaderParentData extends ContainerBoxParentData<RenderBox> {}
@@ -605,7 +537,62 @@ class _RenderScrollHeaderExtent extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _HeaderParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
-  _RenderScrollHeaderExtent(this._hiddenFraction);
+  _RenderScrollHeaderExtent(
+    this._progress,
+    this._enabled,
+    this._floating,
+    this.geometry,
+  );
+  ValueListenable<double> _progress;
+  bool _enabled;
+  bool _floating;
+  final DPageHeaderGeometry geometry;
+  double get _hiddenFraction => _enabled ? _progress.value : 0;
+  void update(ValueListenable<double> progress, bool enabled, bool floating) {
+    if (!identical(_progress, progress)) {
+      if (attached) _progress.removeListener(_move);
+      _progress = progress;
+      if (attached) _progress.addListener(_move);
+    }
+    _enabled = enabled;
+    _floating = floating;
+    markNeedsLayout();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _progress.addListener(_move);
+  }
+
+  @override
+  void detach() {
+    _progress.removeListener(_move);
+    super.detach();
+  }
+
+  void _move() {
+    if (!_floating || !hasSize || !firstChild!.hasSize) {
+      markNeedsLayout();
+      return;
+    }
+    _position();
+    geometry._update(naturalHeight, visibleHeight);
+    markNeedsPaint();
+    markNeedsSemanticsUpdate();
+  }
+
+  void _position() {
+    final hidden = _hiddenFraction * firstChild!.size.height;
+    visibleHeight = naturalHeight - hidden;
+    (firstChild!.parentData! as BoxParentData).offset = Offset(0, -hidden);
+    if (childCount > 1) {
+      (lastChild!.parentData! as BoxParentData).offset = Offset(
+        0,
+        firstChild!.size.height - hidden,
+      );
+    }
+  }
 
   double naturalHeight = 0;
   double visibleHeight = 0;
@@ -615,14 +602,6 @@ class _RenderScrollHeaderExtent extends RenderBox
     if (child.parentData is! _HeaderParentData) {
       child.parentData = _HeaderParentData();
     }
-  }
-
-  double _hiddenFraction;
-
-  set hiddenFraction(double value) {
-    if (_hiddenFraction == value) return;
-    _hiddenFraction = value;
-    markNeedsLayout();
   }
 
   @override
@@ -636,9 +615,9 @@ class _RenderScrollHeaderExtent extends RenderBox
     return constraints.constrain(
       Size(
         childSize.width,
-        controls == null
+        controls == null && !_floating
             ? childSize.height * (1 - _hiddenFraction)
-            : childSize.height + controls.height,
+            : childSize.height + (controls?.height ?? 0),
       ),
     );
   }
@@ -658,9 +637,9 @@ class _RenderScrollHeaderExtent extends RenderBox
     size = constraints.constrain(
       Size(
         firstChild!.size.width,
-        controls == null
+        controls == null && !_floating
             ? firstChild!.size.height - hidden
-            : firstChild!.size.height + controls.size.height,
+            : firstChild!.size.height + (controls?.size.height ?? 0),
       ),
     );
     (firstChild!.parentData! as BoxParentData).offset = Offset(0, -hidden);
@@ -695,8 +674,11 @@ class DPageHeaderGeometry extends ChangeNotifier {
   double _readVisibleExtent() => _visibleExtent;
 
   void _update(double natural, double visible) {
-    if (natural == _naturalExtent && visible == _visibleExtent) return;
-    _naturalExtent = natural;
+    final full = natural == 0
+        ? 0.0
+        : (natural > _naturalExtent ? natural : _naturalExtent);
+    if (full == _naturalExtent && visible == _visibleExtent) return;
+    _naturalExtent = full;
     _visibleExtent = visible;
     notifyListeners();
   }
@@ -705,7 +687,8 @@ class DPageHeaderGeometry extends ChangeNotifier {
   Widget get spacer => inset(const SizedBox.shrink(), fullExtent: true);
 
   /// Places an overlay below the visible header, or reserves the full header
-  /// for a loading body. This changes layout without rebuilding [child].
+  /// for a loading body. Floating insets move during paint; full insets reserve
+  /// stable layout space without rebuilding [child].
   Widget inset(Widget child, {bool fullExtent = false}) =>
       _HeaderInset(geometry: this, fullExtent: fullExtent, child: child);
 }
@@ -752,7 +735,16 @@ class _RenderHeaderInset extends RenderShiftedBox {
       _fullExtent ? _geometry.naturalExtent : _geometry.visibleExtent;
 
   void _headerChanged() {
-    if (_laidOutExtent != _extent) markNeedsLayout();
+    if (_fullExtent) {
+      if (_laidOutExtent != _extent) markNeedsLayout();
+    } else if (_laidOutExtent != _geometry.naturalExtent) {
+      markNeedsLayout();
+    } else if (child != null &&
+        (child!.parentData! as BoxParentData).offset.dy != _extent) {
+      (child!.parentData! as BoxParentData).offset = Offset(0, _extent);
+      markNeedsPaint();
+      markNeedsSemanticsUpdate();
+    }
   }
 
   void update(DPageHeaderGeometry geometry, bool fullExtent) {
@@ -789,7 +781,7 @@ class _RenderHeaderInset extends RenderShiftedBox {
 
   @override
   void performLayout() {
-    _laidOutExtent = _extent;
+    _laidOutExtent = _fullExtent ? _extent : _geometry.naturalExtent;
     child!.layout(
       constraints.deflate(EdgeInsets.only(top: _laidOutExtent)),
       parentUsesSize: true,
@@ -797,7 +789,7 @@ class _RenderHeaderInset extends RenderShiftedBox {
     size = constraints.constrain(
       Size(child!.size.width, child!.size.height + _laidOutExtent),
     );
-    (child!.parentData! as BoxParentData).offset = Offset(0, _laidOutExtent);
+    (child!.parentData! as BoxParentData).offset = Offset(0, _extent);
   }
 }
 

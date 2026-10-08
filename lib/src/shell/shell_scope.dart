@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_scope.dart';
+import 'header_preferences.dart';
 import 'shell_controller.dart';
 
 class ShellScope extends InheritedNotifier<ShellController> {
@@ -16,7 +17,7 @@ class ShellScope extends InheritedNotifier<ShellController> {
            registry: controller.plugins.registry,
            child: _ShellControllerIdentity(
              controller: controller,
-             child: child,
+             child: HeaderPreferencesHost(child: child),
            ),
          ),
        );

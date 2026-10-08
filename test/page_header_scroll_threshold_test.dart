@@ -94,19 +94,20 @@ void main() {
             await tester.pumpAndSettle();
           }
           final before = position.pixels;
-          await _wheel(tester, 8);
-          expect(position.pixels, before + (reverse ? -8 : 8));
+          await _wheel(tester, 64);
+          expect(position.pixels, before + (reverse ? -64 : 64));
           expect(
             find.byKey(_header).hitTestable(),
             ratio < 2 ? findsOneWidget : findsNothing,
           );
           // Continued input must not make a column header cross its own cutoff.
-          await _wheel(tester, 8);
+          await _wheel(tester, 64);
           expect(
             find.byKey(_header).hitTestable(),
             ratio < 2 ? findsOneWidget : findsNothing,
           );
-          await _wheel(tester, -8);
+          await tester.pump(const Duration(milliseconds: 500));
+          await _wheel(tester, -104);
           expect(find.byKey(_header).hitTestable(), findsOneWidget);
           expect(tester.takeException(), isNull);
         });
@@ -119,7 +120,7 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(800, 900));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await _mount(tester, kind: kind, contentHeight: 1300);
-        await _wheel(tester, 8);
+        await _wheel(tester, 64);
         expect(find.byKey(_header).hitTestable(), findsNothing);
 
         await _mount(
@@ -129,12 +130,13 @@ void main() {
           height: resizeViewport ? 740 : 600,
         );
         expect(find.byKey(_header).hitTestable(), findsOneWidget);
-        await _wheel(tester, 8);
+        await _wheel(tester, 64);
         expect(find.byKey(_header).hitTestable(), findsOneWidget);
 
         await _mount(tester, kind: kind, contentHeight: 1300);
         expect(find.byKey(_header).hitTestable(), findsOneWidget);
-        await _wheel(tester, 8);
+        await tester.pump(const Duration(milliseconds: 500));
+        await _wheel(tester, 64);
         expect(find.byKey(_header).hitTestable(), findsNothing);
         expect(tester.takeException(), isNull);
       });
