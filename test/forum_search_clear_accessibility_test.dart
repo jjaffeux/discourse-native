@@ -213,6 +213,11 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
+        expect(input.hasFocus, isTrue);
+        // Tab switches result types while editing. The clear action retains
+        // its own focus and keyboard activation when explicitly focused.
+        tester.widget<DInputGroupButton>(clear).focusNode!.requestFocus();
+        await tester.pumpAndSettle();
         expect(
           tester.getSemantics(clear),
           isSemantics(isFocusable: true, isFocused: true),

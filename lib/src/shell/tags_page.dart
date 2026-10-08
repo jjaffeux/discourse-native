@@ -10,6 +10,7 @@ import '../models/tag_directory_feed.dart';
 import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
+import 'search_words.dart';
 import 'shell_scope.dart';
 
 typedef _TagPageSnapshot = (Object, TagDirectoryFeed);
@@ -68,6 +69,9 @@ class _TagsPageState extends State<TagsPage> {
     ),
     builder: (context, data, _) {
       final (session, feed) = data;
+      final tags = feed.tags
+          .where((tag) => searchWordsMatch(SearchWords.of(context), [tag.name]))
+          .toList();
       _scheduleRequest(session);
       if (feed.error != null && feed.tags.isEmpty) {
         return _TagPageState(
@@ -95,7 +99,7 @@ class _TagsPageState extends State<TagsPage> {
         builder: (context, lane) => ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: lane.padding,
-          itemCount: feed.tags.length + (feed.error == null ? 0 : 1),
+          itemCount: tags.length + (feed.error == null ? 0 : 1),
           separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             var tagIndex = index;
@@ -108,7 +112,7 @@ class _TagsPageState extends State<TagsPage> {
               }
               tagIndex--;
             }
-            final tag = feed.tags[tagIndex];
+            final tag = tags[tagIndex];
             return TagDirectoryRow(
               tag: tag,
               onTap: () => ShellScope.read(context).openTag(tag),

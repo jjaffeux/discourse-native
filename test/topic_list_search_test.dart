@@ -23,7 +23,10 @@ void main() {
     expect(tagged.topicListSearch, searched.topicListSearch);
     expect(tagged.tagNames, ['design', 'mobile']);
     expect(TopicListMode.fromRoute(tagged), TopicListMode.unread);
-    expect(ContentRoute.fromJson(tagged.toJson()).topicListSearch, isEmpty);
+    expect(
+      ContentRoute.fromJson(tagged.toJson()).topicListSearch,
+      searched.topicListSearch,
+    );
     expect(tagged.withTopicListSearch('').tagNames, tagged.tagNames);
     expect(tagged.withTopicListSearch('').topicListSearch, isEmpty);
     final latest = ContentRoute.topicList(TopicListMode.latest);

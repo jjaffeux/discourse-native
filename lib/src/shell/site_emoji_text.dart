@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/discourse_typography.dart';
 import 'emoji.dart';
+import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
@@ -118,7 +119,21 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     String text,
     List<({RegExpMatch match, String name})> emoji,
   ) {
-    final runs = widget.runs;
+    final query = SearchWords.of(context);
+    final runs = query.isEmpty
+        ? widget.runs
+        : [
+            for (final run in widget.runs)
+              for (final span in searchTextSpans(
+                run.text,
+                query,
+                searchHitStyle(context),
+              ))
+                SiteEmojiTextRun(
+                  span.text ?? '',
+                  style: run.style?.merge(span.style) ?? span.style,
+                ),
+          ];
     if (emoji.isEmpty &&
         runs.length == 1 &&
         runs.single.style == null &&

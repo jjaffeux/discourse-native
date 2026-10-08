@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../ui/foundation/code_typography.dart';
 import 'cooked_dom.dart';
+import 'search_words.dart';
 import 'syntax.dart';
 
 export '../ui/foundation/code_typography.dart';
@@ -697,7 +698,23 @@ class _Line extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 8),
-          Text.rich(TextSpan(children: _spans), style: style),
+          Text.rich(
+            TextSpan(
+              children: [
+                for (final span in _spans)
+                  for (final hit in searchTextSpans(
+                    span.text ?? '',
+                    SearchWords.of(context),
+                    searchHitStyle(context),
+                  ))
+                    TextSpan(
+                      text: hit.text,
+                      style: span.style?.merge(hit.style) ?? hit.style,
+                    ),
+              ],
+            ),
+            style: style,
+          ),
           const SizedBox(width: 12),
         ],
       ),

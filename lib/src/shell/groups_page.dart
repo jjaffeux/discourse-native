@@ -11,6 +11,7 @@ import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
+import 'search_words.dart';
 import 'site_url.dart';
 
 @immutable
@@ -474,13 +475,13 @@ class _GroupDirectoryRow extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              SearchText(
                                 group.label,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              Text(
+                              SearchText(
                                 '@${group.name}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: tokens.mutedForeground,

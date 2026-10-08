@@ -4,9 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../foundation/calendar_day.dart';
 import '../foundation/count_label.dart';
+import '../models/search_results.dart';
 import '../models/topic.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/plugin_scope.dart';
@@ -18,6 +20,7 @@ import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'open_link.dart';
+import 'search_words.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
@@ -36,20 +39,443 @@ class GlobalSearchPanel extends StatefulWidget {
     required this.onOpen,
     this.selectedResultId,
     this.onSelect,
+    this.onOpenSection,
+    this.onApply,
+    this.onRefocus,
+    this.showConditions = true,
+    this.showClearFilters = false,
   });
 
   final GlobalSearchController controller;
   final ValueChanged<GlobalSearchResult> onOpen;
   final String? selectedResultId;
   final ValueChanged<String>? onSelect;
+  final ValueChanged<GlobalSearchSection>? onOpenSection;
+  final VoidCallback? onApply, onRefocus;
+  final bool showConditions;
+  final bool showClearFilters;
 
   @override
-  State<GlobalSearchPanel> createState() => _GlobalSearchPanelState();
+  State<GlobalSearchPanel> createState() => GlobalSearchPanelState();
 }
 
-class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
+class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   final _scroll = ScrollController();
   final Map<String, GlobalKey> _resultKeys = {};
+  final _actions = <({String id, VoidCallback open, VoidCallback? into})>[];
+  String? _selected;
+  final _drill = <int>[];
+  Object? _lookupKey;
+  int _lookupRevision = 0;
+  List<GlobalSearchFilterChoice> _choices = const [];
+  bool _loadingChoices = false;
+  String? _choiceError;
+  Object? _navigationSignature;
+  int _categoryPage = 0;
+  bool _hasMoreChoices = false;
+
+  bool handleKey(LogicalKeyboardKey key, {bool reverse = false}) {
+    if (key == LogicalKeyboardKey.tab) {
+      final scopes = widget.controller.scopes;
+      final next =
+          (scopes.indexOf(widget.controller.scope) +
+              (reverse ? -1 : 1) +
+              scopes.length) %
+          scopes.length;
+      widget.controller.setScope(scopes[next]);
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft && _drill.isNotEmpty) {
+      _backCategory();
+      return true;
+    }
+    final current = _actions.indexWhere((action) => action.id == _selected);
+    if (key == LogicalKeyboardKey.arrowRight &&
+        current >= 0 &&
+        _actions[current].into != null) {
+      _actions[current].into!();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowUp) {
+      if (_actions.isEmpty) return true;
+      final down = key == LogicalKeyboardKey.arrowDown;
+      final next = current < 0
+          ? (down ? 0 : _actions.length - 1)
+          : (current + (down ? 1 : -1) + _actions.length) % _actions.length;
+      setState(() => _selected = _actions[next].id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = _resultKeys[_selected]?.currentContext;
+        if (target != null) {
+          unawaited(
+            Scrollable.ensureVisible(
+              target,
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            ),
+          );
+        }
+      });
+      return true;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      if (current < 0 &&
+          (widget.controller.stagedFilter != null ||
+              widget.controller.hintedFilters.isNotEmpty)) {
+        if (_actions.isNotEmpty) _actions.first.open();
+        return true;
+      }
+      if (current >= 0) {
+        _actions[current].open();
+      } else if (widget.onApply != null &&
+          widget.controller.stagedFilter == null) {
+        widget.onApply!();
+      } else {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  void resetSelection() {
+    _selected = null;
+    _drill.clear();
+  }
+
+  void _intoCategory(int id) {
+    setState(() {
+      _drill.add(id);
+      _selected = null;
+    });
+    widget.onRefocus?.call();
+  }
+
+  void _backCategory() {
+    setState(() {
+      _drill.removeLast();
+      _selected = null;
+    });
+    widget.onRefocus?.call();
+  }
+
+  Widget _action(
+    String id,
+    VoidCallback open,
+    Widget child, {
+    VoidCallback? into,
+  }) {
+    _actions.add((id: id, open: open, into: into));
+    return KeyedSubtree(
+      key: _resultKeys.putIfAbsent(id, GlobalKey.new),
+      child: child,
+    );
+  }
+
+  void _stage(GlobalSearchFilter filter) {
+    resetSelection();
+    widget.controller.beginFilter(filter);
+    widget.onRefocus?.call();
+  }
+
+  Widget _filterRows(BuildContext context) {
+    final controller = widget.controller;
+    final tail = controller.query.endsWith(' ')
+        ? ''
+        : controller.query.split(_whitespace).last.toLowerCase();
+    final filters = controller.availableFilters.where(
+      (filter) =>
+          tail.length < 2 ||
+          filter.id.toLowerCase().startsWith(tail) ||
+          (filter.token?.startsWith(tail) ?? false),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Text(
+            context.l10n.addFilter,
+            style: TextStyle(color: DTokens.of(context).mutedForeground),
+          ),
+        ),
+        for (final filter in filters)
+          _action(
+            'filter:${filter.id}',
+            () => _stage(filter),
+            DItem(
+              key: ValueKey('global-search-offered-${filter.id}'),
+              size: DItemSize.sm,
+              selected: _selected == 'filter:${filter.id}',
+              showSelectionIndicator: false,
+              onPressed: () => _stage(filter),
+              children: [
+                DItemMedia(
+                  child: DIcon(_filterIcon(context, filter.icon), size: 16),
+                ),
+                DItemContent(
+                  children: [
+                    DItemTitle(
+                      child: Text(
+                        '${filter.id}:',
+                        style: TextStyle(color: DTokens.of(context).primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _loadStage(GlobalSearchFilter filter) {
+    final controller = widget.controller;
+    final key = (
+      controller,
+      controller.categoryLookupSession,
+      controller.siteUrl,
+      controller.configurationRevision,
+      filter.id,
+      controller.stagedTerm,
+    );
+    if (_lookupKey == key) return;
+    _lookupKey = key;
+    _choices = const [];
+    _hasMoreChoices = false;
+    _categoryPage = 0;
+    _choiceError = null;
+    _loadingChoices = true;
+    final revision = ++_lookupRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final categoryPage = filter.id == 'category'
+            ? await controller.lookupCategoryChoices(controller.stagedTerm)
+            : null;
+        final choices = filter.choices.isNotEmpty
+            ? filter.choices
+            : filter.id == 'category'
+            ? categoryPage!.choices
+            : await controller.lookupChoices(filter, controller.stagedTerm);
+        if (!mounted || revision != _lookupRevision) return;
+        setState(() {
+          _choices = choices;
+          _categoryPage = categoryPage == null ? 0 : 1;
+          _hasMoreChoices = categoryPage?.hasMore ?? false;
+          _loadingChoices = false;
+        });
+      } catch (error) {
+        if (!mounted || revision != _lookupRevision) return;
+        setState(() {
+          _loadingChoices = false;
+          _choiceError = GlobalSearchApi.failureMessage(error);
+        });
+      }
+    });
+  }
+
+  Widget _stageBody(BuildContext context, GlobalSearchFilter filter) {
+    final controller = widget.controller;
+    _loadStage(filter);
+    final tree = filter.id == 'category' && controller.stagedTerm.isEmpty;
+    final parent = _drill.lastOrNull;
+    final knownIds = _choices.map((choice) => choice.category?.id).toSet();
+    final choices = _choices.where(
+      (choice) => tree
+          ? (choice.category?.parentCategoryId == parent ||
+                parent == null &&
+                    !knownIds.contains(choice.category?.parentCategoryId))
+          : choice.label.toLowerCase().contains(
+              controller.stagedTerm.toLowerCase(),
+            ),
+    );
+    void pick(GlobalSearchFilterChoice choice) {
+      final value =
+          filter.kind == GlobalSearchFilterKind.date &&
+              RegExp(r'^\d{1,3}$').hasMatch(choice.value)
+          ? DateTime.now()
+                .toUtc()
+                .subtract(Duration(days: int.parse(choice.value)))
+                .toIso8601String()
+                .substring(0, 10)
+          : choice.value;
+      final condition = GlobalSearchCondition(
+        filterId: filter.id,
+        operator: controller.stagedOperator,
+        value: [value],
+      );
+      final error = validateGlobalSearchCondition(
+        condition,
+        controller.capabilities,
+      );
+      if (error != null) {
+        setState(() => _choiceError = error);
+        return;
+      }
+      controller.completeFilter(condition);
+      resetSelection();
+      widget.onRefocus?.call();
+    }
+
+    return DScrollBar(
+      controller: _scroll,
+      child: ListView(
+        controller: _scroll,
+        padding: const EdgeInsets.all(8),
+        children: [
+          if (tree && parent != null)
+            _action(
+              'category:back',
+              () => _backCategory(),
+              DItem(
+                size: DItemSize.sm,
+                onPressed: () => _backCategory(),
+                children: [
+                  const DItemMedia(child: DIcon(DIcons.arrowLeft)),
+                  DItemContent(
+                    children: [DItemTitle(child: Text(context.l10n.back))],
+                  ),
+                ],
+              ),
+            ),
+          if (_loadingChoices) const Center(child: DSpinner()),
+          if (_choiceError != null)
+            Text(
+              _choiceError!,
+              style: TextStyle(color: DTokens.of(context).destructive),
+            ),
+          if (_choiceError != null)
+            DButton(
+              label: Text(context.l10n.retry),
+              variant: DButtonVariant.ghost,
+              onPressed: () => setState(() => _lookupKey = null),
+            ),
+          if (_hasMoreChoices)
+            DButton(
+              label: Text(context.l10n.loadMore),
+              loading: _loadingChoices,
+              onPressed: () async {
+                final revision = _lookupRevision;
+                setState(() => _loadingChoices = true);
+                try {
+                  final page = await controller.lookupCategoryChoices(
+                    controller.stagedTerm,
+                    page: _categoryPage + 1,
+                  );
+                  if (!mounted || revision != _lookupRevision) return;
+                  setState(() {
+                    _choices = {
+                      for (final choice in [..._choices, ...page.choices])
+                        choice.value: choice,
+                    }.values.toList();
+                    _categoryPage++;
+                    _hasMoreChoices = page.hasMore;
+                    _loadingChoices = false;
+                  });
+                } catch (error) {
+                  if (!mounted || revision != _lookupRevision) return;
+                  setState(() {
+                    _loadingChoices = false;
+                    _choiceError = GlobalSearchApi.failureMessage(error);
+                  });
+                }
+              },
+            ),
+          for (final choice in choices)
+            _action(
+              'value:${choice.value}',
+              () => pick(choice),
+              DItem(
+                key: ValueKey('global-search-staged-${choice.value}'),
+                size: DItemSize.sm,
+                selected: _selected == 'value:${choice.value}',
+                showSelectionIndicator: false,
+                onPressed: () => pick(choice),
+                children: [
+                  if (choice.category != null)
+                    DItemMedia(
+                      child: CategoryIcon(
+                        category: choice.category!,
+                        size: 12,
+                        siteUrl: controller.siteUrl,
+                      ),
+                    ),
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text(choice.label)),
+                      if (choice.parentLabel != null)
+                        DItemDescription(child: Text(choice.parentLabel!)),
+                    ],
+                  ),
+                  if (choice.topicCount != null)
+                    DItemActions(
+                      children: [
+                        Text(countLabel(choice.topicCount!, CountNoun.topic)),
+                      ],
+                    ),
+                  if (tree &&
+                      _choices.any(
+                        (item) =>
+                            item.category?.parentCategoryId ==
+                            choice.category?.id,
+                      ))
+                    DItemActions(
+                      children: [
+                        DButton.iconOnly(
+                          icon: const DIcon(DIcons.chevronRight),
+                          tooltip: choice.label,
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.small,
+                          onPressed: () => _intoCategory(choice.category!.id),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              into:
+                  tree &&
+                      choice.category != null &&
+                      _choices.any(
+                        (item) =>
+                            item.category?.parentCategoryId ==
+                            choice.category!.id,
+                      )
+                  ? () => _intoCategory(choice.category!.id)
+                  : null,
+            ),
+          if (filter.choices.isEmpty &&
+              filter.id != 'category' &&
+              controller.stagedTerm.isNotEmpty)
+            _action(
+              'value:typed',
+              () => pick(
+                GlobalSearchFilterChoice(
+                  value: controller.stagedTerm,
+                  label: controller.stagedTerm,
+                ),
+              ),
+              DItem(
+                size: DItemSize.sm,
+                selected: _selected == 'value:typed',
+                showSelectionIndicator: false,
+                onPressed: () => pick(
+                  GlobalSearchFilterChoice(
+                    value: controller.stagedTerm,
+                    label: controller.stagedTerm,
+                  ),
+                ),
+                children: [
+                  DItemContent(
+                    children: [DItemTitle(child: Text(controller.stagedTerm))],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   void didUpdateWidget(GlobalSearchPanel oldWidget) {
@@ -81,6 +507,29 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     listenable: widget.controller,
     builder: (context, _) {
       final controller = widget.controller;
+      final signature = (
+        controller,
+        controller.categoryLookupSession,
+        controller.configurationRevision,
+        controller.query,
+        controller.scope,
+      );
+      if (signature != _navigationSignature) {
+        resetSelection();
+        _navigationSignature = signature;
+      }
+      _actions.clear();
+      final liveIds = controller.results.map((result) => result.id).toSet();
+      _resultKeys.removeWhere(
+        (id, _) =>
+            !liveIds.contains(id) &&
+            !id.startsWith('section:') &&
+            !id.startsWith('filter:') &&
+            !id.startsWith('recent:') &&
+            !id.startsWith('value:') &&
+            !id.startsWith('category:') &&
+            id != 'clear-filters',
+      );
       return LayoutBuilder(
         builder: (context, constraints) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -171,7 +620,9 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                         },
                       ),
                     ),
-                    if (controller.conditions.isNotEmpty) _conditions(context),
+                    if (widget.showConditions &&
+                        controller.conditions.isNotEmpty)
+                      _conditions(context),
                   ],
                 ),
               ),
@@ -234,9 +685,18 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _body(BuildContext context) {
     final controller = widget.controller;
+    if (controller.stagedFilter case final filter?) {
+      return _stageBody(context, filter);
+    }
     final phase = controller.phase;
     if (phase == GlobalSearchPhase.idle) return _history(context);
     if (phase == GlobalSearchPhase.tooShort) {
+      if (controller.availableFilters.any(
+        (filter) =>
+            filter.id.toLowerCase().startsWith(controller.query.toLowerCase()),
+      )) {
+        return _history(context);
+      }
       return _status(
         context.l10n.keepTyping,
         context.l10n.enterAtLeastCharactersToSearch(
@@ -263,6 +723,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     final children = <Widget>[
+      if (controller.hintedFilters.isNotEmpty) _filterRows(context),
       for (final section in controller.sections.where(
         (section) =>
             controller.scope != GlobalSearchScope.all ||
@@ -270,24 +731,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
             section.error != null,
       )) ...[
         if (controller.scope == GlobalSearchScope.all)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 8, 4),
-            child: Row(
-              children: [
-                Expanded(child: DLabel(child: Text(section.scope.label))),
-                if (section.results.isNotEmpty)
-                  DButton(
-                    label: Text(context.l10n.viewAll),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
-                    onPressed: () => controller.setScope(section.scope),
-                    semanticLabel: context.l10n.viewAllResults(
-                      (section.scope.label).toString(),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          _sectionHeader(context, section),
         if (section.error != null)
           Padding(
             padding: const EdgeInsets.all(12),
@@ -307,7 +751,11 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ],
             ),
           ),
-        for (final result in section.results) _result(result),
+        for (final result
+            in controller.scope == GlobalSearchScope.all
+                ? section.results.take(3)
+                : section.results)
+          _result(result),
       ],
       if (controller.error != null &&
           results.isNotEmpty &&
@@ -334,15 +782,96 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
             ),
           ),
         ),
+      if (controller.wordsQuery.trim().isEmpty &&
+          controller.hintedFilters.isEmpty)
+        _filterRows(context),
     ];
     final ids = {for (final result in results) result.id};
-    _resultKeys.removeWhere((id, _) => !ids.contains(id));
+    _resultKeys.removeWhere(
+      (id, _) =>
+          !ids.contains(id) &&
+          !id.startsWith('section:') &&
+          !id.startsWith('filter:'),
+    );
     return DScrollBar(
       controller: _scroll,
       child: ListView(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
         children: children,
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, GlobalSearchSection section) {
+    void open() {
+      if (section.topicId != null && section.results.isNotEmpty) {
+        widget.onOpen(section.results.first);
+      } else if (widget.onOpenSection != null) {
+        widget.onOpenSection!(section);
+      } else {
+        widget.controller.setScope(section.scope);
+      }
+    }
+
+    final id = 'section:${section.scope.keyName}:${section.topicId ?? ""}';
+    return _action(
+      id,
+      open,
+      DItem(
+        key: ValueKey(id),
+        size: DItemSize.sm,
+        selected: _selected == id,
+        showSelectionIndicator: false,
+        onPressed: section.results.isEmpty ? null : open,
+        children: [
+          DItemMedia(
+            child: SizedBox.square(
+              dimension: 32,
+              child: Center(
+                child: DIcon(
+                  section.topicId != null
+                      ? DIcons.comments
+                      : section.scope == GlobalSearchScope.messages
+                      ? DIcons.inbox
+                      : section.scope == GlobalSearchScope.users
+                      ? DIcons.users
+                      : section.scope == GlobalSearchScope.groups
+                      ? DIcons.userGroup
+                      : section.scope == GlobalSearchScope.categories
+                      ? DIcons.folder
+                      : section.scope == GlobalSearchScope.tags
+                      ? DIcons.tag
+                      : DIcons.magnifyingGlass,
+                  size: 16,
+                ),
+              ),
+            ),
+          ),
+          DItemContent(
+            children: [
+              DItemTitle(
+                child: Text(
+                  section.topicId != null
+                      ? '${context.l10n.inThisTopicSearch} · ${section.topicTitle ?? ""}'
+                      : section.scope.label,
+                ),
+              ),
+            ],
+          ),
+          if (section.results.isNotEmpty)
+            DItemActions(
+              children: [
+                DButton.iconOnly(
+                  icon: const DIcon(DIcons.chevronRight),
+                  tooltip: context.l10n.viewAllResults(section.scope.label),
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  onPressed: open,
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -355,21 +884,80 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
         controller: _scroll,
         padding: const EdgeInsets.all(8),
         children: [
+          if (widget.showClearFilters)
+            _action(
+              'clear-filters',
+              () => widget.onApply?.call(),
+              DItem(
+                size: DItemSize.sm,
+                onPressed: widget.onApply,
+                selected: _selected == 'clear-filters',
+                showSelectionIndicator: false,
+                children: [
+                  const DItemMedia(child: DIcon(DIcons.filter, size: 16)),
+                  DItemContent(
+                    children: [
+                      DItemTitle(
+                        child: Text(context.l10n.clearSearchListFilters),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
           if (controller.recentSearches.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Text(
-                context.l10n.recentSearches,
-                style: TextStyle(color: DTokens.of(context).mutedForeground),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.recentSearches,
+                      style: TextStyle(
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                    ),
+                  ),
+                  DButton(
+                    key: const ValueKey('global-search-clear-history'),
+                    label: Text(context.l10n.clearHistory),
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                    onPressed: controller.clearHistory,
+                  ),
+                ],
               ),
             ),
           for (final query in controller.recentSearches)
-            DItem(
-              size: DItemSize.sm,
-              onPressed: () => controller.useRecentSearch(query),
-              children: [
-                DItemContent(children: [DItemTitle(child: Text(query))]),
-              ],
+            _action(
+              'recent:$query',
+              () {
+                controller.useRecentSearch(query);
+                widget.onRefocus?.call();
+              },
+              DItem(
+                size: DItemSize.sm,
+                onPressed: () => controller.useRecentSearch(query),
+                children: [
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: _RecentQuery(controller, query)),
+                    ],
+                  ),
+                  DItemActions(
+                    children: [
+                      DButton.iconOnly(
+                        icon: const DIcon(DIcons.xmark),
+                        tooltip: context.l10n.remove(query),
+                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.small,
+                        onPressed: () => controller.removeRecentSearch(query),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           if (controller.error != null)
             Padding(
@@ -382,33 +970,7 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
               ),
             ),
-          if (controller.recentSearches.isNotEmpty)
-            DItem(
-              key: const ValueKey('global-search-clear-history'),
-              size: DItemSize.sm,
-              onPressed: controller.clearHistory,
-              children: [
-                DItemMedia(
-                  child: DIcon(
-                    DIcons.xmark,
-                    size: 14,
-                    color: DTokens.of(context).mutedForeground,
-                  ),
-                ),
-                DItemContent(
-                  children: [
-                    DItemTitle(
-                      child: Text(
-                        context.l10n.clearHistory,
-                        style: TextStyle(
-                          color: DTokens.of(context).mutedForeground,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          _filterRows(context),
         ],
       ),
     );
@@ -454,28 +1016,31 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Widget _result(GlobalSearchResult result) {
     final controller = widget.controller;
     final site = controller.siteUrl;
-    return KeyedSubtree(
-      key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
-      child: LinkTarget(
-        url: site == null
-            ? result.path
-            : resolveSiteRootPath(site, result.path),
-        siteUrl: site,
-        title: result.title,
-        child: Focus(
-          canRequestFocus: false,
-          onFocusChange: (focused) {
-            if (focused) widget.onSelect?.call(result.id);
-          },
-          // The shell notifies for every navigation and tracking event; only
-          // this row's category may change what the row draws.
-          child: ShellSelector<TopicCategory?>(
-            select: (shell) => shell.categoryFor(
-              result.categoryId,
-              siteUrl: controller.siteUrl,
+    return _action(
+      result.id,
+      () => widget.onOpen(result),
+      KeyedSubtree(
+        child: LinkTarget(
+          url: site == null
+              ? result.path
+              : resolveSiteRootPath(site, result.path),
+          siteUrl: site,
+          title: result.title,
+          child: Focus(
+            canRequestFocus: false,
+            onFocusChange: (focused) {
+              if (focused) widget.onSelect?.call(result.id);
+            },
+            // The shell notifies for every navigation and tracking event; only
+            // this row's category may change what the row draws.
+            child: ShellSelector<TopicCategory?>(
+              select: (shell) => shell.categoryFor(
+                result.categoryId,
+                siteUrl: controller.siteUrl,
+              ),
+              builder: (context, category, _) =>
+                  _resultItem(context, result, category),
             ),
-            builder: (context, category, _) =>
-                _resultItem(context, result, category),
           ),
         ),
       ),
@@ -490,12 +1055,68 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final controller = widget.controller;
     final properties = controller.properties;
     final tokens = DTokens.of(context);
+    final source = result.source;
+    if (source is SearchCategoryHit || source is SearchTagHit) {
+      final swatch = source is SearchCategoryHit
+          ? TopicCategory.fromJson({
+              'id': source.categoryId,
+              'name': source.name,
+              'slug': source.slug,
+              'color': source.color,
+              'style_type': source.styleType,
+              'icon': source.icon,
+              'emoji': source.emoji,
+              'read_restricted': source.readRestricted,
+            })
+          : null;
+      final count = source is SearchCategoryHit
+          ? source.topicCount
+          : (source as SearchTagHit).topicCount;
+      final parent = source is SearchCategoryHit
+          ? ShellScope.maybeRead(
+              context,
+            )?.categoryFor(source.parentCategoryId, siteUrl: controller.siteUrl)
+          : null;
+      return DItem(
+        key: ValueKey('global-search-result-${result.id}'),
+        size: DItemSize.sm,
+        selected: _selected == result.id,
+        showSelectionIndicator: false,
+        onPressed: () => widget.onOpen(result),
+        children: [
+          DItemMedia(
+            child: swatch != null
+                ? CategoryIcon(
+                    category: swatch,
+                    size: 12,
+                    siteUrl: controller.siteUrl,
+                  )
+                : const Text('#'),
+          ),
+          DItemContent(
+            children: [
+              DItemTitle(
+                child: _SearchHighlight(
+                  siteUrl: controller.siteUrl!,
+                  text: result.title,
+                  query: controller.query,
+                ),
+              ),
+              if (parent != null) DItemDescription(child: Text(parent.name)),
+            ],
+          ),
+          if (count != null)
+            DItemActions(children: [Text(countLabel(count, CountNoun.topic))]),
+        ],
+      );
+    }
     final metadata = <Widget>[
       if (properties.contains(GlobalSearchDisplayProperty.author) &&
           result.username?.isNotEmpty == true)
         Text('@${result.username}'),
       if (result.contextLabel?.isNotEmpty == true) Text(result.contextLabel!),
-      if (properties.contains(GlobalSearchDisplayProperty.category) &&
+      if ((properties.contains(GlobalSearchDisplayProperty.category) ||
+              result.scope == GlobalSearchScope.forum) &&
           category != null)
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -515,7 +1136,9 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
           when properties.contains(GlobalSearchDisplayProperty.likes))
         Text(countLabel(likes, CountNoun.like)),
       if (result.replies case final replies?
-          when properties.contains(GlobalSearchDisplayProperty.replies))
+          when properties.contains(GlobalSearchDisplayProperty.replies) ||
+              result.scope == GlobalSearchScope.forum ||
+              result.privateMessage)
         Text(countLabel(replies, CountNoun.reply)),
       if (result.memberCount case final members?)
         Text(countLabel(members, CountNoun.member)),
@@ -526,45 +1149,57 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
     ];
     return DItem(
       key: ValueKey('global-search-result-${result.id}'),
-      size: DItemSize.standard,
+      size: DItemSize.sm,
       onPressed: () {
         widget.onSelect?.call(result.id);
         widget.onOpen(result);
       },
       link: true,
-      selected: widget.selectedResultId == result.id,
+      selected: _selected == result.id || widget.selectedResultId == result.id,
       showSelectionIndicator: false,
       children: [
-        DItemMedia(
-          child: result.scope.showAvatar
-              ? DAvatar(
-                  size: DAvatarSize.standard,
-                  decorative: true,
-                  child: AvatarImage(
-                    url: result.avatarUrl,
-                    size: 32,
-                    fallback: DAvatarFallback(
-                      child: Text(
-                        (result.username ?? result.title).characters
-                            .take(1)
-                            .toString()
-                            .toUpperCase(),
+        if (result.scope.showAvatar ||
+            result.id.startsWith('in-topic:') ||
+            result.source is SearchCategoryHit ||
+            result.source is SearchTagHit)
+          DItemMedia(
+            child: result.scope.showAvatar || result.id.startsWith('in-topic:')
+                ? DAvatar(
+                    size: DAvatarSize.standard,
+                    decorative: true,
+                    child: AvatarImage(
+                      url: result.avatarUrl,
+                      size: 32,
+                      fallback: DAvatarFallback(
+                        child: Text(
+                          (result.username ?? result.title).characters
+                              .take(1)
+                              .toString()
+                              .toUpperCase(),
+                        ),
                       ),
                     ),
+                  )
+                : result.source is SearchCategoryHit && category != null
+                ? CategoryIcon(
+                    category: category,
+                    size: 12,
+                    siteUrl: controller.siteUrl,
+                  )
+                : DIcon(
+                    result.scope == GlobalSearchScope.groups
+                        ? DIcons.users
+                        : DIcons.comments,
+                    size: 18,
+                    color: tokens.mutedForeground,
                   ),
-                )
-              : DIcon(
-                  result.scope == GlobalSearchScope.groups
-                      ? DIcons.users
-                      : DIcons.comments,
-                  size: 18,
-                  color: tokens.mutedForeground,
-                ),
-        ),
+          ),
+        if (!result.scope.showAvatar && !result.id.startsWith('in-topic:'))
+          const DItemMedia(child: SizedBox.square(dimension: 32)),
         DItemContent(
           children: [
             DItemTitle(
-              maxLines: 2,
+              maxLines: 1,
               child: _SearchHighlight(
                 siteUrl: controller.siteUrl!,
                 text: result.title,
@@ -574,10 +1209,10 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
             if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
                 result.excerpt.isNotEmpty)
               DItemDescription(
-                maxLines: 2,
+                maxLines: 1,
                 child: _SearchHighlight(
                   siteUrl: controller.siteUrl!,
-                  text: result.excerpt,
+                  text: searchSnippet(result.excerpt, controller.query),
                   query: controller.query,
                 ),
               ),
@@ -591,6 +1226,176 @@ class _GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class GlobalSearchChips extends StatelessWidget {
+  const GlobalSearchChips({
+    super.key,
+    required this.controller,
+    required this.maxWidth,
+    this.onRefocus,
+  });
+  final GlobalSearchController controller;
+  final double maxWidth;
+  final VoidCallback? onRefocus;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 4,
+    children: [
+      for (var index = 0; index < controller.conditions.length; index++)
+        SearchFilterChip(
+          key: ValueKey('global-search-condition-$index'),
+          controller: controller,
+          condition: controller.conditions[index],
+          maxWidth: maxWidth,
+          onEdit: () {
+            final condition = controller.conditions[index];
+            final filter = globalSearchFilter(
+              condition.filterId,
+              controller.capabilities,
+            )!;
+            controller.beginFilter(
+              filter,
+              value: condition.filterId == 'category'
+                  ? controller.choiceLabel(
+                          condition.filterId,
+                          condition.text,
+                        ) ??
+                        condition.text
+                  : condition.text,
+            );
+            onRefocus?.call();
+          },
+          onRemove: () {
+            controller.removeCondition(index);
+            onRefocus?.call();
+          },
+        ),
+      if (controller.hasOrderFilter)
+        SearchFilterChip(
+          controller: controller,
+          condition: GlobalSearchCondition(
+            filterId: 'order',
+            value: [controller.order],
+          ),
+          maxWidth: maxWidth,
+          onEdit: () {
+            controller.beginFilter(
+              globalSearchOrderFilter(controller.capabilities),
+              value: controller.order,
+            );
+            onRefocus?.call();
+          },
+          onRemove: () {
+            controller.setOrder('relevance');
+            onRefocus?.call();
+          },
+        ),
+    ],
+  );
+}
+
+class SearchFilterChip extends StatelessWidget {
+  const SearchFilterChip({
+    super.key,
+    required this.controller,
+    required this.condition,
+    required this.maxWidth,
+    required this.onEdit,
+    this.onRemove,
+  });
+  final GlobalSearchController controller;
+  final GlobalSearchCondition condition;
+  final double maxWidth;
+  final VoidCallback onEdit;
+  final VoidCallback? onRemove;
+  @override
+  Widget build(BuildContext context) {
+    final filter = globalSearchFilter(
+      condition.filterId,
+      controller.capabilities,
+    )!;
+    final value = condition.value
+        .map((value) => controller.choiceLabel(filter.id, value) ?? value)
+        .join(', ');
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: DButtonGroup(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: DButton(
+              label: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${filter.id}: ',
+                      style: TextStyle(color: DTokens.of(context).primary),
+                    ),
+                    TextSpan(text: value),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              shape: DButtonShape.pill,
+              size: DButtonSize.small,
+              variant: DButtonVariant.secondary,
+              onPressed: onEdit,
+            ),
+          ),
+          if (onRemove != null)
+            DButton.iconOnly(
+              icon: const DIcon(DIcons.xmark),
+              tooltip: context.l10n.removeCondition(filter.label),
+              size: DButtonSize.small,
+              variant: DButtonVariant.secondary,
+              onPressed: onRemove,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentQuery extends StatelessWidget {
+  const _RecentQuery(this.controller, this.term);
+  final GlobalSearchController controller;
+  final String term;
+  @override
+  Widget build(BuildContext context) {
+    final expression = controller.recentExpression(term);
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final condition in expression.conditions)
+          DBadge(
+            variant: DBadgeVariant.secondary,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${condition.filterId}: ',
+                    style: TextStyle(color: DTokens.of(context).primary),
+                  ),
+                  TextSpan(text: condition.text),
+                ],
+              ),
+            ),
+          ),
+        if (expression.query.isNotEmpty)
+          Text(expression.query, maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (expression.order != null)
+          DBadge(
+            variant: DBadgeVariant.secondary,
+            child: Text('order: ${expression.order}'),
+          ),
       ],
     );
   }
@@ -610,12 +1415,7 @@ class _SearchHighlight extends StatelessWidget {
   final String siteUrl, text, query;
   @override
   Widget build(BuildContext context) {
-    final words = query
-        .split(_whitespace)
-        .where((word) => word.length > 1 && !word.contains(':'))
-        .map((word) => word.replaceAll('"', ''))
-        .where((word) => word.isNotEmpty)
-        .toSet();
+    final words = searchWords(query);
     if (words.isEmpty) return SiteEmojiText.plain(text, siteUrl: siteUrl);
     final expression = RegExp(
       words.map(RegExp.escape).join('|'),
@@ -631,8 +1431,8 @@ class _SearchHighlight extends StatelessWidget {
         SiteEmojiTextRun(
           match.group(0)!,
           style: TextStyle(
-            color: DTokens.of(context).foreground,
-            fontWeight: FontWeight.w600,
+            color: DTokens.of(context).primary,
+            backgroundColor: DTokens.of(context).primary.withValues(alpha: .13),
           ),
         ),
       );

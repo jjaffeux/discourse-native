@@ -45,6 +45,7 @@ import 'open_link.dart';
 import 'platform.dart';
 import 'preferences_page.dart';
 import 'resizable_pane.dart';
+import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_panel.dart';
@@ -84,6 +85,8 @@ class _MainContentState extends State<MainContent> {
 
   String? _refresherTabId;
   ShellController? _refresherController;
+  (String?, String?, String)? _groupWordsIdentity;
+  (Object?, String?, String?, String)? _userWordsIdentity;
 
   void _bindRefresher(ShellController shell, String? tabId) {
     if (identical(shell, _refresherController) && tabId == _refresherTabId) {
@@ -126,16 +129,125 @@ class _MainContentState extends State<MainContent> {
             canPopContent: state.canPop,
           ),
         );
-        return _MainContentBody(
-          layout: widget.layout,
-          state: state,
-          registry:
-              widget.registry ??
-              PluginScope.maybeOf(context)?.registry ??
-              PluginRegistry.empty,
-          groupPages: _groupPages,
-          groupPagesPort: port,
-          aboutPageKey: _aboutPageKey,
+        return ListenableBuilder(
+          listenable: shell.search,
+          builder: (context, _) {
+            final words = state.siteUrl == null || route == null
+                ? ''
+                : shell.search.wordsFor(
+                    state.siteUrl!,
+                    state.activeTabId,
+                    route.id,
+                  );
+            if (route?.isUsers == true && state.siteUrl != null) {
+              final identity = (
+                state.groupSessionIdentity,
+                state.siteUrl,
+                state.activeTabId,
+                words,
+              );
+              if (_userWordsIdentity != identity) {
+                _userWordsIdentity = identity;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || _userWordsIdentity != identity) return;
+                  final site = state.siteUrl!;
+                  if (shell.userDirectory.replaceQuery(
+                    site,
+                    shell.userDirectory.queryFor(site).copyWith(search: words),
+                  )) {
+                    final instance = shell.instanceFor(site);
+                    if (instance != null) {
+                      unawaited(
+                        shell.userDirectory.load(instance, refresh: true),
+                      );
+                    }
+                  }
+                });
+              }
+            }
+            if (_groupPages.page.isOwned &&
+                route?.groupRoute?.isDirectory == true &&
+                _groupWordsIdentity !=
+                    (state.siteUrl, state.activeTabId, words) &&
+                _groupPages.replaceDirectoryQuery(
+                  _groupPages.directoryQuery.copyWith(filter: words),
+                )) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) unawaited(_groupPages.requestLoad(refresh: true));
+              });
+            }
+            if (route?.groupRoute?.isDirectory == true) {
+              _groupWordsIdentity = (state.siteUrl, state.activeTabId, words);
+            }
+            return SearchWords(
+              query: words,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (words.isNotEmpty)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: DButton(
+                          label: Text(
+                            words,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          icon: const DIcon(DIcons.xmark),
+                          iconPosition: DButtonIconPosition.end,
+                          shape: DButtonShape.pill,
+                          variant: DButtonVariant.ghost,
+                          size: DButtonSize.small,
+                          onPressed: () {
+                            shell.search.setPageWords(
+                              state.siteUrl!,
+                              state.activeTabId,
+                              route!.id,
+                              '',
+                            );
+                            if (route.isTopicList) shell.clearSearchWords();
+                            if (route.isUsers) {
+                              shell.userDirectory.replaceQuery(
+                                state.siteUrl!,
+                                shell.userDirectory
+                                    .queryFor(state.siteUrl!)
+                                    .copyWith(search: ''),
+                              );
+                              final instance = shell.instanceFor(
+                                state.siteUrl!,
+                              );
+                              if (instance != null) {
+                                unawaited(
+                                  shell.userDirectory.load(
+                                    instance,
+                                    refresh: true,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: _MainContentBody(
+                      layout: widget.layout,
+                      state: state,
+                      registry:
+                          widget.registry ??
+                          PluginScope.maybeOf(context)?.registry ??
+                          PluginRegistry.empty,
+                      groupPages: _groupPages,
+                      groupPagesPort: port,
+                      aboutPageKey: _aboutPageKey,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

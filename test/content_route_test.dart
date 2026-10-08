@@ -184,8 +184,8 @@ void main() {
     },
   );
 
-  group('obsolete list search migration', () {
-    test('restores list filters without their hidden search parameter', () {
+  group('visible list word filters persist', () {
+    test('restores list word filters beside their scope', () {
       for (final source in [
         ContentRoute.topicList(TopicListMode.latest),
         ContentRoute.topicList(TopicListMode.newTopics),
@@ -206,7 +206,7 @@ void main() {
         final restored = ContentRoute.fromJson(saved);
         final expectedQuery = {
           ...Uri.parse(saved['feed_path']! as String).queryParametersAll,
-        }..remove('search');
+        };
 
         expect(restored.id, legacy.id);
         expect(restored.title, legacy.title);
@@ -217,17 +217,20 @@ void main() {
           TopicListMode.fromRoute(restored),
           TopicListMode.fromRoute(legacy),
         );
-        expect(restored.topicListSearch, isEmpty);
+        expect(restored.topicListSearch, 'café & layout');
         expect(Uri.parse(restored.feedPath!).queryParametersAll, expectedQuery);
         expect(ContentRoute.fromJson(restored.toJson()), restored);
       }
     });
 
-    test('removes a sole search parameter without leaving an empty query', () {
+    test('retains a sole word query for the shared field', () {
       final legacy = ContentRoute.topicList(
         TopicListMode.latest,
       ).withTopicListSearch('layout');
-      expect(ContentRoute.fromJson(legacy.toJson()).feedPath, '/latest.json');
+      expect(
+        ContentRoute.fromJson(legacy.toJson()).feedPath,
+        '/latest.json?search=layout',
+      );
     });
 
     test(
@@ -255,7 +258,7 @@ void main() {
       },
     );
 
-    test('migrates back and forward routes without losing tab anchors', () {
+    test('retains back and forward word filters and tab anchors', () {
       final past = ContentRoute.topicList(
         TopicListMode.latest,
       ).withTopicListSearch('layout');
@@ -276,8 +279,8 @@ void main() {
         },
       );
       final restored = ForumTab.tryFromJson(tab.toJson())!;
-      expect(restored.contentStack.first.feedPath, '/latest.json');
-      expect(restored.forwardStack.single.feedPath, '/unread.json');
+      expect(restored.contentStack.first.feedPath, past.feedPath);
+      expect(restored.forwardStack.single.feedPath, future.feedPath);
       expect(restored.currentContent.topicId, 42);
       expect(restored.anchors[past.id]?.itemId, 17);
       expect(restored.anchors[future.id]?.itemId, 19);

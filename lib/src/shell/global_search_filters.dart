@@ -1,4 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
+
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_models.dart';
 
@@ -680,6 +681,7 @@ GlobalSearchFilter? globalSearchFilter(
   String id, [
   GlobalSearchCapabilities c = const GlobalSearchCapabilities(),
 ]) {
+  if (id == 'order') return globalSearchOrderFilter(c);
   for (final filter in [...globalSearchFilters, ...c.contributedFilters]) {
     if (filter.id == id) return filter;
   }
@@ -725,7 +727,10 @@ List<GlobalSearchOrder> globalSearchOrders(
   GlobalSearchScope scope,
   GlobalSearchCapabilities c,
 ) => switch (scope) {
-  GlobalSearchScope.all => [
+  GlobalSearchScope.all ||
+  GlobalSearchScope.messages ||
+  GlobalSearchScope.categories ||
+  GlobalSearchScope.tags => [
     GlobalSearchOrder('relevance', appL10n.mostRelevant),
   ],
   GlobalSearchScope.forum => [
@@ -840,6 +845,23 @@ String? validateGlobalSearchCondition(
   return null;
 }
 
+GlobalSearchFilter globalSearchOrderFilter(GlobalSearchCapabilities c) =>
+    GlobalSearchFilter(
+      id: 'order',
+      label: appL10n.ordering,
+      icon: 'sort',
+      scope: GlobalSearchScope.forum,
+      kind: GlobalSearchFilterKind.choice,
+      choices: [
+        for (final order in globalSearchOrders(GlobalSearchScope.forum, c))
+          GlobalSearchFilterChoice(
+            value: order.value,
+            label: order.label,
+            token: 'order:${order.value}',
+          ),
+      ],
+    );
+
 String globalSearchConditionToken(
   GlobalSearchCondition f, {
   String? username,
@@ -935,6 +957,11 @@ GlobalSearchExpression parseGlobalSearchExpression(
   for (final match in RegExp(r'(?:[^\s"]+|"[^"]*")+').allMatches(text)) {
     final raw = match.group(0)!;
     var token = !scope.isCore ? raw : aliases[raw] ?? raw;
+    if (scope.isCore && token.contains(':')) {
+      final colon = token.indexOf(':');
+      token =
+          '${token.substring(0, colon).toLowerCase()}${token.substring(colon)}';
+    }
     token = token
         .replaceFirst(RegExp(r'^min_post_count:'), 'min_posts:')
         .replaceFirst(RegExp(r'^filetype:'), 'filetypes:');
@@ -982,7 +1009,7 @@ GlobalSearchExpression parseGlobalSearchExpression(
         target == GlobalSearchScope.forum) {
       final i = token.indexOf(':'), key = token.substring(0, i);
       var value = token.substring(i + 1).replaceAll(RegExp(r'^"|"$'), '');
-      if (key == 'user') {
+      if (key == 'user' || key == 'author') {
         condition = GlobalSearchCondition(filterId: 'author', value: [value]);
       }
       if (key == 'created' && value.startsWith('@')) {

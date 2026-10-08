@@ -6,7 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import 'chat_message_tile.dart';
+import '../../shell/search_words.dart';
 import 'chat_plugin.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
@@ -34,6 +34,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   VoidCallback? _unregisterFocus;
   VoidCallback? _unregisterRefresher;
   bool _ready = false;
+  String? _pageQuery;
 
   @override
   void initState() {
@@ -46,6 +47,14 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _bind();
+    final words = SearchWords.of(context);
+    if (_pageQuery != words) {
+      _pageQuery = words;
+      _query.text = words;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search.setGlobalQuery(widget.siteUrl, words);
+      });
+    }
   }
 
   @override
@@ -456,44 +465,33 @@ class _ChatSearchResult extends StatelessWidget {
       if (preview.isNotEmpty) preview,
       if (threadTitle != null) context.l10n.inThread((threadTitle).toString()),
     ].join(' ');
-    return Semantics(
-      button: true,
-      label: label,
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  threadTitle == null
-                      ? hit.channel.title
-                      : '${hit.channel.title} · $threadTitle',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return DItem(
+      size: DItemSize.sm,
+      semanticLabel: label,
+      onPressed: onOpen,
+      link: true,
+      children: [
+        DItemContent(
+          children: [
+            DItemTitle(child: SearchText(hit.message.author.displayName)),
+            DItemDescription(
+              maxLines: 2,
+              child: SearchText(
+                searchSnippet(
+                  preview.isEmpty ? hit.message.raw : preview,
+                  SearchWords.of(context),
                 ),
               ),
-              ExcludeSemantics(
-                child: IgnorePointer(
-                  child: ChatMessageTile(
-                    siteUrl: siteUrl,
-                    messageId: hit.message.id,
-                    chained: false,
-                    showThreadSummary: false,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+            SearchText(
+              threadTitle == null
+                  ? hit.channel.title
+                  : '${hit.channel.title} · $threadTitle',
+              style: theme.textTheme.labelMedium,
+            ),
+          ],
         ),
-      ),
+      ],
     );
   }
 }

@@ -97,6 +97,42 @@ final class DiscourseTopicApi {
       clientId: clientId,
     );
 
+    if (Uri.parse(path).path == '/search.json') {
+      final parsed = SearchResults.fromJson(body, siteUrl);
+      if (parsed.error != null) throw FormatException(parsed.error!);
+      final excerpts = <int, String>{};
+      for (final hit in parsed.hits) {
+        excerpts.putIfAbsent(
+          hit.topicId,
+          () => const HtmlEscape().convert(hit.excerpt.plainText),
+        );
+      }
+      final uri = Uri.parse(path);
+      final page = int.tryParse(uri.queryParameters['page'] ?? '') ?? 1;
+      final more =
+          jsonObject(body['grouped_search_result'])['more_full_page_results'] ==
+              true &&
+          page < 10;
+      return _models.topicList({
+        ...body,
+        'topic_list': {
+          'topics': [
+            for (final topic in jsonObjects(body['topics']))
+              if (excerpts.containsKey(jsonInt(topic['id'])))
+                {...topic, 'excerpt': ?excerpts[jsonInt(topic['id'])]},
+          ],
+          if (more)
+            'more_topics_url': uri
+                .replace(
+                  queryParameters: {
+                    ...uri.queryParameters,
+                    'page': '${page + 1}',
+                  },
+                )
+                .toString(),
+        },
+      }, siteUrl);
+    }
     return _models.topicList(body, siteUrl);
   }
 

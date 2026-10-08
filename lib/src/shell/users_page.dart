@@ -16,6 +16,7 @@ import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
+import 'search_words.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
 import 'user_directory_controller.dart';
@@ -140,8 +141,15 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           ),
           onPeriodChanged: (period) =>
               replaceQuery(query.copyWith(period: period)),
-          onSearchChanged: (search) =>
-              replaceQuery(query.copyWith(search: search)),
+          onSearchChanged: (search) {
+            shell.search.setPageWords(
+              widget.siteUrl,
+              shell.activeTabId,
+              'users',
+              search,
+            );
+            replaceQuery(query.copyWith(search: search));
+          },
           onGroupChanged: (group) => replaceQuery(
             group == null ? query.withoutGroup() : query.copyWith(group: group),
           ),
@@ -513,7 +521,7 @@ class _UsersPageState extends State<UsersPage> {
                 ),
               ),
               const SizedBox(width: DSpacing.sm),
-              Expanded(child: Text(cell.row.user.username)),
+              Expanded(child: SearchText(cell.row.user.username)),
             ],
           ),
         );
@@ -526,7 +534,7 @@ class _UsersPageState extends State<UsersPage> {
       width: const FixedColumnWidth(186),
       minWidth: 120,
       maxWidth: 800,
-      cellBuilder: (context, cell) => Text(cell.row.user.name ?? '—'),
+      cellBuilder: (context, cell) => SearchText(cell.row.user.name ?? '—'),
     ),
     for (final column in widget.data.columns)
       DDataTableColumn(

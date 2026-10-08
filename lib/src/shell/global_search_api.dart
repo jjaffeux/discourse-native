@@ -149,6 +149,79 @@ class GlobalSearchApi {
     if (r.scope == GlobalSearchScope.all) {
       final sections = <GlobalSearchSection>[];
       final tasks = <Future<void>>[
+        if (r.contextTopicId != null && r.query.trim().isNotEmpty)
+          (() async {
+            try {
+              final body = await _get(
+                siteUrl,
+                _path('/search/query.json', {
+                  'term': r.query,
+                  'search_context[type]': 'topic',
+                  'search_context[id]': '${r.contextTopicId}',
+                }),
+                apiKey,
+                clientId,
+              );
+              final page = _core(body, siteUrl, scope: GlobalSearchScope.forum);
+              final matches =
+                  [
+                    for (final result in page.results)
+                      if (result.source is SearchPostHit &&
+                          (result.source as SearchPostHit).topicId ==
+                              r.contextTopicId)
+                        result.inTopic(result.source as SearchPostHit),
+                  ]..sort(
+                    (a, b) => (a.source as SearchPostHit).postNumber.compareTo(
+                      (b.source as SearchPostHit).postNumber,
+                    ),
+                  );
+              sections.add(
+                GlobalSearchSection(
+                  scope: GlobalSearchScope.forum,
+                  topicId: r.contextTopicId,
+                  topicTitle: r.contextTopicTitle,
+                  results: matches,
+                ),
+              );
+            } catch (error) {
+              sections.add(
+                GlobalSearchSection(
+                  scope: GlobalSearchScope.forum,
+                  topicId: r.contextTopicId,
+                  topicTitle: r.contextTopicTitle,
+                  error: failureMessage(error),
+                ),
+              );
+            }
+          })(),
+        if (c.authenticated && r.query.trim().isNotEmpty)
+          (() async {
+            try {
+              final body = await _get(
+                siteUrl,
+                _path('/search/query.json', {
+                  'term': r.query,
+                  'type_filter': 'private_messages',
+                }),
+                apiKey,
+                clientId,
+              );
+              sections.addAll(
+                _core(
+                  body,
+                  siteUrl,
+                  scope: GlobalSearchScope.messages,
+                ).sections,
+              );
+            } catch (error) {
+              sections.add(
+                GlobalSearchSection(
+                  scope: GlobalSearchScope.messages,
+                  error: failureMessage(error),
+                ),
+              );
+            }
+          })(),
         (() async {
           try {
             final body = await _get(
@@ -201,11 +274,60 @@ class GlobalSearchApi {
               })(),
       ];
       await Future.wait(tasks);
+      final merged = <String, GlobalSearchSection>{};
+      for (final section in sections) {
+        final key = '${section.scope.keyName}:${section.topicId ?? ''}';
+        final previous = merged[key];
+        merged[key] = GlobalSearchSection(
+          scope: section.scope,
+          topicId: section.topicId,
+          topicTitle: section.topicTitle,
+          results: {
+            for (final row in [...?previous?.results, ...section.results])
+              row.id: row,
+          }.values.toList(),
+          error: section.error ?? previous?.error,
+          hasMore: section.hasMore || previous?.hasMore == true,
+        );
+      }
+      sections
+        ..clear()
+        ..addAll(
+          merged.values.where((section) => c.scopes.contains(section.scope)),
+        );
       sections.sort(
-        (a, b) =>
-            c.scopes.indexOf(a.scope).compareTo(c.scopes.indexOf(b.scope)),
+        (a, b) => a.topicId != null
+            ? (b.topicId != null ? 0 : -1)
+            : b.topicId != null
+            ? 1
+            : c.scopes.indexOf(a.scope).compareTo(c.scopes.indexOf(b.scope)),
       );
       return GlobalSearchPage(sections: List.unmodifiable(sections));
+    }
+    if (r.scope == GlobalSearchScope.messages ||
+        r.scope == GlobalSearchScope.categories ||
+        r.scope == GlobalSearchScope.tags) {
+      final body = await _get(
+        siteUrl,
+        _path(
+          r.scope == GlobalSearchScope.messages
+              ? '/search.json'
+              : '/search/query.json',
+          {
+            r.scope == GlobalSearchScope.messages ? 'q' : 'term':
+                '${r.query}${r.scope == GlobalSearchScope.messages ? ' in:personal' : ''}',
+            if (r.scope == GlobalSearchScope.messages) 'page': '${r.page + 1}',
+          },
+        ),
+        apiKey,
+        clientId,
+      );
+      return _core(
+        body,
+        siteUrl,
+        scope: r.scope,
+        canPage: r.scope == GlobalSearchScope.messages && r.page < 9,
+      );
     }
     if (!r.scope.isCore) {
       final provider = c.contributions
@@ -365,19 +487,30 @@ class GlobalSearchApi {
         SearchResultKind.topic => GlobalSearchScope.forum,
         SearchResultKind.user => GlobalSearchScope.users,
         SearchResultKind.group => GlobalSearchScope.groups,
-        _ => null,
+        SearchResultKind.category => GlobalSearchScope.categories,
+        SearchResultKind.tag => GlobalSearchScope.tags,
       };
-      if (target == null || scope != null && scope != target) continue;
+      if (scope != null &&
+          scope != target &&
+          !(scope == GlobalSearchScope.messages &&
+              target == GlobalSearchScope.forum)) {
+        continue;
+      }
       final rows = <GlobalSearchResult>[];
       for (final source in section.results) {
         final base = _result(source, searchLogId: parsed.searchLogId);
         if (source is SearchPostHit) {
+          if (scope == GlobalSearchScope.messages && !source.privateMessage) {
+            continue;
+          }
           final post = posts[source.postId] ?? const <String, dynamic>{},
               topic = topics[source.topicId] ?? const <String, dynamic>{};
           rows.add(
             GlobalSearchResult(
               id: base.id,
-              scope: target,
+              scope: source.privateMessage
+                  ? GlobalSearchScope.messages
+                  : target,
               title: base.title,
               path: base.path,
               excerpt: base.excerpt,
@@ -398,9 +531,51 @@ class GlobalSearchApi {
               archived: source.archived,
             ),
           );
+        } else if (source is SearchGroupHit) {
+          final group =
+              jsonObjects(
+                body['groups'],
+              ).where((row) => jsonInt(row['id']) == source.id).firstOrNull ??
+              const <String, dynamic>{};
+          rows.add(
+            GlobalSearchResult(
+              id: base.id,
+              scope: target,
+              title: base.title,
+              path: base.path,
+              username: base.username,
+              avatarUrl: base.avatarUrl,
+              source: source,
+              excerpt: SearchExcerpt.fromHtml(
+                jsonString(group['bio_excerpt']),
+              ).plainText,
+              memberCount: jsonIntOrNull(group['user_count']),
+              searchLogId: parsed.searchLogId,
+            ),
+          );
         } else {
           rows.add(base);
         }
+      }
+      if (target == GlobalSearchScope.forum &&
+          scope != GlobalSearchScope.forum) {
+        for (final kind in [
+          GlobalSearchScope.forum,
+          GlobalSearchScope.messages,
+        ]) {
+          if (scope != null && scope != kind) continue;
+          final matches = rows.where((row) => row.scope == kind).toList();
+          if (matches.isNotEmpty) {
+            sections.add(
+              GlobalSearchSection(
+                scope: kind,
+                results: matches,
+                hasMore: canPage && section.hasMore,
+              ),
+            );
+          }
+        }
+        continue;
       }
       sections.add(
         GlobalSearchSection(
@@ -436,6 +611,7 @@ class GlobalSearchApi {
           title: hit.name ?? hit.username,
           path: hit.path,
           username: hit.username,
+          excerpt: '@${hit.username}',
           avatarUrl: hit.avatarUrl,
           source: source,
           searchLogId: searchLogId,
@@ -450,7 +626,21 @@ class GlobalSearchApi {
           source: source,
           searchLogId: searchLogId,
         ),
-        _ => throw FormatException(appL10n.unsupportedSearchResult),
+        SearchCategoryHit hit => GlobalSearchResult(
+          id: 'categories:${hit.categoryId}',
+          scope: GlobalSearchScope.categories,
+          title: hit.name,
+          path: hit.path,
+          categoryId: hit.categoryId,
+          source: hit,
+        ),
+        SearchTagHit hit => GlobalSearchResult(
+          id: 'tags:${hit.name}',
+          scope: GlobalSearchScope.tags,
+          title: hit.name,
+          path: hit.path,
+          source: hit,
+        ),
       };
 
   Future<void> clearRecentSearches({

@@ -31,6 +31,7 @@ import 'open_link.dart';
 import 'pdf_attachment.dart';
 import 'progressive_html_mode.dart';
 import 'quote.dart';
+import 'search_words.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'youtube_video.dart';
@@ -364,9 +365,12 @@ class CookedHtml extends StatelessWidget {
     return PluginRegistryScope(
       registry: resolvedRegistry,
       child: HtmlWidget(
-        checklistDocument == null && checklist != null
-            ? checklist.annotatedHtml
-            : html,
+        highlightSearchHtml(
+          checklistDocument == null && checklist != null
+              ? checklist.annotatedHtml
+              : html,
+          SearchWords.of(context),
+        ),
         buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
@@ -406,6 +410,14 @@ class CookedHtml extends StatelessWidget {
           canToggle ? toggle : null,
         ),
         customStylesBuilder: (element) {
+          if (element.classes.contains('native-search-hit')) {
+            return {
+              'color': _cssColor(DTokens.of(context).primary),
+              'background-color': _cssColor(
+                DTokens.of(context).primary.withValues(alpha: .13),
+              ),
+            };
+          }
           final styles = _customStyles(
             element,
             paragraphMargins,
@@ -428,6 +440,7 @@ class CookedHtml extends StatelessWidget {
         // the inline code and the emoji. Text scaling must refresh cached spans
         // as well when the system preference changes while a body stays mounted.
         rebuildTriggers: [
+          SearchWords.of(context),
           renderMode,
           style,
           MediaQuery.textScalerOf(context),

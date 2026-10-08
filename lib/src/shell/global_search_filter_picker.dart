@@ -145,7 +145,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
                 ),
               )
               .join(', ');
-          final maxWidth = widget.maxChipWidth.clamp(180.0, 350.0);
+          final maxWidth = widget.maxChipWidth.clamp(0.0, 350.0);
           final removeWidth = DControlStyle.scaledHeight(
             DControlSize.small,
             MediaQuery.textScalerOf(context),
@@ -166,7 +166,14 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
               constraints: BoxConstraints(
                 maxWidth: maxTextWidth ?? double.infinity,
               ),
-              child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text == definition.label
+                    ? TextStyle(color: DTokens.of(context).primary)
+                    : null,
+              ),
             ),
             tooltip: text,
             onPressed: state.openPopover,

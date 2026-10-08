@@ -123,6 +123,8 @@ import 'draft_list_controller.dart';
 import 'forum_settings_controller.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
+import 'global_search_filters.dart';
+import 'global_search_models.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'header_preferences.dart';
@@ -223,7 +225,12 @@ typedef _ClosedForumTab = ({
   ForumTab tab,
   int index,
 });
-typedef _TopicPostHighlight = ({String siteUrl, int topicId, int postNumber});
+typedef _TopicPostHighlight = ({
+  String siteUrl,
+  int topicId,
+  int postNumber,
+  String? tabId,
+});
 
 int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
@@ -4110,13 +4117,19 @@ class ShellController extends FrameSafeNotifier
     final routes = [?topicListContent, ...contentStack.reversed];
     for (final route in routes) {
       if (route.id != feedId) continue;
+      if (route.isSearchList) return route.feedPath;
       if (route.isMessages) {
         final username = instance.user?.username;
         if (username == null) return null;
-        return route.messageListMode.feedPathFor(
+        final path = route.messageListMode.feedPathFor(
           username,
           groupName: route.messageGroupName,
         );
+        return route.topicListSearch.isEmpty
+            ? path
+            : Uri.parse(path)
+                  .replace(queryParameters: {'search': route.topicListSearch})
+                  .toString();
       }
       if (route.isAdvancedTopicFilter) return route.topicFilterRequestPath;
       if (route.feedPath != null) return route.feedPath;
@@ -7248,10 +7261,21 @@ class ShellController extends FrameSafeNotifier
     return _knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
   }
 
-  void openSearchResult(SearchPostHit hit) {
+  void openSearchResult(SearchPostHit hit, {String words = ''}) {
     search.clear();
     if (currentContent?.topicId == hit.topicId) {
-      openCurrentTopicPost(hit.postNumber, loadAroundPost: true);
+      search.setPageWords(
+        currentInstance!.url,
+        activeTabId,
+        'topic-${hit.topicId}',
+        words,
+      );
+      openTopicPost(
+        siteUrl: currentInstance!.url,
+        topicId: hit.topicId,
+        postNumber: hit.postNumber,
+        highlight: true,
+      );
       return;
     }
     _openTopic(
@@ -7261,6 +7285,109 @@ class ShellController extends FrameSafeNotifier
       postNumber: hit.postNumber,
       resetScrollPosition: true,
     );
+    final site = currentInstance?.url;
+    if (site != null) {
+      search.setPageWords(site, activeTabId, 'topic-${hit.topicId}', words);
+      _requestTopicPostHighlight(
+        siteUrl: site,
+        topicId: hit.topicId,
+        postNumber: hit.postNumber,
+      );
+    }
+  }
+
+  /// The shared field applies to the focused list and preserves its mode.
+  void applySearchToList(
+    String words,
+    List<GlobalSearchCondition> conditions, {
+    bool clearFilters = false,
+  }) {
+    final site = currentInstance?.url;
+    if (site == null) return;
+    final source = currentContent;
+    final keepMessages =
+        source?.isMessages == true &&
+        !conditions.any(
+          (condition) =>
+              condition.filterId == 'privateMessages' &&
+              condition.text == 'all',
+        );
+    ContentRoute route;
+    if (conditions.isEmpty) {
+      route =
+          (source?.isTopicList == true && !clearFilters
+                  ? source!
+                  : ContentRoute.topicList(
+                      currentTopicListMode ?? TopicListMode.latest,
+                    ))
+              .withTopicListSearch(words);
+    } else if (source?.isMessages != true &&
+        conditions.every(
+          (condition) =>
+              condition.filterId == 'category' &&
+                  condition.operator == 'any' &&
+                  condition.value.length == 1 &&
+                  int.tryParse(condition.text) != null ||
+              condition.filterId == 'tags' &&
+                  (condition.operator == 'all' ||
+                      condition.operator == 'any' &&
+                          condition.value.length == 1),
+        )) {
+      final category = conditions
+          .where((condition) => condition.filterId == 'category')
+          .firstOrNull;
+      final tags = conditions
+          .where((condition) => condition.filterId == 'tags')
+          .firstOrNull;
+      route = ContentRoute.filteredTopicList(
+        currentTopicListMode ?? TopicListMode.latest,
+        categoryId: category == null ? null : int.parse(category.text),
+        tags: tags?.value ?? const [],
+      ).withTopicListQueryFrom(source).withTopicListSearch(words);
+    } else {
+      final expression = [
+        words,
+        if (keepMessages) 'in:personal',
+        if (keepMessages && source?.messageGroupName != null)
+          'group_messages:${source!.messageGroupName}',
+        for (final condition in conditions)
+          globalSearchConditionToken(
+            condition,
+            capabilities: globalSearch.capabilities,
+            username: globalSearch.capabilities.username,
+          ),
+      ].where((part) => part.isNotEmpty).join(' ');
+      route = ContentRoute.searchList(
+        expression,
+        groupName: source?.messageGroupName,
+        messageMode: keepMessages ? MessageListMode.inbox : null,
+      );
+    }
+    _replaceTopicListContent(route, keepTopicOpen: false);
+    search.setPageWords(site, activeTabId, route.id, words);
+    _syncTopicChannels();
+    _notify();
+    unawaited(loadFeed(route.id));
+  }
+
+  void clearSearchWords() {
+    final route = currentContent;
+    if (route == null || !route.isTopicList) return;
+    if (route.isSearchList) {
+      final expression = parseGlobalSearchExpression(
+        Uri.parse(route.feedPath!).queryParameters['q'] ?? '',
+        GlobalSearchScope.forum,
+        globalSearch.capabilities,
+      );
+      final conditions = [
+        ...expression.conditions,
+        if (expression.order case final order? when order != 'relevance')
+          GlobalSearchCondition(filterId: 'order', value: [order]),
+      ];
+      applySearchToList('', conditions, clearFilters: conditions.isEmpty);
+    } else {
+      applySearchToList('', const []);
+    }
   }
 
   void openUserActivityItem(UserActivityItem item) => _openTopic(
@@ -7283,6 +7410,16 @@ class ShellController extends FrameSafeNotifier
     // deduped below, but the second route still costs a back tap.
     if (currentInstance == null) return TabOpenResult.unsupported;
     if (currentContent?.topicId == topicId) return TabOpenResult.opened;
+    final source = currentContent;
+    final sourceWords =
+        source?.isTopicList == true &&
+            topicFeeds
+                    .feedFor(currentInstance!.url, source!.id)
+                    ?.topicIds
+                    .contains(topicId) ==
+                true
+        ? search.wordsFor(currentInstance!.url, activeTabId, source.id)
+        : '';
     SurfaceOpeningTrace.mark('topic.request');
     if (currentInstance case final instance?) {
       _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
@@ -7311,6 +7448,14 @@ class ShellController extends FrameSafeNotifier
       replaceCurrentContent(route);
     } else {
       pushContent(route);
+    }
+    if (sourceWords.isNotEmpty) {
+      search.setPageWords(
+        currentInstance!.url,
+        activeTabId,
+        route.id,
+        sourceWords,
+      );
     }
     unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
     return TabOpenResult.opened;
@@ -7976,6 +8121,7 @@ class ShellController extends FrameSafeNotifier
   bool isTopicPostHighlighted(String siteUrl, int topicId, int postNumber) {
     final highlight = _topicPostHighlight;
     return _topicPostHighlightVisible &&
+        highlight?.tabId == activeTabId &&
         highlight?.siteUrl == siteUrl &&
         highlight?.topicId == topicId &&
         highlight?.postNumber == postNumber;
@@ -7991,6 +8137,7 @@ class ShellController extends FrameSafeNotifier
       siteUrl: siteUrl,
       topicId: topicId,
       postNumber: postNumber,
+      tabId: activeTabId,
     );
     _topicPostHighlightVisible = false;
     // Do not let a failed target load leave a latent highlight that appears

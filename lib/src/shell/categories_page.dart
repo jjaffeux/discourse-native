@@ -18,6 +18,7 @@ import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
+import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_title.dart';
@@ -151,15 +152,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
     final scope = user == null && _scope == CategoryDirectoryScope.unread
         ? CategoryDirectoryScope.all
         : _scope;
-    final entries = categoryDirectoryEntries(
-      rootCategoryIds: feed.categoryIds,
-      categories: controller.filterCategoriesFor(widget.siteUrl),
-      unreadTopicCounts: counts ?? const {},
-      mutedCategoryIds: {
-        ...?user?.mutedCategoryIds,
-        ...?user?.indirectlyMutedCategoryIds,
-      },
-    ).where((entry) => entry.matches(scope)).toList();
+    final entries =
+        categoryDirectoryEntries(
+              rootCategoryIds: feed.categoryIds,
+              categories: controller.filterCategoriesFor(widget.siteUrl),
+              unreadTopicCounts: counts ?? const {},
+              mutedCategoryIds: {
+                ...?user?.mutedCategoryIds,
+                ...?user?.indirectlyMutedCategoryIds,
+              },
+            )
+            .where(
+              (entry) =>
+                  entry.matches(scope) &&
+                  searchWordsMatch(SearchWords.of(context), [
+                    entry.category.name,
+                    jsonHtmlText(entry.category.descriptionExcerpt) ?? '',
+                  ]),
+            )
+            .toList();
     _scheduleVisibleEndCheck();
 
     return ContentReadingLane(
@@ -303,7 +314,7 @@ class _CategoryActivityRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
+            child: SearchText(
               category.name,
               style: TextStyle(
                 color: foreground,
@@ -402,7 +413,7 @@ class _CategoryActivityRow extends StatelessWidget {
                 )
               else if (jsonHtmlText(category.descriptionExcerpt)
                   case final description?)
-                DItemDescription(maxLines: 1, child: Text(description)),
+                DItemDescription(maxLines: 1, child: SearchText(description)),
               if (entry.subcategories.isNotEmpty)
                 Wrap(
                   spacing: 8,

@@ -26,6 +26,9 @@ final class GlobalSearchScope {
        displayProperties = const {GlobalSearchDisplayProperty.excerpt};
   static const all = GlobalSearchScope._core('all');
   static const forum = GlobalSearchScope._core('forum');
+  static const messages = GlobalSearchScope._core('messages');
+  static const categories = GlobalSearchScope._core('categories');
+  static const tags = GlobalSearchScope._core('tags');
   static const users = GlobalSearchScope._core(
     'users',
     showAvatar: true,
@@ -35,7 +38,7 @@ final class GlobalSearchScope {
     'groups',
     singletonFilters: true,
   );
-  static const values = [all, forum, users, groups];
+  static const values = [all, categories, tags, forum, messages, users, groups];
   final String owner, name;
   final String? _label;
   String get label =>
@@ -43,6 +46,9 @@ final class GlobalSearchScope {
       switch (name) {
         'all' => appL10n.all,
         'forum' => appL10n.topicsPosts,
+        'messages' => appL10n.messages,
+        'categories' => appL10n.categories,
+        'tags' => appL10n.tags,
         'users' => appL10n.users,
         'groups' => appL10n.groups,
         _ => name,
@@ -134,7 +140,11 @@ class GlobalSearchCapabilities {
   final List<GlobalSearchContribution> contributions;
   final Set<String> enabledContributions;
   List<GlobalSearchScope> get scopes => [
-    ...GlobalSearchScope.values,
+    ...GlobalSearchScope.values.where(
+      (scope) =>
+          (scope != GlobalSearchScope.messages || authenticated) &&
+          (scope != GlobalSearchScope.tags || tagging),
+    ),
     for (final contribution in contributions)
       if (enabledContributions.contains(contribution.owner))
         ...contribution.scopes,
@@ -303,6 +313,20 @@ class GlobalSearchResult {
   final DateTime? createdAt;
   final SearchResult? source;
   final bool privateMessage, closed, archived;
+
+  GlobalSearchResult inTopic(SearchPostHit hit) => GlobalSearchResult(
+    id: 'in-topic:$id',
+    scope: scope,
+    title: '${hit.name ?? hit.username} · #${hit.postNumber}',
+    path: path,
+    excerpt: excerpt,
+    username: username,
+    avatarUrl: avatarUrl,
+    createdAt: createdAt,
+    source: source,
+    searchLogId: searchLogId,
+    privateMessage: privateMessage,
+  );
 }
 
 @immutable
@@ -312,11 +336,15 @@ class GlobalSearchSection {
     this.results = const [],
     this.hasMore = false,
     this.error,
+    this.topicId,
+    this.topicTitle,
   });
   final GlobalSearchScope scope;
   final List<GlobalSearchResult> results;
   final bool hasMore;
   final String? error;
+  final int? topicId;
+  final String? topicTitle;
 }
 
 @immutable
@@ -349,6 +377,8 @@ class GlobalSearchRequest {
     this.ascending = false,
     this.page = 0,
     this.offset = 0,
+    this.contextTopicId,
+    this.contextTopicTitle,
   });
   final GlobalSearchScope scope;
   final String query, order;
@@ -356,4 +386,6 @@ class GlobalSearchRequest {
   final GlobalSearchCapabilities capabilities;
   final bool ascending;
   final int page, offset;
+  final int? contextTopicId;
+  final String? contextTopicTitle;
 }

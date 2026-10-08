@@ -9,10 +9,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
+import '../models/content_route.dart';
+import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../theme/d_icons.dart';
 import 'content_navigation_controls.dart';
 import 'global_search_controller.dart';
+import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'global_search_panel.dart';
 import 'open_link.dart';
@@ -51,6 +54,7 @@ class _ForumSearchState extends State<ForumSearch> {
   final _anchorKey = GlobalKey(debugLabel: 'global-search-anchor-footprint');
   final _text = TextEditingController();
   final _focus = FocusNode(debugLabel: 'forum search');
+  final _clearFocus = FocusNode(debugLabel: 'clear forum search');
   final _popover = DPopoverController();
   MaterialPageRoute<void>? _page;
   final _pageRevision = ValueNotifier(0);
@@ -68,20 +72,62 @@ class _ForumSearchState extends State<ForumSearch> {
   double? _layoutWidth;
   Size? _layoutViewport;
   String? _selectedResultId;
+  TextEditingValue? _draftEditingValue;
+  (String?, String?, String?)? _openingPage;
+  String? _openingExpression;
+  final _panelKey = GlobalKey<GlobalSearchPanelState>();
+
+  String get _listExpression {
+    final shell = _shell;
+    final route = shell?.currentContent;
+    if (shell == null || route == null) return '';
+    if (route.isTopic) return '';
+    final words = shell.search.wordsFor(
+      _search.siteUrl ?? '',
+      shell.activeTabId,
+      route.id,
+    );
+    if (route.isAdvancedTopicFilter) return route.topicFilterQuery;
+    if (route.isSearchList) {
+      return Uri.parse(route.feedPath!).queryParameters['q'] ?? '';
+    }
+    return [
+      if (route.categoryId != null) 'category:${route.categoryId}',
+      if (route.tagNames.isNotEmpty) 'tags:${route.tagNames.join('+')}',
+      route.topicListSearch.isNotEmpty ? route.topicListSearch : words,
+    ].where((part) => part.isNotEmpty).join(' ');
+  }
+
+  GlobalSearchExpression get _closedExpression {
+    try {
+      return parseGlobalSearchExpression(
+        _listExpression,
+        GlobalSearchScope.all,
+        _global.capabilities,
+      );
+    } on FormatException {
+      return GlobalSearchExpression(_listExpression, const [], null);
+    }
+  }
 
   bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
 
-  bool get _filtersStartPage =>
-      !widget.fullScreen &&
-      _search.siteUrl != null &&
-      _shell?.currentContent?.id == 'new-tab';
+  List<GlobalSearchCondition> get _closedConditions => [
+    ..._closedExpression.conditions,
+    if (_closedExpression.order case final order? when order != 'relevance')
+      GlobalSearchCondition(filterId: 'order', value: [order]),
+  ];
+
+  bool get _filtersStartPage => false;
 
   String get _query => _filtersStartPage
       ? _search.startPageQueryFor(
           _search.siteUrl!,
           _shell!.activeTabId ?? 'start',
         )
-      : _global.query;
+      : _open
+      ? _global.query
+      : _closedExpression.query;
 
   void _closeSearch() {
     if (widget.fullScreen) {
@@ -163,14 +209,34 @@ class _ForumSearchState extends State<ForumSearch> {
   void _siteChanged() {
     if (!mounted) return;
     _syncSite();
+    _retireClosedDraftIfScopeChanged();
     _syncText();
     if (_filtersStartPage && _surfaceOpen) _search.closePanel();
     setState(() {});
   }
 
+  void _retireClosedDraftIfScopeChanged() {
+    final page = (
+      _search.siteUrl,
+      _shell?.activeTabId,
+      _shell?.currentContent?.id,
+    );
+    if (!_open &&
+        _openingPage != null &&
+        (_openingPage != page || _openingExpression != _listExpression)) {
+      _draftEditingValue = null;
+      _openingPage = page;
+      _openingExpression = _listExpression;
+      _global.clearAllConditions();
+      _global.setQuery('');
+      _global.setScope(GlobalSearchScope.all);
+    }
+  }
+
   void _searchChanged() {
     if (!mounted) return;
     _syncSite();
+    _retireClosedDraftIfScopeChanged();
     _syncText();
     if (_syncScheduled) return;
     _syncScheduled = true;
@@ -235,7 +301,37 @@ class _ForumSearchState extends State<ForumSearch> {
     if (_search.siteUrl == null) return;
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
+      _openingExpression = _listExpression;
+      _openingPage = (
+        _search.siteUrl,
+        _shell?.activeTabId,
+        _shell?.currentContent?.id,
+      );
       final route = _shell!.currentContent;
+      final preferred = route?.isMessages == true
+          ? GlobalSearchScope.messages
+          : route?.isTopic == true || route?.isTopicList == true
+          ? GlobalSearchScope.forum
+          : route?.isUsers == true
+          ? GlobalSearchScope.users
+          : route?.isGroups == true
+          ? GlobalSearchScope.groups
+          : route?.id == 'all-categories'
+          ? GlobalSearchScope.categories
+          : route?.id == 'all-tags'
+          ? GlobalSearchScope.tags
+          : _global.scopes
+                .where(
+                  (scope) =>
+                      !scope.isCore &&
+                      route?.id.startsWith(scope.owner) == true,
+                )
+                .firstOrNull;
+      _global.setPageContext(
+        preferredScope: preferred,
+        topicId: route?.topicId,
+        topicTitle: route?.title,
+      );
       final pluginContext = _shell!.plugins.registry.contentSearchContext(
         context,
       );
@@ -259,8 +355,21 @@ class _ForumSearchState extends State<ForumSearch> {
                 )
               : null);
       if (mode != SearchFocusMode.contextual || openingContext == null) {
-        _global.clearAllConditions();
-        _global.setScope(GlobalSearchScope.all);
+        if (mode == SearchFocusMode.global) {
+          _global.setContext(null);
+          if (_global.scope != GlobalSearchScope.forum ||
+              _global.conditions.isEmpty && !_global.hasOrderFilter) {
+            _global.setScope(GlobalSearchScope.all);
+          }
+        }
+        if (_global.query.trim().isEmpty &&
+            _global.conditions.isEmpty &&
+            !_global.hasOrderFilter) {
+          _global.clearAllConditions();
+          _global.setScope(GlobalSearchScope.all);
+          final expression = _listExpression;
+          if (expression.isNotEmpty) _global.setQuery('$expression ');
+        }
       } else {
         _global.setContext(openingContext);
       }
@@ -301,14 +410,23 @@ class _ForumSearchState extends State<ForumSearch> {
   void _openChanged(bool open, DPopoverChangeReason reason) {
     if (!mounted) return;
     final editingValue = _text.value;
+    if (!open) _draftEditingValue = editingValue;
     _suppressFocus = true;
     setState(() => _open = open);
+    if (open) {
+      _syncText();
+      if (_draftEditingValue?.text == _global.query) {
+        _text.value = _draftEditingValue!;
+      }
+    }
     if (!open) {
-      _global.clearAllConditions();
       _search.closePanel();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (open && _draftEditingValue?.text == _global.query) {
+        _text.value = _draftEditingValue!;
+      }
       if (_text.text == editingValue.text) _text.value = editingValue;
       if (open ||
           (!widget.fullScreen && reason == DPopoverChangeReason.escape)) {
@@ -323,12 +441,15 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _clear() {
+    if (!_open) _requestFocus();
     _selectedResultId = null;
+    _global.clearAllConditions();
     _setQuery('');
     _focus.requestFocus();
   }
 
   void _setQuery(String value) {
+    _panelKey.currentState?.resetSelection();
     if (_filtersStartPage) {
       _search.setStartPageQuery(
         _search.siteUrl!,
@@ -361,10 +482,33 @@ class _ForumSearchState extends State<ForumSearch> {
     if (keyboard.isAltPressed ||
         keyboard.isMetaPressed ||
         keyboard.isControlPressed ||
-        keyboard.isShiftPressed) {
+        (keyboard.isShiftPressed &&
+            event.logicalKey != LogicalKeyboardKey.tab)) {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
+    if (_panelKey.currentState?.handleKey(
+          key,
+          reverse: keyboard.isShiftPressed,
+        ) ==
+        true) {
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.backspace &&
+        _text.text.isEmpty &&
+        _global.conditions.isNotEmpty) {
+      final index = _global.conditions.length - 1;
+      final condition = _global.conditions[index];
+      final filter = globalSearchFilter(
+        condition.filterId,
+        _global.capabilities,
+      );
+      if (filter != null) {
+        _global.removeCondition(index);
+        _global.setQuery('${filter.id}:${condition.text}');
+        return KeyEventResult.handled;
+      }
+    }
     if (key == LogicalKeyboardKey.arrowDown ||
         key == LogicalKeyboardKey.arrowUp) {
       final rows = _global.results;
@@ -386,7 +530,7 @@ class _ForumSearchState extends State<ForumSearch> {
       if (selected != null) {
         unawaited(_openResult(selected));
       } else {
-        _global.submit();
+        _apply();
       }
       return KeyEventResult.handled;
     }
@@ -398,6 +542,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final site = _global.siteUrl;
     if (site == null) return;
     final lease = shell.lifecycle.capture(site);
+    final words = _global.wordsQuery;
     unawaited(_global.recordSelection(result));
     final page = _page;
     _closeSearch();
@@ -410,17 +555,108 @@ class _ForumSearchState extends State<ForumSearch> {
       return;
     }
     if (result.source case final SearchPostHit hit) {
-      shell.openSearchResult(hit);
+      shell.openSearchResult(hit, words: words);
     } else {
-      unawaited(
-        openLink(
-          context,
-          resolveSiteRootPath(site, result.path),
-          title: result.title,
-          siteUrl: site,
-        ),
+      final previousRoute = shell.currentContent?.id;
+      await openLink(
+        context,
+        resolveSiteRootPath(site, result.path),
+        title: result.title,
+        siteUrl: site,
       );
+      if (!lease.isCurrent) return;
+      if (shell.currentContent case final route?
+          when route.id != previousRoute) {
+        shell.search.setPageWords(
+          site,
+          shell.activeTabId,
+          route.id,
+          result.source is SearchCategoryHit || result.source is SearchTagHit
+              ? ''
+              : words,
+        );
+      }
     }
+    _global.setQuery('');
+    _global.clearAllConditions();
+  }
+
+  void _apply() {
+    _global.submit();
+    if (_global.phase == GlobalSearchPhase.failed) return;
+    final words = _global.wordsQuery.trim();
+    final conditions = [
+      ..._global.conditions,
+      if (_global.hasOrderFilter)
+        GlobalSearchCondition(filterId: 'order', value: [_global.order]),
+    ];
+    _global.rememberSearch();
+    _closeSearch();
+    _shell!.applySearchToList(
+      words,
+      conditions,
+      clearFilters: words.isEmpty && conditions.isEmpty,
+    );
+    _global.setQuery('');
+    _global.clearAllConditions();
+  }
+
+  void _openSection(GlobalSearchSection section) {
+    final shell = _shell!;
+    final site = _global.siteUrl;
+    if (site == null) return;
+    if (section.scope == GlobalSearchScope.users &&
+            !_global.capabilities.userDirectory ||
+        section.scope == GlobalSearchScope.groups &&
+            !_global.capabilities.groupDirectory) {
+      _global.rememberSearch();
+      _global.setScope(section.scope);
+      return;
+    }
+    if (section.topicId != null && section.results.isNotEmpty) {
+      unawaited(_openResult(section.results.first));
+      return;
+    }
+    if (section.scope == GlobalSearchScope.forum) {
+      _apply();
+      return;
+    }
+    final words = _global.wordsQuery.trim();
+    _global.rememberSearch();
+    _closeSearch();
+    final route = section.scope == GlobalSearchScope.messages
+        ? ContentRoute.searchList(
+            '$words in:personal',
+            messageMode: MessageListMode.inbox,
+          )
+        : section.scope == GlobalSearchScope.categories
+        ? ContentRoute.allCategories()
+        : section.scope == GlobalSearchScope.tags
+        ? ContentRoute(id: 'all-tags', title: appL10n.tags, icon: DIcons.tag)
+        : section.scope == GlobalSearchScope.users
+        ? ContentRoute(id: 'users', title: appL10n.users, icon: DIcons.users)
+        : section.scope == GlobalSearchScope.groups
+        ? ContentRoute.group(const GroupRoute.directory())
+        : ContentRoute(
+            id: '${section.scope.owner}-search',
+            title: section.scope.label,
+            icon: DIcons.magnifyingGlass,
+          );
+    shell.pushContent(route);
+    shell.search.setPageWords(site, shell.activeTabId, route.id, words);
+    if (route.isMessages) unawaited(shell.loadFeed(route.id));
+    if (route.isUsers) {
+      shell.userDirectory.replaceQuery(
+        site,
+        shell.userDirectory.queryFor(site).copyWith(search: words),
+      );
+      final instance = shell.instanceFor(site);
+      if (instance != null) {
+        unawaited(shell.userDirectory.load(instance, refresh: true));
+      }
+    }
+    _global.setQuery('');
+    _global.clearAllConditions();
   }
 
   Widget _editor(double width, {required bool expanded}) {
@@ -448,9 +684,59 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (!_filtersStartPage) _global.submit();
+              if (!_filtersStartPage) _apply();
             },
           ),
+          if (expanded &&
+                  (_global.conditions.isNotEmpty || _global.hasOrderFilter) ||
+              !expanded && _closedConditions.isNotEmpty)
+            DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineStart,
+              child: SizedBox(
+                width: width * .55,
+                child: DScrollArea(
+                  axes: DScrollAxes.horizontal,
+                  showScrollbar: false,
+                  child: expanded
+                      ? GlobalSearchChips(
+                          controller: _global,
+                          maxWidth: width * .55,
+                          onRefocus: _focus.requestFocus,
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 4,
+                          children: [
+                            for (final condition in _closedConditions)
+                              SearchFilterChip(
+                                controller: _global,
+                                condition: condition,
+                                maxWidth: width * .55,
+                                onEdit: () {
+                                  _requestFocus();
+                                  _global.beginFilter(
+                                    globalSearchFilter(
+                                      condition.filterId,
+                                      _global.capabilities,
+                                    )!,
+                                  );
+                                  _focus.requestFocus();
+                                },
+                                onRemove: () {
+                                  _requestFocus();
+                                  final index = _global.conditions.indexWhere(
+                                    (item) =>
+                                        item.filterId == condition.filterId,
+                                  );
+                                  _global.removeCondition(index);
+                                  _focus.requestFocus();
+                                },
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
           if (width >= 140)
             const DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineStart,
@@ -461,9 +747,11 @@ class _ForumSearchState extends State<ForumSearch> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_query.isNotEmpty)
+                if (_query.isNotEmpty ||
+                    !expanded && _closedConditions.isNotEmpty)
                   DInputGroupButton.icon(
                     key: const ValueKey('forum-search-clear'),
+                    focusNode: _clearFocus,
                     icon: const DIcon(DIcons.xmark, size: 16),
                     tooltip: appL10n.clearSearch,
                     onPressed: _clear,
@@ -605,7 +893,16 @@ class _ForumSearchState extends State<ForumSearch> {
                   const DSeparator(),
                   Expanded(
                     child: GlobalSearchPanel(
+                      key: _panelKey,
+                      showConditions: false,
+                      showClearFilters:
+                          _listExpression.isNotEmpty &&
+                          _global.wordsQuery.isEmpty &&
+                          _global.conditions.isEmpty,
                       controller: _global,
+                      onApply: _apply,
+                      onOpenSection: _openSection,
+                      onRefocus: _focus.requestFocus,
                       selectedResultId: _selectedResultId,
                       onSelect: (id) => setState(() => _selectedResultId = id),
                       onOpen: _openResult,
@@ -626,30 +923,7 @@ class _ForumSearchState extends State<ForumSearch> {
                         child: Wrap(
                           spacing: 16,
                           runSpacing: 8,
-                          children: [
-                            for (final contextual in [false, true])
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  DShortcutKeycaps(
-                                    shortcut: DShortcut(
-                                      searchShortcutForPlatform(
-                                        defaultTargetPlatform,
-                                        contextual: contextual,
-                                      ),
-                                    ),
-                                    listenToKeyboard: false,
-                                  ),
-                                  Text(
-                                    contextual
-                                        ? context.l10n.contextualSearch
-                                        : context.l10n.globalSearch,
-                                  ),
-                                ],
-                              ),
-                          ],
+                          children: [Text(context.l10n.searchNavigationHelp)],
                         ),
                       ),
                     ),
@@ -703,6 +977,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _detach();
     _focus.removeListener(_focusChanged);
     _focus.dispose();
+    _clearFocus.dispose();
     _text.dispose();
     _popover.dispose();
     _pageRevision.dispose();
@@ -760,7 +1035,16 @@ class _ForumSearchState extends State<ForumSearch> {
                       const DSeparator(),
                       Expanded(
                         child: GlobalSearchPanel(
+                          key: _panelKey,
+                          showConditions: false,
+                          showClearFilters:
+                              _listExpression.isNotEmpty &&
+                              _global.wordsQuery.isEmpty &&
+                              _global.conditions.isEmpty,
                           controller: _global,
+                          onApply: _apply,
+                          onOpenSection: _openSection,
+                          onRefocus: _focus.requestFocus,
                           selectedResultId: _selectedResultId,
                           onSelect: (id) {
                             _selectedResultId = id;

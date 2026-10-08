@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show HtmlEscape;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;

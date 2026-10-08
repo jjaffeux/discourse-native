@@ -291,6 +291,8 @@ class SearchCategoryHit extends SearchResult {
     this.icon,
     this.emoji,
     this.readRestricted = false,
+    this.topicCount,
+    this.parentCategoryId,
   });
 
   static SearchCategoryHit? fromJson(Map<String, dynamic> json) {
@@ -306,6 +308,8 @@ class SearchCategoryHit extends SearchResult {
       icon: jsonText(json['icon']),
       emoji: jsonText(json['emoji']),
       readRestricted: json['read_restricted'] == true,
+      topicCount: jsonIntOrNull(json['topic_count']),
+      parentCategoryId: jsonIntOrNull(json['parent_category_id']),
     );
   }
 
@@ -313,6 +317,7 @@ class SearchCategoryHit extends SearchResult {
   final String name;
   final String slug;
   final String color;
+  final int? topicCount, parentCategoryId;
   final String styleType;
   final String? icon;
   final String? emoji;
@@ -334,19 +339,27 @@ class SearchCategoryHit extends SearchResult {
 
 @immutable
 class SearchTagHit extends SearchResult {
-  const SearchTagHit({required this.tagId, required this.name, this.slug});
+  const SearchTagHit({
+    required this.tagId,
+    required this.name,
+    this.slug,
+    this.topicCount,
+  });
 
   static SearchTagHit? fromJson(Map<String, dynamic> json) {
     final name = jsonText(json['name']);
     if (name == null) return null;
     return SearchTagHit(
       tagId: jsonIntOrNull(json['id']),
+      topicCount:
+          jsonIntOrNull(json['topic_count']) ?? jsonIntOrNull(json['count']),
       name: name,
       slug: jsonText(json['slug']),
     );
   }
 
   final int? tagId;
+  final int? topicCount;
   final String name;
   final String? slug;
 

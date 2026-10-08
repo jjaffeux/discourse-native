@@ -29,7 +29,15 @@ void main() {
     await tester.tap(result);
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.panelKey), findsNothing);
-    expect(shell.globalSearch.query, 'design');
+    expect(shell.globalSearch.query, isEmpty);
+    expect(
+      shell.search.wordsFor(
+        globalSearchFixtureSite,
+        shell.activeTabId,
+        'topic-1038',
+      ),
+      'design',
+    );
     expect(shell.currentInstance?.url, globalSearchFixtureSite);
     expect(shell.currentContent?.topicId, 1038);
     expect(tester.takeException(), isNull);
@@ -275,7 +283,7 @@ void main() {
         await open();
         expect(
           shell.globalSearch.scope,
-          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
+          keyboard ? GlobalSearchScope.forum : GlobalSearchScope.users,
         );
         expect(
           shell.globalSearch.conditions.map((condition) => condition.text),
@@ -308,17 +316,7 @@ void main() {
           keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
         );
         expect(shell.globalSearch.conditions, isEmpty);
-        expect(
-          api.requests
-              .lastWhere(
-                (r) =>
-                    r.uri.path ==
-                    (keyboard ? '/search.json' : '/search/query.json'),
-              )
-              .uri
-              .queryParameters[keyboard ? 'q' : 'term'],
-          'design',
-        );
+        expect(shell.globalSearch.query, isEmpty);
         expect(tester.takeException(), isNull);
       },
     );
@@ -348,32 +346,25 @@ void main() {
             await tester.tap(find.byKey(ForumSearch.inputKey));
           }
           await tester.pumpAndSettle();
-          expect(
-            shell.globalSearch.scope,
-            keyboard ? GlobalSearchScope.forum : GlobalSearchScope.all,
-          );
+          expect(shell.globalSearch.scope, GlobalSearchScope.forum);
           expect(
             shell.globalSearch.conditions.map(
               (condition) => condition.filterId,
             ),
-            keyboard ? ['category'] : <String>[],
+            ['category'],
           );
           expect(
             shell.globalSearch.conditions.map((condition) => condition.text),
-            keyboard ? ['$categoryId'] : <String>[],
+            ['$categoryId'],
           );
           await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
           await _finishSearch(tester);
           expect(
             api.requests
-                .lastWhere(
-                  (r) =>
-                      r.uri.path ==
-                      (keyboard ? '/search.json' : '/search/query.json'),
-                )
+                .lastWhere((r) => r.uri.path == '/search.json')
                 .uri
-                .queryParameters[keyboard ? 'q' : 'term'],
-            keyboard ? 'design category:$categoryId' : 'design',
+                .queryParameters['q'],
+            'design category:$categoryId',
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
@@ -412,7 +403,7 @@ void main() {
       await _openAndSearch(tester, 'design');
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
-      expect(_editor(tester).focusNode.hasFocus, isFalse);
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsNothing);
@@ -450,13 +441,15 @@ void main() {
 
       expect(find.byKey(ForumSearch.panelKey), findsNothing);
       expect(shell.globalSearch.query, 'design');
-      expect(_editor(tester).controller.text, 'design');
-      expect(_editor(tester).controller.selection.baseOffset, 3);
+      expect(_editor(tester).controller.text, isEmpty);
       final closed = tester.getRect(_editorFinder());
       expect(closed.topLeft.dx, closeTo(before.topLeft.dx, .5));
       expect(closed.topLeft.dy, closeTo(before.topLeft.dy, .5));
+      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.pumpAndSettle();
+      expect(_editor(tester).controller.text, 'design');
+      expect(_editor(tester).controller.selection.baseOffset, 3);
       expect(_caretOrigin(tester).dx, closeTo(caret.dx, .5));
-      expect(_caretOrigin(tester).dy, closeTo(caret.dy, .5));
       expect(tester.takeException(), isNull);
     },
   );
@@ -665,14 +658,7 @@ void main() {
                 ),
               )
               .toList();
-          expect(hints, hasLength(2));
-          for (final (index, hint) in hints.indexed) {
-            final shortcut = hint.shortcut[0];
-            expect(shortcut.trigger, LogicalKeyboardKey.keyF);
-            expect(shortcut.meta, platform == TargetPlatform.macOS);
-            expect(shortcut.control, platform != TargetPlatform.macOS);
-            expect(shortcut.shift, index == 1);
-          }
+          expect(hints, isEmpty);
           expect(tester.takeException(), isNull);
         },
       );
@@ -781,14 +767,12 @@ void main() {
       expect(shell.globalSearch.conditions.single.value, ['mira']);
       await tester.tap(find.byKey(const ValueKey('global-search-condition-0')));
       await tester.pumpAndSettle();
-      final value = find.descendant(
-        of: find.byKey(const ValueKey('global-search-filter-value')),
-        matching: find.byType(EditableText),
-      );
-      expect(tester.widget<EditableText>(value).controller.text, 'mira');
+      expect(shell.globalSearch.stagedFilter?.id, 'author');
+      expect(shell.globalSearch.stagedTerm, 'mira');
+      expect(shell.globalSearch.wordsQuery, 'design');
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -821,7 +805,7 @@ void main() {
       final chip = find.byKey(const ValueKey('global-search-condition-0'));
       expect(shell.globalSearch.conditions.single.value, ['1']);
       expect(
-        find.descendant(of: chip, matching: find.text('UX')),
+        find.descendant(of: chip, matching: find.textContaining('UX')),
         findsWidgets,
       );
       expect(find.descendant(of: chip, matching: find.text('1')), findsNothing);
@@ -884,7 +868,7 @@ void main() {
 
   for (final dismissal in ['escape', 'outside', 'back', 'result']) {
     _testPresentation(
-      '$dismissal dismissal clears filters from every search scope',
+      '$dismissal dismissal retains the draft until result activation',
       (tester) async {
         final mobile = dismissal == 'back';
         if (mobile) debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -922,9 +906,21 @@ void main() {
         }
         await _finishSearch(tester);
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
-        expect(search.query, 'design');
+        expect(search.query, dismissal == 'result' ? '' : 'design');
         for (final scope in GlobalSearchScope.values) {
-          expect(search.conditionsFor(scope), isEmpty, reason: scope.name);
+          expect(
+            search.conditionsFor(scope),
+            dismissal == 'result' ||
+                    [
+                      GlobalSearchScope.all,
+                      GlobalSearchScope.categories,
+                      GlobalSearchScope.tags,
+                      GlobalSearchScope.messages,
+                    ].contains(scope)
+                ? isEmpty
+                : isNotEmpty,
+            reason: scope.name,
+          );
         }
 
         await tester.tap(
@@ -937,8 +933,8 @@ void main() {
         await _finishSearch(tester);
         search.setScope(GlobalSearchScope.users);
         await _finishSearch(tester);
-        expect(search.conditions, isEmpty);
-        expect(search.query, 'design');
+        expect(search.conditions, dismissal == 'result' ? isEmpty : isNotEmpty);
+        expect(search.query.trim(), 'design');
         expect(tester.takeException(), isNull);
       },
     );
@@ -956,23 +952,16 @@ void main() {
         of: footer,
         matching: find.byType(DShortcutKeycaps),
       );
-      expect(keycaps, findsNWidgets(2));
+      expect(keycaps, findsNothing);
       expect(
-        find.descendant(of: footer, matching: find.text('Global search')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: footer, matching: find.text('Contextual search')),
-        findsOneWidget,
-      );
-      for (final element in keycaps.evaluate()) {
-        expect(
-          tester.getRect(find.byWidget(element.widget)).center.dy,
-          greaterThan(
-            tester.getRect(panel).bottom - tester.getSize(footer).height,
+        find.descendant(
+          of: footer,
+          matching: find.text(
+            '↑ ↓ Move · Enter Open · Tab Next type · Esc Close',
           ),
-        );
-      }
+        ),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: panel,

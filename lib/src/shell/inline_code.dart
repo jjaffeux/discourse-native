@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
 import 'code_block.dart';
+import 'search_words.dart';
 
 class InlineCode extends StatelessWidget {
   const InlineCode({
@@ -30,19 +31,25 @@ class InlineCode extends StatelessWidget {
         theme.textTheme.bodyLarge ??
         const TextStyle(fontSize: DiscourseTypography.base);
 
-    return DText.code(
-      text,
-      style: surrounding
-          .merge(monospaceTextStyle)
-          .copyWith(
-            fontWeight: surrounding.fontWeight ?? FontWeight.normal,
-            fontSize:
-                (surrounding.fontSize ?? DiscourseTypography.base) * _scale,
-            color: isLink
-                ? theme.colorScheme.primary
-                : surrounding.color ?? theme.colorScheme.onSurface,
-          ),
-    );
+    final style = surrounding
+        .merge(monospaceTextStyle)
+        .copyWith(
+          fontWeight: surrounding.fontWeight ?? FontWeight.normal,
+          fontSize: (surrounding.fontSize ?? DiscourseTypography.base) * _scale,
+          color: isLink
+              ? theme.colorScheme.primary
+              : surrounding.color ?? theme.colorScheme.onSurface,
+        );
+    final query = SearchWords.of(context);
+    return query.isEmpty
+        ? DText.code(text, style: style)
+        : DText.rich(
+            TextSpan(
+              children: searchTextSpans(text, query, searchHitStyle(context)),
+            ),
+            variant: DTextVariant.inlineCode,
+            style: style,
+          );
   }
 }
 

@@ -160,14 +160,14 @@ void main() {
       if (query == 'fixed laughing') {
         final highlights = <String>[];
         excerpt().text.visitChildren((span) {
-          if (span is TextSpan && span.style?.fontWeight == FontWeight.w600) {
+          if (span is TextSpan && span.style?.backgroundColor != null) {
             highlights.add(span.text!);
           }
           return true;
         });
         expect(highlights, ['fixed']);
       }
-      expect(excerpt().maxLines, 2);
+      expect(excerpt().maxLines, 1);
       expect(excerpt().overflow, TextOverflow.ellipsis);
       expect(tester.takeException(), isNull);
     });
@@ -227,6 +227,7 @@ void main() {
           ),
         ],
       );
+      controller.setDisplayProperty(GlobalSearchDisplayProperty.likes, true);
       controller.setQuery('counted');
       await tester.pumpAndSettle();
 

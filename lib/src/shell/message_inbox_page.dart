@@ -28,7 +28,9 @@ class MessageInboxPage extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     children: [
       ?heading,
-      _MessageListNavigation(keepTopicOpen: keepTopicOpen),
+      if (ShellScope.read(context).currentContent?.isSearchList != true &&
+          ShellScope.read(context).topicListContent?.isSearchList != true)
+        _MessageListNavigation(keepTopicOpen: keepTopicOpen),
       Expanded(
         child: TopicListView(feed: feed, inbox: true, showHeader: false),
       ),

@@ -36,6 +36,27 @@ class ShellSearchController extends ChangeNotifier {
   _RecentSearchRequest? _recentSearchesRequest;
   bool _disposed = false;
   final Map<({String siteUrl, String tabId}), String> _startPageQueries = {};
+  final Map<({String siteUrl, String tabId, String routeId}), String>
+  _pageWords = {};
+
+  String wordsFor(String siteUrl, String? tabId, String routeId) =>
+      _pageWords[(siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId)] ??
+      '';
+
+  void setPageWords(
+    String siteUrl,
+    String? tabId,
+    String routeId,
+    String query,
+  ) {
+    final key = (siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId);
+    if (query.isEmpty) {
+      _pageWords.remove(key);
+    } else {
+      _pageWords[key] = query;
+    }
+    _notify();
+  }
 
   String? get siteUrl => _siteUrl;
   bool get panelOpen => _panelOpen;
@@ -89,6 +110,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void forget(String siteUrl) {
+    _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);
     _startPageQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_siteUrl != siteUrl) return;
     _forgetRecentSearches();

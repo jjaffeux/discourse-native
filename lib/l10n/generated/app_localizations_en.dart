@@ -14935,4 +14935,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openChatMenu => 'Open chat';
+
+  @override
+  String get searchNavigationHelp =>
+      '↑ ↓ Move · Enter Open · Tab Next type · Esc Close';
+
+  @override
+  String get inThisTopicSearch => 'In this topic';
+
+  @override
+  String get clearSearchListFilters => 'Clear filters';
 }

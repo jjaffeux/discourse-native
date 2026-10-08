@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
+import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
 import 'global_search_api.dart';
 import 'global_search_filters.dart';
@@ -19,6 +20,7 @@ class GlobalSearchController extends ChangeNotifier {
     required this.lifecycle,
     this.recentSource,
     this.debounceDuration = const Duration(milliseconds: 350),
+    this.recentStore = const RecentSearchStore(),
   }) {
     recentSource?.addListener(_recentChanged);
   }
@@ -28,6 +30,7 @@ class GlobalSearchController extends ChangeNotifier {
   final SiteLifecycle lifecycle;
   final ShellSearchController? recentSource;
   final Duration debounceDuration;
+  final RecentSearchStore recentStore;
   String? _siteUrl;
   SiteLease? _lease;
   String _baseFingerprint = '';
@@ -35,10 +38,18 @@ class GlobalSearchController extends ChangeNotifier {
   GlobalSearchScope _scope = GlobalSearchScope.all;
   GlobalSearchContext? _context, _pendingContext;
   String _query = '';
+  GlobalSearchScope? _preferredScope;
+  int? _contextTopicId;
+  String? _contextTopicTitle;
+  final Set<String> _removedRecent = {};
   final _banks = <GlobalSearchScope, List<GlobalSearchCondition>>{};
   final _orders = <GlobalSearchScope, String>{};
   final _ascending = <GlobalSearchScope, bool>{};
-  final _properties = GlobalSearchDisplayProperty.values.toSet();
+  final _properties = {
+    GlobalSearchDisplayProperty.excerpt,
+    GlobalSearchDisplayProperty.category,
+    GlobalSearchDisplayProperty.replies,
+  };
   List<GlobalSearchSection> _sections = const [];
   List<String> _localRecent = const [];
   final _recentStates = <String, GlobalSearchRequest>{};
@@ -92,6 +103,8 @@ class GlobalSearchController extends ChangeNotifier {
       value == GlobalSearchScope.all ? const [] : _banks[value] ?? const [];
   List<GlobalSearchCondition> get conditions => conditionsFor(scope);
   List<GlobalSearchFilter> get availableFilters => List.unmodifiable([
+    if (scope == GlobalSearchScope.all || scope == GlobalSearchScope.forum)
+      globalSearchOrderFilter(capabilities),
     for (final filter in [
       ...globalSearchFilters,
       ...capabilities.contributedFilters,
@@ -102,6 +115,8 @@ class GlobalSearchController extends ChangeNotifier {
   ]);
   List<GlobalSearchOrder> get orders => globalSearchOrders(scope, capabilities);
   String get order => _orders[scope] ?? orders.first.value;
+  bool get hasOrderFilter =>
+      scope == GlobalSearchScope.forum && order != 'relevance';
   bool get ascending =>
       _ascending[scope] ??
       (scope == GlobalSearchScope.groups ||
@@ -111,7 +126,136 @@ class GlobalSearchController extends ChangeNotifier {
       (scope == GlobalSearchScope.users && capabilities.userDirectory);
   Set<GlobalSearchDisplayProperty> get properties =>
       Set.unmodifiable(_properties);
-  List<GlobalSearchSection> get sections => _sections;
+  List<GlobalSearchSection> get sections {
+    final ordered = _sections.toList();
+    int rank(GlobalSearchSection section) => section.topicId != null
+        ? -2
+        : section.scope == _preferredScope
+        ? -1
+        : scopes.indexOf(section.scope);
+    ordered.sort((a, b) => rank(a).compareTo(rank(b)));
+    return List.unmodifiable(ordered);
+  }
+
+  void setPageContext({
+    GlobalSearchScope? preferredScope,
+    int? topicId,
+    String? topicTitle,
+  }) {
+    final changed = _contextTopicId != topicId;
+    _preferredScope = preferredScope;
+    _contextTopicId = topicId;
+    _contextTopicTitle = topicTitle;
+    if (changed && query.trim().isNotEmpty) {
+      _schedule();
+    } else {
+      _notify();
+    }
+  }
+
+  GlobalSearchFilter? get stagedFilter {
+    final tail = query.endsWith(' ') ? '' : query.split(RegExp(r'\s+')).last;
+    final colon = tail.indexOf(':');
+    if (colon < 0) return null;
+    final key = tail.substring(0, colon).toLowerCase();
+    return availableFilters
+        .where(
+          (filter) =>
+              filter.id.toLowerCase() == key ||
+              filter.token == key ||
+              filter.opTokens.values.contains(key) ||
+              key == 'tag' && filter.id == 'tags' ||
+              (key == '-tags' || key == '-tag') && filter.id == 'tags' ||
+              key == 'user' && filter.id == 'author',
+        )
+        .firstOrNull;
+  }
+
+  String get stagedTerm => stagedFilter == null
+      ? ''
+      : query
+            .split(RegExp(r'\s+'))
+            .last
+            .split(':')
+            .skip(1)
+            .join(':')
+            .replaceAll('_', ' ');
+  String get stagedOperator {
+    final filter = stagedFilter;
+    if (filter == null) return 'is';
+    final key = query.split(RegExp(r'\s+')).last.split(':').first;
+    if (key == '-tags' || key == '-tag') return 'none';
+    return filter.opTokens.entries
+            .where((entry) => entry.value == key)
+            .firstOrNull
+            ?.key ??
+        conditions
+            .where((condition) => condition.filterId == filter.id)
+            .firstOrNull
+            ?.operator ??
+        filter.operators.first.value;
+  }
+
+  List<GlobalSearchFilter> get hintedFilters {
+    final tail = query.endsWith(' ')
+        ? ''
+        : query.split(RegExp(r'\s+')).last.toLowerCase();
+    if (tail.length < 2 || tail.contains(':')) return const [];
+    return availableFilters
+        .where(
+          (filter) =>
+              filter.id != 'searchIn' &&
+              (filter.id.toLowerCase().startsWith(tail) ||
+                  (filter.token?.startsWith(tail) ?? false)),
+        )
+        .toList();
+  }
+
+  String get wordsQuery => stagedFilter == null && hintedFilters.isEmpty
+      ? query
+      : query
+            .substring(
+              0,
+              query.lastIndexOf(RegExp(r'\s')) < 0
+                  ? 0
+                  : query.lastIndexOf(RegExp(r'\s')),
+            )
+            .trim();
+
+  void beginFilter(GlobalSearchFilter filter, {String value = ''}) {
+    final tail = query.endsWith(' ') ? '' : query.split(RegExp(r'\s+')).last;
+    final replacing =
+        stagedFilter != null ||
+        hintedFilters.any((item) => item.id == filter.id);
+    final prefix = replacing
+        ? (tail.isEmpty
+              ? query
+              : query.substring(0, query.length - tail.length))
+        : query.trim().isEmpty
+        ? ''
+        : '${query.trim()} ';
+    setQuery('$prefix${filter.id}:${value.replaceAll(' ', '_')}');
+  }
+
+  void completeFilter(GlobalSearchCondition condition) {
+    final words = wordsQuery;
+    if (condition.filterId == 'order') {
+      setScope(GlobalSearchScope.forum);
+      setOrder(condition.text);
+      setQuery(words.isEmpty ? '' : '$words ');
+      return;
+    }
+    final old = conditions.indexWhere(
+      (item) => item.filterId == condition.filterId,
+    );
+    if (old >= 0) {
+      updateCondition(old, condition);
+    } else {
+      addCondition(condition);
+    }
+    setQuery(words.isEmpty ? '' : '$words ');
+  }
+
   List<GlobalSearchResult> get results =>
       List.unmodifiable([for (final section in sections) ...section.results]);
   GlobalSearchPhase get phase => _phase;
@@ -128,7 +272,7 @@ class GlobalSearchController extends ChangeNotifier {
         ..._localRecent,
         if (!_historyCleared && source?.siteUrl == siteUrl)
           ...source!.recentSearches,
-      }.take(5),
+      }.where((term) => !_removedRecent.contains(term)).take(5),
     );
   }
 
@@ -151,6 +295,10 @@ class GlobalSearchController extends ChangeNotifier {
     _capabilities = capabilities;
     if (changedSite) {
       _query = '';
+      _contextTopicId = null;
+      _contextTopicTitle = null;
+      _preferredScope = null;
+      _removedRecent.clear();
       _scope = GlobalSearchScope.all;
       _banks.clear();
       _orders.clear();
@@ -166,10 +314,51 @@ class GlobalSearchController extends ChangeNotifier {
     _sanitize();
     _schedule();
     if (siteUrl != null && lease != null) {
+      if (changedSite &&
+          capabilities.authenticated &&
+          capabilities.username != null) {
+        unawaited(
+          _restoreRemovedRecent(
+            siteUrl,
+            capabilities.username!,
+            lease,
+            _configuration,
+          ),
+        );
+      }
       unawaited(
         _loadCapabilities(siteUrl, lease, _configuration, capabilities),
       );
     }
+  }
+
+  Future<void> _restoreRemovedRecent(
+    String site,
+    String username,
+    SiteLease lease,
+    int configuration,
+  ) async {
+    try {
+      final saved = await recentStore.read(site, username);
+      if (_disposed || !lease.isCurrent || configuration != _configuration) {
+        return;
+      }
+      _removedRecent.addAll(
+        saved.where((term) => !_localRecent.contains(term)),
+      );
+      _notify();
+    } catch (_) {
+      /* History still works when local preferences are unavailable. */
+    }
+  }
+
+  void _saveRemovedRecent() {
+    final site = siteUrl, username = capabilities.username, lease = _lease;
+    if (site == null || username == null || lease?.isCurrent != true) return;
+    final terms = Set<String>.of(_removedRecent);
+    unawaited(
+      recentStore.write(site, username, terms).catchError((Object _) {}),
+    );
   }
 
   Future<void> _loadCapabilities(
@@ -223,6 +412,26 @@ class GlobalSearchController extends ChangeNotifier {
   void setQuery(String value) {
     if (_disposed || _query == value) return;
     _query = value;
+    if (value.endsWith(' ')) {
+      try {
+        final parsed = parseGlobalSearchExpression(value, scope, capabilities);
+        if (parsed.conditions.isNotEmpty || parsed.order != null) {
+          _query = parsed.query.isEmpty ? '' : '${parsed.query} ';
+          for (final condition in parsed.conditions) {
+            final old = conditions.indexWhere(
+              (item) => item.filterId == condition.filterId,
+            );
+            _putCondition(condition, index: old < 0 ? null : old);
+          }
+          if (parsed.order != null) {
+            _scope = GlobalSearchScope.forum;
+            _orders[_scope] = parsed.order!;
+          }
+        }
+      } on FormatException {
+        /* Keep incomplete tokens editable. */
+      }
+    }
     _schedule();
   }
 
@@ -247,6 +456,11 @@ class GlobalSearchController extends ChangeNotifier {
     final validation = validateGlobalSearchCondition(condition, capabilities);
     if (validation != null) throw FormatException(validation);
     final filter = globalSearchFilter(condition.filterId, capabilities)!;
+    if (condition.filterId == 'order') {
+      setScope(GlobalSearchScope.forum);
+      setOrder(condition.text);
+      return;
+    }
     final next = conditionsFor(filter.scope).toList();
     final copy = GlobalSearchCondition(
       filterId: condition.filterId,
@@ -278,11 +492,13 @@ class GlobalSearchController extends ChangeNotifier {
     }
     // Normalize after inserting or editing: changing an exclusion into a
     // singleton must remove the old singleton too. Exclusions remain additive.
-    if (filter.scope.singletonFilters) {
+    if (filter.scope.singletonFilters ||
+        filter.singleIdentifier ||
+        filter.kind == GlobalSearchFilterKind.choice) {
       final key = token.split('=').first;
       next.removeWhere((item) {
         if (identical(item, copy)) return false;
-        if (!filter.scope.isCore) {
+        if (!filter.scope.isCore || !filter.scope.singletonFilters) {
           return item.filterId == copy.filterId;
         }
         if (['exclude_groups', 'exclude_usernames'].contains(key)) return false;
@@ -316,11 +532,16 @@ class GlobalSearchController extends ChangeNotifier {
     _schedule();
   }
 
-  /// Clears every scope's filters and opening context when search closes.
+  /// Clears the completed session's filters, ordering and opening context.
   void clearAllConditions() {
     _context = null;
     _pendingContext = null;
-    if (_banks.values.every((conditions) => conditions.isEmpty)) return;
+    final ordered = _orders.isNotEmpty;
+    _orders.clear();
+    _ascending.clear();
+    if (!ordered && _banks.values.every((conditions) => conditions.isEmpty)) {
+      return;
+    }
     _banks.clear();
     _schedule();
   }
@@ -463,11 +684,49 @@ class GlobalSearchController extends ChangeNotifier {
 
   void _remember() {
     if (!capabilities.authenticated || !capabilities.logSearchQueries) return;
+    if (_request().query.trim().isEmpty) return;
     final term = globalSearchTerm(_request()).trim();
     if (term.isEmpty) return;
+    _removedRecent.remove(term);
+    _saveRemovedRecent();
     _localRecent = List.unmodifiable({term, ...recentSearches}.take(5));
     _recentStates[term] = _request();
     _recentStates.removeWhere((key, _) => !_localRecent.contains(key));
+    _historyRevision++;
+    _notify();
+  }
+
+  void rememberSearch() => _remember();
+
+  GlobalSearchExpression recentExpression(String term) {
+    final saved = _recentStates[term];
+    if (saved != null) {
+      return GlobalSearchExpression(
+        saved.query,
+        saved.conditions,
+        saved.scope == GlobalSearchScope.forum && saved.order != 'relevance'
+            ? saved.order
+            : null,
+      );
+    }
+    try {
+      return parseGlobalSearchExpression(
+        term,
+        GlobalSearchScope.all,
+        capabilities,
+      );
+    } on FormatException {
+      return GlobalSearchExpression(term, const [], null);
+    }
+  }
+
+  void removeRecentSearch(String term) {
+    _removedRecent.add(term);
+    _saveRemovedRecent();
+    _localRecent = List.unmodifiable(
+      _localRecent.where((value) => value != term),
+    );
+    _recentStates.remove(term);
     _historyRevision++;
     _notify();
   }
@@ -622,18 +881,41 @@ class GlobalSearchController extends ChangeNotifier {
     _dispatch(_revision, append: true);
   }
 
-  GlobalSearchRequest _request({bool append = false}) => GlobalSearchRequest(
-    scope: scope,
-    query: query.trim(),
-    capabilities: capabilities,
-    conditions: conditions,
-    order: order,
-    ascending: ascending,
-    page: append ? _page + 1 : 0,
-    offset: append ? _offset : 0,
-  );
+  GlobalSearchRequest _request({bool append = false}) {
+    GlobalSearchExpression parsed;
+    try {
+      parsed = parseGlobalSearchExpression(wordsQuery, scope, capabilities);
+    } on FormatException {
+      parsed = GlobalSearchExpression(wordsQuery, const [], null);
+    }
+    final effectiveScope =
+        scope == GlobalSearchScope.all &&
+            (parsed.conditions.isNotEmpty || parsed.order != null)
+        ? GlobalSearchScope.forum
+        : scope;
+    final merged = conditions.toList();
+    for (final condition in parsed.conditions) {
+      merged.removeWhere((item) => item.filterId == condition.filterId);
+      merged.add(condition);
+    }
+    return GlobalSearchRequest(
+      scope: effectiveScope,
+      query: parsed.query.trim(),
+      capabilities: capabilities,
+      conditions: merged,
+      order: parsed.order ?? order,
+      ascending: ascending,
+      page: append ? _page + 1 : 0,
+      offset: append ? _offset : 0,
+      contextTopicId: _contextTopicId,
+      contextTopicTitle: _contextTopicTitle,
+    );
+  }
 
-  bool get _hasInput => query.trim().isNotEmpty || conditions.isNotEmpty;
+  bool get _hasInput =>
+      wordsQuery.trim().isNotEmpty ||
+      conditions.isNotEmpty ||
+      scope == GlobalSearchScope.forum && order != 'relevance';
   bool get _tooShort {
     if (query.trim().isEmpty ||
         query.trim().length >= capabilities.minimumLength ||

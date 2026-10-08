@@ -75,7 +75,7 @@ enum TopicListMode {
     }
     final uri = Uri.tryParse(route.feedPath ?? '');
     return switch (uri?.path) {
-      '/latest.json' || '/filter.json' => latest,
+      '/latest.json' || '/filter.json' || '/search.json' => latest,
       '/new.json' => switch (uri?.queryParameters['subset']) {
         'topics' => newTopics,
         'replies' => newReplies,
@@ -376,6 +376,29 @@ class ContentRoute {
     );
   }
 
+  /// Search operators keep the search endpoint's semantics on an ordinary list.
+  factory ContentRoute.searchList(
+    String expression, {
+    String? groupName,
+    MessageListMode? messageMode,
+  }) {
+    final uri = Uri(
+      path: '/search.json',
+      queryParameters: {'q': expression, 'page': '1'},
+    );
+    return ContentRoute(
+      id: messageMode == null
+          ? 'topic-list-filter-$uri'
+          : '${_messageRouteId(groupName, messageMode)}?q=${Uri.encodeComponent(expression)}',
+      title: messageMode == null ? appL10n.topics : appL10n.messages,
+      icon: messageMode == null ? DIcons.layerGroup : DIcons.inbox,
+      messageGroupName: messageMode == null ? null : groupName,
+      feedPath: uri.toString(),
+    );
+  }
+
+  bool get isSearchList => Uri.tryParse(feedPath ?? '')?.path == '/search.json';
+
   String get topicFilterQuery =>
       Uri.tryParse(feedPath ?? '')?.queryParameters['q'] ?? '';
   bool get isAdvancedTopicFilter =>
@@ -387,6 +410,7 @@ class ContentRoute {
     queryParameters: {
       'q': [
         topicFilterQuery,
+        if (topicListSearch.isNotEmpty) topicListSearch,
         if (categoryId != null) 'category:$categoryId',
         if (tagNames.isNotEmpty)
           'tag:${tagNames.map((tag) => tag.contains(RegExp(r'\s')) ? '"$tag"' : tag).join('+')}',
@@ -509,11 +533,11 @@ class ContentRoute {
       MessageListMode.values.any(
         (mode) =>
             (messageGroupName == null || mode.supportsGroup) &&
-            id == _messageRouteId(messageGroupName, mode),
+            id.split('?').first == _messageRouteId(messageGroupName, mode),
       );
 
   MessageListMode get messageListMode => MessageListMode.values.firstWhere(
-    (mode) => id == _messageRouteId(messageGroupName, mode),
+    (mode) => id.split('?').first == _messageRouteId(messageGroupName, mode),
     orElse: () => MessageListMode.inbox,
   );
 
@@ -568,7 +592,8 @@ class ContentRoute {
     'activity',
   };
 
-  bool get canSortTopicList => isTopicListFilter && !isAdvancedTopicFilter;
+  bool get canSortTopicList =>
+      isTopicListFilter && !isAdvancedTopicFilter && !isSearchList;
 
   String? get topicListOrder =>
       Uri.tryParse(feedPath ?? '')?.queryParameters['order'];
@@ -610,7 +635,12 @@ class ContentRoute {
       path: uri.path,
       queryParameters: query.isEmpty ? null : query,
     ).toString();
-    return _withFeedPath(path, id: 'topic-list-filter-$path');
+    return _withFeedPath(
+      path,
+      id: isMessages
+          ? '${_messageRouteId(messageGroupName, messageListMode)}${term.isEmpty ? '' : '?search=${Uri.encodeComponent(term)}'}'
+          : 'topic-list-filter-$path',
+    );
   }
 
   ContentRoute withTopicListQueryFrom(ContentRoute? source) {
@@ -844,18 +874,7 @@ class ContentRoute {
     if (id == 'filter') return ContentRoute.topicFilter(route.topicFilterQuery);
     // Forum appearance was saved as a "themes" tab before it was renamed.
     if (id == 'themes' && !route.isTopic) return ContentRoute.appearance();
-    // The removed list-search field stored its query in the feed URL. Restore
-    // those lists without an invisible filter, retaining their durable IDs so
-    // tab history and viewport anchors still refer to the same routes.
-    if (!route.isTopicList || feedPath == null) return route;
-    final uri = Uri.parse(feedPath);
-    if (!uri.queryParametersAll.containsKey('search')) return route;
-    final query = {...uri.queryParametersAll}..remove('search');
-    final path = Uri(
-      path: uri.path,
-      queryParameters: query.isEmpty ? null : query,
-    ).toString();
-    return route._withFeedPath(path);
+    return route;
   }
 
   static bool _isSafeFeedPath(Object? value) {

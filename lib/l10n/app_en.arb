@@ -19951,5 +19951,17 @@
   "openChatMenu": "Open chat",
   "@openChatMenu": {
     "description": "Desktop chat menu action to open the full chat page."
+  },
+  "searchNavigationHelp": "↑ ↓ Move · Enter Open · Tab Next type · Esc Close",
+  "@searchNavigationHelp": {
+    "description": "Keyboard navigation guidance in the shared search sheet."
+  },
+  "inThisTopicSearch": "In this topic",
+  "@inThisTopicSearch": {
+    "description": "Heading for search hits in the topic being read."
+  },
+  "clearSearchListFilters": "Clear filters",
+  "@clearSearchListFilters": {
+    "description": "One-line search action to clear the focused list scope."
   }
 }

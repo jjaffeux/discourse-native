@@ -23318,6 +23318,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open chat'**
   String get openChatMenu;
+
+  /// Keyboard navigation guidance in the shared search sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'↑ ↓ Move · Enter Open · Tab Next type · Esc Close'**
+  String get searchNavigationHelp;
+
+  /// Heading for search hits in the topic being read.
+  ///
+  /// In en, this message translates to:
+  /// **'In this topic'**
+  String get inThisTopicSearch;
+
+  /// One-line search action to clear the focused list scope.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get clearSearchListFilters;
 }
 
 class _AppLocalizationsDelegate
