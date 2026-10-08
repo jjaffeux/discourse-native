@@ -46,6 +46,9 @@ class ComposerBlockSurface extends StatefulWidget {
   final bool expands;
   final Listenable? geometryChanges;
 
+  static double gutterWidth(BuildContext context) =>
+      DButton.composerBlockWidth(context) * 2 + DSpacing.controlGap;
+
   /// Marks a control inside a block that answers a touch long press itself,
   /// such as a context-menu trigger. Touch moves claim long presses ahead of
   /// the block's content, so a press on [child] would otherwise move the block
@@ -585,8 +588,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final desktop = !context.isTouch;
     final block = _activeBlock;
     final handleRect = _handleRect;
-    final gutter =
-        DButton.composerBlockWidth(context) * 2 + DSpacing.controlGap;
+    final gutter = ComposerBlockSurface.gutterWidth(context);
     final actionHeight = DControlStyle.scaledHeight(
       DControlSize.regular,
       MediaQuery.textScalerOf(context),

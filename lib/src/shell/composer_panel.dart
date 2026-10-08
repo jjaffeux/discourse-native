@@ -117,6 +117,7 @@ class ComposerPanel extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.canDockSide,
     this.onExitFullScreen,
     this.pickFiles = pickComposerFiles,
     this.pickImages,
@@ -132,6 +133,7 @@ class ComposerPanel extends StatelessWidget {
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
+  final bool? canDockSide;
   final VoidCallback? onExitFullScreen;
   final ComposerFilePicker pickFiles;
 
@@ -224,6 +226,7 @@ class ComposerPanel extends StatelessWidget {
           onRestore: minimized ? onRestore : null,
           placement: placement,
           onPlacementChanged: onPlacementChanged,
+          canDockSide: canDockSide,
           onExitFullScreen: onExitFullScreen,
           mobileSubmit: mobile && !minimized
               ? DButton.iconOnly(
@@ -237,6 +240,13 @@ class ComposerPanel extends StatelessWidget {
                   onPressed: busy ? null : onSubmit,
                 )
               : null,
+          onSaveDraft: () => unawaited(
+            saveComposerFromPanel(
+              context: context,
+              composer: composer,
+              controller: controller,
+            ),
+          ),
           onDiscard: discard,
         );
 
@@ -336,16 +346,19 @@ class ComposerPanel extends StatelessWidget {
                                 ),
                               if (!mobile && target.isPrivateMessage)
                                 ComposerRecipients(composer: composer),
-                              if ((!mobile &&
-                                      (target.isNewTopic ||
-                                          target.editsTopicMetadata)) ||
+                              if ((!mobile && target.editsTopicMetadata) ||
                                   target.isTaxonomyEdit)
                                 _TopicTaxonomy(composer: composer),
                               if (target.createsTopic ||
                                   target.editsTopicMetadata) ...[
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
+                                  padding: EdgeInsets.fromLTRB(
+                                    mobile
+                                        ? 16
+                                        : 4 +
+                                              ComposerBlockSurface.gutterWidth(
+                                                context,
+                                              ),
                                     4,
                                     16,
                                     10,
@@ -353,11 +366,19 @@ class ComposerPanel extends StatelessWidget {
                                   child: DInput(
                                     key: const ValueKey('composer-topic-title'),
                                     controller: composer.title,
+                                    focusNode: composer.titleFocus,
+                                    onSubmitted: (_) {
+                                      composer.text.selection =
+                                          const TextSelection.collapsed(
+                                            offset: 0,
+                                          );
+                                      composer.focus.requestFocus();
+                                    },
                                     borderless: true,
                                     size: DControlSize.large,
                                     readOnly: !composer.isEditing,
                                     semanticLabel: context.l10n.title,
-                                    style: theme.textTheme.titleMedium,
+                                    style: theme.textTheme.headlineSmall,
                                     hintText: context.l10n.giveYourTopicATitle,
                                     textInputAction: TextInputAction.next,
                                   ),
@@ -448,6 +469,58 @@ class ComposerPanel extends StatelessWidget {
                                           child: ComposerEditor(
                                             composer: composer,
                                             expands: !mobile,
+                                            onKeyEvent: (event) {
+                                              final keyboard =
+                                                  HardwareKeyboard.instance;
+                                              final value = composer.text.value;
+                                              if ((target.createsTopic ||
+                                                      target
+                                                          .editsTopicMetadata) &&
+                                                  (event is KeyDownEvent ||
+                                                      event
+                                                          is KeyRepeatEvent) &&
+                                                  !keyboard.isMetaPressed &&
+                                                  !keyboard.isControlPressed &&
+                                                  !keyboard.isAltPressed &&
+                                                  !keyboard.isShiftPressed &&
+                                                  value.composing.isCollapsed &&
+                                                  value.selection.isCollapsed &&
+                                                  value.selection.baseOffset ==
+                                                      0 &&
+                                                  (event.logicalKey ==
+                                                          LogicalKeyboardKey
+                                                              .backspace ||
+                                                      event.logicalKey ==
+                                                          LogicalKeyboardKey
+                                                              .arrowUp)) {
+                                                composer.title.selection =
+                                                    TextSelection.collapsed(
+                                                      offset: composer
+                                                          .title
+                                                          .text
+                                                          .length,
+                                                    );
+                                                composer.titleFocus
+                                                    .requestFocus();
+                                                return KeyEventResult.handled;
+                                              }
+                                              return KeyEventResult.ignored;
+                                            },
+                                            onEmptyBackspace:
+                                                target.createsTopic ||
+                                                    target.editsTopicMetadata
+                                                ? () {
+                                                    composer.title.selection =
+                                                        TextSelection.collapsed(
+                                                          offset: composer
+                                                              .title
+                                                              .text
+                                                              .length,
+                                                        );
+                                                    composer.titleFocus
+                                                        .requestFocus();
+                                                  }
+                                                : null,
                                             pickImages: pickImages,
                                             readClipboardFiles:
                                                 readClipboardFiles,
@@ -927,9 +1000,10 @@ class _ComposerBodyLayout extends StatelessWidget {
 }
 
 class _TopicTaxonomy extends StatelessWidget {
-  const _TopicTaxonomy({required this.composer});
+  const _TopicTaxonomy({required this.composer, this.inline = false});
 
   final ComposerController composer;
+  final bool inline;
 
   @override
   Widget build(BuildContext context) =>
@@ -982,12 +1056,14 @@ class _TopicTaxonomy extends StatelessWidget {
           }
 
           return Padding(
-            padding: EdgeInsets.fromLTRB(
-              DSpacing.lg,
-              DSpacing.md,
-              DSpacing.lg,
-              context.isTouch ? DSpacing.controlGap : DSpacing.md,
-            ),
+            padding: inline
+                ? EdgeInsets.zero
+                : EdgeInsets.fromLTRB(
+                    DSpacing.lg,
+                    DSpacing.md,
+                    DSpacing.lg,
+                    context.isTouch ? DSpacing.controlGap : DSpacing.md,
+                  ),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: Wrap(
@@ -5384,8 +5460,13 @@ class _Footer extends StatelessWidget {
             (620 + pluginControls.length * 120) *
                 MediaQuery.textScalerOf(context).scale(14) /
                 14;
+        final inlineTaxonomy =
+            !context.isTouch &&
+            composer.target.isNewTopic &&
+            constraints.maxWidth >=
+                340 * MediaQuery.textScalerOf(context).scale(14) / 14;
         // Native image pickers outlive a resize, so the toolbar keeps its state.
-        return ComposerFooterLayout(
+        final actionRow = ComposerFooterLayout(
           compact: compact,
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -5447,6 +5528,22 @@ class _Footer extends StatelessWidget {
                               label: Text(label),
                             ),
                     ),
+                    if (inlineTaxonomy) ...[
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth * .45,
+                        ),
+                        child: SingleChildScrollView(
+                          key: const ValueKey('composer-taxonomy-scroll'),
+                          scrollDirection: Axis.horizontal,
+                          child: _TopicTaxonomy(
+                            composer: composer,
+                            inline: true,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     DButton.iconOnly(
                       key: const ValueKey('composer-cancel'),
@@ -5497,6 +5594,25 @@ class _Footer extends StatelessWidget {
                 ),
             ],
           ),
+        );
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!context.isTouch &&
+                composer.target.isNewTopic &&
+                !inlineTaxonomy) ...[
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SingleChildScrollView(
+                  key: const ValueKey('composer-taxonomy-scroll'),
+                  scrollDirection: Axis.horizontal,
+                  child: _TopicTaxonomy(composer: composer, inline: true),
+                ),
+              ),
+              const SizedBox(height: DSpacing.controlGap),
+            ],
+            actionRow,
+          ],
         );
       },
     );

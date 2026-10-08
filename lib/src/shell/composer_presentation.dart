@@ -14,6 +14,7 @@ import 'composer_discard.dart';
 import 'composer_header.dart';
 import 'composer_panel.dart';
 import 'composer_presentation_controller.dart';
+import 'desktop_panels.dart';
 import 'forum_theme_surfaces.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -27,9 +28,18 @@ class ComposerPresentationHost extends StatefulWidget {
     super.key,
     required this.child,
     this.controller,
+    this.panelsLayout,
   });
   final Widget child;
   final ComposerPresentationController? controller;
+  final DesktopPanelsLayout? panelsLayout;
+
+  /// Borrows the window layout for passive composer control artwork.
+  static DesktopPanelsLayout? panelsLayoutOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()
+      ?.owner
+      .widget
+      .panelsLayout;
 
   // The key is stable for the host's lifetime; reading it must not subscribe
   // the shell layout to composer presentation updates.
@@ -93,6 +103,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   ShellController? _shell;
   List<ComposerController> _knownComposers = const [];
   ComposerController? _knownVisibleComposer;
+  int _knownRevealRevision = 0;
+  GlobalKey _surfacesKey = GlobalKey();
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
 
@@ -131,6 +143,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     shell.confirmComposerReplacement = _confirmReplacement;
     _knownComposers = shell.liveComposers.toList();
     _knownVisibleComposer = shell.visibleComposer;
+    _knownRevealRevision = shell.composerRevealRevision;
   }
 
   Future<void> _confirmReplacement(ComposerController composer) async {
@@ -151,12 +164,33 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   void _shellChanged() {
     final composers = _shell!.liveComposers.toList();
     final visible = _shell!.visibleComposer;
-    if (listEquals(composers, _knownComposers) &&
+    final revealChanged =
+        _shell!.composerRevealRevision != _knownRevealRevision;
+    final reveal =
+        revealChanged && identical(_shell!.composerRevealTarget, visible);
+    if (!revealChanged &&
+        listEquals(composers, _knownComposers) &&
         identical(visible, _knownVisibleComposer)) {
       return;
     }
+    if (_knownComposers.any((composer) => !composers.contains(composer))) {
+      // A closing controller is already disposed. Rebuild the group before it
+      // can reattach, retaining only the surviving editor surfaces by key.
+      _surfacesKey = GlobalKey();
+    }
     _knownComposers = composers;
     _knownVisibleComposer = visible;
+    _knownRevealRevision = _shell!.composerRevealRevision;
+    if (reveal && visible != null) {
+      _entries[visible]?.minimized = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            !visible.isDisposed &&
+            identical(_presentableComposer, visible)) {
+          visible.focus.requestFocus();
+        }
+      });
+    }
     _changed();
   }
 
@@ -218,33 +252,81 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     required ComposerPlacement placement,
     required bool mobile,
     required Size size,
+    bool parked = false,
   }) {
-    if (!entry.minimized) entry.size = size;
-    return _ComposerSurface(
-      key: entry.surfaceKey,
-      entry: entry,
-      placement: placement,
-      mobile: mobile,
-      size: size,
-      onPlacement: (value) => unawaited(_place(entry, value)),
-      onExitFullScreen: () => unawaited(_place(entry, _previousDockPlacement)),
-      onMinimize: () {
-        entry.composer.focus.unfocus();
-        setState(() => entry.minimized = true);
-      },
-      onRestore: () {
-        setState(() => entry.minimized = false);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!entry.composer.isDisposed) entry.composer.focus.requestFocus();
-        });
-      },
-      onCloseMenuOpenChanged: (open) {
-        if (mounted && entry.closeMenuOpen != open) {
-          setState(() => entry.closeMenuOpen = open);
-        }
-      },
+    if (!entry.minimized && !parked) entry.size = size;
+    // Move the retained editor stack as a unit between docks. Individual draft
+    // switches only change visibility, so editor and semantics ancestry stay
+    // stable while selection, scroll position, and editing history are retained.
+    return Stack(
+      key: _surfacesKey,
+      fit: StackFit.expand,
+      children: [
+        for (final candidate in _entries.values)
+          _retainedSurface(
+            candidate,
+            shown: !parked && identical(candidate, entry),
+            placement: placement,
+            mobile: mobile,
+            size: identical(candidate, entry) && !parked
+                ? size
+                : candidate.size,
+          ),
+      ],
     );
   }
+
+  Widget _retainedSurface(
+    _ComposerEntry entry, {
+    required bool shown,
+    required ComposerPlacement placement,
+    required bool mobile,
+    required Size size,
+  }) => Offstage(
+    key: ObjectKey(entry.composer),
+    offstage: !shown,
+    child: ExcludeFocus(
+      excluding: !shown,
+      child: TickerMode(
+        enabled: shown,
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: size.width,
+          maxWidth: size.width,
+          minHeight: size.height,
+          maxHeight: size.height,
+          child: _ComposerSurface(
+            key: entry.surfaceKey,
+            entry: entry,
+            parked: !shown,
+            placement: placement,
+            mobile: mobile,
+            size: size,
+            onPlacement: (value) => unawaited(_place(entry, value)),
+            onExitFullScreen: () =>
+                unawaited(_place(entry, _previousDockPlacement)),
+            onMinimize: () {
+              entry.composer.focus.unfocus();
+              setState(() => entry.minimized = true);
+            },
+            onRestore: () {
+              setState(() => entry.minimized = false);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!entry.composer.isDisposed) {
+                  entry.composer.focus.requestFocus();
+                }
+              });
+            },
+            onCloseMenuOpenChanged: (open) {
+              if (mounted && entry.closeMenuOpen != open) {
+                setState(() => entry.closeMenuOpen = open);
+              }
+            },
+          ),
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -273,24 +355,16 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
               ),
             ),
           ),
-          for (final entry in _entries.values)
-            if (entry.composer != current || _activeDock == null)
-              ExcludeFocus(
-                child: TickerMode(
-                  enabled: false,
-                  child: Offstage(
-                    child: SizedBox.fromSize(
-                      size: entry.size,
-                      child: _surface(
-                        entry,
-                        placement: _presentation.preference.placement,
-                        mobile: context.isTouch,
-                        size: entry.size,
-                      ),
-                    ),
-                  ),
-                ),
+          if (_entries.isNotEmpty && (current == null || _activeDock == null))
+            Offstage(
+              child: _surface(
+                _entries[current] ?? _entries.values.first,
+                placement: _presentation.preference.placement,
+                mobile: context.isTouch,
+                size: (_entries[current] ?? _entries.values.first).size,
+                parked: true,
               ),
+            ),
           if (mobileSheet != null)
             Positioned.fill(
               child: PopScope(
@@ -565,15 +639,37 @@ class _ComposerDockState extends State<ComposerDock> {
           return Column(
             children: [
               Expanded(child: readerViewport()),
-              if (!mobile) const SizedBox(height: workspacePanelGap),
-              SizedBox(
-                height: ComposerHeader.height,
-                child: WorkspacePanel(
-                  child: owner._surface(
-                    entry,
-                    placement: placement,
-                    mobile: mobile,
-                    size: Size(constraints.maxWidth, ComposerHeader.height),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: mobile ? constraints.maxWidth : 460,
+                      minHeight: math.max(
+                        64,
+                        MediaQuery.textScalerOf(context).scale(28) + 36,
+                      ),
+                      maxHeight: math.max(
+                        64,
+                        MediaQuery.textScalerOf(context).scale(28) + 36,
+                      ),
+                    ),
+                    child: WorkspacePanel(
+                      child: owner._surface(
+                        entry,
+                        placement: mobile
+                            ? ComposerPlacement.fullScreen
+                            : placement,
+                        mobile: mobile,
+                        size: Size(
+                          math.min(constraints.maxWidth, 460),
+                          math.max(
+                            64,
+                            MediaQuery.textScalerOf(context).scale(28) + 36,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -754,6 +850,7 @@ class _ComposerSurface extends StatelessWidget {
   const _ComposerSurface({
     super.key,
     required this.entry,
+    required this.parked,
     required this.placement,
     required this.mobile,
     required this.size,
@@ -764,6 +861,7 @@ class _ComposerSurface extends StatelessWidget {
     required this.onCloseMenuOpenChanged,
   });
   final _ComposerEntry entry;
+  final bool parked;
   final ComposerPlacement placement;
   final bool mobile;
   final Size size;
@@ -774,7 +872,7 @@ class _ComposerSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final composer = entry.composer;
-    final minimized = entry.minimized;
+    final minimized = entry.minimized && !parked;
     return Material(
       color: ForumWindowBackground.surfaceColor(
         context,
@@ -801,6 +899,12 @@ class _ComposerSurface extends StatelessWidget {
                     height: minimized ? entry.size.height : size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,
+                    canDockSide:
+                        placement.isSide ||
+                        size.width >=
+                            ComposerPresentationController.sideMinimum +
+                                ComposerPresentationController.readerMinimum +
+                                workspacePanelGap,
                     onExitFullScreen: mobile ? null : onExitFullScreen,
                     onMinimize: onMinimize,
                   ),
@@ -826,6 +930,7 @@ class _ComposerSurface extends StatelessWidget {
                     ),
                   ),
                   onRestore: onRestore,
+                  placement: placement,
                 ),
               ),
           ],

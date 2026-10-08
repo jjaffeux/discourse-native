@@ -6635,7 +6635,7 @@ class ShellController extends FrameSafeNotifier
     if (isDisposed) return;
     _flushPendingAnchorPersist();
     if (_tabSelectionPersistencePending) _persistWorkspaces();
-    for (final composer in _composers.values) {
+    for (final composer in _composers) {
       unawaited(composer.flushDraftOnBackground());
     }
     await Future.wait([_workspacesSaved, _composerDrafts.localWritesSettled()]);
@@ -6650,7 +6650,7 @@ class ShellController extends FrameSafeNotifier
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
       _flushPendingAnchorPersist();
-      for (final composer in _composers.values) {
+      for (final composer in _composers) {
         unawaited(composer.flushDraftOnBackground());
       }
     }
@@ -10300,7 +10300,14 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final Map<String, ComposerController> _composers = {};
+  final Set<ComposerController> _composers = {};
+  final Map<String, ComposerController> _selectedComposers = {};
+  int _composerRevealRevision = 0;
+  ComposerController? _composerRevealTarget;
+  ComposerController? get composerRevealTarget => _composerRevealTarget;
+
+  /// Explicit draft selections reveal even an already selected minimized editor.
+  int get composerRevealRevision => _composerRevealRevision;
   // Creation results belong to the submitting tab, even if navigation changes
   // while the request or its reconciliation is in flight.
   final Expando<String> _composerSubmissionTabs = Expando();
@@ -10310,34 +10317,71 @@ class ShellController extends FrameSafeNotifier
   ComposerController? get _composer {
     final instance = currentInstance;
     if (instance == null) return null;
-    return _composers[instance.url];
+    return _selectedComposers[instance.url];
   }
 
   void _setComposer(ComposerController composer) {
     SurfaceOpeningTrace.mark('composer.publish');
     final target = composer.target;
-    _composers[target.siteUrl] = composer;
+    _composers.add(composer);
+    _selectedComposers[target.siteUrl] = composer;
   }
 
   bool _ownsComposer(ComposerController? composer) {
     if (composer == null) return false;
-    final target = composer.target;
-    return identical(_composers[target.siteUrl], composer);
+    return _composers.contains(composer);
   }
 
   void _removeComposer(ComposerController composer) {
     if (!_ownsComposer(composer)) return;
     final target = composer.target;
-    _composers.remove(target.siteUrl);
+    final selected = identical(_selectedComposers[target.siteUrl], composer);
+    final index = selected
+        ? _composersForSite(target.siteUrl).toList().indexOf(composer)
+        : -1;
+    _composers.remove(composer);
+    if (identical(_composerRevealTarget, composer)) {
+      _composerRevealTarget = null;
+    }
+    if (selected) {
+      final remaining = _composersForSite(target.siteUrl).toList();
+      if (remaining.isEmpty) {
+        _selectedComposers.remove(target.siteUrl);
+      } else {
+        final next = remaining[math.min(index, remaining.length - 1)];
+        _selectedComposers[target.siteUrl] = next;
+        _composerRevealTarget = next;
+        _composerRevealRevision++;
+      }
+    }
     _composerDrafts.detach(composer);
   }
 
   Iterable<ComposerController> _composersForSite(String siteUrl) =>
-      _composers.values.where((composer) => composer.target.siteUrl == siteUrl);
+      _composers.where((composer) => composer.target.siteUrl == siteUrl);
 
-  /// Each forum retains one active composer independently of its tabs.
+  /// Selects a retained draft without replacing its editor or history.
+  void selectComposer(ComposerController composer) {
+    if (!_ownsComposer(composer) ||
+        composer.closing ||
+        composer.isDisposed ||
+        composer.target.siteUrl != currentInstance?.url) {
+      return;
+    }
+    if (!identical(_composer, composer)) {
+      _composer?.focus.unfocus();
+      _composer?.titleFocus.unfocus();
+    }
+    _selectedComposers[composer.target.siteUrl] = composer;
+    _composerRevealTarget = composer;
+    _composerRevealRevision++;
+    _notify();
+    composer.focus.requestFocus();
+  }
+
+  /// Every open draft remains account scoped, independently of reader tabs.
   Iterable<ComposerController> get liveComposers =>
-      List.unmodifiable(_composers.values);
+      List.unmodifiable(_composers);
 
   // Reported after every frame the reader moves; kept off the facade so a
   // resize or dock drag does not re-run every shell selector.
@@ -10603,6 +10647,23 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
+    // A PM may be parked behind another draft tab. Core uses one shared PM
+    // key, so select that owner before applying the mature replacement path.
+    final heldMessage = _composersForSite(siteUrl)
+        .where(
+          (held) =>
+              held.target.isPrivateMessage &&
+              held.canSaveDraft &&
+              held.target.draftKey == ComposerDraft.newPrivateMessageDraftKey,
+        )
+        .firstOrNull;
+    if (heldMessage != null &&
+        (heldMessage.closing || _composerHasPendingOperation(heldMessage))) {
+      return;
+    }
+    if (heldMessage != null && !identical(heldMessage, _composer)) {
+      selectComposer(heldMessage);
+    }
     if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: siteUrl,
@@ -10654,6 +10715,7 @@ class ShellController extends FrameSafeNotifier
         _composerHasPendingOperation(existing)) {
       return false;
     }
+    if (existing.canSaveDraft) return true;
     if (!existing.hasChanges &&
         !existing.metadataChanged &&
         !existing.hasUnappliedDraft) {
@@ -11257,13 +11319,22 @@ class ShellController extends FrameSafeNotifier
     final targetsWhisper =
         replyingToWhisper ?? _replyTargetsWhisper(replyToPostNumber);
 
-    final existing = _composer;
+    final existing =
+        _composersForSite(instance.url)
+            .where(
+              (composer) =>
+                  composer.target.mode == ComposerMode.reply &&
+                  composer.target.topicId == topicId,
+            )
+            .firstOrNull ??
+        _composer;
     if (existing?.discarding == true) return;
     if (existing != null &&
         !existing.closing &&
         !existing.target.isEdit &&
         existing.target.topicId == topicId &&
         existing.target.siteUrl == instance.url) {
+      selectComposer(existing);
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
         replyToUsername: replyToUsername,
@@ -14464,7 +14535,15 @@ class ShellController extends FrameSafeNotifier
   bool _replaceComposer() {
     final existing = _composer;
     if (existing == null) return true;
-    if (existing.discarding) return false;
+    if (existing.discarding || existing.closing) return false;
+    if (existing.canSaveDraft &&
+        (!existing.target.isPrivateMessage ||
+            existing.target.draftKey !=
+                ComposerDraft.newPrivateMessageDraftKey)) {
+      existing.focus.unfocus();
+      existing.titleFocus.unfocus();
+      return true;
+    }
     _composerDrafts.retire(existing);
     existing.dispose();
     _removeComposer(existing);
@@ -17910,6 +17989,13 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null || instance.url != siteUrl) return;
 
+    final retained = _composersForSite(
+      siteUrl,
+    ).where((composer) => composer.target.draftKey == draft.key).firstOrNull;
+    if (retained != null) {
+      selectComposer(retained);
+      return;
+    }
     if (draft.isNewTopic) {
       final destination = instance.defaultDestination;
       // Selecting the destination already on screen means "refresh" to the
@@ -18364,7 +18450,7 @@ class ShellController extends FrameSafeNotifier
     _topicPrefetch.clear();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
-    for (final composer in _composers.values) {
+    for (final composer in _composers) {
       _composerDrafts.preservePendingLocally(composer);
     }
     _discoverSites?.dispose();
@@ -18481,10 +18567,12 @@ class ShellController extends FrameSafeNotifier
       presentation.removeListener(_notify);
       presentation.dispose();
     }
-    for (final composer in _composers.values) {
+    for (final composer in _composers) {
       composer.dispose();
     }
     _composers.clear();
+    _selectedComposers.clear();
+    _composerRevealTarget = null;
     for (final tracker in _trackers.values) {
       tracker.dispose().ignore();
     }

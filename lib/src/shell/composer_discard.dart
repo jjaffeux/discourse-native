@@ -14,6 +14,28 @@ Future<void> closeComposerFromPanel({
   required ComposerController composer,
   ShellController? controller,
 }) async {
+  if (composer.canSaveDraft &&
+      (composer.hasChanges || composer.metadataChanged)) {
+    await requestComposerDiscard(
+      context: context,
+      composer: composer,
+      controller: controller,
+      offerSave: true,
+    );
+  } else {
+    await saveComposerFromPanel(
+      context: context,
+      composer: composer,
+      controller: controller,
+    );
+  }
+}
+
+Future<void> saveComposerFromPanel({
+  required BuildContext context,
+  required ComposerController composer,
+  ShellController? controller,
+}) async {
   final shell = controller ?? ShellScope.read(context);
   if (composer.isDisposed || composer.discarding || composer.closing) return;
   if (_hasPendingOperation(composer)) {
@@ -64,6 +86,7 @@ Future<void> requestComposerDiscard({
   required BuildContext context,
   required ComposerController composer,
   ShellController? controller,
+  bool offerSave = false,
 }) async {
   final shell = controller ?? ShellScope.read(context);
   if (composer.isDisposed || composer.discarding || composer.closing) return;
@@ -95,11 +118,13 @@ Future<void> requestComposerDiscard({
   try {
     await showDDialog<void>(
       context: context,
-      canDismiss: () => !composer.discarding || composer.isDisposed,
+      canDismiss: () =>
+          (!composer.discarding && !composer.closing) || composer.isDisposed,
       builder: (dialogContext, dialog) => _DiscardComposerDialog(
         composer: composer,
         controller: shell,
         confirmedRevision: revision,
+        offerSave: offerSave,
         onClose: dialog.close,
       ),
     );
@@ -127,12 +152,14 @@ class _DiscardComposerDialog extends StatefulWidget {
     required this.composer,
     required this.controller,
     required this.confirmedRevision,
+    this.offerSave = false,
     required this.onClose,
   });
 
   final ComposerController composer;
   final ShellController controller;
   final int confirmedRevision;
+  final bool offerSave;
   final VoidCallback onClose;
 
   @override
@@ -141,10 +168,30 @@ class _DiscardComposerDialog extends StatefulWidget {
 
 class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
   bool _discarding = false;
+  bool _saving = false;
   String? _error;
 
+  Future<void> _save() async {
+    if (_saving || _discarding) return;
+    setState(() => _saving = true);
+    await saveComposerFromPanel(
+      context: context,
+      composer: widget.composer,
+      controller: widget.controller,
+    );
+    if (!mounted) return;
+    if (widget.composer.isDisposed) {
+      widget.onClose();
+    } else {
+      setState(() {
+        _saving = false;
+        _error = appL10n.thisDraftCouldNotBeSavedYetPleaseTryAgain;
+      });
+    }
+  }
+
   Future<void> _discard() async {
-    if (_discarding) return;
+    if (_discarding || _saving) return;
     if (_hasPendingOperation(widget.composer)) {
       setState(() => _error = _pendingOperationMessage);
       return;
@@ -173,14 +220,16 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
   }
 
   void _closeDialog() {
-    if (_discarding && !widget.composer.isDisposed) return;
+    if ((_discarding || _saving) && !widget.composer.isDisposed) return;
     widget.onClose();
   }
 
   @override
   Widget build(BuildContext context) {
     final editing = widget.composer.target.isEdit;
-    final message = editing
+    final message = widget.offerSave
+        ? context.l10n.closeComposer
+        : editing
         ? context.l10n.doYouWantToDiscardYourChanges
         : context.l10n.doYouWantToDiscardYourPost;
     return DDialogContent(
@@ -204,10 +253,24 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
         DDialogFooter(
           wideAlignment: WrapAlignment.start,
           children: [
+            if (widget.offerSave)
+              DButton(
+                key: const ValueKey('composer-confirm-save'),
+                autofocus: true,
+                variant: DButtonVariant.primary,
+                onPressed: _saving || _discarding
+                    ? null
+                    : () => unawaited(_save()),
+                loading: _saving,
+                icon: const DIcon(DIcons.check),
+                label: Text(context.l10n.saveDraft),
+              ),
             DButton(
               key: const ValueKey('composer-confirm-discard'),
               variant: DButtonVariant.destructive,
-              onPressed: _discarding ? null : () => unawaited(_discard()),
+              onPressed: _discarding || _saving
+                  ? null
+                  : () => unawaited(_discard()),
               loading: _discarding,
               icon: const DIcon(DIcons.trashCan),
               label: Text(
@@ -217,7 +280,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog> {
             DButton(
               key: const ValueKey('composer-cancel-discard'),
               variant: DButtonVariant.transparentBackground,
-              onPressed: _discarding ? null : _closeDialog,
+              onPressed: _discarding || _saving ? null : _closeDialog,
               label: Text(context.l10n.cancel),
             ),
           ],

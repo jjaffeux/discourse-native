@@ -68,7 +68,7 @@ void main() {
       expect(hasCorner(readerCard()), placement == ComposerPlacement.left);
       expect(hasCorner(composerCard()), placement != ComposerPlacement.left);
     }
-    await tester.tap(find.byTooltip('Full screen'));
+    await _pickPosition(tester, ComposerPlacement.fullScreen);
     await tester.pumpAndSettle();
     expect(hasCorner(composerCard()), isTrue);
     await tester.tap(find.byKey(const ValueKey('composer-minimize')));
@@ -77,7 +77,7 @@ void main() {
     expect(hasCorner(readerCard()), isFalse);
     await tester.tap(find.byKey(const ValueKey('composer-restore')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Save and close'));
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
     await tester.pumpAndSettle();
     expect(hasCorner(readerCard()), isTrue);
     expect(tester.takeException(), isNull);
@@ -101,7 +101,7 @@ void main() {
         );
         h.presentation.dock(placement);
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Full screen'));
+        await _pickPosition(tester, ComposerPlacement.fullScreen);
         await tester.pumpAndSettle();
         expect(
           tester.getSize(find.byType(ComposerPanel)),
@@ -117,10 +117,10 @@ void main() {
           composer.text.selection,
           const TextSelection(baseOffset: 2, extentOffset: 8),
         );
-        await tester.tap(find.byTooltip('Dock side'));
+        await _pickPosition(tester, placement);
         await tester.pumpAndSettle();
         expect(h.presentation.preference.placement, placement);
-        expect(find.text('Dock side'), findsNothing);
+        expect(find.byType(DToggleGroup<ComposerPlacement>), findsNothing);
         expect(
           find.byKey(const ValueKey('reader-list')).hitTestable(),
           findsOneWidget,
@@ -131,9 +131,11 @@ void main() {
           composer.text.selection,
           const TextSelection(baseOffset: 2, extentOffset: 8),
         );
-        await tester.tap(find.byTooltip('Dock side'));
+        await tester.tap(find.byKey(const ValueKey('composer-position')));
         await tester.pumpAndSettle();
-        expect(find.text('Dock side'), findsOneWidget);
+        expect(find.byType(DToggleGroup<ComposerPlacement>), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         await tester.runAsync(composer.flushDraft);
         await tester.pump();
         expect(tester.takeException(), isNull);
@@ -159,7 +161,7 @@ void main() {
         );
         h.presentation.dock(placement);
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Full screen'));
+        await _pickPosition(tester, ComposerPlacement.fullScreen);
         await tester.pumpAndSettle();
         expect(
           h.presentation.preference.placement,
@@ -185,7 +187,7 @@ void main() {
           find.byKey(const ValueKey('reader-list')).hitTestable(),
           findsOneWidget,
         );
-        expect(find.text('Dock side'), findsNothing);
+        expect(find.byType(DToggleGroup<ComposerPlacement>), findsNothing);
         expect(tester.state(find.byType(ComposerEditor)), same(editor));
         expect(h.shell.visibleComposer, same(composer));
         expect(composer.raw, 'Keep the draft while navigating');
@@ -207,7 +209,7 @@ void main() {
     final h = await _Harness.create(tester, includeSidebar: true);
     h.presentation.dock(ComposerPlacement.bottom);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Full screen'));
+    await _pickPosition(tester, ComposerPlacement.fullScreen);
     await tester.pumpAndSettle();
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
@@ -223,7 +225,7 @@ void main() {
     tester,
   ) async {
     final h = await _Harness.create(tester, includeSidebar: true);
-    await tester.tap(find.byTooltip('Full screen'));
+    await _pickPosition(tester, ComposerPlacement.fullScreen);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('composer-minimize')));
     await tester.pumpAndSettle();
@@ -367,7 +369,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
     expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
-    expect(find.byTooltip('Save and close'), findsOneWidget);
+    expect(find.byTooltip('Save and close'), findsNWidgets(2));
   });
 
   for (final mobile in [false, true]) {
@@ -497,8 +499,15 @@ void main() {
       expect(find.byTooltip('Save and close'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('composer-restore')));
       await tester.pump();
-      await tester.tap(find.byTooltip('Save and close'));
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
       await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('composer-confirm-save'))
+          .evaluate()
+          .isNotEmpty) {
+        await tester.tap(find.byKey(const ValueKey('composer-confirm-save')));
+        await tester.pumpAndSettle();
+      }
       expect(composer.isDisposed, isTrue);
       expect(harness.shell.visibleComposer, isNull);
       final api = harness.shell.api.composerPersistence as FakeDiscourseApi;
@@ -670,9 +679,9 @@ void main() {
       );
       final semantics = tester.ensureSemantics();
 
-      await tester.tap(find.byTooltip('Dock side'));
+      await tester.tap(find.byKey(const ValueKey('composer-position')));
       await tester.pumpAndSettle();
-      expect(find.text('Dock side'), findsOneWidget);
+      expect(find.byType(DToggleGroup<ComposerPlacement>), findsOneWidget);
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
       expect(find.byIcon(Icons.open_in_new), findsNothing);
       expect(find.text('Save and close'), findsNothing);
@@ -686,7 +695,7 @@ void main() {
       final frame = tester.getRect(find.byType(ComposerPanel));
       final reader = tester.getRect(find.byKey(const ValueKey('reader-list')));
       expect(frame.right, lessThanOrEqualTo(reader.left));
-      expect(find.text('Dock side'), findsNothing);
+      expect(find.byType(DToggleGroup<ComposerPlacement>), findsNothing);
       expect(tester.takeException(), isNull);
       semantics.dispose();
     },
@@ -738,7 +747,7 @@ void main() {
         closeTo(editable.renderEditable.preferredLineHeight, 1),
       );
       expect(find.byTooltip('Dock side'), findsNothing);
-      expect(find.text('Dock side'), findsNothing);
+      expect(find.byType(DToggleGroup<ComposerPlacement>), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -765,7 +774,7 @@ void main() {
       tester
           .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
           .map((item) => (item.child as Text).data),
-      ['Discard', 'Minimize', 'Save draft'],
+      ['Save draft', 'Discard', 'Minimize'],
     );
     await tester.tap(find.text('Save draft'));
     await tester.pumpAndSettle();
@@ -915,7 +924,7 @@ void main() {
             if (origin == 'header') expect(scroll.offset, 400);
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 16));
-            for (final action in ['Discard', 'Minimize', 'Save draft']) {
+            for (final action in ['Save draft', 'Discard', 'Minimize']) {
               expect(find.text(action).hitTestable(), findsOneWidget);
             }
             // The menu is available while the finger is still down. Continued
@@ -934,7 +943,7 @@ void main() {
             expect(tester.state(find.byType(ComposerEditor)), same(editor));
             expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
             expect(api.draftsSaved.length, savesBeforeSwipe);
-            for (final action in ['Discard', 'Minimize', 'Save draft']) {
+            for (final action in ['Save draft', 'Discard', 'Minimize']) {
               expect(find.text(action).hitTestable(), findsOneWidget);
             }
             await tester.tap(find.text('Save draft'));
@@ -1011,7 +1020,7 @@ void main() {
           expect(harness.shell.visibleComposer, same(composer));
           expect(composer.isDisposed, isFalse);
           expect(tester.getRect(sheet), bounds);
-          for (final action in ['Discard', 'Minimize', 'Save draft']) {
+          for (final action in ['Save draft', 'Discard', 'Minimize']) {
             expect(find.text(action).hitTestable(), findsOneWidget);
           }
           await tester.tap(find.byKey(const ValueKey('composer-close')));
@@ -1347,8 +1356,8 @@ void main() {
       final titleField = tester.widget<EditableText>(
         find.descendant(of: title, matching: find.byType(EditableText)),
       );
-      expect(titleField.style.fontSize, 17);
-      expect(titleField.style.height, 1.5);
+      expect(titleField.style.fontSize, 22);
+      expect(titleField.style.height, 1.25);
       final close = find.byKey(const ValueKey('composer-close'));
       final submit = find.byKey(const ValueKey('composer-submit'));
       final footer = find.byKey(const ValueKey('composer-footer'));
@@ -1544,4 +1553,14 @@ class _Harness {
     await tester.pumpAndSettle();
     return _Harness(shell, presentation);
   }
+}
+
+Future<void> _pickPosition(
+  WidgetTester tester,
+  ComposerPlacement placement,
+) async {
+  await tester.tap(find.byKey(const ValueKey('composer-position')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip(placement.label));
+  await tester.pumpAndSettle();
 }

@@ -72,6 +72,7 @@ export 'src/ui/components/d_page_reading_lane.dart';
 export 'src/ui/components/d_page_surface.dart';
 export 'src/ui/components/d_pagination.dart';
 export 'src/ui/components/d_popover.dart';
+export 'src/ui/components/d_position_control.dart';
 export 'src/ui/components/d_progress.dart';
 export 'src/ui/components/d_pull_to_refresh.dart';
 export 'src/ui/components/d_questionnaire.dart';

@@ -19963,5 +19963,14 @@
   "clearSearchListFilters": "Clear filters",
   "@clearSearchListFilters": {
     "description": "One-line search action to clear the focused list scope."
+  },
+  "composerWordCount": "{count, plural, =0{Nothing written yet} =1{1 word} other{{count} words}}",
+  "@composerWordCount": {
+    "description": "Writing progress on a minimized composer card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

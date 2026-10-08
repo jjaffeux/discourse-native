@@ -50,7 +50,10 @@ Future<void> _requestDiscard(WidgetTester tester) async {
 }
 
 Future<void> _saveAndClose(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Save and close'));
+  await tester.tap(find.byKey(const ValueKey('composer-close')));
+  await tester.pumpAndSettle();
+  final save = find.byKey(const ValueKey('composer-confirm-save'));
+  if (save.evaluate().isNotEmpty) await tester.tap(save);
   await tester.pump();
 }
 

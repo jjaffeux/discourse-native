@@ -14945,4 +14945,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clearSearchListFilters => 'Clear filters';
+
+  @override
+  String composerWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count words',
+      one: '1 word',
+      zero: 'Nothing written yet',
+    );
+    return '$_temp0';
+  }
 }

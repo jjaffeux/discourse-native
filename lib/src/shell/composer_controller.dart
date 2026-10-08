@@ -768,6 +768,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   final FocusNode focus = FocusNode();
+  final FocusNode titleFocus = FocusNode(debugLabel: 'Composer title');
 
   int get fieldGeneration => _fieldGeneration;
   int _fieldGeneration = 0;
@@ -3225,6 +3226,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     autocomplete.dispose();
     focus.removeListener(_activateMainEditor);
     focus.dispose();
+    titleFocus.dispose();
     super.dispose();
   }
 }

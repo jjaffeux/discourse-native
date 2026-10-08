@@ -1253,7 +1253,7 @@ void main() {
         );
         expect(
           find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
         expect(find.byKey(const ValueKey('composer-options')), findsNothing);

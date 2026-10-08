@@ -115,6 +115,7 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.expanded = false,
     this.spacing = 2,
     this.inset = false,
+    this.slidingIndicator = false,
     this.semanticLabel,
     this.scrollable = true,
   }) : assert(values == null || controller == null),
@@ -128,6 +129,10 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   /// Draw a shared recessed frame around the choices. Standard density uses
   /// segmented colors, weight and full-width selection inside this frame.
   final bool inset;
+
+  /// A shared moving selection surface for horizontal inset icon choices.
+  /// Native owns its measured geometry, colors and reduced-motion behavior.
+  final bool slidingIndicator;
   final List<DToggleGroupItem<T>> items;
 
   /// Parent-owned controlled selection. Values preserve item declaration order.
@@ -174,6 +179,26 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   final Map<T, FocusNode> _ownedFocusNodes = {};
   final Map<FocusNode, bool> _borrowedSkipTraversal = {};
   int _rovingIndex = 0;
+  final _indicatorBounds = GlobalKey();
+  final Map<T, GlobalKey> _indicatorKeys = {};
+  Rect? _indicatorRect;
+
+  void _measureIndicator() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.slidingIndicator) return;
+      final value = _currentValues.singleOrNull;
+      final bounds = _indicatorBounds.currentContext?.findRenderObject();
+      final item = _indicatorKeys[value]?.currentContext?.findRenderObject();
+      final rect =
+          bounds is RenderBox &&
+              item is RenderBox &&
+              bounds.hasSize &&
+              item.hasSize
+          ? bounds.globalToLocal(item.localToGlobal(Offset.zero)) & item.size
+          : null;
+      if (rect != _indicatorRect) setState(() => _indicatorRect = rect);
+    });
+  }
 
   List<T> get _currentValues =>
       widget.values ?? widget.controller?.values ?? _localValues;
@@ -451,6 +476,15 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           widget.items.length,
       'DToggleGroup item values must be unique.',
     );
+    assert(
+      !widget.slidingIndicator ||
+          (widget.inset &&
+              !widget.multiple &&
+              widget.orientation == Axis.horizontal &&
+              widget.items.every((item) => item._iconOnly)),
+      'Sliding indicators require single-selection horizontal inset icon choices.',
+    );
+    if (widget.slidingIndicator) _measureIndicator();
     final selected = _currentValues.toSet();
     final compactInset = widget.density == DToggleDensity.compactInset;
     final gap = compactInset
@@ -463,7 +497,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
       final variant =
-          item.variant ??
+          (widget.slidingIndicator ? DToggleVariant.inline : item.variant) ??
           (widget.inset &&
                   (widget.density == DToggleDensity.standard || compactInset) &&
                   widget.variant == DToggleVariant.standard
@@ -556,6 +590,12 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       if (item.tooltip case final tooltip?) {
         toggle = DTooltip(message: tooltip, child: toggle);
       }
+      if (widget.slidingIndicator) {
+        toggle = SizedBox(
+          key: _indicatorKeys.putIfAbsent(item.value, GlobalKey.new),
+          child: toggle,
+        );
+      }
       children.add(widget.expanded ? Expanded(child: toggle) : toggle);
       if (index != widget.items.length - 1 && gap > 0) {
         children.add(
@@ -576,6 +616,36 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       focusedChildIndex: connected ? _rovingIndex : null,
       children: children,
     );
+    if (widget.slidingIndicator) {
+      final rect = _indicatorRect;
+      group = Stack(
+        key: _indicatorBounds,
+        children: [
+          if (rect != null)
+            AnimatedPositioned(
+              key: const ValueKey('toggle-group-sliding-indicator'),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubic,
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: DTokens.of(context).background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: DTokens.of(context).border),
+                  ),
+                ),
+              ),
+            ),
+          group,
+        ],
+      );
+    }
     if (widget.scrollable && !widget.expanded) {
       group = SingleChildScrollView(
         scrollDirection: widget.orientation,

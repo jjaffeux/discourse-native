@@ -161,7 +161,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('shows compact taxonomy controls above the borderless title', (
+  testWidgets('shows real taxonomy controls beside the creation action', (
     tester,
   ) async {
     final shell = await pumpComposer(tester, platform: TargetPlatform.macOS);
@@ -174,10 +174,13 @@ void main() {
       find.byKey(const ValueKey('composer-category-action')),
     );
     final tags = tester.getRect(find.byKey(const ValueKey('composer-add-tag')));
-    expect(category.bottom, lessThan(tester.getRect(title).top));
+    expect(category.top, greaterThan(tester.getRect(title).bottom));
     expect(tester.widget<DInput>(title).borderless, isTrue);
-    expect(category.bottom, lessThan(tester.getRect(editor).top));
-    expect(tags.bottom, lessThan(tester.getRect(editor).top));
+    expect(
+      category.center.dy,
+      tester.getCenter(find.byKey(const ValueKey('composer-submit'))).dy,
+    );
+    expect(tags.top, greaterThanOrEqualTo(tester.getRect(editor).bottom));
     expect(tags.center.dy, category.center.dy);
     expect(tags.left, greaterThan(category.right));
 

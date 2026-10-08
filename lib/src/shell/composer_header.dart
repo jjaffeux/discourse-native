@@ -8,6 +8,9 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'composer_controller.dart';
+import 'composer_draft_tabs.dart';
+import 'composer_placement_icon.dart';
+import 'composer_presentation_controller.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -25,15 +28,18 @@ class ComposerHeader extends StatelessWidget {
     this.onRestore,
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
+    this.canDockSide,
     this.onExitFullScreen,
     this.mobileSubmit,
     this.onDiscard,
+    this.onSaveDraft,
   });
 
   static const double height = readerHeaderHeight;
 
   final Widget? mobileSubmit;
   final VoidCallback? onDiscard;
+  final VoidCallback? onSaveDraft;
   final ComposerController composer;
   final bool minimized;
   final VoidCallback onClose;
@@ -44,6 +50,7 @@ class ComposerHeader extends StatelessWidget {
   final VoidCallback? onRestore;
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
+  final bool? canDockSide;
   final VoidCallback? onExitFullScreen;
 
   @override
@@ -105,24 +112,47 @@ class ComposerHeader extends StatelessWidget {
         ? DButton(
             key: const ValueKey('composer-restore'),
             onPressed: onRestore,
-            semanticLabel: context.l10n.resumeEditing((label).toString()),
+            semanticLabel: context.l10n.resumeEditing(label),
             tooltip: context.l10n.restoreComposer,
-            variant: DButtonVariant.primary,
-            size: DButtonSize.toolbar,
-            icon: DIcon(composer.whisper ? DIcons.farEyeSlash : DIcons.pen),
+            variant: DButtonVariant.outline,
+            size: DButtonSize.large,
+            icon: DIcon(
+              composer.whisper
+                  ? DIcons.farEyeSlash
+                  : target.createsTopic
+                  ? DIcons.pen
+                  : DIcons.reply,
+            ),
             label: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        destination.trim().isEmpty ? modeLabel : destination,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      DText(
+                        context.l10n.composerWordCount(
+                          composer.raw.trim().isEmpty
+                              ? 0
+                              : composer.raw
+                                    .trim()
+                                    .split(RegExp(r'\s+'))
+                                    .length,
+                        ),
+                        variant: DTextVariant.muted,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(context.l10n.resumeEditingComposerheader),
-                const SizedBox(width: 8),
-                const DIcon(DIcons.expand),
+                _ComposerRestoreArtwork(placement: placement),
               ],
             ),
           )
@@ -222,6 +252,13 @@ class ComposerHeader extends StatelessWidget {
             child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           );
 
+    if (minimized) {
+      return SizedBox.expand(
+        key: const ValueKey('composer-header'),
+        child: heading,
+      );
+    }
+
     if (mobileSubmit != null && !minimized) {
       return Padding(
         key: const ValueKey('composer-header'),
@@ -236,6 +273,13 @@ class ComposerHeader extends StatelessWidget {
                 semanticLabel: context.l10n.composerActions,
                 children: [
                   DDropdownMenuItem(
+                    key: const ValueKey('composer-save-draft'),
+                    onPressed: composer.canSaveDraft
+                        ? onSaveDraft ?? onClose
+                        : null,
+                    child: Text(context.l10n.saveDraft),
+                  ),
+                  DDropdownMenuItem(
                     key: const ValueKey('composer-cancel'),
                     variant: DDropdownMenuItemVariant.destructive,
                     onPressed: onDiscard,
@@ -245,11 +289,6 @@ class ComposerHeader extends StatelessWidget {
                     key: const ValueKey('composer-minimize'),
                     onPressed: onMinimize,
                     child: Text(context.l10n.minimize),
-                  ),
-                  DDropdownMenuItem(
-                    key: const ValueKey('composer-save-draft'),
-                    onPressed: composer.canSaveDraft ? onClose : null,
-                    child: Text(context.l10n.saveDraft),
                   ),
                 ],
               ),
@@ -283,6 +322,15 @@ class ComposerHeader extends StatelessWidget {
                 ),
               ),
             ),
+            if (onMinimize != null)
+              DButton.iconOnly(
+                key: const ValueKey('composer-minimize-header'),
+                tooltip: context.l10n.minimizeComposer,
+                onPressed: onMinimize,
+                variant: DButtonVariant.transparentBackground,
+                size: DButtonSize.toolbar,
+                icon: const DIcon(DIcons.chevronDown),
+              ),
             mobileSubmit!,
           ],
         ),
@@ -303,93 +351,30 @@ class ComposerHeader extends StatelessWidget {
                 target.replyToPostNumber ?? target.editingPostNumber ?? 1,
           ),
         ),
+      if (canToggleWhisper) heading,
       ...pluginControls,
       if (!minimized && onPlacementChanged != null)
-        DPopover(
-          reverseTransitionDuration: Duration.zero,
-          content: DPopoverContent(
-            semanticLabel: context.l10n.dockSide,
-            align: DPopoverAlign.end,
-            width: 250,
-            child: DPopoverClose(
-              builder: (context, close) => Row(
-                children: [
-                  Expanded(child: Text(context.l10n.dockSide)),
-                  DToggleGroup<ComposerPlacement>(
-                    size: DControlSize.segment,
-                    inset: true,
-                    semanticLabel: context.l10n.dockSide,
-                    values: [placement],
-                    allowEmptySelection: false,
-                    onChanged: (values) {
-                      close();
-                      onPlacementChanged!(values.single);
-                    },
-                    items: [
-                      for (final value in const [
-                        ComposerPlacement.left,
-                        ComposerPlacement.bottom,
-                        ComposerPlacement.right,
-                      ])
-                        DToggleGroupItem.iconOnly(
-                          value: value,
-                          semanticLabel: value.label,
-                          tooltip: value.label,
-                          icon: RotatedBox(
-                            quarterTurns: value == ComposerPlacement.left
-                                ? 2
-                                : value == ComposerPlacement.bottom
-                                ? 1
-                                : 0,
-                            child: const Icon(Icons.view_sidebar_outlined),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          child: DPopoverTrigger(
-            builder: (context, trigger) => DToggleGroup<bool>(
-              size: DControlSize.segment,
-              key: const ValueKey('composer-options'),
-              inset: true,
-              semanticLabel: context.l10n.composerView,
-              values: [placement == ComposerPlacement.fullScreen],
-              allowEmptySelection: false,
-              onItemActivated: (fullScreen) {
-                if (!fullScreen) {
-                  if (placement == ComposerPlacement.fullScreen &&
-                      onExitFullScreen != null) {
-                    onExitFullScreen!();
-                  } else {
-                    trigger.toggle();
-                  }
-                }
-              },
-              onChanged: (values) {
-                if (values.single) {
-                  onPlacementChanged!(ComposerPlacement.fullScreen);
-                }
-              },
-              items: [
+        DPositionControl<ComposerPlacement>(
+          triggerKey: const ValueKey('composer-position'),
+          value: placement,
+          icon: ComposerPlacementIcon(placement: placement),
+          label: context.l10n.composerView,
+          onChanged: onPlacementChanged!,
+          items: [
+            for (final value in ComposerPlacement.values)
+              if (!value.isSide ||
+                  (canDockSide ??
+                      MediaQuery.sizeOf(context).width >=
+                          ComposerPresentationController.sideMinimum +
+                              ComposerPresentationController.readerMinimum +
+                              workspacePanelGap))
                 DToggleGroupItem.iconOnly(
-                  value: false,
-                  semanticLabel: context.l10n.dockSide,
-                  tooltip: context.l10n.dockSide,
-                  focusNode: trigger.focusNode,
-                  icon: const Icon(Icons.view_sidebar_outlined),
+                  value: value,
+                  semanticLabel: value.label,
+                  tooltip: value.label,
+                  icon: ComposerPlacementIcon(placement: value),
                 ),
-                DToggleGroupItem.iconOnly(
-                  value: true,
-                  semanticLabel: context.l10n.fullScreen,
-                  tooltip: context.l10n.fullScreen,
-                  icon: const Icon(Icons.fullscreen),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       if (!minimized && onRestore != null)
         DButton.iconOnly(
@@ -404,7 +389,7 @@ class ComposerHeader extends StatelessWidget {
         DButton.iconOnly(
           key: const ValueKey('composer-minimize'),
           onPressed: minimize,
-          icon: const Icon(Icons.remove),
+          icon: ComposerPlacementIcon(placement: placement, minimized: true),
           tooltip: context.l10n.minimizeComposer,
           variant: DButtonVariant.transparentBackground,
           size: DButtonSize.toolbar,
@@ -436,6 +421,8 @@ class ComposerHeader extends StatelessWidget {
                       Expanded(
                         child: minimized
                             ? heading
+                            : composer.canSaveDraft
+                            ? ComposerDraftTabs(composer: composer)
                             : Align(
                                 alignment: AlignmentDirectional.centerStart,
                                 child: heading,
@@ -541,4 +528,31 @@ class _DraftSaveFailure extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Hover changes artwork only; the Native button retains the exact target.
+class _ComposerRestoreArtwork extends StatefulWidget {
+  const _ComposerRestoreArtwork({required this.placement});
+  final ComposerPlacement placement;
+  @override
+  State<_ComposerRestoreArtwork> createState() =>
+      _ComposerRestoreArtworkState();
+}
+
+class _ComposerRestoreArtworkState extends State<_ComposerRestoreArtwork> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: TweenAnimationBuilder<double>(
+      tween: Tween(end: _hovered ? -2 : 0),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
+      builder: (context, rise, child) =>
+          Transform.translate(offset: Offset(0, rise), child: child),
+      child: ComposerPlacementIcon(placement: widget.placement),
+    ),
+  );
 }

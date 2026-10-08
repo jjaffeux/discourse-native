@@ -59,6 +59,7 @@ import 'examples/onebox_examples.dart';
 import 'examples/page_surface_examples.dart';
 import 'examples/pagination_examples.dart';
 import 'examples/popover_examples.dart';
+import 'examples/position_control_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/pull_to_refresh_examples.dart';
 import 'examples/questionnaire_examples.dart';
@@ -169,6 +170,7 @@ final componentExamples = <String, ComponentExamples>{
   'toggle': toggleExamples,
   'toast': toastExamples,
   'toggle-group': toggleGroupExamples,
+  'position-control': positionControlExamples,
   'button': buttonExamples,
   'button-group': buttonGroupExamples,
   'tooltip': tooltipExamples,

@@ -23336,6 +23336,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear filters'**
   String get clearSearchListFilters;
+
+  /// Writing progress on a minimized composer card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Nothing written yet} =1{1 word} other{{count} words}}'**
+  String composerWordCount(int count);
 }
 
 class _AppLocalizationsDelegate

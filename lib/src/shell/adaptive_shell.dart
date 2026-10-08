@@ -451,7 +451,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         },
       },
       child: TopicPresentationPreferences(
-        child: ComposerPresentationHost(child: _buildShell(context)),
+        child: ComposerPresentationHost(
+          panelsLayout: _panelsLayout,
+          child: _buildShell(context),
+        ),
       ),
     );
   }
