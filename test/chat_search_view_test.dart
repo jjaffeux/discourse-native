@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_search_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -26,6 +27,43 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets('chat markers follow the query typed on their page', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatSearchPagesByKey: {
+        FakeDiscourseApi.chatSearchKey('deploy'): ChatSearchPage(
+          hits: [_hit(1)],
+        ),
+        FakeDiscourseApi.chatSearchKey('1'): ChatSearchPage(hits: [_hit(1)]),
+      },
+    );
+    await _pump(tester, api);
+    final field = find.byKey(const ValueKey('chat-search-field'));
+    for (final query in ['deploy', '1']) {
+      await tester.enterText(field, query);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      final excerpt = find.byWidgetPredicate(
+        (widget) => widget is SearchText && widget.text == 'deploy 1',
+      );
+      expect(excerpt, findsOneWidget);
+      final rich = tester.widget<RichText>(
+        find.descendant(of: excerpt, matching: find.byType(RichText)),
+      );
+      final marked = <String?>[];
+      rich.text.visitChildren((span) {
+        if (span is TextSpan && span.style?.backgroundColor != null) {
+          marked.add(span.text);
+        }
+        return true;
+      });
+      expect(marked, [query]);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a failed page waits for Try again instead of scrolling', (
     tester,
   ) async {
@@ -126,6 +164,14 @@ void main() {
           expect(sourceShell.fullPageChatActive, replacement == 'none');
           if (replacement == 'none') {
             expect(sourceShell.visibleChannelId, 9);
+            expect(
+              original.search.wordsFor(
+                _site,
+                original.activeTabId,
+                original.currentContent!.id,
+              ),
+              'deploy',
+            );
             expect(
               ChatRoute.parse(sourceShell.currentContent?.id ?? '')?.threadId,
               threaded ? 12 : null,

@@ -7,6 +7,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../shell/search_words.dart';
+import '../../shell/shell_scope.dart';
 import 'chat_plugin.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
@@ -47,12 +48,21 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _bind();
-    final words = SearchWords.of(context);
-    if (_pageQuery != words) {
+    final words = context
+        .dependOnInheritedWidgetOfExactType<SearchWords>()
+        ?.query;
+    if (words != null && _pageQuery != words) {
+      final owner = _search;
+      final site = widget.siteUrl;
       _pageQuery = words;
       _query.text = words;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _search.setGlobalQuery(widget.siteUrl, words);
+        if (mounted &&
+            identical(_search, owner) &&
+            widget.siteUrl == site &&
+            _pageQuery == words) {
+          owner.setGlobalQuery(site, words);
+        }
       });
     }
   }
@@ -77,6 +87,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _search = search;
     _shell = shell;
     _boundSite = siteUrl;
+    _pageQuery = null;
     _query.text = search.globalState(siteUrl).query;
     _unregisterFocus = search.registerGlobalFocus(siteUrl, _focus.requestFocus);
     _unregisterRefresher = shell.registerRouteRefresher(
@@ -115,6 +126,21 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _search.loadMore(widget.siteUrl);
   }
 
+  void _setQuery(String value) {
+    _pageQuery = value;
+    _search.setGlobalQuery(widget.siteUrl, value);
+    final shell = ShellScope.maybeRead(context);
+    if (shell?.currentInstance?.url == widget.siteUrl &&
+        shell?.currentContent?.id == ChatPlugin.searchRouteId) {
+      shell!.search.setPageWords(
+        widget.siteUrl,
+        shell.activeTabId,
+        ChatPlugin.searchRouteId,
+        value,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<GlobalChatSearchState>(
@@ -125,14 +151,16 @@ class _ChatSearchViewState extends State<ChatSearchView> {
             controller: _query,
             focusNode: _focus,
             state: state,
-            onChanged: (value) => _search.setGlobalQuery(widget.siteUrl, value),
+            onChanged: _setQuery,
             onClear: () {
               _query.clear();
-              _search.setGlobalQuery(widget.siteUrl, '');
+              _setQuery('');
             },
             onSort: (sort) => _search.setGlobalSort(widget.siteUrl, sort),
           ),
-          Expanded(child: _results(state)),
+          Expanded(
+            child: SearchWords(query: state.query, child: _results(state)),
+          ),
         ],
       ),
     );
@@ -215,6 +243,8 @@ class _ChatSearchViewState extends State<ChatSearchView> {
 
   Future<void> _open(ChatSearchHit hit) async {
     final siteUrl = widget.siteUrl;
+    final words = _search.globalState(siteUrl).query;
+    final owner = ShellScope.maybeRead(context);
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     bool ownsActivation() =>
@@ -239,6 +269,19 @@ class _ChatSearchViewState extends State<ChatSearchView> {
         );
       } else {
         shell.openChannel(channel.id, messageId: hit.message.id);
+      }
+      if (owner != null &&
+          identical(ShellScope.maybeRead(context), owner) &&
+          owner.currentInstance?.url == siteUrl &&
+          shell.visibleChannelId == channel.id) {
+        if (owner.currentContent case final route?) {
+          owner.search.setPageWords(
+            siteUrl,
+            owner.activeTabId,
+            route.id,
+            words,
+          );
+        }
       }
     } catch (_) {
       if (!mounted || !ownsActivation()) return;
