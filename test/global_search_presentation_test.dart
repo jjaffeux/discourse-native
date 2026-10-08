@@ -176,9 +176,14 @@ void main() {
     expect(chat.chatActive, isFalse);
     await tester.tap(find.byKey(ForumSearch.inputKey));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('global-search-scope-chat/chat')),
+    final chatScope = find.byKey(
+      const ValueKey('global-search-scope-chat/chat'),
     );
+    await tester.ensureVisible(chatScope);
+    await tester.pumpAndSettle();
+    await tester.tap(chatScope);
+    await tester.pumpAndSettle();
+    expect(shell.globalSearch.scope, chatSearchScope);
     await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
     await _finishSearch(tester);
     await tester.tap(
