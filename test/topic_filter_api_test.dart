@@ -36,6 +36,37 @@ void main() {
     expect(asked.url.queryParameters, {'q': 'bu', 'limit': '5'});
   });
 
+  test(
+    'list tags use category scope without composer write restrictions',
+    () async {
+      late http.Request asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request;
+          return http.Response(
+            jsonEncode({
+              'results': [
+                {'name': 'design', 'count': 12},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final values = await api.searchFilterTags(
+        siteUrl: 'https://example.com',
+        term: '',
+        categoryId: 42,
+      );
+      expect(values.single.name, 'design');
+      expect(asked.url.queryParameters, {
+        'q': '',
+        'limit': '5',
+        'categoryId': '42',
+      });
+    },
+  );
+
   test('tag-group lookup describes the tags in response order', () async {
     late http.Request asked;
     final api = DiscourseApi(

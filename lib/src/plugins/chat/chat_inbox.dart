@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../shell/forum_theme_surfaces.dart';
 import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
@@ -649,14 +650,31 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     };
     return SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: DSpacing.sm),
-            child: ChatInboxFilterBar(
-              siteUrl: siteUrl,
-              filters: chat.inboxFilters,
-              compact: true,
-            ),
+        PinnedHeaderSliver(
+          child: Stack(
+            children: [
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 14,
+                child: DGradientBlur(),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: ColoredBox(
+                  color: ForumWindowBackground.chromeColor(
+                    context,
+                    DTokens.of(context).surface,
+                  ),
+                  child: ChatInboxFilterBar(
+                    siteUrl: siteUrl,
+                    filters: chat.inboxFilters,
+                    compact: true,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         if (layout.loading)

@@ -211,6 +211,9 @@ class InstanceSidebar extends StatelessWidget {
             // is not the Drafts route.
             selectedDestinationId = null;
           }
+          if (controller.sidebarFilterRoute != null) {
+            selectedDestinationId = controller.sidebarFilterDestinationId;
+          }
           final categorySection = instance == null
               ? null
               : controller.categorySidebarSectionFor(instance.url);
@@ -219,8 +222,13 @@ class InstanceSidebar extends StatelessWidget {
               : controller.tagSidebarSectionFor(instance.url);
           return _SidebarSnapshot(
             siteUrl: instance?.url,
-            // Mobile shows navigation instead of the retained content route.
-            destinationId: mobile ? null : selectedDestinationId,
+            // A mobile root must not highlight a retained, hidden document.
+            destinationId:
+                mobile &&
+                    (!controller.mobileNavigationEnabled ||
+                        controller.mobileNavigation.atRoot)
+                ? null
+                : selectedDestinationId,
             draftCount: instance?.user?.draftCount ?? 0,
             canCreateTopic: instance?.user?.canCreateTopic ?? false,
             navigationLoading:
@@ -487,6 +495,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const _SidebarCommunityHeader(),
                 if (showUserMenu) const _SidebarUserHeader(),
                 DSidebarHeader(
                   child: _SidebarPanelTabs(
@@ -585,7 +594,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                             badgeFor:
                                                 controller.sidebarBadgeFor,
                                             insertedDestination:
-                                                sidebar.canCreateTopic &&
+                                                widget.mobile &&
+                                                    sidebar.canCreateTopic &&
                                                     section.destinations.any(
                                                       (destination) =>
                                                           destination.id ==
@@ -614,6 +624,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                     ),
                                                   ),
                                                 );
+                                                return;
+                                              }
+                                              if (controller
+                                                  .selectSidebarScopeDestination(
+                                                    destination,
+                                                  )) {
                                                 return;
                                               }
                                               final url = destination.url;
@@ -812,7 +828,7 @@ class _SidebarPanelTabs extends StatelessWidget {
       },
       children: [
         DTabList<String>(
-          variant: DTabListVariant.line,
+          variant: DTabListVariant.defaultStyle,
           children: [
             DTabTrigger(
               key: const ValueKey('sidebar-panel-switch-main'),
@@ -843,6 +859,73 @@ class _SidebarPanelTabs extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _SidebarCommunityHeader extends StatelessWidget {
+  const _SidebarCommunityHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.of(context);
+    final instance = shell.currentInstance;
+    if (instance == null) return const SizedBox.shrink();
+    return DSidebarHeader(
+      child: Row(
+        spacing: DSpacing.sm,
+        children: [
+          ForumIdentityHeader(
+            name: instance.title,
+            iconUrl: instance.iconUrl,
+            monogram: instance.monogram,
+            accentColor: instance.accentColor,
+          ),
+          Expanded(
+            child: DDropdownMenu(
+              content: DDropdownMenuContent(
+                semanticLabel: context.l10n.forum,
+                children: [
+                  for (final (index, forum) in shell.instances.indexed)
+                    DDropdownMenuItem(
+                      key: ValueKey(('sidebar-community-option', forum.url)),
+                      onPressed: () => shell.selectInstance(index),
+                      leading: ForumIdentityHeader(
+                        name: forum.title,
+                        iconUrl: forum.iconUrl,
+                        monogram: forum.monogram,
+                        accentColor: forum.accentColor,
+                      ),
+                      child: Text(forum.title),
+                    ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, trigger) => DButton(
+                  key: const ValueKey('sidebar-community-switcher'),
+                  label: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          instance.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const DIcon(DIcons.chevronDown, size: 12),
+                    ],
+                  ),
+                  variant: DButtonVariant.ghost,
+                  focusNode: trigger.focusNode,
+                  expanded: trigger.open,
+                  hasPopup: true,
+                  onPressed: trigger.toggle,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1493,6 +1576,30 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    final base = shell.sidebarCategoryBase;
+    if (section.id == 'categories' && base != null ||
+        section.id == 'tags' && shell.sidebarFilterRoute?.tagName != null) {
+      final categories = section.id == 'categories';
+      final parent = categories
+          ? shell.categoryFor(base?.parentCategoryId)
+          : null;
+      final label = categories
+          ? parent?.name ?? context.l10n.categories
+          : context.l10n.tags;
+      return DSidebarMenuButton(
+        key: ValueKey('sidebar-${section.id}-up'),
+        icon: const DIcon(DIcons.arrowUp, size: 16),
+        semanticLabel: label,
+        onPressed: () => shell.changeSidebarScope(
+          categoryId: categories
+              ? parent?.id
+              : shell.sidebarFilterRoute?.categoryId,
+          tag: categories ? shell.sidebarFilterRoute?.tagName : null,
+        ),
+        child: Text(label),
+      );
+    }
     final unreadDescription = section.unreadCount > 0
         ? context.l10n.unreadInstancesidebar(section.unreadCount)
         : '';

@@ -528,7 +528,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               TopicListFilterMenu(
                 key: ValueKey((state.siteUrl, sourceRoute.id)),
                 siteUrl: state.siteUrl!,
-                query: sourceRoute.topicFilterQuery,
+                query: controller.topicListFilterEditorQuery(sourceRoute),
               ),
           ],
         );
@@ -1233,6 +1233,7 @@ class _ContentHeader extends StatelessWidget {
                 CategoryNotificationLevelButton(
                   siteUrl: siteUrl!,
                   categoryId: route.categoryId!,
+                  quiet: true,
                 ),
               if (!route.isTopic &&
                   route.id != 'activity' &&

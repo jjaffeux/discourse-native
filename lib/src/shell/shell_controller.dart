@@ -138,6 +138,7 @@ import 'site_url.dart';
 import 'start_page_controller.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
+import 'topic_filter_scope.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
 import 'unread_topic_feed.dart';
@@ -1587,7 +1588,9 @@ class ShellController extends FrameSafeNotifier
   bool get desktopPanelsEnabled => desktopTopicTabs && forumTabsEnabled;
 
   bool isTabVisible(String? id) {
-    if (id == null) return false;
+    if (id == null) {
+      return false;
+    }
     final workspace = currentWorkspace;
     if (workspace == null) return false;
     if (!desktopTopicTabs) return workspace.activeTabId == id;
@@ -3817,11 +3820,145 @@ class ShellController extends FrameSafeNotifier
     return !feed.loaded && feed.error == null;
   }
 
+  ContentRoute? get sidebarFilterRoute {
+    if (mobileNavigationEnabled && mobileNavigation.atRoot) return null;
+    final source = topicListContent;
+    if (source?.isTopicListFilter != true || source?.isMessages == true) {
+      return null;
+    }
+    return currentContent?.isTopic == true ||
+            currentContent?.isTopicListFilter == true
+        ? source
+        : null;
+  }
+
+  TopicCategory? get sidebarCategoryBase {
+    final selected = categoryFor(sidebarFilterRoute?.categoryId);
+    if (selected == null) return null;
+    final categories = filterCategoriesFor(currentInstance!.url);
+    return categories.any((item) => item.parentCategoryId == selected.id)
+        ? selected
+        : categoryFor(selected.parentCategoryId);
+  }
+
+  String? get sidebarTagName {
+    final route = sidebarFilterRoute;
+    final site = currentInstance?.url;
+    return route == null || site == null
+        ? null
+        : _topicListFilterTagNames(site, route).firstOrNull;
+  }
+
+  String? get sidebarFilterDestinationId {
+    final route = sidebarFilterRoute;
+    if (route == null) return null;
+    final tag = sidebarTagName;
+    if (tag != null) {
+      final section = tagSidebarSectionFor(currentInstance!.url);
+      return section?.destinations
+          .where((item) => item.label.toLowerCase() == tag.toLowerCase())
+          .firstOrNull
+          ?.id;
+    }
+    if (route.categoryId case final id?) return 'category-$id';
+    return route.topicFilterQuery.isEmpty ? 'latest' : null;
+  }
+
+  void _showMobileScopeList() {
+    if (!mobileNavigationEnabled) return;
+    if (mobileNavigation.tab != MobileTab.topics ||
+        mobileNavigation.panelOwner != null) {
+      mobileNavigation.selectTab(MobileTab.topics);
+    }
+    _mobilePane = MobilePane.content;
+  }
+
+  void changeSidebarScope({int? categoryId, String? tag}) {
+    final site = currentInstance?.url;
+    if (site == null) return;
+    final source = sidebarFilterRoute;
+    final route = _topicListFilterRoute(
+      siteUrl: site,
+      category: categoryFor(categoryId),
+      tagName: tag,
+      mode: TopicListMode.fromRoute(source) ?? TopicListMode.latest,
+    ).withTopicListQueryFrom(source);
+    _showMobileScopeList();
+    _replaceTopicListContent(route, keepTopicOpen: false);
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    unawaited(loadFeed(route.id));
+  }
+
+  bool selectSidebarScopeDestination(SidebarDestination destination) {
+    final source = sidebarFilterRoute;
+    if (destination.id.startsWith('category-')) {
+      final id = int.tryParse(destination.id.substring('category-'.length));
+      if (id == null) return false;
+      changeSidebarScope(
+        categoryId: source?.categoryId == id ? null : id,
+        tag: sidebarTagName,
+      );
+      return true;
+    }
+    if (destination.icon == DIcons.tag &&
+        destination.feedPath != null &&
+        destination.id != 'all-tags') {
+      if (ContentRoute.fromDestination(destination).isMessages) return false;
+      final tag = destination.label;
+      changeSidebarScope(
+        categoryId: source?.categoryId,
+        tag: sidebarTagName?.toLowerCase() == tag.toLowerCase() ? null : tag,
+      );
+      return true;
+    }
+    return false;
+  }
+
+  final _scopedSidebarTags = <(String, int), List<TopicFilterLookupValue>>{};
+  final _scopedSidebarTagRequests = <(String, int), Object>{};
+
+  Future<void> _ensureScopedSidebarTags(String siteUrl, int? categoryId) async {
+    if (categoryId == null || !siteConfigFor(siteUrl).taggingEnabled) return;
+    final key = (siteUrl, categoryId);
+    if (_scopedSidebarTags.containsKey(key) ||
+        _scopedSidebarTagRequests.containsKey(key)) {
+      return;
+    }
+    final lease = lifecycle.capture(siteUrl);
+    final request = Object();
+    _scopedSidebarTagRequests[key] = request;
+    try {
+      final tags = await searchFilterTags(
+        siteUrl: siteUrl,
+        term: '',
+        categoryId: categoryId,
+      );
+      if (!lease.isCurrent || isDisposed) return;
+      _scopedSidebarTags[key] = tags;
+      _notify();
+    } finally {
+      if (identical(_scopedSidebarTagRequests[key], request)) {
+        _scopedSidebarTagRequests.remove(key);
+      }
+    }
+  }
+
   SidebarSection? categorySidebarSectionFor(String siteUrl) {
     if (!_categoriesBySite.containsKey(siteUrl)) return null;
     final categories = _categoriesBySite[siteUrl]!;
     final user = _instanceAt(siteUrl)?.user;
     final config = siteConfigFor(siteUrl);
+    if (sidebarFilterRoute?.categoryId case final id?) {
+      return buildCategorySidebarSection(
+        categories: categories,
+        connected: user != null,
+        levelNavigation: true,
+        scopeCategoryId: id,
+        allowUncategorizedTopics: config.allowUncategorizedTopics,
+      );
+    }
     final held = _categorySidebarCache[siteUrl];
     if (held != null &&
         identical(held.categories, categories) &&
@@ -3837,6 +3974,7 @@ class ShellController extends FrameSafeNotifier
       defaultCategoryIds: config.defaultNavigationMenuCategoryIds,
       fixedCategoryPositions: config.fixedCategoryPositions,
       allowUncategorizedTopics: config.allowUncategorizedTopics,
+      levelNavigation: true,
     );
     _categorySidebarCache[siteUrl] = (
       categories: categories,
@@ -3852,6 +3990,33 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || !siteConfigFor(siteUrl).taggingEnabled) return null;
 
     final user = instance.user;
+    final selectedTag = sidebarTagName;
+    if (sidebarFilterRoute?.categoryId case final id?) {
+      if (user != null && !user.displaySidebarTags && selectedTag == null) {
+        return null;
+      }
+      final tags = _scopedSidebarTags[(siteUrl, id)];
+      return SidebarSection(
+        id: 'tags',
+        title: appL10n.tags,
+        loading: tags == null && selectedTag == null,
+        collapsible: selectedTag == null,
+        destinations: [
+          if (user == null || user.displaySidebarTags)
+            for (final tag in tags ?? const <TopicFilterLookupValue>[])
+              ?buildTopicTagDestination(TopicTag(name: tag.name)),
+          if (selectedTag != null &&
+              (user?.displaySidebarTags == false ||
+                  !(tags?.any(
+                        (tag) =>
+                            tag.name.toLowerCase() == selectedTag.toLowerCase(),
+                      ) ??
+                      false)))
+            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
+          allTagsDestination,
+        ],
+      );
+    }
     final siteTop = _siteTopTagsBySite[siteUrl] ?? const <SidebarTag>[];
     final anonymousDefaults =
         _anonymousDefaultTagsBySite[siteUrl] ?? const <SidebarTag>[];
@@ -3860,6 +4025,24 @@ class ShellController extends FrameSafeNotifier
         : (user.sidebarTags.isNotEmpty ? user.sidebarTags : siteTop);
     final display = user == null ? tags.isNotEmpty : user.displaySidebarTags;
 
+    if (selectedTag != null) {
+      return SidebarSection(
+        id: 'tags',
+        title: appL10n.tags,
+        collapsible: false,
+        destinations: [
+          if (display)
+            for (final tag in tags)
+              ?buildTagDestination(tag, username: user?.username),
+          if (!display ||
+              !tags.any(
+                (tag) => tag.name.toLowerCase() == selectedTag.toLowerCase(),
+              ))
+            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
+          allTagsDestination,
+        ],
+      );
+    }
     final held = _tagSidebarCache[siteUrl];
     if (held != null &&
         identical(held.tags, tags) &&
@@ -4132,6 +4315,9 @@ class ShellController extends FrameSafeNotifier
 
     final path = _feedPath(destinationId, instance);
     if (path == null) return;
+    unawaited(
+      _ensureScopedSidebarTags(instance.url, sidebarFilterRoute?.categoryId),
+    );
     await topicFeeds.load(
       instance: instance,
       destinationId: destinationId,
@@ -4154,6 +4340,44 @@ class ShellController extends FrameSafeNotifier
           clientId: clientId,
         )).filterOptions,
       );
+
+  String topicListFilterEditorQuery(ContentRoute route) => [
+    route.topicFilterQuery,
+    if (route.categoryId != null) 'category:${route.categoryId}',
+    for (final tag in _topicListFilterTagNames(currentInstance!.url, route))
+      'tag:${topicFilterScopeValue(tag)}',
+  ].where((part) => part.isNotEmpty).join(' ');
+
+  Future<void> applyTopicListFilterQuery(String query) async {
+    final instance = currentInstance;
+    if (instance == null) return;
+    final scope = parseTopicFilterScope(
+      query,
+      filterCategoriesFor(instance.url),
+    );
+    final route = scope.query.isEmpty
+        ? _topicListFilterRoute(
+            siteUrl: instance.url,
+            category: categoryFor(scope.categoryId),
+            tagName: scope.tag,
+            mode:
+                TopicListMode.fromRoute(sidebarFilterRoute) ??
+                TopicListMode.latest,
+          )
+        : ContentRoute.topicFilter(
+            scope.query,
+            categoryId: scope.categoryId,
+            tags: [?scope.tag],
+          );
+    _showMobileScopeList();
+    _replaceTopicListContent(
+      route,
+      keepTopicOpen: currentContent?.isTopic == true,
+    );
+    _syncTopicChannels();
+    _notify();
+    await loadFeed(route.id);
+  }
 
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
@@ -4220,33 +4444,76 @@ class ShellController extends FrameSafeNotifier
   Future<List<TopicCategory>> searchFilterCategories({
     required String siteUrl,
     required String term,
-  }) => _filterLookup(
-    siteUrl,
-    'topics.filter.categories',
-    (apiKey, clientId) => apiKey == null
-        ? Future.value(const [])
-        : api.categories.searchCategories(
-            siteUrl: siteUrl,
-            term: term,
-            apiKey: apiKey,
-            includeAncestors: true,
-            clientId: clientId,
-          ),
-  );
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    final categories = await _filterLookup(
+      siteUrl,
+      'topics.filter.categories',
+      (apiKey, clientId) => apiKey == null
+          ? Future.value(const <TopicCategory>[])
+          : api.categories.searchCategories(
+              siteUrl: siteUrl,
+              term: term,
+              apiKey: apiKey,
+              includeAncestors: true,
+              clientId: clientId,
+            ),
+    );
+    if (isDisposed || !lease.isCurrent) return const [];
+    if (categories.isNotEmpty) {
+      final previous = filterCategoriesFor(siteUrl);
+      _mergeCategories(siteUrl, categories);
+      if (!listEquals(previous, filterCategoriesFor(siteUrl))) _notify();
+    }
+    return categories;
+  }
 
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
-  }) => _filterLookup(
-    siteUrl,
-    'topics.filter.tags',
-    (apiKey, clientId) => api.lookups.searchFilterTags(
-      siteUrl: siteUrl,
-      term: term,
-      apiKey: apiKey,
-      clientId: clientId,
-    ),
-  );
+    int? categoryId,
+  }) async {
+    final lease = lifecycle.capture(siteUrl);
+    final remote = await _filterLookup(
+      siteUrl,
+      'topics.filter.tags',
+      (apiKey, clientId) => api.lookups.searchFilterTags(
+        siteUrl: siteUrl,
+        term: term,
+        categoryId: categoryId,
+        limit: siteConfigFor(
+          siteUrl,
+        ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+        apiKey: apiKey,
+        clientId: clientId,
+      ),
+    );
+    if (isDisposed || !lease.isCurrent) return const [];
+    final byName = <String, TopicFilterLookupValue>{
+      for (final tag in remote) tag.name.toLowerCase(): tag,
+    };
+    if (categoryId == null) {
+      for (final tag in topicListFilterTagsFor(siteUrl)) {
+        if (tag.name.toLowerCase().contains(term.toLowerCase())) {
+          byName.putIfAbsent(
+            tag.name.toLowerCase(),
+            () => TopicFilterLookupValue(
+              name: tag.name,
+              description: '${tag.count}',
+            ),
+          );
+        }
+      }
+    }
+    return byName.values.toList()..sort((a, b) {
+      final count = (int.tryParse(b.description ?? '') ?? 0).compareTo(
+        int.tryParse(a.description ?? '') ?? 0,
+      );
+      return count != 0
+          ? count
+          : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+  }
 
   Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
     required String siteUrl,
@@ -16404,6 +16671,8 @@ class ShellController extends FrameSafeNotifier
     _anonymousDefaultTagsBySite.remove(siteUrl);
     _tagSidebarCache.remove(siteUrl);
     _topicListFilterTagsCache.remove(siteUrl);
+    _scopedSidebarTags.removeWhere((key, _) => key.$1 == siteUrl);
+    _scopedSidebarTagRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _tagDirectoryFeeds.remove(siteUrl);
     _tagDirectoryRequests.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
@@ -17546,6 +17815,22 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
+  void openPageTab(ContentRoute route) {
+    if (!desktopPanelsEnabled || !forumTabsEnabled) {
+      pushContent(route);
+      return;
+    }
+    final existing = currentWorkspace?.tabs
+        .where((tab) => tab.currentContent.id == route.id)
+        .firstOrNull;
+    if (existing != null) {
+      selectTab(existing.id);
+    } else {
+      openContentInNewTab(route, select: true);
+    }
+  }
+
+  @override
   void pushContent(ContentRoute route, {bool newTab = false}) {
     final requestedPanel = route.openInMainPanel
         ? ForumPanel.main
@@ -18449,6 +18734,9 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   @override
   void selectDestination(SidebarDestination destination) =>
       _shell.selectDestination(destination);
+
+  @override
+  void openPageTab(ContentRoute route) => _shell.openPageTab(route);
 
   @override
   void pushContent(ContentRoute route, {bool newTab = false}) =>

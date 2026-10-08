@@ -126,6 +126,9 @@ abstract interface class PluginNavigationHost {
 
   void selectInstance(int index);
   void pushContent(ContentRoute route, {bool newTab = false});
+
+  /// Opens or focuses a directory's own tab; mobile uses ordinary navigation.
+  void openPageTab(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);
   void showPluginContent();

@@ -311,12 +311,47 @@ class ChatPlugin
         chat.siteConfigFor(siteUrl).chatSettings.publicChannelsEnabled;
     final actions = _panelActions(shell, siteUrl);
 
+    final directoryOpen = {
+      inboxRouteId,
+      browseRouteId,
+      myThreadsRouteId,
+    }.contains(shell.currentContent?.id);
     return [
+      if (!directoryOpen)
+        SidebarSection(
+          id: 'chat-directories',
+          title: appL10n.chat,
+          showHeader: false,
+          collapsible: false,
+          destinations: [
+            if (authenticatedChatAvailable)
+              SidebarDestination(
+                id: inboxRouteId,
+                label: appL10n.chats,
+                icon: DIcons.comment,
+                onTap: () => shell.openChats(newTab: true),
+              ),
+            if (publicChannelsEnabled)
+              SidebarDestination(
+                id: browseRouteId,
+                label: appL10n.channels,
+                icon: DIcons.hashtag,
+                onTap: () => shell.openBrowseChannels(newTab: true),
+              ),
+            if (actions.myThreads)
+              SidebarDestination(
+                id: myThreadsRouteId,
+                label: appL10n.threads,
+                icon: DIcons.comments,
+                onTap: () => shell.openMyThreads(newTab: true),
+              ),
+          ],
+        ),
       if (authenticatedChatAvailable ||
           (publicChannelsEnabled && chat.publicChannels(siteUrl).isNotEmpty))
         SidebarSection(
           id: 'chat-inbox',
-          title: appL10n.conversations,
+          title: appL10n.chats,
           showHeader: false,
           collapsible: false,
           // Keep the composer shortcut available through the section even
@@ -368,22 +403,17 @@ class ChatPlugin
               onPressed: () => _startMessage(context, shell, siteUrl),
             )
           : null,
-      footerBuilder: actions.browse || actions.myThreads
-          ? (context) => ChatSidebarFooter(
-              browse: actions.browse,
-              myThreads: actions.myThreads,
-            )
-          : null,
       badge: unreadCount > 0
-          ? DBadge(
+          ? Semantics(
               key: const ValueKey('chat-sidebar-unread-badge'),
-              size: DBadgeSize.compact,
-              backgroundColor: Theme.of(context).discourse.success,
-              foregroundColor: Theme.of(
-                context,
-              ).discourse.notificationForeground,
-              semanticLabel: appL10n.unreadChatplugin(unreadCount),
-              child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+              label: appL10n.unreadChatplugin(unreadCount),
+              child: Text(
+                unreadCount > 99 ? '99+' : '$unreadCount',
+                style: TextStyle(
+                  color: Theme.of(context).discourse.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             )
           : null,
       mobileBadge: unreadCount > 0

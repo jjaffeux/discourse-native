@@ -165,36 +165,34 @@ void main() {
 
         await _open(tester, 'tag');
         await _choose(tester, 'tag');
-        expect(
-          shell.topicListContent?.tagNames,
-          containsAll([_tag.name, ...replacement!.tagNames]),
-        );
+        expect(shell.topicListContent?.tagNames, [_tag.name]);
       });
     }
   }
 
-  testWidgets('ordinary multi-tag choices survive unrelated notifications', (
-    tester,
-  ) async {
-    final fixture = await _fixture(tester);
-    fixture.shell.selectTopicListTags(['kept']);
-    await tester.pumpAndSettle();
-    await _open(tester, 'tag');
-    fixture.shell.openAppSettingsModal();
-    await tester.pump();
-    fixture.shell.closeAppSettingsModal();
-    await tester.pump();
-    await _choose(tester, 'tag');
-    expect(fixture.shell.topicListContent?.tagNames, ['Original tag', 'kept']);
+  testWidgets(
+    'a list tag replaces its previous value and survives unrelated notifications',
+    (tester) async {
+      final fixture = await _fixture(tester);
+      fixture.shell.selectTopicListTags(['kept']);
+      await tester.pumpAndSettle();
+      await _open(tester, 'tag');
+      fixture.shell.openAppSettingsModal();
+      await tester.pump();
+      fixture.shell.closeAppSettingsModal();
+      await tester.pump();
+      await _choose(tester, 'tag');
+      expect(fixture.shell.topicListContent?.tagNames, ['Original tag']);
 
-    await _open(tester, 'tag');
-    await _choose(tester, 'tag');
-    expect(fixture.shell.topicListContent?.tagNames, ['kept']);
-    await _open(tester, 'tag');
-    await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter-all')));
-    await tester.pumpAndSettle();
-    expect(fixture.shell.topicListContent?.tagNames, isEmpty);
-  });
+      await _open(tester, 'tag');
+      await _choose(tester, 'tag');
+      expect(fixture.shell.topicListContent?.tagNames, ['Original tag']);
+      await _open(tester, 'tag');
+      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter-all')));
+      await tester.pumpAndSettle();
+      expect(fixture.shell.topicListContent?.tagNames, isEmpty);
+    },
+  );
 
   for (final change in ['feed', 'tab', 'forum', 'account', 'reconnect']) {
     testWidgets('tag search and results retire after $change replacement', (
@@ -408,6 +406,7 @@ class _FilterApi extends FakeDiscourseApi {
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
     int limit = 5,
     String? apiKey,
     String? clientId,

@@ -1052,7 +1052,8 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
           child: DDropdownMenuTrigger(
             builder: (context, state) => DButton(
               key: const ValueKey('user-presence-menu'),
-              variant: DButtonVariant.outline,
+              variant: DButtonVariant.secondary,
+              shape: DButtonShape.pill,
               size: DControlSize.chip,
               tooltip: context.l10n.statusAndNotifications,
               semanticLabel: context.l10n.statusAndNotificationsUsermenu(

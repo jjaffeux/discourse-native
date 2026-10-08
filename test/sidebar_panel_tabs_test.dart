@@ -39,6 +39,7 @@ Future<ShellController> pumpTabs(
   bool connected = true,
   bool installed = true,
   bool rooms = true,
+  bool threads = false,
   Map<String, ChatChannels>? channels,
   List<SidebarSection>? customSections,
 }) async {
@@ -46,7 +47,11 @@ Future<ShellController> pumpTabs(
     plugins: PluginData.none
         .withValue(
           chatSettingsDataKey,
-          ChatSettings(chatEnabled: chat, publicChannelsEnabled: chat),
+          ChatSettings(
+            chatEnabled: chat,
+            publicChannelsEnabled: chat,
+            threadsEnabled: threads,
+          ),
         )
         .withValue(voiceSettingsDataKey, VoiceClientConfig(enabled: voice)),
   );
@@ -215,14 +220,17 @@ void main() {
       await tester.pumpAndSettle();
       final badge = find.descendant(
         of: tab('chat'),
-        matching: find.byType(DBadge),
+        matching: find.byKey(const ValueKey('chat-sidebar-unread-badge')),
       );
       expect(badge, findsOneWidget);
       expect(
         find.descendant(of: badge, matching: find.text('32')),
         findsOneWidget,
       );
-      expect(tester.widget<DBadge>(badge).semanticLabel, '32 unread messages');
+      expect(
+        tester.widget<Semantics>(badge).properties.label,
+        '32 unread messages',
+      );
       final route = shell.currentContent;
 
       channels[site] = ChatChannels(
@@ -238,7 +246,10 @@ void main() {
         find.descendant(of: badge, matching: find.text('1')),
         findsOneWidget,
       );
-      expect(tester.widget<DBadge>(badge).semanticLabel, '1 unread message');
+      expect(
+        tester.widget<Semantics>(badge).properties.label,
+        '1 unread message',
+      );
       expect(shell.currentContent, route);
 
       channels[site] = const ChatChannels();

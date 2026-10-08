@@ -213,7 +213,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             leading: showsTabs ? navigation : null,
             siteUrl: state.siteUrl!,
             categories: state.categories,
-            knownTags: state.tags,
+            knownTags: state.route?.categoryId == null ? state.tags : const [],
             selectedCategoryId: state.route!.categoryId,
             selectedTagName: state.route!.tagName,
             selectedTagNames: state.route!.tagNames,
@@ -224,6 +224,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               final result = await controller.searchFilterTags(
                 siteUrl: state.siteUrl!,
                 term: query,
+                categoryId: state.route?.categoryId,
               );
               return ownsFeed() ? result : const [];
             },
@@ -237,16 +238,15 @@ class _TopicListNavigationControls extends StatelessWidget {
             },
             onTagSelected: (tag) {
               if (ownsFeed()) {
+                final folded = tag?.toLowerCase();
+                final named = state.tags
+                    .where((item) => item.name.toLowerCase() == folded)
+                    .firstOrNull;
+                final slugged = state.tags
+                    .where((item) => item.slug.toLowerCase() == folded)
+                    .firstOrNull;
                 controller.selectTopicListTag(
-                  tag,
-                  keepTopicOpen: keepTopicOpen,
-                );
-              }
-            },
-            onTagsSelected: (tags) {
-              if (ownsFeed()) {
-                controller.selectTopicListTags(
-                  tags,
+                  named?.name ?? slugged?.name ?? tag,
                   keepTopicOpen: keepTopicOpen,
                 );
               }
@@ -307,6 +307,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                       siteUrl: state.siteUrl!,
                       categoryId: state.route!.categoryId!,
                       size: DButtonSize.filter,
+                      quiet: true,
                       showChevron: !controller.mobileNavigationEnabled,
                     ),
                   ],

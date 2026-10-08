@@ -22,6 +22,8 @@ class TopicFilterSuggestion {
     this.delimiters = const [],
     this.category,
     this.parentCategory,
+    this.categoryUp = false,
+    this.hasChildren = false,
   });
 
   final String name;
@@ -32,6 +34,8 @@ class TopicFilterSuggestion {
   final List<TopicFilterModifier> delimiters;
   final TopicCategory? category;
   final TopicCategory? parentCategory;
+  final bool categoryUp;
+  final bool hasChildren;
 }
 
 class TopicFilterSuggestions {
@@ -43,10 +47,14 @@ class TopicFilterSuggestions {
     required this.tagGroups,
     required this.users,
     required this.groups,
+    this.hierarchicalCategories = false,
+    this.categoryParentId,
   });
 
   static const int maxResults = 20;
 
+  final bool hierarchicalCategories;
+  final int? categoryParentId;
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
   final TopicFilterCategoryLookup categoryLookup;
@@ -68,6 +76,51 @@ class TopicFilterSuggestions {
     if (segment.filterName != null && segment.hasColon) {
       final option = _findOption(segment.filterName!);
       if (option?.type != null) {
+        if (hierarchicalCategories &&
+            segment.prefix.isEmpty &&
+            option!.type == 'category' &&
+            (segment.value?.trim().isEmpty ?? true)) {
+          final byId = {
+            for (final category in categories) category.id: category,
+          };
+          final parent = byId[categoryParentId];
+          final siblings =
+              categories
+                  .where(
+                    (category) =>
+                        (byId.containsKey(category.parentCategoryId)
+                            ? category.parentCategoryId
+                            : null) ==
+                        parent?.id,
+                  )
+                  .toList()
+                ..sort((a, b) {
+                  final position = (a.position ?? 0).compareTo(b.position ?? 0);
+                  return position != 0
+                      ? position
+                      : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+                });
+          return [
+            if (parent != null)
+              TopicFilterSuggestion(
+                name: 'category-up',
+                displayName: parent.name,
+                category: parent,
+                categoryUp: true,
+              ),
+            for (final category in siblings)
+              TopicFilterSuggestion(
+                name: 'category:${category.id}',
+                displayName: category.name,
+                category: category,
+                parentCategory: parent,
+                isSuggestion: true,
+                hasChildren: categories.any(
+                  (item) => item.parentCategoryId == category.id,
+                ),
+              ),
+          ];
+        }
         return _ValueSuggester(
           option: option!,
           segment: segment,
@@ -434,7 +487,7 @@ class _ValueSuggester {
 
   Future<List<TopicFilterSuggestion>> suggestions() => switch (option.type) {
     'category' => _categories(),
-    'tag' => _remote(tags, delimiterAware: true),
+    'tag' => _remote(tags, delimiterAware: true, quoteWhitespace: true),
     'tag_group' => _remote(tagGroups, quote: true),
     'username' => _remote(users, delimiterAware: true),
     'group' => _remote(groups, delimiterAware: true, displayTermOnly: true),
@@ -504,6 +557,7 @@ class _ValueSuggester {
     TopicFilterLookup lookup, {
     bool delimiterAware = false,
     bool quote = false,
+    bool quoteWhitespace = false,
     bool displayTermOnly = false,
   }) async {
     final used = delimiterAware
@@ -512,7 +566,10 @@ class _ValueSuggester {
     var result = <TopicFilterSuggestion>[];
     for (final value in await lookup(searchTerm)) {
       if (used.contains(value.name.toLowerCase())) continue;
-      final term = quote ? _quoteIfNeeded(value.name) : value.name;
+      final term =
+          quote || quoteWhitespace && value.name.contains(RegExp(r'\s'))
+          ? _quoteIfNeeded(value.name)
+          : value.name;
       result.add(
         TopicFilterSuggestion(
           name: _name(term),
@@ -678,7 +735,9 @@ class _FilterInput {
     return _FilterSegment(
       word: word,
       prefix: prefix,
-      filterName: colon > 0 ? withoutPrefix.substring(0, colon) : null,
+      filterName: colon > 0
+          ? withoutPrefix.substring(0, colon).toLowerCase()
+          : null,
       value: colon > 0 ? withoutPrefix.substring(colon + 1) : null,
       hasColon: colon > 0,
     );

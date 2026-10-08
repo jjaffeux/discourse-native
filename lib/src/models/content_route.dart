@@ -388,7 +388,8 @@ class ContentRoute {
       'q': [
         topicFilterQuery,
         if (categoryId != null) 'category:$categoryId',
-        if (tagNames.isNotEmpty) 'tag:${tagNames.join('+')}',
+        if (tagNames.isNotEmpty)
+          'tag:${tagNames.map((tag) => tag.contains(RegExp(r'\s')) ? '"$tag"' : tag).join('+')}',
       ].where((part) => part.isNotEmpty).join(' '),
     },
   ).toString();

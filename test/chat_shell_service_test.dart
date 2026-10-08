@@ -369,6 +369,9 @@ final class _NavigationHost implements PluginNavigationHost {
   }
 
   @override
+  void openPageTab(ContentRoute route) => pushContent(route, newTab: true);
+
+  @override
   void pushContent(ContentRoute route, {bool newTab = false}) {
     _contentStack = [..._contentStack, route];
     _changes.notifyListeners();

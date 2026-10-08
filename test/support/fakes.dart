@@ -637,6 +637,7 @@ class FakeDiscourseApi
     this.userSearches = const {},
     this.mentionGroupSearches = const {},
     this.filterTagSearches = const {},
+    this.categoryFilterTagSearches = const {},
     this.filterGroupSearches = const {},
     this.hashtagSearches = const {},
     this.hashtagSearchGate,
@@ -1136,6 +1137,10 @@ class FakeDiscourseApi
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
   final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
+  final Map<(int, String), List<TopicFilterLookupValue>>
+  categoryFilterTagSearches;
+  final List<({String siteUrl, String term, int? categoryId})>
+  filterTagRequests = [];
   final Map<String, List<TopicFilterLookupValue>> filterGroupSearches;
 
   final Map<String, List<FoundHashtag>> hashtagSearches;
@@ -2452,11 +2457,19 @@ class FakeDiscourseApi
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
     int limit = 5,
     String? apiKey,
     String? clientId,
   }) async {
-    return filterTagSearches[term] ?? const [];
+    filterTagRequests.add((
+      siteUrl: siteUrl,
+      term: term,
+      categoryId: categoryId,
+    ));
+    return categoryFilterTagSearches[(categoryId, term)] ??
+        filterTagSearches[term] ??
+        const [];
   }
 
   @override

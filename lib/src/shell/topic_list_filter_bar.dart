@@ -11,8 +11,9 @@ import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
 import 'topic_list_layout.dart';
 
-typedef TopicListTagSearch =
-    Future<List<TopicFilterLookupValue>> Function(String term);
+typedef TopicListTagSearch = Future<List<TopicFilterLookupValue>> Function(
+  String term,
+);
 
 class TopicListFilterBar extends StatelessWidget {
   const TopicListFilterBar({
@@ -75,12 +76,18 @@ class TopicListFilterBar extends StatelessWidget {
           key: const ValueKey('topic-list-tag-filter'),
           keyPrefix: 'topic-list-tag-filter',
           includeAll: true,
+          quiet: true,
           sheetOnMobile: true,
           size: DButtonSize.filter,
           multiple: onTagsSelected != null,
           knownTags: [
             for (final tag in knownTags)
-              TopicTag(id: tag.id, name: tag.name, slug: tag.slug),
+              TopicTag(
+                id: tag.id,
+                name: tag.name,
+                slug: tag.slug,
+                count: tag.count,
+              ),
           ],
           selectedTags: selectedTags,
           semanticLabel: selectedTags.isEmpty
@@ -95,7 +102,10 @@ class TopicListFilterBar extends StatelessWidget {
           search: (query) async => TopicTagSearch(
             tags: [
               for (final tag in await searchTags(query))
-                TopicTag(name: tag.name),
+                TopicTag(
+                  name: tag.name,
+                  count: int.tryParse(tag.description ?? '') ?? 0,
+                ),
             ],
           ),
           onChanged: (tags) {

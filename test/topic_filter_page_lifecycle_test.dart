@@ -220,6 +220,7 @@ final class _FilterShell extends ShellController {
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
   }) async => await tags?.call(term) ?? const [];
 
   @override

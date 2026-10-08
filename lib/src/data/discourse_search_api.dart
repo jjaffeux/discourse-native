@@ -138,9 +138,10 @@ final class DiscourseSearchApi {
       clientId: clientId,
     );
     return List.unmodifiable(
-      jsonArray(
-        body['recent_searches'],
-      ).map(jsonText).whereType<String>().take(5),
+      jsonArray(body['recent_searches'])
+          .map(jsonText)
+          .whereType<String>()
+          .take(5),
     );
   }
 
@@ -187,15 +188,20 @@ final class DiscourseSearchApi {
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
     int limit = 5,
     String? apiKey,
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse(
-        '$siteUrl/tags/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse('$siteUrl/tags/filter/search.json').replace(
+        queryParameters: {
+          'q': term,
+          'limit': '$limit',
+          if (categoryId != null) 'categoryId': '$categoryId',
+        },
+      ),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
@@ -232,9 +238,8 @@ final class DiscourseSearchApi {
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     final response = await _get(
-      Uri.parse(
-        '$siteUrl/tag_groups/filter/search.json',
-      ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
+      Uri.parse('$siteUrl/tag_groups/filter/search.json')
+          .replace(queryParameters: {'q': term, 'limit': '$limit'}),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,

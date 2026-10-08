@@ -462,15 +462,25 @@ final class ChatShellService
     if (message != null) await chat.reconcileMessageBookmark(siteUrl, message);
   }
 
-  void openChats() {
+  void openChats({bool newTab = false}) {
     _activateSeparatedPane();
-    _host.selectDestination(
-      SidebarDestination(
-        id: ChatPlugin.inboxRouteId,
-        label: appL10n.browseChats,
-        icon: DIcons.comment,
-      ),
-    );
+    if (newTab) {
+      _host.openPageTab(
+        ContentRoute(
+          id: ChatPlugin.inboxRouteId,
+          title: appL10n.chats,
+          icon: DIcons.comment,
+        ),
+      );
+    } else {
+      _host.selectDestination(
+        SidebarDestination(
+          id: ChatPlugin.inboxRouteId,
+          label: appL10n.chats,
+          icon: DIcons.comment,
+        ),
+      );
+    }
   }
 
   void openChannels() {
@@ -484,26 +494,46 @@ final class ChatShellService
     );
   }
 
-  void openBrowseChannels() {
+  void openBrowseChannels({bool newTab = false}) {
     _activateSeparatedPane();
-    _host.selectDestination(
-      SidebarDestination(
-        id: ChatPlugin.browseRouteId,
-        label: appL10n.browseChannels,
-        icon: DIcons.list,
-      ),
-    );
+    if (newTab) {
+      _host.openPageTab(
+        ContentRoute(
+          id: ChatPlugin.browseRouteId,
+          title: appL10n.channels,
+          icon: DIcons.hashtag,
+        ),
+      );
+    } else {
+      _host.selectDestination(
+        SidebarDestination(
+          id: ChatPlugin.browseRouteId,
+          label: appL10n.channels,
+          icon: DIcons.hashtag,
+        ),
+      );
+    }
   }
 
-  void openMyThreads() {
+  void openMyThreads({bool newTab = false}) {
     _activateSeparatedPane();
-    _host.selectDestination(
-      SidebarDestination(
-        id: ChatPlugin.myThreadsRouteId,
-        label: appL10n.browseThreads,
-        icon: DIcons.comments,
-      ),
-    );
+    if (newTab) {
+      _host.openPageTab(
+        ContentRoute(
+          id: ChatPlugin.myThreadsRouteId,
+          title: appL10n.threads,
+          icon: DIcons.comments,
+        ),
+      );
+    } else {
+      _host.selectDestination(
+        SidebarDestination(
+          id: ChatPlugin.myThreadsRouteId,
+          label: appL10n.threads,
+          icon: DIcons.comments,
+        ),
+      );
+    }
   }
 
   void openSearch() {

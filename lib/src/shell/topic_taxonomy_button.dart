@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+
 import '../theme/d_native_icons.dart';
 
 class TopicTaxonomyButton extends StatelessWidget {
@@ -17,6 +18,8 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.expanded = false,
     this.categoryColor,
     this.showChevron = false,
+    this.quiet = false,
+    this.quietSelected = false,
   });
 
   final DButtonSize size;
@@ -31,6 +34,8 @@ class TopicTaxonomyButton extends StatelessWidget {
   final bool expanded;
   final Color? categoryColor;
   final bool showChevron;
+  final bool quiet;
+  final bool quietSelected;
 
   @override
   Widget build(BuildContext context) => IntrinsicWidth(
@@ -63,11 +68,23 @@ class TopicTaxonomyButton extends StatelessWidget {
         hasPopup: true,
         expanded: expanded,
         alignment: AlignmentDirectional.centerStart,
-        variant: DButtonVariant.outline,
-        backgroundColor: categoryColor == null
+        variant: quiet ? DButtonVariant.secondary : DButtonVariant.outline,
+        backgroundColor: quiet
+            ? (categoryColor == null
+                  ? quietSelected
+                        ? Color.lerp(
+                            DTokens.of(context).muted,
+                            DTokens.of(context).foreground,
+                            .08,
+                          )
+                        : DTokens.of(context).muted
+                  : Color.lerp(DTokens.of(context).muted, categoryColor, .12))
+            : categoryColor == null
             ? null
             : Color.lerp(DTokens.of(context).background, categoryColor, .18),
-        borderColor: categoryColor == null
+        borderColor: quiet
+            ? Colors.transparent
+            : categoryColor == null
             ? null
             : Color.lerp(DTokens.of(context).background, categoryColor, .38),
         interactiveBackgroundColor: categoryColor == null

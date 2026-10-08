@@ -70,9 +70,9 @@ class ChatBrowseNavigation extends StatelessWidget {
               ),
           ],
           onChanged: (values) => switch (values.single) {
-            ChatBrowsePage.chats => shell.openChats(),
-            ChatBrowsePage.channels => shell.openBrowseChannels(),
-            ChatBrowsePage.threads => shell.openMyThreads(),
+            ChatBrowsePage.chats => shell.openChats(newTab: true),
+            ChatBrowsePage.channels => shell.openBrowseChannels(newTab: true),
+            ChatBrowsePage.threads => shell.openMyThreads(newTab: true),
           },
         ),
       ],
@@ -115,7 +115,8 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     },
     triggerBuilder: (context, state, _) => DButton(
       size: DControlSize.filter,
-      variant: DButtonVariant.outline,
+      shape: DButtonShape.pill,
+      variant: DButtonVariant.secondary,
       semanticLabel: '$semanticLabel, $label',
       focusNode: state.focusNode,
       hasPopup: true,

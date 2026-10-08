@@ -31,6 +31,7 @@ class TopicTagSelector extends StatefulWidget {
     this.size = DButtonSize.regular,
     this.valueKey,
     this.sheetOnMobile = false,
+    this.quiet = false,
   });
 
   final List<TopicTag> selectedTags;
@@ -47,6 +48,7 @@ class TopicTagSelector extends StatefulWidget {
   final DButtonSize size;
   final Key? valueKey;
   final bool sheetOnMobile;
+  final bool quiet;
 
   @override
   State<TopicTagSelector> createState() => _TopicTagSelectorState();
@@ -84,11 +86,23 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
     final known = _knownMatches(query);
     final result = await widget.search(query.trim());
     final byName = <String, TopicTag>{};
-    for (final tag in [...known, ...result.results]) {
+    for (final tag
+        in widget.includeAll
+            ? [...result.results, ...known]
+            : [...known, ...result.results]) {
       byName.putIfAbsent(tag.name.toLowerCase(), () => tag);
     }
+    final ordered = byName.values.toList();
+    if (widget.includeAll) {
+      ordered.sort((a, b) {
+        final usage = b.count.compareTo(a.count);
+        if (usage != 0) return usage;
+        final label = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return label != 0 ? label : a.name.compareTo(b.name);
+      });
+    }
     return TopicTagSearch(
-      tags: List.unmodifiable(byName.values),
+      tags: List.unmodifiable(ordered),
       forbidden: result.forbidden,
       forbiddenMessage: result.forbiddenMessage,
     );
@@ -234,6 +248,8 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       builder: (context, trigger) => TopicTaxonomyButton(
         buttonKey: widget.valueKey,
         size: widget.size,
+        quiet: widget.quiet,
+        quietSelected: selected.isNotEmpty,
         showChevron: true,
         label: label,
         icon: selected.isEmpty ? const DIcon(DIcons.tag) : null,

@@ -879,12 +879,14 @@ class DiscourseApi
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
     int limit = 5,
     String? apiKey,
     String? clientId,
   }) async => _search.searchFilterTags(
     siteUrl: siteUrl,
     term: term,
+    categoryId: categoryId,
     limit: limit,
     apiKey: apiKey,
     clientId: clientId,

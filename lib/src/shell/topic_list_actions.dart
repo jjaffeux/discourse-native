@@ -35,7 +35,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   late String _query = widget.query;
   List<TopicFilterOption>? _options;
   bool _loading = false;
-  int _presetRevision = 0;
   ShellController? _shell;
   String? _tabId;
   Object? _owner;
@@ -100,7 +99,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     if (_tabId case final tabId? when shell.activeTabId != tabId) {
       shell.selectTab(tabId);
     }
-    await (widget.onSubmitted ?? shell.submitTopicFilter)(query);
+    await (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(query);
   }
 
   @override
@@ -114,7 +113,10 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   Widget build(BuildContext context) => DPopover(
     controller: _popover,
     onOpenChange: (open, _) {
-      if (open) unawaited(_load());
+      if (open) {
+        setState(() => _query = widget.query);
+        unawaited(_load());
+      }
     },
     content: DPopoverContent(
       width: 400,
@@ -125,9 +127,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 12,
         children: [
-          Text(context.l10n.filterTopics),
           TopicFilterInput(
-            key: ValueKey(_presetRevision),
             siteUrl: widget.siteUrl,
             initialQuery: _query,
             options: _options ?? const [],
@@ -136,44 +136,17 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             ).filterCategoriesFor(widget.siteUrl),
             hintText: context.l10n.addAFilter,
             tokenized: true,
-            multiline: true,
+            multiline: false,
             padding: EdgeInsets.zero,
             onChanged: (query) => setState(() => _query = query),
             onSubmitted: _apply,
-          ),
-          Wrap(
-            spacing: DSpacing.controlGap,
-            runSpacing: 8,
-            children: [
-              for (final (label, query) in [
-                (context.l10n.openTopics, 'status:open'),
-                (context.l10n.unanswered, 'status:noreplies'),
-                (context.l10n.closedTopics, 'status:closed'),
-                (context.l10n.bookmarked, 'in:bookmarked'),
-                (context.l10n.unreadReplies, 'in:new-replies'),
-                (context.l10n.newTopicsTopiclistactions, 'in:new-topics'),
-                (context.l10n.unseen, 'in:unseen'),
-                (context.l10n.watching, 'in:watching'),
-                (context.l10n.tracking, 'in:tracking'),
-              ])
-                DToggle(
-                  pressed: splitTopicFilterQuery(_query).contains(query),
-                  variant: DToggleVariant.outline,
-                  onPressedChanged: (pressed) => setState(() {
-                    _query = setTopicFilterShortcut(
-                      _query,
-                      query,
-                      selected: pressed,
-                    );
-                    _presetRevision++;
-                  }),
-                  child: Text(label),
-                ),
-            ],
+            onDismiss: _popover.close,
           ),
           const DSeparator(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
             children: [
               if (widget.query.isNotEmpty) ...[
                 DButton(
@@ -181,7 +154,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                   variant: DButtonVariant.ghost,
                   onPressed: () => _apply(''),
                 ),
-                const Spacer(),
               ],
               DButton(
                 label: Text(context.l10n.applyFilter),
@@ -193,41 +165,26 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       ),
     ),
     child: DPopoverTrigger(
-      builder: (context, trigger) => widget.label == null
-          ? DButton.iconOnly(
-              key: const ValueKey('topic-list-filter'),
-              tooltip: widget.query.isEmpty
-                  ? context.l10n.filterTopics
-                  : context.l10n.editActiveFilter,
-              icon: const DIcon(DNativeIcons.filterLines),
-              size: DButtonSize.large,
-              variant: widget.query.isEmpty
-                  ? DButtonVariant.transparentBackground
-                  : DButtonVariant.primary,
-              focusNode: trigger.focusNode,
-              expanded: trigger.open,
-              hasPopup: true,
-              onPressed: trigger.toggle,
-            )
-          : DButton(
-              key: const ValueKey('topic-list-filter'),
-              label: Text(widget.label!),
-              tooltip: widget.query.isEmpty
-                  ? context.l10n.filterTopics
-                  : context.l10n.editActiveFilter,
-              icon: const DIcon(DNativeIcons.filterLines, size: 12),
-              size: DButtonSize.filter,
-              variant: widget.query.isEmpty
-                  ? DButtonVariant.secondary
-                  : DButtonVariant.primary,
-              backgroundColor: widget.query.isEmpty
-                  ? DTokens.of(context).buttonTheme.outline.hover
-                  : null,
-              focusNode: trigger.focusNode,
-              expanded: trigger.open,
-              hasPopup: true,
-              onPressed: trigger.toggle,
-            ),
+      builder: (context, trigger) => DButton(
+        key: const ValueKey('topic-list-filter'),
+        label: Text(
+          '${widget.label ?? context.l10n.startPageFilters}${widget.query.isEmpty ? '' : ' ${splitTopicFilterQuery(widget.query).length}'}',
+        ),
+        tooltip: widget.query.isEmpty
+            ? context.l10n.filterTopics
+            : context.l10n.editActiveFilter,
+        icon: const DIcon(DNativeIcons.filterLines, size: 12),
+        size: DButtonSize.filter,
+        shape: DButtonShape.pill,
+        variant: DButtonVariant.secondary,
+        backgroundColor: widget.query.isEmpty
+            ? DTokens.of(context).buttonTheme.outline.hover
+            : null,
+        focusNode: trigger.focusNode,
+        expanded: trigger.open,
+        hasPopup: true,
+        onPressed: trigger.toggle,
+      ),
     ),
   );
 }

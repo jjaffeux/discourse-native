@@ -709,7 +709,10 @@ void main() {
     await _openFilter(tester, settle: false);
     expect(find.byKey(const ValueKey('topic-filter-input')), findsOneWidget);
     expect(find.byType(DProgress), findsNothing);
-    await tester.tap(find.text('Unanswered'));
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-filter-input')),
+      'status:noreplies',
+    );
     await tester.pump();
     expect(_filterQuery(tester), 'status:noreplies');
     gate.complete();
@@ -742,20 +745,22 @@ void main() {
         await tester.pumpAndSettle();
 
         final firstRow = find.byKey(
-          const ValueKey('topic-filter-suggestion-0'),
-        );
-        final secondRow = find.byKey(
           const ValueKey('topic-filter-suggestion-1'),
         );
+        final secondRow = find.byKey(
+          const ValueKey('topic-filter-suggestion-2'),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
         expect(tester.getSize(firstRow).height, greaterThanOrEqualTo(32));
         expect(tester.getSize(secondRow).height, greaterThanOrEqualTo(32));
         expect(
           find.descendant(of: firstRow, matching: find.byType(DIcon)),
-          findsNothing,
+          findsOneWidget,
         );
         expect(
           find.descendant(of: secondRow, matching: find.byType(DIcon)),
-          findsNothing,
+          findsOneWidget,
         );
         _expectSelectedRow(tester, firstRow);
         _expectSuggestionSemantics(
@@ -812,7 +817,11 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
         await tester.pump();
-        _expectSelectedRow(tester, firstRow);
+        _expectSelectedRow(
+          tester,
+          find.byKey(const ValueKey('topic-filter-suggestion-0')),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pump();
         _expectSelectedRow(tester, secondRow);
@@ -883,117 +892,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
 
-    expect(tester.widget<TextField>(field).controller!.text, 'tag:');
+    expect(tester.widget<TextField>(field).controller!.text, 'category:');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-  testWidgets('multiline filter keeps editing separate from submission', (
-    tester,
-  ) async {
-    final api = FakeDiscourseApi(
-      feeds: const {'/latest.json': [], '/filter.json': []},
-    );
-    await _pump(tester, api);
-    await _openFilter(tester);
-    final textarea = find.byType(DInputGroupTextarea);
-    final field = find.descendant(
-      of: textarea,
-      matching: find.byType(TextField),
-    );
-    expect(
-      tester.widget<TextField>(field).textInputAction,
-      TextInputAction.newline,
-    );
-    expect(tester.widget<TextField>(field).minLines, 1);
-    final group = find.ancestor(
-      of: textarea,
-      matching: find.byType(DInputGroup),
-    );
-    final initialBounds = tester.getRect(group);
-    await tester.enterText(
-      field,
-      'status:open\ncategory:feature\ntag_group:"Design team"\ncreated:30\ntag:feedback',
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(find.text('Apply filter'), findsOneWidget);
-    expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    expect(
-      _filterQuery(tester),
-      'status:open category:feature tag_group:"Design team" created:30 tag:feedback',
-    );
-    final apply = tester.getRect(
-      find.ancestor(
-        of: find.text('Apply filter'),
-        matching: find.byType(DButton),
-      ),
-    );
-    expect(apply.right, closeTo(tester.getRect(textarea).right, 1));
-    expect(
-      apply.top,
-      greaterThan(tester.getRect(find.text('Tracking')).bottom),
-    );
-    final expectedClauses = [
-      'status:open',
-      'category:feature',
-      'tag_group:"Design team"',
-      'created:30',
-      'tag:feedback',
-    ];
-    for (final (label, query) in [
-      ('New topics', 'in:new-topics'),
-      ('Unseen', 'in:unseen'),
-      ('Watching', 'in:watching'),
-      ('Tracking', 'in:tracking'),
-      ('Closed topics', 'status:closed'),
-    ]) {
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-      expectedClauses.removeWhere(
-        (clause) => clause.startsWith('${query.split(':').first}:'),
-      );
-      expectedClauses.add(query);
-      expect(tester.getRect(group), initialBounds);
-      expect(_filterQuery(tester), expectedClauses.join(' '));
-      expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    }
-    final chips = find.byWidgetPredicate(
-      (widget) =>
-          widget is Row &&
-          widget.key is ValueKey<String> &&
-          (widget.key! as ValueKey<String>).value.startsWith(
-            'topic-filter-token-',
-          ),
-    );
-    final first = tester.getRect(chips.first);
-    final last = tester.getRect(chips.last);
-    expect(last.top, greaterThan(first.top));
-    final surface = tester.getRect(
-      find.ancestor(of: textarea, matching: find.byType(DInputGroup)),
-    );
-    expect(surface.contains(first.topLeft), isTrue);
-    final scrollable = find
-        .descendant(of: group, matching: find.byType(Scrollable))
-        .first;
-    final position = tester.state<ScrollableState>(scrollable).position;
-    expect(position.maxScrollExtent, greaterThan(0));
-    await tester.drag(
-      find.descendant(of: group, matching: find.byType(DScrollArea)),
-      const Offset(0, -200),
-    );
-    await tester.pumpAndSettle();
-    expect(position.pixels, greaterThan(0));
-    expect(tester.getRect(group), initialBounds);
-    await tester.ensureVisible(find.text('Apply filter'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply filter'));
-    await tester.pumpAndSettle();
-    expect(
-      api.feedPaths,
-      contains(
-        '/filter.json?q=${Uri.encodeQueryComponent(expectedClauses.join(' '))}',
-      ),
-    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('editing a chip stages its key and applies the replacement', (
@@ -1010,7 +910,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    final textarea = find.byType(DInputGroupTextarea);
+    final textarea = find.byKey(const ValueKey('topic-filter-input'));
     final field = find.descendant(
       of: textarea,
       matching: find.byType(TextField),
@@ -1039,7 +939,7 @@ void main() {
     expect(
       api.feedPaths,
       contains(
-        '/filter.json?q=${Uri.encodeQueryComponent('tag:"customer feedback" status:closed')}',
+        '/filter.json?q=${Uri.encodeQueryComponent('status:closed tag:"customer feedback"')}',
       ),
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1052,7 +952,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    final textarea = find.byType(DInputGroupTextarea);
+    final textarea = find.byKey(const ValueKey('topic-filter-input'));
     await tester.enterText(textarea, 'tag:bug -tag_group:"Design team" ');
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
@@ -1074,7 +974,12 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pumpAndSettle();
     expect(
-      tester.widget<DTextarea>(textarea).controller!.text,
+      tester
+          .widget<TextField>(
+            find.descendant(of: textarea, matching: find.byType(TextField)),
+          )
+          .controller!
+          .text,
       '"status:open"',
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1087,7 +992,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    final textarea = find.byType(DInputGroupTextarea);
+    final textarea = find.byKey(const ValueKey('topic-filter-input'));
     await tester.enterText(textarea, 'category:parent:child status:open ');
     await tester.pumpAndSettle();
     final edit = find.byKey(const ValueKey('topic-filter-token-edit-0'));
@@ -1111,153 +1016,6 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('quick filters replace choices that share a key', (tester) async {
-    final api = FakeDiscourseApi(
-      feeds: const {'/latest.json': [], '/filter.json': []},
-    );
-    await _pump(tester, api);
-    await _openFilter(tester);
-    await tester.enterText(
-      find.byType(DInputGroupTextarea),
-      'tag:"customer feedback"',
-    );
-    await tester.pumpAndSettle();
-    for (final label in [
-      'Open topics',
-      'Closed topics',
-      'Bookmarked',
-      'Watching',
-    ]) {
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-    }
-    expect(
-      _filterQuery(tester),
-      'tag:"customer feedback" status:closed in:watching',
-    );
-    expect(
-      tester
-          .widget<DToggle>(find.widgetWithText(DToggle, 'Open topics'))
-          .pressed,
-      isFalse,
-    );
-    expect(
-      tester
-          .widget<DToggle>(find.widgetWithText(DToggle, 'Bookmarked'))
-          .pressed,
-      isFalse,
-    );
-    await tester.tap(find.text('Watching'));
-    await tester.pumpAndSettle();
-    expect(_filterQuery(tester), 'tag:"customer feedback" status:closed');
-    await tester.tap(find.text('Apply filter'));
-    await tester.pumpAndSettle();
-    expect(
-      api.feedPaths,
-      contains(
-        '/filter.json?q=${Uri.encodeQueryComponent('tag:"customer feedback" status:closed')}',
-      ),
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-  testWidgets('quick filters toggle exact clauses and follow manual edits', (
-    tester,
-  ) async {
-    final api = FakeDiscourseApi(
-      feeds: const {'/latest.json': [], '/filter.json': []},
-    );
-    await _pump(tester, api);
-    await _openFilter(tester);
-    final textarea = find.byType(DInputGroupTextarea);
-    DToggle toggle(String label) => tester.widget<DToggle>(
-      find.ancestor(of: find.text(label), matching: find.byType(DToggle)),
-    );
-    String draft() => _filterQuery(tester);
-
-    await tester.enterText(
-      textarea,
-      'tag:"customer feedback"\n"status:open"\n-status:open',
-    );
-    await tester.pumpAndSettle();
-    expect(toggle('Open topics').pressed, isFalse);
-    await tester.tap(find.text('Open topics'));
-    await tester.pumpAndSettle();
-    expect(toggle('Open topics').pressed, isTrue);
-    expect(
-      draft(),
-      'tag:"customer feedback" "status:open" -status:open status:open',
-    );
-    final bookmarkBounds = tester.getRect(
-      find.widgetWithText(DToggle, 'Bookmarked'),
-    );
-    await tester.tap(find.text('Bookmarked'));
-    await tester.pumpAndSettle();
-    expect(
-      tester.getRect(find.widgetWithText(DToggle, 'Bookmarked')),
-      bookmarkBounds,
-    );
-    expect(toggle('Open topics').pressed, isTrue);
-    expect(toggle('Bookmarked').pressed, isTrue);
-    expect(
-      find.descendant(
-        of: find.widgetWithText(DToggle, 'Bookmarked'),
-        matching: find.byType(DIcon),
-      ),
-      findsNothing,
-    );
-    expect(draft(), endsWith('status:open in:bookmarked'));
-    await tester.tap(find.text('Open topics'));
-    await tester.pumpAndSettle();
-    expect(toggle('Open topics').pressed, isFalse);
-    expect(toggle('Bookmarked').pressed, isTrue);
-    expect(
-      find.descendant(
-        of: find.widgetWithText(DToggle, 'Bookmarked'),
-        matching: find.byType(DIcon),
-      ),
-      findsNothing,
-    );
-    expect(
-      draft(),
-      'tag:"customer feedback" "status:open" -status:open in:bookmarked',
-    );
-
-    final group = find.ancestor(
-      of: textarea,
-      matching: find.byType(DInputGroup),
-    );
-    final groupBounds = tester.getRect(group);
-    for (var i = 0; i < 4; i++) {
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('topic-filter-token-remove-0')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('topic-filter-token-remove-0')),
-      );
-      await tester.pumpAndSettle();
-    }
-    expect(tester.getRect(group), groupBounds);
-    expect(toggle('Bookmarked').pressed, isFalse);
-    await tester.enterText(textarea, 'status:open status:open tag:feedback');
-    await tester.pumpAndSettle();
-    expect(toggle('Open topics').pressed, isTrue);
-    expect(toggle('Bookmarked').pressed, isFalse);
-    await tester.tap(find.text('Open topics'));
-    await tester.pumpAndSettle();
-    expect(draft(), 'tag:feedback');
-    expect(toggle('Open topics').pressed, isFalse);
-    expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    await tester.tap(find.text('Bookmarked'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply filter'));
-    await tester.pumpAndSettle();
-    expect(
-      api.feedPaths,
-      contains('/filter.json?q=tag%3Afeedback+in%3Abookmarked'),
-    );
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
   for (final modifier in [
     LogicalKeyboardKey.metaLeft,
     LogicalKeyboardKey.controlLeft,
@@ -1275,7 +1033,10 @@ void main() {
       );
       await _pump(tester, api);
       await _openFilter(tester);
-      await tester.enterText(find.byType(DInputGroupTextarea), 'tag');
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-filter-input')),
+        'tag',
+      );
       await tester.pumpAndSettle();
       expect(find.text('tag:'), findsOneWidget);
       await tester.sendKeyDownEvent(modifier);
@@ -1283,7 +1044,7 @@ void main() {
       await tester.sendKeyUpEvent(modifier);
       await tester.pumpAndSettle();
       expect(api.feedPaths, contains('/filter.json?q=tag'));
-      expect(find.byType(DInputGroupTextarea), findsNothing);
+      expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
 
@@ -1301,7 +1062,7 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
-    await tester.tap(find.byType(DInputGroupTextarea));
+    await tester.tap(find.byKey(const ValueKey('topic-filter-input')));
     await tester.pumpAndSettle();
     final rows = find.byType(DComboboxItem<TopicFilterSuggestion>);
     final count = rows.evaluate().length;
@@ -1450,7 +1211,12 @@ String _filterQuery(WidgetTester tester) {
       .where((tooltip) => tooltip.child is Row)
       .map((tooltip) => tooltip.message);
   final draft = tester
-      .widget<DTextarea>(find.byType(DInputGroupTextarea))
+      .widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-input')),
+          matching: find.byType(TextField),
+        ),
+      )
       .controller!
       .text
       .trim();

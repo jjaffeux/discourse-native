@@ -104,7 +104,15 @@ class TopicCategoryPathSelector extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 130),
               child: DButton(
                 size: DButtonSize.filter,
-                variant: DButtonVariant.outline,
+                variant: DButtonVariant.secondary,
+                shape: DButtonShape.pill,
+                backgroundColor: category == null
+                    ? DTokens.of(context).muted
+                    : Color.lerp(
+                        DTokens.of(context).muted,
+                        DTokens.of(context).foreground,
+                        .08,
+                      ),
                 alignment: AlignmentDirectional.centerStart,
                 label: Text(
                   label,
@@ -153,7 +161,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DButtonGroup(
-          sharedOutline: true,
+          sharedOutline: false,
           semanticLabel: context.l10n.filterByCategory,
           children: [
             for (var level = 0; level < levels; level++) ...[

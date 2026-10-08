@@ -14,6 +14,8 @@ SidebarSection buildCategorySidebarSection({
   List<int> defaultCategoryIds = const [],
   bool fixedCategoryPositions = false,
   bool allowUncategorizedTopics = false,
+  bool levelNavigation = false,
+  int? scopeCategoryId,
 }) {
   final byId = {for (final category in categories) category.id: category};
   final displayable = allowUncategorizedTopics
@@ -29,7 +31,24 @@ SidebarSection buildCategorySidebarSection({
   );
 
   final List<TopicCategory> visible;
-  if (selectedIds.isNotEmpty) {
+  final scoped = byId[scopeCategoryId];
+  final base =
+      scoped != null &&
+          displayable.any((item) => item.parentCategoryId == scoped.id)
+      ? scoped
+      : byId[scoped?.parentCategoryId];
+  if (levelNavigation) {
+    visible = [
+      ?base,
+      ...ordered.where(
+        (category) =>
+            (byId.containsKey(category.parentCategoryId)
+                ? category.parentCategoryId
+                : null) ==
+            base?.id,
+      ),
+    ];
+  } else if (selectedIds.isNotEmpty) {
     visible = ordered
         .where((category) => selected.contains(category.id))
         .toList(growable: false);
@@ -49,6 +68,7 @@ SidebarSection buildCategorySidebarSection({
   return SidebarSection(
     id: 'categories',
     title: appL10n.categories,
+    collapsible: base == null,
     destinations: List.unmodifiable([
       for (final category in visible)
         buildCategoryDestination(category, categoriesById: byId),

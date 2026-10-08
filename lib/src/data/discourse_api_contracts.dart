@@ -1,4 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
+
 import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
@@ -532,6 +533,7 @@ abstract interface class ShellLookupApi {
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
+    int? categoryId,
     int limit = 5,
     String? apiKey,
     String? clientId,
