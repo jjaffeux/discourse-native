@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'thread-writing',
+    name: 'Thread writing',
+    sections: ['Thread writing'],
+  ),
+  ComponentReference(
     id: 'text-revision-preview',
     name: 'Text revision preview',
     sections: ['Discard preview', 'Reduced motion'],

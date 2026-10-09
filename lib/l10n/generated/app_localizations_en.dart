@@ -11531,6 +11531,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rightToLeft => 'Right to left';
 
   @override
+  String get hideSpoiler => 'Hide spoiler';
+
+  @override
+  String returningUserLastPost(String username, String duration) {
+    return 'It’s been a while since we’ve seen $username — their last post was $duration ago.';
+  }
+
+  @override
+  String get newSinceLastVisit => 'New since your last visit';
+
+  @override
+  String get reduceMotionDescription =>
+      'Keep cards, menus and celebrations still.';
+
+  @override
+  String get reduceMotionFollowsDeviceDescription =>
+      'Keep cards, menus and celebrations still. Follows this device until you change it.';
+
+  @override
   String get reduceMotion => 'Reduce motion';
 
   @override

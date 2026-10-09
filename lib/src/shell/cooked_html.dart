@@ -122,6 +122,7 @@ class CookedHtml extends StatelessWidget {
           ) ??
           cookedSpoilerWidgetBuilder(
             element,
+            textStyle: textStyle,
             contentBuilder: (context, html) =>
                 nestedContentBuilder(context, html, textStyle),
           ) ??

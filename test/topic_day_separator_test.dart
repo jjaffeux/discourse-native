@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
@@ -14,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/button_surface.dart';
@@ -21,6 +24,154 @@ import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['THREAD_NOTES_RENDER_DIR'] == null) return;
+    final fonts =
+        jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
+    for (final entry in fonts.cast<Map<String, dynamic>>()) {
+      final loader = FontLoader(entry['family'] as String);
+      for (final face
+          in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+        loader.addFont(rootBundle.load(face['asset'] as String));
+      }
+      await loader.load();
+    }
+  });
+  for (final lastRead in <int?>[null, 0, 1, 2, 3]) {
+    testWidgets('last visit marker uses the entry boundary $lastRead', (
+      tester,
+    ) async {
+      final site = instance('meta.example');
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      final posts = [
+        for (var number = 1; number <= 3; number++)
+          Post(
+            id: number,
+            postNumber: number,
+            username: 'sam',
+            cooked: '<p>Post $number</p>',
+          ),
+      ];
+      controller.store
+        ..put(
+          site.url,
+          TopicDetail(
+            id: 1,
+            title: 'A conversation',
+            stream: const [1, 2, 3],
+            postsCount: 3,
+            lastReadPostNumber: lastRead,
+          ),
+        )
+        ..putAll(site.url, posts);
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 1,
+          slug: 'conversation',
+          title: 'A conversation',
+        ),
+      );
+      const capture = ValueKey('visit-capture');
+      await tester.pumpWidget(
+        RepaintBoundary(key: capture, child: _topicView(controller)),
+      );
+      await tester.pumpAndSettle();
+      final shown = lastRead != null && lastRead > 0 && lastRead < 3;
+      expect(
+        find.text('New since your last visit'),
+        shown ? findsOneWidget : findsNothing,
+      );
+      if (shown) {
+        expect(
+          find.byKey(ValueKey('topic-last-visit-${lastRead + 1}')),
+          findsOneWidget,
+        );
+        // Read receipts must not move the marker during this visit.
+        controller.store.put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'A conversation',
+            stream: [1, 2, 3],
+            postsCount: 3,
+            lastReadPostNumber: 3,
+          ),
+        );
+        await tester.pump(const Duration(seconds: 2));
+        expect(
+          find.byKey(ValueKey('topic-last-visit-${lastRead + 1}')),
+          findsOneWidget,
+        );
+        controller.openCurrentTopicPost(1);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(ValueKey('topic-last-visit-${lastRead + 1}')),
+          findsOneWidget,
+        );
+      }
+      final output = Platform.environment['THREAD_NOTES_RENDER_DIR'];
+      if (lastRead == 1 && output != null) {
+        await tester.runAsync(() async {
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(capture),
+          );
+          final image = await boundary.toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          await Directory(output).create(recursive: true);
+          await File(
+            '$output/last-visit.png',
+          ).writeAsBytes(data!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+    });
+  }
+
+  for (final loaded in [
+    const [1, 3],
+    const [3],
+  ]) {
+    testWidgets('last visit respects the loaded stream $loaded', (
+      tester,
+    ) async {
+      final site = instance('meta.example');
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: loaded,
+            postsCount: loaded.length,
+            lastReadPostNumber: 1,
+          ),
+        )
+        ..putAll(site.url, [
+          for (final number in loaded)
+            Post(
+              id: number,
+              postNumber: number,
+              username: 'sam',
+              cooked: '<p>Post $number</p>',
+            ),
+        ]);
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('New since your last visit'),
+        loaded.length == 2 ? findsOneWidget : findsNothing,
+      );
+    });
+  }
+
   testWidgets('skips reveal for a sliver child without a layout offset', (
     tester,
   ) async {
@@ -649,7 +800,11 @@ Widget _topicView(
 }) => ShellScope(
   controller: controller,
   child: MaterialApp(
-    theme: theme ?? AppTheme.light,
+    theme:
+        theme ??
+        (Platform.environment['THREAD_NOTES_RENDER_DIR'] == null
+            ? AppTheme.light
+            : AppTheme.forBrightness(Brightness.light, fontFamily: 'Lato')),
     home: Scaffold(body: TopicView(now: now)),
   ),
 );

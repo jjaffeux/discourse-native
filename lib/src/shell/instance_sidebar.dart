@@ -13,6 +13,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'composer_presentation.dart';
@@ -851,10 +852,14 @@ class _SidebarPanelTabs extends StatelessWidget {
       children: [
         DTabList<String>(
           variant: DTabListVariant.defaultStyle,
+          expandSelected: true,
           children: [
             DTabTrigger(
               key: const ValueKey('sidebar-panel-switch-main'),
               value: 'forum',
+              icon: const DIcon(DIcons.layerGroup),
+              selectedLabelOnly: true,
+              semanticLabel: context.l10n.forum,
               child: Text(context.l10n.forum),
             ),
             for (final candidate in panels)
@@ -864,18 +869,18 @@ class _SidebarPanelTabs extends StatelessWidget {
                     'sidebar-panel-switch-${candidate.owner.value}',
                   ),
                   value: candidate.owner.value,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: DSpacing.xs,
-                    children: [
-                      Text(candidate.panel.label),
-                      ?candidate.panel.badge,
-                    ],
-                  ),
+                  icon: DIcon(candidate.panel.icon),
+                  trailing: candidate.panel.badge,
+                  selectedLabelOnly: true,
+                  semanticLabel: candidate.panel.label,
+                  child: Text(candidate.panel.label),
                 ),
             DTabTrigger(
               key: const ValueKey('sidebar-panel-switch-shortcuts'),
               value: 'shortcuts',
+              icon: const DIcon(DNativeIcons.bolt),
+              selectedLabelOnly: true,
+              semanticLabel: context.l10n.shortcutsInstancesidebar,
               child: Text(context.l10n.shortcutsInstancesidebar),
             ),
           ],

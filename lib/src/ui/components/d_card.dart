@@ -7,7 +7,7 @@ import '../foundation/tokens.dart';
 enum DCardSize { normal, small }
 
 /// Capsule surfaces group compact actions while children retain their controls.
-enum DCardVariant { standard, capsule }
+enum DCardVariant { standard, capsule, well }
 
 /// A passive surface. Actions, selection, loading and errors belong to children.
 ///
@@ -15,9 +15,11 @@ enum DCardVariant { standard, capsule }
 /// [leading] and [trailing] place images or other content against clipped edges.
 /// A [footer] removes bottom padding. Children retain their native interaction
 /// owners; the zero-elevation Material supports ink without creating an action.
-class DCard extends StatelessWidget {
+class DCard extends ImplicitlyAnimatedWidget {
   const DCard({
     super.key,
+    super.duration = Duration.zero,
+    super.curve = Curves.easeOutCubic,
     this.children = const [],
     this.child,
     this.size = DCardSize.normal,
@@ -63,7 +65,50 @@ class DCard extends StatelessWidget {
   final DCardFooter? footer;
 
   @override
+  AnimatedWidgetBaseState<DCard> createState() => _DCardState();
+}
+
+class _DCardState extends AnimatedWidgetBaseState<DCard> {
+  ColorTween? _fill;
+  ColorTween? _outline;
+  @override
+  void forEachTween(TweenVisitor<dynamic> visitor) {
+    _fill =
+        visitor(
+              _fill,
+              widget.backgroundColor,
+              (value) => ColorTween(begin: value as Color),
+            )
+            as ColorTween?;
+    _outline =
+        visitor(
+              _outline,
+              widget.borderColor,
+              (value) => ColorTween(begin: value as Color),
+            )
+            as ColorTween?;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final child = widget.child;
+    final children = widget.children;
+    final size = widget.size;
+    final variant = widget.variant;
+    final spacing = widget.spacing;
+    final backgroundColor = MediaQuery.disableAnimationsOf(context)
+        ? widget.backgroundColor
+        : _fill?.evaluate(animation);
+    final borderColor = MediaQuery.disableAnimationsOf(context)
+        ? widget.borderColor
+        : _outline?.evaluate(animation);
+    final border = widget.border;
+    final dashedBorder = widget.dashedBorder;
+    final borderRadius = widget.borderRadius;
+    final leading = widget.leading;
+    final trailing = widget.trailing;
+    final footer = widget.footer;
+
     final tokens = DTokens.of(context);
     final capsule = variant == DCardVariant.capsule;
     final compactCapsule = capsule && size == DCardSize.small;
@@ -82,6 +127,11 @@ class DCard extends StatelessWidget {
                       tokens.foreground.withValues(alpha: .04),
                       tokens.background,
                     )
+            : variant == DCardVariant.well
+            ? Color.alphaBlend(
+                Colors.black.withValues(alpha: .08),
+                tokens.background,
+              )
             : tokens.background);
     final inset =
         spacing ??
@@ -100,7 +150,7 @@ class DCard extends StatelessWidget {
       child: Semantics(
         container: true,
         child: DMaterialSurface(
-          depth: capsule
+          depth: capsule || variant == DCardVariant.well
               ? DSurfaceDepth.recessed
               : child is Expanded
               ? DSurfaceDepth.panel

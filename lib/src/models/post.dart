@@ -11,7 +11,12 @@ import 'user_status.dart';
 
 @immutable
 class PostNotice {
-  const PostNotice({required this.type, this.raw, this.cooked});
+  const PostNotice({
+    required this.type,
+    this.raw,
+    this.cooked,
+    this.lastPostedAt,
+  });
 
   static PostNotice? fromJson(Object? value) {
     final json = jsonObject(value);
@@ -21,22 +26,25 @@ class PostNotice {
       type: type,
       raw: json['raw'] is String ? json['raw'] as String : null,
       cooked: jsonText(json['cooked']),
+      lastPostedAt: jsonDate(json['last_posted_at']),
     );
   }
 
   final String type;
   final String? raw;
   final String? cooked;
+  final DateTime? lastPostedAt;
 
   @override
   bool operator ==(Object other) =>
       other is PostNotice &&
       other.type == type &&
       other.raw == raw &&
-      other.cooked == cooked;
+      other.cooked == cooked &&
+      other.lastPostedAt == lastPostedAt;
 
   @override
-  int get hashCode => Object.hash(type, raw, cooked);
+  int get hashCode => Object.hash(type, raw, cooked, lastPostedAt);
 }
 
 @immutable

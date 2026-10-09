@@ -2,6 +2,22 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('retains the returning user timestamp and includes it in identity', () {
+    final timestamp = DateTime.utc(2025, 2, 4);
+    final notice = PostNotice.fromJson({
+      'type': 'returning_user',
+      'last_posted_at': timestamp.toIso8601String(),
+    })!;
+    expect(notice.lastPostedAt, timestamp);
+    expect(notice, isNot(const PostNotice(type: 'returning_user')));
+    expect(
+      PostNotice.fromJson({
+        'type': 'returning_user',
+        'last_posted_at': 'invalid',
+      })!.lastPostedAt,
+      isNull,
+    );
+  });
   for (final raw in [
     '    code\n\n',
     '\tcode\n',

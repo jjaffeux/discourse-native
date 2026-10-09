@@ -40,12 +40,8 @@ class PostNewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!containsNews(post) && headers.isEmpty && decorationTone == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: child,
-      );
-    }
+    final hasNews =
+        containsNews(post) || headers.isNotEmpty || decorationTone != null;
     final theme = Theme.of(context);
     final tone = post.isDeleted
         ? theme.colorScheme.error
@@ -59,23 +55,49 @@ class PostNewsCard extends StatelessWidget {
                   : post.bookmark != null
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: DCard(
-        key: ValueKey('post-news-card-${post.id}'),
-        spacing: 0,
-        backgroundColor: post.isWhisper
-            ? Colors.transparent
-            : tone.withValues(alpha: .08),
-        borderColor: tone.withValues(alpha: .26),
-        dashedBorder: post.isWhisper,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PostNewsHeader(siteUrl: siteUrl, topicId: topicId, post: post),
-            ...headers,
-            child,
-          ],
+    return ShellSelector<bool>(
+      select: (shell) =>
+          shell.isTopicPostHighlighted(siteUrl, topicId, post.postNumber),
+      builder: (context, highlighted, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: DCard(
+          key: ValueKey('post-news-card-${post.id}'),
+          duration: DMotion.duration(context, DMotion.change),
+          spacing: 0,
+          backgroundColor: !hasNews || post.isWhisper
+              ? Colors.transparent
+              : tone.withValues(alpha: .08),
+          borderColor: highlighted
+              ? theme.colorScheme.primary.withValues(alpha: .65)
+              : hasNews
+              ? tone.withValues(alpha: .26)
+              : Colors.transparent,
+          dashedBorder: post.isWhisper,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DReveal(
+                visible:
+                    post.isDeleted ||
+                    post.hidden ||
+                    post.locked ||
+                    post.bookmark != null ||
+                    headers.isNotEmpty,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PostNewsHeader(
+                      siteUrl: siteUrl,
+                      topicId: topicId,
+                      post: post,
+                    ),
+                    ...headers,
+                  ],
+                ),
+              ),
+              child,
+            ],
+          ),
         ),
       ),
     );

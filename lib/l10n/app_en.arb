@@ -15687,6 +15687,16 @@
   "@rightToLeft": {
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
   },
+  "hideSpoiler": "Hide spoiler",
+  "@hideSpoiler": {"description": "Accessible label for a revealed spoiler."},
+  "returningUserLastPost": "It’s been a while since we’ve seen {username} — their last post was {duration} ago.",
+  "@returningUserLastPost": {"description": "Returning user notice with the server-provided last post time.", "placeholders": {"username": {"type": "String"}, "duration": {"type": "String"}}},
+  "newSinceLastVisit": "New since your last visit",
+  "@newSinceLastVisit": {"description": "Marker above the first unread post when entering a topic."},
+  "reduceMotionDescription": "Keep cards, menus and celebrations still.",
+  "@reduceMotionDescription": {"description": "App accessibility setting description."},
+  "reduceMotionFollowsDeviceDescription": "Keep cards, menus and celebrations still. Follows this device until you change it.",
+  "@reduceMotionFollowsDeviceDescription": {"description": "App accessibility setting description before the user makes a choice."},
   "reduceMotion": "Reduce motion",
   "@reduceMotion": {
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."

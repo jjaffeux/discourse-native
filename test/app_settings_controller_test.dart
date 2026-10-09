@@ -6,6 +6,27 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final reduced in [true, false]) {
+    test(
+      'motion choice $reduced wins over late hydration and failed saves',
+      () async {
+        final gate = Completer<void>();
+        final persistence = _ControlledAppSettingsPersistence(
+          readGate: gate,
+          acceptWrites: false,
+        )..reduceMotion = !reduced;
+        final controller = _controller(persistence);
+        final loading = controller.load();
+        await persistence.readStarted.future;
+        await controller.setReduceMotion(reduced);
+        gate.complete();
+        await loading;
+        expect(controller.reduceMotion, reduced);
+        expect((await controller.store.read()).reduceMotion, reduced);
+      },
+    );
+  }
+
   for (final enabled in [true, false]) {
     test('raw Markdown choice $enabled wins over late hydration', () async {
       final gate = Completer<void>();
@@ -806,6 +827,7 @@ final class _ControlledAppSettingsPersistence
   bool? limitContentSize;
   bool? disableGifAnimations;
   bool? rawMarkdownComposers;
+  bool? reduceMotion;
   String? textScale;
   String? themeMode;
   String? topicListMode;
@@ -832,6 +854,16 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<bool?> readDisableGifAnimations() async => disableGifAnimations;
+
+  @override
+  Future<bool?> readReduceMotion() async => reduceMotion;
+
+  @override
+  Future<bool> writeReduceMotion(bool value) async {
+    if (!acceptWrites) return false;
+    reduceMotion = value;
+    return true;
+  }
 
   @override
   Future<bool?> readRawMarkdownComposers() async => rawMarkdownComposers;

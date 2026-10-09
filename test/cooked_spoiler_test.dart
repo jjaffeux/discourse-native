@@ -47,7 +47,19 @@ Widget _body(
 );
 
 Future<void> _reveal(WidgetTester tester, {int index = 0}) async {
-  await tester.tap(find.text('Spoiler').at(index));
+  final spoiler = find.byType(DSpoiler).at(index);
+  final context = tester.element(spoiler);
+  final rtl = Directionality.of(context) == TextDirection.rtl;
+  final style = DefaultTextStyle.of(context).style;
+  final middleOfLine =
+      MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14) *
+      (style.height ?? 1) /
+      2;
+  await tester.tapAt(
+    rtl
+        ? tester.getTopRight(spoiler) + Offset(-8, middleOfLine)
+        : tester.getTopLeft(spoiler) + Offset(8, middleOfLine),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -64,7 +76,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(DAccordion<int>), findsOneWidget);
+    expect(find.byType(DSpoiler), findsOneWidget);
     expect(find.byType(InlineCode), findsNothing);
     expect(media.builds, 0);
     await _reveal(tester);
@@ -78,7 +90,8 @@ void main() {
     final cooked = tester.widgetList<CookedHtml>(find.byType(CookedHtml)).last;
     expect(cooked.registry, same(registry));
     expect(cooked.linkStyle?.color, Colors.red);
-    await _reveal(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
     expect(find.text('Mounted media'), findsNothing);
     expect(find.byType(InlineCode), findsNothing);
   });
@@ -90,9 +103,9 @@ void main() {
           '<div class="spoiler"><p>Outer secret</p><span class="spoiler">Inner secret</span></div>';
       await tester.pumpWidget(_body(markup));
       await tester.pumpAndSettle();
-      expect(find.text('Spoiler'), findsOneWidget);
+      expect(find.byType(DSpoiler), findsOneWidget);
       await _reveal(tester);
-      expect(find.text('Spoiler'), findsNWidgets(2));
+      expect(find.byType(DSpoiler), findsNWidgets(2));
       expect(find.text('Inner secret', findRichText: true), findsNothing);
       await _reveal(tester, index: 1);
       expect(find.text('Inner secret', findRichText: true), findsOneWidget);
@@ -105,7 +118,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Replacement secret', findRichText: true), findsNothing);
-      expect(find.text('Spoiler'), findsOneWidget);
+      expect(find.byType(DSpoiler), findsOneWidget);
       await _reveal(tester);
       expect(
         find.text('Replacement secret', findRichText: true),
@@ -150,7 +163,8 @@ void main() {
     await selectAll();
     expect(selected, contains('Concealed phrase'));
     expect(semanticsTree(), contains('Concealed phrase'));
-    await _reveal(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
     await selectAll();
     expect(selected, isNot(contains('Concealed phrase')));
     expect(semanticsTree(), isNot(contains('Concealed phrase')));

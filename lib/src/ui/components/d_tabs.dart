@@ -11,6 +11,7 @@ import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_kbd.dart';
+import 'd_tooltip.dart';
 
 /// The visual treatment of a [DTabList].
 enum DTabListVariant {
@@ -471,6 +472,7 @@ class DTabList<T> extends StatelessWidget {
     this.scrollController,
     this.navigationCompact = false,
     this.expandNavigationTabs = true,
+    this.expandSelected = false,
     this.trailing,
   });
 
@@ -489,6 +491,9 @@ class DTabList<T> extends StatelessWidget {
   /// Whether navigation tabs share the available width or pack at the start.
   final bool expandNavigationTabs;
 
+  /// Icon tabs share the strip with the selected label taking the spare width.
+  final bool expandSelected;
+
   /// A fixed trailing action outside the navigation tabs' scrolling area.
   /// Only supported by [DTabListVariant.navigation].
   final Widget? trailing;
@@ -503,6 +508,63 @@ class DTabList<T> extends StatelessWidget {
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
     assert(trailing == null || variant == DTabListVariant.navigation);
+    if (expandSelected) {
+      assert(root.orientation == Axis.horizontal);
+      final tabs = children.cast<DTabTrigger<T>>();
+      final minimum = DControlStyle.scaledHeight(
+        size,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
+      final widths = [
+        for (final tab in tabs)
+          minimum + (tab.trailing == null ? 0 : minimum * 1.5),
+      ];
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final total = widths.fold<double>(0, (a, b) => a + b);
+          final extra = constraints.hasBoundedWidth
+              ? math.max(minimum * 2, constraints.maxWidth - total - 6)
+              : minimum * 2;
+          return SingleChildScrollView(
+            controller: scrollController,
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: tokens.muted,
+                borderRadius: BorderRadius.circular(DRadius.panel),
+              ),
+              child: _DTabListScope<T>(
+                variant: variant,
+                size: size,
+                activateOnFocus: activateOnFocus,
+                loopFocus: loopFocus,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < tabs.length; i++)
+                      TweenAnimationBuilder<double>(
+                        key: ValueKey(('expanding-tab', tabs[i].value)),
+                        tween: Tween(
+                          end:
+                              widths[i] +
+                              (root.value == tabs[i].value ? extra : 0),
+                        ),
+                        duration: DMotion.duration(context, DMotion.change),
+                        curve: Curves.easeOutCubic,
+                        child: tabs[i],
+                        builder: (_, width, child) =>
+                            SizedBox(width: width, child: child),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
     if (variant == DTabListVariant.navigation) {
       assert(
         root.orientation == Axis.horizontal,
@@ -741,6 +803,9 @@ class DTabTrigger<T> extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
+    this.icon,
+    this.trailing,
+    this.selectedLabelOnly = false,
   });
 
   final DControlSize? size;
@@ -750,6 +815,9 @@ class DTabTrigger<T> extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final String? semanticLabel;
+  final Widget? icon;
+  final Widget? trailing;
+  final bool selectedLabelOnly;
 
   @override
   State<DTabTrigger<T>> createState() => _DTabTriggerState<T>();
@@ -875,6 +943,35 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         ? tokens.mutedForeground
         : tokens.foreground.withValues(alpha: .6);
 
+    final label = widget.selectedLabelOnly
+        ? ClipRect(
+            child: AnimatedSize(
+              duration: DMotion.duration(context, DMotion.change),
+              child: selected
+                  ? ExcludeSemantics(
+                      excluding: widget.semanticLabel != null,
+                      child: widget.child,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          )
+        : widget.child;
+    final content = widget.icon == null
+        ? label
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              widget.icon!,
+              if (!widget.selectedLabelOnly || selected)
+                const SizedBox(width: DSpacing.xs),
+              Flexible(child: label),
+              if (widget.trailing case final trailing?) ...[
+                const SizedBox(width: DSpacing.xs),
+                trailing,
+              ],
+            ],
+          );
     final surface = AnimatedContainer(
       duration: flat || horizontalLine
           ? Duration.zero
@@ -959,7 +1056,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                 : AlignmentDirectional.centerStart,
             widthFactor: 1,
             heightFactor: 1,
-            child: widget.child,
+            child: content,
           ),
         ),
       ),
@@ -985,6 +1082,13 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       );
     }
     if (!enabled) artwork = Opacity(opacity: .5, child: artwork);
+    if (widget.selectedLabelOnly && !selected && widget.semanticLabel != null) {
+      artwork = DTooltip(
+        message: widget.semanticLabel!,
+        excludeFromSemantics: true,
+        child: artwork,
+      );
+    }
     return Semantics(
       button: true,
       selected: selected,

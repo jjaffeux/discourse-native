@@ -281,6 +281,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
+  int? _visitLastReadPostNumber;
 
   ScrollController? get _scroll => _viewport.scrollController;
   ListController? get _list => _viewport.listController;
@@ -588,6 +589,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final previousIdentity = _topicIdentity;
     final previousController = _controller;
     final previousTabId = _viewport.binding?.tabId;
+    final previousSession = _viewport.binding?.session;
     final previousScroll = _scroll;
     final changed = _viewport.bind(
       TopicViewportBinding.fromShell(
@@ -597,6 +599,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ),
     );
     if (!changed) return;
+    if (previousIdentity?.$1 != snapshot.siteUrl ||
+        previousIdentity?.$2 != snapshot.topicId ||
+        previousTabId != _viewport.binding?.tabId ||
+        !identical(previousController, controller) ||
+        !identical(previousSession, _viewport.binding?.session)) {
+      _visitLastReadPostNumber = snapshot.topic?.lastReadPostNumber;
+    }
 
     if (previousIdentity?.$1 != snapshot.siteUrl ||
         previousIdentity?.$2 != snapshot.topicId ||
@@ -2434,6 +2443,27 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       ))
         gap.postIndex: gap.daysSince,
     };
+    // Hold the entry boundary while reading advances in the background. A
+    // partial page must not mistake its first loaded row for the first unread.
+    final lastRead = _visitLastReadPostNumber;
+    int? firstUnreadIndex;
+    if (lastRead != null &&
+        lastRead > 0 &&
+        !snapshot.summary &&
+        !snapshot.topic!.isNestedView) {
+      for (var index = 0; index < postIds.length; index++) {
+        final post = controller.store.read<Post>(siteUrl, postIds[index]);
+        if (post == null || post.postNumber <= lastRead) continue;
+        final previous = index > 0
+            ? controller.store.read<Post>(siteUrl, postIds[index - 1])
+            : null;
+        if (post.postNumber == lastRead + 1 ||
+            (previous != null && previous.postNumber <= lastRead)) {
+          firstUnreadIndex = index;
+        }
+        break;
+      }
+    }
     if (!_initialBodyChecked) {
       final position = _viewport.initialPositionFor(snapshot);
       if (position != null) {
@@ -2524,6 +2554,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 )),
           child:
               dayByPostIndex.containsKey(nextPostIndex) ||
+                  nextPostIndex == firstUnreadIndex ||
                   [nextPostIndex - 1, nextPostIndex].any((index) {
                     if (index < 0 || index >= postIds.length) return false;
                     final post = controller.store.read<Post>(
@@ -2604,6 +2635,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           day: day,
           showDayDivider: post?.postNumber != 1,
           timeGapDays: timeGapByPostIndex[postIndex],
+          firstUnread: postIndex == firstUnreadIndex,
           onDayTap: day == null ? null : () => _jumpToDayStart(day),
           gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
           gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
@@ -4331,6 +4363,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.day,
     required this.showDayDivider,
     required this.timeGapDays,
+    required this.firstUnread,
     required this.onDayTap,
     required this.gapBefore,
     required this.gapAfter,
@@ -4353,6 +4386,7 @@ class _TopicPostItem extends StatefulWidget {
   final DateTime? day;
   final bool showDayDivider;
   final int? timeGapDays;
+  final bool firstUnread;
   final VoidCallback? onDayTap;
   final List<int> gapBefore;
   final List<int> gapAfter;
@@ -4478,6 +4512,17 @@ class _TopicPostItemState extends State<_TopicPostItem>
                 child: Opacity(opacity: hidden ? 0 : 1, child: child),
               );
             },
+          ),
+        if (widget.firstUnread)
+          DAlert(
+            key: ValueKey('topic-last-visit-${widget.postId}'),
+            liveRegion: false,
+            backgroundColor: Colors.transparent,
+            borderColor: Colors.transparent,
+            icon: DIcon(DIcons.envelope, color: DTokens.of(context).primary),
+            description: DAlertDescription(
+              child: Text(context.l10n.newSinceLastVisit),
+            ),
           ),
         if (widget.timeGapDays case final daysSince?)
           TimeGapNotice(
@@ -4741,14 +4786,17 @@ class _StoredPostState extends State<_StoredPost> {
               final primary = Theme.of(context).colorScheme.primary;
               return AnimatedContainer(
                 key: ValueKey('topic-post-highlight-${post.id}'),
-                duration: const Duration(milliseconds: 180),
+                duration: DMotion.duration(
+                  context,
+                  const Duration(milliseconds: 180),
+                ),
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
-                  color: highlighted
+                  color: highlighted && isSmallAction
                       ? primary.withValues(alpha: 0.10)
                       : Colors.transparent,
                   border: Border.all(
-                    color: highlighted
+                    color: highlighted && isSmallAction
                         ? primary.withValues(alpha: 0.28)
                         : Colors.transparent,
                   ),
@@ -5008,34 +5056,39 @@ class _PostTileState extends State<_PostTile> {
                                 post: post,
                                 topicId: widget.topic.id,
                                 displayedCooked: displayedCooked,
-                                child: CookedHtml(
-                                  html: displayedCooked,
-                                  renderMode: const ProgressiveHtmlMode(),
-                                  buildAsync: CookedHtml.buildsAsynchronously(
-                                    post.cooked,
+                                child: AnimatedOpacity(
+                                  opacity: post.hidden || post.isDeleted
+                                      ? .5
+                                      : 1,
+                                  duration: DMotion.duration(
+                                    context,
+                                    DMotion.change,
                                   ),
-                                  textStyle: theme.textTheme.bodyLarge
-                                      ?.copyWith(
-                                        height: DiscourseTypography
-                                            .lineHeightCooked,
-                                        color: post.hidden || post.isDeleted
-                                            ? theme.colorScheme.onSurface
-                                                  .withValues(alpha: .5)
-                                            : null,
-                                      ),
-                                  siteUrl: widget.siteUrl,
-                                  post: post,
-                                  containingTopic: PluginContainingTopic(
-                                    id: widget.topic.id,
-                                    slug:
-                                        ShellScope.read(
-                                          context,
-                                        ).currentContent?.slug ??
-                                        'topic',
-                                    archived: widget.topic.archived,
+                                  child: CookedHtml(
+                                    html: displayedCooked,
+                                    renderMode: const ProgressiveHtmlMode(),
+                                    buildAsync: CookedHtml.buildsAsynchronously(
+                                      post.cooked,
+                                    ),
+                                    textStyle: theme.textTheme.bodyLarge
+                                        ?.copyWith(
+                                          height: DiscourseTypography
+                                              .lineHeightCooked,
+                                        ),
+                                    siteUrl: widget.siteUrl,
+                                    post: post,
+                                    containingTopic: PluginContainingTopic(
+                                      id: widget.topic.id,
+                                      slug:
+                                          ShellScope.read(
+                                            context,
+                                          ).currentContent?.slug ??
+                                          'topic',
+                                      archived: widget.topic.archived,
+                                    ),
+                                    mentionedUserStatuses:
+                                        post.mentionedUserStatuses,
                                   ),
-                                  mentionedUserStatuses:
-                                      post.mentionedUserStatuses,
                                 ),
                               ),
                         ),
@@ -5110,6 +5163,8 @@ class _PostTileState extends State<_PostTile> {
   }
 }
 
+final _welcomeSessions = Expando<Set<(String, int?, int)>>();
+
 class _PostNoticeBanner extends StatelessWidget {
   const _PostNoticeBanner({
     required this.siteUrl,
@@ -5136,22 +5191,42 @@ class _PostNoticeBanner extends StatelessWidget {
       'new_user' => context.l10n.thisIsTheFirstTimeHasPostedLetSWelcomeThem(
         (post.username).toString(),
       ),
-      'returning_user' => context.l10n.itSBeenAWhileSinceWeVeSeenWelcomeBack(
-        (post.username).toString(),
-      ),
+      'returning_user' =>
+        notice.lastPostedAt == null
+            ? context.l10n.itSBeenAWhileSinceWeVeSeenWelcomeBack(post.username)
+            : context.l10n.returningUserLastPost(
+                post.username,
+                durationLabel(
+                  DateTime.now().difference(notice.lastPostedAt!).inSeconds,
+                ).long,
+              ),
       _ => notice.raw ?? context.l10n.staffNotice,
     };
+    final seen = _welcomeSessions[controller] ??= {};
+    final welcomeId = (
+      siteUrl,
+      controller.currentUserFor(siteUrl)?.id,
+      post.id,
+    );
     return DAlert(
       key: ValueKey('post-notice-${post.id}'),
       backgroundColor: Colors.transparent,
       borderColor: Colors.transparent,
       liveRegion: false,
       descriptionColor: DTokens.of(context).foreground,
-      icon: DIcon(
-        notice.type == 'new_user' || notice.type == 'returning_user'
-            ? DIcons.hand
-            : DIcons.user,
-        size: 16,
+      icon: DConfetti(
+        enabled:
+            notice.type == 'new_user' &&
+            !post.hidden &&
+            !post.isDeleted &&
+            !seen.contains(welcomeId),
+        onSeen: () => seen.add(welcomeId),
+        child: DIcon(
+          notice.type == 'new_user' || notice.type == 'returning_user'
+              ? DIcons.hand
+              : DIcons.user,
+          size: 16,
+        ),
       ),
       action:
           controller.canEditPostNotice(

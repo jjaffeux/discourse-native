@@ -14,6 +14,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   AppSettings get settings => _settings;
   bool get limitContentSize => _settings.limitContentSize;
   bool get disableGifAnimations => _settings.disableGifAnimations;
+  bool? get reduceMotion => _settings.reduceMotion;
   bool get rawMarkdownComposers => _settings.rawMarkdownComposers;
   AppTextScale get textScale => _settings.textScale;
   AppThemeMode get themeMode => _settings.themeMode;
@@ -25,6 +26,7 @@ final class AppSettingsController extends FrameSafeNotifier {
 
   bool? _selectedLimitContentSize;
   bool? _selectedDisableGifAnimations;
+  bool? _selectedReduceMotion;
   bool? _selectedRawMarkdownComposers;
   AppTextScale? _selectedTextScale;
   AppThemeMode? _selectedThemeMode;
@@ -52,6 +54,7 @@ final class AppSettingsController extends FrameSafeNotifier {
     _settings = loaded.copyWith(
       limitContentSize: _selectedLimitContentSize,
       disableGifAnimations: _selectedDisableGifAnimations,
+      reduceMotion: _selectedReduceMotion,
       rawMarkdownComposers: _selectedRawMarkdownComposers,
       textScale: _selectedTextScale,
       themeMode: _selectedThemeMode,
@@ -86,6 +89,20 @@ final class AppSettingsController extends FrameSafeNotifier {
     _selectedDisableGifAnimations = disabled;
     _settings = _settings.copyWith(disableGifAnimations: disabled);
     final saving = store.update(disableGifAnimations: disabled);
+    unawaited(load());
+    notifySafely();
+    return saving;
+  }
+
+  Future<void> setReduceMotion(bool reduced) {
+    if (isDisposed ||
+        ((_loaded || _selectedReduceMotion != null) &&
+            reduced == reduceMotion)) {
+      return Future<void>.value();
+    }
+    _selectedReduceMotion = reduced;
+    _settings = _settings.copyWith(reduceMotion: reduced);
+    final saving = store.update(reduceMotion: reduced);
     unawaited(load());
     notifySafely();
     return saving;

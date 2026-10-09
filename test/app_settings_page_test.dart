@@ -135,6 +135,16 @@ void main() {
     expect(controller.appSettings.disableGifAnimations, isTrue);
     expect(persistence.disableGifAnimations, isTrue);
 
+    final motion = find.byKey(const ValueKey('reduce-motion-switch'));
+    await tester.ensureVisible(motion);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DSwitchTile>(motion).value, isFalse);
+    await tester.tap(motion);
+    await tester.pump();
+    expect(controller.appSettings.reduceMotion, isTrue);
+    expect(persistence.reduceMotion, isTrue);
+    expect(controller.appSettings.disableGifAnimations, isTrue);
+
     final rawMarkdown = find.byKey(
       const ValueKey('raw-markdown-composers-switch'),
     );

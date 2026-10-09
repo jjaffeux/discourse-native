@@ -123,6 +123,24 @@ class AppSettingsModal extends StatelessWidget {
                 _EffectsSetting(settings: identity.forumSettings),
                 const DFieldSeparator(),
                 DSwitchTile(
+                  key: const ValueKey('reduce-motion-switch'),
+                  hoverHighlight: true,
+                  title: DLabel(child: Text(context.l10n.reduceMotion)),
+                  subtitle: DFieldDescription(
+                    child: Text(
+                      appSettings.reduceMotion == null
+                          ? context.l10n.reduceMotionFollowsDeviceDescription
+                          : context.l10n.reduceMotionDescription,
+                    ),
+                  ),
+                  value:
+                      appSettings.reduceMotion ??
+                      MediaQuery.disableAnimationsOf(context),
+                  onChanged: (reduced) =>
+                      unawaited(appSettings.setReduceMotion(reduced)),
+                ),
+                const DFieldSeparator(),
+                DSwitchTile(
                   key: const ValueKey('disable-gif-animations-switch'),
                   hoverHighlight: true,
                   title: DLabel(child: Text(context.l10n.disableGIFAnimations)),

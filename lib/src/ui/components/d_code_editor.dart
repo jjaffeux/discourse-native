@@ -68,6 +68,7 @@ class DCodeEditor extends StatefulWidget {
     this.focusNode,
     this.onChanged,
     this.readOnly,
+    this.backgroundColor,
     this._semanticLabel,
   });
 
@@ -77,6 +78,9 @@ class DCodeEditor extends StatefulWidget {
   /// Called on text changes, including controller commands and external edits.
   final ValueChanged<String>? onChanged;
   final bool? readOnly;
+
+  /// A containing Native well can own the fill while the editor keeps its syntax.
+  final Color? backgroundColor;
   final String? _semanticLabel;
   String get semanticLabel => _semanticLabel ?? appL10n.codeEditor;
 
@@ -126,6 +130,10 @@ class _DCodeEditorState extends State<DCodeEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
+    final syntax = codeEditorStyles(theme);
+    if (widget.backgroundColor case final color?) {
+      syntax['root'] = syntax['root']!.copyWith(backgroundColor: color);
+    }
     final style = monospaceTextStyle.copyWith(
       fontSize: DControlStyle.labelFontSize,
       height: 1.8,
@@ -137,14 +145,16 @@ class _DCodeEditorState extends State<DCodeEditor> {
       child: Directionality(
         textDirection: TextDirection.ltr,
         child: editor.CodeTheme(
-          data: editor.CodeThemeData(styles: codeEditorStyles(theme)),
+          data: editor.CodeThemeData(styles: syntax),
           child: editor.CodeField(
             controller: widget.controller,
             focusNode: widget.focusNode,
             readOnly: widget.controller.readOnly,
             expands: true,
             wrap: false,
-            background: codeEditorColors(theme).blockBackground,
+            background:
+                widget.backgroundColor ??
+                codeEditorColors(theme).blockBackground,
             padding: const EdgeInsets.symmetric(vertical: DSpacing.md),
             textStyle: style,
             cursorColor: tokens.foreground,

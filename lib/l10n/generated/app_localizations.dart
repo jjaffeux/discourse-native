@@ -19750,6 +19750,36 @@ abstract class AppLocalizations {
   /// **'Right to left'**
   String get rightToLeft;
 
+  /// Accessible label for a revealed spoiler.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide spoiler'**
+  String get hideSpoiler;
+
+  /// Returning user notice with the server-provided last post time.
+  ///
+  /// In en, this message translates to:
+  /// **'It’s been a while since we’ve seen {username} — their last post was {duration} ago.'**
+  String returningUserLastPost(String username, String duration);
+
+  /// Marker above the first unread post when entering a topic.
+  ///
+  /// In en, this message translates to:
+  /// **'New since your last visit'**
+  String get newSinceLastVisit;
+
+  /// App accessibility setting description.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep cards, menus and celebrations still.'**
+  String get reduceMotionDescription;
+
+  /// App accessibility setting description before the user makes a choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep cards, menus and celebrations still. Follows this device until you change it.'**
+  String get reduceMotionFollowsDeviceDescription;
+
   /// English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

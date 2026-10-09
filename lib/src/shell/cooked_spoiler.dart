@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../models/post_checklist.dart';
@@ -9,41 +10,32 @@ import '../models/post_checklist.dart';
 /// The host supplies nested rendering so revealed content retains its context.
 Widget? cookedSpoilerWidgetBuilder(
   dom.Element element, {
+  TextStyle? textStyle,
   required Widget Function(BuildContext, String) contentBuilder,
 }) {
   if (!const {'div', 'span'}.contains(element.localName) ||
       !element.classes.contains('spoiler')) {
     return null;
   }
-  return DAccordion<int>(
-    // A replacement body must never inherit another spoiler's revealed state.
+  Widget spoiler = DSpoiler(
     key: ValueKey((
       'spoiler',
       PostChecklistDocument.contentKey(element.outerHtml),
     )),
-    children: [
-      DAccordionItem<int>(
-        value: 0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DAccordionHeader(
-              child: DAccordionTrigger(
-                child: Text(appL10n.spoilerCookedspoiler),
-              ),
-            ),
-            DAccordionContent(
-              // Closing immediately removes selectable content as well as its
-              // media and focus nodes. The Native component owns disclosure.
-              duration: Duration.zero,
-              child: Builder(
-                builder: (context) =>
-                    contentBuilder(context, element.innerHtml),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
+    text: element.text,
+    hasMedia: element.querySelector('img, video, iframe') != null,
+    showLabel: appL10n.spoilerCookedspoiler,
+    hideLabel: appL10n.hideSpoiler,
+    builder: (context) => contentBuilder(context, element.innerHtml),
   );
+  if (textStyle != null) {
+    spoiler = DefaultTextStyle.merge(style: textStyle, child: spoiler);
+  }
+  return element.localName == 'span'
+      ? InlineCustomWidget(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: spoiler,
+        )
+      : spoiler;
 }

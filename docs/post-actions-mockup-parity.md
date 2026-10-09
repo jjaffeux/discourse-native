@@ -79,3 +79,62 @@ Final integration validation after rebasing on `61a6cd226`:
 plus all eight changed reading integration cases. Scoped `dart analyze` over
 all changed Dart files reported no issues. Light/dark rendered evidence was
 regenerated and inspected from that combined revision.
+
+## Thread notes and writing follow-up
+
+Source: `discourse-native-mockups` commit
+`f9f7c192ff93ad7f346320855e8e609192be0ef8`.
+
+The app already handles the rich cooked content used by the new sample topics,
+post-targeted bookmark navigation, inline mentions, time-gap notices, and
+server-authored first/returning-user notices. The added sample conversations,
+curated bookmarks, and local fixture sorting stay in the mockup; Native keeps
+real forum content and the server's topic order.
+
+This follow-up adds the missing runtime behavior:
+
+- A persisted Reduce motion setting follows the device until explicitly changed
+  and supplies the effective preference to the navigator and Native components.
+- The last-visit marker uses the server's entry read boundary. Read receipts and
+  jumps within the topic cannot advance it. Partial streams do not invent an
+  unread boundary; summary and nested streams omit the marker.
+- First-post welcomes celebrate once per account/post during the shell session
+  when visible, with no particles under reduced motion. Returning-user notices
+  use `last_posted_at` when supplied by the server.
+- Native `DSpoiler` paints solid text-shaped redactions, reveals by pointer or
+  keyboard, and unmounts concealed rich content immediately. Hidden media is not
+  constructed and hidden words are absent from selection and semantics. Empty
+  space between redaction bars is not a pointer target.
+- Status cards retain their post subtree while their fill, outline and headings
+  change. Hidden/deleted body content fades as a whole, and a jumped-to post uses
+  its own card outline for the highlight.
+- Sidebar tabs retain their icons and badges while naming the selected panel.
+  Code and table editors share the Native recessed well, with thinner glass fill
+  and the surrounding theme's syntax colors.
+
+The user explicitly approved the required Native component additions and
+extensions. The component catalogue includes a runnable Thread writing example.
+Spoiler media uses a concealed placeholder until reveal; this does not reproduce
+the mockup's exact hidden rich-content geometry.
+
+Focused validation covers settings persistence/device overrides, read-boundary
+stability and partial streams, spoiler selection/semantics/RTL/media lifecycle,
+welcome visibility/reduced motion, departing-header actions, sidebar tabs, post
+actions/plugin placement, card rendering, and code/table editing. Targeted Dart
+analysis covers all changed Dart files. Light/dark widget-test renders were
+inspected for the components, last-visit marker, and actual code/table editors in
+Standard and Liquid Glass. These are not physical-device or live-account checks.
+
+Render the focused examples with:
+
+```sh
+THREAD_NOTES_RENDER_DIR=/private/tmp/native-thread-notes flutter test test/thread_writing_components_test.dart test/topic_day_separator_test.dart
+```
+
+Four existing failures were reproduced on unchanged main `fcd509a62`:
+the mouse/macOS and touch/iOS variants of
+`backspace after clicking below code removes the block (7, ...)` leave two leading
+newlines; the styleguide catalogue registration test reports a mismatched
+`button-group` section-depth count; and the cooked-markup builder-coverage check
+lacks a fixture for `pdfAttachmentWidgetBuilder`. The cooked-markup rendering and
+unexpected-input probes pass. This follow-up does not repair those failures.

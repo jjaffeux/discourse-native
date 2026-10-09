@@ -34,6 +34,7 @@ final class AppSettings {
   const AppSettings({
     this.limitContentSize = true,
     this.disableGifAnimations = false,
+    this.reduceMotion,
     this.rawMarkdownComposers = false,
     this.textScale = AppTextScale.percent100,
     this.themeMode = AppThemeMode.system,
@@ -44,6 +45,8 @@ final class AppSettings {
 
   final bool limitContentSize;
   final bool disableGifAnimations;
+  // Null follows the device until an explicit choice is made.
+  final bool? reduceMotion;
   final bool rawMarkdownComposers;
   final AppTextScale textScale;
   // Legacy app-wide choice used only to seed existing forums on migration.
@@ -53,6 +56,7 @@ final class AppSettings {
   AppSettings copyWith({
     bool? limitContentSize,
     bool? disableGifAnimations,
+    bool? reduceMotion,
     bool? rawMarkdownComposers,
     AppTextScale? textScale,
     AppThemeMode? themeMode,
@@ -60,6 +64,7 @@ final class AppSettings {
   }) => AppSettings(
     limitContentSize: limitContentSize ?? this.limitContentSize,
     disableGifAnimations: disableGifAnimations ?? this.disableGifAnimations,
+    reduceMotion: reduceMotion ?? this.reduceMotion,
     rawMarkdownComposers: rawMarkdownComposers ?? this.rawMarkdownComposers,
     textScale: textScale ?? this.textScale,
     themeMode: themeMode ?? this.themeMode,
@@ -71,6 +76,7 @@ final class AppSettings {
       other is AppSettings &&
       other.limitContentSize == limitContentSize &&
       other.disableGifAnimations == disableGifAnimations &&
+      other.reduceMotion == reduceMotion &&
       other.rawMarkdownComposers == rawMarkdownComposers &&
       other.textScale == textScale &&
       other.themeMode == themeMode &&
@@ -80,6 +86,7 @@ final class AppSettings {
   int get hashCode => Object.hash(
     limitContentSize,
     disableGifAnimations,
+    reduceMotion,
     rawMarkdownComposers,
     textScale,
     themeMode,

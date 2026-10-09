@@ -35,6 +35,7 @@ import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
+import 'shell/app_motion.dart';
 import 'shell/app_text_scale.dart';
 import 'shell/content_reading_lane.dart';
 import 'shell/forum_settings_controller.dart';
@@ -727,15 +728,18 @@ class _DiscourseAppState extends State<DiscourseApp>
     supportedLocales: AppLocalizations.supportedLocales,
     localeListResolutionCallback: resolveAppLocale,
     home: const AdaptiveShell(),
-    builder: (context, child) => DMaterialAccessibility(
-      child: DFocusHighlight(
-        child: DToaster(
-          key: ObjectKey(_controller),
-          child: AppTextScaleRegion(
-            controller: _controller.appSettings,
-            child: _MouseNavigationRegion(
-              navigatorKey: _navigatorKey,
-              child: child ?? const SizedBox.shrink(),
+    builder: (context, child) => AppMotionRegion(
+      controller: _controller.appSettings,
+      child: DMaterialAccessibility(
+        child: DFocusHighlight(
+          child: DToaster(
+            key: ObjectKey(_controller),
+            child: AppTextScaleRegion(
+              controller: _controller.appSettings,
+              child: _MouseNavigationRegion(
+                navigatorKey: _navigatorKey,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),

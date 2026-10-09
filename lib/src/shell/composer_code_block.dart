@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../plugin_api/composer_syntax.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import '../ui/foundation/code_editor_theme.dart';
 import 'code_block.dart';
 import 'composer_block_selection.dart';
 import 'composer_code_blocks.dart';
@@ -324,11 +322,7 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
       'nohighlight' => context.l10n.plainText,
       _ => codeLanguageLabel(language),
     };
-    final theme = Theme.of(context);
-    final codeTheme = AppTheme.forBrightness(
-      Brightness.dark,
-      fontFamily: theme.textTheme.bodyMedium?.fontFamily,
-    ).copyWith(platform: theme.platform);
+    final codeTheme = Theme.of(context);
     // The shared source projection already reserves the outer caret gap.
     return SizedBox(
       width: double.infinity,
@@ -360,9 +354,9 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
               return KeyEventResult.ignored;
             },
             child: DCard(
+              variant: DCardVariant.well,
               spacing: 0,
               border: false,
-              backgroundColor: codeEditorColors(codeTheme).blockBackground,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -416,6 +410,7 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
                       320,
                     ),
                     child: DCodeEditor(
+                      backgroundColor: Colors.transparent,
                       controller: _controller,
                       focusNode: _focus,
                       readOnly: !widget.composer.isEditing,

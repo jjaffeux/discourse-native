@@ -1,6 +1,13 @@
 import 'd_icon.dart';
 
 abstract final class DNativeIcons {
+  // Font Awesome Free, from the native mockup. Icons: CC BY 4.0.
+  // https://fontawesome.com/license/free
+  static const DIconData bolt = DIconData(
+    'discourse-native-bolt',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor"><path d="M338.8-9.9c11.9 8.6 16.3 24.2 10.9 37.8L271.3 224 416 224c13.5 0 25.5 8.4 30.1 21.1s.7 26.9-9.6 35.5l-288 240c-11.3 9.4-27.4 9.9-39.3 1.3s-16.3-24.2-10.9-37.8L176.7 288 32 288c-13.5 0-25.5-8.4-30.1-21.1s-.7-26.9 9.6-35.5l288-240c11.3-9.4 27.4-9.9 39.3-1.3z"/></svg>',
+  );
+
   static const DIconData indent = DIconData(
     'discourse-native-indent',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '

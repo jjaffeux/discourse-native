@@ -592,62 +592,67 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
       children: [
         ComposerBlockSelection(
           selected: widget.selected,
-          child: DDataTable<int>(
-            semanticLabel: appL10n.editableTable,
-            variant: DDataTableVariant.softHeader,
-            data: _rows.skip(1).toList(),
-            rowId: (row) => row,
-            operationMode: DDataTableOperationMode.manual,
-            empty: Text(appL10n.addARowToStartWriting),
-            columns: [
-              DDataTableColumn<int>(
-                id: 'row-actions',
-                cellContextMenuBuilder: widget.composer.isEditing
-                    ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
-                    : null,
-                label: appL10n.rows,
-                hideable: false,
-                width: const FixedColumnWidth(64),
-                cellBuilder: (_, cell) => _rowMenu(_rows.indexOf(cell.row) - 1),
-              ),
-              for (final (column, id) in _columns.indexed)
+          child: DCard(
+            variant: DCardVariant.well,
+            spacing: 0,
+            child: DDataTable<int>(
+              semanticLabel: appL10n.editableTable,
+              variant: DDataTableVariant.borderless,
+              data: _rows.skip(1).toList(),
+              rowId: (row) => row,
+              operationMode: DDataTableOperationMode.manual,
+              empty: Text(appL10n.addARowToStartWriting),
+              columns: [
                 DDataTableColumn<int>(
-                  id: '$id',
-                  // The input owns the live heading. Keep the resize/menu
-                  // identity stable while the heading's text is being edited.
-                  label: appL10n.column((column + 1).toString()),
-                  hideable: false,
-                  width: const FixedColumnWidth(200),
-                  resizable: true,
-                  headerContextMenu: widget.composer.isEditing
-                      ? DContextMenuContent(
-                          semanticLabel: appL10n.columnActions(
-                            (column + 1).toString(),
-                          ),
-                          width: 220,
-                          children: _columnItems(column),
-                        )
-                      : null,
+                  id: 'row-actions',
                   cellContextMenuBuilder: widget.composer.isEditing
                       ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
                       : null,
-                  cellMouseCursor: SystemMouseCursors.text,
-                  onHeaderTap: widget.composer.isEditing
-                      ? () => _focusCell(0, column)
-                      : null,
-                  onCellTap: widget.composer.isEditing
-                      ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
-                      : null,
-                  headerBuilder: (_, _) => Row(
-                    children: [
-                      Expanded(child: _input(0, column)),
-                      _columnMenu(column),
-                    ],
-                  ),
+                  label: appL10n.rows,
+                  hideable: false,
+                  width: const FixedColumnWidth(64),
                   cellBuilder: (_, cell) =>
-                      _input(_rows.indexOf(cell.row), column),
+                      _rowMenu(_rows.indexOf(cell.row) - 1),
                 ),
-            ],
+                for (final (column, id) in _columns.indexed)
+                  DDataTableColumn<int>(
+                    id: '$id',
+                    // The input owns the live heading. Keep the resize/menu
+                    // identity stable while the heading's text is being edited.
+                    label: appL10n.column((column + 1).toString()),
+                    hideable: false,
+                    width: const FixedColumnWidth(200),
+                    resizable: true,
+                    headerContextMenu: widget.composer.isEditing
+                        ? DContextMenuContent(
+                            semanticLabel: appL10n.columnActions(
+                              (column + 1).toString(),
+                            ),
+                            width: 220,
+                            children: _columnItems(column),
+                          )
+                        : null,
+                    cellContextMenuBuilder: widget.composer.isEditing
+                        ? (cell) => _rowContextMenu(_rows.indexOf(cell.row) - 1)
+                        : null,
+                    cellMouseCursor: SystemMouseCursors.text,
+                    onHeaderTap: widget.composer.isEditing
+                        ? () => _focusCell(0, column)
+                        : null,
+                    onCellTap: widget.composer.isEditing
+                        ? (cell) => _focusCell(_rows.indexOf(cell.row), column)
+                        : null,
+                    headerBuilder: (_, _) => Row(
+                      children: [
+                        Expanded(child: _input(0, column)),
+                        _columnMenu(column),
+                      ],
+                    ),
+                    cellBuilder: (_, cell) =>
+                        _input(_rows.indexOf(cell.row), column),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: DSpacing.sm),

@@ -28,6 +28,23 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test(
+    'motion follows the device until chosen and survives unrelated writes',
+    () async {
+      final store = AppSettingsStore();
+      expect((await store.read()).reduceMotion, isNull);
+      await store.update(disableGifAnimations: true);
+      expect((await AppSettingsStore().read()).reduceMotion, isNull);
+      for (final reduced in [true, false]) {
+        await store.update(reduceMotion: reduced);
+        await store.update(textScale: AppTextScale.percent125);
+        final saved = await AppSettingsStore().read();
+        expect(saved.reduceMotion, reduced);
+        expect(saved.disableGifAnimations, isTrue);
+      }
+    },
+  );
+
+  test(
     'raw Markdown choice survives fresh stores and unrelated writes',
     () async {
       final store = AppSettingsStore();
@@ -457,6 +474,7 @@ final class _ControlledAppSettingsPersistence
   bool? limitContentSize;
   bool? disableGifAnimations;
   bool? rawMarkdownComposers;
+  bool? reduceMotion;
   String? textScale;
   String? themeMode;
   String? topicListMode;
@@ -483,6 +501,16 @@ final class _ControlledAppSettingsPersistence
   Future<bool?> readDisableGifAnimations() async {
     if (failReads) throw StateError('preferences unavailable');
     return disableGifAnimations;
+  }
+
+  @override
+  Future<bool?> readReduceMotion() async => reduceMotion;
+
+  @override
+  Future<bool> writeReduceMotion(bool value) async {
+    if (!acceptWrites) return false;
+    reduceMotion = value;
+    return true;
   }
 
   @override
