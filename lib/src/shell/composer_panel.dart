@@ -35,6 +35,7 @@ import 'composer_code_block.dart';
 import 'composer_controller.dart';
 import 'composer_details.dart';
 import 'composer_discard.dart';
+import 'composer_draft_preview.dart';
 import 'composer_drop.dart';
 import 'composer_drop_geometry.dart';
 import 'composer_galleries.dart';
@@ -363,24 +364,32 @@ class ComposerPanel extends StatelessWidget {
                                     16,
                                     10,
                                   ),
-                                  child: DInput(
-                                    key: const ValueKey('composer-topic-title'),
-                                    controller: composer.title,
-                                    focusNode: composer.titleFocus,
-                                    onSubmitted: (_) {
-                                      composer.text.selection =
-                                          const TextSelection.collapsed(
-                                            offset: 0,
-                                          );
-                                      composer.focus.requestFocus();
-                                    },
-                                    borderless: true,
-                                    size: DControlSize.large,
-                                    readOnly: !composer.isEditing,
-                                    semanticLabel: context.l10n.title,
+                                  child: ComposerDraftPreview(
+                                    composer: composer,
+                                    title: true,
                                     style: theme.textTheme.headlineSmall,
-                                    hintText: context.l10n.giveYourTopicATitle,
-                                    textInputAction: TextInputAction.next,
+                                    child: DInput(
+                                      key: const ValueKey(
+                                        'composer-topic-title',
+                                      ),
+                                      controller: composer.title,
+                                      focusNode: composer.titleFocus,
+                                      onSubmitted: (_) {
+                                        composer.text.selection =
+                                            const TextSelection.collapsed(
+                                              offset: 0,
+                                            );
+                                        composer.focus.requestFocus();
+                                      },
+                                      borderless: true,
+                                      size: DControlSize.large,
+                                      readOnly: !composer.isEditing,
+                                      semanticLabel: context.l10n.title,
+                                      style: theme.textTheme.headlineSmall,
+                                      hintText:
+                                          context.l10n.giveYourTopicATitle,
+                                      textInputAction: TextInputAction.next,
+                                    ),
                                   ),
                                 ),
                                 if (!mobile)
@@ -466,117 +475,142 @@ class ComposerPanel extends StatelessWidget {
                                                               .containerInset,
                                                 8,
                                               ),
-                                          child: ComposerEditor(
+                                          child: ComposerDraftPreview(
                                             composer: composer,
-                                            expands: !mobile,
-                                            onKeyEvent: (event) {
-                                              final keyboard =
-                                                  HardwareKeyboard.instance;
-                                              final value = composer.text.value;
-                                              if ((target.createsTopic ||
-                                                      target
-                                                          .editsTopicMetadata) &&
-                                                  (event is KeyDownEvent ||
-                                                      event
-                                                          is KeyRepeatEvent) &&
-                                                  !keyboard.isMetaPressed &&
-                                                  !keyboard.isControlPressed &&
-                                                  !keyboard.isAltPressed &&
-                                                  !keyboard.isShiftPressed &&
-                                                  value.composing.isCollapsed &&
-                                                  value.selection.isCollapsed &&
-                                                  value.selection.baseOffset ==
-                                                      0 &&
-                                                  (event.logicalKey ==
-                                                          LogicalKeyboardKey
-                                                              .backspace ||
-                                                      event.logicalKey ==
-                                                          LogicalKeyboardKey
-                                                              .arrowUp)) {
-                                                composer.title.selection =
-                                                    TextSelection.collapsed(
-                                                      offset: composer
-                                                          .title
-                                                          .text
-                                                          .length,
+                                            constrainToChild: !mobile,
+                                            style: theme.textTheme.bodyLarge,
+                                            padding: EdgeInsetsDirectional.only(
+                                              start: mobile
+                                                  ? 0
+                                                  : ComposerBlockSurface.gutterWidth(
+                                                      context,
+                                                    ),
+                                            ),
+                                            child: ComposerEditor(
+                                              composer: composer,
+                                              expands: !mobile,
+                                              onKeyEvent: (event) {
+                                                final keyboard =
+                                                    HardwareKeyboard.instance;
+                                                final value =
+                                                    composer.text.value;
+                                                if ((target.createsTopic ||
+                                                        target
+                                                            .editsTopicMetadata) &&
+                                                    (event is KeyDownEvent ||
+                                                        event
+                                                            is KeyRepeatEvent) &&
+                                                    !keyboard.isMetaPressed &&
+                                                    !keyboard
+                                                        .isControlPressed &&
+                                                    !keyboard.isAltPressed &&
+                                                    !keyboard.isShiftPressed &&
+                                                    value
+                                                        .composing
+                                                        .isCollapsed &&
+                                                    value
+                                                        .selection
+                                                        .isCollapsed &&
+                                                    value
+                                                            .selection
+                                                            .baseOffset ==
+                                                        0 &&
+                                                    (event.logicalKey ==
+                                                            LogicalKeyboardKey
+                                                                .backspace ||
+                                                        event.logicalKey ==
+                                                            LogicalKeyboardKey
+                                                                .arrowUp)) {
+                                                  composer.title.selection =
+                                                      TextSelection.collapsed(
+                                                        offset: composer
+                                                            .title
+                                                            .text
+                                                            .length,
+                                                      );
+                                                  composer.titleFocus
+                                                      .requestFocus();
+                                                  return KeyEventResult.handled;
+                                                }
+                                                return KeyEventResult.ignored;
+                                              },
+                                              onEmptyBackspace:
+                                                  target.createsTopic ||
+                                                      target.editsTopicMetadata
+                                                  ? () {
+                                                      composer.title.selection =
+                                                          TextSelection.collapsed(
+                                                            offset: composer
+                                                                .title
+                                                                .text
+                                                                .length,
+                                                          );
+                                                      composer.titleFocus
+                                                          .requestFocus();
+                                                    }
+                                                  : null,
+                                              pickImages: pickImages,
+                                              readClipboardFiles:
+                                                  readClipboardFiles,
+                                              pickFiles: pickFiles,
+                                              onSuggestionAction:
+                                                  ({
+                                                    required context,
+                                                    required composer,
+                                                    required suggestion,
+                                                    anchor,
+                                                  }) async {
+                                                    if (suggestion.action !=
+                                                        ComposerSuggestionAction
+                                                            .openEmojiPicker) {
+                                                      return;
+                                                    }
+                                                    await openEmojiPickerForTopicComposer(
+                                                      context: context,
+                                                      composer: composer,
+                                                      initialQuery:
+                                                          composer
+                                                              .autocomplete
+                                                              .trigger
+                                                              ?.query ??
+                                                          suggestion.value,
+                                                      anchor: anchor,
                                                     );
-                                                composer.titleFocus
-                                                    .requestFocus();
-                                                return KeyEventResult.handled;
-                                              }
-                                              return KeyEventResult.ignored;
-                                            },
-                                            onEmptyBackspace:
-                                                target.createsTopic ||
-                                                    target.editsTopicMetadata
-                                                ? () {
-                                                    composer.title.selection =
-                                                        TextSelection.collapsed(
-                                                          offset: composer
-                                                              .title
-                                                              .text
-                                                              .length,
-                                                        );
-                                                    composer.titleFocus
-                                                        .requestFocus();
-                                                  }
-                                                : null,
-                                            pickImages: pickImages,
-                                            readClipboardFiles:
-                                                readClipboardFiles,
-                                            pickFiles: pickFiles,
-                                            onSuggestionAction:
-                                                ({
-                                                  required context,
-                                                  required composer,
-                                                  required suggestion,
-                                                  anchor,
-                                                }) async {
-                                                  if (suggestion.action !=
-                                                      ComposerSuggestionAction
-                                                          .openEmojiPicker) {
-                                                    return;
-                                                  }
-                                                  await openEmojiPickerForTopicComposer(
-                                                    context: context,
-                                                    composer: composer,
-                                                    initialQuery:
-                                                        composer
-                                                            .autocomplete
-                                                            .trigger
-                                                            ?.query ??
-                                                        suggestion.value,
-                                                    anchor: anchor,
-                                                  );
-                                                },
-                                            hintText: switch (target) {
-                                              _ when composer.loadingBody =>
-                                                context.l10n.loadingThatPost,
-                                              _ when target.isPrivateMessage =>
-                                                context.l10n.writeYourMessage,
-                                              _ when target.isNewTopic =>
-                                                context.l10n.writeYourTopic,
-                                              _ when target.isEdit =>
-                                                context
-                                                    .l10n
-                                                    .editThisPostComposerpanel,
-                                              _
-                                                  when target.replyToUsername !=
-                                                      null =>
-                                                context.l10n.replyTo(
-                                                  (target.replyToUsername)
-                                                      .toString(),
-                                                ),
-                                              _ => context.l10n.writeAReply,
-                                            },
-                                            textStyle:
-                                                theme.textTheme.bodyLarge,
-                                            hintStyle: theme.textTheme.bodyLarge
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
+                                                  },
+                                              hintText: switch (target) {
+                                                _ when composer.loadingBody =>
+                                                  context.l10n.loadingThatPost,
+                                                _
+                                                    when target
+                                                        .isPrivateMessage =>
+                                                  context.l10n.writeYourMessage,
+                                                _ when target.isNewTopic =>
+                                                  context.l10n.writeYourTopic,
+                                                _ when target.isEdit =>
+                                                  context
+                                                      .l10n
+                                                      .editThisPostComposerpanel,
+                                                _
+                                                    when target
+                                                            .replyToUsername !=
+                                                        null =>
+                                                  context.l10n.replyTo(
+                                                    (target.replyToUsername)
+                                                        .toString(),
+                                                  ),
+                                                _ => context.l10n.writeAReply,
+                                              },
+                                              textStyle:
+                                                  theme.textTheme.bodyLarge,
+                                              hintStyle: theme
+                                                  .textTheme
+                                                  .bodyLarge
+                                                  ?.copyWith(
+                                                    color: theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
                                           ),
                                         ),
                                         if (composer.tagRemovalNotice

@@ -15017,4 +15017,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get topicActionsMenu => 'Topic actions';
+
+  @override
+  String get deleteComposerDraft => 'Delete draft';
+
+  @override
+  String get keepComposerDraft => 'Keep draft';
+
+  @override
+  String draftPreviewRemoved(String text) {
+    return 'Removed: $text';
+  }
+
+  @override
+  String draftPreviewRestored(String text) {
+    return 'Restored: $text';
+  }
 }

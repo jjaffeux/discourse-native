@@ -23462,6 +23462,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Topic actions'**
   String get topicActionsMenu;
+
+  /// Composer saved-draft rollback action or accessible revision preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete draft'**
+  String get deleteComposerDraft;
+
+  /// Composer saved-draft rollback action or accessible revision preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep draft'**
+  String get keepComposerDraft;
+
+  /// Composer saved-draft rollback action or accessible revision preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed: {text}'**
+  String draftPreviewRemoved(String text);
+
+  /// Composer saved-draft rollback action or accessible revision preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored: {text}'**
+  String draftPreviewRestored(String text);
 }
 
 class _AppLocalizationsDelegate

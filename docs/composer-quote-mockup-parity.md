@@ -21,17 +21,29 @@ quotes.
 The mockup's replay of typing on opening a draft and undo/redo remains a visual
 simulation; Native retains its source-owned transactional editing history.
 
-A separate saved-draft UX was **newly introduced in `584ad71`**, and remains at
-`c39ad50`: `ComposerCloseChoice` gains a saved/changed distinction, a
-"Discard changes" action restoring the saved title/body separately from
-"Delete draft", an in-place hover/focus diff via `previewDiscard`, and animated
-restoration via `revertTo` before closing. The baseline `54ba01c` has only
-save/discard/cancel. This is an actual remaining draft UX gap, not fixture data.
-Native's autosave and close safety do not currently maintain a separate immutable
-saved snapshot. Implementing this needs a Native diff-preview capability and a
-safe savepoint/rollback lifecycle preserving real autosave, upload, account,
-revision and failed-write retry guards. Explicit direction for that additional
-capability has been requested; this quote change does not claim draft UX parity.
+The saved-draft UX newly introduced in `584ad71` is also implemented with
+explicit user approval of the required Native kit capability. Resumed drafts
+keep a stable snapshot of the effective title, body, category, tags, recipients,
+reply target and visibility as opened. Continuous autosave does not advance
+that snapshot. Close distinguishes Keep draft, Save changes, Discard changes,
+and Delete draft; the existing phone action menu opens the discard choices.
+
+`DTextRevisionPreview` and `DRevisionPreviewTarget` own the source-word diff,
+hover/focus intent, removed/restored colors and screen-reader labels. The title
+and body editor stay mounted beneath the preview, retaining editing history.
+The Native dialog uses its existing custom-presentation API with a clear
+barrier so the in-place diff remains readable. Narrow layouts let the preview
+grow with wrapped source text. The preview compares Markdown source; it does
+not replace the rich editor or its plugin-owned interactions.
+
+Rollback drains older writes and persists the snapshot through the existing
+account/session/generation-guarded draft store before applying it to the live
+editor. Failed persistence leaves current edits intact and re-stages their
+local copy; the user can retry. Uploads and pending operations prevent rollback,
+and stale confirmations or account changes cannot close a replacement editor.
+Only a successful write starts the 700ms restoration, followed by closure of
+that exact composer/revision. Reduced motion skips the animation. The removed
+mockup grain dissolve remains absent.
 
 No fixture forums, conversations, pictures, or avatars were added to production.
 
@@ -71,3 +83,32 @@ whole-quote protection, cached Markdown rendering, undo/redo and caret placement
 remain intact. The component registry owns its separate removal command, so its
 read-only preview no longer paints a nonfunctional removal glyph. Post source
 links and user-card routing remain app-owned.
+
+## Saved-draft validation
+
+`test/composer_saved_draft_rollback_test.dart` covers stable snapshots after
+autosave, older in-flight saves, failed remote and local writes with retry,
+external revision changes, account disconnects, active uploads, title/taxonomy,
+reply visibility/targets and message recipients, Keep/Delete choices,
+hover/keyboard preview cancellation, and successful normal/reduced-motion close.
+`test/ui/d_text_revision_preview_test.dart` checks lossless Unicode/large-input
+comparison, retained editor identity and accessible change labels.
+
+Rendered fixtures in `/private/tmp/composer-draft-rollback` cover desktop
+preview/restoration and phone light/dark at 100%/200% text. These are widget
+renders with the bundled Lato font, not physical-device captures. Normal and
+enlarged phone images were visually inspected after fixing background blur and
+wrapped-diff clipping. The directly related controller, close-safety,
+draft-failure, composer parity and quote-panel suites plus targeted analysis run
+under the shared main integration lock. A broader run of
+`test/composer_drafts_integration_test.dart` has 86 pre-existing failures on
+unchanged main `2dbf047beec54ad7a20fe5f7db3c321b31b51b17` and this branch;
+all 86 test descriptions and diagnostic causes match. Its other 17 checks pass
+on both. Logs: `/private/tmp/composer-rollback-main-draft-baseline.log` and
+`/private/tmp/composer-rollback-integration-tests.log`. This does not claim the
+broader suite is green.
+
+The close-retry regression exposed by the initial integration run is fixed:
+failed saving from the dialog shows its inline error without a duplicate toast
+overlapping the retry action. Both composer parity and rollback checks pass
+after that fix.

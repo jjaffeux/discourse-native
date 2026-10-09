@@ -20040,5 +20040,13 @@
   "topicActionsMenu": "Topic actions",
   "@topicActionsMenu": {
     "description": "General topic menu for sharing, flagging, and marking unread."
-  }
+  },
+  "deleteComposerDraft": "Delete draft",
+  "@deleteComposerDraft": {"description": "Composer saved-draft rollback action or accessible revision preview."},
+  "keepComposerDraft": "Keep draft",
+  "@keepComposerDraft": {"description": "Composer saved-draft rollback action or accessible revision preview."},
+  "draftPreviewRemoved": "Removed: {text}",
+  "@draftPreviewRemoved": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}},
+  "draftPreviewRestored": "Restored: {text}",
+  "@draftPreviewRestored": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}}
 }

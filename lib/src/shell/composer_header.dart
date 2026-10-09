@@ -277,7 +277,13 @@ class ComposerHeader extends StatelessWidget {
                     onPressed: composer.canSaveDraft
                         ? onSaveDraft ?? onClose
                         : null,
-                    child: Text(context.l10n.saveDraft),
+                    child: Text(
+                      composer.savedDraft == null
+                          ? context.l10n.saveDraft
+                          : composer.hasSavedDraftChanges
+                          ? context.l10n.saveChanges
+                          : context.l10n.keepComposerDraft,
+                    ),
                   ),
                   DDropdownMenuItem(
                     key: const ValueKey('composer-cancel'),

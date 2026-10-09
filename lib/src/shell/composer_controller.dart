@@ -333,6 +333,8 @@ class TypingClock {
 
 enum ComposerState { editing, submitting, checking, unresolved }
 
+enum ComposerDiscardPreview { changes, all }
+
 enum DraftStatus { clean, saving, saved, failing }
 
 typedef ComposerSubmission = ({String raw, String title, int draftSequence});
@@ -571,6 +573,132 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   int get draftRevision => _draftRevision;
 
+  // The draft as opened, independent of continuously advancing autosaves.
+  ComposerDraft? _savedDraft;
+  ComposerTarget? _savedDraftTarget;
+  ComposerDraft? get savedDraft => _savedDraft;
+
+  bool get hasSavedDraftChanges {
+    final saved = _savedDraft;
+    if (saved == null) return false;
+    final current = draft;
+    return current.reply.trimRight() != saved.reply.trimRight() ||
+        current.title?.trimRight() != saved.title?.trimRight() ||
+        current.categoryId != saved.categoryId ||
+        !listEquals(current.tags, saved.tags) ||
+        current.recipients != saved.recipients ||
+        current.replyToPostNumber != saved.replyToPostNumber ||
+        current.replyToUsername != saved.replyToUsername ||
+        current.whisper != saved.whisper;
+  }
+
+  void captureDraftSavepoint() {
+    if (_disposed || !_restoredDraft) return;
+    _savedDraft = draft;
+    _savedDraftTarget = _target;
+  }
+
+  ComposerDiscardPreview? _discardPreview;
+  int? _discardPreviewRevision;
+  ComposerDraft? _rollbackPreviewFrom;
+  Animation<double>? _rollbackAnimation;
+
+  ComposerDraft? get discardPreviewTarget =>
+      _discardPreviewRevision != _draftRevision
+      ? null
+      : switch (_discardPreview) {
+          ComposerDiscardPreview.changes => _savedDraft,
+          ComposerDiscardPreview.all => const ComposerDraft(
+            reply: '',
+            title: '',
+          ),
+          null => null,
+        };
+  ComposerDraft get discardPreviewFrom => _rollbackPreviewFrom ?? draft;
+  Animation<double>? get rollbackAnimation => _rollbackAnimation;
+
+  ComposerDiscardPreview? get discardPreviewKind =>
+      discardPreviewTarget == null ? null : _discardPreview;
+
+  void previewDiscard(ComposerDiscardPreview? preview, int revision) {
+    if (_disposed || _discarding || revision != _draftRevision) return;
+    if (_discardPreview == preview && _discardPreviewRevision == revision) {
+      return;
+    }
+    _discardPreview = preview;
+    _discardPreviewRevision = revision;
+    _notify();
+  }
+
+  void clearDiscardPreview() {
+    _discardPreview = null;
+    _discardPreviewRevision = null;
+    _rollbackPreviewFrom = null;
+    _rollbackAnimation = null;
+    _notify();
+  }
+
+  bool showDraftRollback(
+    ComposerDraft from,
+    Animation<double> animation,
+    int revision,
+  ) {
+    if (_disposed || revision != _draftRevision || beginDiscard() == null) {
+      return false;
+    }
+    _rollbackPreviewFrom = from;
+    _rollbackAnimation = animation;
+    _discardPreview = ComposerDiscardPreview.changes;
+    _discardPreviewRevision = revision;
+    _notify();
+    return true;
+  }
+
+  int? applySavedDraftRollback(int revision) {
+    final saved = _savedDraft;
+    final target = _savedDraftTarget;
+    if (!_discarding ||
+        !discardRevisionIsCurrent(revision) ||
+        saved == null ||
+        target == null ||
+        target.siteUrl != _target.siteUrl ||
+        target.draftKey != _target.draftKey) {
+      return null;
+    }
+    autocomplete.close();
+    _target = target;
+    _whisper = saved.whisper;
+    _replacingDocument = true;
+    try {
+      history.transact(
+        () => text.value = TextEditingValue(
+          text: saved.reply,
+          selection: TextSelection.collapsed(offset: saved.reply.length),
+        ),
+      );
+      if (_target.createsTopic) {
+        title.text = saved.title ?? '';
+        _categoryId = saved.categoryId;
+        _tags = List.unmodifiable(saved.tags);
+      }
+    } finally {
+      _replacingDocument = false;
+    }
+    blocks.reset();
+    _resumeDraftAfterDiscardPrompt = false;
+    draftSettled();
+    _recomputeCanSubmit();
+    _notify();
+    return _draftRevision;
+  }
+
+  void draftRollbackWriteFailed({required bool localFailed}) {
+    if (_disposed) return;
+    _localDraftFailed = localFailed;
+    _draftStatus = DraftStatus.failing;
+    _notify();
+  }
+
   bool _hasUnappliedDraft = false;
   bool get hasUnappliedDraft => _hasUnappliedDraft;
   bool _restoredDraft = false;
@@ -635,6 +763,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void finishDiscardPrompt() {
+    clearDiscardPreview();
     _discardPromptOpen = false;
     if (_resumeDraftAfterDiscardPrompt) {
       _resumeDraftAfterDiscardPrompt = false;
@@ -2665,6 +2794,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _whisper = draft.whisper || _target.replyingToWhisper;
     _draftStatus = DraftStatus.clean;
     _localDraftFailed = false;
+    captureDraftSavepoint();
     _notify();
     return true;
   }
@@ -3122,6 +3252,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       if (removed.isNotEmpty) _cancelUploads(removed);
     }
     _draftRevision++;
+    if (_discardPreview != null && !_replacingDocument) clearDiscardPreview();
 
     if (!_replacingDocument) {
       _typing.tick();

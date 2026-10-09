@@ -79,6 +79,7 @@ import 'examples/switch_examples.dart';
 import 'examples/table_examples.dart';
 import 'examples/tabs_examples.dart';
 import 'examples/taxonomy_selector_examples.dart';
+import 'examples/text_revision_preview_examples.dart';
 import 'examples/textarea_examples.dart';
 import 'examples/toast_examples.dart';
 import 'examples/toggle_examples.dart';
@@ -158,6 +159,7 @@ final componentExamples = <String, ComponentExamples>{
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,
   'quote': quoteExamples,
+  'text-revision-preview': textRevisionPreviewExamples,
   'marker': markerExamples,
   'menubar': menubarExamples,
   'message': messageExamples,

@@ -352,6 +352,97 @@ final class ComposerDraftCoordinator {
     return task;
   }
 
+  /// Persists the opened snapshot before replacing any live editor content.
+  /// A successful caller may animate then close this exact composer/revision.
+  Future<({int? revision, String? error})> rollbackSavedDraft(
+    ComposerController composer, {
+    required int confirmedRevision,
+  }) async {
+    final saved = composer.savedDraft;
+    final session = _sessions[composer];
+    if (saved == null ||
+        session == null ||
+        !composer.canSaveDraft ||
+        composer.draftRevision != confirmedRevision ||
+        composer.hasActiveUploads ||
+        composer.loadingBody ||
+        composer.submitting ||
+        composer.closing ||
+        composer.state == ComposerState.checking) {
+      return (revision: null, error: _draftChanged);
+    }
+    final revision = composer.beginDiscard();
+    if (revision == null) return (revision: null, error: _discardFailure);
+    final target = composer.target;
+    bool current() =>
+        session._lease.isCurrent &&
+        _isCurrent(composer) &&
+        !composer.isDisposed;
+    bool unchanged() =>
+        current() && composer.discardRevisionIsCurrent(revision);
+    ComposerDraftSave request(ComposerDraft value) => ComposerDraftSave(
+      target: target,
+      draft: value,
+      sequence: composer.draftSequence,
+      localOnly: composer.draftsGaveUp,
+      isCurrent: unchanged,
+    );
+    try {
+      await composer.finishInFlightDraftSaveForDiscard();
+      if (!current()) return (revision: null, error: null);
+      if (!unchanged()) {
+        await composer.flushDraft();
+        return (revision: null, error: _draftChanged);
+      }
+      final sequence = await _save(request(saved), session);
+      if (!current()) return (revision: null, error: null);
+      if (sequence != null) composer.draftSequence = sequence;
+      if (!unchanged()) {
+        await composer.flushDraft();
+        return (revision: null, error: _draftChanged);
+      }
+      final restoredRevision = composer.applySavedDraftRollback(revision);
+      if (restoredRevision == null) {
+        return (revision: null, error: _draftChanged);
+      }
+      composer.setMinimumRequiredTags(
+        _minimumRequiredTagsFor(target.siteUrl, composer.categoryId),
+      );
+      return (revision: restoredRevision, error: null);
+    } catch (error, stackTrace) {
+      if (!current()) return (revision: null, error: null);
+      _reportError(error, stackTrace, 'composer.rollbackDraft');
+      // A failed remote write may have staged the candidate locally. Put the
+      // unchanged live edits back so reopening cannot silently discard them.
+      var localFailed = false;
+      try {
+        final liveRevision = composer.draftRevision;
+        await _stage(
+          ComposerDraftSave(
+            target: composer.target,
+            draft: composer.draft,
+            sequence: composer.draftSequence,
+            localOnly: true,
+            isCurrent: () =>
+                current() && composer.discardRevisionIsCurrent(liveRevision),
+          ),
+          session,
+        );
+      } catch (_) {
+        localFailed = true;
+      }
+      if (current()) {
+        composer.draftRollbackWriteFailed(localFailed: localFailed);
+      }
+      return (
+        revision: null,
+        error: appL10n.thisDraftCouldNotBeSavedYetPleaseTryAgain,
+      );
+    } finally {
+      if (!composer.isDisposed) composer.finishDiscard();
+    }
+  }
+
   void settleAfterSubmission(
     ComposerController composer,
     SiteLease lease, {
@@ -966,6 +1057,7 @@ final class ComposerDraftCoordinator {
           recordDraft: false,
         );
       }
+      composer.captureDraftSavepoint();
     });
     return true;
   }

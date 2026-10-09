@@ -14682,6 +14682,14 @@ class ShellController extends FrameSafeNotifier
       composer.hasActiveUploads ||
       composer.state == ComposerState.checking;
 
+  Future<({int? revision, String? error})> rollbackSavedComposerDraft(
+    ComposerController composer, {
+    required int confirmedRevision,
+  }) => _composerDrafts.rollbackSavedDraft(
+    composer,
+    confirmedRevision: confirmedRevision,
+  );
+
   Future<String?> discardComposer(ComposerController composer) =>
       _composerDrafts.discard(composer);
 

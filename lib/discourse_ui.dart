@@ -93,6 +93,7 @@ export 'src/ui/components/d_sticky.dart';
 export 'src/ui/components/d_switch.dart';
 export 'src/ui/components/d_table.dart';
 export 'src/ui/components/d_tabs.dart';
+export 'src/ui/components/d_text_revision_preview.dart';
 export 'src/ui/components/d_textarea.dart';
 export 'src/ui/components/d_toast.dart';
 export 'src/ui/components/d_toggle.dart';
