@@ -14968,6 +14968,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get liquidGlassMaterial => 'Liquid glass';
 
   @override
+  String get searchFilterMatch => 'Match';
+
+  @override
   String get hatchTexture => 'Hatch';
 
   @override

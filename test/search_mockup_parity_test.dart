@@ -139,7 +139,7 @@ void main() {
       expect(search.conditions.single.text, 'mira');
       expect(search.query, 'keyboard ');
       search.submit();
-      expect(search.recentSearches.first, 'keyboard @mira');
+      expect(search.recentSearches.first, 'keyboard @mira in:all-posts');
       search.removeRecentSearch(search.recentSearches.first);
       expect(search.recentSearches, isEmpty);
       search.setQuery('');

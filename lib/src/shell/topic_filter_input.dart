@@ -15,6 +15,8 @@ import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_scope.dart';
 
+part 'topic_filter_sheet.dart';
+
 class TopicFilterInput extends StatefulWidget {
   const TopicFilterInput({
     super.key,
@@ -33,6 +35,8 @@ class TopicFilterInput extends StatefulWidget {
     this.tokenized = false,
     this.multiline = false,
     this.onDismiss,
+    this.embedded = false,
+    this.onlyKey,
   });
 
   final String siteUrl;
@@ -52,6 +56,8 @@ class TopicFilterInput extends StatefulWidget {
   final bool tokenized;
   final bool multiline;
   final VoidCallback? onDismiss;
+  final bool embedded;
+  final String? onlyKey;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -60,6 +66,7 @@ class TopicFilterInput extends StatefulWidget {
 class _TopicFilterInputState extends State<TopicFilterInput> {
   final FocusNode _focus = FocusNode();
   final _combobox = DComboboxController<TopicFilterSuggestion>();
+  final _sheetCommand = DCommandController<String>();
 
   ShellController? _shell;
   TopicFilterController? _filter;
@@ -68,6 +75,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   int? _categoryParentId;
   bool _visible = true;
   bool _visibilityDismissScheduled = false;
+  String _tagMode = 'any';
+  bool _categoryExact = false;
+  void _changeSheet(VoidCallback update) => setState(update);
 
   TopicFilterController get filter => _filter!;
 
@@ -83,7 +93,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (mounted) setState(() {});
     if (_focus.hasFocus) {
       unawaited(filter.openSuggestions());
-    } else {
+    } else if (!widget.embedded) {
       filter.dismiss();
     }
   }
@@ -146,8 +156,17 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _tokens = widget.tokenized
         ? splitTopicFilterQuery(widget.initialQuery)
         : const [];
+    final tag = _tokens
+        .where((value) => RegExp(r'^-?tags?:').hasMatch(value))
+        .lastOrNull;
+    _tagMode = tag?.startsWith('-') == true
+        ? (tag!.contains('+') ? 'notAll' : 'none')
+        : (tag?.contains('+') == true ? 'all' : 'any');
+    _categoryExact = _tokens.any((value) => value.startsWith('=category:'));
     _filter = TopicFilterController(
-      initialQuery: widget.tokenized ? '' : widget.initialQuery,
+      initialQuery: widget.tokenized
+          ? (widget.onlyKey == null ? '' : '${widget.onlyKey}:')
+          : widget.initialQuery,
       submitQuery: (query) => widget.onSubmitted(
         widget.tokenized ? _composeTokenQuery(query) : query,
       ),
@@ -159,6 +178,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     filter
       ..addListener(_onFilterChanged)
       ..text.addListener(_onTextChanged);
+    if (widget.embedded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _focus.requestFocus();
+          unawaited(filter.openSuggestions());
+        }
+      });
+    }
   }
 
   TopicFilterSuggestions _engine(ShellController shell) =>
@@ -179,17 +206,31 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         ],
         hierarchicalCategories: widget.tokenized,
         categoryParentId: _categoryParentId,
+        allOptions: widget.embedded,
         categories: widget.categories,
         categoryLookup: (term) =>
             shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
-        tags: (term) => shell.searchFilterTags(
-          siteUrl: widget.siteUrl,
-          term: term,
-          categoryId: parseTopicFilterScope(
+        tags: (term) async {
+          final categoryId = parseTopicFilterScope(
             _tokens.join(' '),
             widget.categories,
-          ).categoryId,
-        ),
+          ).categoryId;
+          final remote = await shell.searchFilterTags(
+            siteUrl: widget.siteUrl,
+            term: term,
+            categoryId: categoryId,
+          );
+          if (!widget.embedded || categoryId != null) return remote;
+          return {
+            for (final tag in shell.topicListFilterTagsFor(widget.siteUrl))
+              if (tag.name.toLowerCase().contains(term.toLowerCase()))
+                tag.name: TopicFilterLookupValue(
+                  name: tag.name,
+                  description: '${tag.count}',
+                ),
+            for (final tag in remote) tag.name: tag,
+          }.values.toList();
+        },
         tagGroups: (term) =>
             shell.searchFilterTagGroups(siteUrl: widget.siteUrl, term: term),
         users: (term) =>
@@ -313,7 +354,12 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       0,
       filter.suggestions.length - 1,
     );
-    _combobox.highlight(filter.suggestions[index]);
+    if (widget.embedded) {
+      filter.select(index);
+      _sheetCommand.highlight(filter.suggestions[index].name);
+    } else {
+      _combobox.highlight(filter.suggestions[index]);
+    }
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -323,9 +369,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     }
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown when filter.isOpen:
+        if (widget.embedded) return KeyEventResult.ignored;
         _moveSelection(1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowUp when filter.isOpen:
+        if (widget.embedded) return KeyEventResult.ignored;
         _moveSelection(-1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowRight
@@ -354,6 +402,23 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab when filter.isOpen:
         unawaited(_acceptSelectedOrFallback(allowFallback: false));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.backspace
+          when widget.embedded &&
+              _categoryParentId != null &&
+              filter.text.text == 'category:':
+        _browseCategory(
+          widget.categories
+              .where((item) => item.id == _categoryParentId)
+              .firstOrNull,
+          up: true,
+        );
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.backspace
+          when widget.embedded &&
+              widget.onlyKey != null &&
+              filter.text.text == '${widget.onlyKey}:':
+        _stepBackScope();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
           when widget.tokenized &&
@@ -435,13 +500,39 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       _browseCategory(suggestion.category, up: true);
       return;
     }
+    if (widget.embedded && _isTagStage && suggestion.term != null) {
+      _toggleSheetTag(_unquoteTopicFilterValue(suggestion.term!));
+      return;
+    }
+    if (widget.embedded && suggestion.category != null && _categoryExact) {
+      suggestion = TopicFilterSuggestion(
+        name: '=${suggestion.name}',
+        category: suggestion.category,
+        isSuggestion: true,
+      );
+      _tokens = _tokens
+          .where((token) => !RegExp(r'^=?category:').hasMatch(token))
+          .toList();
+    } else if (widget.embedded && suggestion.category != null) {
+      _tokens = _tokens
+          .where((token) => !token.startsWith('=category:'))
+          .toList();
+    }
     final acceptance = filter.accept(suggestion);
     if (widget.tokenized && _completesClause(suggestion)) {
       _commitTokenDraft();
     }
     await acceptance;
+    if (mounted && widget.embedded) _focus.requestFocus();
     if (mounted && widget.tokenized && _completesClause(suggestion)) {
       filter.dismiss();
+      if (widget.embedded) {
+        if (widget.onlyKey != null) {
+          await widget.onSubmitted(_composeTokenQuery());
+        } else {
+          unawaited(filter.openSuggestions());
+        }
+      }
     }
   }
 
@@ -462,6 +553,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _focus.removeListener(_onFocusChanged);
     _focus.dispose();
     _combobox.dispose();
+    _sheetCommand.dispose();
     super.dispose();
   }
 
@@ -483,7 +575,12 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   );
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    if (widget.embedded) return _buildSheet(context);
+    return _buildCombobox(context);
+  }
+
+  Widget _buildCombobox(BuildContext context) => Padding(
     padding: widget.padding,
     child: Focus(
       canRequestFocus: false,
@@ -518,11 +615,15 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         equals: (a, b) => a.name == b.name,
         enabled: widget.enabled,
         onQueryChanged: (query, reason) {
-          if (reason == DComboboxChangeReason.input) filter.inputChanged(query);
+          if (reason == DComboboxChangeReason.input) {
+            filter.inputChanged(query);
+          }
         },
         onOpenChanged: (open, reason) {
           if (open) {
-            if (!filter.menuRequested) unawaited(filter.openSuggestions());
+            if (!filter.menuRequested) {
+              unawaited(filter.openSuggestions());
+            }
           } else {
             filter.dismiss();
           }

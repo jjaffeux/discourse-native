@@ -285,7 +285,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.conditions.single.value, ['1', '2']);
     expect(controller.conditions.single.operator, 'any');
-    expect(find.text('Support, Development'), findsOneWidget);
+    expect(
+      find.text(
+        'Category: include subcategories Support, Development',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(_key('global-search-condition-0'));
     await tester.pumpAndSettle();
@@ -509,13 +515,13 @@ void main() {
 
       await tester.tap(_key('global-search-condition-0'));
       await tester.pumpAndSettle();
-      expect(find.text('Apply changes'), findsOneWidget);
+      expect(find.text('Apply'), findsOneWidget);
       await tester.tap(find.bySemanticsLabel('Remove api'));
       await tester.pumpAndSettle();
       for (final label in [
-        'Include every selected tag',
-        'Exclude any selected tag',
-        'Exclude this combination',
+        'include all',
+        'exclude any',
+        'exclude combination',
       ]) {
         await tester.tap(_key('global-search-filter-operator'));
         await tester.pumpAndSettle();

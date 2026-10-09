@@ -20,11 +20,15 @@ class TopicListFilterMenu extends StatefulWidget {
     required this.query,
     this.onSubmitted,
     this.label,
+    this.filterKey,
+    this.triggerKey,
   });
   final String siteUrl;
   final String query;
   final Future<void> Function(String)? onSubmitted;
   final String? label;
+  final String? filterKey;
+  final Key? triggerKey;
 
   @override
   State<TopicListFilterMenu> createState() => _TopicListFilterMenuState();
@@ -99,7 +103,10 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     if (_tabId case final tabId? when shell.activeTabId != tabId) {
       shell.selectTab(tabId);
     }
-    await (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(query);
+    final complete = splitTopicFilterQuery(
+      query,
+    ).where((token) => topicFilterClauseKey(token) != token).join(' ');
+    await (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(complete);
   }
 
   @override
@@ -112,6 +119,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   @override
   Widget build(BuildContext context) => DPopover(
     controller: _popover,
+    sheetOnMobile: true,
     onOpenChange: (open, _) {
       if (open) {
         setState(() => _query = widget.query);
@@ -136,6 +144,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             ).filterCategoriesFor(widget.siteUrl),
             hintText: context.l10n.addAFilter,
             tokenized: true,
+            embedded: true,
+            onlyKey: widget.filterKey,
             multiline: false,
             padding: EdgeInsets.zero,
             onChanged: (query) => setState(() => _query = query),
@@ -156,7 +166,12 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                 ),
               ],
               DButton(
-                label: Text(context.l10n.applyFilter),
+                label: Text(
+                  widget.filterKey == null
+                      ? context.l10n.apply
+                      : context.l10n.done,
+                ),
+                size: DButtonSize.small,
                 onPressed: () => _apply(_query),
               ),
             ],
@@ -166,9 +181,9 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     ),
     child: DPopoverTrigger(
       builder: (context, trigger) => DButton(
-        key: const ValueKey('topic-list-filter'),
+        key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
         label: Text(
-          '${widget.label ?? context.l10n.startPageFilters}${widget.query.isEmpty ? '' : ' ${splitTopicFilterQuery(widget.query).length}'}',
+          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' ${splitTopicFilterQuery(widget.query).length}'}',
         ),
         tooltip: widget.query.isEmpty
             ? context.l10n.filterTopics

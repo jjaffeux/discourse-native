@@ -68,7 +68,7 @@ void main() {
           expect(tester.element(find.byType(TopicListNavigation)), navigation);
           final replacement = shell.topicListContent;
           expect(fixture.observer.pops, 0);
-          expect(find.byType(DComboboxContent), findsNothing);
+          expect(find.byType(DCommandList<String>), findsNothing);
           expect(shell.topicListContent, replacement);
           expect(tester.takeException(), isNull);
           expect(fixture.observer.pops, 0);
@@ -104,10 +104,42 @@ void main() {
           await tester.pumpAndSettle();
         }
         await _open(tester, menu);
+        if (menu == 'subcategory') {
+          await tester.tap(
+            find.byKey(const ValueKey('topic-filter-category-into-1')),
+          );
+          await tester.pumpAndSettle();
+        }
+        final command = tester.widget<DCommand<String>>(
+          find.byType(DCommand<String>),
+        );
+        final list = tester.widget<DCommandList<String>>(
+          find.byType(DCommandList<String>),
+        );
+        final choices = list.children.whereType<DCommandGroup<String>>().expand(
+          (group) => group.items,
+        );
+        final value = choices
+            .firstWhere(
+              (item) => menu == 'tag'
+                  ? item.value.startsWith('tag:')
+                  : item.value == 'category:${menu == 'category' ? 1 : 2}',
+            )
+            .value;
+        final done = tester
+            .widget<DButton>(
+              find.ancestor(
+                of: find.text('Done'),
+                matching: find.byType(DButton),
+              ),
+            )
+            .onPressed!;
         shell.selectInstance(1);
         final replacement = shell.topicListContent;
-        // Deliver the old route's result before Flutter rebuilds its anchor.
-        await _choose(tester, menu);
+        // Deliver both old callbacks before Flutter rebuilds the anchor.
+        command.onSelected!(value);
+        done();
+        await tester.pumpAndSettle();
         expect(shell.currentInstance?.url, _otherSite);
         expect(shell.topicListContent, replacement);
         expect(tester.takeException(), isNull);
@@ -158,7 +190,7 @@ void main() {
         await tester.pumpAndSettle();
         final replacement = shell.topicListContent;
         final searches = fixture.api.searches.length;
-        expect(find.byType(DComboboxContent), findsNothing);
+        expect(find.byType(DCommandList<String>), findsNothing);
         await tester.pump(const Duration(milliseconds: 300));
         expect(fixture.api.searches, hasLength(searches));
         expect(shell.topicListContent, replacement);
@@ -188,7 +220,7 @@ void main() {
       await _choose(tester, 'tag');
       expect(fixture.shell.topicListContent?.tagNames, ['Original tag']);
       await _open(tester, 'tag');
-      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter-all')));
+      await tester.tap(find.text('Clear filter'));
       await tester.pumpAndSettle();
       expect(fixture.shell.topicListContent?.tagNames, isEmpty);
     },
@@ -229,11 +261,8 @@ void main() {
       expect(find.text('Old result'), findsNothing);
       expect(fixture.observer.pops, 0);
 
-      expect(find.byType(DComboboxContent), findsNothing);
-      expect(
-        find.byKey(const ValueKey('topic-list-tag-filter-query')),
-        findsNothing,
-      );
+      expect(find.byType(DCommandList<String>), findsNothing);
+      expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
       expect(api.searches, hasLength(1));
 
       await _open(tester, 'tag');
@@ -247,6 +276,8 @@ void main() {
             : 'original-key',
       ));
       await tester.tap(find.text('New result'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.tagNames, ['New result']);
       expect(tester.takeException(), isNull);
@@ -270,7 +301,7 @@ void main() {
     expect(fixture.observer.pops, 0);
     fixture.navigator.currentState!.pop();
     await tester.pumpAndSettle();
-    expect(find.byType(DComboboxContent), findsNothing);
+    expect(find.byType(DCommandList<String>), findsNothing);
     expect(fixture.shell.topicListContent?.categoryId, isNull);
     expect(fixture.observer.pops, 1);
   });
@@ -283,7 +314,13 @@ void _createTopicsTab(ShellController shell) {
 }
 
 Future<void> _open(WidgetTester tester, String menu) async {
-  await tester.tap(find.byKey(ValueKey('topic-list-$menu-filter')));
+  await tester.tap(
+    find.byKey(
+      ValueKey(
+        'topic-list-${menu == 'subcategory' ? 'category' : menu}-filter',
+      ),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -297,14 +334,39 @@ Future<void> _choose(
     'subcategory' => otherForum ? _otherChild.name : _child.name,
     _ => _tag.name,
   };
+  if (menu == 'subcategory') {
+    await tester.tap(
+      find.byKey(
+        ValueKey(
+          'topic-filter-category-into-${otherForum ? _otherParent.id : _parent.id}',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+  if (menu == 'tag') {
+    while (find
+        .byKey(const ValueKey('topic-filter-token-remove-0'))
+        .evaluate()
+        .isNotEmpty) {
+      await tester.tap(
+        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+      );
+      await tester.pumpAndSettle();
+    }
+  }
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
+  if (menu == 'tag') {
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _query(WidgetTester tester, String text) async {
   await tester.enterText(
-    find.byKey(const ValueKey('topic-list-tag-filter-query')),
-    text,
+    find.byKey(const ValueKey('topic-filter-input')),
+    'tag:$text',
   );
   await tester.pump(const Duration(milliseconds: 250));
   await tester.pump();

@@ -416,8 +416,7 @@ class _ForumSearchState extends State<ForumSearch> {
         _text.value = _draftEditingValue!;
       }
       if (_text.text == editingValue.text) _text.value = editingValue;
-      if (open ||
-          (!widget.fullScreen && reason == DPopoverChangeReason.escape)) {
+      if (open) {
         _focus.requestFocus();
       } else {
         _focus.unfocus();
@@ -483,6 +482,14 @@ class _ForumSearchState extends State<ForumSearch> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.backspace &&
+        _global.stagedFilter != null &&
+        _global.stagedTerm.isEmpty &&
+        _text.selection.isCollapsed &&
+        _text.selection.extentOffset == _text.text.length) {
+      _setQuery(_global.wordsQuery);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.backspace &&
         _text.text.isEmpty &&
         _global.conditions.isNotEmpty) {
       final index = _global.conditions.length - 1;
@@ -493,7 +500,7 @@ class _ForumSearchState extends State<ForumSearch> {
       );
       if (filter != null) {
         _global.removeCondition(index);
-        _global.setQuery('${filter.id}:${condition.text}');
+        _global.setQuery('${filter.id}:');
         return KeyEventResult.handled;
       }
     }

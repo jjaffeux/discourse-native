@@ -49,12 +49,14 @@ class TopicFilterSuggestions {
     required this.groups,
     this.hierarchicalCategories = false,
     this.categoryParentId,
+    this.allOptions = false,
   });
 
   static const int maxResults = 20;
 
   final bool hierarchicalCategories;
   final int? categoryParentId;
+  final bool allOptions;
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
   final TopicFilterCategoryLookup categoryLookup;
@@ -68,9 +70,11 @@ class TopicFilterSuggestions {
     if (segment.word.isEmpty) {
       final prioritized = [
         for (final option in options)
-          if (option.priority == 1) _fromOption(option),
+          if (allOptions || option.priority == 1) _fromOption(option),
       ]..sort((a, b) => a.name.compareTo(b.name));
-      return prioritized.take(maxResults).toList(growable: false);
+      return (allOptions ? prioritized : prioritized.take(maxResults)).toList(
+        growable: false,
+      );
     }
 
     if (segment.filterName != null && segment.hasColon) {

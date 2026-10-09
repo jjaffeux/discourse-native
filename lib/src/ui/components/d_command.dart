@@ -1,8 +1,8 @@
 import 'dart:math' as math;
-import 'dart:ui' show SemanticsRole;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
@@ -136,9 +136,21 @@ class DCommandController<T> extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = entry.key.currentContext;
       if (context != null) {
-        Scrollable.ensureVisible(
-          context,
-          alignment: .5,
+        final list = context.findAncestorStateOfType<_DCommandListState<T>>();
+        if (list == null || !list._scroll.hasClients) return;
+        final target = context.findRenderObject()!;
+        final viewport = RenderAbstractViewport.of(target);
+        final position = list._scroll.position;
+        final top = viewport.getOffsetToReveal(target, 0).offset;
+        final bottom = viewport.getOffsetToReveal(target, 1).offset;
+        // Leave visible rows in place so keyboard selection does not move a
+        // different row beneath a stationary pointer.
+        if (position.pixels <= top && position.pixels >= bottom) return;
+        list._scroll.position.ensureVisible(
+          target,
+          alignmentPolicy: position.pixels > top
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : DMotion.change,
@@ -1148,11 +1160,6 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             mouseCursor: item.enabled
                 ? SystemMouseCursors.click
                 : SystemMouseCursors.basic,
-            onShowHoverHighlight: (value) {
-              if (value && !widget.scope.disablePointerSelection) {
-                widget.scope.controller.highlight(item.value);
-              }
-            },
             onShowFocusHighlight: (value) {
               setState(() => _focused = value);
               if (value) widget.scope.controller.highlight(item.value);
@@ -1170,12 +1177,27 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                 },
               ),
             },
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: item.enabled ? _activate : null,
-              child: Opacity(
-                opacity: item.enabled ? 1 : .5,
-                child: _DCommandItemVisualScope(selected: selected, child: row),
+            child: MouseRegion(
+              // Scrolling a keyboard-selected row into view can move another
+              // row beneath a stationary mouse. Only actual pointer movement
+              // should take selection back from the keyboard.
+              onHover: (event) {
+                if (item.enabled &&
+                    !widget.scope.disablePointerSelection &&
+                    event.delta != Offset.zero) {
+                  widget.scope.controller.highlight(item.value);
+                }
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: item.enabled ? _activate : null,
+                child: Opacity(
+                  opacity: item.enabled ? 1 : .5,
+                  child: _DCommandItemVisualScope(
+                    selected: selected,
+                    child: row,
+                  ),
+                ),
               ),
             ),
           ),

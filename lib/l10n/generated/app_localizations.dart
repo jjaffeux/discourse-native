@@ -23361,6 +23361,12 @@ abstract class AppLocalizations {
   /// **'Liquid glass'**
   String get liquidGlassMaterial;
 
+  /// Label for how selected search tags are combined.
+  ///
+  /// In en, this message translates to:
+  /// **'Match'**
+  String get searchFilterMatch;
+
   /// Appearance material and texture setting.
   ///
   /// In en, this message translates to:

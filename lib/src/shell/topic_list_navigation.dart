@@ -212,6 +212,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             wrap: true,
             leading: showsTabs ? navigation : null,
             siteUrl: state.siteUrl!,
+            filterQuery: controller.topicListFilterEditorQuery(state.route!),
             categories: state.categories,
             knownTags: state.route?.categoryId == null ? state.tags : const [],
             selectedCategoryId: state.route!.categoryId,

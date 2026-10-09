@@ -240,15 +240,17 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
-            of: find.byType(DComboboxContent),
+            of: find.byType(DCommandList<String>),
             matching: find.text(tag.name),
           ),
         );
         await tester.pumpAndSettle();
-        expect(shell.topicListContent?.tagNames, [tag.name]);
+        await tester.tap(find.text('Done'));
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.tagNames, selection == 0 ? [tag.name] : <String>[]);
         expect(
           tester.widget<DSidebarMenuButton>(row(tag.name)).isActive,
-          isTrue,
+          selection == 0,
         );
       }
       expect(tester.takeException(), isNull);

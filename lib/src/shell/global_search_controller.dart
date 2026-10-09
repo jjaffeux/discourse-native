@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../data/api_credentials.dart';
 import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
+import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_api.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
@@ -105,15 +106,29 @@ class GlobalSearchController extends ChangeNotifier {
   List<GlobalSearchFilter> get availableFilters => List.unmodifiable([
     if (scope == GlobalSearchScope.all || scope == GlobalSearchScope.forum)
       globalSearchOrderFilter(capabilities),
-    for (final filter in [
-      ...globalSearchFilters,
-      ...capabilities.contributedFilters,
-    ])
-      if ((scope == GlobalSearchScope.all || filter.scope == scope) &&
+    for (final filter in globalSearchDefinitions(capabilities))
+      if ((filter.scope ==
+              (scope == GlobalSearchScope.all
+                  ? GlobalSearchScope.forum
+                  : scope)) &&
           globalSearchFilterAvailable(filter, capabilities))
         filter,
   ]);
   List<GlobalSearchOrder> get orders => globalSearchOrders(scope, capabilities);
+
+  List<int> get orderedConditionIndices =>
+      List.generate(conditions.length, (index) => index)..sort((a, b) {
+        final left = globalSearchFilter(
+          conditions[a].filterId,
+          capabilities,
+        )!.label;
+        final right = globalSearchFilter(
+          conditions[b].filterId,
+          capabilities,
+        )!.label;
+        final compared = left.toLowerCase().compareTo(right.toLowerCase());
+        return compared == 0 ? a.compareTo(b) : compared;
+      });
   String get order => _orders[scope] ?? orders.first.value;
   bool get hasOrderFilter =>
       scope == GlobalSearchScope.forum && order != 'relevance';
@@ -173,13 +188,7 @@ class GlobalSearchController extends ChangeNotifier {
 
   String get stagedTerm => stagedFilter == null
       ? ''
-      : query
-            .split(RegExp(r'\s+'))
-            .last
-            .split(':')
-            .skip(1)
-            .join(':')
-            .replaceAll('_', ' ');
+      : query.split(RegExp(r'\s+')).last.split(':').skip(1).join(':');
   String get stagedOperator {
     final filter = stagedFilter;
     if (filter == null) return 'is';
@@ -412,11 +421,22 @@ class GlobalSearchController extends ChangeNotifier {
   void setQuery(String value) {
     if (_disposed || _query == value) return;
     _query = value;
-    if (value.endsWith(' ')) {
+    final tokens = RegExp(r'(?:[^\s"]+|"[^"]*")+').allMatches(value).toList();
+    final remaining = <String>[];
+    var converted = false;
+    for (final token in tokens) {
+      if (token.end == value.length && !value.endsWith(' ')) {
+        remaining.add(token.group(0)!);
+        continue;
+      }
       try {
-        final parsed = parseGlobalSearchExpression(value, scope, capabilities);
+        final parsed = parseGlobalSearchExpression(
+          token.group(0)!,
+          scope,
+          capabilities,
+        );
         if (parsed.conditions.isNotEmpty || parsed.order != null) {
-          _query = parsed.query.isEmpty ? '' : '${parsed.query} ';
+          converted = true;
           for (final condition in parsed.conditions) {
             final old = conditions.indexWhere(
               (item) => item.filterId == condition.filterId,
@@ -427,10 +447,16 @@ class GlobalSearchController extends ChangeNotifier {
             _scope = GlobalSearchScope.forum;
             _orders[_scope] = parsed.order!;
           }
+        } else {
+          remaining.add(token.group(0)!);
         }
       } on FormatException {
-        /* Keep incomplete tokens editable. */
+        remaining.add(token.group(0)!);
       }
+    }
+    if (converted) {
+      _query = remaining.join(' ');
+      if (_query.isNotEmpty && value.endsWith(' ')) _query += ' ';
     }
     _schedule();
   }
@@ -816,8 +842,21 @@ class GlobalSearchController extends ChangeNotifier {
         _tagChoices.remove(_tagChoices.keys.first);
       }
     }
-    _rememberChoices(filter.id, values);
-    return values;
+    final ordered = values.toList();
+    if (filter.lookup == GlobalSearchLookup.users) {
+      ordered.sort((a, b) {
+        final mine = a.value == capabilities.username
+            ? -1
+            : b.value == capabilities.username
+            ? 1
+            : 0;
+        return mine != 0
+            ? mine
+            : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      });
+    }
+    _rememberChoices(filter.id, ordered);
+    return ordered;
   }
 
   Future<GlobalSearchCategoryPage> lookupCategoryChoices(

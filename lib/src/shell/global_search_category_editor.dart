@@ -413,11 +413,8 @@ class _GlobalSearchCategoryEditorState
                 ),
                 DButton(
                   key: const ValueKey('global-search-filter-apply'),
-                  label: Text(
-                    widget.initial == null
-                        ? context.l10n.addFilter
-                        : context.l10n.applyChanges,
-                  ),
+                  label: Text(context.l10n.apply),
+                  size: DButtonSize.small,
                   onPressed: _selected.isEmpty ? null : _apply,
                 ),
               ],

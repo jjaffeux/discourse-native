@@ -213,12 +213,14 @@ class GlobalSearchFilterChoice {
     this.topicCount,
     this.category,
     this.parentLabel,
+    this.avatarUrl,
   });
   final String value, label;
   final String? token;
   final int? topicCount;
   final TopicCategory? category;
   final String? parentLabel;
+  final String? avatarUrl;
 }
 
 @immutable

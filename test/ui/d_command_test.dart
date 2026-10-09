@@ -470,6 +470,58 @@ void main() {
     expect(focus.hasFocus, isTrue);
   });
 
+  testWidgets('keyboard scrolling stays inside the command list', (
+    tester,
+  ) async {
+    final outer = ScrollController();
+    final inner = ScrollController();
+    final focus = FocusNode();
+    addTearDown(outer.dispose);
+    addTearDown(inner.dispose);
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      _host(
+        SingleChildScrollView(
+          controller: outer,
+          child: Column(
+            children: [
+              const SizedBox(height: 360),
+              DCommand<int>(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DCommandInput<int>(focusNode: focus),
+                    DCommandList<int>(
+                      controller: inner,
+                      height: 100,
+                      children: [
+                        for (var i = 0; i < 40; i++)
+                          DCommandItem<int>(value: i, child: Text('Choice $i')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 900),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    final before = outer.offset;
+    for (var i = 0; i < 25; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(inner.offset, greaterThan(0));
+    expect(outer.offset, before);
+    expect(focus.hasFocus, isTrue);
+  });
+
   testWidgets('a fixed height holds while results change and centres states', (
     tester,
   ) async {
@@ -698,6 +750,29 @@ void main() {
       tokens.mutedForeground,
     );
   }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
+  testWidgets('keyboard selection holds until the pointer moves again', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_host(_command(controller: controller)));
+    await tester.pumpAndSettle();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Profile')));
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Profile');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Billing');
+    await mouse.moveTo(
+      tester.getCenter(find.text('Profile')) + const Offset(1, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Profile');
+    await mouse.removePointer();
+  });
 
   testWidgets('pointer highlighting can be disabled', (tester) async {
     final controller = DCommandController<String>(initialValue: 'Calendar');

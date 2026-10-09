@@ -9,11 +9,13 @@ import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
 import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
+import 'topic_filter_controller.dart';
+import 'topic_filter_scope.dart';
+import 'topic_list_actions.dart';
 import 'topic_list_layout.dart';
 
-typedef TopicListTagSearch = Future<List<TopicFilterLookupValue>> Function(
-  String term,
-);
+typedef TopicListTagSearch =
+    Future<List<TopicFilterLookupValue>> Function(String term);
 
 class TopicListFilterBar extends StatelessWidget {
   const TopicListFilterBar({
@@ -34,6 +36,7 @@ class TopicListFilterBar extends StatelessWidget {
     this.onTagsSelected,
     this.leading,
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
+    this.filterQuery,
   });
 
   final String siteUrl;
@@ -52,6 +55,7 @@ class TopicListFilterBar extends StatelessWidget {
   final ValueChanged<List<String>>? onTagsSelected;
   final Widget? leading;
   final int maxCategoryNesting;
+  final String? filterQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -61,17 +65,53 @@ class TopicListFilterBar extends StatelessWidget {
         _selectedTag(knownTags, value),
     ];
 
+    final displayedCategoryId =
+        selectedCategoryId ??
+        parseTopicFilterScope(
+          splitTopicFilterQuery(filterQuery ?? '')
+              .map(
+                (token) =>
+                    token.startsWith('=category:') ? token.substring(1) : token,
+              )
+              .join(' '),
+          categories,
+        ).categoryId;
     final controlChildren = <Widget>[
-      TopicCategoryPathSelector(
-        keyPrefix: 'topic-list',
-        siteUrl: siteUrl,
-        categories: categories,
-        selectedCategoryId: selectedCategoryId,
-        onSelected: onCategorySelected,
-        sheetOnMobile: true,
-        maxCategoryNesting: maxCategoryNesting,
-      ),
-      if (taggingEnabled)
+      if (filterQuery != null) ...[
+        TopicListFilterMenu(
+          siteUrl: siteUrl,
+          query: filterQuery!,
+          filterKey: 'category',
+          triggerKey: const ValueKey('topic-list-category-filter'),
+          label:
+              categories
+                  .where((category) => category.id == displayedCategoryId)
+                  .firstOrNull
+                  ?.name ??
+              context.l10n.categories,
+        ),
+        if (taggingEnabled)
+          TopicListFilterMenu(
+            siteUrl: siteUrl,
+            query: filterQuery!,
+            filterKey: 'tag',
+            triggerKey: const ValueKey('topic-list-tag-filter'),
+            label: selectedTags.isEmpty
+                ? context.l10n.tags
+                : selectedTags.map((tag) => tag.name).join(', '),
+          ),
+      ],
+      if (filterQuery == null)
+        TopicCategoryPathSelector(
+          keyPrefix: 'topic-list',
+          siteUrl: siteUrl,
+          categories: categories,
+          selectedCategoryId: selectedCategoryId,
+          onSelected: onCategorySelected,
+          sheetOnMobile: true,
+          maxCategoryNesting: maxCategoryNesting,
+        ),
+      if (taggingEnabled && filterQuery == null)
         TopicTagSelector(
           key: const ValueKey('topic-list-tag-filter'),
           keyPrefix: 'topic-list-tag-filter',

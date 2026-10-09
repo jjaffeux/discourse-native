@@ -314,8 +314,11 @@ class GlobalSearchApi {
               ? '/search.json'
               : '/search/query.json',
           {
-            r.scope == GlobalSearchScope.messages ? 'q' : 'term':
-                '${r.query}${r.scope == GlobalSearchScope.messages ? ' in:personal' : ''}',
+            r.scope == GlobalSearchScope.messages
+                ? 'q'
+                : 'term': r.scope == GlobalSearchScope.messages
+                ? '${globalSearchTerm(r)} in:personal'
+                : r.query,
             if (r.scope == GlobalSearchScope.messages) 'page': '${r.page + 1}',
           },
         ),
@@ -729,6 +732,9 @@ class GlobalSearchApi {
               GlobalSearchFilterChoice(
                 value: value,
                 label: jsonText(row['name']) ?? value,
+                avatarUrl: filter.lookup == GlobalSearchLookup.users
+                    ? SearchUserHit.fromJson(row, siteUrl)?.avatarUrl
+                    : null,
                 topicCount: filter.id == 'tags'
                     ? switch (jsonIntOrNull(row['count'])) {
                         final count? when count >= 0 => count,

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:ui' show PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_filter_controller.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -578,7 +579,9 @@ void main() {
     expect(
       find.descendant(
         of: primaryMainContent,
-        matching: find.byType(TopicListFilterMenu),
+        matching: find.byWidgetPredicate(
+          (w) => w is TopicListFilterMenu && w.filterKey == null,
+        ),
       ),
       findsOneWidget,
     );
@@ -596,7 +599,7 @@ void main() {
       reason: 'typing only updates suggestions',
     );
 
-    await tester.tap(find.text('Apply filter'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
     expect(find.text('Only open topics'), findsOneWidget);
@@ -639,14 +642,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
 
-    expect(find.text('tag:bug'), findsOneWidget);
+    expect(find.text('bug'), findsOneWidget);
     final gesture = await tester.startGesture(
-      tester.getCenter(find.text('tag:bug')),
+      tester.getCenter(find.text('bug')),
     );
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(_filterQuery(tester), 'tag:bug');
+    expect(_filterQuery(tester), 'tag:bug tag:');
     expect(find.text('tag: bug'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -745,10 +748,10 @@ void main() {
         await tester.pumpAndSettle();
 
         final firstRow = find.byKey(
-          const ValueKey('topic-filter-suggestion-1'),
+          const ValueKey('topic-filter-suggestion-2'),
         );
         final secondRow = find.byKey(
-          const ValueKey('topic-filter-suggestion-2'),
+          const ValueKey('topic-filter-suggestion-1'),
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
@@ -766,13 +769,13 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'status:',
+          label: 'Tag',
           selected: true,
         );
         _expectSuggestionSemantics(
           tester,
           secondRow,
-          label: 'tag:\nTopics carrying a tag',
+          label: 'Status',
           selected: false,
         );
 
@@ -785,13 +788,13 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'status:',
+          label: 'Tag',
           selected: true,
         );
         _expectSuggestionSemantics(
           tester,
           secondRow,
-          label: 'tag:\nTopics carrying a tag',
+          label: 'Status',
           selected: false,
         );
 
@@ -801,13 +804,13 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'status:',
+          label: 'Tag',
           selected: false,
         );
         _expectSuggestionSemantics(
           tester,
           secondRow,
-          label: 'tag:\nTopics carrying a tag',
+          label: 'Status',
           selected: true,
         );
 
@@ -828,7 +831,7 @@ void main() {
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
-        expect(tester.widget<TextField>(field).controller!.text, 'tag:');
+        expect(tester.widget<TextField>(field).controller!.text, 'status:');
         expect(api.feedPaths, ['/latest.json', '/filter.json']);
       } finally {
         semantics.dispose();
@@ -853,16 +856,15 @@ void main() {
       tester.element(
         find.descendant(
           of: primaryMainContent,
-          matching: find.byType(TopicListFilterMenu),
+          matching: find.byWidgetPredicate(
+            (w) => w is TopicListFilterMenu && w.filterKey == null,
+          ),
         ),
       ),
     );
     final apply = tester
         .widget<DButton>(
-          find.ancestor(
-            of: find.text('Apply filter'),
-            matching: find.byType(DButton),
-          ),
+          find.ancestor(of: find.text('Apply'), matching: find.byType(DButton)),
         )
         .onPressed!;
     unawaited(shell.selectTopicListMode(TopicListMode.topWeekly));
@@ -870,7 +872,7 @@ void main() {
     apply();
     await tester.pumpAndSettle();
     expect(shell.topicListContent, replacement);
-    expect(find.text('Apply filter'), findsNothing);
+    expect(find.text('Apply'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('tab accepts the first filter suggestion', (tester) async {
@@ -928,13 +930,13 @@ void main() {
     expect(input.focusNode!.hasFocus, isTrue);
     expect(_filterQuery(tester), 'tag:"customer feedback" status:');
     expect(find.text('status: open'), findsNothing);
-    expect(find.text('status:closed'), findsOneWidget);
+    expect(find.text('Status: closed'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     expect(_filterQuery(tester), 'tag:"customer feedback" status:closed');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    await tester.tap(find.text('Apply filter'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(
       api.feedPaths,
@@ -1038,7 +1040,13 @@ void main() {
         'tag',
       );
       await tester.pumpAndSettle();
-      expect(find.text('tag:'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DCommandList<String>),
+          matching: find.text('Tag'),
+        ),
+        findsOneWidget,
+      );
       await tester.sendKeyDownEvent(modifier);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(modifier);
@@ -1064,17 +1072,62 @@ void main() {
     await _openFilter(tester);
     await tester.tap(find.byKey(const ValueKey('topic-filter-input')));
     await tester.pumpAndSettle();
-    final rows = find.byType(DComboboxItem<TopicFilterSuggestion>);
+    final rows = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key as ValueKey<String>).value.startsWith(
+            'topic-filter-suggestion-',
+          ),
+    );
     final count = rows.evaluate().length;
     expect(count, greaterThan(8));
     for (var i = 1; i < count; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
     }
-    final last = find.byKey(ValueKey('topic-filter-suggestion-${count - 1}'));
+    final list = tester.widget<DCommandList<String>>(
+      find.byType(DCommandList<String>),
+    );
+    final last = find.byKey(
+      list.children.whereType<DCommandGroup<String>>().last.items.last.key!,
+    );
     _expectSelectedRow(tester, last);
-    final popup = tester.getRect(find.byType(DComboboxContent));
+    final popup = tester.getRect(find.byType(DCommandList<String>));
     expect(tester.getRect(last).bottom, lessThanOrEqualTo(popup.bottom));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('list number and date pickers retain server syntax', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+      filterOptionsByPath: const {
+        '/filter.json': [
+          TopicFilterOption(name: 'posts-min:', type: 'number'),
+          TopicFilterOption(name: 'created-after:', type: 'date'),
+        ],
+      },
+    );
+    await _pump(tester, api);
+    await _openFilter(tester);
+    final input = find.byKey(const ValueKey('topic-filter-input'));
+    await tester.enterText(input, 'posts-min:');
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-filter-number-posts-min:')),
+      '15',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'posts-min:15');
+    await tester.enterText(input, 'created-after:');
+    await tester.pumpAndSettle();
+    tester.widget<DDatePicker>(find.byType(DDatePicker)).onChanged!(
+      DCalendarDate(2026, 10, 9),
+    );
+    await tester.pumpAndSettle();
+    expect(_filterQuery(tester), 'posts-min:15 created-after:2026-10-09');
+    expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('category suggestions use their category badges', (tester) async {
@@ -1122,11 +1175,17 @@ void main() {
 }
 
 void _expectSelectedRow(WidgetTester tester, Finder row) {
-  final combo = tester.widget<DCombobox<TopicFilterSuggestion>>(
-    find.byType(DCombobox<TopicFilterSuggestion>),
+  final command = tester.widget<DCommand<String>>(
+    find.byType(DCommand<String>),
   );
-  final item = tester.widget<DComboboxItem<TopicFilterSuggestion>>(row);
-  expect(combo.highlightedValue?.name, item.option.value.name);
+  final list = tester.widget<DCommandList<String>>(
+    find.byType(DCommandList<String>),
+  );
+  final items = list.children.whereType<DCommandGroup<String>>().expand(
+    (group) => group.items,
+  );
+  final item = items.singleWhere((item) => item.key == tester.widget(row).key);
+  expect(command.value, item.value);
 }
 
 void _expectSuggestionSemantics(
@@ -1135,12 +1194,22 @@ void _expectSuggestionSemantics(
   required String label,
   required bool selected,
 }) {
-  final combo = tester.widget<DCombobox<TopicFilterSuggestion>>(
-    find.byType(DCombobox<TopicFilterSuggestion>),
+  final semantics = tester.getSemantics(row);
+  expect(
+    semantics.flagsCollection.isSelected,
+    selected ? Tristate.isTrue : Tristate.isFalse,
   );
-  final item = tester.widget<DComboboxItem<TopicFilterSuggestion>>(row);
-  expect(combo.highlightedValue?.name == item.option.value.name, selected);
-  expect(item.option.label, contains(label.split('\n').first));
+  final labels = <String>[];
+  void visit(SemanticsNode node) {
+    if (node.label.isNotEmpty) labels.add(node.label);
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  visit(semantics);
+  expect(labels, contains(label));
 }
 
 Future<void> _pump(

@@ -51,11 +51,8 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
         if (!open && mounted) setState(() => _editing = null);
       },
       content: DPopoverContent(
-        width: switch (editor?.id) {
-          'tags' => 430,
-          'category' => 420,
-          _ => 350,
-        },
+        width: 420,
+        constraints: const BoxConstraints(minHeight: 420),
         align: DPopoverAlign.end,
         padding: EdgeInsets.zero,
         semanticLabel: editor == null
@@ -129,88 +126,16 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
               onPressed: state.toggle,
             );
           }
-          final operator =
-              definition.operators
-                  .where((op) => op.value == condition.operator)
-                  .firstOrNull
-                  ?.label ??
-              condition.operator;
-          final value = condition.value
-              .map(
-                (value) => _searchChoiceLabel(
-                  context,
-                  widget.controller,
-                  definition,
-                  value,
-                ),
-              )
-              .join(', ');
-          final maxWidth = widget.maxChipWidth.clamp(0.0, 350.0);
-          final removeWidth = DControlStyle.scaledHeight(
-            DControlSize.small,
-            MediaQuery.textScalerOf(context),
-            context: context,
-          );
-          // Preserve room for the value while the label and operator keep
-          // their natural width until the complete joined control is bounded.
-          final textBudget = (maxWidth - removeWidth - 104).clamp(
-            0.0,
-            maxWidth,
-          );
-          Widget part(
-            String text, {
-            FocusNode? focusNode,
-            double? maxTextWidth,
-          }) => DButton(
-            label: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: maxTextWidth ?? double.infinity,
-              ),
-              child: Text(
-                text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text == definition.label
-                    ? TextStyle(color: DTokens.of(context).primary)
-                    : null,
-              ),
-            ),
-            tooltip: text,
-            onPressed: state.openPopover,
-            focusNode: focusNode,
+          return SearchFilterChip(
+            controller: widget.controller,
+            condition: condition,
+            maxWidth: widget.maxChipWidth.clamp(0.0, 350.0),
+            focusNode: state.focusNode,
             expanded: state.open,
             hasPopup: true,
-            variant: DButtonVariant.outline,
-            size: DButtonSize.small,
-          );
-          return IntrinsicWidth(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: DButtonGroup(
-                mainAxisSize: MainAxisSize.max,
-                semanticLabel: '${definition.label} $operator $value',
-                children: [
-                  part(
-                    definition.label,
-                    focusNode: state.focusNode,
-                    maxTextWidth: textBudget * .45,
-                  ),
-                  part(operator, maxTextWidth: textBudget * .55),
-                  DButtonGroupExpanded(child: part(value)),
-                  DButton.iconOnly(
-                    icon: const DIcon(DIcons.xmark),
-                    tooltip: context.l10n.removeCondition(
-                      (definition.label).toString(),
-                    ),
-                    onPressed: () => widget.controller.removeCondition(
-                      widget.conditionIndex!,
-                    ),
-                    variant: DButtonVariant.outline,
-                    size: DButtonSize.small,
-                  ),
-                ],
-              ),
-            ),
+            onEdit: state.openPopover,
+            onRemove: () =>
+                widget.controller.removeCondition(widget.conditionIndex!),
           );
         },
       ),
@@ -221,9 +146,7 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     final filters = widget.controller.availableFilters;
     final groups = <String, List<GlobalSearchFilter>>{};
     for (final filter in filters) {
-      final group = widget.controller.scope == GlobalSearchScope.all
-          ? filter.scope.label
-          : filter.group;
+      final group = filter.group;
       groups.putIfAbsent(group, () => []).add(filter);
     }
     return DCommand<String>(
@@ -279,12 +202,14 @@ class _GlobalSearchConditionEditor extends StatefulWidget {
     required this.onApply,
     this.initial,
     this.onBack,
+    this.actionLabel,
   });
   final GlobalSearchController controller;
   final GlobalSearchFilter filter;
   final GlobalSearchCondition? initial;
   final ValueChanged<GlobalSearchCondition> onApply;
   final VoidCallback? onBack;
+  final String? actionLabel;
   @override
   State<_GlobalSearchConditionEditor> createState() =>
       _GlobalSearchConditionEditorState();
@@ -323,6 +248,16 @@ class _GlobalSearchConditionEditorState
   @override
   void initState() {
     super.initState();
+    _tagSearchFocus.onKeyEvent = (_, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.backspace &&
+          _text.text.isEmpty &&
+          _values.isNotEmpty) {
+        setState(() => _values.removeLast());
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    };
     if (_searchable) unawaited(_loadChoices(_text.text));
   }
 
@@ -489,10 +424,14 @@ class _GlobalSearchConditionEditorState
                 onSubmitted: (_) => _apply(),
               ),
             if (_tags) ...[
-              const SizedBox(height: 16),
-              DLabel(child: Text(context.l10n.matchTopicsThat)),
-              const SizedBox(height: 6),
-              _operatorPicker(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  DLabel(child: Text(context.l10n.searchFilterMatch)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _operatorPicker()),
+                ],
+              ),
             ],
             if (!_tags && filter.help.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -524,15 +463,9 @@ class _GlobalSearchConditionEditorState
               alignment: AlignmentDirectional.centerEnd,
               child: DButton(
                 key: const ValueKey('global-search-filter-apply'),
-                label: Text(
-                  widget.initial != null
-                      ? context.l10n.applyChanges
-                      : _tags
-                      ? context.l10n.addFilter
-                      : context.l10n.addCondition,
-                ),
+                label: Text(widget.actionLabel ?? context.l10n.apply),
                 onPressed: _tags && _values.isEmpty ? null : _apply,
-                size: _tags ? DButtonSize.regular : DButtonSize.small,
+                size: DButtonSize.small,
               ),
             ),
           ],
@@ -542,15 +475,7 @@ class _GlobalSearchConditionEditorState
   }
 
   Widget _operatorPicker() {
-    String label(GlobalSearchFilterOperator op) => _tags
-        ? switch (op.value) {
-            'any' => appL10n.includeAnySelectedTag,
-            'all' => appL10n.includeEverySelectedTag,
-            'none' => appL10n.excludeAnySelectedTag,
-            'notAll' => appL10n.excludeThisCombination,
-            _ => op.label,
-          }
-        : op.label;
+    String label(GlobalSearchFilterOperator op) => op.label;
     return DSelect<String>.controlled(
       key: const ValueKey('global-search-filter-operator'),
       value: _operator,
@@ -653,32 +578,51 @@ class _GlobalSearchConditionEditorState
               ],
             ],
           ),
-          if (_values.isNotEmpty) ...[
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              children: [
-                Text(
-                  context.l10n.selectedGlobalsearchfilterpicker(
-                    (_values.length).toString(),
+          SizedBox(
+            height:
+                2 *
+                    DControlStyle.scaledHeight(
+                      DControlSize.small,
+                      MediaQuery.textScalerOf(context),
+                      context: context,
+                    ) +
+                8,
+            child: DScrollArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      Text(
+                        context.l10n.selectedGlobalsearchfilterpicker(
+                          (_values.length).toString(),
+                        ),
+                        style: mutedStyle,
+                      ),
+                      DButton(
+                        label: Text(
+                          context.l10n.clearSelection,
+                          softWrap: true,
+                        ),
+                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.small,
+                        onPressed: _values.isEmpty
+                            ? null
+                            : () {
+                                setState(() => _values.clear());
+                                _tagSearchFocus.requestFocus();
+                              },
+                      ),
+                    ],
                   ),
-                  style: mutedStyle,
-                ),
-                DButton(
-                  label: Text(context.l10n.clearSelection, softWrap: true),
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  onPressed: () {
-                    setState(() => _values.clear());
-                    _tagSearchFocus.requestFocus();
-                  },
-                ),
-              ],
+                  _selectedChoices(context),
+                ],
+              ),
             ),
-            _selectedChoices(context),
-            const SizedBox(height: 8),
-          ],
+          ),
           if (saved) ...[
             DAlert(
               title: DAlertTitle(child: Text(_lookupError!)),
@@ -731,12 +675,19 @@ class _GlobalSearchConditionEditorState
             ),
           DCommandList<String>(
             maxHeight: 240,
+            height: 240,
             semanticLabel: context.l10n.tagSuggestions,
             children: [
               for (final choice in _choices)
                 DCommandItem<String>(
                   value: choice.value,
                   checked: _values.contains(choice.value),
+                  leading: SizedBox.square(
+                    dimension: 16,
+                    child: _values.contains(choice.value)
+                        ? const DIcon(DIcons.check, size: 16)
+                        : null,
+                  ),
                   semanticLabel: switch (choice.topicCount) {
                     final count? =>
                       '${choice.label}, ${countLabel(count, CountNoun.topic)}',
@@ -752,13 +703,6 @@ class _GlobalSearchConditionEditorState
                           ).formatDecimal(count),
                           style: mutedStyle,
                         ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 16,
-                        child: _values.contains(choice.value)
-                            ? const DIcon(DIcons.check, size: 16)
-                            : null,
-                      ),
                     ],
                   ),
                   child: _highlightTag(context, choice.label, query),

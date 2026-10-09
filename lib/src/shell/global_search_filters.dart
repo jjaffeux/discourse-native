@@ -301,6 +301,11 @@ List<GlobalSearchFilter> get globalSearchFilters => <GlobalSearchFilter>[
         token: "with:images",
       ),
       GlobalSearchFilterChoice(
+        value: "video",
+        label: appL10n.video,
+        token: "filetypes:mp4,webm,mov,m4v,ogv,avi",
+      ),
+      GlobalSearchFilterChoice(
         value: "tagged",
         label: appL10n.atLeastOneTag,
         token: "in:tagged",
@@ -677,12 +682,75 @@ List<GlobalSearchFilter> get globalSearchFilters => <GlobalSearchFilter>[
   ),
 ];
 
+// Personal-message filters use the same authenticated search endpoint, with
+// their own bank so switching tabs never turns a private search into a public one.
+List<GlobalSearchFilter> get globalMessageSearchFilters => [
+  for (final filter in globalSearchFilters)
+    if (const {
+      'author',
+      'groupInbox',
+      'postDate',
+      'content',
+      'files',
+    }.contains(filter.id))
+      GlobalSearchFilter(
+        id: 'message${filter.id[0].toUpperCase()}${filter.id.substring(1)}',
+        label: filter.label,
+        scope: GlobalSearchScope.messages,
+        kind: filter.kind,
+        icon: filter.icon,
+        group: filter.group,
+        operators: filter.operators,
+        choices: filter.id == 'content'
+            ? filter.choices
+                  .where(
+                    (choice) =>
+                        const {'images', 'video'}.contains(choice.value),
+                  )
+                  .toList()
+            : filter.choices,
+        token: filter.token,
+        opTokens: filter.opTokens,
+        lookup: filter.lookup,
+        singleIdentifier: filter.singleIdentifier,
+        rejectQuotes: filter.rejectQuotes,
+        placeholder: filter.placeholder,
+      ),
+  GlobalSearchFilter(
+    id: 'messageKind',
+    label: appL10n.messagesTopics,
+    scope: GlobalSearchScope.messages,
+    kind: GlobalSearchFilterKind.choice,
+    icon: 'mail',
+    group: appL10n.where,
+    choices: [
+      GlobalSearchFilterChoice(
+        value: 'personal',
+        label: appL10n.myPersonalMessages,
+        token: 'in:personal',
+      ),
+      GlobalSearchFilterChoice(
+        value: 'direct',
+        label: appL10n.oneToOnePersonalMessages,
+        token: 'in:personal-direct',
+      ),
+    ],
+  ),
+];
+
+List<GlobalSearchFilter> globalSearchDefinitions(GlobalSearchCapabilities c) =>
+    [
+      ...globalSearchFilters,
+      ...globalMessageSearchFilters,
+      ...c.contributedFilters,
+    ];
+
 GlobalSearchFilter? globalSearchFilter(
   String id, [
   GlobalSearchCapabilities c = const GlobalSearchCapabilities(),
 ]) {
   if (id == 'order') return globalSearchOrderFilter(c);
-  for (final filter in [...globalSearchFilters, ...c.contributedFilters]) {
+  for (final filter in globalSearchDefinitions(c)) {
     if (filter.id == id) return filter;
   }
   return null;
@@ -699,6 +767,9 @@ bool globalSearchFilterAvailable(
     return false;
   }
   if (!filter.scope.isCore && !c.scopes.contains(filter.scope)) return false;
+  if (filter.scope == GlobalSearchScope.messages && !c.authenticated) {
+    return false;
+  }
   if (filter.scope == GlobalSearchScope.users && !c.userDirectory) return false;
   if (filter.scope == GlobalSearchScope.groups && !c.groupDirectory) {
     return false;
@@ -801,7 +872,7 @@ String? validateGlobalSearchCondition(
       ['my', 'owner'].contains(value)) {
     return appL10n.signInToSearchYourMemberships;
   }
-  if (d.id == 'files' &&
+  if (d.token == 'filetypes' &&
       value
           .split(',')
           .any(
@@ -897,7 +968,7 @@ String globalSearchConditionToken(
     }
     return '$key=$value';
   }
-  if (d.id == 'files') {
+  if (d.token == 'filetypes') {
     value = value
         .toLowerCase()
         .split(',')
@@ -916,6 +987,10 @@ String globalSearchTerm(GlobalSearchRequest r) {
         username: r.capabilities.username,
         capabilities: r.capabilities,
       ),
+    if (r.scope == GlobalSearchScope.forum &&
+        r.conditions.any((condition) => condition.filterId == 'author') &&
+        !r.conditions.any((condition) => condition.filterId == 'searchIn'))
+      'in:all-posts',
     if (r.scope == GlobalSearchScope.forum && r.order != 'relevance')
       'order:${r.order}',
   ];
@@ -934,9 +1009,6 @@ GlobalSearchExpression parseGlobalSearchExpression(
   GlobalSearchScope scope,
   GlobalSearchCapabilities c,
 ) {
-  if (scope == GlobalSearchScope.users || scope == GlobalSearchScope.groups) {
-    return GlobalSearchExpression(text, const [], null);
-  }
   final plain = <String>[], conditions = <GlobalSearchCondition>[];
   String? order;
   final aliases = {
@@ -978,12 +1050,12 @@ GlobalSearchExpression parseGlobalSearchExpression(
       continue;
     }
     GlobalSearchCondition? condition;
-    for (final d in [
-      ...globalSearchFilters,
-      ...c.contributedFilters,
-    ].where((d) => d.scope == target)) {
+    for (final d in globalSearchDefinitions(
+      c,
+    ).where((d) => d.scope == target)) {
       for (final choice in d.choices) {
-        if (choice.token == token) {
+        if (choice.token?.toLowerCase() == token.toLowerCase() ||
+            '${d.id}:${choice.value}'.toLowerCase() == token.toLowerCase()) {
           condition = GlobalSearchCondition(
             filterId: d.id,
             operator: d.operators.first.value,
@@ -993,7 +1065,7 @@ GlobalSearchExpression parseGlobalSearchExpression(
       }
     }
     if (condition == null) {
-      for (final d in [...globalSearchFilters, ...c.contributedFilters]) {
+      for (final d in globalSearchDefinitions(c)) {
         if (d.scope != target || !const ['@', '#'].contains(d.token)) continue;
         if (token.startsWith(d.token!)) {
           condition = GlobalSearchCondition(
@@ -1004,21 +1076,30 @@ GlobalSearchExpression parseGlobalSearchExpression(
         }
       }
     }
-    if (condition == null &&
-        token.contains(':') &&
-        target == GlobalSearchScope.forum) {
-      final i = token.indexOf(':'), key = token.substring(0, i);
+    if (condition == null && (token.contains(':') || token.contains('='))) {
+      final i = token.indexOf(RegExp('[:=]')),
+          key = token.substring(0, i).toLowerCase();
       var value = token.substring(i + 1).replaceAll(RegExp(r'^"|"$'), '');
-      if (key == 'user' || key == 'author') {
-        condition = GlobalSearchCondition(filterId: 'author', value: [value]);
+      if ((key == 'user' || key == 'author') &&
+          (target == GlobalSearchScope.forum ||
+              target == GlobalSearchScope.messages)) {
+        condition = GlobalSearchCondition(
+          filterId: target == GlobalSearchScope.messages
+              ? 'messageAuthor'
+              : 'author',
+          value: [value],
+        );
       }
-      if (key == 'created' && value.startsWith('@')) {
+      if (target == GlobalSearchScope.forum &&
+          key == 'created' &&
+          value.startsWith('@')) {
         condition = GlobalSearchCondition(
           filterId: 'topicAuthor',
           value: [value.substring(1)],
         );
       }
-      if (['category', 'categories'].contains(key)) {
+      if (target == GlobalSearchScope.forum &&
+          ['category', 'categories'].contains(key)) {
         condition = GlobalSearchCondition(
           filterId: 'category',
           operator: value.startsWith('=') ? 'exactCategory' : 'any',
@@ -1028,7 +1109,8 @@ GlobalSearchExpression parseGlobalSearchExpression(
               .toList(),
         );
       }
-      if (['tags', 'tag', '-tags', '-tag'].contains(key)) {
+      if (target == GlobalSearchScope.forum &&
+          ['tags', 'tag', '-tags', '-tag'].contains(key)) {
         condition = GlobalSearchCondition(
           filterId: 'tags',
           operator: key.startsWith('-')
@@ -1038,14 +1120,14 @@ GlobalSearchExpression parseGlobalSearchExpression(
         );
       }
       if (condition == null) {
-        for (final d in [...globalSearchFilters, ...c.contributedFilters].where(
+        for (final d in globalSearchDefinitions(c).where(
           (d) =>
               d.scope == target &&
               d.kind != GlobalSearchFilterKind.choice &&
               d.kind != GlobalSearchFilterKind.multi,
         )) {
           final ops = d.opTokens.entries.where((e) => e.value == key);
-          if (d.token == key || ops.isNotEmpty) {
+          if (d.token == key || d.id.toLowerCase() == key || ops.isNotEmpty) {
             if (d.kind == GlobalSearchFilterKind.date &&
                 RegExp(r'^\d{1,3}$').hasMatch(value)) {
               value = DateTime.now()

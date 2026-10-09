@@ -404,7 +404,7 @@ void main() {
   );
 
   _testPresentation(
-    'Escape from a search control restores the editor without reopening search',
+    'Escape releases search focus and one click reopens the editor',
     (tester) async {
       await _pumpSearch(tester);
       await _openAndSearch(tester, 'design');
@@ -414,6 +414,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(_editor(tester).focusNode.hasFocus, isFalse);
+      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);
     },
@@ -775,7 +779,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('global-search-condition-0')));
       await tester.pumpAndSettle();
       expect(shell.globalSearch.stagedFilter?.id, 'author');
-      expect(shell.globalSearch.stagedTerm, 'mira');
+      expect(shell.globalSearch.stagedTerm, '');
       expect(shell.globalSearch.wordsQuery, 'design');
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
