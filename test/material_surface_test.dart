@@ -15,6 +15,84 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 void main() {
+  testWidgets('bounded panels leave the canvas clear outside rounded corners', (
+    tester,
+  ) async {
+    const canvas = Color(0xff153d99);
+    final shadowsDisabled = debugDisableShadows;
+    debugDisableShadows = false;
+    try {
+      for (final material in DAppearanceMaterial.values) {
+        for (final brightness in Brightness.values) {
+          await tester.pumpWidget(
+            MaterialApp(
+              themeAnimationStyle: AnimationStyle.noAnimation,
+              theme: DMaterialTheme.apply(
+                AppTheme.forBrightness(brightness),
+                material,
+              ),
+              home: const Center(
+                child: RepaintBoundary(
+                  key: ValueKey('panel-corners'),
+                  child: SizedBox.square(
+                    dimension: 96,
+                    child: ColoredBox(
+                      color: canvas,
+                      // The workspace bounds clip overflowing page shadows.
+                      child: DResizablePanelGroup(
+                        children: [
+                          DResizablePanel(
+                            id: 'page',
+                            child: DCard(
+                              border: false,
+                              spacing: 0,
+                              backgroundColor: Color(0xcc2154c1),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(16),
+                              ),
+                              child: Expanded(child: SizedBox.expand()),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image = await tester
+                .renderObject<RenderRepaintBoundary>(
+                  find.byKey(const ValueKey('panel-corners')),
+                )
+                .toImage();
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            for (final (x, y) in [(0, 0), (95, 0), (0, 95), (95, 95)]) {
+              final offset = (y * image.width + x) * 4;
+              expect(bytes.buffer.asUint8List(offset, 4), [
+                0x15,
+                0x3d,
+                0x99,
+                0xff,
+              ], reason: '$material $brightness corner ($x, $y)');
+            }
+            // The fix must keep the translucent page fill itself.
+            final center = (48 * image.width + 48) * 4;
+            expect(bytes.getUint8(center + 2), greaterThan(0x99));
+            image.dispose();
+          });
+          expect(tester.takeException(), isNull);
+        }
+      }
+    } finally {
+      debugDisableShadows = shadowsDisabled;
+    }
+  });
+
   test(
     'material migrates independently of fonts, textures and opacity',
     () async {

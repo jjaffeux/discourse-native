@@ -75,24 +75,16 @@ class DMaterialSurface extends StatelessWidget {
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        boxShadow: recessed || color.a == 0
+        // Reading panels sit flush inside clipped workspace/viewports. An
+        // outer shadow is cut to that rectangle, staining their rounded
+        // corners and gutters. Their edge treatment supplies depth in-bounds.
+        boxShadow: recessed || panel || color.a == 0
             ? const []
             : [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: dark ? .24 : .09),
-                  offset: Offset(
-                    0,
-                    menu
-                        ? 18
-                        : panel
-                        ? 12
-                        : 1,
-                  ),
-                  blurRadius: menu
-                      ? 44
-                      : panel
-                      ? 40
-                      : 3,
+                  offset: Offset(0, menu ? 18 : 1),
+                  blurRadius: menu ? 44 : 3,
                 ),
               ],
       ),
