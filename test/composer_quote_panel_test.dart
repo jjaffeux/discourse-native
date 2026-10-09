@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer_autocomplete.dart';
 import 'package:discourse_native/src/shell/composer_blockquote.dart';
@@ -6,7 +7,6 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_quotes.dart';
 import 'package:discourse_native/src/shell/composer_triggers.dart';
-import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -549,7 +549,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(ComposerQuotePreview),
-          matching: find.byType(QuotePanel),
+          matching: find.byType(DQuote),
         ),
         findsOneWidget,
       );
@@ -627,6 +627,34 @@ void main() {
 
       expect(composer.text.text, isEmpty);
       expect(find.byType(ComposerQuotePreview), findsNothing);
+      expect(composer.history.undo(), isTrue);
+      await tester.pump();
+      expect(composer.text.text, '$_quote\n\n');
+      expect(find.byType(ComposerQuotePreview), findsOneWidget);
+      expect(composer.history.redo(), isTrue);
+      await tester.pump();
+      expect(composer.text.text, isEmpty);
+    });
+
+    testWidgets('Native remove callback cannot delete a stale quote', (
+      tester,
+    ) async {
+      final composer = ComposerController(_target);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.text = '$_quote\n\n';
+      await _pumpPanel(tester, shell, composer);
+      final button = tester.widget<DButton>(
+        find.descendant(
+          of: find.byType(ComposerQuotePreview),
+          matching: find.byType(DButton),
+        ),
+      );
+      composer.text.text = 'A different document';
+      button.onPressed!();
+      await tester.pump();
+      expect(composer.text.text, 'A different document');
     });
 
     testWidgets('does not offer formatting for a selected quote', (

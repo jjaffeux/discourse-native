@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import '../theme/d_icons.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
-import 'quote_panel.dart';
 
 @immutable
 class ComposerQuoteBlock {
@@ -249,12 +248,14 @@ class ComposerQuotePreview extends StatefulWidget {
     required this.contents,
     required this.baseStyle,
     this.removeKey,
+    this.onRemove,
   });
 
   final ComposerQuoteBlock block;
   final String contents;
   final TextStyle baseStyle;
   final Key? removeKey;
+  final VoidCallback? onRemove;
 
   @visibleForTesting
   static int scans = 0;
@@ -311,50 +312,33 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
       label: title == null
           ? context.l10n.quote
           : context.l10n.quoteFrom((title).toString()),
-      hint: context.l10n.readOnlyUseTheRemoveQuoteButtonToDeleteIt,
-      child: QuotePanel(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: Stack(
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (title != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(right: 28),
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: muted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                quoteBody,
-              ],
+      hint: widget.onRemove == null
+          ? null
+          : context.l10n.readOnlyUseTheRemoveQuoteButtonToDeleteIt,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: DQuote(
+          header: Text(
+            title ?? context.l10n.quote,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: muted,
+              fontWeight: FontWeight.w600,
             ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: DTooltip(
-                message: context.l10n.removeQuote,
-                child: SizedBox(
+          ),
+          trailing: widget.onRemove == null
+              ? null
+              : DButton.iconOnly(
                   key: removeKey,
-                  width: 24,
-                  height: 20,
-                  child: Center(
-                    child: DIcon(DIcons.xmark, size: 13, color: muted),
-                  ),
+                  tooltip: context.l10n.removeQuote,
+                  semanticLabel: context.l10n.removeQuote,
+                  size: DButtonSize.tabAction,
+                  variant: DButtonVariant.transparentBackground,
+                  icon: const DIcon(DIcons.xmark),
+                  onPressed: widget.onRemove,
                 ),
-              ),
-            ),
-          ],
+          child: quoteBody,
         ),
       ),
     );

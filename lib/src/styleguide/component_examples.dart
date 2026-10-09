@@ -63,6 +63,7 @@ import 'examples/position_control_examples.dart';
 import 'examples/progress_examples.dart';
 import 'examples/pull_to_refresh_examples.dart';
 import 'examples/questionnaire_examples.dart';
+import 'examples/quote_examples.dart';
 import 'examples/radio_group_examples.dart';
 import 'examples/resizable_examples.dart';
 import 'examples/scroll_area_examples.dart';
@@ -156,6 +157,7 @@ final componentExamples = <String, ComponentExamples>{
   'navigation-menu': navigationMenuExamples,
   'progress': progressExamples,
   'questionnaire': questionnaireExamples,
+  'quote': quoteExamples,
   'marker': markerExamples,
   'menubar': menubarExamples,
   'message': messageExamples,

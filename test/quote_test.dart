@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/quote.dart';
-import 'package:discourse_native/src/shell/quote_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
@@ -391,30 +390,6 @@ void main() {
         ),
       );
       await tester.pump();
-
-      final panel = tester.widget<Container>(
-        find
-            .descendant(
-              of: find.byType(QuotePanel),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      expect((panel.decoration! as BoxDecoration).border, isNull);
-      expect(
-        find.descendant(
-          of: find.byType(QuotePanel),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Positioned &&
-                widget.left == 0 &&
-                widget.top == 0 &&
-                widget.bottom == 0 &&
-                widget.width == 3,
-          ),
-        ),
-        findsOneWidget,
-      );
 
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(boundaryKey),

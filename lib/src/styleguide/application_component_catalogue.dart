@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'quote',
+    name: 'Quote',
+    sections: ['Attributed quote', 'Unattributed quote'],
+  ),
+  ComponentReference(
     id: 'position-control',
     name: 'Position control',
     sections: ['Unfolding position selector'],

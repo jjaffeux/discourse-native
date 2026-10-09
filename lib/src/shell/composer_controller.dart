@@ -413,6 +413,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           beforeRestore: text.clearKeyboardPillSelection,
           deferUntilSession: true,
         );
+    text.onRemoveQuote = removeQuote;
     text.onTodoChanged = (value) {
       if (isEditing) history.transact(() => text.value = value);
     };

@@ -1,16 +1,14 @@
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
-import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'inline_action.dart';
 import 'open_link.dart';
-import 'quote_panel.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 import 'topic_title.dart';
@@ -147,24 +145,17 @@ class QuoteBlock extends StatelessWidget {
     final theme = Theme.of(context);
     final hasHeader = data.title != null || data.avatarUrl != null;
 
-    return QuotePanel(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (hasHeader) ...[
-            _Header(data: data, siteUrl: siteUrl),
-            const SizedBox(height: 8),
-          ],
-          CookedHtml(
-            html: data.bodyHtml,
-            siteUrl: siteUrl,
-            textStyle: theme.textTheme.bodyLarge?.copyWith(
-              height: DiscourseTypography.lineHeightCooked,
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: DQuote(
+        header: hasHeader ? _Header(data: data, siteUrl: siteUrl) : null,
+        child: CookedHtml(
+          html: data.bodyHtml,
+          siteUrl: siteUrl,
+          textStyle: theme.textTheme.bodyLarge?.copyWith(
+            height: DiscourseTypography.lineHeightCooked,
           ),
-        ],
+        ),
       ),
     );
   }

@@ -219,6 +219,7 @@ class MarkdownEditingController extends TextEditingController {
       block.kind == ComposerBlockKind.todo;
 
   ValueChanged<TextEditingValue>? onTodoChanged;
+  ValueChanged<ComposerQuoteBlock>? onRemoveQuote;
   String? _todoSource;
   List<ComposerTodo> _todos = const [];
   Set<String> _todoReferenceMarkers = const {};
@@ -2028,6 +2029,9 @@ class MarkdownEditingController extends TextEditingController {
             child: IgnorePointer(
               child: ComposerQuotePreview(
                 block: block,
+                onRemove: onRemoveQuote == null
+                    ? null
+                    : () => onRemoveQuote?.call(block),
                 contents: displayedContents,
                 baseStyle: base,
                 removeKey: _quoteRemoveKeys.putIfAbsent(

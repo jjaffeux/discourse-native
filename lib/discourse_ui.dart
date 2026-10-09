@@ -76,6 +76,7 @@ export 'src/ui/components/d_position_control.dart';
 export 'src/ui/components/d_progress.dart';
 export 'src/ui/components/d_pull_to_refresh.dart';
 export 'src/ui/components/d_questionnaire.dart';
+export 'src/ui/components/d_quote.dart';
 export 'src/ui/components/d_radio_group.dart';
 export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_scroll_area.dart';
