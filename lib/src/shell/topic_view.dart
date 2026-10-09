@@ -56,6 +56,7 @@ import 'topic_category_picker.dart';
 import 'topic_change_owner.dart';
 import 'topic_inbox_header.dart';
 import 'topic_list_view.dart';
+import 'topic_more_topics_panel.dart';
 import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
 import 'topic_post_sliver.dart';
@@ -273,6 +274,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
   GlobalKey _postSliverKey = GlobalKey();
+  final _morePanelKey = GlobalKey();
+  final _moreTopicsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
 
@@ -624,6 +627,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     if (identical(previousScroll, _scroll)) return;
     _postSliverKey = GlobalKey();
+    _moreTopicsCovered.value = false;
     _initialBodyChecked = false;
     _openingPostId = null;
     _laidOutDayStarts = const [];
@@ -938,6 +942,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _headerGeometry?.removeListener(_scheduleLook);
     _viewport.dispose();
     _warmCacheIdentity.dispose();
+    _moreTopicsCovered.dispose();
     _keyboardPost.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
@@ -1072,6 +1077,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     if (_revealKeyboardPostEnd()) return;
     final timer = _isScrollCaptureRecording ? (Stopwatch()..start()) : null;
+    _syncMoreTopicsCoverage();
     _syncFloatingDay(snapshot);
     _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
     if (timer != null) {
@@ -1084,6 +1090,58 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
+  }
+
+  ({double top, double height})? _morePanelBounds() {
+    final render = _morePanelKey.currentContext?.findRenderObject();
+    final scroll = _scroll;
+    if (render is! RenderBox ||
+        !render.attached ||
+        !render.hasSize ||
+        scroll == null ||
+        !scroll.hasClients) {
+      return null;
+    }
+    final viewport = RenderAbstractViewport.maybeOf(render);
+    if (viewport == null) return null;
+    final revealed = getOffsetToRevealIfLaidOut(viewport, render, 0);
+    if (revealed == null) return null;
+    return (top: revealed.offset - scroll.offset, height: render.size.height);
+  }
+
+  void _syncMoreTopicsCoverage() {
+    final bounds = _morePanelBounds();
+    final scroll = _scroll;
+    _moreTopicsCovered.value =
+        bounds != null &&
+        scroll != null &&
+        scroll.hasClients &&
+        scroll.offset > 0 &&
+        bounds.top < scroll.position.viewportDimension * .5;
+  }
+
+  void _showMoreTopics({bool alignTop = false}) {
+    final bounds = _morePanelBounds();
+    final scroll = _scroll;
+    if (bounds == null || scroll == null || !scroll.hasClients) return;
+    final room = alignTop
+        ? 0.0
+        : math.max(0.0, scroll.position.viewportDimension - bounds.height - 8);
+    final target = (scroll.offset + bounds.top - room)
+        .clamp(scroll.position.minScrollExtent, scroll.position.maxScrollExtent)
+        .toDouble();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      scroll.jumpTo(target);
+    } else {
+      // Flutter's driven scroll yields immediately to a drag or wheel input.
+      unawaited(
+        scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
   }
 
   void _syncFloatingDay(TopicViewportSnapshot snapshot) {
@@ -1308,8 +1366,21 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     bool saveAnchor = false,
   }) {
     if (!_restored || _restoring || _list?.isAttached != true) return;
+    final panel = _morePanelBounds();
+    final atTopicEnd =
+        !snapshot.hasMore &&
+        panel != null &&
+        panel.top <= _scroll!.position.viewportDimension;
     final range = _list!.unobstructedVisibleRange;
-    if (range == null) return;
+    if (range == null) {
+      controller.clearVisibleTopicContext(_visibleTopicContextOwner);
+      _viewport.recordObservation(
+        snapshot: snapshot,
+        saveAnchor: false,
+        atTopicEnd: atTopicEnd,
+      );
+      return;
+    }
 
     final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
     TopicViewportSeenPost? leadingPost;
@@ -1488,6 +1559,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       visible: visiblePost,
       readable: readablePost,
       readablePostNumbers: readablePostNumbers,
+      atTopicEnd: atTopicEnd,
     );
     if (_isScrollCaptureRecording && previousProgress != _progressPosition) {
       _recordTopicScrollEvent('topic.progress.changed', {
@@ -1913,25 +1985,28 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     left: readingLanePadding.left,
     right: readingLanePadding.right,
     top: 0,
-    child: header.inset(
-      ListenableBuilder(
-        listenable: _viewportState.floatingDayOverlayListenable,
-        builder: (context, child) {
-          final floatingDay = _floatingDay;
-          if (floatingDay == null) return const SizedBox.shrink();
-          // Stack clips layout overflow, but this translation only affects paint.
-          return ClipRect(
-            child: Transform.translate(
-              offset: Offset(0, _floatingDayOffset),
-              child: StreamDaySeparator(
-                key: ValueKey(('topic-floating-day', floatingDay)),
-                day: floatingDay,
-                floating: true,
-                onTap: () => _jumpToDayStart(floatingDay),
+    child: TopicChromeVisibility(
+      covered: _moreTopicsCovered,
+      child: header.inset(
+        ListenableBuilder(
+          listenable: _viewportState.floatingDayOverlayListenable,
+          builder: (context, child) {
+            final floatingDay = _floatingDay;
+            if (floatingDay == null) return const SizedBox.shrink();
+            // Stack clips layout overflow, but this translation only affects paint.
+            return ClipRect(
+              child: Transform.translate(
+                offset: Offset(0, _floatingDayOffset),
+                child: StreamDaySeparator(
+                  key: ValueKey(('topic-floating-day', floatingDay)),
+                  day: floatingDay,
+                  floating: true,
+                  onTap: () => _jumpToDayStart(floatingDay),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ),
   );
@@ -1955,6 +2030,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       siteUrl: snapshot.siteUrl,
       isConnected: widget.isConnected,
       viewport: _viewportState,
+      moreTopicsCovered: _moreTopicsCovered,
       totalPosts: totalPosts,
       canReply: widget.canReply,
       controller: controller,
@@ -2309,6 +2385,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
     final showRecommendations = !snapshot.hasMore && hasRecommendations;
+    final showEndPanel =
+        showRecommendations && (!widget.showSidebar || !canPinSidebar);
     // A null payload is unresolved rather than empty: Discourse only sends
     // the recommendation fields with the final post window. Reserve the
     // eventual panel while that window is still outstanding so its arrival
@@ -2380,24 +2458,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'showFooter': showFooter,
         'showRecommendations': showRecommendations,
         'itemCount':
-            postIds.length +
-            (showHeader ? 1 : 0) +
-            (showFooter ? 1 : 0) +
-            (showRecommendations && (!widget.showSidebar || !canPinSidebar)
-                ? 1
-                : 0),
+            postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0),
         'topicWindow': _topicWindowData(snapshot),
       });
     }
     _scheduleLook();
 
     final itemCount =
-        postIds.length +
-        (showHeader ? 1 : 0) +
-        (showFooter ? 1 : 0) +
-        (showRecommendations && (!widget.showSidebar || !canPinSidebar)
-            ? 1
-            : 0);
+        postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0);
     final postList = TopicPostSliver(
       key: _postSliverKey,
       listController: _list,
@@ -2470,30 +2538,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
         final postIndex = index - (showHeader ? 1 : 0);
         if (postIndex >= postIds.length) {
-          final trailingIndex = postIndex - postIds.length;
-          if (showFooter && trailingIndex == 0) {
-            if (_isScrollCaptureRecording) {
-              _recordTopicScrollEvent('sliver.child.built', {
-                'itemIndex': index,
-                'kind': 'loading-more',
-              });
-            }
-            return const _LoadingPostsRow();
-          }
           if (_isScrollCaptureRecording) {
             _recordTopicScrollEvent('sliver.child.built', {
               'itemIndex': index,
-              'kind': 'recommendations',
+              'kind': 'loading-more',
             });
           }
-          return _MoreTopics(
-            key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
-            inbox: widget.inbox,
-            siteUrl: siteUrl,
-            recommendations: snapshot.recommendations!,
-            selected: _recommendationsSourceId,
-            onSelected: _setRecommendationsSource,
-          );
+          return const _LoadingPostsRow();
         }
 
         final postId = postIds[postIndex];
@@ -2566,6 +2617,48 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           padding: readingLane.padding,
           sliver: context.isTouch ? postList : DStickySliver(sliver: postList),
         ),
+        if (showEndPanel) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: readingLane.padding,
+              child: TopicEndActions(
+                onMoreTopics: _showMoreTopics,
+                onReply: widget.canReply ? controller.openReply : null,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                math.max(8, readingLane.padding.left),
+                16,
+                math.max(8, readingLane.padding.right),
+                8,
+              ),
+              child: TopicMoreTopicsPanel(
+                key: _morePanelKey,
+                child: _MoreTopics(
+                  key: ValueKey((siteUrl, snapshot.topicId, 'more-topics')),
+                  inbox: widget.inbox,
+                  siteUrl: siteUrl,
+                  recommendations: snapshot.recommendations!,
+                  selected: _recommendationsSourceId,
+                  showTitle: true,
+                  topPadding: 0,
+                  onSelected: (source) {
+                    _setRecommendationsSource(source);
+                    final identity = _topicIdentity;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && identity == _topicIdentity) {
+                        _showMoreTopics(alignTop: true);
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
         if (controller.mobileNavigationEnabled)
           SliverPadding(
             padding: EdgeInsets.only(
@@ -2687,20 +2780,23 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
               bottom: DSpacing.sm,
               child: Align(
                 alignment: AlignmentDirectional.centerEnd,
-                child: ListenableBuilder(
-                  listenable: _viewportState.progressPositionListenable,
-                  builder: (context, _) {
-                    final position = _progressPosition;
-                    if (position == null || snapshot.progressTotal <= 1) {
-                      return const SizedBox.shrink();
-                    }
-                    return TopicProgressPopover(
-                      controller: controller,
-                      position: position,
-                      total: snapshot.progressTotal,
-                      floating: true,
-                    );
-                  },
+                child: TopicChromeVisibility(
+                  covered: _moreTopicsCovered,
+                  child: ListenableBuilder(
+                    listenable: _viewportState.progressPositionListenable,
+                    builder: (context, _) {
+                      final position = _progressPosition;
+                      if (position == null || snapshot.progressTotal <= 1) {
+                        return const SizedBox.shrink();
+                      }
+                      return TopicProgressPopover(
+                        controller: controller,
+                        position: position,
+                        total: snapshot.progressTotal,
+                        floating: true,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -2745,11 +2841,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   canReturnToSidebar: widget.canReturnToSidebar,
                   keepTopicListOpen: widget.keepTopicListOpen,
                   registry: widget.registry,
+                  headerSuppressed: _moreTopicsCovered,
                   headerControls: selectionToolbar,
                   bodyBuilder: buildBody,
                 )
               : DPageSurface.scrollable(
                   hideHeaderOnScroll: true,
+                  headerSuppressed: _moreTopicsCovered,
                   framed: false,
                   identity: (siteUrl, snapshot.topicId, _scroll),
                   header: Column(
@@ -2813,6 +2911,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
     required this.viewport,
+    required this.moreTopicsCovered,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
@@ -2827,6 +2926,7 @@ class _TopicBottomBar extends StatelessWidget {
   /// Only the progress control listens: the reading position changes with
   /// every post scrolled past, and the other controls never depend on it.
   final TopicViewportListenable viewport;
+  final ValueListenable<bool> moreTopicsCovered;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
@@ -2925,25 +3025,28 @@ class _TopicBottomBar extends StatelessWidget {
                     ),
                   ),
                 Expanded(
-                  child: ListenableBuilder(
-                    listenable: viewport.progressPositionListenable,
-                    builder: (context, _) {
-                      final position = viewport.progressPosition;
-                      if (position == null || totalPosts <= 1) {
-                        return const SizedBox.shrink();
-                      }
-                      return Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 8),
-                          child: TopicProgressPopover(
-                            controller: controller,
-                            position: position,
-                            total: totalPosts,
+                  child: TopicChromeVisibility(
+                    covered: moreTopicsCovered,
+                    child: ListenableBuilder(
+                      listenable: viewport.progressPositionListenable,
+                      builder: (context, _) {
+                        final position = viewport.progressPosition;
+                        if (position == null || totalPosts <= 1) {
+                          return const SizedBox.shrink();
+                        }
+                        return Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(start: 8),
+                            child: TopicProgressPopover(
+                              controller: controller,
+                              position: position,
+                              total: totalPosts,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -4092,6 +4195,7 @@ class _MoreTopics extends StatelessWidget {
     required this.onSelected,
     this.topPadding = 20,
     this.inbox = false,
+    this.showTitle = false,
   });
 
   final String siteUrl;
@@ -4100,6 +4204,7 @@ class _MoreTopics extends StatelessWidget {
   final ValueChanged<TopicRecommendationSourceId> onSelected;
   final double topPadding;
   final bool inbox;
+  final bool showTitle;
 
   TopicRecommendationSource _effectiveSelection(
     List<TopicRecommendationSource> available,
@@ -4121,29 +4226,33 @@ class _MoreTopics extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: EdgeInsets.only(top: topPadding, bottom: 16),
+      padding: EdgeInsets.only(top: topPadding, bottom: showTitle ? 8 : 16),
       child: DTabs<TopicRecommendationSourceId>.controlled(
         value: selection.id,
         onChanged: (value) {
           if (value != null) onSelected(value);
         },
         children: [
-          if (available.length > 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: DTabList<TopicRecommendationSourceId>(
-                variant: DTabListVariant.line,
-                children: [
-                  for (final source in available)
-                    DTabTrigger(
-                      key: ValueKey(
-                        'topic-recommendations-tab-${source.id.value}',
-                      ),
-                      value: source.id,
-                      child: Text(source.label),
+          if (showTitle || available.length > 1)
+            TopicMoreTopicsHeading(
+              showTitle: showTitle,
+              tabs: available.length <= 1
+                  ? null
+                  : DTabList<TopicRecommendationSourceId>(
+                      variant: showTitle
+                          ? DTabListVariant.pill
+                          : DTabListVariant.line,
+                      children: [
+                        for (final source in available)
+                          DTabTrigger(
+                            key: ValueKey(
+                              'topic-recommendations-tab-${source.id.value}',
+                            ),
+                            value: source.id,
+                            child: Text(source.label),
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
           DTabPanel(
             value: selection.id,

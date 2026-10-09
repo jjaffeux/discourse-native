@@ -29,6 +29,7 @@ class DPageSurface extends StatefulWidget {
     this.borderRadius,
     this.hideHeaderOnScroll = false,
     this.revealHeaderAtEnd = false,
+    this.headerSuppressed,
     this.scrollBody = false,
     this.limitContentSize,
     required this.child,
@@ -51,6 +52,7 @@ class DPageSurface extends StatefulWidget {
     this.borderRadius,
     this.hideHeaderOnScroll = false,
     this.revealHeaderAtEnd = false,
+    this.headerSuppressed,
     this.limitContentSize,
     this.identity,
     required this.bodyBuilder,
@@ -82,6 +84,12 @@ class DPageSurface extends StatefulWidget {
   /// Requires [hideHeaderOnScroll]. The header stays visible through viewport
   /// changes at the bottom until the reader scrolls back toward the top.
   final bool revealHeaderAtEnd;
+
+  /// Temporarily yields the title and its controls to content that owns the
+  /// viewport. The full scroll spacer remains, while the header's paint, hit
+  /// targets, semantics and body obstruction leave together. Releasing this
+  /// restores the ordinary scroll-driven position. The caller owns this value.
+  final ValueListenable<bool>? headerSuppressed;
 
   /// Persistent tabs above the retracting header.
   final Widget? tabs;
@@ -139,13 +147,17 @@ class DPageSurface extends StatefulWidget {
 }
 
 class _DPageSurfaceState extends State<DPageSurface>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _headerFocus = FocusNode(canRequestFocus: false);
   final _headerKey = GlobalKey();
   final _headerGeometry = DPageHeaderGeometry._();
   Widget? _builtBody;
   late final HeaderMotion _motion = HeaderMotion(this)
     ..addListener(_updateHeader);
+  late final _suppression = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  )..addListener(_updateHeader);
   bool _headerHeldAtEnd = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
@@ -160,6 +172,19 @@ class _DPageSurfaceState extends State<DPageSurface>
   void initState() {
     super.initState();
     _headerFocus.addListener(_revealFocusedHeader);
+    widget.headerSuppressed?.addListener(_syncSuppression);
+    _suppression.value = widget.headerSuppressed?.value == true ? 1 : 0;
+  }
+
+  void _syncSuppression() {
+    final target = widget.headerSuppressed?.value == true ? 1.0 : 0.0;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _suppression.value = target;
+    } else {
+      _suppression.animateTo(target, curve: Curves.easeOutCubic);
+    }
+    // Focus and semantics stop immediately; paint and obstruction ease away.
+    setState(() {});
   }
 
   void _revealFocusedHeader() {
@@ -222,6 +247,11 @@ class _DPageSurfaceState extends State<DPageSurface>
   void didUpdateWidget(DPageSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     _builtBody = null;
+    if (oldWidget.headerSuppressed != widget.headerSuppressed) {
+      oldWidget.headerSuppressed?.removeListener(_syncSuppression);
+      widget.headerSuppressed?.addListener(_syncSuppression);
+      _syncSuppression();
+    }
     if (widget.header == null) _headerGeometry._update(0, 0);
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
@@ -238,7 +268,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   void _updateHeader() {
     // Only accessibility boundaries rebuild widgets. Motion goes straight to
     // the render objects, including the body mask and sticky-day geometry.
-    final gone = _hiddenFraction == 1;
+    final gone = _hiddenFraction == 1 || _suppression.value == 1;
     if (_gone == gone) return;
     _gone = gone;
     if (SchedulerBinding.instance.schedulerPhase !=
@@ -371,6 +401,8 @@ class _DPageSurfaceState extends State<DPageSurface>
   void dispose() {
     _scrollChrome?.removeListener(_updateHeader);
     _scrollChrome?.unregisterHeader(this);
+    widget.headerSuppressed?.removeListener(_syncSuppression);
+    _suppression.dispose();
     _motion.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
@@ -390,7 +422,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         child: SizedBox(width: double.infinity, child: child),
       ),
     );
-    final header = widget.header == null
+    final headerContent = widget.header == null
         ? widget.headerControls == null
               ? null
               : fixedContent(widget.headerControls!)
@@ -399,6 +431,7 @@ class _DPageSurfaceState extends State<DPageSurface>
               child: _ScrollHeaderExtent(
                 key: _headerKey,
                 progress: _progress,
+                suppression: _suppression,
                 enabled: widget.hideHeaderOnScroll,
                 floating: widget.scrollBody || widget.bodyBuilder != null,
                 geometry: _headerGeometry,
@@ -421,6 +454,16 @@ class _DPageSurfaceState extends State<DPageSurface>
                   ),
                 ),
               ),
+            ),
+          );
+    final suppressed = widget.headerSuppressed?.value == true;
+    final header = headerContent == null
+        ? null
+        : IgnorePointer(
+            ignoring: suppressed,
+            child: ExcludeSemantics(
+              excluding: suppressed,
+              child: ExcludeFocus(excluding: suppressed, child: headerContent),
             ),
           );
     _RenderScrollHeaderExtent? headerBox() =>
@@ -511,6 +554,7 @@ class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
   _ScrollHeaderExtent({
     super.key,
     required this.progress,
+    required this.suppression,
     required this.enabled,
     required this.floating,
     required this.geometry,
@@ -518,17 +562,24 @@ class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
     Widget? controls,
   }) : super(children: [child, ?controls]);
   final ValueListenable<double> progress;
+  final ValueListenable<double> suppression;
   final bool enabled;
   final bool floating;
   final DPageHeaderGeometry geometry;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderScrollHeaderExtent(progress, enabled, floating, geometry);
+      _RenderScrollHeaderExtent(
+        progress,
+        suppression,
+        enabled,
+        floating,
+        geometry,
+      );
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderScrollHeaderExtent renderObject,
-  ) => renderObject.update(progress, enabled, floating);
+  ) => renderObject.update(progress, suppression, enabled, floating);
 }
 
 class _HeaderParentData extends ContainerBoxParentData<RenderBox> {}
@@ -539,16 +590,31 @@ class _RenderScrollHeaderExtent extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
   _RenderScrollHeaderExtent(
     this._progress,
+    this._suppression,
     this._enabled,
     this._floating,
     this.geometry,
   );
   ValueListenable<double> _progress;
+  ValueListenable<double> _suppression;
   bool _enabled;
   bool _floating;
   final DPageHeaderGeometry geometry;
   double get _hiddenFraction => _enabled ? _progress.value : 0;
-  void update(ValueListenable<double> progress, bool enabled, bool floating) {
+  double _hiddenHeight(double title, double total) =>
+      title * _hiddenFraction +
+      (total - title * _hiddenFraction) * _suppression.value;
+  void update(
+    ValueListenable<double> progress,
+    ValueListenable<double> suppression,
+    bool enabled,
+    bool floating,
+  ) {
+    if (!identical(_suppression, suppression)) {
+      if (attached) _suppression.removeListener(_move);
+      _suppression = suppression;
+      if (attached) _suppression.addListener(_move);
+    }
     if (!identical(_progress, progress)) {
       if (attached) _progress.removeListener(_move);
       _progress = progress;
@@ -563,11 +629,13 @@ class _RenderScrollHeaderExtent extends RenderBox
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _progress.addListener(_move);
+    _suppression.addListener(_move);
   }
 
   @override
   void detach() {
     _progress.removeListener(_move);
+    _suppression.removeListener(_move);
     super.detach();
   }
 
@@ -583,7 +651,7 @@ class _RenderScrollHeaderExtent extends RenderBox
   }
 
   void _position() {
-    final hidden = _hiddenFraction * firstChild!.size.height;
+    final hidden = _hiddenHeight(firstChild!.size.height, naturalHeight);
     visibleHeight = naturalHeight - hidden;
     (firstChild!.parentData! as BoxParentData).offset = Offset(0, -hidden);
     if (childCount > 1) {
@@ -616,7 +684,8 @@ class _RenderScrollHeaderExtent extends RenderBox
       Size(
         childSize.width,
         controls == null && !_floating
-            ? childSize.height * (1 - _hiddenFraction)
+            ? childSize.height -
+                  _hiddenHeight(childSize.height, childSize.height)
             : childSize.height + (controls?.height ?? 0),
       ),
     );
@@ -631,8 +700,8 @@ class _RenderScrollHeaderExtent extends RenderBox
     firstChild!.layout(natural, parentUsesSize: true);
     final controls = childCount > 1 ? lastChild : null;
     controls?.layout(natural, parentUsesSize: true);
-    final hidden = _hiddenFraction * firstChild!.size.height;
     naturalHeight = firstChild!.size.height + (controls?.size.height ?? 0);
+    final hidden = _hiddenHeight(firstChild!.size.height, naturalHeight);
     visibleHeight = naturalHeight - hidden;
     size = constraints.constrain(
       Size(

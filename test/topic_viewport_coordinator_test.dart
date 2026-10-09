@@ -53,6 +53,46 @@ void main() {
       });
     }
 
+    test(
+      'topic end completes the timeline without marking unseen posts read',
+      () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final owner = _Owner(
+          _snapshot(topicId: 1, postIds: const [10, 11, 12]),
+        );
+        subject
+          ..bind(owner.binding)
+          ..restoreInitialPost(owner.snapshot)
+          ..recordObservation(
+            snapshot: owner.snapshot,
+            saveAnchor: false,
+            leading: const (postId: 10, postNumber: 1, caughtUp: false),
+          );
+        expect(subject.progressPosition, 1);
+        geometry.position = (
+          pixels: 600,
+          minScrollExtent: 0,
+          maxScrollExtent: 1400,
+        );
+        subject.recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: false,
+          atTopicEnd: true,
+        );
+        expect(subject.progressPosition, 3);
+        expect(owner.reads, isEmpty);
+        subject.recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: false,
+          leading: const (postId: 11, postNumber: 2, caughtUp: false),
+        );
+        expect(subject.progressPosition, 2);
+      },
+    );
+
     test('viewport aspects notify only their affected consumers', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();

@@ -2855,7 +2855,6 @@ void main() {
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     final listState = tester.state(find.byType(TopicListView));
-    expect(find.byKey(const ValueKey('topic-more-topics-jump')), findsNothing);
     final footer = find.byKey(const ValueKey('topic-bottom-bar'));
     expect(
       find.descendant(of: footer, matching: find.text('Related / Suggested')),

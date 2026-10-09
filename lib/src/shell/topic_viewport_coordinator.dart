@@ -1170,6 +1170,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     TopicViewportSeenPost? visible,
     TopicViewportSeenPost? readable,
     List<int> readablePostNumbers = const [],
+    bool atTopicEnd = false,
   }) {
     final binding = _binding;
     if (binding == null || !_restored || _restoring) return;
@@ -1211,7 +1212,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         visible?.caughtUp == true &&
         position.pixels >= position.maxScrollExtent - 0.5;
     final progress = atEnd ? visible : leading ?? visible;
-    if (progress != null) {
+    if (atTopicEnd) {
+      // Recommendations follow the topic but are not part of its timeline.
+      _setProgressPosition(snapshot.progressTotal);
+    } else if (progress != null) {
       final progressPosition = snapshot.progressByPostNumber
           ? progress.postNumber
           : _streamIndex(snapshot.streamIds, progress.postId) + 1;

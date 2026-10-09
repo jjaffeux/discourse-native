@@ -14969,4 +14969,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hatchTexture => 'Hatch';
+
+  @override
+  String get topicEndReached => 'You have reached the end of this topic';
 }

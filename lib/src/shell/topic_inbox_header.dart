@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
@@ -50,6 +51,7 @@ class TopicInboxHeader extends StatelessWidget {
     this.hasEarlierPosts = false,
     this.bodyBuilder,
     this.headerControls,
+    this.headerSuppressed,
   });
 
   /// Null while loading a topic whose title no route or list row supplied.
@@ -72,6 +74,7 @@ class TopicInboxHeader extends StatelessWidget {
   final bool hasEarlierPosts;
   final Widget Function(DPageHeaderGeometry header)? bodyBuilder;
   final Widget? headerControls;
+  final ValueListenable<bool>? headerSuppressed;
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +123,7 @@ class TopicInboxHeader extends StatelessWidget {
       );
     }
     return DPageSurface.scrollable(
+      headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,
       identity: (siteUrl, topic?.id, scrollController),

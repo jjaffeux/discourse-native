@@ -19980,5 +19980,7 @@
   "liquidGlassMaterial": "Liquid glass",
   "@liquidGlassMaterial": {"description": "Appearance material and texture setting."},
   "hatchTexture": "Hatch",
-  "@hatchTexture": {"description": "Appearance material and texture setting."}
+  "@hatchTexture": {"description": "Appearance material and texture setting."},
+  "topicEndReached": "You have reached the end of this topic",
+  "@topicEndReached": {"description": "End of the post stream before More topics"}
 }

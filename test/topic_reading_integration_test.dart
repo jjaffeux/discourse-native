@@ -4728,7 +4728,7 @@ void _registerTopicReadingTests() {
               ),
             )
             .variant,
-        DTabListVariant.line,
+        DTabListVariant.pill,
       );
       bool focused(Finder tab) => tester
           .widget<FocusableActionDetector>(
@@ -4826,7 +4826,7 @@ void _registerTopicReadingTests() {
 
         expect(
           find.byKey(const ValueKey('topic-more-topics-jump')),
-          findsNothing,
+          findsOneWidget,
         );
         expect(
           find.byKey(const ValueKey('topic-list-ledger-header')),

@@ -26,6 +26,9 @@ final pageSurfaceExamples = ComponentExamples(
       'former space below the control bar. Give it non-scrolling content. '
       'DPageSurface.scrollable keeps an existing virtualized viewport fixed; '
       'insert header.spacer at the start of its scroll content. '
+      'headerSuppressed accepts a caller-owned boolean listenable: it yields the '
+      'title, controls and obstruction over 240ms while retaining the spacer, '
+      'and restores the scroll position on release. Reduced motion is immediate. '
       'Programmatic restoration and '
       'nested or horizontal scrolling do not retract it. Changing identity resets '
       'the header. Use framed: false inside an existing page frame or touch shell. '
@@ -36,6 +39,21 @@ final pageSurfaceExamples = ComponentExamples(
       'padding inside that shared column. This app composition is separate from the '
       'frozen upstream catalogue.',
   examples: [
+    StyleguideExample(
+      title: 'Yield the header',
+      description:
+          'An end panel can own the viewport without moving its scroll spacer.',
+      states: const ['Visible', 'Suppressed', 'Restored', 'Reduced motion'],
+      code: """DPageSurface.scrollable(
+  headerSuppressed: covered,
+  header: title,
+  bodyBuilder: (_, header) => CustomScrollView(slivers: [
+    SliverToBoxAdapter(child: header.spacer), content,
+  ]),
+)""",
+      builder: (_) => const _SuppressedHeaderExample(),
+    ),
+
     StyleguideExample(
       title: 'Mobile navigation',
       description:
@@ -233,6 +251,48 @@ class _PageExampleState extends State<_PageExample> {
             ],
           ],
         ),
+      ),
+    ),
+  );
+}
+
+class _SuppressedHeaderExample extends StatefulWidget {
+  const _SuppressedHeaderExample();
+  @override
+  State<_SuppressedHeaderExample> createState() =>
+      _SuppressedHeaderExampleState();
+}
+
+class _SuppressedHeaderExampleState extends State<_SuppressedHeaderExample> {
+  final covered = ValueNotifier(false);
+  @override
+  void dispose() {
+    covered.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 260,
+    child: DPageSurface.scrollable(
+      headerSuppressed: covered,
+      header: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Topic title'),
+      ),
+      bodyBuilder: (_, header) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: header.spacer),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: DButton(
+                label: const Text('Toggle header'),
+                onPressed: () => covered.value = !covered.value,
+              ),
+            ),
+          ),
+        ],
       ),
     ),
   );
