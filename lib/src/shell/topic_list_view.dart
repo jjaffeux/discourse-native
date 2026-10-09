@@ -40,6 +40,7 @@ import 'topic_list_layout.dart';
 import 'topic_pointer_predictor.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_title.dart';
+import 'user_card.dart';
 
 part 'conversation_topic_card.dart';
 part 'topic_list_prefetch.dart';

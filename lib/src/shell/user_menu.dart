@@ -25,6 +25,7 @@ import 'notification_list.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'user_card.dart';
 import 'user_menu_message.dart';
 import 'user_status.dart';
 import 'user_status_editor.dart';
@@ -757,6 +758,8 @@ class _SectionBody extends StatelessWidget {
     final controller = ShellScope.read(context);
 
     List<Widget> rows() => [
+      if (section.isProfile && siteUrl != null)
+        _OwnCardMenuEntry(siteUrl: siteUrl, onDismiss: onDismiss),
       if (section.plugin case final contribution?)
         contribution.builder(
           context,
@@ -934,6 +937,12 @@ class UserProfileMenuItems extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!statusOnly)
+              _OwnCardMenuEntry(
+                siteUrl: siteUrl,
+                onDismiss: onDismiss,
+                dropdown: true,
+              ),
             for (final row in rows)
               if (row.isHidePresence)
                 _HidePresenceTile(siteUrl: siteUrl, dropdown: true)
@@ -1858,6 +1867,73 @@ class UserMenuAvatar extends StatelessWidget {
         size: DAvatarSize.standard.dimension,
         fallback: fallback,
       ),
+    );
+  }
+}
+
+class _OwnCardMenuEntry extends StatelessWidget {
+  const _OwnCardMenuEntry({
+    required this.siteUrl,
+    required this.onDismiss,
+    this.dropdown = false,
+  });
+  final String siteUrl;
+  final VoidCallback onDismiss;
+  final bool dropdown;
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    final user = shell.currentUserFor(siteUrl);
+    if (user == null) return const SizedBox.shrink();
+    final lease = shell.lifecycle.capture(siteUrl);
+    Future<void> open() async {
+      if (!lease.isCurrent) return;
+      final navigator = Navigator.of(context);
+      onDismiss();
+      await WidgetsBinding.instance.endOfFrame;
+      if (!navigator.mounted ||
+          !lease.isCurrent ||
+          shell.accountSessionDisposed) {
+        return;
+      }
+      await showUserCard(
+        context: navigator.context,
+        username: user.username,
+        siteUrl: siteUrl,
+      );
+    }
+
+    final avatar = UserMenuAvatar(
+      avatarUrl: user.avatarUrl,
+      initial: user.username.characters.firstOrNull,
+      connecting: false,
+    );
+    if (dropdown) {
+      return DDropdownMenuItem(
+        key: const ValueKey('user-menu-own-card'),
+        leading: avatar,
+        onPressed: () => unawaited(open()),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(user.name ?? user.username),
+            Text('@${user.username}'),
+          ],
+        ),
+      );
+    }
+    return DItem(
+      key: const ValueKey('user-menu-own-card'),
+      onPressed: () => unawaited(open()),
+      children: [
+        DItemMedia(child: avatar),
+        DItemContent(
+          children: [
+            DItemTitle(child: Text(user.name ?? user.username)),
+            DItemDescription(child: Text('@${user.username}')),
+          ],
+        ),
+      ],
     );
   }
 }

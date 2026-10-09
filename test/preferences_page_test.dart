@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/header_preferences.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -138,28 +139,18 @@ Future<void> _pumpPage(
   }
 }
 
-Finder _save(PreferenceSection section) =>
-    find.byKey(const ValueKey('preferences-save'));
-
 Finder get _timezoneMenu => find.byKey(const ValueKey('preferences-timezone'));
-
 Finder get _timezoneInput =>
     find.descendant(of: _timezoneMenu, matching: find.byType(EditableText));
-
-DButton _saveButton(WidgetTester tester, PreferenceSection section) =>
-    tester.widget<DButton>(_save(section));
-
-Future<void> _chooseNarrowSection(
-  WidgetTester tester,
-  PreferenceSection section,
-) async {
-  await tester.ensureVisible(
-    find.byKey(ValueKey('preferences-section-${section.keyName}')),
-  );
+Future<void> _section(WidgetTester tester, PreferenceSection section) async {
+  final tab = find.byKey(ValueKey('preferences-section-${section.keyName}'));
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
   await tester.pumpAndSettle();
 }
 
 Future<void> _selectNeverLikeNotifications(WidgetTester tester) async {
+  await _section(tester, PreferenceSection.notifications);
   await tester.tap(find.text('First time and daily'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Never').last);
@@ -168,541 +159,362 @@ Future<void> _selectNeverLikeNotifications(WidgetTester tester) async {
 
 void main() {
   setUpAll(TimezoneEnvironment.instance.ensureDatabase);
-
-  group('stacked preferences', () {
-    testWidgets('shows every available section in one reading lane', (
+  for (final width in [320.0, 680.0, 1000.0]) {
+    testWidgets('section tabs expose every available preference at $width', (
       tester,
     ) async {
       final fixture = await _fixture();
-      await _pumpPage(tester, fixture, width: 1000);
-
+      await _pumpPage(tester, fixture, width: width);
       expect(find.text('Preferences'), findsOneWidget);
-      expect(find.byType(DSelect<PreferenceSection>), findsNothing);
-      for (final section in [
-        ...PreferenceSection.values,
-        chatPreferenceSection,
-      ]) {
-        expect(
-          find.byKey(ValueKey('preferences-section-${section.keyName}')),
-          findsOneWidget,
-        );
-      }
+      expect(find.byType(DTabs<PreferenceSection>), findsOneWidget);
+      expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
       expect(
         find.byKey(const ValueKey('preferences-timezone')),
         findsOneWidget,
       );
-      expect(find.text('Automatically delete bookmarks'), findsOneWidget);
-      expect(find.byKey(const ValueKey('preferences-save')), findsOneWidget);
+      expect(find.text('Automatically delete bookmarks'), findsNothing);
+      for (final section in [
+        ...PreferenceSection.values,
+        chatPreferenceSection,
+      ]) {
+        await _section(tester, section);
+        expect(tester.takeException(), isNull);
+      }
     });
-
-    testWidgets('keeps the mockup width on a wide viewport', (tester) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture, width: 1000);
-      final card = find.byType(DCard).first;
-      expect(tester.getSize(card).width, lessThanOrEqualTo(620));
-      expect(tester.getTopLeft(card).dx, greaterThan(16));
+  }
+  testWidgets('selects persist immediately and only send the changed field', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _selectNeverLikeNotifications(tester);
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'like_notification_frequency': 3,
     });
-
-    testWidgets('preserves all sections on a narrow viewport', (tester) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture, width: 680);
-      expect(find.text('Preferences'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('preferences-section-profile')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('preferences-section-chat/preferences')),
-        findsOneWidget,
-      );
+    expect(
+      fixture.shell.instanceFor(_siteUrl)!.user!.likesNotificationsDisabled,
+      isTrue,
+    );
+    expect(
+      fixture.store.saved.single.single.user!.likesNotificationsDisabled,
+      isTrue,
+    );
+    expect(
+      fixture.shell.preferences
+          .stateFor(_siteUrl)!
+          .dirty(PreferenceSection.notifications),
+      isFalse,
+    );
+    expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
+  });
+  testWidgets('plugin preferences keep their real actions within their tab', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, chatPreferenceSection);
+    await tester.ensureVisible(
+      find.byType(DSelect<ChatSeparateSidebarPreference>),
+    );
+    await tester.tap(find.text('When chat is in fullscreen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Always').last);
+    await tester.pumpAndSettle();
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'chat_separate_sidebar_mode': 'always',
     });
   });
-
-  group('preference editing', () {
-    testWidgets('one Save writes every edited section', (tester) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-
-      await _selectNeverLikeNotifications(tester);
-      await _chooseNarrowSection(tester, chatPreferenceSection);
-      await tester.ensureVisible(
-        find.byType(DSelect<ChatSeparateSidebarPreference>),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('When chat is in fullscreen'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Always').last);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(_save(PreferenceSection.notifications));
-      await tester.tap(_save(PreferenceSection.notifications));
-      await tester.pumpAndSettle();
-
-      expect(fixture.api.userPreferenceUpdates.map((update) => update.values), [
-        {'like_notification_frequency': 3},
-        {'chat_separate_sidebar_mode': 'always'},
-      ]);
-      expect(
-        _saveButton(tester, PreferenceSection.notifications).onPressed,
-        isNull,
-      );
+  testWidgets('quick reversal is saved after the pending first choice', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final fixture = await _fixture(writeGate: gate);
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.notifications);
+    final toggle = find.byKey(const ValueKey('notify-on-linked-posts'));
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(fixture.api.userPreferenceUpdates, hasLength(1));
+    await tester.tap(toggle);
+    await tester.pump();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(fixture.api.userPreferenceUpdates.map((update) => update.values), [
+      {'notify_on_linked_posts': false},
+      {'notify_on_linked_posts': true},
+    ]);
+    expect(
+      fixture.shell.preferences
+          .stateFor(_siteUrl)!
+          .confirmed!
+          .notifyOnLinkedPosts,
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('timezone filters reject free text and persist a selected zone', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    final entries = tester.widget<DCombobox<String>>(_timezoneMenu).options;
+    await tester.enterText(_timezoneInput, 'Mars/Olympus');
+    await tester.pumpAndSettle();
+    expect(fixture.api.userPreferenceUpdates, isEmpty);
+    expect(
+      fixture.shell.preferences.stateFor(_siteUrl)!.draft!.timezone,
+      'Etc/UTC',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(_timezoneInput).controller.text,
+      'Etc/UTC',
+    );
+    await tester.enterText(_timezoneInput, 'Europe/Lond');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Europe/London').last);
+    await tester.pumpAndSettle();
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'timezone': 'Europe/London',
     });
-
-    testWidgets(
-      'enables Save only for edits and sends the changed flat field',
-      (tester) async {
-        final fixture = await _fixture();
-        await _pumpPage(tester, fixture);
-
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).onPressed,
-          isNull,
-        );
-
-        await _selectNeverLikeNotifications(tester);
-
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).onPressed,
-          isNotNull,
-        );
-        await tester.ensureVisible(_save(PreferenceSection.notifications));
-        await tester.tap(_save(PreferenceSection.notifications));
-        await tester.pumpAndSettle();
-
-        expect(fixture.api.userPreferenceUpdates, hasLength(1));
-        expect(fixture.api.userPreferenceUpdates.single.values, {
-          'like_notification_frequency': 3,
-        });
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).onPressed,
-          isNull,
-        );
-      },
+    expect(
+      fixture.shell.instanceFor(_siteUrl)!.user!.timezone,
+      'Europe/London',
     );
-
-    testWidgets(
-      'offers the three web chat sidebar choices and saves the wire value',
-      (tester) async {
-        final fixture = await _fixture();
-        await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, chatPreferenceSection);
-
-        expect(
-          find.text('Show separate sidebar modes for forum and chat'),
-          findsOneWidget,
-        );
-        expect(find.text('When chat is in fullscreen'), findsOneWidget);
-        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
-
-        await tester.tap(find.text('When chat is in fullscreen'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Always'), findsOneWidget);
-        expect(find.text('Never'), findsOneWidget);
-        expect(find.text('Default'), findsNothing);
-
-        await tester.tap(find.text('Always'));
-        await tester.pumpAndSettle();
-        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNotNull);
-
-        await tester.ensureVisible(_save(chatPreferenceSection));
-        await tester.tap(_save(chatPreferenceSection));
-        await tester.pumpAndSettle();
-
-        expect(fixture.api.userPreferenceUpdates.single.values, {
-          'chat_separate_sidebar_mode': 'always',
-        });
-        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
-      },
+    expect(
+      identical(
+        tester.widget<DCombobox<String>>(_timezoneMenu).options,
+        entries,
+      ),
+      isTrue,
     );
-
-    testWidgets(
-      'shows the inherited site chat mode without dirtying the preference',
-      (tester) async {
-        final site = _chatSite.copyWith(
-          config: _site.config.withPlugins(
-            _site.config.plugins.withValue(
-              chatSettingsDataKey,
-              const ChatSettings(
-                separateSidebarMode: ChatSeparateSidebarMode.always,
-              ),
+  });
+  testWidgets('failed immediate save retains the draft and offers retry', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      writeFailure: const WriteException(
+        WriteFailure.validation,
+        errors: ['The forum rejected this preference.'],
+      ),
+    );
+    final semantics = tester.ensureSemantics();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.notifications);
+    await tester.tap(find.byKey(const ValueKey('notify-on-linked-posts')));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel('The forum rejected this preference.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<DSwitchTile>(
+            find.byKey(const ValueKey('notify-on-linked-posts')),
+          )
+          .value,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('preferences-save')))
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      fixture.shell.preferences
+          .stateFor(_siteUrl)!
+          .confirmed!
+          .notifyOnLinkedPosts,
+      isTrue,
+    );
+    semantics.dispose();
+  });
+  testWidgets('denied capabilities hide tracking and prevent edits', (
+    tester,
+  ) async {
+    final fixture = await _fixture(
+      preferences: _preferences.copyWith(
+        canEdit: false,
+        canChangeTrackingPreferences: false,
+      ),
+    );
+    await _pumpPage(tester, fixture);
+    expect(
+      find.byKey(const ValueKey('preferences-section-tracking')),
+      findsNothing,
+    );
+    expect(tester.widget<DCombobox<String>>(_timezoneMenu).enabled, isFalse);
+    await _section(tester, PreferenceSection.notifications);
+    expect(
+      tester
+          .widget<DSwitchTile>(
+            find.byKey(const ValueKey('notify-on-linked-posts')),
+          )
+          .onChanged,
+      isNull,
+    );
+    expect(fixture.api.userPreferenceUpdates, isEmpty);
+  });
+  testWidgets(
+    'notification changes do not mirror unrelated loaded profile data',
+    (tester) async {
+      final fixture = await _fixture(
+        preferences: _preferences.copyWith(timezone: 'Europe/Paris'),
+      );
+      await _pumpPage(tester, fixture);
+      fixture.store.saved.clear();
+      await _section(tester, PreferenceSection.notifications);
+      await tester.tap(find.byKey(const ValueKey('notify-on-linked-posts')));
+      await tester.pumpAndSettle();
+      expect(fixture.shell.instanceFor(_siteUrl)!.user!.timezone, 'Etc/UTC');
+      expect(fixture.store.saved, isEmpty);
+    },
+  );
+  testWidgets(
+    'shows the inherited site chat mode without dirtying the preference',
+    (tester) async {
+      final site = _chatSite.copyWith(
+        config: _site.config.withPlugins(
+          _site.config.plugins.withValue(
+            chatSettingsDataKey,
+            const ChatSettings(
+              separateSidebarMode: ChatSeparateSidebarMode.always,
             ),
           ),
-        );
-        final fixture = await _fixture(
-          site: site,
-          preferences: _preferences.withChatPreferences(
-            separateSidebarMode: ChatSeparateSidebarPreference.siteDefault,
-          ),
-        );
-        await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, chatPreferenceSection);
-
-        expect(find.text('Always'), findsOneWidget);
-        expect(
-          fixture.shell.preferences
-              .stateFor(_siteUrl)!
-              .draft!
-              .chatPreferences
-              .separateSidebarMode,
-          ChatSeparateSidebarPreference.siteDefault,
-        );
-        expect(
-          fixture.shell.preferences
-              .stateFor(_siteUrl)!
-              .dirty(chatPreferenceSection),
-          isFalse,
-        );
-        expect(_saveButton(tester, chatPreferenceSection).onPressed, isNull);
-        expect(fixture.api.userPreferenceUpdates, isEmpty);
-      },
-    );
-
-    testWidgets('announces pending and completed saves without shrinking', (
-      tester,
-    ) async {
-      final writeGate = Completer<void>();
-      final fixture = await _fixture(writeGate: writeGate);
-      final semantics = tester.ensureSemantics();
-      try {
-        await _pumpPage(tester, fixture);
-        await _selectNeverLikeNotifications(tester);
-        final idleButtonSize = tester.getSize(
-          _save(PreferenceSection.notifications),
-        );
-        await tester.ensureVisible(_save(PreferenceSection.notifications));
-        await tester.tap(_save(PreferenceSection.notifications));
-        await tester.pump();
-        await tester.pump();
-
-        final saving = find.bySemanticsLabel('Saving preferences');
-        expect(saving, findsOneWidget);
-        expect(
-          tester.getSemantics(saving),
-          isSemantics(
-            label: 'Saving preferences',
-            value: 'Loading',
-            isButton: true,
-            isEnabled: false,
-            isLiveRegion: true,
-          ),
-        );
-        expect(find.text('Saving changes…'), findsOneWidget);
-        expect(find.text('Saving preferences…'), findsNothing);
-        final savingButtonSize = tester.getSize(
-          _save(PreferenceSection.notifications),
-        );
-        expect(savingButtonSize.width, greaterThan(savingButtonSize.height));
-        expect(
-          savingButtonSize.width,
-          greaterThanOrEqualTo(idleButtonSize.width),
-        );
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).loading,
-          isTrue,
-        );
-
-        writeGate.complete();
-        await tester.pumpAndSettle();
-
-        final saved = find.bySemanticsLabel('Notifications preferences saved.');
-        expect(saved, findsOneWidget);
-        expect(find.byType(DAlert), findsOneWidget);
-        expect(
-          tester.getSemantics(saved),
-          isSemantics(
-            label: 'Notifications preferences saved.',
-            isLiveRegion: true,
-          ),
-        );
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).onPressed,
-          isNull,
-        );
-      } finally {
-        try {
-          if (!writeGate.isCompleted) {
-            writeGate.complete();
-            await tester.pumpAndSettle();
-          }
-        } finally {
-          semantics.dispose();
-        }
-      }
-    });
-
-    testWidgets('the timezone entries are built once for the page', (
-      tester,
-    ) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-      await _chooseNarrowSection(tester, PreferenceSection.profile);
-      final entries = tester.widget<DCombobox<String>>(_timezoneMenu).options;
-      expect(entries.map((entry) => entry.value), contains('Europe/London'));
-
-      await _pumpPage(tester, fixture);
-
-      // Rebuilding the card retains the page's IANA options.
-      expect(
-        identical(
-          tester.widget<DCombobox<String>>(_timezoneMenu).options,
-          entries,
         ),
-        isTrue,
       );
-    });
-
-    testWidgets('filters known timezones without accepting free text', (
-      tester,
-    ) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-      await _chooseNarrowSection(tester, PreferenceSection.profile);
-
-      final menu = tester.widget<DCombobox<String>>(_timezoneMenu);
-      expect(menu.filterLocally, isTrue);
-      expect(
-        menu.options.map((entry) => entry.value),
-        contains('Europe/London'),
-      );
-
-      await tester.enterText(_timezoneInput, 'Mars/Olympus');
-      await tester.pump();
-
-      expect(find.text('Europe/London'), findsNothing);
-      expect(
-        fixture.shell.preferences.stateFor(_siteUrl)!.draft!.timezone,
-        'Etc/UTC',
-      );
-      expect(_saveButton(tester, PreferenceSection.profile).onPressed, isNull);
-      expect(fixture.api.userPreferenceUpdates, isEmpty);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<EditableText>(_timezoneInput).controller.text,
-        'Etc/UTC',
-      );
-
-      await tester.enterText(_timezoneInput, 'Europe/Lond');
-      await tester.pumpAndSettle();
-      expect(find.text('Europe/London'), findsOneWidget);
-
-      await tester.tap(find.text('Europe/London'));
-      await tester.pumpAndSettle();
-
-      expect(
-        fixture.shell.preferences.stateFor(_siteUrl)!.draft!.timezone,
-        'Europe/London',
-      );
-      expect(
-        _saveButton(tester, PreferenceSection.profile).onPressed,
-        isNotNull,
-      );
-    });
-
-    testWidgets('announces server validation errors and retains the draft', (
-      tester,
-    ) async {
       final fixture = await _fixture(
-        writeFailure: const WriteException(
-          WriteFailure.validation,
-          errors: ['The forum rejected this preference.'],
+        site: site,
+        preferences: _preferences.withChatPreferences(
+          separateSidebarMode: ChatSeparateSidebarPreference.siteDefault,
         ),
       );
-      final semantics = tester.ensureSemantics();
-      try {
-        await _pumpPage(tester, fixture);
-        await tester.tap(find.byKey(const ValueKey('notify-on-linked-posts')));
-        await tester.pump();
-        expect(
-          tester
-              .widget<DSwitchTile>(
-                find.byKey(const ValueKey('notify-on-linked-posts')),
-              )
-              .value,
-          isFalse,
-        );
+      await _pumpPage(tester, fixture);
+      await _section(tester, chatPreferenceSection);
 
-        await tester.ensureVisible(_save(PreferenceSection.notifications));
-        await tester.tap(_save(PreferenceSection.notifications));
-        await tester.pumpAndSettle();
-
-        expect(
-          find.bySemanticsLabel('The forum rejected this preference.'),
-          findsOneWidget,
-        );
-        expect(
-          tester
-              .widget<DSwitchTile>(
-                find.byKey(const ValueKey('notify-on-linked-posts')),
-              )
-              .value,
-          isFalse,
-        );
-        expect(
-          _saveButton(tester, PreferenceSection.notifications).onPressed,
-          isNotNull,
-        );
-        expect(fixture.shell.instanceFor(_siteUrl)!.user!.timezone, 'Etc/UTC');
-      } finally {
-        semantics.dispose();
-      }
-    });
-  });
-
-  group('loading and capabilities', () {
-    testWidgets('announces loading in a polite live region', (tester) async {
-      final loadGate = Completer<void>();
-      final fixture = await _fixture(loadGate: loadGate);
-      final semantics = tester.ensureSemantics();
-      try {
-        await _pumpPage(tester, fixture, settle: false);
-
-        final loading = find.bySemanticsLabel(
-          'Loading preferences from preferences.example.',
-        );
-        expect(loading, findsOneWidget);
-        expect(
-          tester.getSemantics(loading),
-          isSemantics(
-            label: 'Loading preferences from preferences.example.',
-            isLiveRegion: true,
-          ),
-        );
-
-        loadGate.complete();
-        await tester.pumpAndSettle();
-        expect(loading, findsNothing);
-      } finally {
-        try {
-          if (!loadGate.isCompleted) {
-            loadGate.complete();
-            await tester.pumpAndSettle();
-          }
-        } finally {
-          semantics.dispose();
-        }
-      }
-    });
-
-    testWidgets('hide tracking and disable editing when denied', (
-      tester,
-    ) async {
-      final fixture = await _fixture(
-        site: _site,
-        preferences: _preferences.copyWith(
-          canEdit: false,
-          canChangeTrackingPreferences: false,
-        ),
-      );
-      await _pumpPage(tester, fixture, width: 1000);
-
-      expect(
-        find.byKey(const ValueKey('preferences-section-tracking')),
-        findsNothing,
-      );
-      expect(find.text('Tracking'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('preferences-section-chat/preferences')),
-        findsNothing,
-      );
-      expect(find.text('Chat'), findsNothing);
-      final likeNotifications = find.byKey(
-        const ValueKey(('like-notification-frequency', 1)),
-      );
-      expect(tester.widget<DSelect<int>>(likeNotifications).onChanged, isNull);
-      expect(tester.widget<DSelect<int>>(likeNotifications).enabled, isFalse);
-      await tester.tap(likeNotifications);
-      await tester.pumpAndSettle();
-      expect(find.byType(DPopoverContent), findsNothing);
-      expect(
-        tester
-            .widget<DSwitchTile>(
-              find.byKey(const ValueKey('notify-on-linked-posts')),
-            )
-            .onChanged,
-        isNull,
-      );
-      expect(
-        _saveButton(tester, PreferenceSection.notifications).onPressed,
-        isNull,
-      );
-    });
-
-    testWidgets('allows an admin to edit Chat when can_chat is false', (
-      tester,
-    ) async {
-      const adminSite = DiscourseInstance(
-        url: _siteUrl,
-        title: 'Preferences Forum',
-        user: DiscourseUser(
-          id: 7,
-          username: 'reader',
-          admin: true,
-          timezone: 'Etc/UTC',
-        ),
-      );
-      final fixture = await _fixture(site: adminSite);
-      await _pumpPage(tester, fixture, width: 1000);
-
-      final chat = find.byKey(
-        const ValueKey('preferences-section-chat/preferences'),
-      );
-      expect(chat, findsOneWidget);
-      await tester.ensureVisible(chat);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(
-        find.byType(DSelect<ChatSeparateSidebarPreference>),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('When chat is in fullscreen'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Always').last);
-      await tester.pumpAndSettle();
+      expect(find.text('Always'), findsOneWidget);
       expect(
         fixture.shell.preferences
             .stateFor(_siteUrl)!
             .draft!
             .chatPreferences
             .separateSidebarMode,
-        ChatSeparateSidebarPreference.always,
+        ChatSeparateSidebarPreference.siteDefault,
       );
-      await tester.ensureVisible(_save(chatPreferenceSection));
-      await tester.tap(_save(chatPreferenceSection));
-      await tester.pumpAndSettle();
+      expect(
+        fixture.shell.preferences
+            .stateFor(_siteUrl)!
+            .dirty(chatPreferenceSection),
+        isFalse,
+      );
+      expect(fixture.api.userPreferenceUpdates, isEmpty);
+    },
+  );
+  testWidgets('announces loading in a polite live region', (tester) async {
+    final loadGate = Completer<void>();
+    final fixture = await _fixture(loadGate: loadGate);
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pumpPage(tester, fixture, settle: false);
 
-      expect(fixture.api.userPreferenceUpdates.single.values, {
-        'chat_separate_sidebar_mode': 'always',
-      });
-    });
-
-    testWidgets('hides Chat when the site setting disables it', (tester) async {
-      final site = _chatSite.copyWith(
-        config: _chatSite.config.withPlugins(
-          _chatSite.config.plugins.withValue(
-            chatSettingsDataKey,
-            const ChatSettings(chatEnabled: false),
-          ),
+      final loading = find.bySemanticsLabel(
+        'Loading preferences from preferences.example.',
+      );
+      expect(loading, findsOneWidget);
+      expect(
+        tester.getSemantics(loading),
+        isSemantics(
+          label: 'Loading preferences from preferences.example.',
+          isLiveRegion: true,
         ),
       );
-      final fixture = await _fixture(site: site);
-      await _pumpPage(tester, fixture, width: 1000);
 
-      expect(
-        find.byKey(const ValueKey('preferences-section-chat/preferences')),
-        findsNothing,
-      );
-      expect(find.text('Chat'), findsNothing);
-    });
+      loadGate.complete();
+      await tester.pumpAndSettle();
+      expect(loading, findsNothing);
+    } finally {
+      try {
+        if (!loadGate.isCompleted) {
+          loadGate.complete();
+          await tester.pumpAndSettle();
+        }
+      } finally {
+        semantics.dispose();
+      }
+    }
   });
 
+  testWidgets('allows an admin to edit Chat when can_chat is false', (
+    tester,
+  ) async {
+    const adminSite = DiscourseInstance(
+      url: _siteUrl,
+      title: 'Preferences Forum',
+      user: DiscourseUser(
+        id: 7,
+        username: 'reader',
+        admin: true,
+        timezone: 'Etc/UTC',
+      ),
+    );
+    final fixture = await _fixture(site: adminSite);
+    await _pumpPage(tester, fixture, width: 1000);
+
+    final chat = find.byKey(
+      const ValueKey('preferences-section-chat/preferences'),
+    );
+    expect(chat, findsOneWidget);
+    await tester.tap(chat);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byType(DSelect<ChatSeparateSidebarPreference>),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('When chat is in fullscreen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Always').last);
+    await tester.pumpAndSettle();
+    expect(
+      fixture.shell.preferences
+          .stateFor(_siteUrl)!
+          .draft!
+          .chatPreferences
+          .separateSidebarMode,
+      ChatSeparateSidebarPreference.always,
+    );
+    await tester.pumpAndSettle();
+
+    expect(fixture.api.userPreferenceUpdates.single.values, {
+      'chat_separate_sidebar_mode': 'always',
+    });
+  });
+  testWidgets('hides Chat when the site setting disables it', (tester) async {
+    final site = _chatSite.copyWith(
+      config: _chatSite.config.withPlugins(
+        _chatSite.config.plugins.withValue(
+          chatSettingsDataKey,
+          const ChatSettings(chatEnabled: false),
+        ),
+      ),
+    );
+    final fixture = await _fixture(site: site);
+    await _pumpPage(tester, fixture, width: 1000);
+
+    expect(
+      find.byKey(const ValueKey('preferences-section-chat/preferences')),
+      findsNothing,
+    );
+    expect(find.text('Chat'), findsNothing);
+  });
   testWidgets(
     'a mounted preferences page reloads a forgotten account generation',
     (tester) async {
       final fixture = await _fixture();
       await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.notifications);
       final page = tester.element(find.byType(PreferencesPage));
       expect(fixture.shell.preferences.stateFor(_siteUrl)?.loaded, isTrue);
 
@@ -721,157 +533,117 @@ void main() {
       );
     },
   );
+  testWidgets('persist confirmed profile settings to the account mirror', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.profile);
 
-  group('account mirror updates', () {
-    testWidgets('persist whether like notifications are disabled', (
-      tester,
-    ) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
+    await tester.enterText(_timezoneInput, 'Europe/Lond');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Europe/London'));
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      await _selectNeverLikeNotifications(tester);
-      fixture.store.saved.clear();
-      await tester.ensureVisible(_save(PreferenceSection.notifications));
-      await tester.tap(_save(PreferenceSection.notifications));
-      await tester.pumpAndSettle();
-
-      expect(
-        fixture.shell.instanceFor(_siteUrl)!.user!.likesNotificationsDisabled,
-        isTrue,
-      );
-      expect(fixture.store.saved, hasLength(1));
-      expect(
-        fixture.store.saved.single.single.user?.likesNotificationsDisabled,
-        isTrue,
-      );
-    });
-
-    testWidgets('persist confirmed profile settings to the account mirror', (
-      tester,
-    ) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-      await _chooseNarrowSection(tester, PreferenceSection.profile);
-
-      await tester.enterText(_timezoneInput, 'Europe/Lond');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Europe/London'));
-      await tester.pumpAndSettle();
-      fixture.store.saved.clear();
-      await tester.ensureVisible(_save(PreferenceSection.profile));
-      await tester.tap(_save(PreferenceSection.profile));
-      await tester.pumpAndSettle();
-
-      final mirrored = fixture.shell.instanceFor(_siteUrl)!.user!;
-      expect(mirrored.timezone, 'Europe/London');
-      expect(
-        mirrored.bookmarkAutoDeletePreference,
-        BookmarkAutoDeletePreference.clearReminder,
-      );
-      expect(fixture.store.saved, hasLength(1));
-      expect(fixture.store.saved.last.single.user?.timezone, 'Europe/London');
-    });
-
-    testWidgets('persist only the confirmed bookmark preference', (
-      tester,
-    ) async {
-      final fixture = await _fixture();
-      await _pumpPage(tester, fixture);
-      await _chooseNarrowSection(tester, PreferenceSection.interface);
-
-      await tester.tap(find.text('When the reminder is cleared'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Never').last);
-      await tester.pumpAndSettle();
-      fixture.store.saved.clear();
-      await tester.ensureVisible(_save(PreferenceSection.interface));
-      await tester.tap(_save(PreferenceSection.interface));
-      await tester.pumpAndSettle();
-
-      final mirrored = fixture.shell.instanceFor(_siteUrl)!.user!;
-      expect(mirrored.timezone, 'Etc/UTC');
-      expect(
-        mirrored.bookmarkAutoDeletePreference,
-        BookmarkAutoDeletePreference.never,
-      );
-      expect(fixture.api.userPreferenceUpdates.single.values, {
-        'bookmark_auto_delete_preference': 0,
-      });
-      expect(fixture.store.saved, hasLength(1));
-      expect(
-        fixture.store.saved.single.single.user?.bookmarkAutoDeletePreference,
-        BookmarkAutoDeletePreference.never,
-      );
-    });
-
-    testWidgets(
-      'persist the confirmed chat mode while preserving chat user state',
-      (tester) async {
-        const heldChatUser = ChatCurrentUser(
-          hasChatEnabled: true,
-          canChat: true,
-          canDirectMessage: false,
-          headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
-          separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
-          lastChannelId: 42,
-          ignoredUsernames: ['muted-user'],
-        );
-        final site = _site.copyWith(
-          user: _site.user!.withPlugins(
-            _site.user!.plugins.withValue(chatCurrentUserDataKey, heldChatUser),
-          ),
-        );
-        final fixture = await _fixture(site: site);
-        await _pumpPage(tester, fixture);
-        await _chooseNarrowSection(tester, chatPreferenceSection);
-
-        await tester.tap(find.text('When chat is in fullscreen'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Always'));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(_save(chatPreferenceSection));
-        await tester.tap(_save(chatPreferenceSection));
-        await tester.pumpAndSettle();
-
-        const expected = ChatCurrentUser(
-          hasChatEnabled: true,
-          canChat: true,
-          canDirectMessage: false,
-          headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
-          separateSidebarMode: ChatSeparateSidebarMode.always,
-          lastChannelId: 42,
-          ignoredUsernames: ['muted-user'],
-        );
-        expect(
-          fixture.shell.instanceFor(_siteUrl)!.user!.chatCurrentUser,
-          expected,
-        );
-        expect(fixture.store.saved, hasLength(1));
-        expect(
-          fixture.store.saved.single.single.user!.chatCurrentUser,
-          expected,
-        );
-      },
+    final mirrored = fixture.shell.instanceFor(_siteUrl)!.user!;
+    expect(mirrored.timezone, 'Europe/London');
+    expect(
+      mirrored.bookmarkAutoDeletePreference,
+      BookmarkAutoDeletePreference.clearReminder,
     );
+    expect(fixture.store.saved, hasLength(1));
+    expect(fixture.store.saved.last.single.user?.timezone, 'Europe/London');
+  });
+  testWidgets(
+    'persist the confirmed chat mode while preserving chat user state',
+    (tester) async {
+      const heldChatUser = ChatCurrentUser(
+        hasChatEnabled: true,
+        canChat: true,
+        canDirectMessage: false,
+        headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+        separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
+        lastChannelId: 42,
+        ignoredUsernames: ['muted-user'],
+      );
+      final site = _site.copyWith(
+        user: _site.user!.withPlugins(
+          _site.user!.plugins.withValue(chatCurrentUserDataKey, heldChatUser),
+        ),
+      );
+      final fixture = await _fixture(site: site);
+      await _pumpPage(tester, fixture);
+      await _section(tester, chatPreferenceSection);
 
-    testWidgets(
-      'ignore unrelated loaded profile fields after notification save',
-      (tester) async {
-        final fixture = await _fixture(
-          preferences: _preferences.copyWith(timezone: 'Europe/Paris'),
-        );
-        await _pumpPage(tester, fixture);
+      await tester.tap(find.text('When chat is in fullscreen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Always'));
+      await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const ValueKey('notify-on-linked-posts')));
-        await tester.pump();
-        fixture.store.saved.clear();
-        await tester.ensureVisible(_save(PreferenceSection.notifications));
-        await tester.tap(_save(PreferenceSection.notifications));
-        await tester.pumpAndSettle();
+      const expected = ChatCurrentUser(
+        hasChatEnabled: true,
+        canChat: true,
+        canDirectMessage: false,
+        headerIndicatorPreference: ChatHeaderIndicatorPreference.onlyMentions,
+        separateSidebarMode: ChatSeparateSidebarMode.always,
+        lastChannelId: 42,
+        ignoredUsernames: ['muted-user'],
+      );
+      expect(
+        fixture.shell.instanceFor(_siteUrl)!.user!.chatCurrentUser,
+        expected,
+      );
+      expect(fixture.store.saved, hasLength(1));
+      expect(fixture.store.saved.single.single.user!.chatCurrentUser, expected);
+    },
+  );
 
-        expect(fixture.shell.instanceFor(_siteUrl)!.user!.timezone, 'Etc/UTC');
-        expect(fixture.store.saved, isEmpty);
-      },
+  testWidgets('non-admin without can_chat has no Chat preference section', (
+    tester,
+  ) async {
+    final fixture = await _fixture(site: _site);
+    await _pumpPage(tester, fixture);
+    expect(
+      find.byKey(const ValueKey('preferences-section-chat/preferences')),
+      findsNothing,
+    );
+  });
+  testWidgets(
+    'announces automatic saving and confirmed success in live regions',
+    (tester) async {
+      final gate = Completer<void>();
+      final fixture = await _fixture(writeGate: gate);
+      final semantics = tester.ensureSemantics();
+      await _pumpPage(tester, fixture);
+      await _section(tester, PreferenceSection.notifications);
+      await tester.tap(find.byKey(const ValueKey('notify-on-linked-posts')));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Saving preferences'), findsOneWidget);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel('Notifications preferences saved.'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    },
+  );
+  testWidgets('server bookmark preference still mirrors after confirmation', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.interface);
+    expect(find.byType(HeaderTuningPreferences), findsOneWidget);
+    await tester.tap(find.text('When the reminder is cleared'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Never').last);
+    await tester.pumpAndSettle();
+    expect(
+      fixture.shell.instanceFor(_siteUrl)!.user!.bookmarkAutoDeletePreference,
+      BookmarkAutoDeletePreference.never,
     );
   });
 }

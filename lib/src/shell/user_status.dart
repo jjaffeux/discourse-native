@@ -19,6 +19,7 @@ class UserStatusMessage extends StatelessWidget {
     required this.status,
     this.userId,
     this.showDescription = false,
+    this.asBubble = false,
     this.size = 16,
     this.style,
     this.descriptionMaxWidth = 180,
@@ -31,6 +32,7 @@ class UserStatusMessage extends StatelessWidget {
   final int? userId;
   final UserStatus? status;
   final bool showDescription;
+  final bool asBubble;
   final double size;
   final TextStyle? style;
   final double descriptionMaxWidth;
@@ -55,6 +57,7 @@ class UserStatusMessage extends StatelessWidget {
     siteUrl: siteUrl,
     status: status,
     showDescription: showDescription,
+    asBubble: asBubble,
     size: size,
     style: style,
     descriptionMaxWidth: descriptionMaxWidth,
@@ -132,6 +135,7 @@ class _ExpiringUserStatus extends StatefulWidget {
     required this.siteUrl,
     required this.status,
     required this.showDescription,
+    required this.asBubble,
     required this.size,
     required this.style,
     required this.descriptionMaxWidth,
@@ -143,6 +147,7 @@ class _ExpiringUserStatus extends StatefulWidget {
   final String siteUrl;
   final UserStatus? status;
   final bool showDescription;
+  final bool asBubble;
   final double size;
   final TextStyle? style;
   final double descriptionMaxWidth;
@@ -199,7 +204,7 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
       siteUrl: widget.siteUrl,
       name: status.emoji,
       size: widget.size,
-      alt: status.description,
+      alt: widget.showDescription ? '' : status.description,
       style: widget.style,
     );
     Widget content = DTooltip(
@@ -231,6 +236,13 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
         ),
       ),
     );
+    if (widget.asBubble) {
+      content = DBubble(
+        variant: DBubbleVariant.status,
+        maximumWidthFactor: 1,
+        children: [DBubbleContent(child: content)],
+      );
+    }
     if (widget.badgeBackgroundColor case final background?) {
       content = DecoratedBox(
         decoration: BoxDecoration(color: background, shape: BoxShape.circle),

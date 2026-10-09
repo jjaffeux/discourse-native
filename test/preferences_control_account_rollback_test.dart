@@ -137,11 +137,6 @@ void main() {
               isTrue,
             );
             await _pump(tester);
-            final save = find.byKey(const ValueKey('preferences-save'));
-            await tester.ensureVisible(save);
-            await _pump(tester);
-            await tester.tap(save);
-            await _pump(tester);
             expect(api.userPreferenceUpdates, hasLength(1));
             expect(api.userPreferenceUpdates.single.values, switch (control) {
               _Control.timezone => {'timezone': 'Europe/London'},
@@ -172,6 +167,16 @@ bool _chosen(UserPreferences draft, _Control control) => switch (control) {
 
 Finder get _timezone => find.byKey(const ValueKey('preferences-timezone'));
 Future<void> _open(WidgetTester tester, _Control control) async {
+  final section = switch (control) {
+    _Control.timezone => 'profile',
+    _Control.notify => 'notifications',
+    _Control.plugin => 'chat/preferences',
+  };
+  final tab = find.byKey(ValueKey('preferences-section-$section'));
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
+  await _pump(tester);
+
   final target = switch (control) {
     _Control.timezone => _timezone,
     _Control.notify => find.byKey(const ValueKey('notify-on-linked-posts')),

@@ -7,6 +7,8 @@ import '../foundation/tokens.dart';
 import 'd_spinner.dart';
 
 enum DBubbleVariant {
+  /// A pill with a continuous outlined caret pointing to its author's avatar.
+  status,
   primary,
 
   /// Muted accent fill with the conversation's 12px corners and 13.5px text.
@@ -282,6 +284,11 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final secondary = mix(tokens.muted, tokens.foreground, .01);
 
     var style = switch (scope.variant) {
+      DBubbleVariant.status => _ContentStyle(
+        background: mix(tokens.background, tokens.foreground, .06),
+        foreground: tokens.foreground,
+        border: _focused ? tokens.primary : tokens.border,
+      ),
       DBubbleVariant.neutral => _ContentStyle(
         background: mix(
           tokens.background,
@@ -400,6 +407,34 @@ class _DBubbleContentState extends State<DBubbleContent> {
           : DiscourseTypography.sm,
       height: conversation ? 1.5 : 1.625,
     );
+
+    if (scope.variant == DBubbleVariant.status) {
+      return Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        child: CustomPaint(
+          painter: _StatusBubblePainter(
+            fill: style.background,
+            edge: style.border,
+            surround: DTokens.of(context).background,
+            direction: Directionality.of(context),
+          ),
+          child: Padding(
+            // The caret occupies its own painted bounds below the pill.
+            padding: const EdgeInsetsDirectional.fromSTEB(9, 5, 12, 11),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(
+                color: style.foreground,
+                fontSize: 12.5,
+                height: 1.3,
+              ),
+              child: _contents(context, status),
+            ),
+          ),
+        ),
+      );
+    }
 
     return AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
@@ -748,4 +783,68 @@ class _ExteriorRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ExteriorRingPainter oldDelegate) =>
       color != oldDelegate.color;
+}
+
+class _StatusBubblePainter extends CustomPainter {
+  const _StatusBubblePainter({
+    required this.fill,
+    required this.edge,
+    required this.surround,
+    required this.direction,
+  });
+  final Color fill, edge, surround;
+  final TextDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width < 2 || size.height < 8) return;
+    final right = size.width - .5;
+    final bottom = size.height - 6.5;
+    final radius = ((bottom - .5) / 2).clamp(0.0, (size.width - 1) / 2);
+    final caretWidth = (size.width / 4).clamp(0.0, 6.0);
+    final caret = (radius + 6).clamp(caretWidth + .5, right - caretWidth);
+    final path = Path()
+      ..moveTo(.5 + radius, .5)
+      ..lineTo(right - radius, .5)
+      ..arcToPoint(
+        Offset(right - radius, bottom),
+        radius: Radius.circular(radius),
+      )
+      ..lineTo(caret + caretWidth, bottom)
+      ..lineTo(caret, bottom + 6)
+      ..lineTo(caret - caretWidth / 2, bottom)
+      ..lineTo(.5 + radius, bottom)
+      ..arcToPoint(Offset(.5 + radius, .5), radius: Radius.circular(radius))
+      ..close();
+    canvas.save();
+    if (direction == TextDirection.rtl) {
+      canvas.translate(size.width, 0);
+      canvas.scale(-1, 1);
+    }
+    canvas.drawShadow(path, Colors.black.withValues(alpha: .18), 4, false);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = surround
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+    canvas.drawPath(path, Paint()..color = fill);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = edge
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..strokeJoin = StrokeJoin.miter,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_StatusBubblePainter old) =>
+      fill != old.fill ||
+      edge != old.edge ||
+      surround != old.surround ||
+      direction != old.direction;
 }

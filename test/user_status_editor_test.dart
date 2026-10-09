@@ -493,7 +493,7 @@ void main() {
 
     await tester.tap(find.text('Edit status'));
     await tester.pumpAndSettle();
-    expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isTrue);
+    expect(tester.widget<DSwitchTile>(find.byType(DSwitchTile)).value, isTrue);
     await tester.tap(find.text('Clear status'));
     await tester.pumpAndSettle();
     expect(api.userStatusesCleared, [_site]);

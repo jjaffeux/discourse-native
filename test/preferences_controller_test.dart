@@ -153,6 +153,89 @@ Future<void> _seed(PreferencesController controller) async {
 }
 
 void main() {
+  test(
+    'automatic saves stop on failure and retry the retained choice',
+    () async {
+      var fail = true;
+      final api = _PreferencesApi(
+        onUpdate: (call) async {
+          if (fail) throw const WriteException(WriteFailure.forbidden);
+          return call.fallback;
+        },
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (value) => value.copyWith(notifyOnLinkedPosts: false),
+      );
+      await controller.saveAutomatically(
+        _accountA,
+        PreferenceSection.notifications,
+      );
+      expect(api.updates, hasLength(1));
+      expect(controller.stateFor(_siteUrl)!.error, isNotNull);
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.notifications),
+        isTrue,
+      );
+      fail = false;
+      await controller.saveAutomatically(
+        _accountA,
+        PreferenceSection.notifications,
+      );
+      expect(api.updates, hasLength(2));
+      expect(
+        controller.stateFor(_siteUrl)!.dirty(PreferenceSection.notifications),
+        isFalse,
+      );
+    },
+  );
+  test(
+    'automatic saves retire the queued reversal when the account changes',
+    () async {
+      final gate = Completer<UserPreferences>();
+      final started = Completer<void>();
+      final api = _PreferencesApi(
+        onUpdate: (call) {
+          started.complete();
+          return gate.future;
+        },
+        onLoad: (call) async => _initial.copyWith(username: call.username),
+      );
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, lifecycle: lifecycle);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (value) => value.copyWith(notifyOnLinkedPosts: false),
+      );
+      final save = controller.saveAutomatically(
+        _accountA,
+        PreferenceSection.notifications,
+      );
+      await started.future;
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (value) => value.copyWith(notifyOnLinkedPosts: true),
+      );
+      lifecycle.invalidate(_siteUrl);
+      controller.forget(_siteUrl);
+      // Complete the retired request before loading through the serial lane.
+      gate.complete(_initial.copyWith(notifyOnLinkedPosts: false));
+      await save;
+      await controller.load(_accountB);
+      expect(api.updates, hasLength(1));
+      expect(controller.stateFor(_siteUrl)!.username, 'bob');
+      expect(controller.stateFor(_siteUrl)!.draft!.notifyOnLinkedPosts, isTrue);
+    },
+  );
+
   // Deliberately no TestWidgetsFlutterBinding.ensureInitialized(): this file
   // also pins that the controller remains usable by headless entry points.
   group('section-scoped saves', () {

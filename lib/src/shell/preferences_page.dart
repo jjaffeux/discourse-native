@@ -14,6 +14,7 @@ import '../theme/discourse_typography.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preferences_controller.dart';
+import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -41,6 +42,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
   ShellController? _shell;
   PreferencesController? _preferences;
   bool _hydrationScheduled = false;
+  PreferenceSection _selectedSection = PreferenceSection.profile;
 
   @override
   void initState() {
@@ -145,7 +147,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
       PreferenceSection section,
       UserPreferences Function(UserPreferences) change,
     ) {
-      if (ownsView()) shell.preferences.edit(siteUrl, section, change);
+      if (!ownsView() || instance == null) return;
+      shell.preferences.edit(siteUrl, section, change);
+      unawaited(shell.preferences.saveAutomatically(instance, section));
     }
 
     void useDeviceTimezone() {
@@ -168,6 +172,9 @@ class _PreferencesPageState extends State<PreferencesPage> {
             ),
           );
     final sections = _sectionsFor(draft, pluginSections);
+    final selected = sections.contains(_selectedSection)
+        ? _selectedSection
+        : sections.first;
     final dirty = sections.any(state.dirty);
     final canSave =
         instance?.isConnected == true && editable && dirty && !state.saving;
@@ -207,48 +214,58 @@ class _PreferencesPageState extends State<PreferencesPage> {
             _StatusAnnouncement(state: state, pluginSections: pluginSections),
             if (state.error != null ||
                 state.loading ||
+                state.saving ||
                 state.savedSection != null)
               const SizedBox(height: 16),
-            for (final section in sections) ...[
-              _PreferenceSectionHeading(
-                key: ValueKey('preferences-section-${section.keyName}'),
-                title: _sectionTitle(section, pluginSections),
-                icon: _sectionIcon(section, pluginSections),
-              ),
-              const SizedBox(height: 9),
-              _buildSection(
-                draft,
-                section,
-                editable,
-                pluginSections,
-                edit,
-                useDeviceTimezone,
-              ),
+            SettingsSectionTabs<PreferenceSection>(
+              value: selected,
+              sections: [
+                for (final section in sections)
+                  (
+                    value: section,
+                    label: _sectionTitle(section, pluginSections),
+                    key: ValueKey('preferences-section-${section.keyName}'),
+                  ),
+              ],
+              onChanged: (section) =>
+                  setState(() => _selectedSection = section),
+            ),
+            const SizedBox(height: 22),
+            _buildSection(
+              draft,
+              selected,
+              editable,
+              pluginSections,
+              edit,
+              useDeviceTimezone,
+            ),
+            const SizedBox(height: 22),
+            if (selected == PreferenceSection.interface) ...[
+              const HeaderTuningPreferences(),
               const SizedBox(height: 22),
             ],
-            const HeaderTuningPreferences(),
-            const SizedBox(height: 22),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DButton(
-                key: const ValueKey('preferences-save'),
-                label: Text(context.l10n.saveChanges),
-                semanticLabel: state.saving
-                    ? context.l10n.savingPreferences
-                    : context.l10n.savePreferences,
-                onPressed: canSave
-                    ? () {
-                        if (ownsView()) {
-                          unawaited(_saveAll(shell, instance!, sections));
+            if (state.error != null && dirty)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: DButton(
+                  key: const ValueKey('preferences-save'),
+                  label: Text(context.l10n.retry),
+                  semanticLabel: state.saving
+                      ? context.l10n.savingPreferences
+                      : context.l10n.savePreferences,
+                  onPressed: canSave
+                      ? () {
+                          if (ownsView()) {
+                            unawaited(_saveAll(shell, instance!, sections));
+                          }
                         }
-                      }
-                    : null,
-                loading: state.saving,
-                loadingLabel: Text(context.l10n.savingChanges),
-                variant: DButtonVariant.primary,
-                size: DButtonSize.regular,
+                      : null,
+                  loading: state.saving,
+                  loadingLabel: Text(context.l10n.savingChanges),
+                  variant: DButtonVariant.primary,
+                  size: DButtonSize.regular,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -395,43 +412,6 @@ class _SectionScroller extends StatelessWidget {
   );
 }
 
-class _PreferenceSectionHeading extends StatelessWidget {
-  const _PreferenceSectionHeading({
-    super.key,
-    required this.title,
-    required this.icon,
-  });
-
-  final String title;
-  final DIconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      header: true,
-      child: Row(
-        children: [
-          ExcludeSemantics(
-            child: DIcon(
-              icon,
-              size: 12,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _NotificationsForm extends StatelessWidget {
   const _NotificationsForm({
     required this.preferences,
@@ -447,7 +427,7 @@ class _NotificationsForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelect<int>.controlled(
+        _PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -532,7 +512,7 @@ class _TrackingForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelect<int>.controlled(
+        _PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -589,7 +569,7 @@ class _TrackingForm extends StatelessWidget {
           enabled: enabled,
         ),
         const SizedBox(height: 18),
-        DSelect<int>.controlled(
+        _PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -661,7 +641,7 @@ class _TrackingForm extends StatelessWidget {
           enabled: enabled,
         ),
         const SizedBox(height: 18),
-        DSelect<int>.controlled(
+        _PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -735,39 +715,56 @@ class _ProfileForm extends StatelessWidget {
     return _PreferenceCard(
       children: [
         DField(
+          orientation: MediaQuery.textScalerOf(context).scale(14) > 21
+              ? DFieldOrientation.vertical
+              : DFieldOrientation.responsive,
+          responsiveBreakpoint: 520,
           children: [
-            DFieldLabel(child: Text(context.l10n.timezone)),
-            DCombobox<String>.controlled(
-              key: const ValueKey('preferences-timezone'),
-              textController: timezone,
-              focusNode: timezoneFocus,
-              enabled: enabled,
-              value: selectedTimezone,
-              options: timezoneEntries,
-              anchor: DComboboxInput<String>(
-                semanticLabel: context.l10n.timezone,
-              ),
-              content: DComboboxContent(
-                children: [
-                  DComboboxEmpty<String>(
-                    child: Text(context.l10n.noTimezonesFound),
+            DFieldContent(
+              children: [
+                DFieldLabel(child: Text(context.l10n.timezone)),
+                DFieldDescription(
+                  child: Text(
+                    context
+                        .l10n
+                        .typeToFilterIANATimezonesUsedForDatesAndReminders,
                   ),
-                  const DComboboxList<String>(),
-                ],
-              ),
-              onChanged: enabled
-                  ? (value, reason) {
-                      if (value == null) {
-                        _restoreSelectedTimezone();
-                      } else {
-                        onTimezoneChanged(value);
-                      }
-                    }
-                  : null,
+                ),
+              ],
             ),
-            DFieldDescription(
-              child: Text(
-                context.l10n.typeToFilterIANATimezonesUsedForDatesAndReminders,
+            DFieldControl(
+              label: context.l10n.timezone,
+              expand: false,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 250),
+                child: DCombobox<String>.controlled(
+                  key: const ValueKey('preferences-timezone'),
+                  textController: timezone,
+                  focusNode: timezoneFocus,
+                  enabled: enabled,
+                  value: selectedTimezone,
+                  options: timezoneEntries,
+                  anchor: DComboboxInput<String>(
+                    semanticLabel: context.l10n.timezone,
+                  ),
+                  content: DComboboxContent(
+                    children: [
+                      DComboboxEmpty<String>(
+                        child: Text(context.l10n.noTimezonesFound),
+                      ),
+                      const DComboboxList<String>(),
+                    ],
+                  ),
+                  onChanged: enabled
+                      ? (value, reason) {
+                          if (value == null) {
+                            _restoreSelectedTimezone();
+                          } else {
+                            onTimezoneChanged(value);
+                          }
+                        }
+                      : null,
+                ),
               ),
             ),
           ],
@@ -824,7 +821,7 @@ class _InterfaceForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PreferenceCard(
       children: [
-        DSelect<BookmarkAutoDeletePreference>.controlled(
+        _PreferenceSelect<BookmarkAutoDeletePreference>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -878,15 +875,7 @@ class _PreferenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DCard(
-      spacing: 16,
-      children: [
-        DCardContent(
-          // Existing section adapters retain their 8/12/20px local spacing.
-          child: DFieldGroup(spacing: 0, children: children),
-        ),
-      ],
-    );
+    return DFieldGroup(spacing: 0, children: children);
   }
 }
 
@@ -903,6 +892,10 @@ class _StatusAnnouncement extends StatelessWidget {
   Widget build(BuildContext context) {
     final (message, kind) = switch (state) {
       PreferencesState(error: final error?) => (error, _StatusKind.error),
+      PreferencesState(pendingWrites: > 0) => (
+        context.l10n.savingPreferences,
+        _StatusKind.progress,
+      ),
       PreferencesState(savedSection: final section?) => (
         context.l10n.preferencesSaved(
           (_sectionTitle(section, pluginSections)).toString(),
@@ -1050,15 +1043,60 @@ String _sectionTitle(
       _ => section.name,
     };
 
-DIconData _sectionIcon(
-  PreferenceSection section,
-  List<PluginUserPreferenceSection> pluginSections,
-) =>
-    _pluginSection(section, pluginSections)?.icon ??
-    switch (section) {
-      PreferenceSection.profile => DIcons.user,
-      PreferenceSection.notifications => DIcons.bell,
-      PreferenceSection.tracking => DIcons.list,
-      PreferenceSection.interface => DIcons.display,
-      _ => DIcons.gear,
-    };
+/// A setting row shares Field layout and the existing Select interaction owner.
+class _PreferenceSelect<T> extends StatelessWidget {
+  const _PreferenceSelect({
+    super.key,
+    required this.value,
+    required this.label,
+    this.description,
+    required this.entries,
+    required this.onChanged,
+    required this.initialValue,
+    required this.enabled,
+    this.isExpanded = true,
+    this.size = DControlSize.preference,
+  });
+  final T value;
+  final Widget label;
+  final Widget? description;
+  final List<DSelectEntry<T>> entries;
+  final ValueChanged<T?>? onChanged;
+  final T initialValue;
+  final bool enabled;
+  final bool isExpanded;
+  final DControlSize size;
+  @override
+  Widget build(BuildContext context) => DField(
+    enabled: enabled,
+    orientation: MediaQuery.textScalerOf(context).scale(14) > 21
+        ? DFieldOrientation.vertical
+        : DFieldOrientation.responsive,
+    responsiveBreakpoint: 520,
+    children: [
+      DFieldContent(
+        children: [
+          DFieldLabel(child: label),
+          if (description != null) DFieldDescription(child: description!),
+        ],
+      ),
+      DFieldControl(
+        label: label is Text ? ((label as Text).data ?? '') : '',
+        expand: false,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 250),
+          child: DSelect<T>.controlled(
+            value: value,
+            initialValue: initialValue,
+            size: size,
+            isExpanded: isExpanded,
+            entries: entries,
+            semanticLabel: label is Text ? (label as Text).data : null,
+            enabled: enabled,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    ],
+  );
+}

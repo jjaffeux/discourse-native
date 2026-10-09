@@ -501,13 +501,13 @@ class _UsersPageState extends State<UsersPage> {
         if (_recording) {
           _recordScrollEvent('users.row.built', {'index': cell.index});
         }
-        return UserCardTarget(
+        return Row(
           key: ValueKey('user-row-${cell.row.user.username}'),
-          username: cell.row.user.username,
-          siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-          child: Row(
-            children: [
-              DAvatar(
+          children: [
+            UserCardTarget.avatar(
+              username: cell.row.user.username,
+              siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+              child: DAvatar(
                 size: DAvatarSize.sm,
                 decorative: true,
                 child: AvatarImage(
@@ -515,15 +515,23 @@ class _UsersPageState extends State<UsersPage> {
                   size: DAvatarSize.sm.dimension,
                   fallback: DAvatarFallback(
                     child: Text(
-                      cell.row.user.username.characters.first.toUpperCase(),
+                      cell.row.user.username.characters.firstOrNull
+                              ?.toUpperCase() ??
+                          '?',
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: DSpacing.sm),
-              Expanded(child: SearchText(cell.row.user.username)),
-            ],
-          ),
+            ),
+            const SizedBox(width: DSpacing.sm),
+            Flexible(
+              child: UserCardTarget(
+                username: cell.row.user.username,
+                siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+                child: SearchText(cell.row.user.username),
+              ),
+            ),
+          ],
         );
       },
     ),
@@ -534,7 +542,17 @@ class _UsersPageState extends State<UsersPage> {
       width: const FixedColumnWidth(186),
       minWidth: 120,
       maxWidth: 800,
-      cellBuilder: (context, cell) => SearchText(cell.row.user.name ?? '—'),
+      cellBuilder: (context, cell) => cell.row.user.name == null
+          ? const Text('—')
+          : Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: UserCardTarget(
+                key: ValueKey('user-name-${cell.row.user.username}'),
+                username: cell.row.user.username,
+                siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+                child: SearchText(cell.row.user.name!),
+              ),
+            ),
     ),
     for (final column in widget.data.columns)
       DDataTableColumn(

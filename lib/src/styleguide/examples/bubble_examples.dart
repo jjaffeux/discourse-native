@@ -23,6 +23,17 @@ final bubbleExamples = ComponentExamples(
       'example state.',
   examples: [
     StyleguideExample(
+      title: 'Profile status',
+      description:
+          'A continuous outlined pill and caret, shared by status text and its inline editor.',
+      code:
+          "DBubble(variant: DBubbleVariant.status, children: [DBubbleContent(child: Text('Working from home'))])",
+      builder: (_) => const DBubble(
+        variant: DBubbleVariant.status,
+        children: [DBubbleContent(child: Text('Working from home'))],
+      ),
+    ),
+    StyleguideExample(
       title: 'Chat surfaces',
       description:
           'Neutral and accent variants use 12px corners, 8px vertical padding and 13.5px conversation text.',

@@ -14,6 +14,7 @@ class UserCard with Storable<UserCard> {
     this.title,
     this.bioExcerpt,
     this.avatarUrl,
+    this.cardBackgroundUrl,
     this.status,
     this.location,
     this.website,
@@ -23,6 +24,8 @@ class UserCard with Storable<UserCard> {
     this.timeRead = 0,
     this.badgeCount = 0,
     this.isStaff = false,
+    this.isAdmin = false,
+    this.isModerator = false,
     this.suspendedTill,
     this.plugins = PluginData.none,
   });
@@ -43,6 +46,10 @@ class UserCard with Storable<UserCard> {
         siteUrl,
         size: 240,
       ),
+      cardBackgroundUrl: _backgroundUrl(
+        json['card_background_upload_url'],
+        siteUrl,
+      ),
       status: UserStatus.fromJson(json['status']),
       location: jsonText(json['location']),
       website: jsonText(json['website']),
@@ -52,6 +59,8 @@ class UserCard with Storable<UserCard> {
       timeRead: jsonInt(json['time_read']),
       badgeCount: jsonInt(json['badge_count']),
       isStaff: json['admin'] == true || json['moderator'] == true,
+      isAdmin: json['admin'] == true,
+      isModerator: json['moderator'] == true,
       suspendedTill: jsonDate(json['suspended_till']),
       plugins: extensions.readUserCard(json, siteUrl),
     );
@@ -66,6 +75,7 @@ class UserCard with Storable<UserCard> {
   final String? bioExcerpt;
 
   final String? avatarUrl;
+  final String? cardBackgroundUrl;
   final UserStatus? status;
   final String? location;
   final String? website;
@@ -75,6 +85,8 @@ class UserCard with Storable<UserCard> {
   final int timeRead;
   final int badgeCount;
   final bool isStaff;
+  final bool isAdmin;
+  final bool isModerator;
 
   /// Present only while the site reports the user as suspended.
   final DateTime? suspendedTill;
@@ -105,6 +117,7 @@ class UserCard with Storable<UserCard> {
           other.title == title &&
           other.bioExcerpt == bioExcerpt &&
           other.avatarUrl == avatarUrl &&
+          other.cardBackgroundUrl == cardBackgroundUrl &&
           other.status == status &&
           other.location == location &&
           other.website == website &&
@@ -114,17 +127,20 @@ class UserCard with Storable<UserCard> {
           other.timeRead == timeRead &&
           other.badgeCount == badgeCount &&
           other.isStaff == isStaff &&
+          other.isAdmin == isAdmin &&
+          other.isModerator == isModerator &&
           other.suspendedTill == suspendedTill &&
           other.plugins == plugins;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     username,
     id,
     name,
     title,
     bioExcerpt,
     avatarUrl,
+    cardBackgroundUrl,
     status,
     location,
     website,
@@ -134,7 +150,20 @@ class UserCard with Storable<UserCard> {
     timeRead,
     badgeCount,
     isStaff,
+    isAdmin,
+    isModerator,
     suspendedTill,
     plugins,
-  );
+  ]);
+}
+
+String? _backgroundUrl(dynamic value, String siteUrl) {
+  final path = jsonText(value);
+  if (path == null) return null;
+  final relative = Uri.tryParse(path);
+  if (relative == null) return null;
+  final uri = Uri.tryParse(siteUrl)?.resolveUri(relative);
+  return uri != null && (uri.scheme == 'https' || uri.scheme == 'http')
+      ? uri.toString()
+      : null;
 }

@@ -81,16 +81,12 @@ void main() {
           ),
         );
 
-        final ink = find.descendant(of: target, matching: find.byType(InkWell));
-        expect(ink, findsOneWidget);
         expect(
-          tester.widget<InkWell>(ink).mouseCursor,
-          SystemMouseCursors.click,
-        );
-        expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
-        expect(
-          tester.widget<InkWell>(ink).focusColor,
-          Theme.of(tester.element(target)).shell.hover,
+          find.descendant(
+            of: find.byType(UserCardTarget),
+            matching: find.byType(DButton),
+          ),
+          findsOneWidget,
         );
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);

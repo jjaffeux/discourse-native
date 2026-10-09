@@ -376,18 +376,28 @@ void main() {
     testWidgets(
       'open the custom-status editor from the profile row',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
-        await tester.tap(find.byKey(UserMenuButton.avatarKey));
-        await tester.pumpAndSettle();
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.tap(find.byKey(UserMenuButton.avatarKey));
+          await tester.pumpAndSettle();
 
-        final status = find.byKey(const ValueKey('user-menu-row-user-status'));
-        expect(status, findsOneWidget);
+          final status = find.byKey(
+            const ValueKey('user-menu-row-user-status'),
+          );
+          expect(status, findsOneWidget);
 
-        await tester.tap(status);
-        await tester.pumpAndSettle();
+          await tester.tap(status);
+          await tester.pumpAndSettle();
 
-        expect(find.text('Set custom status'), findsOneWidget);
-        expect(find.text('What’s your status?'), findsOneWidget);
-        expect(find.text('Clear after'), findsOneWidget);
+          expect(find.text('Set custom status'), findsOneWidget);
+          expect(
+            find.bySemanticsLabel(RegExp('What’s your status')),
+            findsOneWidget,
+          );
+          expect(find.text('Clear after'), findsOneWidget);
+        } finally {
+          semantics.dispose();
+        }
       }),
     );
   });

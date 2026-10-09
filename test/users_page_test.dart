@@ -1322,7 +1322,7 @@ void main() {
       );
       expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-      expect(find.bySemanticsLabel('View profile for @sam'), findsOneWidget);
+      expect(find.bySemanticsLabel('View profile for @sam'), findsNWidgets(3));
       expect(tester.takeException(), isNull);
       semantics.dispose();
     });

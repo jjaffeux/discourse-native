@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../theme/d_icons.dart';
 import 'forum_appearance_settings.dart';
 import 'forum_display_settings.dart';
+import 'settings_section_tabs.dart';
 import 'shell_scope.dart';
 
 /// Forum settings occupy the normal content panel so the surrounding workspace
@@ -46,28 +47,16 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              DTabs<String>.controlled(
+              SettingsSectionTabs<String>(
                 value: _section,
-                onChanged: (value) {
-                  if (value != null) setState(() => _section = value);
-                },
-                children: [
-                  DTabList<String>(
-                    variant: DTabListVariant.line,
-                    children: [
-                      DTabTrigger(
-                        value: 'display',
-                        child: Text(context.l10n.display),
-                      ),
-                      DTabTrigger(
-                        value: 'themes',
-                        child: Text(context.l10n.themes),
-                      ),
-                      DTabTrigger(
-                        value: 'accessibility',
-                        child: Text(context.l10n.accessibility),
-                      ),
-                    ],
+                onChanged: (value) => setState(() => _section = value),
+                sections: [
+                  (value: 'display', label: context.l10n.display, key: null),
+                  (value: 'themes', label: context.l10n.themes, key: null),
+                  (
+                    value: 'accessibility',
+                    label: context.l10n.accessibility,
+                    key: null,
                   ),
                 ],
               ),

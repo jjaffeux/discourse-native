@@ -116,31 +116,35 @@ class _TopicCardFooter extends StatelessWidget {
       dimension: 20,
       children: [
         for (final poster in shown)
-          DTooltip(
-            message: [
-              poster.username,
-              poster.description,
-            ].whereType<String>().join(' — '),
-            excludeFromSemantics: true,
-            child: DAvatar(
-              dimension: 20,
-              border: false,
-              ring: poster.latest && !poster.single && shown.length > 1,
-              ringStyle: DAvatarRingStyle.outside,
-              semanticLabel: [
+          UserCardTarget.avatar(
+            username: poster.username ?? '',
+            siteUrl: row.siteUrl,
+            child: DTooltip(
+              message: [
                 poster.username,
                 poster.description,
               ].whereType<String>().join(' — '),
-              child: AvatarImage(
-                url: poster.avatarUrl,
-                size: 20,
-                fallback: DAvatarFallback(
-                  child: Text(
-                    poster.username?.characters.firstOrNull?.toUpperCase() ??
-                        '',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
+              excludeFromSemantics: true,
+              child: DAvatar(
+                dimension: 20,
+                border: false,
+                ring: poster.latest && !poster.single && shown.length > 1,
+                ringStyle: DAvatarRingStyle.outside,
+                semanticLabel: [
+                  poster.username,
+                  poster.description,
+                ].whereType<String>().join(' — '),
+                child: AvatarImage(
+                  url: poster.avatarUrl,
+                  size: 20,
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      poster.username?.characters.firstOrNull?.toUpperCase() ??
+                          '',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),

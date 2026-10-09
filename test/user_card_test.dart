@@ -1,7 +1,26 @@
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('card banner and role come from the forum response', () {
+    final card = UserCard.fromJson(const {
+      'username': 'reader',
+      'admin': true,
+      'card_background_upload_url': '/uploads/card.png',
+    }, 'https://forum.example');
+    expect(card.cardBackgroundUrl, 'https://forum.example/uploads/card.png');
+    expect(card.isAdmin, isTrue);
+    expect(card.isStaff, isTrue);
+    expect(
+      UserCard.fromJson(const {
+        'username': 'reader',
+        'card_background_upload_url': 'javascript:bad',
+      }, 'https://forum.example').cardBackgroundUrl,
+      isNull,
+    );
+  });
+
   group('usernameFromProfileUrl', () {
     test('reads the username from a profile root', () {
       expect(usernameFromProfileUrl(Uri.parse('https://site/u/sam')), 'sam');

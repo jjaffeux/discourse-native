@@ -21,8 +21,8 @@ import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
+import 'user_card_header.dart';
 import 'user_menu_message.dart';
-import 'user_status.dart';
 
 class UserCardTarget extends StatelessWidget {
   const UserCardTarget({
@@ -73,15 +73,18 @@ class UserCardTarget extends StatelessWidget {
         if (isOpen) loadPreview();
       },
       trigger: DHoverCardTrigger(
-        builder: (context, state) => InlineAction(
+        builder: (context, state) => DButton(
           focusNode: state.focusNode,
-          onTap: open,
+          onPressed: open,
+          variant: DButtonVariant.inline,
+          density: DButtonDensity.inlineMetadata,
           semanticLabel:
               semanticLabel ??
               context.l10n.viewProfileForUsercard((username).toString()),
-          excludeChildSemantics: true,
-          borderRadius: BorderRadius.circular(4),
-          child: child,
+          label: DefaultTextStyle(
+            style: DefaultTextStyle.of(context).style,
+            child: ExcludeSemantics(child: child),
+          ),
         ),
       ),
       content: DHoverCardContent(
@@ -319,7 +322,7 @@ class _UserCardPopup extends StatelessWidget {
         align: DPopoverAlign.start,
         sideOffset: 8,
         collisionPadding: 12,
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.zero,
         child: DPopoverClose(
           builder: (context, close) =>
               ShellSelector<({ShellController controller, Object session})>(
@@ -463,7 +466,7 @@ class _CardBody extends StatelessWidget {
             controller.loadUserCard(username, force: true, siteUrl: siteUrl),
       );
     }
-    return const _CardSkeleton();
+    return const Padding(padding: EdgeInsets.all(12), child: _CardSkeleton());
   }
 }
 
@@ -543,69 +546,106 @@ class _CardContent extends StatelessWidget {
         icon: const DIcon(DIcons.upRightFromSquare),
       ),
     );
-    final actions = [...pluginActions, profileAction];
+    final shell = ShellScope.read(context);
+    final currentUser = shell.currentUserFor(siteUrl);
+    final ownCard =
+        currentUser != null &&
+        (card.id != null && currentUser.id != null
+            ? card.id == currentUser.id
+            : card.username.toLowerCase() ==
+                  currentUser.username.toLowerCase());
+    final lease = shell.lifecycle.capture(siteUrl);
+    final actions = [
+      if (ownCard)
+        DButton(
+          label: Text(context.l10n.preferences),
+          icon: const DIcon(DIcons.gear),
+          onPressed: () {
+            if (!lease.isCurrent) return;
+            close();
+            shell.openPreferences(siteUrl);
+          },
+        ),
+      ...pluginActions,
+      profileAction,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _CardIdentity(card: card, siteUrl: siteUrl),
-        const SizedBox(height: 12),
-        _CardActions(actions: actions),
-        if (card.bioExcerpt case final bio?) ...[
-          const SizedBox(height: 12),
-          CookedHtml(
-            html: bio,
-            textStyle: theme.textTheme.bodyLarge?.copyWith(
-              height: DiscourseTypography.lineHeightCooked,
-            ),
-            siteUrl: siteUrl,
-          ),
-        ],
-        if (card.website != null || card.location != null) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
+        UserCardHeader(card: card, siteUrl: siteUrl),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (card.website case final website?)
-                _CardDetail(
-                  icon: const DIcon(DIcons.globe, size: 16),
-                  label: card.websiteName ?? _websiteLabel(website),
-                  onTap: () => unawaited(openExternalLink(website)),
+              const SizedBox(height: 12),
+              _CardActions(actions: actions),
+              if (card.bioExcerpt case final bio?) ...[
+                const SizedBox(height: 12),
+                CookedHtml(
+                  html: bio,
+                  textStyle: theme.textTheme.bodyLarge?.copyWith(
+                    height: DiscourseTypography.lineHeightCooked,
+                  ),
+                  siteUrl: siteUrl,
                 ),
-              if (card.location case final location?)
-                _CardDetail(
-                  icon: const Icon(Icons.location_on_outlined, size: 16),
-                  label: location,
+              ],
+              if (card.website != null || card.location != null) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  children: [
+                    if (card.website case final website?)
+                      _CardDetail(
+                        icon: const DIcon(DIcons.globe, size: 16),
+                        label: card.websiteName ?? _websiteLabel(website),
+                        onTap: () => unawaited(openExternalLink(website)),
+                      ),
+                    if (card.location case final location?)
+                      _CardDetail(
+                        icon: const Icon(Icons.location_on_outlined, size: 16),
+                        label: location,
+                      ),
+                  ],
                 ),
+              ],
+              if (card.createdAt != null ||
+                  card.lastPostedAt != null ||
+                  card.timeRead > 0) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (card.lastPostedAt case final last?)
+                      _Metadata(
+                        label: context.l10n.lastPost,
+                        value: _month(last),
+                      ),
+                    if (card.createdAt case final joined?)
+                      _Metadata(
+                        label: context.l10n.joined,
+                        value: _month(joined),
+                      ),
+                    if (card.timeRead > 0)
+                      _Metadata(
+                        label: context.l10n.timeRead,
+                        value: durationLabel(card.timeRead).short,
+                      ),
+                  ],
+                ),
+              ],
+              if (card.badgeCount > 0) ...[
+                const SizedBox(height: 10),
+                _BadgeCount(count: card.badgeCount),
+              ],
             ],
           ),
-        ],
-        if (card.createdAt != null ||
-            card.lastPostedAt != null ||
-            card.timeRead > 0) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            children: [
-              if (card.lastPostedAt case final last?)
-                _Metadata(label: context.l10n.lastPost, value: _month(last)),
-              if (card.createdAt case final joined?)
-                _Metadata(label: context.l10n.joined, value: _month(joined)),
-              if (card.timeRead > 0)
-                _Metadata(
-                  label: context.l10n.timeRead,
-                  value: durationLabel(card.timeRead).short,
-                ),
-            ],
-          ),
-        ],
-        if (card.badgeCount > 0) ...[
-          const SizedBox(height: 10),
-          _BadgeCount(count: card.badgeCount),
-        ],
+        ),
       ],
     );
   }
@@ -621,105 +661,6 @@ class _CardContent extends StatelessWidget {
       return '${host.startsWith('www.') ? host.substring(4) : host}${uri!.path == '/' ? '' : uri.path}';
     }
     return website;
-  }
-}
-
-class _CardIdentity extends StatelessWidget {
-  const _CardIdentity({required this.card, required this.siteUrl});
-
-  final UserCard card;
-  final String siteUrl;
-  static const double avatarSize = 64;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // One reading for the whole card: a suspension that lapses between two
-    // reads would open the badge row and then draw nothing in it.
-    final suspended = card.isSuspendedAt(DateTime.now());
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DAvatar.frame(
-          child: SizedBox.square(
-            dimension: avatarSize,
-            child: AvatarImage(
-              url: card.avatarUrl,
-              size: avatarSize,
-              fallback: ColoredBox(
-                color: theme.shell.panel,
-                child: Center(
-                  child: Text(
-                    card.username.isEmpty
-                        ? '?'
-                        : card.username.characters.first.toUpperCase(),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                card.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                '@${card.username}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
-              UserStatusMessage(
-                siteUrl: siteUrl,
-                userId: card.id,
-                status: card.status,
-                showDescription: true,
-                size: 17,
-                style: theme.textTheme.bodyMedium,
-              ),
-              if (card.title case final title?)
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge,
-                ),
-              if (card.isStaff || suspended) ...[
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    if (card.isStaff)
-                      _Badge(
-                        label: context.l10n.staffChatmessagetile,
-                        color: theme.colorScheme.primary,
-                      ),
-                    if (suspended)
-                      _Badge(
-                        label: context.l10n.suspended,
-                        color: theme.colorScheme.error,
-                      ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 
@@ -828,19 +769,5 @@ class _BadgeCount extends StatelessWidget {
     variant: DBadgeVariant.outline,
     leading: const DIcon(DIcons.certificate, size: 12),
     child: Text(countLabel(count, CountNoun.badge)),
-  );
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => DBadge(
-    backgroundColor: color.withValues(alpha: 0.18),
-    foregroundColor: color,
-    child: Text(label),
   );
 }

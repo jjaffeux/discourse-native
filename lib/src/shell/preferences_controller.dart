@@ -97,6 +97,57 @@ final class PreferencesController extends FrameSafeNotifier {
       ReadAfterWriteOperationQueue();
 
   final Map<String, PreferencesState> _states = {};
+  final Map<
+    ({String siteUrl, Object session, PreferenceSection section}),
+    Future<void>
+  >
+  _automaticSaves = {};
+
+  /// Save changes in order, including a choice reversed while its write is
+  /// pending. Each pass compares against the server-confirmed section.
+  Future<void> saveAutomatically(
+    DiscourseInstance instance,
+    PreferenceSection section,
+  ) {
+    if (isDisposed || !instance.isConnected) return Future<void>.value();
+    final identity = _accountIdentity(
+      instance.user!.id,
+      instance.user!.username,
+    );
+    final lease = lifecycle.capture(instance.url);
+    final key = (
+      siteUrl: instance.url,
+      session: lease.session,
+      section: section,
+    );
+    final pending = _automaticSaves[key];
+    if (pending != null) return pending;
+    final completion = Completer<void>();
+    _automaticSaves[key] = completion.future;
+    completion.complete(() async {
+      try {
+        while (!isDisposed &&
+            lease.isCurrent &&
+            stateFor(instance.url)?.accountIdentity == identity &&
+            stateFor(instance.url)?.draft != null &&
+            _canEditSection(stateFor(instance.url)!.draft!, section) &&
+            stateFor(instance.url)?.dirty(section) == true) {
+          final saved = await save(instance, section);
+          if (!saved &&
+              (isDisposed ||
+                  !lease.isCurrent ||
+                  stateFor(instance.url)?.error != null ||
+                  stateFor(instance.url)?.draft?.canEdit != true)) {
+            return;
+          }
+        }
+      } finally {
+        final _ = _automaticSaves.remove(key);
+      }
+    }());
+    return completion.future;
+  }
+
   final Map<String, Object> _loadRequests = {};
   final Map<String, Future<void>> _loadTasks = {};
   final Map<_PreferencesLane, int> _revisions = {};

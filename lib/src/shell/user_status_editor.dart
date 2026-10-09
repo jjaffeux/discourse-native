@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../foundation/clock_time.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark_reminder.dart';
+import '../models/user_card.dart';
 import '../models/user_status.dart';
 import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/emoji_usage.dart';
@@ -16,6 +17,7 @@ import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
+import 'user_card_header.dart';
 
 Future<void> showUserStatusEditor(
   BuildContext context, {
@@ -50,6 +52,14 @@ Future<void> showUserStatusEditor(
       siteUrl: siteUrl,
       controller: controller,
       ownsAccount: ownsAccount,
+      identity: UserCard(
+        username: user.username,
+        id: user.id,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        isStaff: user.staff,
+        isAdmin: user.admin,
+      ),
       initialStatus: initialStatus,
       initialPauseNotifications: initialPauseNotifications,
     ),
@@ -64,6 +74,7 @@ class _UserStatusEditor extends StatefulWidget {
     required this.controller,
     required this.ownsAccount,
     required this.initialStatus,
+    required this.identity,
     required this.initialPauseNotifications,
   });
 
@@ -71,6 +82,7 @@ class _UserStatusEditor extends StatefulWidget {
   final ShellController controller;
   final bool Function() ownsAccount;
   final UserStatus? initialStatus;
+  final UserCard identity;
   final bool initialPauseNotifications;
 
   @override
@@ -104,6 +116,12 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
     final initial = widget.initialStatus;
     _description = TextEditingController(text: initial?.description ?? '');
     _emoji = initial?.emoji ?? 'speech_balloon';
+    unawaited(
+      widget.controller.loadUserCard(
+        widget.identity.username,
+        siteUrl: widget.siteUrl,
+      ),
+    );
     _pauseNotifications = widget.initialPauseNotifications;
     _customEndsAt = initial?.endsAt;
     _expiry = _customEndsAt == null
@@ -323,44 +341,72 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DField(
-            children: [
-              DFieldLabel(child: Text(context.l10n.whatSYourStatus)),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DButton.iconOnly(
-                    onPressed: _busy ? null : _pickEmoji,
-                    variant: DButtonVariant.outline,
-                    tooltip: context.l10n.chooseStatusEmoji,
-                    icon: SiteEmojiImage(
-                      siteUrl: widget.siteUrl,
-                      name: _emoji,
-                      size: 24,
-                      alt: context.l10n.statusEmoji,
+          ListenableBuilder(
+            listenable: widget.controller.store.ref<UserCard>(
+              widget.siteUrl,
+              widget.identity.username.toLowerCase(),
+            ),
+            builder: (context, _) => DCard(
+              key: const ValueKey('user-status-card-preview'),
+              spacing: 0,
+              child: UserCardHeader(
+                card: widget.ownsAccount()
+                    ? widget.controller.userCard(
+                            widget.identity.username,
+                            siteUrl: widget.siteUrl,
+                          ) ??
+                          widget.identity
+                    : widget.identity,
+                siteUrl: widget.siteUrl,
+                statusContent: DBubble(
+                  variant: DBubbleVariant.status,
+                  maximumWidthFactor: 1,
+                  children: [
+                    DBubbleContent(
+                      child: Row(
+                        children: [
+                          DButton.iconOnly(
+                            onPressed: _busy ? null : _pickEmoji,
+                            variant: DButtonVariant.inline,
+                            density: DButtonDensity.inlineMetadata,
+                            tooltip: context.l10n.chooseStatusEmoji,
+                            icon: SiteEmojiImage(
+                              siteUrl: widget.siteUrl,
+                              name: _emoji,
+                              size: 15,
+                              alt: '',
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: DInput(
+                              controller: _description,
+                              borderless: true,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                height: 1.3,
+                              ),
+                              autofocus: !context.isTouch,
+                              enabled: !_busy,
+                              maxLength: 100,
+                              textInputAction: TextInputAction.done,
+                              semanticLabel: context.l10n.whatSYourStatus,
+                              hintText: context.l10n.whatAreYouUpTo,
+                              onChanged: (_) {
+                                if (_canAct) setState(() => _error = null);
+                              },
+                              onSubmitted: (_) {
+                                if (!_busy) unawaited(_save());
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DInput(
-                      controller: _description,
-                      autofocus: !context.isTouch,
-                      enabled: !_busy,
-                      maxLength: 100,
-                      textInputAction: TextInputAction.done,
-                      semanticLabel: context.l10n.whatSYourStatus,
-                      hintText: context.l10n.whatAreYouUpTo,
-                      onChanged: (_) {
-                        if (_canAct) setState(() => _error = null);
-                      },
-                      onSubmitted: (_) {
-                        if (!_busy) unawaited(_save());
-                      },
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: DSpacing.lg),
           DSelect<_StatusExpiry>.controlled(
@@ -415,14 +461,14 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
             ),
           ],
           const SizedBox(height: DSpacing.lg),
-          DCheckbox(
+          DSwitchTile(
             value: _pauseNotifications,
             onChanged: _busy
                 ? null
                 : (value) {
                     if (!_canAct) return;
                     setState(() {
-                      _pauseNotifications = value ?? false;
+                      _pauseNotifications = value;
                       _error = null;
                     });
                   },
@@ -508,13 +554,24 @@ class _StatusFormLayout extends StatelessWidget {
           const DSeparator(),
           DSheetFooter(
             children: [
-              Row(
-                children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(width: DSpacing.controlGap),
-                    Expanded(child: actions[i]),
-                  ],
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (MediaQuery.textScalerOf(context).scale(14) > 21) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: DSpacing.controlGap,
+                      children: actions,
+                    );
+                  }
+                  return Row(
+                    children: [
+                      for (var i = 0; i < actions.length; i++) ...[
+                        if (i > 0) const SizedBox(width: DSpacing.controlGap),
+                        Expanded(child: actions[i]),
+                      ],
+                    ],
+                  );
+                },
               ),
             ],
           ),
