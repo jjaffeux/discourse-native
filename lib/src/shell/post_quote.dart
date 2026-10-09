@@ -55,6 +55,9 @@ final class PostQuoteSelectionResolver {
 
   final _CookedSelectionSource? _source;
 
+  String get plainText => _source?.plainText ?? '';
+  String get entirePost => _source?.markdown(0, plainText.length) ?? '';
+
   String contentsFor(String plainText) => resolve(plainText).markdown;
 
   PostTextSelectionResolution resolve(

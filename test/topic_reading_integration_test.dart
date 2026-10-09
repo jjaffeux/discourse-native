@@ -3388,7 +3388,7 @@ void _registerTopicReadingTests() {
       );
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Flag topic'));
       await tester.pumpAndSettle();
@@ -3401,7 +3401,7 @@ void _registerTopicReadingTests() {
       expect(api.topicFlagsCreated, [
         (topicId: 7, postActionTypeId: 8, message: null),
       ]);
-      await tester.tap(find.byTooltip('More topic actions'));
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
       await tester.pumpAndSettle();
       expect(find.text('Flag topic'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -5040,10 +5040,12 @@ void _registerTopicReadingTests() {
       expect(find.byTooltip('This post is a private whisper'), findsOneWidget);
 
       final whisper = tester.widget<RichText>(renderedText('A private aside'));
-      expect(whisper.text.style?.fontStyle, FontStyle.italic);
+      expect(whisper.text.style?.fontStyle, isNot(FontStyle.italic));
       expect(
-        whisper.text.style?.color,
-        Theme.of(tester.element(find.byType(TopicView))).discourse.whisper,
+        tester
+            .widget<DCard>(find.byKey(const ValueKey('post-news-card-2')))
+            .dashedBorder,
+        isTrue,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
@@ -5440,15 +5442,13 @@ class _FailingNewTopicMetadataApi extends FakeDiscourseApi {
   }
 }
 
-/// The surface the first post paints for itself. The innermost [ColoredBox]
-/// above the body is the post's own.
-Color _postBackground(WidgetTester tester) => tester
-    .widget<ColoredBox>(
-      find
-          .ancestor(
-            of: renderedText('First post body'),
-            matching: find.byType(ColoredBox),
-          )
-          .first,
-    )
-    .color;
+/// The passive surface supplied by the post's Native card, when present.
+Color _postBackground(WidgetTester tester) {
+  final cards = find.ancestor(
+    of: renderedText('First post body'),
+    matching: find.byType(DCard),
+  );
+  return cards.evaluate().isEmpty
+      ? Colors.transparent
+      : tester.widget<DCard>(cards.first).backgroundColor ?? Colors.transparent;
+}

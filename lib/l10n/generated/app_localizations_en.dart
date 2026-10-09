@@ -14978,4 +14978,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get topicEndReached => 'You have reached the end of this topic';
+
+  @override
+  String get postHiddenAfterFlags => 'Hidden after flags from the community';
+
+  @override
+  String get postHiddenAgainAfterFlags => 'Hidden again after more flags';
+
+  @override
+  String get postHiddenNewUserSpam => 'Hidden as likely spam from a new user';
+
+  @override
+  String get postHiddenByRegular => 'Hidden after a flag from a regular';
+
+  @override
+  String get postHiddenByLeader => 'Hidden after a flag from a leader';
+
+  @override
+  String get postHidden => 'This post is hidden';
+
+  @override
+  String get postDeleted => 'This post was deleted';
+
+  @override
+  String get postLocked => 'This post is locked';
+
+  @override
+  String get postBookmarked => 'You bookmarked this post';
+
+  @override
+  String get markAsSolution => 'Mark as solution';
+
+  @override
+  String get removeSolution => 'Remove solution';
+
+  @override
+  String get markTopicUnread => 'Mark unread';
+
+  @override
+  String get topicActionsMenu => 'Topic actions';
 }

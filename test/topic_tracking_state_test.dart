@@ -5,6 +5,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'explicit unread reset lowers reading and invalidates cached counts',
+    () {
+      final tracking = TopicTrackingState([
+        const TrackedTopicState(
+          topicId: 7,
+          highestPostNumber: 10,
+          lastReadPostNumber: 10,
+          notificationLevel: 2,
+          categoryId: 5,
+          tagIds: {9},
+        ),
+      ]);
+      expect(tracking.newActivityCounts.newReplies, 0);
+      tracking.markLastPostUnread(7, 9);
+      expect(tracking.topic(7)!.lastReadPostNumber, 9);
+      expect(tracking.newActivityCounts.newReplies, 1);
+      expect(tracking.topic(7)!.categoryId, 5);
+      expect(tracking.topic(7)!.tagIds, {9});
+    },
+  );
+
+  test(
     'local reading updates cached counts without losing tracking metadata',
     () {
       final tracking = TopicTrackingState([

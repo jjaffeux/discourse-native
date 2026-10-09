@@ -1373,6 +1373,37 @@ final class PluginRegistry
       ),
   ];
 
+  List<Widget> postHeaders(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  ) => [
+    for (final plugin in plugins.whereType<PostHeaderPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.postHeaders(_uiContext(context, plugin), siteUrl, topic, post),
+      ),
+  ];
+
+  Color? postCardTone(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  ) {
+    for (final plugin in plugins.whereType<PostCardTonePlugin>()) {
+      final tone = plugin.postCardTone(
+        _uiContext(context, plugin),
+        siteUrl,
+        topic,
+        post,
+      );
+      if (tone != null) return tone;
+    }
+    return null;
+  }
+
   PluginSmallAction? smallAction(Post post) {
     for (final plugin in plugins.whereType<PostSmallActionPlugin>()) {
       final contribution = plugin.smallAction(post);

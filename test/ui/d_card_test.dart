@@ -30,6 +30,55 @@ Widget host(
 );
 
 void main() {
+  for (final mode in ['solid', 'dashed', 'hidden']) {
+    testWidgets('custom $mode outline paints within the card bounds', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        host(
+          RepaintBoundary(
+            key: key,
+            child: DCard(
+              spacing: 0,
+              backgroundColor: Colors.white,
+              borderColor: Colors.red,
+              border: mode != 'hidden',
+              dashedBorder: mode == 'dashed',
+              child: const SizedBox(height: 40),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(DCard)), const Size(384, 40));
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!;
+        var painted = 0;
+        for (var x = 30; x < 354; x++) {
+          if (bytes.getUint8(x * 4 + 1) < 100) painted++;
+        }
+        expect(
+          painted,
+          mode == 'solid'
+              ? 324
+              : mode == 'hidden'
+              ? 0
+              : allOf(greaterThan(0), lessThan(324)),
+        );
+        final center = (20 * image.width + 192) * 4;
+        expect(bytes.getUint8(center + 1), 255);
+        image.dispose();
+      });
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('standard card radius stays fixed across site palettes', (
     tester,
   ) async {

@@ -67,6 +67,7 @@ class Post with Storable<Post> {
     this.locked = false,
     this.notice,
     this.hidden = false,
+    this.hiddenReasonId,
     this.deletedAt,
     this.userDeleted = false,
     this.postType = regularPostType,
@@ -134,6 +135,7 @@ class Post with Storable<Post> {
       locked: json['locked'] == true,
       notice: PostNotice.fromJson(json['notice']),
       hidden: json['hidden'] == true,
+      hiddenReasonId: jsonIntOrNull(json['hidden_reason_id']),
       deletedAt: jsonDate(json['deleted_at']),
       userDeleted: json['user_deleted'] == true,
       postType: json['post_type'] == null
@@ -219,6 +221,7 @@ class Post with Storable<Post> {
   final PostNotice? notice;
 
   final bool hidden;
+  final int? hiddenReasonId;
 
   final DateTime? deletedAt;
 
@@ -366,6 +369,7 @@ class Post with Storable<Post> {
     locked: locked ?? this.locked,
     notice: clearNotice ? null : (notice ?? this.notice),
     hidden: hidden ?? this.hidden,
+    hiddenReasonId: hiddenReasonId,
     deletedAt: deletedAt,
     userDeleted: userDeleted,
     postType: postType,
@@ -417,6 +421,7 @@ class Post with Storable<Post> {
           other.locked == locked &&
           other.notice == notice &&
           other.hidden == hidden &&
+          other.hiddenReasonId == hiddenReasonId &&
           other.deletedAt == deletedAt &&
           other.userDeleted == userDeleted &&
           other.postType == postType &&
@@ -466,6 +471,7 @@ class Post with Storable<Post> {
     locked,
     notice,
     hidden,
+    hiddenReasonId,
     deletedAt,
     userDeleted,
     postType,

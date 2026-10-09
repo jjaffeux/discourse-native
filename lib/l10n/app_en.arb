@@ -19988,5 +19988,57 @@
   "hatchTexture": "Hatch",
   "@hatchTexture": {"description": "Appearance material and texture setting."},
   "topicEndReached": "You have reached the end of this topic",
-  "@topicEndReached": {"description": "End of the post stream before More topics"}
+  "@topicEndReached": {"description": "End of the post stream before More topics"},
+  "postHiddenAfterFlags": "Hidden after flags from the community",
+  "@postHiddenAfterFlags": {
+    "description": "Post status and solution action label."
+  },
+  "postHiddenAgainAfterFlags": "Hidden again after more flags",
+  "@postHiddenAgainAfterFlags": {
+    "description": "Post status and solution action label."
+  },
+  "postHiddenNewUserSpam": "Hidden as likely spam from a new user",
+  "@postHiddenNewUserSpam": {
+    "description": "Post status and solution action label."
+  },
+  "postHiddenByRegular": "Hidden after a flag from a regular",
+  "@postHiddenByRegular": {
+    "description": "Post status and solution action label."
+  },
+  "postHiddenByLeader": "Hidden after a flag from a leader",
+  "@postHiddenByLeader": {
+    "description": "Post status and solution action label."
+  },
+  "postHidden": "This post is hidden",
+  "@postHidden": {
+    "description": "Post status and solution action label."
+  },
+  "postDeleted": "This post was deleted",
+  "@postDeleted": {
+    "description": "Post status and solution action label."
+  },
+  "postLocked": "This post is locked",
+  "@postLocked": {
+    "description": "Post status and solution action label."
+  },
+  "postBookmarked": "You bookmarked this post",
+  "@postBookmarked": {
+    "description": "Post status and solution action label."
+  },
+  "markAsSolution": "Mark as solution",
+  "@markAsSolution": {
+    "description": "Post status and solution action label."
+  },
+  "removeSolution": "Remove solution",
+  "@removeSolution": {
+    "description": "Post status and solution action label."
+  },
+  "markTopicUnread": "Mark unread",
+  "@markTopicUnread": {
+    "description": "Leave the topic with its last post unread."
+  },
+  "topicActionsMenu": "Topic actions",
+  "@topicActionsMenu": {
+    "description": "General topic menu for sharing, flagging, and marking unread."
+  }
 }

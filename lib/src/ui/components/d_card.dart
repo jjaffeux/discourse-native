@@ -25,6 +25,8 @@ class DCard extends StatelessWidget {
     this.spacing,
     this.backgroundColor,
     this.border = true,
+    this.borderColor,
+    this.dashedBorder = false,
     this.borderRadius,
     this.leading,
     this.trailing,
@@ -40,6 +42,12 @@ class DCard extends StatelessWidget {
 
   /// Whether to paint the outer outline. Clipping and fill remain unchanged.
   final bool border;
+
+  /// Optional outline tone; defaults to the Native border token.
+  final Color? borderColor;
+
+  /// Paints a dashed outline within the same visible card bounds.
+  final bool dashedBorder;
 
   /// Overrides only the surface fill, retaining the outline, clipping and
   /// descendant theme. Supports translucent fills over a shared backdrop.
@@ -90,59 +98,66 @@ class DCard extends StatelessWidget {
                           )
                   : tokens.background),
           child: DMaterialBatch(
-            child: DecoratedBox(
-              // Panels clip to their bounds and edge-to-edge children can be opaque.
-              // Paint the outline inside those bounds, above the child surface.
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                border: border ? Border.all(color: tokens.border) : null,
-              ),
-              child: Material(
-                animationDuration: Duration.zero,
-                color: DMaterialSurface.fill(
-                  context,
-                  backgroundColor ??
-                      (capsule
-                          ? Color.alphaBlend(
-                              tokens.foreground.withValues(alpha: 0.04),
-                              tokens.background,
-                            )
-                          : tokens.background),
+            child: CustomPaint(
+              foregroundPainter: border && dashedBorder
+                  ? _DashedCardOutline(radius, borderColor ?? tokens.border)
+                  : null,
+              child: DecoratedBox(
+                // Panels clip to their bounds and edge-to-edge children can be opaque.
+                // Paint the outline inside those bounds, above the child surface.
+                position: DecorationPosition.foreground,
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: border && !dashedBorder
+                      ? Border.all(color: borderColor ?? tokens.border)
+                      : null,
                 ),
-                borderRadius: radius,
-                clipBehavior: Clip.antiAlias,
-                textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                  fontSize: DiscourseTypography.sm,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                  color: tokens.foreground,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: capsule ? DSpacing.sm : 0,
-                    right: capsule ? DSpacing.sm : 0,
-                    top: leading == null ? inset : 0,
-                    bottom:
-                        footer == null &&
-                            !children.any((part) => part is DCardFooter) &&
-                            trailing == null
-                        ? inset
-                        : 0,
+                child: Material(
+                  animationDuration: Duration.zero,
+                  color: DMaterialSurface.fill(
+                    context,
+                    backgroundColor ??
+                        (capsule
+                            ? Color.alphaBlend(
+                                tokens.foreground.withValues(alpha: 0.04),
+                                tokens.background,
+                              )
+                            : tokens.background),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < parts.length; i++) ...[
-                        if (i > 0 &&
-                            !(parts[i - 1] is DCardContent &&
-                                (parts[i - 1] as DCardContent).joinNext))
-                          SizedBox(height: inset),
-                        parts[i],
+                  borderRadius: radius,
+                  clipBehavior: Clip.antiAlias,
+                  textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    fontSize: DiscourseTypography.sm,
+                    height: 20 / 14,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                    color: tokens.foreground,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: capsule ? DSpacing.sm : 0,
+                      right: capsule ? DSpacing.sm : 0,
+                      top: leading == null ? inset : 0,
+                      bottom:
+                          footer == null &&
+                              !children.any((part) => part is DCardFooter) &&
+                              trailing == null
+                          ? inset
+                          : 0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < parts.length; i++) ...[
+                          if (i > 0 &&
+                              !(parts[i - 1] is DCardContent &&
+                                  (parts[i - 1] as DCardContent).joinNext))
+                            SizedBox(height: inset),
+                          parts[i],
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -360,4 +375,30 @@ class DCardFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashedCardOutline extends CustomPainter {
+  const _DashedCardOutline(this.radius, this.color);
+
+  final BorderRadius radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(radius.toRRect(Offset.zero & size).deflate(.5));
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in path.computeMetrics()) {
+      for (var start = 0.0; start < metric.length; start += 7) {
+        canvas.drawPath(metric.extractPath(start, start + 4), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedCardOutline oldDelegate) =>
+      radius != oldDelegate.radius || color != oldDelegate.color;
 }

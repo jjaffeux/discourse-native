@@ -319,8 +319,30 @@ abstract interface class PostFooterPlugin {
 }
 
 abstract interface class PostDecorationPlugin {
-  /// Contributions are additive; topic state may decorate its opening post.
+  /// Additive contributions after the cooked body and before the footer.
+  /// Topic state may decorate its opening post.
   List<Widget> postDecorations(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  );
+}
+
+/// Status contributions above the author, separate from body decorations.
+abstract interface class PostHeaderPlugin {
+  List<Widget> postHeaders(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  );
+}
+
+/// Optional tone for the passive card surrounding a decorated post.
+/// Core moderation states retain precedence over plugin decoration tones.
+abstract interface class PostCardTonePlugin {
+  Color? postCardTone(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,

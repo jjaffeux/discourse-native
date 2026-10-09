@@ -98,6 +98,7 @@ class ReactionsPlugin
       entries: [
         PostAction(
           icon: DIcons.farFaceSmile,
+          showInMenu: false,
           placement: PostActionPlacement.toolbar,
           label: appL10n.react,
           tooltip: appL10n.reactToThisPost,

@@ -93,7 +93,9 @@ class _PostLikesState extends State<PostLikes> {
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
-    if (post.likeCount <= 0) return const SizedBox.shrink();
+    if (post.likeCount <= 0 && !post.canToggleLike) {
+      return const SizedBox.shrink();
+    }
     final owner = PostActionOwner.capture(
       context,
       siteUrl: widget.siteUrl,
@@ -144,9 +146,25 @@ class _LikeCount extends StatelessWidget {
     final theme = Theme.of(context);
     final toggle = onToggle;
 
+    if (post.likeCount == 0) {
+      return DToggle.iconOnly(
+        pressed: post.liked,
+        size: DToggleSize.post,
+        density: context.isTouch
+            ? DToggleDensity.standard
+            : DToggleDensity.chatReaction,
+        variant: DToggleVariant.outline,
+        semanticLabel: context.l10n.likeThisPost,
+        onPressedChanged: (_) => toggle?.call(),
+        icon: const DIcon(DIcons.farHeart),
+      );
+    }
     return DToggle(
       pressed: post.liked,
       size: DToggleSize.post,
+      density: context.isTouch
+          ? DToggleDensity.standard
+          : DToggleDensity.chatReaction,
       variant: DToggleVariant.outline,
       semanticLabel: post.likeCount == 1
           ? context.l10n.message1LikeFrom((post.liked).toString())
@@ -157,7 +175,10 @@ class _LikeCount extends StatelessWidget {
                 ? context.l10n.removeYourLikePostlikes
                 : context.l10n.likeThisPostPostlikes),
       onPressedChanged: (_) => (toggle ?? onOpen)(),
-      icon: DIcon(DIcons.heart, color: theme.discourse.love),
+      icon: DIcon(
+        DIcons.heart,
+        color: post.liked ? theme.discourse.love : null,
+      ),
       child: Text('${post.likeCount}'),
     );
   }

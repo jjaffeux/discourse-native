@@ -23384,6 +23384,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You have reached the end of this topic'**
   String get topicEndReached;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden after flags from the community'**
+  String get postHiddenAfterFlags;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden again after more flags'**
+  String get postHiddenAgainAfterFlags;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden as likely spam from a new user'**
+  String get postHiddenNewUserSpam;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden after a flag from a regular'**
+  String get postHiddenByRegular;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden after a flag from a leader'**
+  String get postHiddenByLeader;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'This post is hidden'**
+  String get postHidden;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'This post was deleted'**
+  String get postDeleted;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'This post is locked'**
+  String get postLocked;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'You bookmarked this post'**
+  String get postBookmarked;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as solution'**
+  String get markAsSolution;
+
+  /// Post status and solution action label.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove solution'**
+  String get removeSolution;
+
+  /// Leave the topic with its last post unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark unread'**
+  String get markTopicUnread;
+
+  /// General topic menu for sharing, flagging, and marking unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic actions'**
+  String get topicActionsMenu;
 }
 
 class _AppLocalizationsDelegate

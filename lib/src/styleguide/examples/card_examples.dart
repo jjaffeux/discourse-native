@@ -17,6 +17,21 @@ final cardExamples = ComponentExamples(
       'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
+      title: 'Whisper outline',
+      description:
+          'A dashed outline separates staff-only content without changing the writing.',
+      code:
+          "DCard(dashedBorder: true, borderColor: DTokens.of(context).mutedForeground, children: [DCardContent(child: Text('Staff whisper'))])",
+      builder: (context) => _Frame(
+        child: DCard(
+          dashedBorder: true,
+          borderColor: DTokens.of(context).mutedForeground,
+          backgroundColor: Colors.transparent,
+          children: const [DCardContent(child: Text('Staff whisper'))],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Window corner',
       description:
           'An outer panel can follow its window corner. The Card applies the '

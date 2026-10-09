@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/d_icon.dart';
 import 'emoji.dart';
 
+enum PostActionGroup { share, change, report, staff }
+
 enum PostActionPlacement { toolbar, overflow, trailing }
 
 @immutable
@@ -14,11 +16,13 @@ class PostAction {
     required this.onInvoke,
     this.onInvokeAnchored,
     this.enabled = true,
+    this.group = PostActionGroup.change,
     this.destructive = false,
     this.tint,
     this.emojiUrl,
     this.placement = PostActionPlacement.toolbar,
     this.showLabelInFooter = true,
+    this.showInMenu = true,
   });
 
   final DIconData icon;
@@ -31,11 +35,16 @@ class PostAction {
 
   final bool enabled;
 
+  final PostActionGroup group;
+
   final bool destructive;
 
   final PostActionPlacement placement;
 
   final bool showLabelInFooter;
+
+  /// Footer engagement can retain its toolbar action without duplicating menus.
+  final bool showInMenu;
 
   final Color? tint;
 

@@ -137,6 +137,19 @@ final class TopicReadController {
     return completion.future;
   }
 
+  Future<void> finishPending(String siteUrl, int topicId) =>
+      _tasks[(siteUrl, topicId)] ?? Future.value();
+
+  void forgetTopic(String siteUrl, int topicId) {
+    final key = (siteUrl, topicId);
+    _positions.remove(key);
+    _credits.remove(key);
+    _retries.remove(key);
+    _queued.remove(key);
+    final _ = _tasks.remove(key);
+    _runs.remove(key);
+  }
+
   void forget(String siteUrl) {
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
     _credits.removeWhere((key, _) => key.$1 == siteUrl);

@@ -137,7 +137,7 @@ void main() {
       of: find.byKey(const ValueKey('post-reaction-1-heart')),
       matching: find.byType(DToggle),
     );
-    expect(tester.getSize(heart).height, 30);
+    expect(tester.getSize(heart).height, 24);
     expect(
       tester.getSize(find.byKey(const ValueKey('post-reaction-button-1'))),
       const Size.square(30),

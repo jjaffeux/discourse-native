@@ -47,7 +47,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<DButton>(_trigger).expanded, isTrue);
     expect(find.byType(DDropdownMenuContent), findsOneWidget);
-    expect(Focus.of(tester.element(find.text('Flag topic'))).hasFocus, isTrue);
+    expect(Focus.of(tester.element(find.text('Close topic'))).hasFocus, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
@@ -310,7 +310,7 @@ void main() {
     ) async {
       final api = _MenuApi(initiallyDeleted: label == 'Recover topic');
       final shell = await _fixture(tester, api);
-      await _open(tester);
+      await _open(tester, general: label == 'Flag topic');
       await shell.disconnectCurrentInstance();
       await shell.connectCurrentInstance();
       shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
@@ -371,7 +371,7 @@ void main() {
       (tester) async {
         final api = _MenuApi(initiallyDeleted: label == 'Recover topic');
         final shell = await _fixture(tester, api);
-        await _open(tester);
+        await _open(tester, general: label == 'Flag topic');
         shell.store.put(
           _site,
           topicPayload(id: 7, title: 'No permissions').detail,
@@ -509,8 +509,10 @@ Future<void> _pumpButton(WidgetTester tester, ShellController shell) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _open(WidgetTester tester) async {
-  await tester.tap(_trigger);
+Future<void> _open(WidgetTester tester, {bool general = false}) async {
+  await tester.tap(
+    general ? find.byKey(const ValueKey("topic-more-actions")) : _trigger,
+  );
   await tester.pumpAndSettle();
 }
 

@@ -35,6 +35,7 @@ final class AssignPlugin
         PostRecordPlugin<Assignments>,
         TopicRecordPlugin<Assignments>,
         PostDecorationPlugin,
+        PostCardTonePlugin,
         TopicListMetadataPlugin,
         CompactTopicListMetadataPlugin,
         TopicPropertiesPlugin,
@@ -510,6 +511,23 @@ final class AssignPlugin
     String siteUrl,
     TopicDetail topic,
   ) => PluginUiScope.maybe(context, assignmentControllerService);
+
+  @override
+  Color? postCardTone(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+    Post post,
+  ) {
+    final topicAssignments = topic.plugins.get(assignmentsDataKey);
+    final hasAssignment = post.postNumber == 1
+        ? topicAssignments?.hasAssignments == true
+        : (topicAssignments == null
+                  ? post.plugins.get(assignmentsDataKey)?.direct
+                  : topicAssignments.forPost(post.id)) !=
+              null;
+    return hasAssignment ? DTokens.of(context).foreground : null;
+  }
 
   @override
   List<Widget> postDecorations(

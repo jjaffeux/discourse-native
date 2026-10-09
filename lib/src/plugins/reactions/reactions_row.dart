@@ -117,6 +117,7 @@ class ReactionsRow extends StatelessWidget {
           ReactionPill(
             key: ValueKey('post-reaction-${post.id}-${entry.id}'),
             size: DToggleSize.post,
+            density: DToggleDensity.chatReaction,
             siteUrl: siteUrl,
             reaction: entry.id,
             count: entry.count,

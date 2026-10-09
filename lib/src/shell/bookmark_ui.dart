@@ -15,6 +15,8 @@ import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'bookmark_reminder_picker.dart';
+import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 
@@ -155,21 +157,58 @@ Future<void> showPostBookmarkMenu({
   required String siteUrl,
   required int topicId,
   required Post post,
+  Rect? anchor,
 }) async {
   final actions = controller.bookmarkTarget(BookmarkTargetType.post);
   final session = actions.captureSession(siteUrl);
   final uiActions = _CoreBookmarkUiHost(actions, topicId, session);
-  final result = await showShellSheet<_QuickMenuResult>(
-    context: context,
-    title: post.bookmark == null ? appL10n.bookmarkPost : appL10n.postBookmark,
-    dialogOnDesktop: true,
-    builder: (_) => _BookmarkQuickSheet(
-      controller: uiActions,
-      siteUrl: siteUrl,
-      targetId: post.id,
-      initialBookmark: post.bookmark,
-    ),
+  final title = post.bookmark == null
+      ? appL10n.bookmarkPost
+      : appL10n.postBookmark;
+  Widget contents(BuildContext _, {bool menu = false}) => _BookmarkQuickSheet(
+    controller: uiActions,
+    siteUrl: siteUrl,
+    targetId: post.id,
+    initialBookmark: post.bookmark,
+    menu: menu,
   );
+  final result = anchor == null || context.isTouch
+      ? await showShellSheet<_QuickMenuResult>(
+          context: context,
+          title: title,
+          dialogOnDesktop: true,
+          builder: contents,
+        )
+      : await showGeneralDialog<_QuickMenuResult>(
+          context: context,
+          barrierColor: Colors.transparent,
+          transitionDuration: Duration.zero,
+          pageBuilder: (routeContext, _, _) => Stack(
+            children: [
+              Positioned.fromRect(
+                rect: anchor,
+                child: DDropdownMenu(
+                  defaultOpen: true,
+                  restoreFocus: false,
+                  onOpenChange: (open, _) {
+                    if (!open) Navigator.of(routeContext).pop();
+                  },
+                  content: DDropdownMenuContent(
+                    semanticLabel: title,
+                    width: 300,
+                    constraints: const BoxConstraints(maxHeight: 500),
+                    children: [
+                      Builder(
+                        builder: (context) => contents(context, menu: true),
+                      ),
+                    ],
+                  ),
+                  child: const DPopoverAnchor(child: SizedBox.expand()),
+                ),
+              ),
+            ],
+          ),
+        );
   if (result == null || !context.mounted || !_canAct(context, session)) return;
   await _showBookmarkEditor(
     context: context,
@@ -401,12 +440,14 @@ class _BookmarkQuickSheet extends StatefulWidget {
     required this.siteUrl,
     required this.targetId,
     required this.initialBookmark,
+    this.menu = false,
   });
 
   final _BookmarkUiHost controller;
   final String siteUrl;
   final int targetId;
   final Bookmark? initialBookmark;
+  final bool menu;
 
   @override
   State<_BookmarkQuickSheet> createState() => _BookmarkQuickSheetState();
@@ -542,6 +583,48 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     );
     final bookmark = _bookmark;
 
+    Widget item(
+      DIconData icon,
+      String label,
+      VoidCallback onPressed, {
+      String? hint,
+      bool destructive = false,
+    }) {
+      final content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label),
+          if (hint != null)
+            Text(hint, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      );
+      if (widget.menu) {
+        return DDropdownMenuItem(
+          closeOnSelect: false,
+          leading: DIcon(icon),
+          onPressed: _busy ? null : onPressed,
+          variant: destructive
+              ? DDropdownMenuItemVariant.destructive
+              : DDropdownMenuItemVariant.standard,
+          child: content,
+        );
+      }
+      return DItem(
+        enabled: !_busy,
+        onPressed: _busy ? null : onPressed,
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.icon,
+            child: DIcon(
+              icon,
+              color: destructive ? Theme.of(context).colorScheme.error : null,
+            ),
+          ),
+          DItemContent(children: [content]),
+        ],
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -563,58 +646,35 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
                 ? context.l10n.savingBookmarkBookmarkui
                 : context.l10n.theBookmarkWasNotSaved,
           )
-        else if (widget.initialBookmark == null) ...[
-          Text(
-            context.l10n.bookmarkedBookmarkui,
-            style: Theme.of(context).textTheme.titleSmall,
+        else ...[
+          if (widget.initialBookmark == null)
+            Text(
+              context.l10n.bookmarkedBookmarkui,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          Padding(
+            padding: const EdgeInsets.all(DSpacing.sm),
+            child: Text(
+              context.l10n.remindMe,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
           ),
-          const SizedBox(height: 8),
           for (final suggestion in suggestions)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const DIcon(DIcons.farClock),
-              title: Text(suggestion.label),
-              subtitle: Text(
-                _formatReminder(context, suggestion.instant, zoneName),
-              ),
-              enabled: !_busy,
-              onTap: _busy ? null : () => _setReminder(suggestion.instant),
+            item(
+              DIcons.farClock,
+              suggestion.label,
+              () => _setReminder(suggestion.instant),
+              hint: _formatReminder(context, suggestion.instant, zoneName),
             ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const DIcon(DIcons.pencil),
-            title: Text(context.l10n.moreOptions),
-            enabled: !_busy,
-            onTap: _busy ? null : () => _edit(bookmark),
-          ),
-        ] else ...[
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const DIcon(DIcons.pencil),
-            title: Text(context.l10n.editBookmark),
-            enabled: !_busy,
-            onTap: _busy ? null : () => _edit(bookmark),
-          ),
+          item(DIcons.pencil, context.l10n.moreOptions, () => _edit(bookmark)),
+          const DSeparator(),
           if (bookmark.reminderAt != null)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const DIcon(DIcons.farClock),
-              title: Text(context.l10n.clearReminder),
-              enabled: !_busy,
-              onTap: _busy ? null : _clearReminder,
-            ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: DIcon(
-              DIcons.trashCan,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(
-              context.l10n.deleteBookmarkBookmarkui,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            enabled: !_busy,
-            onTap: _busy ? null : _delete,
+            item(DIcons.farClock, context.l10n.clearReminder, _clearReminder),
+          item(
+            DIcons.trashCan,
+            context.l10n.deleteBookmarkBookmarkui,
+            _delete,
+            destructive: true,
           ),
         ],
       ],
@@ -653,6 +713,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   final TextEditingController _relative = TextEditingController(text: '1');
   late BookmarkAutoDeletePreference _preference;
   DateTime? _reminder;
+  String? _reminderChoice;
   DateTime? _lastCustom;
   DateTime? _postDate;
   String? _error;
@@ -728,19 +789,28 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     );
     if (initialDate.isBefore(firstDate)) initialDate = firstDate;
     if (initialDate.isAfter(lastDate)) initialDate = lastDate;
-    final date = await showDatePicker(
+    final date = await showShellSheet<DateTime>(
       context: context,
-      initialDate: initialDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      currentDate: firstDate,
+      title: appL10n.customDateAndTime,
+      dialogOnDesktop: true,
+      nested: true,
+      builder: (_) => BookmarkReminderDatePicker(
+        initialDate: initialDate,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      ),
     );
     if (date == null || !mounted || !_canUseSession) return;
-    final time = await showTimePicker(
+    final time = await showShellSheet<TimeOfDay>(
       context: context,
-      initialTime: TimeOfDay(
-        hour: wallInitial.hour,
-        minute: wallInitial.minute,
+      title: appL10n.time,
+      dialogOnDesktop: true,
+      nested: true,
+      builder: (_) => BookmarkReminderTimePicker(
+        initialTime: TimeOfDay(
+          hour: wallInitial.hour,
+          minute: wallInitial.minute,
+        ),
       ),
     );
     if (time == null || !mounted || !_canUseSession) return;
@@ -759,6 +829,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     }
     setState(() {
       _reminder = instant;
+      _reminderChoice = null;
       _lastCustom = instant;
       _error = null;
     });
@@ -775,6 +846,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     }
     setState(() {
       _reminder = widget.now().add(_relativeUnit.duration(amount)).toUtc();
+      _reminderChoice = null;
       _error = null;
     });
   }
@@ -816,17 +888,50 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     });
   }
 
+  Widget _reminderToggle(
+    BuildContext context,
+    String label,
+    DateTime instant,
+    String zoneName,
+  ) {
+    final selected = _reminder != null && _reminderChoice == label;
+    return DToggle(
+      pressed: selected,
+      enabled: !_busy,
+      variant: DToggleVariant.outline,
+      onPressedChanged: (_) => setState(() {
+        _reminder = instant;
+        _reminderChoice = label;
+      }),
+      child: Text(
+        selected
+            ? '$label · ${_formatReminder(context, _reminder!, zoneName)}'
+            : label,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final siteContext = widget.controller.session.siteContext;
     final environment = TimezoneEnvironment.instance;
     final zoneName = environment.readerTimezone(siteContext.timezone);
     final location = environment.location(zoneName)!;
-    final presets = BookmarkReminderCalculator.fullSuggestions(
-      now: widget.now(),
+    final now = widget.now();
+    final namedPresets = BookmarkReminderCalculator.fullSuggestions(
+      now: now,
       location: location,
       suggestWeekends: siteContext.suggestWeekendsInDatePickers,
     );
+    final presets = [
+      ...BookmarkReminderCalculator.quickSuggestions(
+        now: now,
+        location: location,
+      ).where(
+        (quick) => !namedPresets.any((named) => named.instant == quick.instant),
+      ),
+      ...namedPresets,
+    ];
 
     return Form(
       child: Column(
@@ -873,40 +978,52 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
           ),
           const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: DSpacing.controlGap,
+            runSpacing: DSpacing.controlGap,
             children: [
               for (final preset in presets)
-                ActionChip(
-                  label: Text(preset.label),
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _reminder = preset.instant),
+                _reminderToggle(
+                  context,
+                  preset.label,
+                  preset.instant,
+                  zoneName,
                 ),
               if (_postDate case final postDate?)
-                ActionChip(
-                  avatar: const DIcon(DIcons.farClock, size: 16),
-                  label: Text(context.l10n.dateInPost),
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _reminder = postDate),
+                _reminderToggle(
+                  context,
+                  context.l10n.dateInPost,
+                  postDate,
+                  zoneName,
                 ),
               if (_lastCustom case final last?)
-                ActionChip(
-                  label: Text(context.l10n.lastCustomTime),
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _reminder = last),
+                _reminderToggle(
+                  context,
+                  context.l10n.lastCustomTime,
+                  last,
+                  zoneName,
                 ),
-              ActionChip(
-                label: Text(context.l10n.customDateAndTime),
-                onPressed: _busy ? null : _pickCustom,
+              DToggle(
+                key: const ValueKey('bookmark-custom-reminder'),
+                semanticLabel: context.l10n.customDateAndTime,
+                pressed: _reminder != null && _reminderChoice == null,
+                enabled: !_busy,
+                variant: DToggleVariant.outline,
+                onPressedChanged: (_) => _pickCustom(),
+                child: Text(
+                  _reminder != null && _reminderChoice == null
+                      ? _formatReminder(context, _reminder!, zoneName)
+                      : context.l10n.customDateAndTime,
+                ),
               ),
-              ActionChip(
-                label: Text(context.l10n.noReminder),
-                onPressed: _busy
-                    ? null
-                    : () => setState(() => _reminder = null),
+              DToggle(
+                pressed: _reminder == null,
+                enabled: !_busy,
+                variant: DToggleVariant.outline,
+                onPressedChanged: (_) => setState(() {
+                  _reminder = null;
+                  _reminderChoice = null;
+                }),
+                child: Text(context.l10n.noReminder),
               ),
             ],
           ),
@@ -968,14 +1085,6 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               );
             },
           ),
-          if (_reminder case final reminder?) ...[
-            const SizedBox(height: 12),
-            Text(
-              context.l10n.reminder(
-                (_formatReminder(context, reminder, zoneName)).toString(),
-              ),
-            ),
-          ],
           if (_error case final error?) ...[
             const SizedBox(height: 12),
             Text(

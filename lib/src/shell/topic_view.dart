@@ -36,8 +36,11 @@ import 'list_boundary_shortcuts.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'platform.dart';
+import 'post_action_owner.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
+import 'post_news_card.dart';
+import 'post_notice_editor.dart';
 import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'progressive_html_mode.dart';
@@ -2519,7 +2522,26 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   'topic-trailing-separator',
                   nextPostIndex - postIds.length,
                 )),
-          child: dayByPostIndex.containsKey(nextPostIndex)
+          child:
+              dayByPostIndex.containsKey(nextPostIndex) ||
+                  [nextPostIndex - 1, nextPostIndex].any((index) {
+                    if (index < 0 || index >= postIds.length) return false;
+                    final post = controller.store.read<Post>(
+                      siteUrl,
+                      postIds[index],
+                    );
+                    return post != null &&
+                        (PostNewsCard.containsNews(post) ||
+                            (PluginScope.maybeOf(context)?.registry ??
+                                        PluginRegistry.empty)
+                                    .postCardTone(
+                                      context,
+                                      siteUrl,
+                                      snapshot.topic!,
+                                      post,
+                                    ) !=
+                                null);
+                  })
               ? const SizedBox.shrink()
               : DSeparator(space: 1, color: theme.shell.divider),
         );
@@ -4962,14 +4984,6 @@ class _PostTileState extends State<_PostTile> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (post.notice case final notice?) ...[
-                const SizedBox(height: 10),
-                _PostNoticeBanner(
-                  siteUrl: widget.siteUrl,
-                  post: post,
-                  notice: notice,
-                ),
-              ],
               const SizedBox(height: 10),
               ShellSelector<int?>(
                 select: (controller) =>
@@ -5000,17 +5014,15 @@ class _PostTileState extends State<_PostTile> {
                                   buildAsync: CookedHtml.buildsAsynchronously(
                                     post.cooked,
                                   ),
-                                  textStyle: post.isWhisper
-                                      ? theme.textTheme.bodyLarge?.copyWith(
-                                          color: theme.discourse.whisper,
-                                          fontStyle: FontStyle.italic,
-                                          height: DiscourseTypography
-                                              .lineHeightCooked,
-                                        )
-                                      : theme.textTheme.bodyLarge?.copyWith(
-                                          height: DiscourseTypography
-                                              .lineHeightCooked,
-                                        ),
+                                  textStyle: theme.textTheme.bodyLarge
+                                      ?.copyWith(
+                                        height: DiscourseTypography
+                                            .lineHeightCooked,
+                                        color: post.hidden || post.isDeleted
+                                            ? theme.colorScheme.onSurface
+                                                  .withValues(alpha: .5)
+                                            : null,
+                                      ),
                                   siteUrl: widget.siteUrl,
                                   post: post,
                                   containingTopic: PluginContainingTopic(
@@ -5045,10 +5057,24 @@ class _PostTileState extends State<_PostTile> {
       ],
     );
 
-    final tile = ColoredBox(
-      color: post.isDeleted
-          ? theme.colorScheme.error.withValues(alpha: 0.07)
-          : Colors.transparent,
+    final tile = PostNewsCard(
+      siteUrl: widget.siteUrl,
+      topicId: widget.topic.id,
+      post: post,
+      decorationTone:
+          (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+              .postCardTone(context, widget.siteUrl, widget.topic, post),
+      headers: [
+        ...(PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+            .postHeaders(context, widget.siteUrl, widget.topic, post),
+        if (post.notice case final notice?)
+          _PostNoticeBanner(
+            siteUrl: widget.siteUrl,
+            topicId: widget.topic.id,
+            post: post,
+            notice: notice,
+          ),
+      ],
       child: PostActions(
         siteUrl: widget.siteUrl,
         post: post,
@@ -5087,16 +5113,24 @@ class _PostTileState extends State<_PostTile> {
 class _PostNoticeBanner extends StatelessWidget {
   const _PostNoticeBanner({
     required this.siteUrl,
+    required this.topicId,
     required this.post,
     required this.notice,
   });
 
   final String siteUrl;
+  final int topicId;
   final Post post;
   final PostNotice notice;
 
   @override
   Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final owner = PostActionOwner.capture(
+      context,
+      siteUrl: siteUrl,
+      postId: post.id,
+    );
     final cooked = notice.cooked;
     final label = switch (notice.type) {
       'new_user' => context.l10n.thisIsTheFirstTimeHasPostedLetSWelcomeThem(
@@ -5109,6 +5143,8 @@ class _PostNoticeBanner extends StatelessWidget {
     };
     return DAlert(
       key: ValueKey('post-notice-${post.id}'),
+      backgroundColor: Colors.transparent,
+      borderColor: Colors.transparent,
       liveRegion: false,
       descriptionColor: DTokens.of(context).foreground,
       icon: DIcon(
@@ -5117,6 +5153,38 @@ class _PostNoticeBanner extends StatelessWidget {
             : DIcons.user,
         size: 16,
       ),
+      action:
+          controller.canEditPostNotice(
+            siteUrl: siteUrl,
+            topicId: topicId,
+            postId: post.id,
+          )
+          ? DAlertAction(
+              child: DButton(
+                size: DButtonSize.chip,
+                variant: DButtonVariant.ghost,
+                label: Text(context.l10n.changePostNotice),
+                onPressed: () {
+                  if (!owner.isCurrent(
+                    context,
+                    siteUrl: siteUrl,
+                    postId: post.id,
+                  )) {
+                    return;
+                  }
+                  unawaited(
+                    showPostNoticeEditor(
+                      context: context,
+                      controller: controller,
+                      siteUrl: siteUrl,
+                      topicId: topicId,
+                      post: post,
+                    ),
+                  );
+                },
+              ),
+            )
+          : null,
       description: DAlertDescription(
         child: cooked == null || cooked.isEmpty
             ? Text(label)

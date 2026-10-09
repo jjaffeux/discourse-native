@@ -231,7 +231,7 @@ void main() {
 
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Make wiki'), findsOneWidget);
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Delete topic'), findsOneWidget);
     expect(find.byTooltip('Edit this post'), findsNothing);
     expect(
       find.byTooltip('Allow community members to edit this post'),

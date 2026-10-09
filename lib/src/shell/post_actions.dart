@@ -22,6 +22,7 @@ import 'post_action_owner.dart';
 import 'post_flag_editor.dart';
 import 'post_notice_editor.dart';
 import 'post_permanent_delete.dart';
+import 'post_quote.dart';
 import 'post_revision_history.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -231,6 +232,7 @@ class _PostActionsState extends State<PostActions> {
             PostAction(
               icon: DIcons.trashCan,
               placement: PostActionPlacement.overflow,
+              group: PostActionGroup.report,
               label: appL10n.delete,
               tooltip: appL10n.deleteThisTopicAction,
               destructive: true,
@@ -267,10 +269,10 @@ class _PostActionsState extends State<PostActions> {
 
     return (
       actions: [
-        ...contribution.entries,
         if (!contribution.replacesLike && post.canToggleLike)
           PostAction(
             icon: post.liked ? DIcons.heart : DIcons.farHeart,
+            showInMenu: false,
             placement: PostActionPlacement.toolbar,
             label: post.liked ? appL10n.removeLike : appL10n.like,
             tooltip: post.liked ? appL10n.removeYourLike : appL10n.likeThisPost,
@@ -282,8 +284,33 @@ class _PostActionsState extends State<PostActions> {
           ),
         if (postUrl case final url?)
           PostAction(
+            icon: DIcons.link,
+            placement: PostActionPlacement.toolbar,
+            group: PostActionGroup.share,
+            label: appL10n.copyLink,
+            tooltip: appL10n.copyALinkToThisPostToClipboard,
+            onInvoke: () => _copyLink(controller, url),
+          ),
+        if (topic != null && post.cooked.isNotEmpty)
+          PostAction(
+            icon: DIcons.copy,
+            group: PostActionGroup.share,
+            placement: PostActionPlacement.overflow,
+            label: appL10n.copyText,
+            tooltip: appL10n.copyText,
+            onInvoke: () => unawaited(
+              Clipboard.setData(
+                ClipboardData(
+                  text: PostQuoteSelectionResolver(post.cooked).plainText,
+                ),
+              ),
+            ),
+          ),
+        if (postUrl case final url?)
+          PostAction(
             icon: DIcons.upRightFromSquare,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.share,
             label: appL10n.share,
             tooltip: appL10n.shareThisPost,
             onInvoke: () => unawaited(
@@ -310,13 +337,53 @@ class _PostActionsState extends State<PostActions> {
               ),
             ),
           ),
-        if (postUrl case final url?)
+        if (controller.canReplyHere &&
+            topic != null &&
+            post.cooked.isNotEmpty &&
+            !post.hidden &&
+            !post.isDeleted)
           PostAction(
-            icon: DIcons.link,
-            placement: PostActionPlacement.toolbar,
-            label: appL10n.copyLink,
-            tooltip: appL10n.copyALinkToThisPostToClipboard,
-            onInvoke: () => _copyLink(controller, url),
+            icon: DIcons.quoteLeft,
+            group: PostActionGroup.share,
+            placement: PostActionPlacement.overflow,
+            label: appL10n.quote,
+            tooltip: appL10n.quote,
+            onInvoke: () => unawaited(
+              controller.openQuote(
+                post,
+                buildPostQuote(
+                  post: post,
+                  topicId: topic.id,
+                  contents: PostQuoteSelectionResolver(post.cooked).entirePost,
+                  config: config,
+                ),
+              ),
+            ),
+          ),
+        if (topic != null &&
+            controller.canReplyAsNewTopic(topic) &&
+            canonicalUrl != null &&
+            !post.isWhisper &&
+            !post.hidden &&
+            !post.isDeleted)
+          PostAction(
+            icon: DIcons.upRightFromSquare,
+            group: PostActionGroup.share,
+            placement: PostActionPlacement.overflow,
+            label: appL10n.replyAsNewTopic,
+            tooltip: appL10n.replyAsNewTopic,
+            onInvoke: () {
+              final reply = captureShareReplyAsNewTopic(
+                context: context,
+                siteUrl: widget.siteUrl,
+                topicId: topic.id,
+                continuation: topicContinuationMarkdown(
+                  title: topic.title,
+                  url: canonicalUrl,
+                ),
+              );
+              if (reply != null) unawaited(reply());
+            },
           ),
         if (controller.canReplyHere)
           PostAction(
@@ -340,6 +407,14 @@ class _PostActionsState extends State<PostActions> {
             tooltip: appL10n.editThisPost,
             onInvoke: () => controller.openEdit(post),
           ),
+        if (post.editCount > 0 && post.canViewEditHistory)
+          PostAction(
+            icon: DIcons.pencil,
+            placement: PostActionPlacement.overflow,
+            label: appL10n.viewEditHistory,
+            tooltip: appL10n.viewThisPostSEditHistory,
+            onInvoke: () => _openRevisionHistory(controller),
+          ),
         if (controller.currentInstance?.url == widget.siteUrl &&
             controller.currentInstance?.user != null &&
             topic != null)
@@ -351,7 +426,7 @@ class _PostActionsState extends State<PostActions> {
             },
             label: post.bookmark == null
                 ? appL10n.bookmark
-                : appL10n.editBookmark,
+                : appL10n.bookmarked,
             placement: PostActionPlacement.overflow,
             showLabelInFooter: false,
             tooltip: post.bookmark == null
@@ -366,6 +441,16 @@ class _PostActionsState extends State<PostActions> {
               targetType: BookmarkTargetType.post,
               targetId: post.id,
             ),
+            onInvokeAnchored: (anchor) => unawaited(
+              showPostBookmarkMenu(
+                context: context,
+                controller: controller,
+                siteUrl: widget.siteUrl,
+                topicId: topic.id,
+                post: post,
+                anchor: anchor,
+              ),
+            ),
             onInvoke: () => unawaited(
               showPostBookmarkMenu(
                 context: context,
@@ -376,18 +461,21 @@ class _PostActionsState extends State<PostActions> {
               ),
             ),
           ),
-        if (post.editCount > 0 && post.canViewEditHistory)
+        ...contribution.entries,
+        if (controller.canUnhidePost(post))
           PostAction(
-            icon: DIcons.pencil,
+            icon: DIcons.farEye,
             placement: PostActionPlacement.overflow,
-            label: appL10n.viewEditHistory,
-            tooltip: appL10n.viewThisPostSEditHistory,
-            onInvoke: () => _openRevisionHistory(controller),
+            group: PostActionGroup.staff,
+            label: appL10n.unhidePost,
+            tooltip: appL10n.restoreThisHiddenPost,
+            onInvoke: () => _report(controller, controller.unhidePost(post)),
           ),
         if (post.canWiki)
           PostAction(
             icon: DIcons.farPenToSquare,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.staff,
             label: post.wiki ? appL10n.removeWiki : appL10n.makeWiki,
             tooltip: post.wiki
                 ? appL10n.returnThisToOrdinaryPostEditing
@@ -395,23 +483,11 @@ class _PostActionsState extends State<PostActions> {
             onInvoke: () =>
                 _report(controller, controller.setPostWiki(post, !post.wiki)),
           ),
-        if (controller.canLockPost(post))
-          PostAction(
-            icon: post.locked ? DIcons.unlock : DIcons.lock,
-            placement: PostActionPlacement.overflow,
-            label: post.locked ? appL10n.unlockPost : appL10n.lockPost,
-            tooltip: post.locked
-                ? appL10n.allowThisPostToBeEditedAgain
-                : appL10n.preventFurtherEditsToThisPost,
-            onInvoke: () => _report(
-              controller,
-              controller.setPostLocked(post, !post.locked),
-            ),
-          ),
         if (availableFlags.isNotEmpty)
           PostAction(
             icon: DIcons.flag,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.report,
             label: appL10n.flag,
             tooltip: appL10n.privatelyFlagThisPostForAttention,
             onInvoke: () => showPostFlagEditor(
@@ -427,6 +503,7 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.flag,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.report,
             label: appL10n.reportIllegalContent,
             tooltip: appL10n.reportIllegalContentByEmail,
             onInvoke: () => showAnonymousIllegalContentDialog(
@@ -435,27 +512,6 @@ class _PostActionsState extends State<PostActions> {
               topicTitle: topicTitle,
               postUrl: postUrl,
             ),
-          ),
-        if (controller.canUnhidePost(post))
-          PostAction(
-            icon: DIcons.farEye,
-            placement: PostActionPlacement.overflow,
-            label: appL10n.unhidePost,
-            tooltip: appL10n.restoreThisHiddenPost,
-            onInvoke: () => _report(controller, controller.unhidePost(post)),
-          ),
-        if (controller.canTogglePostType(post))
-          PostAction(
-            icon: DIcons.flag,
-            placement: PostActionPlacement.overflow,
-            label: post.isModeratorAction
-                ? appL10n.revertToRegularPost
-                : appL10n.convertToModeratorPost,
-            tooltip: post.isModeratorAction
-                ? appL10n.removeTheModeratorStylingFromThisPost
-                : appL10n.markThisAsAnOfficialModeratorPost,
-            onInvoke: () =>
-                _report(controller, controller.togglePostType(post)),
           ),
         if (instance?.url == widget.siteUrl &&
             topic != null &&
@@ -467,6 +523,7 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.user,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.staff,
             label: post.notice == null
                 ? appL10n.addPostNotice
                 : appL10n.changePostNotice,
@@ -481,10 +538,25 @@ class _PostActionsState extends State<PostActions> {
               post: post,
             ),
           ),
+        if (controller.canLockPost(post))
+          PostAction(
+            icon: post.locked ? DIcons.unlock : DIcons.lock,
+            placement: PostActionPlacement.overflow,
+            group: PostActionGroup.staff,
+            label: post.locked ? appL10n.unlockPost : appL10n.lockPost,
+            tooltip: post.locked
+                ? appL10n.allowThisPostToBeEditedAgain
+                : appL10n.preventFurtherEditsToThisPost,
+            onInvoke: () => _report(
+              controller,
+              controller.setPostLocked(post, !post.locked),
+            ),
+          ),
         if (controller.canChangeTopicPostOwner(post))
           PostAction(
             icon: DIcons.user,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.staff,
             label: appL10n.changeOwner,
             tooltip: appL10n.assignThisPostToAnotherAccount,
             onInvoke: () {
@@ -502,6 +574,20 @@ class _PostActionsState extends State<PostActions> {
               );
             },
           ),
+        if (controller.canTogglePostType(post))
+          PostAction(
+            icon: DIcons.flag,
+            placement: PostActionPlacement.overflow,
+            group: PostActionGroup.staff,
+            label: post.isModeratorAction
+                ? appL10n.revertToRegularPost
+                : appL10n.convertToModeratorPost,
+            tooltip: post.isModeratorAction
+                ? appL10n.removeTheModeratorStylingFromThisPost
+                : appL10n.markThisAsAnOfficialModeratorPost,
+            onInvoke: () =>
+                _report(controller, controller.togglePostType(post)),
+          ),
         if (post.postNumber == 1 &&
             controller.currentTopic?.canEdit != true &&
             controller.currentTopic?.canEditTags == true)
@@ -516,6 +602,7 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.trashCan,
             placement: PostActionPlacement.overflow,
+            group: PostActionGroup.report,
             label: appL10n.permanentlyDelete,
             tooltip: appL10n.permanentlyDeleteThisPost,
             destructive: true,
@@ -533,7 +620,10 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.arrowRotateLeft,
             placement: PostActionPlacement.overflow,
-            label: appL10n.undelete,
+            group: PostActionGroup.report,
+            label: post.postNumber == 1
+                ? appL10n.recoverTopic
+                : appL10n.undelete,
             tooltip: appL10n.putThisPostBack,
             onInvoke: () => _report(controller, controller.recoverPost(post)),
           )
@@ -541,8 +631,13 @@ class _PostActionsState extends State<PostActions> {
           PostAction(
             icon: DIcons.trashCan,
             placement: PostActionPlacement.overflow,
-            label: appL10n.delete,
-            tooltip: appL10n.deleteThisPost,
+            group: PostActionGroup.report,
+            label: post.postNumber == 1
+                ? appL10n.deleteTopicTopicactions
+                : appL10n.delete,
+            tooltip: post.postNumber == 1
+                ? appL10n.deleteThisTopicAction
+                : appL10n.deleteThisPost,
             destructive: true,
             onInvoke: () => _report(controller, controller.deletePost(post)),
           ),
@@ -786,6 +881,10 @@ class _PostActionsState extends State<PostActions> {
   }
 
   Widget _buildActionList(BuildContext context, List<PostAction> actions) {
+    actions = [
+      for (final group in PostActionGroup.values)
+        ...actions.where((action) => action.group == group),
+    ];
     final owner = PostActionOwner.capture(
       context,
       siteUrl: widget.siteUrl,
@@ -967,10 +1066,8 @@ class _PostActionsMenu extends StatelessWidget {
                   constraints: const BoxConstraints(maxHeight: 440),
                   children: [
                     for (final (index, action) in overflowActions.indexed) ...[
-                      if (action.destructive &&
-                          !overflowActions
-                              .take(index)
-                              .any((candidate) => candidate.destructive))
+                      if (index > 0 &&
+                          overflowActions[index - 1].group != action.group)
                         const DSeparator(space: 1),
                       Builder(
                         builder: (buttonContext) => DDropdownMenuItem(
@@ -1136,7 +1233,11 @@ class PostMoreActionsButton extends StatelessWidget {
         .dependOnInheritedWidgetOfExactType<_PostActionsScope>();
     if (scope == null) return const SizedBox.shrink();
     final actions = scope.actions
-        .where((action) => action.placement != PostActionPlacement.trailing)
+        .where(
+          (action) =>
+              action.showInMenu &&
+              action.placement != PostActionPlacement.trailing,
+        )
         .toList(growable: false);
     if (actions.isEmpty) return const SizedBox.shrink();
     return Semantics(
@@ -1158,7 +1259,14 @@ class PostMoreActionsButton extends StatelessWidget {
           width: 300,
           constraints: const BoxConstraints(maxHeight: 440),
           children: [
-            for (final action in actions)
+            for (final (index, action) in actions.indexed) ...[
+              if (index > 0 && actions[index - 1].group != action.group)
+                const DDropdownMenuSeparator(),
+              if (action.group == PostActionGroup.staff &&
+                  (index == 0 || actions[index - 1].group != action.group))
+                DDropdownMenuLabel(
+                  child: Text(context.l10n.staffChatmessagetile),
+                ),
               DDropdownMenuItem(
                 focusNode:
                     identical(
@@ -1177,8 +1285,12 @@ class PostMoreActionsButton extends StatelessWidget {
                       ? Theme.of(context).colorScheme.error
                       : action.tint,
                 ),
+                variant: action.destructive
+                    ? DDropdownMenuItemVariant.destructive
+                    : DDropdownMenuItemVariant.standard,
                 child: Text(action.label),
               ),
+            ],
           ],
         ),
         child: DDropdownMenuTrigger(

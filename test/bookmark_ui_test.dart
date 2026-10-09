@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/bookmark_reminder_picker.dart';
 import 'package:discourse_native/src/shell/bookmark_ui.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -228,7 +229,7 @@ void main() {
     expect(find.byTooltip('Edit this post bookmark'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
     await tester.pumpAndSettle();
-    final action = find.widgetWithText(DDropdownMenuItem, 'Edit bookmark');
+    final action = find.widgetWithText(DDropdownMenuItem, 'Bookmarked');
     expect(action, findsOneWidget);
     final icon = tester.widget<DIcon>(
       find.descendant(of: action, matching: find.byType(DIcon)),
@@ -371,15 +372,17 @@ void main() {
     );
 
     await _openCustomPicker(tester);
-    final picker = tester.widget<DatePickerDialog>(
-      find.byType(DatePickerDialog),
+    final picker = tester.widget<BookmarkReminderDatePicker>(
+      find.byType(BookmarkReminderDatePicker),
     );
     expect(picker.initialDate, DateTime(2026, 4, 15));
     expect(picker.firstDate, DateTime(2026, 4, 15));
     await _confirmPicker(tester);
     expect(
       tester
-          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+          .widget<BookmarkReminderTimePicker>(
+            find.byType(BookmarkReminderTimePicker),
+          )
           .initialTime,
       const TimeOfDay(hour: 12, minute: 0),
     );
@@ -432,12 +435,15 @@ void main() {
       );
 
       await _openCustomPicker(tester);
-      final picker = tester.widget<DatePickerDialog>(
-        find.byType(DatePickerDialog),
+      final picker = tester.widget<BookmarkReminderDatePicker>(
+        find.byType(BookmarkReminderDatePicker),
       );
       expect(picker.initialDate, scenario.day);
       expect(picker.firstDate, scenario.day);
-      expect(picker.currentDate, scenario.day);
+      expect(
+        tester.widget<DDatePickerInput>(find.byType(DDatePickerInput)).today,
+        DCalendarDate.fromDateTime(scenario.day),
+      );
       expect(
         picker.lastDate,
         DateTime(scenario.day.year + 10, scenario.day.month, scenario.day.day),
@@ -445,7 +451,9 @@ void main() {
       await _confirmPicker(tester);
       expect(
         tester
-            .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+            .widget<BookmarkReminderTimePicker>(
+              find.byType(BookmarkReminderTimePicker),
+            )
             .initialTime,
         TimeOfDay(hour: scenario.hour, minute: 30),
       );
@@ -470,15 +478,17 @@ void main() {
     );
 
     await _openCustomPicker(tester);
-    final picker = tester.widget<DatePickerDialog>(
-      find.byType(DatePickerDialog),
+    final picker = tester.widget<BookmarkReminderDatePicker>(
+      find.byType(BookmarkReminderDatePicker),
     );
     expect(picker.initialDate, DateTime(2036, 4, 15));
     expect(picker.initialDate, picker.lastDate);
     await _confirmPicker(tester);
     expect(
       tester
-          .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+          .widget<BookmarkReminderTimePicker>(
+            find.byType(BookmarkReminderTimePicker),
+          )
           .initialTime,
       const TimeOfDay(hour: 13, minute: 30),
     );
@@ -517,20 +527,25 @@ void main() {
             reminder: scenario.reminder,
           );
           final originalLabel = tester
-              .widget<Text>(find.textContaining('Reminder: '))
+              .widget<Text>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('bookmark-custom-reminder')),
+                  matching: find.byType(Text),
+                ),
+              )
               .data;
 
           await _openCustomPicker(tester);
           await _enterPickerDate(tester, DateTime(2026, 4, 18));
           if (stage == 'time') {
             await _confirmPicker(tester);
-            expect(find.byType(TimePickerDialog), findsOneWidget);
+            expect(find.byType(BookmarkReminderTimePicker), findsOneWidget);
           }
           await tester.tap(find.text('Cancel').last);
           await tester.pumpAndSettle();
 
-          expect(find.byType(DatePickerDialog), findsNothing);
-          expect(find.byType(TimePickerDialog), findsNothing);
+          expect(find.byType(BookmarkReminderDatePicker), findsNothing);
+          expect(find.byType(BookmarkReminderTimePicker), findsNothing);
           expect(find.text(originalLabel!), findsOneWidget);
           expect(await store.read(_site, 'reader'), lastCustom);
           expect(api.updatedBookmarks, isEmpty);
@@ -721,8 +736,8 @@ void main() {
     ) async {
       await _openEditor(tester, now: scenario.now, timezone: scenario.zone);
       await _openCustomPicker(tester);
-      final picker = tester.widget<DatePickerDialog>(
-        find.byType(DatePickerDialog),
+      final picker = tester.widget<BookmarkReminderDatePicker>(
+        find.byType(BookmarkReminderDatePicker),
       );
       expect(picker.lastDate, scenario.lastDay);
       expect(tester.takeException(), isNull);
@@ -740,15 +755,17 @@ void main() {
         timezone: 'Pacific/Kiritimati',
       );
       await _openCustomPicker(tester);
-      final picker = tester.widget<DatePickerDialog>(
-        find.byType(DatePickerDialog),
+      final picker = tester.widget<BookmarkReminderDatePicker>(
+        find.byType(BookmarkReminderDatePicker),
       );
       expect(picker.initialDate, DateTime(2034, 3, 1));
       expect(picker.lastDate, DateTime(2034, 3, 1));
       await _confirmPicker(tester);
       expect(
         tester
-            .widget<TimePickerDialog>(find.byType(TimePickerDialog))
+            .widget<BookmarkReminderTimePicker>(
+              find.byType(BookmarkReminderTimePicker),
+            )
             .initialTime,
         const TimeOfDay(hour: 13, minute: 30),
       );
@@ -990,32 +1007,30 @@ Future<FakeDiscourseApi> _openEditor(
 }
 
 Future<void> _openCustomPicker(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('Custom date and time'));
-  await tester.tap(find.text('Custom date and time'));
+  await tester.ensureVisible(
+    find.byKey(const ValueKey('bookmark-custom-reminder')),
+  );
+  await tester.tap(find.byKey(const ValueKey('bookmark-custom-reminder')));
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull);
-  expect(find.byType(DatePickerDialog), findsOneWidget);
+  expect(find.byType(BookmarkReminderDatePicker), findsOneWidget);
 }
 
 Future<void> _confirmPicker(WidgetTester tester) async {
-  await tester.tap(find.text('OK'));
+  await tester.tap(find.byKey(const ValueKey('bookmark-picker-apply')));
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull);
 }
 
 Future<void> _enterPickerDate(WidgetTester tester, DateTime date) async {
-  final localizations = MaterialLocalizations.of(
-    tester.element(find.byType(DatePickerDialog)),
-  );
-  await tester.tap(find.byTooltip(localizations.inputDateModeButtonLabel));
-  await tester.pumpAndSettle();
   await tester.enterText(
     find.descendant(
-      of: find.byType(DatePickerDialog),
-      matching: find.byType(TextFormField),
+      of: find.byType(BookmarkReminderDatePicker),
+      matching: find.byType(TextField),
     ),
-    localizations.formatCompactDate(date),
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
   );
+  await tester.pump();
 }
 
 Future<void> _saveEditor(WidgetTester tester) async {

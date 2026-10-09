@@ -66,6 +66,14 @@ final class TopicTrackingState {
     return true;
   }
 
+  /// Applies the acknowledged reset of the final post's read timing.
+  void markLastPostUnread(int topicId, int lastReadPostNumber) {
+    final held = _topics[topicId];
+    if (held == null) return;
+    _put(held.copyWith(lastReadPostNumber: lastReadPostNumber, isSeen: true));
+    _invalidateCounts();
+  }
+
   /// Core's report stops at `TopicTrackingState::MAX_TOPICS` rows, so one
   /// that long may have left new and unread topics out.
   static const maxReportTopics = 5000;

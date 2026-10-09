@@ -28,11 +28,14 @@ const _reader = DiscourseUser(id: 9, username: 'reader');
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final control in ['count', 'menu']) {
+  for (final control in ['count', 'empty']) {
     testWidgets(
       '$control does not repeat a completed like before repaint',
       (tester) async {
-        final fixture = await _Fixture.open(tester);
+        final fixture = await _Fixture.open(
+          tester,
+          initialCount: control == 'empty' ? 0 : 1,
+        );
         final controlFinder = await _likeControl(tester, control);
         await _tapWithoutFrame(tester, controlFinder);
         expect(fixture.api.serverLiked, isTrue);
@@ -46,10 +49,13 @@ void main() {
         expect(fixture.api.requests, hasLength(1));
         expect(fixture.api.serverLiked, isTrue);
         expect(fixture.shell.store.read<Post>(_site, 1)!.liked, isTrue);
-        expect(fixture.shell.store.read<Post>(_site, 1)!.likeCount, 2);
+        expect(
+          fixture.shell.store.read<Post>(_site, 1)!.likeCount,
+          control == 'empty' ? 1 : 2,
+        );
         await tester.pumpAndSettle();
         expect(find.text(_alreadyPerformed), findsNothing);
-        expect(_count('2'), findsOneWidget);
+        expect(_count(control == 'empty' ? '1' : '2'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({
@@ -119,9 +125,10 @@ Finder _count(String value) =>
 
 Future<Finder> _likeControl(WidgetTester tester, String control) async {
   if (control == 'count') return _count('1');
-  await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
-  await tester.pumpAndSettle();
-  return find.widgetWithText(DDropdownMenuItem, 'Like');
+  return find.descendant(
+    of: find.byType(PostLikes),
+    matching: find.byType(DToggle),
+  );
 }
 
 Future<void> _tapWithoutFrame(WidgetTester tester, Finder control) =>
@@ -135,8 +142,11 @@ class _Fixture {
   final ShellController shell;
   final _Api api;
   final _Auth auth;
-  static Future<_Fixture> open(WidgetTester tester) async {
-    final api = _Api();
+  static Future<_Fixture> open(
+    WidgetTester tester, {
+    int initialCount = 1,
+  }) async {
+    final api = _Api(initialCount: initialCount);
     final auth = _Auth()..keys[_site] = 'api-key';
     final shell = ShellController(
       api: api,
@@ -172,12 +182,12 @@ class _Fixture {
       ),
     );
     await tester.pumpAndSettle();
-    expect(_count('1'), findsOneWidget);
+    if (initialCount > 0) expect(_count('$initialCount'), findsOneWidget);
     return _Fixture(shell, api, auth);
   }
 }
 
-Map<String, Object?> _postJson(bool liked) => {
+Map<String, Object?> _postJson(bool liked, {int initialCount = 1}) => {
   'id': 1,
   'post_number': 1,
   'username': 'author',
@@ -185,7 +195,7 @@ Map<String, Object?> _postJson(bool liked) => {
   'actions_summary': [
     {
       'id': 2,
-      'count': liked ? 2 : 1,
+      'count': initialCount + (liked ? 1 : 0),
       'acted': liked,
       'can_act': !liked,
       'can_undo': liked,
@@ -194,17 +204,23 @@ Map<String, Object?> _postJson(bool liked) => {
 };
 
 class _Api extends FakeDiscourseApi {
-  _Api()
+  _Api({this.initialCount = 1})
     : super(
         user: _reader,
         topics: {
           7: topicPayload(
             id: 7,
             title: 'A real topic',
-            posts: [Post.fromJson(_postJson(false), _site)],
+            posts: [
+              Post.fromJson(
+                _postJson(false, initialCount: initialCount),
+                _site,
+              ),
+            ],
           ),
         },
       );
+  final int initialCount;
   bool serverLiked = false;
   bool emptyResponse = false;
   final requests = <http.Request>[];
@@ -232,7 +248,10 @@ class _Api extends FakeDiscourseApi {
       }
       return emptyResponse
           ? http.Response('', 204)
-          : http.Response(jsonEncode(_postJson(serverLiked)), 200);
+          : http.Response(
+              jsonEncode(_postJson(serverLiked, initialCount: initialCount)),
+              200,
+            );
     }),
   );
 

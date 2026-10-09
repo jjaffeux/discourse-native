@@ -714,7 +714,7 @@ void _registerTopicModerationTests() {
       expect(find.byKey(const ValueKey('post-more-actions-1')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('post-more-actions-1')));
       await tester.pumpAndSettle();
-      expect(find.text('Undelete'), findsOneWidget);
+      expect(find.text('Recover topic'), findsOneWidget);
       expect(find.byTooltip('Put this post back'), findsNothing);
       expect(find.byTooltip('Delete this post'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1958,9 +1958,9 @@ void _registerTopicModerationTests() {
       await tester.longPress(find.text('joffreyj'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(ListTile, 'Reply'), findsOneWidget);
-      expect(find.widgetWithText(ListTile, 'Edit'), findsOneWidget);
-      expect(find.widgetWithText(ListTile, 'Delete'), findsOneWidget);
+      expect(find.widgetWithText(DItem, 'Reply'), findsOneWidget);
+      expect(find.widgetWithText(DItem, 'Edit'), findsOneWidget);
+      expect(find.widgetWithText(DItem, 'Delete topic'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   });
 

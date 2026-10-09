@@ -214,7 +214,7 @@ Future<void> tapPostAction(
       'Share this post' => 'Share',
       'Copy a link to this post to clipboard' => 'Copy link',
       'Edit this post' => 'Edit',
-      'Delete this post' => 'Delete',
+      'Delete this post' => postNumber == 1 ? 'Delete topic' : 'Delete',
       'Allow community members to edit this post' => 'Make wiki',
       'Return this to ordinary post editing' => 'Remove wiki',
       'Prevent further edits to this post' => 'Lock post',
@@ -226,7 +226,7 @@ Future<void> tapPostAction(
       'Change or remove the staff notice' => 'Change post notice',
       'Assign this post to another account' => 'Change owner',
       'Permanently delete this post' => 'Permanently delete',
-      'Put this post back' => 'Undelete',
+      'Put this post back' => postNumber == 1 ? 'Recover topic' : 'Undelete',
       _ => throw StateError('No visible label for post action: $tooltip'),
     };
     action = find.widgetWithText(DDropdownMenuItem, label);
