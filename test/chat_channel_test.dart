@@ -1041,18 +1041,54 @@ void main() {
       expect(channel.badge.isVisible, isFalse);
     });
 
-    test(
-      'says nothing at all for a muted channel, which is what muting means',
-      () {
-        final channel = ChatChannel.parse(
-          payload(
-            public: [categoryChannel(muted: true)],
-            tracking: {'9': counts(unread: 9, mentions: 2)},
-          ),
-          site,
-        ).public.single;
+    test('keeps mentions visible in muted channels as core does', () {
+      final channel = ChatChannel.parse(
+        payload(
+          public: [categoryChannel(muted: true)],
+          tracking: {'9': counts(mentions: 2)},
+        ),
+        site,
+      ).public.single;
 
-        expect(channel.badge.isVisible, isFalse);
+      expect(channel.badge.dot, isTrue);
+      expect(channel.badge.urgent, isTrue);
+      expect(channel.unreadBadge.count, 2);
+    });
+
+    // Web: chat-channel-unread-indicator.gjs and chat-sidebar-indicators.gjs.
+    for (final (name, direct, unread, mentions, watched, expected) in [
+      ('read', false, 0, 0, 0, 0),
+      ('ordinary public', false, 42, 0, 0, 0),
+      ('public mentions', false, 42, 2, 0, 2),
+      ('public watched replies', false, 1, 2, 3, 5),
+      ('direct messages', true, 7, 2, 3, 12),
+      ('large direct count', true, 120, 3, 0, 123),
+    ]) {
+      test('$name keeps sidebar dots separate from channel-list counts', () {
+        final channel = withCounts(
+          direct ? directChannel() : categoryChannel(),
+          unread: unread,
+          mentions: mentions,
+          watchedThreads: watched,
+        );
+        expect(channel.unreadBadge.count, expected);
+        expect(channel.unreadBadge.dot, unread > 0 && expected == 0);
+        expect(channel.badge.count, 0);
+        expect(channel.badge.dot, unread + mentions + watched > 0);
+      });
+    }
+
+    test(
+      'watched-only tracking needs recent activity for a channel-list badge',
+      () {
+        final channel = withCounts(categoryChannel(), watchedThreads: 4);
+        expect(channel.unreadBadge.isVisible, isFalse);
+        expect(channel.badge.urgent, isTrue);
+        final recent = channel.withTrackingState(
+          tracking: channel.tracking,
+          unreadThreadOverview: {31: DateTime.utc(2026, 10, 9)},
+        );
+        expect(recent.unreadBadge.count, 4);
       },
     );
 

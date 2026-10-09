@@ -1099,31 +1099,33 @@ void main() {
     },
   );
 
-  _mobileTest('tab unread counts sit beside the label within one tap target', (
-    tester,
-  ) async {
-    final shell = await pumpMobileShellFixture(tester, chatUnreadCount: 32);
-    final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
-    final badge = find.byKey(const ValueKey('chat-mobile-unread-badge'));
-    void expectPosition() {
-      final buttonRect = tester.getRect(button);
-      final badgeRect = tester.getRect(badge);
-      final labelRect = tester.getRect(
-        find.descendant(of: button, matching: find.text('Chat')),
-      );
-      expect(badgeRect.left, greaterThanOrEqualTo(labelRect.right));
-      expect(badgeRect.center.dy, closeTo(labelRect.center.dy, 1));
-      expect(badgeRect.right, lessThanOrEqualTo(buttonRect.right));
-    }
+  _mobileTest(
+    'ordinary chat activity uses a dot beside the label within one tap target',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester, chatUnreadCount: 32);
+      final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+      final badge = find.byKey(const ValueKey('chat-mobile-unread-badge'));
+      void expectPosition() {
+        final buttonRect = tester.getRect(button);
+        final badgeRect = tester.getRect(badge);
+        final labelRect = tester.getRect(
+          find.descendant(of: button, matching: find.text('Chat')),
+        );
+        expect(badgeRect.left, greaterThanOrEqualTo(labelRect.right));
+        expect(badgeRect.center.dy, closeTo(labelRect.center.dy, 1));
+        expect(badgeRect.right, lessThanOrEqualTo(buttonRect.right));
+      }
 
-    expectPosition();
-    expect(find.text('32'), findsOneWidget);
-    await tester.tapAt(tester.getCenter(badge));
-    await tester.pumpAndSettle();
-    expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
-    expectPosition();
-    expect(tester.takeException(), isNull);
-  });
+      expectPosition();
+      expect(tester.widget(badge), isA<DNotificationDot>());
+      expect(find.text('32'), findsNothing);
+      await tester.tapAt(tester.getCenter(badge));
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
+      expectPosition();
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest(
     'tab icon capsule fills when selected and clears when deselected',

@@ -1,21 +1,15 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
-
-int _unreadCount(ChatChannel channel) =>
-    math.max(channel.tracking.unreadCount, channel.tracking.mentionCount) +
-    channel.tracking.watchedThreadsUnreadCount;
 
 /// An account-owned glance at the live conversation directory.
 class ChatHeaderMenu extends StatefulWidget {
@@ -93,7 +87,7 @@ class _ChatHeaderMenuState extends State<ChatHeaderMenu> {
                 _ => true,
               },
             )
-            .fold(0, (sum, c) => sum + _unreadCount(c));
+            .fold(0, (sum, c) => sum + c.urgentCount);
         return DesktopHeaderMenu<ChatInboxKind>(
           title: context.l10n.chat,
           action: context.l10n.openChatMenu,
@@ -159,9 +153,9 @@ class _ChatHeaderMenuState extends State<ChatHeaderMenu> {
                         time: chatInboxActivityAt(c) == null
                             ? null
                             : relativeTime(chatInboxActivityAt(c)!),
-                        unread: c.badge.isVisible,
-                        count: _unreadCount(c),
-                        semanticLabel: c.badge.isVisible
+                        unread: c.unreadBadge.isVisible,
+                        count: c.unreadBadge.count,
+                        semanticLabel: c.unreadBadge.isVisible
                             ? '${c.title}, ${context.l10n.unreadConversation}'
                             : c.title,
                         onPressed: () {

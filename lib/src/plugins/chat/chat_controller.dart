@@ -2236,20 +2236,12 @@ class ChatController extends FrameSafeNotifier {
           : ChatHeaderIndicator.none;
     }
 
-    final urgent = all.fold(0, (count, channel) {
-      final tracking = channel.tracking;
-      return count +
-          tracking.mentionCount +
-          tracking.watchedThreadsUnreadCount +
-          (channel.isDirectMessage ? tracking.unreadCount : 0);
-    });
+    final urgent = all.fold(0, (count, channel) => count + channel.urgentCount);
     if (urgent > 0) return ChatHeaderIndicator.urgent(urgent);
 
     if (preference == ChatHeaderIndicatorPreference.allNew &&
-        all.any(
-          (channel) =>
-              channel.tracking.unreadCount > 0 || channel.unreadThreadCount > 0,
-        )) {
+        (public.any((channel) => channel.tracking.unreadCount > 0) ||
+            all.any((channel) => channel.unreadThreadCount > 0))) {
       return ChatHeaderIndicator.dot;
     }
     return ChatHeaderIndicator.none;

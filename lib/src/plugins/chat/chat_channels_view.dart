@@ -321,7 +321,7 @@ class _ChannelListChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badge = _channelBadge(channel);
+    final badge = channel.unreadBadge;
     final muted = channel.membership.muted;
     final theme = Theme.of(context);
     final foreground = muted
@@ -474,19 +474,6 @@ DateTime? _channelActivityAt(ChatChannel channel) {
     if (latest == null || threadAt.isAfter(latest)) latest = threadAt;
   }
   return latest;
-}
-
-SidebarBadge _channelBadge(ChatChannel channel) {
-  final urgent =
-      channel.tracking.mentionCount +
-      channel.tracking.watchedThreadsUnreadCount +
-      (channel.isDirectMessage ? channel.tracking.unreadCount : 0);
-  if (urgent > 0) return SidebarBadge.urgentCount(urgent);
-  if (channel.tracking.unreadCount > 0 ||
-      channel.unreadThreadsCountSinceLastViewed > 0) {
-    return const SidebarBadge.dot();
-  }
-  return SidebarBadge.none;
 }
 
 class _ChannelListBadge extends StatelessWidget {

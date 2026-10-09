@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -20,6 +21,45 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets('thread badges show ordinary or urgent counts and cap at 99+', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: _browsePages,
+      chatChannelThreadPagesByKey: {
+        FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+          threads: [
+            _thread(1).copyWith(tracking: const ChatTracking(unreadCount: 7)),
+            _thread(2).copyWith(
+              tracking: const ChatTracking(
+                unreadCount: 20,
+                mentionCount: 2,
+                watchedThreadsUnreadCount: 3,
+              ),
+            ),
+            _thread(3).copyWith(tracking: const ChatTracking(unreadCount: 123)),
+            _thread(4),
+          ],
+        ),
+      },
+    );
+    await _pump(tester, api);
+    for (final (id, label) in [(1, '7'), (2, '5'), (3, '99+')]) {
+      final badge = find.byKey(ValueKey('chat-my-thread-unread-$id'));
+      expect(
+        find.descendant(of: badge, matching: find.text(label)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: badge, matching: find.byType(DBadge)),
+        findsOneWidget,
+      );
+    }
+    expect(find.byKey(const ValueKey('chat-my-thread-unread-4')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a failed page waits for Try again instead of scrolling', (
     tester,
   ) async {

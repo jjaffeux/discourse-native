@@ -315,10 +315,9 @@ class ChatBrowseThreadRow extends StatelessWidget {
                   ),
                 ),
                 if (unread)
-                  DNotificationDot(
+                  _ThreadUnreadBadge(
                     key: ValueKey('chat-my-thread-unread-${thread.id}'),
-                    color: _threadIndicatorColor(context, thread),
-                    semanticLabel: context.l10n.unread,
+                    thread: thread,
                   ),
               ],
             ),
@@ -532,9 +531,8 @@ class ChatThreadListRow extends StatelessWidget {
         if (unread)
           DItemActions(
             children: [
-              DNotificationDot(
-                color: _threadIndicatorColor(context, thread),
-                semanticLabel: context.l10n.unread,
+              _ThreadUnreadBadge(
+                thread: thread,
                 key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
               ),
             ],
@@ -714,9 +712,8 @@ class _NestedThreadListRowState extends State<_NestedThreadListRow> {
                         const SizedBox(width: 12),
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
-                          child: DNotificationDot(
-                            color: _threadIndicatorColor(context, thread),
-                            semanticLabel: context.l10n.unread,
+                          child: _ThreadUnreadBadge(
+                            thread: thread,
                             key: ValueKey<String>(
                               '$keyPrefix-unread-${thread.id}',
                             ),
@@ -1144,10 +1141,25 @@ String? _text(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
-Color _threadIndicatorColor(BuildContext context, ChatThread thread) {
-  final colors = Theme.of(context).discourse;
-  final tracking = thread.tracking;
-  return tracking.mentionCount + tracking.watchedThreadsUnreadCount > 0
-      ? colors.success
-      : colors.notificationIndicator;
+class _ThreadUnreadBadge extends StatelessWidget {
+  const _ThreadUnreadBadge({super.key, required this.thread});
+
+  final ChatThread thread;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).discourse;
+    final tracking = thread.tracking;
+    final urgent = tracking.mentionCount + tracking.watchedThreadsUnreadCount;
+    // ChatThreadUnreadIndicator prefers urgent counts to ordinary unreads.
+    final count = urgent > 0 ? urgent : tracking.unreadCount;
+    return DBadge(
+      backgroundColor: urgent > 0
+          ? colors.success
+          : colors.notificationIndicator,
+      foregroundColor: colors.notificationForeground,
+      semanticLabel: context.l10n.unreadChatplugin(count),
+      child: Text(count > 99 ? '99+' : '$count'),
+    );
+  }
 }

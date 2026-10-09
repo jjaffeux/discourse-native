@@ -789,14 +789,31 @@ class ChatChannel with Storable<ChatChannel> {
   String? get avatarUrl =>
       isDirectMessage && users.length == 1 ? users.first.avatarUrl : null;
 
-  /// Direct messages and mentions are urgent; other public unread is ordinary.
-  SidebarBadge get badge {
-    // This sidebar has no dimmed state, so muted channels suppress the badge.
-    if (membership.muted) return SidebarBadge.none;
+  /// Core counts mentions and watched replies, plus all unread DM messages.
+  int get urgentCount =>
+      tracking.mentionCount +
+      tracking.watchedThreadsUnreadCount +
+      (isDirectMessage ? tracking.unreadCount : 0);
 
-    if (tracking.mentionCount > 0 ||
-        tracking.watchedThreadsUnreadCount > 0 ||
-        (isDirectMessage && tracking.unreadCount > 0)) {
+  /// Core's channel-list indicator has a count only for urgent activity.
+  SidebarBadge get unreadBadge {
+    // ChatChannelUnreadIndicator gates visibility separately from urgency.
+    if (tracking.unreadCount +
+            tracking.mentionCount +
+            unreadThreadsCountSinceLastViewed ==
+        0) {
+      return SidebarBadge.none;
+    }
+    return urgentCount > 0
+        ? SidebarBadge.urgentCount(urgentCount)
+        : const SidebarBadge.dot();
+  }
+
+  /// Core's sidebar always uses dots, including for urgent activity.
+  SidebarBadge get badge {
+    // Muting clears ordinary unread tracking on the server; mentions and
+    // watched replies still contribute to ChatSidebarIndicators.
+    if (urgentCount > 0) {
       return const SidebarBadge.dot(urgent: true);
     }
     if (tracking.unreadCount > 0 || unreadThreadsCountSinceLastViewed > 0) {

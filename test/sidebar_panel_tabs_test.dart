@@ -14,7 +14,7 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
-import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -33,6 +33,8 @@ Finder tab(String owner) => find.byKey(ValueKey('sidebar-panel-switch-$owner'));
 
 Future<ShellController> pumpTabs(
   WidgetTester tester, {
+  DiscourseUser currentUser = user,
+  Size size = desktop,
   bool chat = true,
   bool voice = true,
   bool voiceAccess = true,
@@ -57,7 +59,7 @@ Future<ShellController> pumpTabs(
   );
   await pumpShell(
     tester,
-    desktop,
+    size,
     pluginManifest: PluginManifest([
       if (installed) ...[
         ChatModule(apiFactory: (transport) => transport as ChatApi),
@@ -68,12 +70,12 @@ Future<ShellController> pumpTabs(
       instance(
         'meta.discourse.org',
         title: 'Meta',
-      ).copyWith(user: connected ? user : null, config: config),
+      ).copyWith(user: connected ? currentUser : null, config: config),
     ],
     authenticator: FakeAuthenticator()
       ..keys.addAll({if (connected) site: 'key'}),
     api: FakeDiscourseApi(
-      user: connected ? user : null,
+      user: connected ? currentUser : null,
       totals: chatNotificationTotals(available: chat),
       feeds: const {'/latest.json': []},
       siteConfigs: {site: config},
@@ -110,7 +112,7 @@ Future<ShellController> pumpTabs(
       },
     ),
   );
-  final shell = ShellScope.read(tester.element(find.byType(InstanceSidebar)));
+  final shell = ShellScope.read(tester.element(find.byType(MainContent).first));
   if (installed && connected) {
     await shell.pluginSession
         .require(voiceControllerService)
@@ -186,7 +188,7 @@ void main() {
   });
 
   _desktopTest(
-    'chat tab counts unread messages and updates without navigation',
+    'chat tab counts urgent messages and uses a dot for ordinary activity',
     (tester) async {
       final channels = {
         site: const ChatChannels(
@@ -224,12 +226,12 @@ void main() {
       );
       expect(badge, findsOneWidget);
       expect(
-        find.descendant(of: badge, matching: find.text('32')),
+        find.descendant(of: badge, matching: find.text('17')),
         findsOneWidget,
       );
       expect(
-        tester.widget<Semantics>(badge).properties.label,
-        '32 unread messages',
+        tester.widget<DBadge>(badge).semanticLabel,
+        'Chat, 17 urgent messages',
       );
       final route = shell.currentContent;
 
@@ -242,13 +244,10 @@ void main() {
       );
       await chat.loadChannels(site, force: true);
       await tester.pumpAndSettle();
+      expect(tester.widget(badge), isA<DNotificationDot>());
       expect(
-        find.descendant(of: badge, matching: find.text('1')),
-        findsOneWidget,
-      );
-      expect(
-        tester.widget<Semantics>(badge).properties.label,
-        '1 unread message',
+        find.descendant(of: badge, matching: find.byType(Text)),
+        findsNothing,
       );
       expect(shell.currentContent, route);
 
@@ -313,7 +312,7 @@ void main() {
     final total = find.byKey(const ValueKey('chat-sidebar-unread-badge'));
     Finder inTotal(String text) =>
         find.descendant(of: total, matching: find.text(text));
-    expect(inTotal('${chat.unreadMessageCount(site)}'), findsOneWidget);
+    expect(inTotal('19'), findsOneWidget);
     for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
       expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
     }

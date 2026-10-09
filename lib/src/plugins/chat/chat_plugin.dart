@@ -14,6 +14,7 @@ import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
 import 'chat_channels_view.dart';
+import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_global_search.dart';
 import 'chat_header_button.dart';
@@ -390,7 +391,46 @@ class ChatPlugin
 
     if (!shell.chatAvailable(siteUrl)) return null;
 
-    final unreadCount = shell.chat.unreadMessageCount(siteUrl);
+    final user = shell.currentUser;
+    final indicator = user == null || shell.doNotDisturbActive(siteUrl)
+        ? ChatHeaderIndicator.none
+        : shell.chat.headerIndicator(
+            siteUrl,
+            user.chatCurrentUser?.headerIndicatorPreference ??
+                ChatHeaderIndicatorPreference.allNew,
+          );
+    Widget? badge({required bool mobile}) {
+      if (!indicator.isVisible) return null;
+      final key = ValueKey(
+        mobile ? 'chat-mobile-unread-badge' : 'chat-sidebar-unread-badge',
+      );
+      final count = indicator.urgentCount;
+      final colors = Theme.of(context).discourse;
+      if (count == null) {
+        return DNotificationDot(
+          key: key,
+          color: colors.notificationIndicator,
+          semanticLabel: appL10n.chatUnreadMessages,
+        );
+      }
+      return mobile
+          ? DBadge.overlay(
+              key: key,
+              backgroundColor: colors.success,
+              foregroundColor: colors.notificationForeground,
+              ringColor: Colors.transparent,
+              semanticLabel: appL10n.chatUrgent(count),
+              child: Text(indicator.label!),
+            )
+          : DBadge(
+              key: key,
+              backgroundColor: colors.success,
+              foregroundColor: colors.notificationForeground,
+              semanticLabel: appL10n.chatUrgent(count),
+              child: Text(indicator.label!),
+            );
+    }
+
     final actions = _panelActions(shell, siteUrl);
     return SidebarPanelContribution(
       label: appL10n.chat,
@@ -403,31 +443,8 @@ class ChatPlugin
               onPressed: () => _startMessage(context, shell, siteUrl),
             )
           : null,
-      badge: unreadCount > 0
-          ? Semantics(
-              key: const ValueKey('chat-sidebar-unread-badge'),
-              label: appL10n.unreadChatplugin(unreadCount),
-              child: Text(
-                unreadCount > 99 ? '99+' : '$unreadCount',
-                style: TextStyle(
-                  color: Theme.of(context).discourse.success,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          : null,
-      mobileBadge: unreadCount > 0
-          ? DBadge.overlay(
-              key: const ValueKey('chat-mobile-unread-badge'),
-              backgroundColor: Theme.of(context).discourse.success,
-              foregroundColor: Theme.of(
-                context,
-              ).discourse.notificationForeground,
-              ringColor: Colors.transparent,
-              semanticLabel: appL10n.unreadChatplugin(unreadCount),
-              child: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-            )
-          : null,
+      badge: badge(mobile: false),
+      mobileBadge: badge(mobile: true),
       icon: DIcons.comment,
       active: ownsRouteId(shell.currentContent?.id),
       separateWhenActive: true,

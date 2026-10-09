@@ -220,7 +220,10 @@ void main() {
     try {
       final button = find.byKey(ChatHeaderButton.buttonKey);
       final badge = find.byKey(ChatHeaderButton.urgentBadgeKey);
-      expect(find.text('99+'), findsOneWidget);
+      expect(
+        find.descendant(of: button, matching: find.text('99+')),
+        findsOneWidget,
+      );
       expect(find.byTooltip('Chat, 103 urgent messages'), findsOneWidget);
 
       final theme = Theme.of(tester.element(badge));
