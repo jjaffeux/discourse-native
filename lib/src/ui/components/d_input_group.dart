@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
@@ -12,6 +13,10 @@ import 'd_input.dart';
 import 'd_kbd.dart';
 import 'd_scroll_area.dart';
 import 'd_textarea.dart';
+
+/// Search uses the application chrome's recessed capsule and inline spacing.
+/// Combine it with [DInputGroup.borderless] inside an attached popover.
+enum DInputGroupVariant { standard, search }
 
 enum DInputGroupAddonAlignment { inlineStart, inlineEnd, blockStart, blockEnd }
 
@@ -28,6 +33,7 @@ class DInputGroup extends StatefulWidget {
     super.key,
     required this.children,
     this.size = DControlSize.regular,
+    this.variant = DInputGroupVariant.standard,
     this.enabled = true,
     this.invalid = false,
     this.borderless = false,
@@ -41,6 +47,7 @@ class DInputGroup extends StatefulWidget {
 
   final List<Widget> children;
   final DControlSize size;
+  final DInputGroupVariant variant;
   final bool enabled;
   final bool invalid;
 
@@ -112,6 +119,7 @@ class _DInputGroupState extends State<DInputGroup> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final search = widget.variant == DInputGroupVariant.search;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final focused =
         DFocusHighlight.visibleOf(context) &&
@@ -133,12 +141,12 @@ class _DInputGroupState extends State<DInputGroup> {
           )
         : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5);
     final joined = DJoinedControlScope.maybeOf(context);
+    final baseRadius = BorderRadius.circular(
+      search ? DRadius.pill : tokens.buttonTheme.radius,
+    );
     final radius =
-        joined?.resolveRadius(
-          BorderRadius.circular(tokens.buttonTheme.radius),
-          Directionality.of(context),
-        ) ??
-        BorderRadius.circular(tokens.buttonTheme.radius);
+        joined?.resolveRadius(baseRadius, Directionality.of(context)) ??
+        baseRadius;
 
     final inlineStart = <Widget>[];
     final inlineEnd = <Widget>[];
@@ -177,22 +185,37 @@ class _DInputGroupState extends State<DInputGroup> {
       builder: (context, constraints) {
         // Keep both addon lanes shrinkable at large text sizes while reserving
         // space for the editor between them.
-        final maxSideWidth = constraints.maxWidth * .4;
-        Widget side(List<Widget> children) => ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxSideWidth),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [for (final child in children) Flexible(child: child)],
-          ),
-        );
+        Widget side(List<Widget> children, {bool leading = false}) =>
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth * (search && leading ? .55 : .4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: search ? 8 : 0,
+                children: [
+                  for (final (index, child) in children.indexed)
+                    if (search && children.length > 1 && index == 0)
+                      child
+                    else
+                      Flexible(child: child),
+                ],
+              ),
+            );
         return Row(
           crossAxisAlignment: multiline
               ? CrossAxisAlignment.start
               : CrossAxisAlignment.center,
           children: [
-            if (inlineStart.isNotEmpty) side(inlineStart),
+            if (inlineStart.isNotEmpty) ...[
+              side(inlineStart, leading: true),
+              if (search) const SizedBox(width: 8),
+            ],
             ...controls,
-            if (inlineEnd.isNotEmpty) side(inlineEnd),
+            if (inlineEnd.isNotEmpty) ...[
+              if (search) const SizedBox(width: 8),
+              side(inlineEnd),
+            ],
           ],
         );
       },
@@ -204,6 +227,13 @@ class _DInputGroupState extends State<DInputGroup> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [...blockStart, inline, ...blockEnd],
           );
+    if (search) {
+      content = Padding(
+        // The reference's 14px inset sits inside its 1px transparent border.
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        child: DIconGlyphTheme(scale: 1, child: content),
+      );
+    }
     content = FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),
       child: content,
@@ -258,22 +288,28 @@ class _DInputGroupState extends State<DInputGroup> {
                         (multiline
                             ? 64
                             : DControlStyle.scaledHeight(
-                                widget.size,
-                                MediaQuery.textScalerOf(context),
-                                context: context,
-                              )),
+                                    widget.size,
+                                    MediaQuery.textScalerOf(context),
+                                    context: context,
+                                  ) +
+                                  (search && widget.size == DControlSize.field
+                                      ? .5
+                                      : 0)),
                   ),
-                  decoration: _InputGroupSurfaceDecoration(
-                    backgroundColor: widget.borderless
-                        ? Colors.transparent
-                        : tokens.buttonTheme.outline.background,
-                    borderRadius: radius,
-                    borderColor: widget.borderless
-                        ? Colors.transparent
-                        : border,
-                    joinedAxis: joined?.axis,
-                    omitLeadingBorder: joined?.omitsLeadingBorder ?? false,
-                  ),
+                  decoration: search && !widget.borderless
+                      ? _SearchInputSurfaceDecoration(dark: dark)
+                      : _InputGroupSurfaceDecoration(
+                          backgroundColor: widget.borderless
+                              ? Colors.transparent
+                              : tokens.buttonTheme.outline.background,
+                          borderRadius: radius,
+                          borderColor: widget.borderless
+                              ? Colors.transparent
+                              : border,
+                          joinedAxis: joined?.axis,
+                          omitLeadingBorder:
+                              joined?.omitsLeadingBorder ?? false,
+                        ),
                   foregroundDecoration: _InputGroupRingDecoration(
                     color: !widget.borderless && (invalid || focused)
                         ? ring
@@ -288,20 +324,25 @@ class _DInputGroupState extends State<DInputGroup> {
         ),
       ),
     );
-    final inputPadding = EdgeInsetsDirectional.only(
-      start: inlineStart.isEmpty
-          ? DControlStyle.horizontalInset(widget.size)
-          : 6,
-      top: blockEnd.isEmpty ? 1 : 12,
-      end: inlineEnd.isEmpty ? DControlStyle.horizontalInset(widget.size) : 6,
-      bottom: blockStart.isEmpty ? 1 : 12,
-    ).resolve(Directionality.of(context));
+    final inputPadding = search
+        ? const EdgeInsets.symmetric(vertical: 1)
+        : EdgeInsetsDirectional.only(
+            start: inlineStart.isEmpty
+                ? DControlStyle.horizontalInset(widget.size)
+                : 6,
+            top: blockEnd.isEmpty ? 1 : 12,
+            end: inlineEnd.isEmpty
+                ? DControlStyle.horizontalInset(widget.size)
+                : 6,
+            bottom: blockStart.isEmpty ? 1 : 12,
+          ).resolve(Directionality.of(context));
     return DInputGroupControlScope(
       report: _report,
       remove: _remove,
       requestControlFocus: _requestControlFocus,
       inputPadding: inputPadding,
       size: widget.size,
+      search: search,
       enabled: widget.enabled,
       child: surface,
     );
@@ -348,22 +389,28 @@ class DInputGroupAddon extends StatelessWidget {
         : hasKbd
         ? 5.6
         : 8.0;
-    final padding = switch (alignment) {
-      DInputGroupAddonAlignment.inlineStart => EdgeInsetsDirectional.only(
-        start: inlineInset,
-        top: 0,
-        bottom: 0,
-      ),
-      DInputGroupAddonAlignment.inlineEnd => EdgeInsetsDirectional.only(
-        end: inlineInset,
-        top: 0,
-        bottom: 0,
-      ),
-      DInputGroupAddonAlignment.blockStart =>
-        const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 6),
-      DInputGroupAddonAlignment.blockEnd =>
-        const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
-    };
+    final search = DInputGroupControlScope.maybeOf(context)?.search ?? false;
+    final foreground = search
+        ? Color.lerp(tokens.background, tokens.foreground, .5)!
+        : tokens.mutedForeground;
+    final padding = search && !block
+        ? EdgeInsets.zero
+        : switch (alignment) {
+            DInputGroupAddonAlignment.inlineStart => EdgeInsetsDirectional.only(
+              start: inlineInset,
+              top: 0,
+              bottom: 0,
+            ),
+            DInputGroupAddonAlignment.inlineEnd => EdgeInsetsDirectional.only(
+              end: inlineInset,
+              top: 0,
+              bottom: 0,
+            ),
+            DInputGroupAddonAlignment.blockStart =>
+              const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 6),
+            DInputGroupAddonAlignment.blockEnd =>
+              const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
+          };
     final row = Row(
       mainAxisSize: block ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.start,
@@ -394,7 +441,7 @@ class DInputGroupAddon extends StatelessWidget {
           child: IconTheme.merge(
             data: IconThemeData(
               size: DControlStyle.iconDimension(size, context: context),
-              color: tokens.mutedForeground,
+              color: foreground,
             ),
             child: DefaultTextStyle.merge(
               style: Theme.of(context).textTheme.bodySmall!.copyWith(
@@ -404,7 +451,7 @@ class DInputGroupAddon extends StatelessWidget {
                     DControlStyle.fontSize(size, context: context),
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
-                color: tokens.mutedForeground,
+                color: foreground,
               ),
               child: DKbdTheme(
                 foregroundColor: tokens.mutedForeground,
@@ -477,6 +524,7 @@ class DInputGroupButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final search = DInputGroupControlScope.maybeOf(context)?.search ?? false;
     final radius = (DTokens.of(context).radius - 3)
         .clamp(0, double.infinity)
         .toDouble();
@@ -485,7 +533,15 @@ class DInputGroupButton extends StatelessWidget {
         icon: icon!,
         tooltip: tooltip!,
         onPressed: onPressed,
-        variant: variant,
+        variant: search ? DButtonVariant.ghost : variant,
+        density: search ? DButtonDensity.searchClear : DButtonDensity.standard,
+        foregroundColor: search
+            ? Color.lerp(
+                DTokens.of(context).background,
+                DTokens.of(context).foreground,
+                .5,
+              )
+            : null,
         size: size,
         semanticLabel: semanticLabel,
         focusNode: focusNode,
@@ -825,5 +881,62 @@ class _InputGroupRingPainter extends BoxPainter {
       inner,
       Paint()..color = decoration.color,
     );
+  }
+}
+
+/// The title-bar well has no cast shadow or backdrop blur in either material.
+class _SearchInputSurfaceDecoration extends Decoration {
+  const _SearchInputSurfaceDecoration({required this.dark});
+  final bool dark;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _SearchInputSurfacePainter(dark);
+}
+
+class _SearchInputSurfacePainter extends BoxPainter {
+  _SearchInputSurfacePainter(this.dark);
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final rect = offset & configuration.size!;
+    final shape = RRect.fromRectAndRadius(rect, const Radius.circular(999));
+    canvas.drawRRect(
+      shape,
+      Paint()..color = Colors.black.withValues(alpha: dark ? .16 : .045),
+    );
+    canvas.save();
+    canvas.clipRRect(shape);
+    // An inset shadow is the blurred outside of the shape shifted down 1px.
+    final outside = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(8))
+      ..addRRect(shape.shift(const Offset(0, 1)));
+    canvas.drawPath(
+      outside,
+      Paint()
+        ..color = Colors.black.withValues(alpha: dark ? .32 : .12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+    );
+    canvas.drawRRect(
+      shape.deflate(.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = (dark ? Colors.white : Colors.black).withValues(
+          alpha: dark ? .07 : .06,
+        ),
+    );
+    final bottom = Path.combine(
+      PathOperation.difference,
+      Path()..addRRect(shape),
+      Path()..addRRect(shape.shift(const Offset(0, -1))),
+    );
+    canvas.drawPath(
+      bottom,
+      Paint()..color = Colors.white.withValues(alpha: dark ? .08 : .8),
+    );
+    canvas.restore();
   }
 }

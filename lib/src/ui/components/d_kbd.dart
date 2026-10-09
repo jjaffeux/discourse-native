@@ -255,6 +255,7 @@ class DShortcutKeycaps extends StatefulWidget {
     super.key,
     required this.shortcut,
     this.listenToKeyboard = true,
+    this.compact = false,
     this.platform,
     this.textDirection,
     this.semanticLabel,
@@ -262,6 +263,10 @@ class DShortcutKeycaps extends StatefulWidget {
 
   final DShortcut shortcut;
   final bool listenToKeyboard;
+
+  /// One static outlined 11px badge per chord, as used by title-bar search.
+  /// Compact hints never listen to the keyboard.
+  final bool compact;
   final TargetPlatform? platform;
   final TextDirection? textDirection;
   final String? semanticLabel;
@@ -301,6 +306,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
 
   void _updateListening() {
     final enabled =
+        !widget.compact &&
         !DControlStyle.isTouch(context) &&
         widget.listenToKeyboard &&
         _active &&
@@ -392,6 +398,55 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
     final shortcut = widget.shortcut;
     final platform = widget.platform ?? Theme.of(context).platform;
     _renderedFeedback = _feedback(_completedSteps);
+    if (widget.compact) {
+      final tokens = DTokens.of(context);
+      return IgnorePointer(
+        child: Semantics(
+          label: widget.semanticLabel ?? shortcut.semanticLabel(platform),
+          excludeSemantics: true,
+          child: Wrap(
+            textDirection: widget.textDirection,
+            spacing: 8,
+            children: [
+              for (var step = 0; step < shortcut.length; step++)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .12,
+                      )!,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _shortcutKeys(
+                      shortcut[step],
+                      platform,
+                    ).map((key) => key.visual).join(' '),
+                    style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                      fontSize: 11,
+                      height: 1.5,
+                      fontWeight: FontWeight.w400,
+                      color: Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .32,
+                      ),
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return DKbdGroup(
       textDirection: widget.textDirection,
       semanticLabel: widget.semanticLabel ?? shortcut.semanticLabel(platform),

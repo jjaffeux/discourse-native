@@ -380,6 +380,9 @@ class _DInputState extends FormFieldState<String> {
               : t.foreground,
         );
     final group = _group;
+    final hintColor = group?.search == true
+        ? Color.lerp(t.background, t.foreground, .5)!
+        : t.mutedForeground;
     final enabled = input.enabled && (group?.enabled ?? true);
     final platform = Theme.of(context).platform;
     _usingEmptyController =
@@ -426,7 +429,7 @@ class _DInputState extends FormFieldState<String> {
                   ? SemanticsValidationResult.invalid
                   : SemanticsValidationResult.none,
               child: _withEmptyHint(
-                style.copyWith(color: t.mutedForeground),
+                style.copyWith(color: hintColor),
                 TextField(
                   controller: _usingEmptyController
                       ? _emptyController
@@ -469,7 +472,7 @@ class _DInputState extends FormFieldState<String> {
                     filled: false,
                     contentPadding: EdgeInsets.zero,
                     hintText: _usingEmptyController ? null : input.hintText,
-                    hintStyle: style.copyWith(color: t.mutedForeground),
+                    hintStyle: style.copyWith(color: hintColor),
                     counterText: '',
                   ),
                   cursorColor: t.foreground,

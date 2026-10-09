@@ -1,6 +1,23 @@
 # Search parity
 
-Reference: native mockup snapshot `54ba01c`.
+Reference: native mockup snapshot `54ba01c`. Title-bar input styling was
+rechecked against `c39ad50`.
+
+The input uses Native's search variant: a 36px desktop capsule, recessed
+light/dark fill and inset edges, 14px side padding inside the 1px border, 8px
+gaps, a 16px leading icon, and a single compact shortcut badge. The icon stays
+before filter chips. The 12px clear glyph owns exactly its visible bounds and
+remains available for filter-only searches. Filters change the placeholder to
+“Add words or filters…”. The opened field shares the popover's 14px corners,
+with 5px added above and below the stationary editor. The surface follows the
+field width; very narrow anchors retain a viewport-bounded results surface.
+Text scaling, mobile sizing, platform shortcut labels, and Native keyboard and
+focus behavior remain supported.
+
+The search appearance regression renders closed, open, populated and filtered
+states in light/dark at 100% and 200%. Set `SEARCH_INPUT_CAPTURE_DIR` when running
+`test/search_input_appearance_test.dart` to export real-font widget captures.
+These are fixture renders, not an authenticated app or physical-device run.
 
 This port follows `88bb68c`, `25184f6`, `4f08809`, `107d9bb`, `2fa345e`,
 `4d045d0`, and `54ba01c`. The latest snapshot supersedes the earlier layouts.

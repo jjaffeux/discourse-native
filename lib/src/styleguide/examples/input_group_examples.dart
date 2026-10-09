@@ -21,6 +21,44 @@ final inputGroupExamples = ComponentExamples(
       'a downstream consumer of this public API.',
   examples: [
     StyleguideExample(
+      title: 'Title-bar search',
+      description:
+          'A recessed capsule with the search icon before its editor and a compact shortcut hint. A borderless group shares an attached popover surface.',
+      states: const ['Search', 'Capsule', 'Keyboard', 'Borderless'],
+      code: '''DInputGroup(
+  variant: DInputGroupVariant.search,
+  size: DControlSize.field,
+  children: [
+    DInputGroupInput(hintText: 'Search this forum', semanticLabel: 'Search'),
+    DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+    DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
+      child: DShortcutKeycaps(compact: true, listenToKeyboard: false,
+        shortcut: DShortcut(SingleActivator(LogicalKeyboardKey.keyF, meta: true)))),
+  ],
+)''',
+      builder: (_) => DInputGroup(
+        variant: DInputGroupVariant.search,
+        size: DControlSize.field,
+        children: [
+          DInputGroupInput(
+            hintText: 'Search this forum',
+            semanticLabel: 'Search',
+          ),
+          const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+          const DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DShortcutKeycaps(
+              compact: true,
+              listenToKeyboard: false,
+              shortcut: DShortcut(
+                SingleActivator(LogicalKeyboardKey.keyF, meta: true),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Fixed-height scrolling',
       description:
           'The editor and addons scroll together inside a stable field surface.',

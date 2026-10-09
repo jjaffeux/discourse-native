@@ -16806,6 +16806,12 @@ abstract class AppLocalizations {
   /// **'First'**
   String get first;
 
+  /// Search placeholder when filter chips are already present.
+  ///
+  /// In en, this message translates to:
+  /// **'Add words or filters…'**
+  String get addWordsOrFilters;
+
   /// English UI message used by shell/forum_search.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

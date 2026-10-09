@@ -183,7 +183,7 @@ void main() {
           tester.widget<DInputGroupButton>(clear).size,
           DControlSize.small,
         );
-        expect(tester.getSize(clear), const Size.square(24));
+        expect(tester.getSize(clear), const Size.square(12));
         expect(
           tester.getSize(find.byType(ForumSearch)).height,
           DControlStyle.largeHeight,
@@ -191,8 +191,8 @@ void main() {
         final groupRect = tester.getRect(find.byType(DInputGroup));
         final clearRect = tester.getRect(clear);
         expect(clearRect.right, lessThan(groupRect.right));
-        // The small clear button sits centred in the large field.
-        const inset = (DControlStyle.largeHeight - 24) / 2;
+        // The bare clear glyph has matching bounds and stays vertically centred.
+        const inset = (DControlStyle.largeHeight - 12) / 2;
         expect(clearRect.top - groupRect.top, closeTo(inset, .5));
         expect(groupRect.bottom - clearRect.bottom, closeTo(inset, .5));
         expect(

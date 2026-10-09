@@ -90,6 +90,9 @@ enum DButtonDensity {
 
   /// Chat message actions: 26px artwork, 11px icon and 6px corners.
   chatMessageAction,
+
+  /// Bare 12px search-clear glyph with matching bounds, scaling with text.
+  searchClear,
 }
 
 @immutable
@@ -652,6 +655,7 @@ class DButton extends StatelessWidget {
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
     final inlineMetadata = density == DButtonDensity.inlineMetadata;
+    final searchClear = density == DButtonDensity.searchClear;
     final avatar = density == DButtonDensity.avatar;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final intrinsicIcon =
@@ -701,7 +705,9 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = avatar
+    final visualDimension = searchClear
+        ? MediaQuery.textScalerOf(context).scale(12)
+        : avatar
         ? 32.0 *
               (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
                 1,

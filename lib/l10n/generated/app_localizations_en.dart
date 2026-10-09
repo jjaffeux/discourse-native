@@ -9814,6 +9814,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get first => 'First';
 
   @override
+  String get addWordsOrFilters => 'Add words or filters…';
+
+  @override
   String get searchThisForum => 'Search this forum';
 
   @override

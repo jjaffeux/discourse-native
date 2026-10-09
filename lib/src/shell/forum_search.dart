@@ -655,6 +655,9 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   Widget _editor(double width, {required bool expanded}) {
+    final hasConditions = expanded
+        ? _global.conditions.isNotEmpty || _global.hasOrderFilter
+        : _closedConditions.isNotEmpty;
     return Focus(
       key: _editorKey,
       canRequestFocus: false,
@@ -662,6 +665,7 @@ class _ForumSearchState extends State<ForumSearch> {
       onKeyEvent: _handleKey,
       child: DInputGroup(
         size: widget.size,
+        variant: DInputGroupVariant.search,
         borderless: expanded,
         children: [
           DInputGroupInput(
@@ -669,7 +673,9 @@ class _ForumSearchState extends State<ForumSearch> {
             controller: _text,
             focusNode: _focus,
             semanticLabel: appL10n.searchThisForum,
-            hintText: appL10n.searchThisForum,
+            hintText: hasConditions
+                ? appL10n.addWordsOrFilters
+                : appL10n.searchThisForum,
             autocorrect: false,
             enableSuggestions: false,
             textInputAction: TextInputAction.search,
@@ -682,9 +688,12 @@ class _ForumSearchState extends State<ForumSearch> {
               if (!_filtersStartPage) _apply();
             },
           ),
-          if (expanded &&
-                  (_global.conditions.isNotEmpty || _global.hasOrderFilter) ||
-              !expanded && _closedConditions.isNotEmpty)
+          if (width >= 140)
+            const DInputGroupAddon(
+              alignment: DInputGroupAddonAlignment.inlineStart,
+              child: DIcon(DIcons.magnifyingGlass, size: 16),
+            ),
+          if (hasConditions)
             DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineStart,
               child: SizedBox(
@@ -732,22 +741,16 @@ class _ForumSearchState extends State<ForumSearch> {
                 ),
               ),
             ),
-          if (width >= 140)
-            const DInputGroupAddon(
-              alignment: DInputGroupAddonAlignment.inlineStart,
-              child: DIcon(DIcons.magnifyingGlass, size: 16),
-            ),
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_query.isNotEmpty ||
-                    !expanded && _closedConditions.isNotEmpty)
+                if (_query.isNotEmpty || hasConditions)
                   DInputGroupButton.icon(
                     key: const ValueKey('forum-search-clear'),
                     focusNode: _clearFocus,
-                    icon: const DIcon(DIcons.xmark, size: 16),
+                    icon: const DIcon(DIcons.xmark, size: 12),
                     tooltip: appL10n.clearSearch,
                     onPressed: _clear,
                   )
@@ -760,6 +763,7 @@ class _ForumSearchState extends State<ForumSearch> {
                       searchShortcutForPlatform(defaultTargetPlatform),
                     ),
                     listenToKeyboard: false,
+                    compact: true,
                   ),
               ],
             ),
@@ -791,21 +795,20 @@ class _ForumSearchState extends State<ForumSearch> {
         }
         _layoutWidth = anchorWidth;
         _layoutViewport = viewport;
-        final inset = mobile ? 0.0 : 8.0;
         final width = mobile
             ? viewport.width
             : math.min(
-                math.max(640.0, anchorWidth + inset * 2),
+                math.max(374.0, anchorWidth),
                 viewport.width - safe.horizontal - 8,
               );
-        final surfaceLeft = (_anchorLeft - inset)
+        final surfaceLeft = _anchorLeft
             .clamp(
               safe.left + 4,
               math.max(safe.left + 4, viewport.width - safe.right - width - 4),
             )
             .toDouble();
         final editorLeft = math.max(0.0, _anchorLeft - surfaceLeft);
-        final surfaceTop = math.max(safe.top + 2, _anchorTop - 4);
+        final surfaceTop = math.max(safe.top + 2, _anchorTop - 5);
         final height = mobile
             ? math.max(
                 160.0,
@@ -840,6 +843,7 @@ class _ForumSearchState extends State<ForumSearch> {
             padding: EdgeInsets.zero,
             scrollable: false,
             shadow: DPopoverShadow.large,
+            cornerRadius: DRadius.panel,
             collisionPadding: mobile ? 4 : 0,
             sideCollision: DPopoverCollision.shift,
             alignCollision: DPopoverCollision.shift,
@@ -861,7 +865,7 @@ class _ForumSearchState extends State<ForumSearch> {
                               editorLeft,
                               math.max(0, _anchorTop - surfaceTop),
                               math.max(0.0, width - editorLeft - anchorWidth),
-                              6,
+                              5,
                             ),
                       child: Row(
                         children: [

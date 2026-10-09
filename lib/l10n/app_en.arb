@@ -13258,6 +13258,10 @@
   "@first": {
     "description": "English UI message used by shell/post_revision_history.dart. Keep placeholders intact."
   },
+  "addWordsOrFilters": "Add words or filters…",
+  "@addWordsOrFilters": {
+    "description": "Search placeholder when filter chips are already present."
+  },
   "searchThisForum": "Search this forum",
   "@searchThisForum": {
     "description": "English UI message used by shell/forum_search.dart. Keep placeholders intact."

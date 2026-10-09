@@ -528,9 +528,9 @@ void main() {
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(after.topLeft.dx, closeTo(before.topLeft.dx, .5));
       expect(after.topLeft.dy, closeTo(before.topLeft.dy, .5));
-      // The 53px title bar centers its 35.5px field at 8.75px. The search
-      // surface starts four pixels above the field while keeping it in place.
-      expect(panel.top, closeTo(4.75, .5));
+      // The 53px title bar centers its 36px field at 8.5px. The search
+      // surface starts five pixels above the field while keeping it in place.
+      expect(panel.top, closeTo(3.5, .5));
       expect(panel.bottom, lessThanOrEqualTo(420));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(tester.takeException(), isNull);

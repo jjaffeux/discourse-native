@@ -16,6 +16,7 @@ class DInputGroupControlScope extends InheritedWidget {
     required this.inputPadding,
     required this.enabled,
     this.size = DControlSize.regular,
+    this.search = false,
     required super.child,
   }) : _boundary = false;
 
@@ -30,6 +31,7 @@ class DInputGroupControlScope extends InheritedWidget {
        inputPadding = parent.inputPadding,
        enabled = parent.enabled,
        size = parent.size,
+       search = parent.search,
        _boundary = true;
 
   final void Function(FocusNode focusNode, bool enabled, bool invalid) report;
@@ -38,6 +40,7 @@ class DInputGroupControlScope extends InheritedWidget {
   final EdgeInsetsGeometry inputPadding;
   final bool enabled;
   final DControlSize size;
+  final bool search;
   final bool _boundary;
 
   static DInputGroupControlScope? maybeOf(BuildContext context) {
@@ -54,5 +57,6 @@ class DInputGroupControlScope extends InheritedWidget {
       inputPadding != oldWidget.inputPadding ||
       enabled != oldWidget.enabled ||
       size != oldWidget.size ||
+      search != oldWidget.search ||
       _boundary != oldWidget._boundary;
 }
