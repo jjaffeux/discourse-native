@@ -215,7 +215,7 @@ void main() {
       expect(provisional.html, html);
       expect(provisional.siteUrl, _site);
       expect(provisional.compactParagraphs, isTrue);
-      expect(provisional.contentSized, isTrue);
+      expect(provisional.contentSized, isFalse);
       expect(find.text('Raw fallback'), findsNothing);
       expect(find.byType(LocalDateInline), findsOneWidget);
       expect(
@@ -306,7 +306,7 @@ void main() {
           await tester.pumpAndSettle();
           final bubble = tester.getRect(find.byType(DBubbleContent));
           final content = tester.getRect(find.byType(DMessageContent));
-          final right = outgoing == (direction == TextDirection.ltr);
+          final right = direction == TextDirection.rtl;
           expect(
             right ? bubble.right : bubble.left,
             closeTo(right ? content.right : content.left, .01),
@@ -317,14 +317,17 @@ void main() {
             isTrue,
           );
           expect(avatar.size, const Size.square(28));
-          expect(avatar.bottom, closeTo(bubble.bottom, .01));
+          expect(
+            avatar.top,
+            closeTo(tester.getTopLeft(find.byType(DMessageHeader)).dy, .01),
+          );
           expect(find.byType(DMessageHeader), findsOneWidget);
-          expect(find.text(outgoing ? 'you' : 'user2'), findsOneWidget);
+          expect(find.text(outgoing ? 'user1' : 'user2'), findsOneWidget);
           expect(
             tester.widget<DBubble>(find.byType(DBubble)).variant,
-            outgoing ? DBubbleVariant.accent : DBubbleVariant.neutral,
+            DBubbleVariant.ghost,
           );
-          expect(bubble.width, lessThanOrEqualTo(content.width * .88));
+          expect(bubble.width, closeTo(content.width, .01));
         });
       }
     }
@@ -684,9 +687,9 @@ void main() {
       );
       expect(
         tester.widget<DMessage>(find.byType(DMessage)).align,
-        DMessageAlign.end,
+        DMessageAlign.start,
       );
-      expect(find.text('you'), findsOneWidget);
+      expect(find.text('user1'), findsOneWidget);
     });
   }
 
@@ -720,13 +723,15 @@ void main() {
     },
   );
 
-  testWidgets('ownership comes from the message site', (tester) async {
+  testWidgets('message alignment is the same across account identities', (
+    tester,
+  ) async {
     final controller = await _controller(_message(author: 2));
     await tester.pumpWidget(_tile(controller, site: _otherSite));
     await tester.pumpAndSettle();
     expect(
       tester.widget<DMessage>(find.byType(DMessage)).align,
-      DMessageAlign.end,
+      DMessageAlign.start,
     );
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
@@ -789,7 +794,7 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final (author, name) in [(2, 'user2'), (1, 'you')]) {
+    for (final (author, name) in [(2, 'user2'), (1, 'user1')]) {
       testWidgets(
         'a $name row announces author and time before its body on $platform',
         (tester) async {
@@ -912,7 +917,7 @@ void main() {
         );
         expect(
           tester.widget<DMessage>(find.byType(DMessage)).align,
-          DMessageAlign.end,
+          DMessageAlign.start,
         );
         expect(
           tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
@@ -985,14 +990,19 @@ void main() {
         await tester.pumpAndSettle();
         final tokens = DTokens.of(tester.element(find.byType(DBubbleContent)));
         final html = tester.widget<CookedHtml>(find.byType(CookedHtml));
-        expect(html.textStyle!.color, tokens.buttonTheme.primary.foreground);
-        expect(html.textStyle!.fontSize, 13.5);
-        expect(html.linkStyle!.color, tokens.buttonTheme.primary.foreground);
+        expect(html.textStyle!.color, tokens.foreground);
+        expect(html.textStyle!.fontSize, 14);
+        expect(
+          html.linkStyle!.color,
+          DText.linkStyleOf(tester.element(find.byType(CookedHtml))).color,
+        );
         expect(html.linkStyle!.decoration, TextDecoration.underline);
         expect(html.linkStyle!.fontWeight, FontWeight.w500);
         expect(
           html.linkStyle!.decorationColor,
-          tokens.buttonTheme.primary.foreground,
+          DText.linkStyleOf(
+            tester.element(find.byType(CookedHtml)),
+          ).decorationColor,
         );
         expect(html.textStyle!.color, isNot(tokens.primary));
       },
@@ -1046,6 +1056,9 @@ void main() {
       await tester.tap(find.byKey(ChatMessageTile.replyIndicatorKey(3)));
       await tester.pumpAndSettle();
       expect(jumped, 3);
+      controller.chatRecords.put(_site, _channel().withThreadingEnabled(true));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ChatMessageTile.replyIndicatorKey(3)), findsNothing);
       await tester.ensureVisible(
         find.byKey(ChatMessageTile.threadPreviewKey(4)),
       );

@@ -87,6 +87,7 @@ List<ChatStreamItem> buildChatStream(
   int? lastReadMessageId,
   int? newestMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  bool threadContext = false,
 }) {
   final items = <ChatStreamItem>[];
 
@@ -147,11 +148,7 @@ List<ChatStreamItem> buildChatStream(
     items.add(
       ChatStreamMessage(
         id: message.id,
-        chained:
-            !dayChanged &&
-            !showTimeGap &&
-            !(showDivider && message.id == firstUnreadId) &&
-            _chains(message, previous),
+        chained: _chains(message, previous, threadContext: threadContext),
       ),
     );
     previous = message;
@@ -247,20 +244,28 @@ List<ChatStreamItem>? appendChatStream({
   ];
 }
 
-/// Matches Discourse's speaker-chain rules except `firstOfResults`: this client
-/// proves page adjacency, so transport boundaries do not create visual seams.
-bool _chains(ChatMessage message, ChatMessage? previous) {
+/// Mirrors `ChatMessage.hideUserInfo` in the web client. Separators are
+/// independent of author visibility; action rows hide authors without joining.
+bool _chains(
+  ChatMessage message,
+  ChatMessage? previous, {
+  bool threadContext = false,
+}) {
   if (previous == null) return false;
 
   // Core always gives a pinned message its own speaker header, even when the
   // same author spoke immediately before it.
-  if (message.pinned) return false;
+  if (message.pinned ||
+      (!threadContext && message.firstOfResults) ||
+      message.isAction) {
+    return false;
+  }
 
   // A collapsed deleted row breaks the visible speaker run.
-  if (previous.isDeleted) return false;
+  if (previous.isDeleted || previous.isAction) return false;
 
-  // Webhook messages never share a speaker run.
-  if (message.isWebhook || previous.isWebhook) return false;
+  // Only the current webhook forces a header in core.
+  if (message.isWebhook) return false;
 
   if (message.author.id != previous.author.id) return false;
 

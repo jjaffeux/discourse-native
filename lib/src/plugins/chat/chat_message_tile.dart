@@ -29,6 +29,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.siteUrl,
     required this.messageId,
     required this.chained,
+    this.previousMessageId,
     this.joinsNext = false,
     this.endsGroup = true,
     this.followsReactions = false,
@@ -51,6 +52,9 @@ class ChatMessageTile extends StatelessWidget {
   final int? contextThreadId;
 
   final bool chained;
+
+  /// The preceding message in this pane, independently of author grouping.
+  final int? previousMessageId;
 
   /// Whether the following bubble continues this visible sender run.
   final bool joinsNext;
@@ -132,6 +136,18 @@ class ChatMessageTile extends StatelessWidget {
   }
 
   Widget _row(BuildContext context, ChatMessage message) {
+    final channel = PluginUiScope.require(
+      context,
+      chatControllerService,
+    ).channelRef(siteUrl, message.channelId).value;
+    final threaded =
+        message.thread != null &&
+        (channel?.threadingEnabled == true || message.thread!.force);
+    final showReply =
+        contextThreadId == null &&
+        !threaded &&
+        message.replyTo != null &&
+        message.replyTo!.id != previousMessageId;
     Widget tile([
       Widget? messageActions,
       Widget? messageReaction,
@@ -145,7 +161,9 @@ class ChatMessageTile extends StatelessWidget {
       followsReactions: followsReactions,
       onOpenThread: onOpenThread,
       onJumpToMessage: onJumpToMessage,
-      showThreadSummary: showThreadSummary,
+      showThreadSummary:
+          showThreadSummary && contextThreadId == null && threaded,
+      showReply: showReply,
       messageActions: messageActions,
       messageReaction: messageReaction,
       messageReply: messageReply,
@@ -256,6 +274,7 @@ class _MessageAccessScope extends StatefulWidget {
 class _MessageAccessScopeState extends State<_MessageAccessScope> {
   ValueListenable<ChatChannel?>? _channel;
   ChatMessageAccess? _access;
+  bool? _threadingEnabled;
 
   @override
   void didChangeDependencies() {
@@ -281,12 +300,17 @@ class _MessageAccessScopeState extends State<_MessageAccessScope> {
     _channel?.removeListener(_channelChanged);
     _channel = channel..addListener(_channelChanged);
     _access = channel.value?.messageAccess;
+    _threadingEnabled = channel.value?.threadingEnabled;
   }
 
   void _channelChanged() {
     final access = _channel?.value?.messageAccess;
-    if (access == _access) return;
-    setState(() => _access = access);
+    final threadingEnabled = _channel?.value?.threadingEnabled;
+    if (access == _access && threadingEnabled == _threadingEnabled) return;
+    setState(() {
+      _access = access;
+      _threadingEnabled = threadingEnabled;
+    });
   }
 
   @override
@@ -1109,6 +1133,7 @@ class _Tile extends StatelessWidget {
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
+    required this.showReply,
     this.messageActions,
     this.messageReaction,
     this.messageReply,
@@ -1123,20 +1148,13 @@ class _Tile extends StatelessWidget {
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
+  final bool showReply;
   final Widget? messageActions;
   final Widget? messageReaction;
   final Widget? messageReply;
 
   @override
-  Widget build(BuildContext context) =>
-      PluginServiceSelector<ChatController, int?>(
-        service: chatControllerService,
-        select: (chat) => chat.currentUserFor(siteUrl)?.id,
-        builder: (context, userId, _) => _conversationMessage(
-          context,
-          outgoing: userId != null && userId == message.author.id,
-        ),
-      );
+  Widget build(BuildContext context) => _conversationMessage(context);
 
   Widget? _body(
     BuildContext context, {
@@ -1184,9 +1202,8 @@ class _Tile extends StatelessWidget {
     };
   }
 
-  Widget _conversationMessage(BuildContext context, {required bool outgoing}) {
+  Widget _conversationMessage(BuildContext context) {
     final theme = Theme.of(context);
-    const joinedCorner = DRadius.chatBubble / 4;
     final reserveActions = message.isOptimistic && !context.isTouch;
     Widget? pendingAction(
       DIconData icon,
@@ -1232,7 +1249,6 @@ class _Tile extends StatelessWidget {
           context.l10n.reply,
           density: DButtonDensity.chatMessageAction,
         );
-    final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final target = message.threadId == null
         ? ChatChannelTarget(message.channelId)
         : ChatThreadTarget(
@@ -1246,9 +1262,9 @@ class _Tile extends StatelessWidget {
                 ProjectedPreview(:final document) => document.nodes.isNotEmpty,
                 _ => message.optimisticRaw?.isNotEmpty == true,
               };
-    final hasSurface =
-        hasBody || message.uploads.isNotEmpty || message.replyTo != null;
-    final author = outgoing ? 'you' : message.author.displayName;
+    final hasSurface = hasBody || message.uploads.isNotEmpty || showReply;
+    final hideAuthor = chained || message.isAction;
+    final author = message.author.displayName;
     final time = switch (message.createdAt) {
       final at? => clockTimeLabel(context, at.toLocal()),
       null => null,
@@ -1263,7 +1279,6 @@ class _Tile extends StatelessWidget {
           channelId: message.channelId,
           thread: thread,
           onOpen: onOpenThread == null ? null : () => onOpenThread!(thread),
-          bubbleAlign: bubbleAlign,
         ),
       if (message.edited ||
           message.pinned ||
@@ -1329,27 +1344,18 @@ class _Tile extends StatelessWidget {
 
     return Padding(
       key: ValueKey('chat-message-${message.id}'),
-      padding: EdgeInsetsDirectional.fromSTEB(
-        DSpacing.lg,
-        chained ? (followsReactions ? 2 : 4) : 16,
-        DSpacing.lg,
-        endsGroup ? 8 : 0,
-      ),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
       // A chained row draws no header, yet each row is its own screen-reader
       // stop. Not a container: the label joins the node carrying the row's
       // actions, ahead of the body, so every row opens with who and when.
       child: Semantics(
         label: time == null ? author : '$author, $time',
         child: DMessage(
-          align: outgoing ? DMessageAlign.end : DMessageAlign.start,
+          avatarAlignment: DMessageAvatarAlignment.top,
           footer: footer.isEmpty
               ? null
               : Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: outgoing ? 0 : 36,
-                    end: outgoing ? 36 : 0,
-                    top: 4,
-                  ),
+                  padding: const EdgeInsetsDirectional.only(start: 36, top: 4),
                   child: DMessageContent(
                     flushMetadata: true,
                     spacing: DSpacing.xs,
@@ -1358,10 +1364,10 @@ class _Tile extends StatelessWidget {
                 ),
           children: [
             DMessageAvatar(
-              minimumExtent: 28,
+              minimumExtent: hideAuthor ? 0 : 28,
               shiftForFooter: false,
-              child: chained
-                  ? const SizedBox.square(dimension: 28)
+              child: hideAuthor
+                  ? const SizedBox(width: 28)
                   : UserCardTarget.avatar(
                       username: message.author.username,
                       siteUrl: siteUrl,
@@ -1388,7 +1394,7 @@ class _Tile extends StatelessWidget {
               spacing: DSpacing.xs,
               flushMetadata: true,
               children: [
-                if (!chained)
+                if (!hideAuthor)
                   DMessageHeader(
                     followMessageAlignment: true,
                     spacing: DSpacing.xs,
@@ -1429,105 +1435,62 @@ class _Tile extends StatelessWidget {
                   ),
                 if (hasSurface)
                   DBubble(
-                    align: bubbleAlign,
-                    maximumWidthFactor: context.isTouch ? 1 : .88,
-                    variant: outgoing
-                        ? DBubbleVariant.accent
-                        : DBubbleVariant.neutral,
+                    variant: DBubbleVariant.ghost,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: DSpacing.controlGap,
-                        children: [
-                          if (outgoing && reply != null) reply,
-                          if (outgoing && react != null) react,
-                          Flexible(
-                            child: DBubbleContent(
-                              key: ValueKey(
-                                'chat-message-bubble-${message.id}',
-                              ),
-                              borderRadius: BorderRadiusDirectional.only(
-                                topStart: Radius.circular(
-                                  outgoing || !chained
-                                      ? DRadius.chatBubble
-                                      : joinedCorner,
+                      SizedBox(
+                        width: double.infinity,
+                        child: DBubbleContent(
+                          key: ValueKey('chat-message-bubble-${message.id}'),
+                          trailingAction:
+                              more == null && react == null && reply == null
+                              ? null
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  spacing: DSpacing.controlGap,
+                                  children: [?react, ?reply, ?more],
                                 ),
-                                topEnd: Radius.circular(
-                                  outgoing && chained
-                                      ? joinedCorner
-                                      : DRadius.chatBubble,
-                                ),
-                                bottomStart: Radius.circular(
-                                  outgoing || !joinsNext
-                                      ? DRadius.chatBubble
-                                      : joinedCorner,
-                                ),
-                                bottomEnd: Radius.circular(
-                                  outgoing && joinsNext
-                                      ? joinedCorner
-                                      : DRadius.chatBubble,
-                                ),
-                              ),
-                              trailingAction: more,
-                              quote: switch (message.replyTo) {
-                                final reply? => _ReplyIndicator(
-                                  siteUrl: siteUrl,
-                                  reply: reply,
-                                  onJump: onJumpToMessage == null
-                                      ? null
-                                      : () => onJumpToMessage!(reply.id),
-                                ),
-                                null => null,
-                              },
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (hasBody)
-                                    Builder(
-                                      builder: (context) {
-                                        final style = DefaultTextStyle.of(
-                                          context,
-                                        ).style;
-                                        return _MessageBodySelection(
-                                          selectionKey:
-                                              ChatMessageTile.bodySelectionKey(
-                                                message.id,
-                                              ),
-                                          child: _body(
-                                            context,
-                                            textStyle: style,
-                                            contentSized: true,
-                                            linkStyle:
-                                                DText.linkStyleOf(
-                                                  context,
-                                                ).copyWith(
-                                                  color: outgoing
-                                                      ? style.color
-                                                      : null,
-                                                  decorationColor: outgoing
-                                                      ? style.color
-                                                      : null,
-                                                ),
-                                          )!,
-                                        );
-                                      },
-                                    ),
-                                  if (message.uploads.isNotEmpty)
-                                    ChatUploads(
-                                      siteUrl: siteUrl,
-                                      uploads: message.uploads,
-                                      alignment: outgoing
-                                          ? CrossAxisAlignment.end
-                                          : CrossAxisAlignment.start,
-                                    ),
-                                ],
-                              ),
+                          quote: switch (showReply ? message.replyTo : null) {
+                            final reply? => _ReplyIndicator(
+                              siteUrl: siteUrl,
+                              reply: reply,
+                              onJump: onJumpToMessage == null
+                                  ? null
+                                  : () => onJumpToMessage!(reply.id),
                             ),
+                            null => null,
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasBody)
+                                Builder(
+                                  builder: (context) {
+                                    final style = DefaultTextStyle.of(
+                                      context,
+                                    ).style;
+                                    return _MessageBodySelection(
+                                      selectionKey:
+                                          ChatMessageTile.bodySelectionKey(
+                                            message.id,
+                                          ),
+                                      child: _body(
+                                        context,
+                                        textStyle: style,
+                                        contentSized: false,
+                                        linkStyle: DText.linkStyleOf(context),
+                                      )!,
+                                    );
+                                  },
+                                ),
+                              if (message.uploads.isNotEmpty)
+                                ChatUploads(
+                                  siteUrl: siteUrl,
+                                  uploads: message.uploads,
+                                ),
+                            ],
                           ),
-                          if (!outgoing && react != null) react,
-                          if (!outgoing && reply != null) reply,
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -1826,14 +1789,12 @@ class _ThreadSummaryCard extends StatelessWidget {
     required this.channelId,
     required this.thread,
     required this.onOpen,
-    this.bubbleAlign,
   });
 
   final String siteUrl;
   final int channelId;
   final ChatThreadPreview thread;
   final VoidCallback? onOpen;
-  final DBubbleAlign? bubbleAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -1854,7 +1815,6 @@ class _ThreadSummaryCard extends StatelessWidget {
       _ => true,
     };
     final bubble = DBubble(
-      align: bubbleAlign ?? DBubbleAlign.start,
       variant: DBubbleVariant.neutral,
       maximumWidthFactor: .95,
       children: [content],

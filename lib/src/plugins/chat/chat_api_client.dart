@@ -813,6 +813,7 @@ final class ChatApiClient implements ChatApi {
                 : ChatMessagePageWindow.retainNewest)
           : ChatMessagePageWindow.retainOldest,
       maximumMessages: fromLastRead ? ChatMessage.maximumPageSize : pageSize,
+      markFirstOfResults: true,
     );
   }
 

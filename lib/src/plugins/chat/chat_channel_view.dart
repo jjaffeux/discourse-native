@@ -789,6 +789,7 @@ class _StreamState extends State<ChatMessageStream>
 
   /// Suppresses pre-layout visibility while an anchor moves.
   bool _anchoring = false;
+  bool _adjustingArrival = false;
 
   @override
   void initState() {
@@ -865,40 +866,59 @@ class _StreamState extends State<ChatMessageStream>
     // keeps the gesture and sees the shift.
     if (_scroll.position.isScrollingNotifier.value) return;
     final range = _list.visibleRange;
-    final row = range == null ? null : _recentMessages.newestIn(range);
+    final row = range == null ? null : _recentMessages.middleIn(range);
     final top = row == null ? null : _topScrollOffsetOf(row);
     if (row == null || top == null) return;
 
     final hold = (row: row, top: top, pixels: _scroll.position.pixels);
     _arrivalHold = hold;
-    // The arrivals have an extent only after layout.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !identical(_arrivalHold, hold)) return;
-      _arrivalHold = null;
-      if (!_scroll.hasClients ||
-          _scroll.position.isScrollingNotifier.value ||
-          !_list.isAttached ||
-          !hold.row.mounted) {
-        return;
-      }
-      // A row pushed out of view keeps a stale layout offset.
-      final range = _list.visibleRange;
-      final index = hold.row.widget.index;
-      if (range == null || index < range.$1 || index > range.$2) return;
-      final top = _topScrollOffsetOf(hold.row);
-      if (top == null) return;
-      final shift = top - hold.top;
-      if (shift.abs() <= precisionErrorTolerance) return;
-      // A layout correction that moved the pixels moved the row with them, so
-      // the shift applies to where the reader was.
-      final position = _scroll.position;
-      _scroll.jumpTo(
-        (hold.pixels + shift).clamp(
+    // The sliver estimates offscreen rows. A correction can bring a row into
+    // layout and refine that estimate, so retain the same anchor until settled.
+    void restore(int attemptsLeft) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !identical(_arrivalHold, hold)) return;
+        if (!_scroll.hasClients ||
+            _scroll.position.isScrollingNotifier.value ||
+            !_list.isAttached ||
+            !hold.row.mounted) {
+          _arrivalHold = null;
+          return;
+        }
+        final range = _list.visibleRange;
+        final index = hold.row.widget.index;
+        if (range == null || index < range.$1 || index > range.$2) {
+          _arrivalHold = null;
+          return;
+        }
+        final top = _topScrollOffsetOf(hold.row);
+        if (top == null) {
+          _arrivalHold = null;
+          return;
+        }
+        final position = _scroll.position;
+        final target = (hold.pixels + top - hold.top).clamp(
           position.minScrollExtent,
           position.maxScrollExtent,
-        ),
-      );
-    });
+        );
+        if ((target - position.pixels).abs() <= precisionErrorTolerance) {
+          _arrivalHold = null;
+          return;
+        }
+        _adjustingArrival = true;
+        try {
+          _scroll.jumpTo(target);
+        } finally {
+          _adjustingArrival = false;
+        }
+        if (attemptsLeft > 1) {
+          restore(attemptsLeft - 1);
+        } else {
+          _arrivalHold = null;
+        }
+      });
+    }
+
+    restore(3);
   }
 
   /// The scroll offset that brings [row]'s top edge to the top of the
@@ -1260,23 +1280,18 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
-  bool _endsSenderGroup(BuildContext context, int row, int messageId) {
-    final next = _itemAt(row - 1);
-    if (next is! ChatStreamMessage) return true;
-    final chat = _chat!;
-    final message = chat.messageRef(widget.siteUrl, messageId).value;
-    final channel = message == null
-        ? null
-        : chat.channelRef(widget.siteUrl, message.channelId).value;
-    if (!context.isTouch && channel?.isDirectMessage == true) {
-      final following = chat.messageRef(widget.siteUrl, next.id).value;
-      // Bubble avatars mark sender changes, independently of timed spacing.
-      return following == null ||
-          message!.isWebhook ||
-          following.isWebhook ||
-          message.author.id != following.author.id;
-    }
-    return !next.chained;
+  int? _previousMessageId(int messageId) {
+    final ids = widget.stream.messageIds;
+    final index = ids.indexOf(messageId);
+    if (index > 0) return ids[index - 1];
+    if (index == 0) return null;
+    final locals = widget.stream.localMessageIds;
+    final localIndex = locals.indexOf(messageId);
+    return localIndex > 0
+        ? locals[localIndex - 1]
+        : localIndex == 0
+        ? ids.lastOrNull
+        : null;
   }
 
   String _rowId(int row, {required int lastRow}) {
@@ -1674,7 +1689,8 @@ class _StreamState extends State<ChatMessageStream>
                 if (notification.depth != 0) return false;
                 // Whoever scrolled since, the reader or a landing, now owns
                 // the position a pending arrival hold would restore.
-                if (notification is ScrollUpdateNotification) {
+                if (notification is ScrollUpdateNotification &&
+                    !_adjustingArrival) {
                   _arrivalHold = null;
                 }
                 final started = _recording ? developer.Timeline.now : null;
@@ -1731,11 +1747,15 @@ class _StreamState extends State<ChatMessageStream>
                             siteUrl: siteUrl,
                             messageId: id,
                             chained: chained,
+                            previousMessageId: _previousMessageId(id),
                             joinsNext: switch (_itemAt(row - 1)) {
                               ChatStreamMessage(:final chained) => chained,
                               _ => false,
                             },
-                            endsGroup: _endsSenderGroup(context, row, id),
+                            endsGroup: switch (_itemAt(row - 1)) {
+                              ChatStreamMessage(:final chained) => !chained,
+                              _ => true,
+                            },
                             followsReactions: switch (_itemAt(row + 1)) {
                               ChatStreamMessage(:final id) =>
                                 _chat!
@@ -2742,14 +2762,18 @@ class _RecentChatMessages {
     }
   }
 
-  /// The newest mounted message row inside [range], by the row indices of the
-  /// layout that reported it.
-  _RetainedChatMessageState? newestIn((int, int) range) {
+  /// Prefer the middle of the viewport so newly inserted rows do not push
+  /// the anchor out of layout before its offset can be measured again.
+  _RetainedChatMessageState? middleIn((int, int) range) {
+    final middle = (range.$1 + range.$2) / 2;
     _RetainedChatMessageState? newest;
     for (final row in _mountedRows) {
       final index = row.widget.index;
       if (index < range.$1 || index > range.$2) continue;
-      if (newest == null || index < newest.widget.index) newest = row;
+      if (newest == null ||
+          (index - middle).abs() < (newest.widget.index - middle).abs()) {
+        newest = row;
+      }
     }
     return newest;
   }

@@ -599,6 +599,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
     _items = buildChatStream(
       _messages,
+      threadContext: true,
       lastReadMessageId: stream.lastReadOnOpen,
       showTimeGapDays: showTimeGapDays,
     );

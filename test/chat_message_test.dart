@@ -604,6 +604,24 @@ void main() {
   });
 
   group('a page of messages', () {
+    test(
+      'marks only a channel page first result without changing the payload',
+      () {
+        final payload = page([message(id: 1), message(id: 2), message(id: 3)]);
+        final channel = ChatMessage.parsePage(
+          payload,
+          site,
+          markFirstOfResults: true,
+        );
+        final thread = ChatMessage.parsePage(payload, site);
+        expect(channel.messages.map((m) => m.firstOfResults), [
+          true,
+          false,
+          false,
+        ]);
+        expect(thread.messages.every((m) => !m.firstOfResults), isTrue);
+      },
+    );
     test('keeps the messages oldest first, as the site sent them', () {
       final read = ChatMessage.parsePage(
         page([message(id: 1), message(id: 2), message(id: 3)]),

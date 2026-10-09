@@ -11,6 +11,8 @@ ChatMessage at(
   bool webhook = false,
   bool pinned = false,
   bool optimistic = false,
+  bool action = false,
+  bool firstOfResults = false,
   int? replyToId,
 }) => ChatMessage(
   id: id,
@@ -21,6 +23,8 @@ ChatMessage at(
   deletedAt: deleted ? DateTime(2026, 5, day, 11) : null,
   pinned: pinned,
   isWebhook: webhook,
+  isAction: action,
+  firstOfResults: firstOfResults,
   stagedId: optimistic ? 'staged-$id' : null,
   replyTo: replyToId == null
       ? null
@@ -125,18 +129,51 @@ void main() {
       },
     );
 
-    test(
-      'leaves the page it was assembled from no mark, contiguity being the invariant',
-      () {
-        // Discourse breaks the chain at the first message of the latest fetched
-        // page. Here the stream is contiguous by construction, so a page boundary
-        // would be a seam with no cause the reader could see.
-        final older = [at(1), at(2, minute: 1)];
-        final newer = [at(3, minute: 2), at(4, minute: 3)];
+    test('keeps a fetched channel page header when older messages arrive', () {
+      final older = [at(1), at(2, minute: 1)];
+      final newer = [at(3, minute: 2, firstOfResults: true), at(4, minute: 3)];
+      expect(chainedAt(buildChatStream([...older, ...newer]), 3), isFalse);
+      expect(
+        chainedAt(
+          buildChatStream([...older, ...newer], threadContext: true),
+          3,
+        ),
+        isTrue,
+      );
+      final projected = prependChatStream(
+        existingItems: buildChatStream(newer),
+        prepended: older,
+        existingLeading: [newer.first],
+      );
+      expect(projected, buildChatStream([...older, ...newer]));
+    });
 
-        expect(chainedAt(buildChatStream([...older, ...newer]), 3), isTrue);
-      },
-    );
+    test('an ordinary message can follow its author webhook', () {
+      final items = buildChatStream([at(1, webhook: true), at(2, minute: 1)]);
+      expect(chainedAt(items, 2), isTrue);
+    });
+
+    test('action messages do not join either neighboring bubble', () {
+      final items = buildChatStream([at(1), at(2, action: true), at(3)]);
+      expect(chainedAt(items, 2), isFalse);
+      expect(chainedAt(items, 3), isFalse);
+    });
+
+    test('a midnight separator does not restart a recent author', () {
+      final before = ChatMessage.fromJson(const {
+        'id': 1,
+        'created_at': '2026-05-05T23:59:00',
+        'user': {'id': 2},
+      }, 'https://meta.example');
+      final after = ChatMessage.fromJson(const {
+        'id': 2,
+        'created_at': '2026-05-06T00:01:00',
+        'user': {'id': 2},
+      }, 'https://meta.example');
+      final items = buildChatStream([before, after]);
+      expect(items.whereType<ChatStreamDay>(), hasLength(2));
+      expect(chainedAt(items, 2), isTrue);
+    });
   });
 
   group('day-separator placement', () {
@@ -245,7 +282,7 @@ void main() {
 
       final index = items.indexWhere((i) => i is ChatStreamNewDivider);
       expect(index, greaterThan(0));
-      expect(items[index + 1], const ChatStreamMessage(id: 2, chained: false));
+      expect(items[index + 1], const ChatStreamMessage(id: 2, chained: true));
     });
 
     test('draws nothing when everything has been read', () {
@@ -272,14 +309,14 @@ void main() {
       expect(items.whereType<ChatStreamNewDivider>(), isEmpty);
     });
 
-    test('breaks the chain at the divider, which is a row between the two', () {
+    test('the unread divider does not change author visibility', () {
       final items = buildChatStream([
         at(1),
         at(2, minute: 1),
         at(3, minute: 2),
       ], lastReadMessageId: 1);
 
-      expect(chainedAt(items, 2), isFalse);
+      expect(chainedAt(items, 2), isTrue);
       expect(chainedAt(items, 3), isTrue);
     });
   });

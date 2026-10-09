@@ -36,6 +36,37 @@ ChatMessage message({
 );
 
 void main() {
+  test('action and page metadata survive local message updates', () {
+    final plain = ChatMessage.fromJson(const {'id': 7}, siteUrl);
+    final action = ChatMessage.fromJson(const {
+      'id': 7,
+      'is_action': true,
+      'first_of_results': true,
+      'thread': {'id': 3, 'force': true, 'reply_count': 1},
+    }, siteUrl);
+    expect(action, isNot(plain));
+    expect(action.isAction, isTrue);
+    expect(action.firstOfResults, isTrue);
+    expect(action.thread!.force, isTrue);
+    final updated = action
+        .withReaction('heart', reacted: true)
+        .withPinned(true)
+        .withDeletedAt(DateTime.utc(2026))
+        .withDeletedAt(null)
+        .withReactions([])
+        .withBookmark(null)
+        .withUserFlagStatus(1)
+        .withReviewableId(4)
+        .withSendState(delivery: ChatMessageDelivery.sent)
+        .withBookmarkOf(plain)
+        .withPersonalizedStateOf(plain, currentUserId: 1);
+    expect(updated.isAction, isTrue);
+    expect(updated.firstOfResults, isTrue);
+    expect(updated.thread!.force, isTrue);
+    expect(plain.withCanonical(action).isAction, isTrue);
+    expect(action.withCanonical(plain).isAction, isFalse);
+  });
+
   group('Store<ChatMessage>', () {
     test('an unchanged overlapping message retains its stored record', () {
       final store = Store();

@@ -252,6 +252,123 @@ void main() {
   );
 
   group('message and thread presentation', () {
+    testWidgets('action messages hide the author even without a predecessor', (
+      tester,
+    ) async {
+      final controller = await _controller(_message(null, isAction: true));
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _TestTile(controller: controller, onOpenThread: (_) {}),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatUserAvatar), findsNothing);
+      expect(find.byType(DMessageHeader), findsNothing);
+      expect(find.byType(CookedHtml), findsOneWidget);
+    });
+
+    for (final scenario in [
+      (
+        name: 'adjacent reply by another author',
+        previous: 6,
+        context: null,
+        enabled: false,
+        force: false,
+        thread: false,
+        quote: false,
+        summary: false,
+      ),
+      (
+        name: 'nonadjacent reply',
+        previous: 5,
+        context: null,
+        enabled: false,
+        force: false,
+        thread: false,
+        quote: true,
+        summary: false,
+      ),
+      (
+        name: 'reply in a thread',
+        previous: 5,
+        context: 3,
+        enabled: false,
+        force: false,
+        thread: false,
+        quote: false,
+        summary: false,
+      ),
+      (
+        name: 'threaded reply',
+        previous: 5,
+        context: null,
+        enabled: true,
+        force: false,
+        thread: true,
+        quote: false,
+        summary: true,
+      ),
+      (
+        name: 'threading disabled',
+        previous: 5,
+        context: null,
+        enabled: false,
+        force: false,
+        thread: true,
+        quote: true,
+        summary: false,
+      ),
+      (
+        name: 'forced thread',
+        previous: 5,
+        context: null,
+        enabled: false,
+        force: true,
+        thread: true,
+        quote: false,
+        summary: true,
+      ),
+    ]) {
+      testWidgets('web reply rules: ${scenario.name}', (tester) async {
+        const reply = ChatReplyTo(
+          id: 6,
+          userId: 10,
+          excerpt: 'Earlier',
+          username: 'kris',
+        );
+        final controller = await _controller(
+          _message(
+            scenario.thread
+                ? ChatThreadPreview(
+                    threadId: 3,
+                    replyCount: 2,
+                    force: scenario.force,
+                  )
+                : null,
+            replyTo: reply,
+          ),
+          threadingEnabled: scenario.enabled,
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            previousMessageId: scenario.previous,
+            contextThreadId: scenario.context,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(DBubbleQuote),
+          scenario.quote ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(ChatMessageTile.threadPreviewKey(3)),
+          scenario.summary ? findsOneWidget : findsNothing,
+        );
+      });
+    }
+
     testWidgets(
       'inset reply quote attributes and jumps to the referenced message',
       (tester) async {
@@ -507,8 +624,8 @@ void main() {
 
         final cooked = tester.widget<CookedHtml>(find.byType(CookedHtml));
         expect(cooked.compactParagraphs, isTrue);
-        expect(cooked.textStyle?.fontSize, 13.5);
-        expect(cooked.textStyle?.height, 1.5);
+        expect(cooked.textStyle?.fontSize, 14);
+        expect(cooked.textStyle?.height, 1.625);
         final authorStyle = DefaultTextStyle.of(
           tester.element(find.text('Root author')),
         ).style;
@@ -1103,7 +1220,7 @@ void main() {
           final bubble = tester.getRect(
             find.byKey(const ValueKey('chat-message-bubble-7')),
           );
-          expect(bubble.right, closeTo(390 - DSpacing.lg, 1));
+          expect(bubble.right, closeTo(390 - 8, 1));
           await tester.longPress(find.byType(CookedHtml));
           await tester.pumpAndSettle();
           expect(find.byType(DSheetContent), findsOneWidget);
@@ -1255,13 +1372,9 @@ void main() {
           );
           final replyBounds = tester.getRect(reply);
           final reactBounds = tester.getRect(react);
-          if (outgoing) {
-            expect(replyBounds.right, lessThan(reactBounds.left));
-            expect(reactBounds.right, lessThan(bubble.left));
-          } else {
-            expect(bubble.right, lessThan(reactBounds.left));
-            expect(reactBounds.right, lessThan(replyBounds.left));
-          }
+          expect(bubble.contains(reactBounds.center), isTrue);
+          expect(bubble.contains(replyBounds.center), isTrue);
+          expect(reactBounds.right, lessThan(replyBounds.left));
 
           await tester.tap(reply);
           await tester.pump();
@@ -2455,6 +2568,7 @@ ChatMessage _message(
   DateTime? deletedAt,
   bool edited = false,
   bool pinned = false,
+  bool isAction = false,
   List<ChatReaction> reactions = const [],
   Bookmark? bookmark,
   List<String> availableFlags = const [],
@@ -2473,6 +2587,7 @@ ChatMessage _message(
   deletedAt: deletedAt,
   edited: edited,
   pinned: pinned,
+  isAction: isAction,
   reactions: reactions,
   bookmark: bookmark,
   availableFlags: availableFlags,
@@ -2491,6 +2606,7 @@ Future<ShellController> _controller(
   bool canModerate = false,
   bool canManagePins = false,
   bool canFlag = false,
+  bool threadingEnabled = true,
   SitePostActionCatalog? flagCatalog,
   FakeDiscourseApi? api,
 }) async {
@@ -2527,6 +2643,7 @@ Future<ShellController> _controller(
       canModerate: canModerate,
       canManagePins: canManagePins,
       canFlag: canFlag,
+      threadingEnabled: threadingEnabled,
       membership: const ChatMembership(following: true),
     ),
   );
@@ -2545,6 +2662,7 @@ class _TestTile extends StatelessWidget {
     this.contextThreadId,
     this.showThreadSummary = true,
     this.chained = false,
+    this.previousMessageId,
     this.platform = TargetPlatform.macOS,
     this.withToaster = false,
     this.brightness = Brightness.light,
@@ -2560,6 +2678,7 @@ class _TestTile extends StatelessWidget {
   final int? contextThreadId;
   final bool showThreadSummary;
   final bool chained;
+  final int? previousMessageId;
   final TargetPlatform platform;
   final bool withToaster;
   final Brightness brightness;
@@ -2592,6 +2711,7 @@ class _TestTile extends StatelessWidget {
                 siteUrl: _siteUrl,
                 messageId: messageId,
                 chained: chained,
+                previousMessageId: previousMessageId,
                 contextThreadId: contextThreadId,
                 onOpenThread: onOpenThread,
                 onJumpToMessage: onJumpToMessage,

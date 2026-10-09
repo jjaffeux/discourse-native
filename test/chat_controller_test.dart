@@ -8989,6 +8989,38 @@ void main() {
       },
     );
 
+    test('live edits invalidate author grouping for action messages', () async {
+      final subject = build(
+        messages: {
+          key(9): page([
+            message(1).withFirstOfResults(true),
+            message(2, minute: 1),
+          ]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9));
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      final before = subject.chat.stream(site, 9).revision;
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'edit',
+        'chat_message': {
+          'id': 1,
+          'chat_channel_id': 9,
+          'is_action': true,
+          'cooked': '<p><em>sam waves</em></p>',
+          'created_at': '2026-05-05T10:00:00.000Z',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      expect(subject.chat.message(site, 1)!.isAction, isTrue);
+      expect(subject.chat.message(site, 1)!.firstOfResults, isTrue);
+      expect(subject.chat.stream(site, 9).revision, before + 1);
+    });
+
     test('pin and unpin events update a held row and its grouping', () async {
       final subject = build(
         messages: {

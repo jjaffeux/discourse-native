@@ -4070,10 +4070,21 @@ class ChatController extends FrameSafeNotifier {
   void _putMessage(String siteUrl, ChatMessage message) {
     final previous = _store.read<ChatMessage>(siteUrl, message.id);
     _store.put(siteUrl, message);
-    if (previous?.thread?.threadId != message.thread?.threadId) {
+    if (previous?.thread?.threadId != message.thread?.threadId ||
+        (previous != null && _messageGroupingChanged(previous, message))) {
       _bumpStreamsHolding(siteUrl, message.id);
     }
   }
+
+  static bool _messageGroupingChanged(ChatMessage before, ChatMessage after) =>
+      before.isDeleted != after.isDeleted ||
+      before.pinned != after.pinned ||
+      before.isAction != after.isAction ||
+      before.isWebhook != after.isWebhook ||
+      before.firstOfResults != after.firstOfResults ||
+      before.author.id != after.author.id ||
+      before.createdAt != after.createdAt ||
+      before.replyTo?.id != after.replyTo?.id;
 
   /// Invalidates ID-keyed projections when a live record changes rendered shape.
   void _putLiveMessage(
@@ -4083,7 +4094,7 @@ class ChatController extends FrameSafeNotifier {
   }) {
     if (message.canonicalReceived) _cancelMessageCooking(siteUrl, message.id);
     final replaced = _store.read<ChatMessage>(siteUrl, message.id);
-    final effective = replaced == null
+    var effective = replaced == null
         ? message
         : preservePersonalizedState
         ? message.withPersonalizedStateOf(
@@ -4093,12 +4104,16 @@ class ChatController extends FrameSafeNotifier {
         : replaced.bookmark != null && message.bookmark == null
         ? message.withBookmarkOf(replaced)
         : message;
+    // This is client pagination metadata, absent from live and pin payloads.
+    if (replaced != null &&
+        effective.firstOfResults != replaced.firstOfResults) {
+      effective = effective.withFirstOfResults(replaced.firstOfResults);
+    }
     _store.put(siteUrl, effective);
     _forgetHiddenDelete(siteUrl, message.id);
     _updateChannelMessagePreview(siteUrl, effective);
     if (replaced != null &&
-        (replaced.isDeleted != effective.isDeleted ||
-            replaced.pinned != effective.pinned ||
+        (_messageGroupingChanged(replaced, effective) ||
             replaced.thread?.threadId != effective.thread?.threadId)) {
       _bumpStreamsHolding(siteUrl, message.id);
     }

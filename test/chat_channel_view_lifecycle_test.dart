@@ -240,7 +240,7 @@ void main() {
   group('DM sender groups', () {
     for (final outgoing in [false, true]) {
       testWidgets(
-        'chat bubble corners follow a ${outgoing ? 'sent' : 'received'} run',
+        'unframed rows align a ${outgoing ? 'sent' : 'received'} run',
         (tester) async {
           final authorId = outgoing ? 7 : 2;
           final messages = [
@@ -303,13 +303,18 @@ void main() {
                 as BorderRadius;
           }
 
-          final edge = outgoing
-              ? (BorderRadius r) => (r.topRight.x, r.bottomRight.x)
-              : (BorderRadius r) => (r.topLeft.x, r.bottomLeft.x);
-          expect(edge(radius(1)), (19, 4.75));
-          expect(edge(radius(2)), (4.75, 4.75));
-          expect(edge(radius(3)), (4.75, 19));
-          expect(edge(radius(4)), (19, 19));
+          for (final id in [1, 2, 3, 4]) {
+            expect(radius(id), BorderRadius.zero);
+            final bubble = find.byKey(ValueKey('chat-message-bubble-$id'));
+            expect(
+              tester.getTopLeft(bubble).dx,
+              tester
+                  .getTopLeft(
+                    find.byKey(const ValueKey('chat-message-bubble-1')),
+                  )
+                  .dx,
+            );
+          }
           expect(
             tester
                 .getSize(find.byKey(const ValueKey('chat-message-bubble-3')))
@@ -350,7 +355,10 @@ void main() {
       for (final bubble in find.byType(DBubbleContent).evaluate()) {
         expect(
           tester.getSize(find.byWidget(bubble.widget)).width,
-          lessThan(240),
+          closeTo(
+            tester.getSize(find.byType(DMessageContent).first).width,
+            .01,
+          ),
         );
       }
       final tiles = find.byType(ChatMessageTile);
@@ -372,7 +380,7 @@ void main() {
         );
         expect(
           tester.getTopLeft(next).dy - tester.getBottomLeft(current).dy,
-          closeTo(4, .01),
+          closeTo(8, .01),
         );
       }
     });
@@ -451,7 +459,7 @@ void main() {
               matching: find.byType(DMessage),
             ),
           );
-          expect(nextRow.top - reactions.bottom, closeTo(16, .01));
+          expect(nextRow.top - reactions.bottom, closeTo(8, .01));
         }
       });
     }
@@ -569,10 +577,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(
-          _groupEnd(1),
-          boundary == 'time' ? findsNothing : findsOneWidget,
-        );
+        expect(_groupEnd(1), findsOneWidget);
         expect(_groupEnd(boundary == 'unread' ? 4 : 3), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
@@ -1544,7 +1549,8 @@ void main() {
       final page = (
         messages: [
           _message(1),
-          _message(2, authorId: 3, replyTo: reply),
+          _message(2),
+          _message(3, authorId: 3, replyTo: reply),
         ],
         canLoadMorePast: false,
         canLoadMoreFuture: false,
@@ -2491,7 +2497,10 @@ void main() {
           await tester.pump();
           expect(find.bySemanticsLabel('More message actions'), findsOneWidget);
 
-          final scroll = await tester.startGesture(pointerPosition);
+          // Full-width message text is selectable; drag the transcript gutter.
+          final scroll = await tester.startGesture(
+            Offset(tester.getRect(hoveredMessage).left + 2, pointerPosition.dy),
+          );
           await scroll.moveBy(const Offset(0, 200));
           await tester.pump();
           expect(find.bySemanticsLabel('More message actions'), findsNothing);
@@ -3183,12 +3192,16 @@ Finder _verticalChatScroll() => find.byWidgetPredicate(
 );
 
 /// The on-screen top of each message row the reader can see, by message ID.
-Map<int, double> _visibleMessageTops(WidgetTester tester) => {
-  for (final tile in tester.widgetList<ChatMessageTile>(
-    find.byType(ChatMessageTile),
-  ))
-    tile.messageId: tester.getTopLeft(find.byWidget(tile)).dy,
-};
+Map<int, double> _visibleMessageTops(WidgetTester tester) {
+  final viewport = tester.getRect(_verticalChatScroll());
+  return {
+    for (final tile in tester.widgetList<ChatMessageTile>(
+      find.byType(ChatMessageTile),
+    ))
+      if (tester.getRect(find.byWidget(tile)).overlaps(viewport))
+        tile.messageId: tester.getTopLeft(find.byWidget(tile)).dy,
+  };
+}
 
 void _expectSameTops(Map<int, double> actual, Map<int, double> expected) {
   expect(actual.keys.toSet(), expected.keys.toSet());

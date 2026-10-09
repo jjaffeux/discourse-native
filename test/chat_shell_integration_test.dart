@@ -3862,13 +3862,13 @@ void _registerChatShellTests() {
           tester
               .widget<Padding>(find.byKey(const ValueKey('chat-message-1')))
               .padding,
-          const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 0),
+          const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
         );
         expect(
           tester
               .widget<Padding>(find.byKey(const ValueKey('chat-message-2')))
               .padding,
-          const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 8),
+          const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
         );
         final first = tester.getRect(
           find.byKey(const ValueKey('chat-message-bubble-1')),
@@ -3876,7 +3876,7 @@ void _registerChatShellTests() {
         final second = tester.getRect(
           find.byKey(const ValueKey('chat-message-bubble-2')),
         );
-        expect(second.top - first.bottom, 4);
+        expect(second.top - first.bottom, 8);
         expect(first.left, second.left);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

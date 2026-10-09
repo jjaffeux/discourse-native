@@ -431,6 +431,7 @@ class ChatThreadPreview {
   const ChatThreadPreview({
     required this.threadId,
     required this.replyCount,
+    this.force = false,
     this.title,
     this.lastReplyAt,
     this.lastReplyExcerpt,
@@ -464,6 +465,7 @@ class ChatThreadPreview {
     return ChatThreadPreview(
       threadId: jsonInt(value['id']),
       replyCount: jsonInt(value['reply_count']),
+      force: value['force'] == true,
       title: jsonText(value['title']),
       lastReplyAt: jsonDate(preview['last_reply_created_at']),
       lastReplyExcerpt: jsonHtmlText(preview['last_reply_excerpt']),
@@ -485,6 +487,7 @@ class ChatThreadPreview {
 
   final int threadId;
   final int replyCount;
+  final bool force;
   final String? title;
   final DateTime? lastReplyAt;
   final String? lastReplyExcerpt;
@@ -518,6 +521,7 @@ class ChatThreadPreview {
     return ChatThreadPreview(
       threadId: threadId,
       replyCount: replyCount,
+      force: force,
       title: title,
       lastReplyAt: lastReplyAt,
       lastReplyExcerpt: lastReplyExcerpt,
@@ -535,6 +539,7 @@ class ChatThreadPreview {
       other is ChatThreadPreview &&
       other.threadId == threadId &&
       other.replyCount == replyCount &&
+      other.force == force &&
       other.title == title &&
       other.lastReplyAt == lastReplyAt &&
       other.lastReplyExcerpt == lastReplyExcerpt &&
@@ -549,6 +554,7 @@ class ChatThreadPreview {
   int get hashCode => Object.hash(
     threadId,
     replyCount,
+    force,
     title,
     lastReplyAt,
     lastReplyExcerpt,
@@ -593,6 +599,8 @@ class ChatMessage with Storable<ChatMessage> {
     this.reviewableId,
     this.edited = false,
     this.isWebhook = false,
+    this.isAction = false,
+    this.firstOfResults = false,
     this.replyTo,
     this.threadId,
     this.thread,
@@ -682,6 +690,8 @@ class ChatMessage with Storable<ChatMessage> {
       reviewableId: jsonIntOrNull(json['reviewable_id']),
       edited: json['edited'] == true,
       isWebhook: json['chat_webhook_event'] != null,
+      isAction: json['is_action'] == true,
+      firstOfResults: json['first_of_results'] == true,
       replyTo: replyTo == null ? null : ChatReplyTo.fromJson(replyTo, siteUrl),
       threadId: jsonIntOrNull(json['thread_id']),
       thread: ChatThreadPreview.fromJson(json['thread'], siteUrl),
@@ -706,6 +716,7 @@ class ChatMessage with Storable<ChatMessage> {
     String siteUrl, {
     ChatMessagePageWindow window = ChatMessagePageWindow.retainNewest,
     int maximumMessages = maximumPageSize,
+    bool markFirstOfResults = false,
   }) {
     if (maximumMessages < 1 || maximumMessages > maximumPageSize) {
       throw RangeError.range(
@@ -724,8 +735,13 @@ class ChatMessage with Storable<ChatMessage> {
     );
     return (
       messages: List.unmodifiable([
-        for (final entry in bounded.entries)
-          ChatMessage.fromJson(entry, siteUrl),
+        for (final (index, entry) in bounded.entries.indexed)
+          ChatMessage.fromJson(
+            markFirstOfResults
+                ? {...entry, 'first_of_results': index == 0}
+                : entry,
+            siteUrl,
+          ),
       ]),
       canLoadMorePast:
           bounded.omittedPast || meta['can_load_more_past'] == true,
@@ -810,6 +826,12 @@ class ChatMessage with Storable<ChatMessage> {
   /// Webhook messages never collapse into author message runs.
   final bool isWebhook;
 
+  /// `/me` messages omit author details and break the following speaker run.
+  final bool isAction;
+
+  /// Keeps a channel page's leading header stable when older pages arrive.
+  final bool firstOfResults;
+
   /// Replies break grouping unless they answer the immediately preceding row.
   final ChatReplyTo? replyTo;
 
@@ -885,6 +907,8 @@ class ChatMessage with Storable<ChatMessage> {
       reviewableId: reviewableId,
       edited: edited,
       isWebhook: isWebhook,
+      isAction: isAction,
+      firstOfResults: firstOfResults,
       replyTo: replyTo,
       threadId: threadId,
       thread: thread,
@@ -950,6 +974,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -992,6 +1018,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1028,6 +1056,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: canonical.reviewableId,
     edited: canonical.edited,
     isWebhook: canonical.isWebhook,
+    isAction: canonical.isAction,
+    firstOfResults: canonical.firstOfResults,
     replyTo: canonical.replyTo,
     threadId: canonical.threadId,
     thread: canonical.thread,
@@ -1058,6 +1088,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1093,6 +1125,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1132,6 +1166,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1171,6 +1207,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: true,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1206,6 +1244,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: source.edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1243,6 +1283,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1280,6 +1322,45 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
+    replyTo: replyTo,
+    threadId: threadId,
+    thread: thread,
+    bookmark: bookmark,
+    reactions: reactions,
+    uploads: uploads,
+    optimisticRaw: optimisticRaw,
+    preview: preview,
+    provisionalCooked: provisionalCooked,
+    stagedId: stagedId,
+    serverId: serverId,
+    canonicalReceived: canonicalReceived,
+    delivery: delivery,
+    sendError: sendError,
+    sendFailure: sendFailure,
+    retryWaiting: retryWaiting,
+    deliveryUncertain: deliveryUncertain,
+  );
+
+  ChatMessage withFirstOfResults(bool firstOfResults) => ChatMessage(
+    id: id,
+    channelId: channelId,
+    cooked: cooked,
+    author: author,
+    mentionedUserStatuses: mentionedUserStatuses,
+    raw: raw,
+    createdAt: createdAt,
+    deletedAt: deletedAt,
+    deletedById: deletedById,
+    pinned: pinned,
+    availableFlags: availableFlags,
+    userFlagStatus: userFlagStatus,
+    reviewableId: reviewableId,
+    edited: edited,
+    isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1315,6 +1396,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1350,6 +1433,8 @@ class ChatMessage with Storable<ChatMessage> {
     reviewableId: reviewableId,
     edited: edited,
     isWebhook: isWebhook,
+    isAction: isAction,
+    firstOfResults: firstOfResults,
     replyTo: replyTo,
     threadId: threadId,
     thread: thread,
@@ -1393,6 +1478,8 @@ class ChatMessage with Storable<ChatMessage> {
       reviewableId: held.reviewableId,
       edited: edited,
       isWebhook: isWebhook,
+      isAction: isAction,
+      firstOfResults: firstOfResults,
       replyTo: replyTo,
       threadId: threadId,
       thread: thread,
@@ -1453,6 +1540,8 @@ class ChatMessage with Storable<ChatMessage> {
           other.reviewableId == reviewableId &&
           other.edited == edited &&
           other.isWebhook == isWebhook &&
+          other.isAction == isAction &&
+          other.firstOfResults == firstOfResults &&
           other.replyTo == replyTo &&
           other.threadId == threadId &&
           other.thread == thread &&
@@ -1496,6 +1585,8 @@ class ChatMessage with Storable<ChatMessage> {
     ),
     edited,
     isWebhook,
+    isAction,
+    firstOfResults,
     replyTo,
     threadId,
     thread,
