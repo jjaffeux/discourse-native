@@ -653,19 +653,21 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
         PinnedHeaderSliver(
           child: Stack(
             children: [
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 14,
-                child: DGradientBlur(),
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, bounds) =>
+                      DGradientBlur(fullStrengthExtent: bounds.maxHeight - 14),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: ColoredBox(
-                  color: ForumWindowBackground.chromeColor(
+                  color: ForumWindowBackground.surfaceColor(
                     context,
-                    DTokens.of(context).surface,
+                    ForumWindowBackground.chromeColor(
+                      context,
+                      DTokens.of(context).surface,
+                    ),
                   ),
                   child: ChatInboxFilterBar(
                     siteUrl: siteUrl,

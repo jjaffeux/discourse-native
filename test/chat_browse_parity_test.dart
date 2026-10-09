@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -19,11 +21,13 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -388,6 +392,87 @@ void main() {
 
     expect(kinds(), contains(ChatInboxKind.voiceRooms));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pinned inbox filters preserve the continuous sidebar canvas', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    const canvas = Color(0xff153d99);
+    for (final material in DAppearanceMaterial.values) {
+      await fixture.show(
+        Theme(
+          data: DMaterialTheme.apply(
+            AppTheme.forBrightness(
+              Brightness.dark,
+              background: const ForumBackground.appearance(transparency: .2),
+            ).copyWith(platform: TargetPlatform.macOS),
+            material,
+          ),
+          child: Center(
+            child: SizedBox(
+              width: 500,
+              height: 220,
+              child: RepaintBoundary(
+                key: const ValueKey('inbox-filter-canvas'),
+                child: ForumWindowBackground(
+                  child: ColoredBox(
+                    color: canvas,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: CustomScrollView(
+                        controller: scroll,
+                        slivers: const [
+                          ChatSidebarInbox(siteUrl: _site),
+                          SliverToBoxAdapter(child: SizedBox(height: 800)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      final bar = tester.getRect(find.byType(ChatInboxFilterBar));
+      final kind = tester.getRect(
+        find.byKey(const ValueKey('chat-inbox-kind-filter')),
+      );
+      final presence = tester.getRect(
+        find.byKey(const ValueKey('user-presence-menu')),
+      );
+      final capture = find.byKey(const ValueKey('inbox-filter-canvas'));
+      final gap =
+          Offset((kind.right + presence.left) / 2, bar.center.dy) -
+          tester.getTopLeft(capture);
+      final pixels = await tester.runAsync(() async {
+        final image = await tester
+            .renderObject<RenderRepaintBoundary>(capture)
+            .toImage();
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final offset = (gap.dy.floor() * image.width + gap.dx.floor()) * 4;
+        final pixel = bytes.buffer.asUint8List(offset, 4).toList();
+        image.dispose();
+        return pixel;
+      });
+      expect(pixels, [0x15, 0x3d, 0x99, 0xff], reason: material.name);
+      scroll.jumpTo(60);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(ChatInboxFilterBar)), bar);
+      final blur = find.descendant(
+        of: find.byType(PinnedHeaderSliver),
+        matching: find.byType(DGradientBlur),
+      );
+      expect(tester.getRect(blur).contains(bar.center), isTrue);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('thread rows show the latest reply and reply count', (
