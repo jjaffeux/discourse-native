@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_separator.dart';
@@ -255,6 +256,7 @@ class DButtonGroupText extends StatelessWidget {
     final joined = DJoinedControlScope.maybeOf(context);
     final direction = Directionality.of(context);
     final radius = BorderRadius.circular(tokens.buttonTheme.radius);
+    final resolvedRadius = joined?.resolveRadius(radius, direction) ?? radius;
     final text = DefaultTextStyle.merge(
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
         color: tokens.foreground,
@@ -271,25 +273,32 @@ class DButtonGroupText extends StatelessWidget {
       label: semanticLabel,
       excludeSemantics: semanticLabel != null,
       child: _GroupTextExtent(
-        child: DecoratedBox(
-          decoration: DControlDecoration(
-            strokeWidth: 1,
-            color: tokens.buttonTheme.outline.background,
-            borderColor: joined?.sharedOutline == true
-                ? Colors.transparent
-                : tokens.buttonTheme.outline.border,
-            borderRadius: joined?.resolveRadius(radius, direction) ?? radius,
-            joinedAxis: joined?.omitsLeadingBorder ?? false
-                ? joined!.axis
-                : null,
-          ),
-          child: Padding(
-            padding: padding,
-            child: Align(
-              alignment: alignment,
-              widthFactor: 1,
-              heightFactor: 1,
-              child: text,
+        child: DMaterialSurface(
+          color: tokens.buttonTheme.outline.background,
+          radius: resolvedRadius,
+          child: DecoratedBox(
+            decoration: DControlDecoration(
+              strokeWidth: 1,
+              color: DMaterialSurface.fill(
+                context,
+                tokens.buttonTheme.outline.background,
+              ),
+              borderColor: joined?.sharedOutline == true
+                  ? Colors.transparent
+                  : tokens.buttonTheme.outline.border,
+              borderRadius: resolvedRadius,
+              joinedAxis: joined?.omitsLeadingBorder ?? false
+                  ? joined!.axis
+                  : null,
+            ),
+            child: Padding(
+              padding: padding,
+              child: Align(
+                alignment: alignment,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: text,
+              ),
             ),
           ),
         ),

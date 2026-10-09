@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import 'joined_control.dart';
 import 'material_theme.dart';
 
 /// Internal painting roles. This adds no targets, padding or gesture listeners.
@@ -39,6 +40,9 @@ class DMaterialSurface extends StatelessWidget {
     final recessed = depth == DSurfaceDepth.recessed;
     final menu = depth == DSurfaceDepth.menu;
     final panel = depth == DSurfaceDepth.panel;
+    final joined = depth == DSurfaceDepth.raised
+        ? DJoinedControlScope.maybeOf(context)
+        : null;
     final solid = depth == DSurfaceDepth.swatch || depth == DSurfaceDepth.card;
     final lens = glass && color.a > 0 && !panel && !recessed && !solid;
     final alpha = accented
@@ -72,36 +76,112 @@ class DMaterialSurface extends StatelessWidget {
           : _DepthEdge(radius, light, dark, recessed, glass && !solid),
       child: background,
     );
-    final surface = DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        // Reading panels sit flush inside clipped workspace/viewports. An
-        // outer shadow is cut to that rectangle, staining their rounded
-        // corners and gutters. Their edge treatment supplies depth in-bounds.
-        boxShadow: recessed || panel || color.a == 0
-            ? const []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: dark ? .24 : .09),
-                  offset: Offset(0, menu ? 18 : 1),
-                  blurRadius: menu ? 44 : 3,
-                ),
-              ],
-      ),
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(child: ExcludeSemantics(child: background)),
-          ),
-          child,
-        ],
+    final shadow = BoxShadow(
+      color: Colors.black.withValues(alpha: dark ? .24 : .09),
+      offset: Offset(0, menu ? 18 : 1),
+      blurRadius: menu ? 44 : 3,
+    );
+    final castsShadow = !recessed && !panel && color.a > 0;
+    final surface = CustomPaint(
+      painter: castsShadow && joined != null
+          ? _JoinedSurfaceShadow(
+              radius: radius,
+              shadow: shadow,
+              axis: joined.axis,
+              first: joined.first,
+              last: joined.last,
+              direction: Directionality.of(context),
+            )
+          : null,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          // Reading panels sit flush inside clipped workspace/viewports. An
+          // outer shadow is cut to that rectangle, staining their rounded
+          // corners and gutters. Their edge treatment supplies depth in-bounds.
+          boxShadow: castsShadow && joined == null ? [shadow] : const [],
+        ),
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(child: ExcludeSemantics(child: background)),
+            ),
+            child,
+          ],
+        ),
       ),
     );
     // Popovers may overlap their parent controls; they must sample the live
     // painted stack instead of a card's earlier shared backdrop.
     return menu ? LiquidGlassBatch.exclude(child: surface) : surface;
   }
+}
+
+/// Continue the shadow through joined edges without painting over a neighbor.
+/// Each segment owns only its slice, including passive button-group text.
+class _JoinedSurfaceShadow extends CustomPainter {
+  const _JoinedSurfaceShadow({
+    required this.radius,
+    required this.shadow,
+    required this.axis,
+    required this.first,
+    required this.last,
+    required this.direction,
+  });
+
+  final BorderRadius radius;
+  final BoxShadow shadow;
+  final Axis axis;
+  final bool first;
+  final bool last;
+  final TextDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final extent = shadow.blurSigma * 3 + shadow.offset.distance;
+    final bounds = rect.inflate(extent);
+    final horizontal = axis == Axis.horizontal;
+    final joinsLeft =
+        horizontal && !(direction == TextDirection.ltr ? first : last);
+    final joinsRight =
+        horizontal && !(direction == TextDirection.ltr ? last : first);
+    final joinsTop = !horizontal && !first;
+    final joinsBottom = !horizontal && !last;
+    final shape = RRect.fromRectAndCorners(
+      Rect.fromLTRB(
+        joinsLeft ? bounds.left : rect.left,
+        joinsTop ? bounds.top : rect.top,
+        joinsRight ? bounds.right : rect.right,
+        joinsBottom ? bounds.bottom : rect.bottom,
+      ),
+      topLeft: radius.topLeft,
+      topRight: radius.topRight,
+      bottomLeft: radius.bottomLeft,
+      bottomRight: radius.bottomRight,
+    );
+    canvas.save();
+    canvas.clipRect(
+      Rect.fromLTRB(
+        joinsLeft ? rect.left : bounds.left,
+        joinsTop ? rect.top : bounds.top,
+        joinsRight ? rect.right : bounds.right,
+        joinsBottom ? rect.bottom : bounds.bottom,
+      ),
+    );
+    canvas.drawRRect(shape.shift(shadow.offset), shadow.toPaint());
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_JoinedSurfaceShadow old) =>
+      old.radius != radius ||
+      old.shadow != shadow ||
+      old.axis != axis ||
+      old.first != first ||
+      old.last != last ||
+      old.direction != direction;
 }
 
 /// One shared read for the side-by-side controls inside a Native surface.
