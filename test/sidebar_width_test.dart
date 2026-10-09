@@ -118,6 +118,19 @@ void main() {
     await _pumpShell(tester, controller, const Size(1200, 800));
 
     expect(tester.getSize(find.byType(InstanceRail)).width, 48);
+    expect(
+      tester.getTopLeft(find.byType(InstanceSidebar)).dx,
+      tester.getTopRight(find.byType(InstanceRail)).dx,
+    );
+    // Only the top community header needs to clear the macOS window buttons.
+    expect(
+      tester.getTopLeft(find.byType(ForumIdentityHeader)).dx,
+      greaterThanOrEqualTo(94),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('sidebar-panel-tabs'))).dx,
+      tester.getTopRight(find.byType(InstanceRail)).dx + 8,
+    );
 
     final topics = find.descendant(
       of: find.byType(InstanceSidebar),

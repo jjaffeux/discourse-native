@@ -1026,13 +1026,12 @@ class _WideShellState extends State<_WideShell> {
         );
         final sidebarExpanded =
             sidebarChoice ?? (context.isTouch || constraints.maxWidth >= 1100);
-        final sidebarInset =
+        final sidebarHeaderInset =
             !context.isTouch && sidebarExpanded && ShellTitleBar.hasWindowChrome
             ? 40.0
             : 0.0;
         final sidebarWidth = sidebarExpanded
-            ? widget.sidebarWidth.effectiveWidth(maximum: windowMaximum) +
-                  sidebarInset
+            ? widget.sidebarWidth.effectiveWidth(maximum: windowMaximum)
             : 0.0;
         final chromeHeight = ShellTitleBar.heightFor(
           context,
@@ -1087,23 +1086,23 @@ class _WideShellState extends State<_WideShell> {
                               ),
                             ),
                           ),
-                          sidebar: Padding(
-                            padding: EdgeInsetsDirectional.only(
-                              start: sidebarInset,
-                            ),
-                            child: ResizablePane(
-                              controller: widget.sidebarWidth,
-                              edge: ResizablePaneEdge.trailing,
-                              resizeKey: 'sidebar',
-                              semanticsLabel: context.l10n.resizeSidebar,
-                              maximumWidth: windowMaximum,
-                              dividerWidth: 1,
-                              gap: context.isTouch ? 0 : workspacePanelGap,
-                              child: const DCard(
-                                border: false,
-                                spacing: 0,
-                                backgroundColor: Colors.transparent,
-                                child: Expanded(child: InstanceSidebar()),
+                          sidebar: ResizablePane(
+                            controller: widget.sidebarWidth,
+                            edge: ResizablePaneEdge.trailing,
+                            resizeKey: 'sidebar',
+                            semanticsLabel: context.l10n.resizeSidebar,
+                            maximumWidth: windowMaximum,
+                            dividerWidth: 1,
+                            gap: context.isTouch ? 0 : workspacePanelGap,
+                            child: DCard(
+                              border: false,
+                              spacing: 0,
+                              backgroundColor: Colors.transparent,
+                              child: Expanded(
+                                child: InstanceSidebar(
+                                  communityHeaderLeadingInset:
+                                      sidebarHeaderInset,
+                                ),
                               ),
                             ),
                           ),

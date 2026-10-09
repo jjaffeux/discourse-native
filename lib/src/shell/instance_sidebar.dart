@@ -178,6 +178,7 @@ class InstanceSidebar extends StatelessWidget {
     this.mobile = false,
     this.panelOwner,
     this.onNavigate,
+    this.communityHeaderLeadingInset = 0,
   });
 
   final bool showUserMenu;
@@ -187,6 +188,8 @@ class InstanceSidebar extends StatelessWidget {
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
+  // Window buttons only overlap the community header, above the navigation.
+  final double communityHeaderLeadingInset;
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +275,7 @@ class InstanceSidebar extends StatelessWidget {
                   mobile: mobile,
                   panelOwner: panelOwner,
                   onNavigate: onNavigate,
+                  communityHeaderLeadingInset: communityHeaderLeadingInset,
                   sectionStore:
                       sectionStore ?? ShellScope.read(context).sidebarSections,
                 ),
@@ -294,6 +298,7 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.mobile,
     required this.panelOwner,
     required this.onNavigate,
+    required this.communityHeaderLeadingInset,
   });
 
   final _SidebarSnapshot sidebar;
@@ -304,6 +309,7 @@ class _SidebarPanelBody extends StatefulWidget {
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
+  final double communityHeaderLeadingInset;
 
   @override
   State<_SidebarPanelBody> createState() => _SidebarPanelBodyState();
@@ -495,7 +501,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const _SidebarCommunityHeader(),
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: widget.communityHeaderLeadingInset,
+                  ),
+                  child: const _SidebarCommunityHeader(),
+                ),
                 if (showUserMenu) const _SidebarUserHeader(),
                 DSidebarHeader(
                   child: _SidebarPanelTabs(
