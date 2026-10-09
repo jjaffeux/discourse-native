@@ -77,6 +77,66 @@ void main() {
         .load();
   });
 
+  for (final direction in TextDirection.values) {
+    testWidgets('bold metadata fits after resizing in $direction', (
+      tester,
+    ) async {
+      for (final scale in [1.0, 17 / 14, 1.25, 2.0]) {
+        for (final categoryId in [null, 1]) {
+          await _pump(
+            tester,
+            scale: scale,
+            boldText: true,
+            direction: direction,
+            topics: [
+              Topic(
+                id: 40,
+                title: 'Metadata sizing',
+                slug: 'metadata',
+                categoryId: categoryId,
+                replyCount: 24,
+                likeCount: 19,
+                tags: const [
+                  TopicTag(name: 'design'),
+                  TopicTag(name: 'mobile'),
+                  TopicTag(name: 'feedback'),
+                  TopicTag(name: 'tag-123'),
+                ],
+                posters: _topics.first.posters,
+              ),
+            ],
+          );
+          // 416.8px reproduced the 1.4px overflow when regular text was
+          // measured but accessibility bold text was rendered.
+          for (final width in [
+            280.0,
+            390.0,
+            416.8,
+            417.0,
+            590.0,
+            600.0,
+            1200.0,
+          ]) {
+            await tester.binding.setSurfaceSize(Size(width, 720));
+            await tester.pump();
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'width=$width scale=$scale category=$categoryId',
+            );
+            final activity = tester.getRect(
+              find.byKey(const ValueKey('topic-card-activity-40')),
+            );
+            expect(activity.left, greaterThanOrEqualTo(16));
+            expect(activity.right, lessThanOrEqualTo(width - 16));
+            expect(find.text('24'), findsOneWidget);
+            expect(find.text('19'), findsOneWidget);
+          }
+        }
+      }
+    });
+  }
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
@@ -482,6 +542,7 @@ Future<ShellController> _pump(
   WidgetTester tester, {
   double width = 390,
   double scale = 1,
+  bool boldText = false,
   TargetPlatform platform = TargetPlatform.iOS,
   TextDirection direction = TextDirection.ltr,
   int? selected,
@@ -521,7 +582,10 @@ Future<ShellController> _pump(
           textTheme: base.textTheme.apply(fontFamily: 'TopicCardTest'),
         ),
         home: MediaQuery(
-          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          data: MediaQueryData(
+            textScaler: TextScaler.linear(scale),
+            boldText: boldText,
+          ),
           child: Directionality(
             textDirection: direction,
             child: RepaintBoundary(

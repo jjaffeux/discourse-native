@@ -24,8 +24,14 @@ String _topicCompactCount(int count) => count >= 10000
 
 /// Measure the same styled/scaled text that the Native links display.
 double _topicTextWidth(BuildContext context, String text) {
+  var style = _topicMetadataStyle(context);
+  // Text applies the accessibility weight after merging its explicit style.
+  // Fit tags and reserve counts using that same rendered weight.
+  if (MediaQuery.boldTextOf(context)) {
+    style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
+  }
   final painter = TextPainter(
-    text: TextSpan(text: text, style: _topicMetadataStyle(context)),
+    text: TextSpan(text: text, style: style),
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
