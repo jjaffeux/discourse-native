@@ -554,11 +554,27 @@ class DSidebarGroup extends StatelessWidget {
 }
 
 class DSidebarGroupLabel extends StatelessWidget {
-  const DSidebarGroupLabel({super.key, required this.child});
+  const DSidebarGroupLabel({
+    super.key,
+    required this.child,
+    this.onPressed,
+    this.semanticLabel,
+  });
   final Widget child;
+
+  /// Optional navigation action with the same presentation as a passive heading.
+  final VoidCallback? onPressed;
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) => _PanelScope.iconOf(context)
       ? const SizedBox.shrink()
+      : onPressed != null
+      ? DSidebarMenuButton._groupLabel(
+          onPressed: onPressed,
+          semanticLabel: semanticLabel,
+          child: child,
+        )
       : Semantics(
           header: true,
           child: Container(
@@ -566,17 +582,19 @@ class DSidebarGroupLabel extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: DefaultTextStyle.merge(
-              style: TextStyle(
-                fontSize: DiscourseTypography.xs,
-                height: 16 / 12,
-                fontWeight: FontWeight.w500,
-                color: DTokens.of(context).foreground.withValues(alpha: .7),
-              ),
+              style: _sidebarGroupLabelStyle(context),
               child: child,
             ),
           ),
         );
 }
+
+TextStyle _sidebarGroupLabelStyle(BuildContext context) => TextStyle(
+  fontSize: DiscourseTypography.xs,
+  height: 16 / 12,
+  fontWeight: FontWeight.w500,
+  color: DTokens.of(context).foreground.withValues(alpha: .7),
+);
 
 class DSidebarGroupContent extends StatelessWidget {
   const DSidebarGroupContent({super.key, required this.child});
@@ -1108,7 +1126,26 @@ class DSidebarMenuButton extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.expanded,
-  }) : assert(iconSize > 0);
+  }) : _groupLabel = false,
+       assert(iconSize > 0);
+
+  // Reuse Native navigation interaction while the group label owns its artwork.
+  const DSidebarMenuButton._groupLabel({
+    required this.child,
+    required this.onPressed,
+    this.semanticLabel,
+  }) : _groupLabel = true,
+       icon = null,
+       iconSize = 16,
+       isActive = false,
+       size = DSidebarMenuButtonSize.regular,
+       variant = DSidebarMenuButtonVariant.normal,
+       tooltip = null,
+       focusNode = null,
+       autofocus = false,
+       expanded = null;
+
+  final bool _groupLabel;
   final Widget child;
   final Widget? icon;
   final double iconSize;
@@ -1189,22 +1226,26 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
     final iconOnly = _PanelScope.iconOf(context);
     final enabled = widget.onPressed != null;
     final fontSize = DControlStyle.fontSize(widget.size, context: context);
-    final minHeight = DControlStyle.scaledHeight(
-      widget.size,
-      MediaQuery.textScalerOf(context),
-      context: context,
-    );
+    final minHeight = widget._groupLabel
+        ? 32.0
+        : DControlStyle.scaledHeight(
+            widget.size,
+            MediaQuery.textScalerOf(context),
+            context: context,
+          );
     final active = widget.isActive || (enabled && (hover || pressed));
     final collapsedLarge =
         iconOnly && widget.size == DSidebarMenuButtonSize.large;
-    final verticalPadding =
-        !iconOnly &&
-            widget.icon != null &&
-            widget.iconSize >= DControlStyle.height(widget.size)
+    final verticalPadding = widget._groupLabel
+        ? 0.0
+        : !iconOnly &&
+              widget.icon != null &&
+              widget.iconSize >= DControlStyle.height(widget.size)
         ? 8.0
         : 1.0;
     Widget result = Semantics(
       container: true,
+      header: widget._groupLabel,
       button: true,
       enabled: enabled,
       selected: widget.isActive,
@@ -1295,19 +1336,23 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                             ? 1
                             : null,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          fontSize: fontSize,
-                          height:
-                              DControlStyle.lineHeight(
-                                widget.size,
-                                context: context,
-                              ) /
-                              fontSize,
-                          color: t.foreground,
-                          fontWeight: widget.isActive
-                              ? FontWeight.w500
-                              : FontWeight.w400,
-                        ),
+                        style: widget._groupLabel
+                            ? DefaultTextStyle.of(
+                                context,
+                              ).style.merge(_sidebarGroupLabelStyle(context))
+                            : Theme.of(context).textTheme.bodyMedium!.copyWith(
+                                fontSize: fontSize,
+                                height:
+                                    DControlStyle.lineHeight(
+                                      widget.size,
+                                      context: context,
+                                    ) /
+                                    fontSize,
+                                color: t.foreground,
+                                fontWeight: widget.isActive
+                                    ? FontWeight.w500
+                                    : FontWeight.w400,
+                              ),
                         child: Row(
                           children: [
                             if (widget.icon != null)

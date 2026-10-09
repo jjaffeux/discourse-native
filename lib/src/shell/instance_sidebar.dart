@@ -1574,6 +1574,18 @@ class _SectionHeader extends StatelessWidget {
   final SidebarSection section;
   final bool collapsed;
 
+  Widget _content(BuildContext context, DIconData icon, Widget label) => Row(
+    spacing: DSpacing.sm,
+    children: [
+      DIcon(
+        icon,
+        size: context.isTouch ? 22 : 18,
+        color: DTokens.of(context).foreground.withValues(alpha: .7),
+      ),
+      Expanded(child: ExcludeSemantics(child: label)),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
@@ -1587,9 +1599,8 @@ class _SectionHeader extends StatelessWidget {
       final label = categories
           ? parent?.name ?? context.l10n.categories
           : context.l10n.tags;
-      return DSidebarMenuButton(
+      return DSidebarGroupLabel(
         key: ValueKey('sidebar-${section.id}-up'),
-        icon: const DIcon(DIcons.arrowUp, size: 16),
         semanticLabel: label,
         onPressed: () => shell.changeSidebarScope(
           categoryId: categories
@@ -1597,7 +1608,15 @@ class _SectionHeader extends StatelessWidget {
               : shell.sidebarFilterRoute?.categoryId,
           tag: categories ? shell.sidebarFilterRoute?.tagName : null,
         ),
-        child: Text(label),
+        child: _content(
+          context,
+          DIcons.arrowUp,
+          Text(
+            label,
+            maxLines: MediaQuery.textScalerOf(context).scale(14) > 14 ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       );
     }
     final unreadDescription = section.unreadCount > 0
@@ -1663,16 +1682,10 @@ class _SectionHeader extends StatelessWidget {
         ? DCollapsibleTrigger(
             semanticLabel: description,
             child: DSidebarGroupLabel(
-              child: Row(
-                spacing: DSpacing.sm,
-                children: [
-                  DIcon(
-                    collapsed ? expandIcon : DIcons.chevronDown,
-                    size: context.isTouch ? 22 : 18,
-                    color: DTokens.of(context).foreground.withValues(alpha: .7),
-                  ),
-                  Expanded(child: ExcludeSemantics(child: label)),
-                ],
+              child: _content(
+                context,
+                collapsed ? expandIcon : DIcons.chevronDown,
+                label,
               ),
             ),
           )

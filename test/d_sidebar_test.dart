@@ -91,6 +91,88 @@ Widget fixture({
 );
 
 void main() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'actionable group labels retain heading bounds and keyboard behavior at $scale',
+      (tester) async {
+        var activations = 0;
+        const labelKey = ValueKey('section-heading');
+        Widget heading({required bool actionable}) => MaterialApp(
+          home: Scaffold(
+            body: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Center(
+                child: SizedBox(
+                  width: 220,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DSidebarGroupLabel(
+                        key: labelKey,
+                        onPressed: actionable ? () => activations++ : null,
+                        semanticLabel: actionable ? 'Up to Tags' : null,
+                        child: const Text('Tags'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(heading(actionable: false));
+        final bounds = tester.getRect(find.byKey(labelKey));
+        final labelBounds = tester.getRect(find.text('Tags'));
+        final style = tester
+            .renderObject<RenderParagraph>(find.text('Tags'))
+            .text
+            .style;
+        await tester.pumpWidget(heading(actionable: true));
+        expect(tester.getRect(find.byKey(labelKey)), bounds);
+        expect(tester.getRect(find.text('Tags')), labelBounds);
+        expect(
+          tester.renderObject<RenderParagraph>(find.text('Tags')).text.style,
+          style,
+        );
+        final semantics = tester.ensureSemantics();
+        expect(
+          tester.getSemantics(find.byKey(labelKey)),
+          matchesSemantics(
+            label: 'Up to Tags',
+            isHeader: true,
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            hasSelectedState: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction:
+                Theme.of(tester.element(find.byKey(labelKey))).platform ==
+                TargetPlatform.macOS,
+          ),
+        );
+        semantics.dispose();
+        await tester.tapAt(bounds.topCenter - const Offset(0, 1));
+        expect(activations, 0);
+        await tester.tap(find.byKey(labelKey));
+        await tester.pump();
+        expect(activations, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(activations, 3);
+        expect(tester.getRect(find.byKey(labelKey)), bounds);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
+
   testWidgets('default panel keeps the dark hover accent distinguishable', (
     tester,
   ) async {

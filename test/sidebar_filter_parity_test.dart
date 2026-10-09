@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -204,6 +205,55 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'section headings retain typography and alignment across scopes at $scale',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final (shell: shell, api: _) = await fixture(tester);
+
+        ({TextStyle style, Size size, double left}) heading(String label) {
+          final text = find.descendant(
+            of: find.byType(InstanceSidebar),
+            matching: find.text(label),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          return (
+            style: paragraph.text.style!,
+            size: Size(
+              paragraph.getMaxIntrinsicWidth(double.infinity),
+              paragraph.size.height,
+            ),
+            left: tester.getTopLeft(text).dx,
+          );
+        }
+
+        final categories = heading('Categories');
+        final tagHeading = heading('Tags');
+        await capture(tester, 'sidebar-headings-root-$scale');
+        await tester.tap(row('Product'));
+        await tester.pumpAndSettle();
+        await tester.tap(row('Alpha'));
+        await tester.pumpAndSettle();
+        await capture(tester, 'sidebar-headings-selected-$scale');
+        expect(heading('Categories'), categories);
+        expect(heading('Tags'), tagHeading);
+
+        await tester.tap(find.byKey(const ValueKey('sidebar-tags-up')));
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.tagName, isNull);
+        expect(heading('Tags'), tagHeading);
+        await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, isNull);
+        expect(heading('Categories'), categories);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
   testWidgets(
     'an uncached selected tag stays visible and tags are ordered by actual usage',
     (tester) async {
@@ -247,7 +297,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Done'));
         await tester.pumpAndSettle();
-        expect(shell.topicListContent?.tagNames, selection == 0 ? [tag.name] : <String>[]);
+        expect(
+          shell.topicListContent?.tagNames,
+          selection == 0 ? [tag.name] : <String>[],
+        );
         expect(
           tester.widget<DSidebarMenuButton>(row(tag.name)).isActive,
           selection == 0,
