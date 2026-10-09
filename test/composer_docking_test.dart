@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -73,7 +74,16 @@ void main() {
     expect(hasCorner(composerCard()), isTrue);
     await tester.tap(find.byKey(const ValueKey('composer-minimize')));
     await tester.pumpAndSettle();
-    expect(hasCorner(composerCard()), isTrue);
+    // The floating resume card has its own corners; it is not a window panel.
+    final restore = find.byKey(const ValueKey('composer-restore'));
+    expect(
+      find.ancestor(of: restore, matching: find.byType(DCard)),
+      findsNothing,
+    );
+    expect(
+      buttonSurface(tester, of: restore).borderRadius,
+      BorderRadius.circular(16),
+    );
     expect(hasCorner(readerCard()), isFalse);
     await tester.tap(find.byKey(const ValueKey('composer-restore')));
     await tester.pumpAndSettle();

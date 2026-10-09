@@ -114,8 +114,7 @@ class ComposerHeader extends StatelessWidget {
             onPressed: onRestore,
             semanticLabel: context.l10n.resumeEditing(label),
             tooltip: context.l10n.restoreComposer,
-            variant: DButtonVariant.outline,
-            size: DButtonSize.large,
+            variant: DButtonVariant.resume,
             icon: DIcon(
               composer.whisper
                   ? DIcons.farEyeSlash
@@ -123,38 +122,15 @@ class ComposerHeader extends StatelessWidget {
                   ? DIcons.pen
                   : DIcons.reply,
             ),
-            label: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        destination.trim().isEmpty ? modeLabel : destination,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      DText(
-                        context.l10n.composerWordCount(
-                          composer.raw.trim().isEmpty
-                              ? 0
-                              : composer.raw
-                                    .trim()
-                                    .split(RegExp(r'\s+'))
-                                    .length,
-                        ),
-                        variant: DTextVariant.muted,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _ComposerRestoreArtwork(placement: placement),
-              ],
+            label: Text(destination.trim().isEmpty ? modeLabel : destination),
+            description: Text(
+              context.l10n.composerWordCount(
+                composer.raw.trim().isEmpty
+                    ? 0
+                    : composer.raw.trim().split(RegExp(r'\s+')).length,
+              ),
             ),
+            trailing: ComposerPlacementIcon(placement: placement),
           )
         : canToggleWhisper
         ? DDropdownMenu(
@@ -534,31 +510,4 @@ class _DraftSaveFailure extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Hover changes artwork only; the Native button retains the exact target.
-class _ComposerRestoreArtwork extends StatefulWidget {
-  const _ComposerRestoreArtwork({required this.placement});
-  final ComposerPlacement placement;
-  @override
-  State<_ComposerRestoreArtwork> createState() =>
-      _ComposerRestoreArtworkState();
-}
-
-class _ComposerRestoreArtworkState extends State<_ComposerRestoreArtwork> {
-  bool _hovered = false;
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    onEnter: (_) => setState(() => _hovered = true),
-    onExit: (_) => setState(() => _hovered = false),
-    child: TweenAnimationBuilder<double>(
-      tween: Tween(end: _hovered ? -2 : 0),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 180),
-      builder: (context, rise, child) =>
-          Transform.translate(offset: Offset(0, rise), child: child),
-      child: ComposerPlacementIcon(placement: widget.placement),
-    ),
-  );
 }

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -587,6 +588,7 @@ void main() {
           tester.getSize(card).width,
           lessThanOrEqualTo(mobile ? size.width : 460),
         );
+        expect(tester.getSize(card).height, scale == 1 ? 52 : 85);
         expect(find.text('15 words'), findsOneWidget);
         await _render(tester, '$name-${dark ? 'dark' : 'light'}-minimized');
         await tester.tap(card);
@@ -599,6 +601,58 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+  }
+
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets(
+      'minimized new topic keeps contrast on a blue forum palette $material',
+      (tester) async {
+        final h = await _Harness.create(
+          tester,
+          theme: DMaterialTheme.apply(
+            AppTheme.fromPalette(
+              const ForumTheme(
+                id: 'blue-fixture',
+                name: 'Blue',
+                brightness: Brightness.dark,
+                primary: Color(0xFFE0E8FF),
+                secondary: Color(0xFF2443A5),
+                tertiary: Color(0xFF88ADFF),
+                quaternary: Color(0xFF88ADFF),
+                danger: Color(0xFFFF7777),
+                success: Color(0xFF70DB82),
+                love: Color(0xFFFC94CB),
+              ).resolve(Brightness.dark),
+            ),
+            material,
+          ),
+        );
+        final composer = h.shell.visibleComposer!;
+        composer.text.text = 'Hello';
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-minimize')));
+        await tester.pumpAndSettle();
+        final card = find.byKey(const ValueKey('composer-restore'));
+        final title = find.descendant(
+          of: card,
+          matching: find.text('New topic'),
+        );
+        final context = tester.element(title);
+        expect(
+          DefaultTextStyle.of(context).style.color,
+          DTokens.of(context).foreground,
+        );
+        expect(DefaultTextStyle.of(context).style.fontWeight, FontWeight.w600);
+        expect(find.text('1 word'), findsOneWidget);
+        await _render(tester, 'desktop-blue-${material.name}-minimized');
+        await tester.tap(card);
+        await tester.pumpAndSettle();
+        expect(h.shell.visibleComposer, same(composer));
+        expect(composer.text.text, 'Hello');
+        await tester.runAsync(composer.finishDraftSaves);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 }
 
@@ -639,6 +693,7 @@ class _Harness {
     WidgetTester tester, {
     Size size = const Size(1000, 700),
     bool dark = false,
+    ThemeData? theme,
     double scale = 1,
     bool mobile = false,
     double workspaceInset = 0,
@@ -678,18 +733,17 @@ class _Harness {
     await shell.load();
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final baseTheme = theme ?? (dark ? AppTheme.dark : AppTheme.light);
     await tester.pumpWidget(
       ShellScope(
         controller: shell,
         child: MaterialApp(
-          theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          theme: baseTheme.copyWith(
             platform: mobile ? TargetPlatform.iOS : TargetPlatform.linux,
             textTheme:
                 Platform.environment['COMPOSER_PARITY_RENDER_DIR'] == null
                 ? null
-                : (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-                    fontFamily: 'Lato',
-                  ),
+                : baseTheme.textTheme.apply(fontFamily: 'Lato'),
           ),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(

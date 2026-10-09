@@ -151,6 +151,29 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Resume card',
+      description:
+          'An opt-in 52px card with an accent icon tile, title, metadata and passive restore artwork. The whole card is one target and grows with text.',
+      code:
+          "DButton(variant: DButtonVariant.resume, icon: DIcon(DIcons.pen), label: Text('New topic'), description: Text('1 word'), trailing: DLayoutGlyph(mainVisible: true, secondaryVisible: false, changingPanel: 0, dock: DLayoutGlyphDock.right), onPressed: resume)",
+      builder: (_) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: DButton(
+          variant: DButtonVariant.resume,
+          icon: const DIcon(DIcons.pen),
+          label: const Text('New topic'),
+          description: const Text('1 word'),
+          trailing: const DLayoutGlyph(
+            mainVisible: true,
+            secondaryVisible: false,
+            changingPanel: 0,
+            dock: DLayoutGlyphDock.right,
+          ),
+          onPressed: () {},
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Pill toolbar action',
       description:
           'Round actions share the normal button focus, hover and target size.',

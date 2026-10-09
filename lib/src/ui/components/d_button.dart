@@ -44,6 +44,11 @@ enum DButtonVariant {
   transparentDanger,
   transparentSuccess,
   link,
+
+  /// A compact resume card with an accent icon tile, title, description and
+  /// passive trailing artwork. Give it a bounded width. Existing variants keep
+  /// their own geometry.
+  resume,
 }
 
 typedef DButtonSize = DControlSize;
@@ -368,6 +373,8 @@ class DButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.description,
+    this.trailing,
     this.iconPosition = DButtonIconPosition.start,
     this.expanded = false,
     this.invalid = false,
@@ -426,6 +433,8 @@ class DButton extends StatelessWidget {
     this.isLink = false,
   }) : iconPosition = DButtonIconPosition.start,
        label = const SizedBox.shrink(),
+       description = null,
+       trailing = null,
        loadingLabel = null,
        // ignore: prefer_initializing_formals
        icon = icon,
@@ -436,6 +445,12 @@ class DButton extends StatelessWidget {
   final Widget label;
   final VoidCallback? onPressed;
   final Widget? icon;
+
+  /// Secondary text for the opt-in [DButtonVariant.resume] card.
+  final Widget? description;
+
+  /// Passive restore artwork for [DButtonVariant.resume], never another target.
+  final Widget? trailing;
   final DButtonIconPosition iconPosition;
 
   /// Open popup triggers keep their expanded surface. With [hasPopup] the
@@ -521,6 +536,13 @@ class DButton extends StatelessWidget {
   static double iconOnlyDimensionFor(DButtonSize size) =>
       DControlStyle.height(size);
 
+  /// Two text lines and visible insets, growing with the user's text size.
+  static double resumeHeight(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return (17 + scaler.scale(13.5) * 18 / 13.5 + scaler.scale(12) * 16 / 12)
+        .clamp(52, double.infinity);
+  }
+
   /// Width reserved by compact composer actions; touch keeps regular geometry.
   static double composerBlockWidth(BuildContext context) {
     final height = DControlStyle.scaledHeight(
@@ -592,6 +614,12 @@ class DButton extends StatelessWidget {
       ),
     );
     return switch (_visualVariant) {
+      DButtonVariant.resume => pair(
+        buttons.outline.background,
+        buttons.outline.background,
+        tokens.foreground,
+        border: Color.lerp(tokens.background, tokens.foreground, .12),
+      ),
       DButtonVariant.primary => pair(
         buttons.primary.background,
         buttons.primary.hover,
@@ -663,6 +691,7 @@ class DButton extends StatelessWidget {
     final searchClear = density == DButtonDensity.searchClear;
     final avatar = density == DButtonDensity.avatar;
     final dashedTile = variant == DButtonVariant.dashedTile;
+    final resume = variant == DButtonVariant.resume;
     final intrinsicIcon =
         _iconOnly &&
         (size == DControlSize.chip || size == DControlSize.chrome) &&
@@ -712,7 +741,9 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = chrome
+    final visualDimension = resume
+        ? resumeHeight(context)
+        : chrome
         ? DControlStyle.scaledHeight(
             DControlSize.segment,
             MediaQuery.textScalerOf(context),
@@ -743,10 +774,12 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          chrome ||
-                  avatar ||
-                  shape == DButtonShape.pill ||
-                  variant == DButtonVariant.primary
+          resume
+              ? 16
+              : chrome ||
+                    avatar ||
+                    shape == DButtonShape.pill ||
+                    variant == DButtonVariant.primary
               ? DRadius.pill
               : chatMessageAction
               ? 6
@@ -876,7 +909,9 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (avatar
+        (resume
+            ? const EdgeInsets.all(8)
+            : avatar
             ? const EdgeInsets.all(2)
             : _iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
@@ -1010,7 +1045,19 @@ class DButton extends StatelessWidget {
                   child: surface,
                 ),
         );
-        return joined == null ? artwork : DJoinedControlSurface(child: artwork);
+        final result = joined == null
+            ? artwork
+            : DJoinedControlSurface(child: artwork);
+        return resume
+            ? _ResumeInteraction(
+                active:
+                    enabled &&
+                    (states.contains(WidgetState.hovered) ||
+                        states.contains(WidgetState.pressed) ||
+                        focused),
+                child: result,
+              )
+            : result;
       },
     );
 
@@ -1030,7 +1077,17 @@ class DButton extends StatelessWidget {
             ),
           )
         : icon;
-    Widget child = _iconOnly
+    Widget child = resume && !_iconOnly
+        ? ExcludeSemantics(
+            excluding: semanticLabel != null,
+            child: _ResumeContent(
+              icon: icon,
+              label: label,
+              description: description,
+              trailing: trailing,
+            ),
+          )
+        : _iconOnly
         ? ExcludeSemantics(child: icon!)
         : DefaultTextStyle.merge(
             maxLines: 1,
@@ -1181,6 +1238,132 @@ class DButton extends StatelessWidget {
         value: loading ? loadingSemanticLabel : null,
         child: result,
       ),
+    );
+  }
+}
+
+class _ResumeInteraction extends InheritedWidget {
+  const _ResumeInteraction({required this.active, required super.child});
+  final bool active;
+
+  @override
+  bool updateShouldNotify(_ResumeInteraction oldWidget) =>
+      active != oldWidget.active;
+}
+
+class _ResumeContent extends StatelessWidget {
+  const _ResumeContent({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.trailing,
+  });
+
+  final Widget? icon;
+  final Widget label;
+  final Widget? description;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final active =
+        context
+            .dependOnInheritedWidgetOfExactType<_ResumeInteraction>()
+            ?.active ??
+        false;
+    final duration = DMotion.duration(
+      context,
+      const Duration(milliseconds: 150),
+    );
+    return Row(
+      spacing: 12,
+      children: [
+        if (icon != null)
+          ExcludeSemantics(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: tokens.buttonTheme.primary.background,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              alignment: Alignment.center,
+              child: DIconGlyphTheme(
+                scale: 1,
+                child: IconTheme.merge(
+                  data: IconThemeData(
+                    size: 14,
+                    color: tokens.buttonTheme.primary.foreground,
+                  ),
+                  child: icon!,
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 1,
+            children: [
+              DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 18 / 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.foreground,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                child: label,
+              ),
+              if (description != null)
+                DefaultTextStyle.merge(
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 16 / 12,
+                    fontWeight: FontWeight.w400,
+                    color: tokens.mutedForeground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  child: description!,
+                ),
+            ],
+          ),
+        ),
+        if (trailing != null)
+          ExcludeSemantics(
+            child: AnimatedContainer(
+              duration: duration,
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: active
+                    ? tokens.primary.withValues(alpha: .12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(DRadius.pill),
+              ),
+              alignment: Alignment.center,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: active ? -2 : 0),
+                duration: duration,
+                builder: (context, rise, child) =>
+                    Transform.translate(offset: Offset(0, rise), child: child),
+                child: IconTheme.merge(
+                  data: IconThemeData(
+                    size: 18,
+                    color: tokens.buttonTheme.accent.foreground,
+                  ),
+                  child: trailing!,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

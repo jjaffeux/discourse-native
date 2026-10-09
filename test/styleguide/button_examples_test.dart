@@ -12,6 +12,7 @@ void main() {
       'Mobile dock destinations',
       'Redesign button families',
       'Dashed creation tile',
+      'Resume card',
       'Pill toolbar action',
       'Compact toolbar',
       'Chat message action',

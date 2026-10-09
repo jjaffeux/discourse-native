@@ -636,39 +636,28 @@ class _ComposerDockState extends State<ComposerDock> {
         }
         final minimized = entry.minimized;
         if (minimized) {
+          final height = DButton.resumeHeight(context);
+          final width = mobile
+              ? constraints.maxWidth
+              : math.min(constraints.maxWidth - 12, 460.0);
           return Column(
             children: [
               Expanded(child: readerViewport()),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                padding: mobile
+                    ? const EdgeInsets.only(top: 8)
+                    : const EdgeInsets.fromLTRB(6, 8, 6, 6),
                 child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: mobile ? constraints.maxWidth : 460,
-                      minHeight: math.max(
-                        64,
-                        MediaQuery.textScalerOf(context).scale(28) + 36,
-                      ),
-                      maxHeight: math.max(
-                        64,
-                        MediaQuery.textScalerOf(context).scale(28) + 36,
-                      ),
-                    ),
-                    child: WorkspacePanel(
-                      child: owner._surface(
-                        entry,
-                        placement: mobile
-                            ? ComposerPlacement.fullScreen
-                            : placement,
-                        mobile: mobile,
-                        size: Size(
-                          math.min(constraints.maxWidth, 460),
-                          math.max(
-                            64,
-                            MediaQuery.textScalerOf(context).scale(28) + 36,
-                          ),
-                        ),
-                      ),
+                  child: SizedBox(
+                    width: width,
+                    height: height,
+                    child: owner._surface(
+                      entry,
+                      placement: mobile
+                          ? ComposerPlacement.fullScreen
+                          : placement,
+                      mobile: mobile,
+                      size: Size(width, height),
                     ),
                   ),
                 ),
@@ -874,10 +863,12 @@ class _ComposerSurface extends StatelessWidget {
     final composer = entry.composer;
     final minimized = entry.minimized && !parked;
     return Material(
-      color: ForumWindowBackground.surfaceColor(
-        context,
-        Theme.of(context).shell.content,
-      ),
+      color: minimized
+          ? Colors.transparent
+          : ForumWindowBackground.surfaceColor(
+              context,
+              Theme.of(context).shell.content,
+            ),
       child: AbsorbPointer(
         absorbing: entry.moving,
         child: Stack(
@@ -912,26 +903,17 @@ class _ComposerSurface extends StatelessWidget {
               ),
             ),
             if (minimized)
-              ColoredBox(
-                color: ForumWindowBackground.surfaceColor(
-                  context,
-                  Theme.of(context).shell.content,
+              ComposerHeader(
+                composer: composer,
+                minimized: true,
+                closeTooltip: composer.canSaveDraft
+                    ? context.l10n.saveAndClose
+                    : context.l10n.closeComposer,
+                onClose: () => unawaited(
+                  closeComposerFromPanel(context: context, composer: composer),
                 ),
-                child: ComposerHeader(
-                  composer: composer,
-                  minimized: true,
-                  closeTooltip: composer.canSaveDraft
-                      ? context.l10n.saveAndClose
-                      : context.l10n.closeComposer,
-                  onClose: () => unawaited(
-                    closeComposerFromPanel(
-                      context: context,
-                      composer: composer,
-                    ),
-                  ),
-                  onRestore: onRestore,
-                  placement: placement,
-                ),
+                onRestore: onRestore,
+                placement: placement,
               ),
           ],
         ),
