@@ -104,23 +104,28 @@ void main() {
           find.byKey(ContentNavigationControls.refreshKey),
         );
         final separatorRect = tester.getRect(separator);
-        // The separator owns its spacing; circular button targets stay intact.
-        expect(backRect.right, forwardRect.left);
-        expect(forwardRect.right, separatorRect.left);
-        expect(separatorRect.right, refreshRect.left);
-        expect(tester.getRect(group), backRect.expandToInclude(refreshRect));
-        expect(backRect.size, const Size(34, 34));
+        // Insets and gaps are passive; only visible buttons accept actions.
+        expect(forwardRect.left - backRect.right, 2);
+        expect(separatorRect.left - forwardRect.right, 2);
+        expect(refreshRect.left - separatorRect.right, 2);
+        final groupRect = tester.getRect(group);
+        expect(groupRect.size, const Size(123, 36));
+        expect(backRect.left - groupRect.left, 5);
+        expect(groupRect.right - refreshRect.right, 5);
+        expect(backRect.top - groupRect.top, 4);
+        expect(groupRect.bottom - backRect.bottom, 4);
+        expect(backRect.size, const Size(32, 28));
         expect(forwardRect.size, backRect.size);
         expect(refreshRect.size, backRect.size);
         final rule = tester.widget<DSeparator>(separator);
         expect(rule.orientation, Axis.vertical);
         expect(
           separatorRect.center.dx - rule.thickness / 2 - forwardRect.right,
-          DSpacing.controlGap,
+          7,
         );
         expect(
           refreshRect.left - separatorRect.center.dx - rule.thickness / 2,
-          DSpacing.controlGap,
+          7,
         );
         expect(rule.indent, greaterThan(0));
         expect(rule.endIndent, rule.indent);
@@ -296,7 +301,7 @@ void main() {
 
   _testOnPlatform(
     TargetPlatform.macOS,
-    'navigation hover paints each action as a complete circle',
+    'navigation hover stays inside each inset capsule',
     (tester) async {
       await pumpShell(tester, desktop);
       final shell = _shell(tester);
@@ -323,7 +328,7 @@ void main() {
         expect(surface.color.a, greaterThan(0));
         expect(surface.borderRadius, BorderRadius.circular(rect.height / 2));
         expect(surface.joinedAxis, isNull);
-        // Moving to another action must clear this one's complete circle.
+        // Leaving an action clears its tint without changing the group.
         await mouse.moveTo(tester.getBottomRight(primaryMainContent));
         await tester.pump();
         expect(buttonSurface(tester, of: button).color.a, 0);

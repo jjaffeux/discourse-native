@@ -100,8 +100,13 @@ final cardExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Capsule toolbar',
-      description: 'A continuous rounded surface for Native action buttons.',
-      code: "DCard(variant: DCardVariant.capsule, child: toolbar)",
+      description:
+          'A recessed window capsule with inset, flat-hover Native actions.',
+      code:
+          "DCard(variant: DCardVariant.capsule, size: DCardSize.small, "
+          "border: false, child: Row(spacing: DSpacing.xxs, children: ["
+          "DButton.iconOnly(density: DButtonDensity.chrome, "
+          "icon: Icon(Icons.arrow_back), tooltip: 'Back', onPressed: back)]))",
       builder: (_) {
         var lastAction = 'Choose an action';
         return StatefulBuilder(
@@ -112,8 +117,10 @@ final cardExamples = ComponentExamples(
                 Text(lastAction),
                 DCard(
                   variant: DCardVariant.capsule,
+                  size: DCardSize.small,
+                  border: false,
                   child: Row(
-                    spacing: DSpacing.controlGap,
+                    spacing: DSpacing.xxs,
                     children: [
                       for (final (label, icon) in [
                         ('Bold', Icons.format_bold),
@@ -125,6 +132,7 @@ final cardExamples = ComponentExamples(
                           tooltip: label,
                           icon: Icon(icon),
                           variant: DButtonVariant.transparentBackground,
+                          density: DButtonDensity.chrome,
                           onPressed: () =>
                               setState(() => lastAction = '$label selected'),
                         ),

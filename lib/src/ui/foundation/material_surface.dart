@@ -20,12 +20,16 @@ class DMaterialSurface extends StatelessWidget {
     required this.radius,
     this.depth = DSurfaceDepth.raised,
     this.accented = false,
+    this.preserveColor = false,
   });
   final Widget child;
   final Color color;
   final BorderRadius radius;
   final DSurfaceDepth depth;
   final bool accented;
+
+  /// Pre-tinted window wells retain their opacity in both appearance modes.
+  final bool preserveColor;
 
   static bool active(BuildContext context) =>
       DMaterialTheme.of(context) != null;
@@ -52,7 +56,7 @@ class DMaterialSurface extends StatelessWidget {
         : dark
         ? .66
         : .72;
-    final paintedColor = glass && !solid && !panel
+    final paintedColor = glass && !solid && !panel && !preserveColor
         ? color.withValues(alpha: color.a * (recessed ? .42 : alpha))
         : color;
     final light = Colors.white.withValues(alpha: dark ? .08 : .8);

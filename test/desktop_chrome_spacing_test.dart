@@ -31,9 +31,9 @@ void main() {
         );
         expect(panels, findsWidgets);
         expect(titleBar.height, 53);
-        expect(field.height, 35.5);
-        expect(field.top - titleBar.top, 8.75);
-        expect(titleBar.bottom - field.bottom, 8.75);
+        expect(field.height, 36);
+        expect(field.top - titleBar.top, 8.5);
+        expect(titleBar.bottom - field.bottom, 8.5);
         for (final panel in panels.evaluate()) {
           expect(tester.getRect(find.byWidget(panel.widget)).top, 59);
         }
@@ -81,9 +81,9 @@ void main() {
               )
               .first,
         );
-        expect(field.top - titleBar.top, closeTo(8.75, .01));
-        expect(titleBar.bottom - field.bottom, closeTo(8.75, .01));
-        expect(panel.top - field.bottom, closeTo(14.75, .01));
+        expect(field.top - titleBar.top, closeTo(8.5, .01));
+        expect(titleBar.bottom - field.bottom, closeTo(8.5, .01));
+        expect(panel.top - field.bottom, closeTo(14.5, .01));
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),

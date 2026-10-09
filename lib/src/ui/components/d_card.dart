@@ -37,6 +37,8 @@ class DCard extends StatelessWidget {
   final Widget? child;
   final List<Widget> children;
   final DCardSize size;
+
+  /// Small capsules use the window chrome's 5px side and 4px vertical insets.
   final DCardVariant variant;
   final double? spacing;
 
@@ -64,6 +66,23 @@ class DCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final capsule = variant == DCardVariant.capsule;
+    final compactCapsule = capsule && size == DCardSize.small;
+    final surfaceColor =
+        backgroundColor ??
+        (compactCapsule
+            ? Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? .16
+                    : .045,
+              )
+            : capsule
+            ? DMaterialSurface.active(context)
+                  ? Color.lerp(tokens.background, Colors.black, .14)!
+                  : Color.alphaBlend(
+                      tokens.foreground.withValues(alpha: .04),
+                      tokens.background,
+                    )
+            : tokens.background);
     final inset =
         spacing ??
         (capsule
@@ -87,16 +106,8 @@ class DCard extends StatelessWidget {
               ? DSurfaceDepth.panel
               : DSurfaceDepth.card,
           radius: radius,
-          color:
-              backgroundColor ??
-              (capsule
-                  ? DMaterialSurface.active(context)
-                        ? Color.lerp(tokens.background, Colors.black, .14)!
-                        : Color.alphaBlend(
-                            tokens.foreground.withValues(alpha: .04),
-                            tokens.background,
-                          )
-                  : tokens.background),
+          color: surfaceColor,
+          preserveColor: compactCapsule,
           child: DMaterialBatch(
             child: CustomPaint(
               foregroundPainter: border && dashedBorder
@@ -114,16 +125,7 @@ class DCard extends StatelessWidget {
                 ),
                 child: Material(
                   animationDuration: Duration.zero,
-                  color: DMaterialSurface.fill(
-                    context,
-                    backgroundColor ??
-                        (capsule
-                            ? Color.alphaBlend(
-                                tokens.foreground.withValues(alpha: 0.04),
-                                tokens.background,
-                              )
-                            : tokens.background),
-                  ),
+                  color: DMaterialSurface.fill(context, surfaceColor),
                   borderRadius: radius,
                   clipBehavior: Clip.antiAlias,
                   textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
@@ -135,8 +137,16 @@ class DCard extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: EdgeInsets.only(
-                      left: capsule ? DSpacing.sm : 0,
-                      right: capsule ? DSpacing.sm : 0,
+                      left: compactCapsule
+                          ? DSpacing.xs + 1
+                          : capsule
+                          ? DSpacing.sm
+                          : 0,
+                      right: compactCapsule
+                          ? DSpacing.xs + 1
+                          : capsule
+                          ? DSpacing.sm
+                          : 0,
                       top: leading == null ? inset : 0,
                       bottom:
                           footer == null &&

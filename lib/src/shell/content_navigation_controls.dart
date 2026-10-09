@@ -42,15 +42,16 @@ class ContentNavigationControls extends StatelessWidget {
           final tokens = DTokens.of(context);
           return IntrinsicWidth(
             child: DCard(
-              spacing: 0,
-              borderRadius: BorderRadius.circular(DRadius.pill),
-              backgroundColor: tokens.hover,
+              variant: DCardVariant.capsule,
+              size: DCardSize.small,
+              border: false,
               child: Semantics(
                 container: true,
                 explicitChildNodes: true,
                 label: context.l10n.navigation,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  spacing: DSpacing.xxs,
                   children: [
                     DButton.iconOnly(
                       key: backKey,
@@ -61,8 +62,7 @@ class ContentNavigationControls extends StatelessWidget {
                         contentBackShortcutForPlatform(defaultTargetPlatform),
                       ),
                       variant: DButtonVariant.ghost,
-                      size: DButtonSize.toolbar,
-                      shape: DButtonShape.pill,
+                      density: DButtonDensity.chrome,
                       onPressed: state.back
                           ? () =>
                                 controller.handleBack(canReturnToSidebar: false)
@@ -82,35 +82,32 @@ class ContentNavigationControls extends StatelessWidget {
                         ),
                       ),
                       variant: DButtonVariant.ghost,
-                      size: DButtonSize.toolbar,
-                      shape: DButtonShape.pill,
+                      density: DButtonDensity.chrome,
                       onPressed: state.forward
                           ? controller.handleForward
                           : null,
                     ),
                     DSeparator(
                       orientation: Axis.vertical,
-                      space: 1 + DSpacing.controlGap * 2,
+                      space: 11,
                       length: DControlStyle.scaledHeight(
-                        DControlSize.toolbar,
+                        DControlSize.segment,
                         MediaQuery.textScalerOf(context),
                         context: context,
                       ),
-                      indent: DSpacing.sm,
-                      endIndent: DSpacing.sm,
-                      color: tokens.mutedForeground.withValues(alpha: .35),
+                      indent: DSpacing.controlGap,
+                      endIndent: DSpacing.controlGap,
+                      color: tokens.border,
                     ),
                     DButton.iconOnly(
                       key: refreshKey,
-                      icon: const DIcon(DIcons.arrowsRotate),
+                      icon: const DIcon(DIcons.arrowRotateRight),
                       tooltip: context.l10n.refreshCurrentTab,
                       shortcut: DShortcut(
                         refreshTabShortcutForPlatform(defaultTargetPlatform),
                       ),
                       variant: DButtonVariant.ghost,
-                      size: DButtonSize.toolbar,
-                      shape: DButtonShape.pill,
-                      foregroundColor: tokens.foreground,
+                      density: DButtonDensity.chrome,
                       onPressed: state.refresh && !state.refreshing
                           ? () => unawaited(controller.refreshCurrentTab())
                           : null,

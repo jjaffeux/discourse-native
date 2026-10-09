@@ -85,6 +85,10 @@ enum DButtonDensity {
   /// with 14px icons and matching hit areas on every platform.
   compactToolbar,
 
+  /// Inset window actions: 32 by 28px, 15px icons and a flat hover tint.
+  /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
+  chrome,
+
   /// Narrow desktop block actions, retaining regular icons and height.
   composerBlock,
 
@@ -647,6 +651,7 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final chrome = density == DButtonDensity.chrome;
     final variantStyle = _referenceStyle(tokens, dark);
     final mobileNavigation = density == DButtonDensity.mobileNavigation;
     final mobileDock = density == DButtonDensity.mobileDock;
@@ -680,7 +685,9 @@ class DButton extends StatelessWidget {
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
     // Both dock densities scale artwork with the 11px destination labels.
-    final spacingUnit = backLink
+    final spacingUnit = chrome
+        ? 15.0
+        : backLink
         ? 11.0
         : mobileDock || mobileDockAction
         ? 20.0 + MediaQuery.textScalerOf(context).scale(11) - 11
@@ -705,7 +712,13 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = searchClear
+    final visualDimension = chrome
+        ? DControlStyle.scaledHeight(
+            DControlSize.segment,
+            MediaQuery.textScalerOf(context),
+            context: context,
+          )
+        : searchClear
         ? MediaQuery.textScalerOf(context).scale(12)
         : avatar
         ? 32.0 *
@@ -730,7 +743,8 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          avatar ||
+          chrome ||
+                  avatar ||
                   shape == DButtonShape.pill ||
                   variant == DButtonVariant.primary
               ? DRadius.pill
@@ -744,7 +758,9 @@ class DButton extends StatelessWidget {
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
-    final surfaceWidth = composerBlock
+    final surfaceWidth = chrome
+        ? visualDimension + 4
+        : composerBlock
         ? composerBlockWidth(context)
         : compactToolbar || effectiveSize == DControlSize.chip
         ? visualDimension + 8
@@ -792,6 +808,23 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (chrome) {
+        final interactive =
+            !states.contains(WidgetState.disabled) &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed));
+        final foreground = foregroundColor ?? tokens.mutedForeground;
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: interactive
+              ? (dark ? Colors.white : Colors.black).withValues(
+                  alpha: dark ? .09 : .06,
+                )
+              : Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
       if (mobileDock) {
         final foreground = foregroundColor ?? tokens.mutedForeground;
         return DButtonStateStyle(
@@ -949,7 +982,9 @@ class DButton extends StatelessWidget {
           expanded: expanded,
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
-            color: DMaterialSurface.fill(context, state.backgroundColor),
+            color: chrome
+                ? state.backgroundColor
+                : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
             borderRadius: radius,
             ringColor: ringColor,
@@ -964,14 +999,16 @@ class DButton extends StatelessWidget {
           child: child,
         );
         final artwork = DControlArtwork(
-          child: DMaterialSurface(
-            radius: radius,
-            color: state.backgroundColor,
-            accented:
-                _visualVariant == DButtonVariant.primary ||
-                _visualVariant == DButtonVariant.destructive,
-            child: surface,
-          ),
+          child: chrome
+              ? surface
+              : DMaterialSurface(
+                  radius: radius,
+                  color: state.backgroundColor,
+                  accented:
+                      _visualVariant == DButtonVariant.primary ||
+                      _visualVariant == DButtonVariant.destructive,
+                  child: surface,
+                ),
         );
         return joined == null ? artwork : DJoinedControlSurface(child: artwork);
       },
