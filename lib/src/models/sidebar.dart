@@ -150,6 +150,7 @@ class SidebarSection {
     this.onAction,
     this.actionAboveHeader = false,
     this.headerActionsBuilder,
+    this.pinnedHeaderBuilder,
     this.bodyBuilder,
     this.unreadCount = 0,
     this.loading = false,
@@ -257,6 +258,10 @@ class SidebarSection {
 
   /// App-owned Native controls composed into the sidebar action slot.
   final WidgetBuilder? headerActionsBuilder;
+
+  /// Controls that pin above this section and the sections after it in the
+  /// sidebar's shared viewport. The builder returns a box, not a sliver.
+  final WidgetBuilder? pinnedHeaderBuilder;
 
   /// A plugin-owned sliver drawn in place of the destination rows. The
   /// section's [destinations] still describe it to readers that do not draw

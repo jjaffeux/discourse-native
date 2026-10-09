@@ -685,7 +685,17 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                 store: sectionStore,
                                 child: SliverMainAxisGroup(
                                   slivers: [
-                                    for (final section in sections)
+                                    for (final section in sections) ...[
+                                      if (section.pinnedHeaderBuilder
+                                          case final builder?)
+                                        PinnedHeaderSliver(
+                                          key: ValueKey((
+                                            sidebar.siteUrl,
+                                            section.id,
+                                            'pinned-header',
+                                          )),
+                                          child: Builder(builder: builder),
+                                        ),
                                       _Section(
                                         key: ValueKey((
                                           sidebar.siteUrl,
@@ -703,6 +713,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                         badgeFor: controller.sidebarBadgeFor,
                                         onSelect: controller.selectDestination,
                                       ),
+                                    ],
                                   ],
                                 ),
                               );

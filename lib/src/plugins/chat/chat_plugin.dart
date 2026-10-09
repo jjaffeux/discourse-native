@@ -365,6 +365,7 @@ class ChatPlugin
           onAction: actions.startMessage
               ? () => _startMessage(context, shell, siteUrl)
               : null,
+          pinnedHeaderBuilder: (_) => ChatSidebarInboxHeader(siteUrl: siteUrl),
           bodyBuilder: (_) =>
               ChatSidebarInbox(key: ValueKey(siteUrl), siteUrl: siteUrl),
           destinations: [

@@ -18144,7 +18144,8 @@ class ShellController extends FrameSafeNotifier
     if (existing != null) {
       selectTab(existing.id);
     } else {
-      openContentInNewTab(route, select: true);
+      final result = openContentInNewTab(route, select: true);
+      if (result == TabOpenResult.limitReached) pushContent(route);
     }
   }
 

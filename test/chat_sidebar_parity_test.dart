@@ -6,11 +6,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,6 +86,175 @@ void main() {
     expect(tester.widget<DTabs<String>>(panels.tabs).value, 'forum');
     expect(sidebarDestination('Topics'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets(
+    'Chat links follow conversation and directory focus in either panel',
+    (tester) async {
+      final shell = await panels.pumpTabs(
+        tester,
+        threads: true,
+        voice: false,
+        channelDetails: const {
+          9: ChatChannel(
+            id: 9,
+            title: 'General',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+          ),
+        },
+      );
+      final chat = shell.pluginSession.require(chatShellService);
+      await chat.chat.loadChannels(panels.site);
+      for (final panel in ForumPanel.values) {
+        expect(chat.openChannel(9), isTrue);
+        await tester.pumpAndSettle();
+        shell.moveTabToPanel(shell.activeTabId!, panel);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'chat-c-9');
+        await capture(tester, 'chat-sidebar-conversation-${panel.name}');
+        final conversation = shell.activeTabId!;
+        for (final label in ['Chats', 'Channels', 'Threads']) {
+          expect(sidebarDestination(label), findsOneWidget);
+        }
+        await tester.tap(sidebarDestination('Threads'));
+        await tester.pumpAndSettle();
+        for (final label in ['Chats', 'Channels', 'Threads']) {
+          expect(sidebarDestination(label), findsNothing);
+        }
+        shell.selectTab(conversation);
+        await tester.pumpAndSettle();
+        for (final label in ['Chats', 'Channels', 'Threads']) {
+          expect(sidebarDestination(label), findsOneWidget);
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('Chat directories remain reachable at the tab limit', (
+    tester,
+  ) async {
+    final shell = await panels.pumpTabs(tester, threads: true, voice: false);
+    await shell.forumSettings.setShared(
+      const SharedAppearance(
+        font: ForumFont.openSans,
+        interfaceFont: ForumFont.openSans,
+      ),
+    );
+    while (shell.canCreateTab) {
+      shell.openContentInNewTab(ContentRoute.newTab());
+    }
+    await tester.pumpAndSettle();
+    final sourceTab = shell.activeTabId;
+    await tester.tap(panels.tab('chat'));
+    await tester.pumpAndSettle();
+    for (final (label, route) in [
+      ('Threads', ChatPlugin.myThreadsRouteId),
+      ('Channels', ChatPlugin.browseRouteId),
+      ('Chats', ChatPlugin.inboxRouteId),
+    ]) {
+      final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
+      await tester.tap(
+        label == 'Threads'
+            ? sidebarDestination(label)
+            : find.descendant(of: navigation, matching: find.text(label)).first,
+      );
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, route);
+      expect(shell.activeTabId, sourceTab);
+      expect(
+        shell.currentWorkspace!.tabs,
+        hasLength(ForumWorkspace.maximumTabs),
+      );
+      for (final label in ['Chats', 'Channels', 'Threads']) {
+        expect(sidebarDestination(label), findsNothing);
+      }
+    }
+    expect(shell.handleBack(canReturnToSidebar: false), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, ChatPlugin.browseRouteId);
+    expect(shell.handleForward(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, ChatPlugin.inboxRouteId);
+    await capture(tester, 'chat-sidebar-directory-at-tab-limit');
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'Chat controls stay pinned through voice rooms at $scale text',
+      (tester) async {
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final shell = await panels.pumpTabs(
+          tester,
+          threads: true,
+          roomCount: 40,
+        );
+        await shell.forumSettings.setShared(
+          const SharedAppearance(
+            font: ForumFont.openSans,
+            interfaceFont: ForumFont.openSans,
+          ),
+        );
+        await tester.tap(panels.tab('chat'));
+        await tester.pumpAndSettle();
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        await tester.pumpAndSettle();
+        final controls = find.byKey(
+          const ValueKey('chat-inbox-activity-filter'),
+        );
+        final tabsTop = tester.getTopLeft(panels.tabs).dy;
+        final scroll = find.descendant(
+          of: find.byType(InstanceSidebar),
+          matching: find.byType(CustomScrollView),
+        );
+        final position = tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: scroll, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
+        await tester.drag(scroll, const Offset(0, -400));
+        await tester.pumpAndSettle();
+        final pinnedTop = tester.getTopLeft(controls).dy;
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        await capture(tester, 'chat-sidebar-voice-end-$scale');
+        expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
+        expect(
+          find
+              .descendant(of: controls, matching: find.byType(DButton))
+              .hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.getTopLeft(panels.tabs).dy, tabsTop);
+        final offset = position.pixels;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(controls),
+            scrollDelta: const Offset(0, -120),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(position.pixels, lessThan(offset));
+        expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
+        await tester.tap(
+          find.descendant(of: controls, matching: find.byType(DButton)),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unread').last);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: controls, matching: find.text('Unread')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     testWidgets('Chat controls pin above the scrolling inbox in $mode', (

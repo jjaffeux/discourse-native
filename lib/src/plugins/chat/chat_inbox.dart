@@ -530,6 +530,45 @@ String _activityLabel(BuildContext context, DateTime at) {
   return MaterialLocalizations.of(context).formatShortDate(at);
 }
 
+/// Shared chat controls pin across conversations and the voice room section.
+class ChatSidebarInboxHeader extends StatelessWidget {
+  const ChatSidebarInboxHeader({super.key, required this.siteUrl});
+
+  final String siteUrl;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      Positioned.fill(
+        child: LayoutBuilder(
+          builder: (context, bounds) =>
+              DGradientBlur(fullStrengthExtent: bounds.maxHeight - 14),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: ColoredBox(
+          color: ForumWindowBackground.surfaceColor(
+            context,
+            ForumWindowBackground.chromeColor(
+              context,
+              DTokens.of(context).surface,
+            ),
+          ),
+          child: ChatInboxFilterBar(
+            siteUrl: siteUrl,
+            filters: PluginUiScope.require(
+              context,
+              chatControllerService,
+            ).inboxFilters,
+            compact: true,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 /// The desktop sidebar's inbox: the mobile inbox's filters and ordering laid
 /// out as slivers, so it scrolls with the panel's other sections.
 ///
@@ -650,35 +689,6 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     };
     return SliverMainAxisGroup(
       slivers: [
-        PinnedHeaderSliver(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: LayoutBuilder(
-                  builder: (context, bounds) =>
-                      DGradientBlur(fullStrengthExtent: bounds.maxHeight - 14),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: ColoredBox(
-                  color: ForumWindowBackground.surfaceColor(
-                    context,
-                    ForumWindowBackground.chromeColor(
-                      context,
-                      DTokens.of(context).surface,
-                    ),
-                  ),
-                  child: ChatInboxFilterBar(
-                    siteUrl: siteUrl,
-                    filters: chat.inboxFilters,
-                    compact: true,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         if (layout.loading)
           const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
         else if (layout.failed)

@@ -439,6 +439,12 @@ final class PluginRegistry
                 plugin,
                 section.headerActionsBuilder!(_uiContext(context, plugin)),
               ),
+        pinnedHeaderBuilder: section.pinnedHeaderBuilder == null
+            ? null
+            : (context) => _owned(
+                plugin,
+                section.pinnedHeaderBuilder!(_uiContext(context, plugin)),
+              ),
         bodyBuilder: section.bodyBuilder == null
             ? null
             : (context) => _owned(

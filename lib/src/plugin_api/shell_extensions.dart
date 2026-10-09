@@ -128,6 +128,7 @@ abstract interface class PluginNavigationHost {
   void pushContent(ContentRoute route, {bool newTab = false});
 
   /// Opens or focuses a directory's own tab; mobile uses ordinary navigation.
+  /// At the tab limit, navigates the active tab while preserving its history.
   void openPageTab(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);

@@ -41,8 +41,10 @@ Future<ShellController> pumpTabs(
   bool connected = true,
   bool installed = true,
   bool rooms = true,
+  int roomCount = 1,
   bool threads = false,
   Map<String, ChatChannels>? channels,
+  Map<int, ChatChannel> channelDetails = const {},
   List<SidebarSection>? customSections,
 }) async {
   final config = SiteConfig(
@@ -80,6 +82,16 @@ Future<ShellController> pumpTabs(
       feeds: const {'/latest.json': []},
       siteConfigs: {site: config},
       customSidebarSectionsBySite: {site: ?customSections},
+      chatChannelsById: channelDetails,
+      chatMessagesByKey: {
+        for (final id in channelDetails.keys)
+          FakeDiscourseApi.chatMessagesKey(id): (
+            messages: const [],
+            canLoadMorePast: false,
+            canLoadMoreFuture: false,
+            targetMessageId: null,
+          ),
+      },
       chatChannelsBySite:
           channels ??
           {
@@ -98,11 +110,11 @@ Future<ShellController> pumpTabs(
         if (voiceAccess)
           'GET /voice/rooms.json': {
             'rooms': [
-              if (rooms)
+              for (var index = 0; rooms && index < roomCount; index++)
                 {
-                  'id': 7,
-                  'name': 'Watercooler',
-                  'slug': 'watercooler',
+                  'id': 7 + index,
+                  'name': index == 0 ? 'Watercooler' : 'Voice room $index',
+                  'slug': 'watercooler-$index',
                   'room_type': 'conference',
                   'active_participants': <Object>[],
                 },
