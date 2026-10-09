@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,6 +114,121 @@ void main() {
   }
 
   for (final dark in [false, true]) {
+    for (final (width, scale, direction) in [
+      (390.0, 1.0, TextDirection.ltr),
+      (1200.0, 1.0, TextDirection.ltr),
+      (390.0, 2.0, TextDirection.rtl),
+    ]) {
+      testWidgets(
+        'topic pointer states preserve mockup insets at $width/$scale/$dark',
+        (tester) async {
+          await tester.binding.setSurfaceSize(Size(width, 700));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          var selected = false;
+          var opened = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                platform: TargetPlatform.macOS,
+              ),
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Directionality(
+                  textDirection: direction,
+                  child: Scaffold(
+                    body: StatefulBuilder(
+                      builder: (context, setState) => KeyboardSelection.scope(
+                        selected: selected,
+                        child: TopicListRow(
+                          siteUrl: 'https://example.invalid',
+                          topic: const Topic(
+                            id: 1,
+                            title: 'A community conversation',
+                            slug: 'conversation',
+                            excerpt: 'Share what has worked for you.',
+                            lastPosterUsername: 'sam',
+                          ),
+                          onTap: () => setState(() {
+                            selected = true;
+                            opened++;
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          final card = find.byKey(const ValueKey('topic-card-1'));
+          BoxDecoration painted() =>
+              tester
+                      .renderObject<RenderDecoratedBox>(
+                        find
+                            .descendant(
+                              of: card,
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )
+                      .decoration
+                  as BoxDecoration;
+          final content = find.descendant(
+            of: card,
+            matching: find.byType(DItemContent),
+          );
+          final original = tester.getRect(card);
+          final originalContent = tester.getRect(content);
+          expect(original.left, 16);
+          expect(original.right, width - 16);
+          expect(originalContent.left, 16);
+          expect(originalContent.right, width - 16);
+          expect(originalContent.top - original.top, 12);
+          expect(original.bottom - originalContent.bottom, 12);
+          expect(painted().color, Colors.transparent);
+          expect(painted().borderRadius, BorderRadius.zero);
+          await tester.tapAt(Offset(14, original.center.dy));
+          await tester.tapAt(Offset(width - 14, original.center.dy));
+          expect(opened, 0);
+
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          addTearDown(mouse.removePointer);
+          await mouse.addPointer(location: Offset(width / 2, 600));
+          await mouse.moveTo(original.center);
+          await tester.pump();
+          expect(painted().color, Colors.transparent);
+          expect(tester.getRect(content), originalContent);
+          await mouse.down(original.center);
+          await tester.pump(const Duration(milliseconds: 150));
+          expect(painted().color, Colors.transparent);
+          expect(opened, 0);
+          await mouse.up();
+          await tester.pump();
+          expect(opened, 1);
+          expect(tester.getRect(card).left, 4);
+          expect(tester.getRect(card).right, width - 4);
+          expect(tester.getRect(content), originalContent);
+          expect(
+            painted().color,
+            DTokens.of(tester.element(card)).primary.withValues(alpha: .12),
+          );
+          expect(painted().borderRadius, BorderRadius.circular(10));
+          await mouse.moveTo(Offset(width / 2, 600));
+          await tester.pump();
+          expect(
+            painted().color,
+            DTokens.of(tester.element(card)).primary.withValues(alpha: .12),
+          );
+          await tester.tapAt(Offset(2, original.center.dy));
+          await tester.tapAt(Offset(width - 2, original.center.dy));
+          expect(opened, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('full-width topic states in ${dark ? 'dark' : 'light'}', (
       tester,
     ) async {

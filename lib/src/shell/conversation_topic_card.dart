@@ -131,7 +131,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             selected: selected,
             child: DItem(
               key: ValueKey('topic-card-${topic.id}'),
-              shape: DItemShape.standard,
+              shape: selected ? DItemShape.standard : DItemShape.fullWidth,
               padding:
                   row.contentPadding ??
                   EdgeInsets.symmetric(
@@ -141,6 +141,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
               link: true,
               onPressed: row.onTap,
               onHoverChanged: context.isTouch ? null : _hoverChanged,
+              highlightOnInteraction: false,
               selected: selected,
               selectionStyle: DItemSelectionStyle.filled,
               showSelectionIndicator: false,

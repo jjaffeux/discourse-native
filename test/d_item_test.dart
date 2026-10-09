@@ -581,6 +581,88 @@ void main() {
     }
   });
 
+  testWidgets(
+    'interaction highlight can be omitted without losing selection or focus',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(700, 500));
+
+      for (final brightness in Brightness.values) {
+        final events = <bool>[];
+        var presses = 0;
+        var selected = false;
+        final theme = ThemeData(brightness: brightness);
+        final tokens = DTokens.fromTheme(theme);
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) => DItem(
+                focusNode: focus,
+                highlightOnInteraction: false,
+                selected: selected,
+                selectionStyle: DItemSelectionStyle.filled,
+                showSelectionIndicator: false,
+                onHoverChanged: events.add,
+                onPressed: () => setState(() {
+                  selected = !selected;
+                  presses++;
+                }),
+                children: const [
+                  DItemContent(children: [DItemTitle(child: Text('Topic'))]),
+                ],
+              ),
+            ),
+            theme: theme,
+          ),
+        );
+        BoxDecoration painted() =>
+            tester
+                    .renderObject<RenderDecoratedBox>(
+                      find
+                          .descendant(
+                            of: find.byType(DItem),
+                            matching: find.byType(DecoratedBox),
+                          )
+                          .first,
+                    )
+                    .decoration
+                as BoxDecoration;
+        final bounds = tester.getRect(find.byType(DItem));
+        await mouse.moveTo(bounds.center);
+        await tester.pump();
+        expect(events, [true]);
+        expect(painted().color, Colors.transparent);
+        await mouse.down(bounds.center);
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(painted().color, Colors.transparent);
+        expect(presses, 0);
+        await mouse.up();
+        await tester.pump();
+        expect(presses, 1);
+        expect(painted().color, tokens.primary.withValues(alpha: .12));
+        expect(painted().border!.top.color, tokens.focusRing);
+        expect(tester.getRect(find.byType(DItem)), bounds);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+        expect(events, [true, false]);
+        expect(painted().color, tokens.primary.withValues(alpha: .12));
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(presses, 2);
+        expect(painted().color, Colors.transparent);
+        expect(painted().border!.top.color, tokens.focusRing);
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
   testWidgets('neutral rows keep hover subtle and selection borderless', (
     tester,
   ) async {

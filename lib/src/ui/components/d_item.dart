@@ -49,6 +49,7 @@ class DItem extends StatefulWidget {
     this.shape = DItemShape.standard,
     this.onPressed,
     this.onHoverChanged,
+    this.highlightOnInteraction = true,
     this.link = false,
     this.enabled = true,
     this.selected = false,
@@ -87,6 +88,12 @@ class DItem extends StatefulWidget {
   /// Pointer entry/exit for an enabled, actionable item. Does not report
   /// keyboard focus or removal; callers must release async work on disposal.
   final ValueChanged<bool>? onHoverChanged;
+
+  /// Whether hover and press paint an interaction background.
+  ///
+  /// When `false`, the resting surface, selected state, keyboard focus ring,
+  /// and [onHoverChanged] callbacks are retained.
+  final bool highlightOnInteraction;
 
   /// Uses link semantics. Navigation and external URL policy remain caller-owned.
   final bool link;
@@ -195,7 +202,7 @@ class _DItemState extends State<DItem> {
                   alpha: strongNeutralSelection ? .13 : .05,
                 )
               : tokens.primary.withValues(alpha: .12)
-        : _active && (_hover || _pressed)
+        : widget.highlightOnInteraction && _active && (_hover || _pressed)
         ? leadingSelection
               ? tokens.primary.withValues(alpha: _pressed ? .09 : .06)
               : outlineSelection

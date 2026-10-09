@@ -157,11 +157,14 @@ final itemExamples = ComponentExamples(
     StyleguideExample(
       title: 'Filled selection',
       description:
-          'Topic rows use a rounded accent fill without an outline or leading stripe.',
+          'Topic rows keep their resting surface on hover and press. Selection '
+          'uses a rounded accent fill; keyboard focus remains visible.',
       code:
-          "DItem(selectionStyle: DItemSelectionStyle.filled, selected: true, showSelectionIndicator: false, onPressed: openTopic, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
-      builder: (_) =>
-          const _SelectionExample(style: DItemSelectionStyle.filled),
+          "DItem(highlightOnInteraction: false, selectionStyle: DItemSelectionStyle.filled, selected: true, showSelectionIndicator: false, onPressed: openTopic, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
+      builder: (_) => const _SelectionExample(
+        style: DItemSelectionStyle.filled,
+        highlightOnInteraction: false,
+      ),
     ),
   ],
 );
@@ -298,11 +301,13 @@ class _SelectionExample extends StatefulWidget {
     required this.style,
     this.shape = DItemShape.standard,
     this.size = DItemSize.standard,
+    this.highlightOnInteraction = true,
   });
 
   final DItemSelectionStyle style;
   final DItemShape shape;
   final DItemSize size;
+  final bool highlightOnInteraction;
 
   @override
   State<_SelectionExample> createState() => _SelectionExampleState();
@@ -324,6 +329,7 @@ class _SelectionExampleState extends State<_SelectionExample> {
               : widget.shape,
           size: widget.size,
           selected: index == selected,
+          highlightOnInteraction: widget.highlightOnInteraction,
           selectionStyle: widget.style,
           showSelectionIndicator: false,
           onPressed: () => setState(() => selected = index),
