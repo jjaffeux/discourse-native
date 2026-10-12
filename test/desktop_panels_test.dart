@@ -801,9 +801,15 @@ void main() {
       expect(find.byKey(const ValueKey('new-topic-button')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('topic-list-filter')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Open topics'));
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('topic-filter-input')),
+          matching: find.byType(TextField),
+        ),
+        'status:open',
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Apply filter'));
+      await tester.tap(find.text('Apply'));
       await tester.pumpAndSettle();
 
       expect(shell.activeTabId, main);
