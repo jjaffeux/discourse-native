@@ -1706,7 +1706,7 @@ void main() {
     });
 
     testWidgets(
-      'escape still closes the composer while a poll pill is selected',
+      'escape still offers to close the composer while a poll pill is selected',
       (tester) async {
         final shell = await _openComposer();
         addTearDown(shell.dispose);
@@ -1746,7 +1746,36 @@ void main() {
         expect(composer.text.keyboardSelectedPoll, isNotNull);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pump();
+        await tester.pumpAndSettle();
+
+        final closeDialog = find.byKey(
+          const ValueKey('composer-discard-dialog'),
+        );
+        expect(closeDialog, findsOneWidget);
+        expect(shell.visibleComposer, same(composer));
+        expect(composer.text.keyboardSelectedPoll, isNotNull);
+        expect(composer.text.text, _source);
+        expect(
+          find.byKey(const ValueKey('composer-confirm-save')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+          findsOneWidget,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(closeDialog, findsNothing);
+        expect(shell.visibleComposer, same(composer));
+        expect(composer.text.keyboardSelectedPoll, isNotNull);
+        expect(composer.text.text, _source);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(closeDialog, findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('composer-confirm-save')));
+        await tester.pumpAndSettle();
 
         expect(shell.visibleComposer, isNull);
         expect(find.byType(ComposerPanel), findsNothing);
