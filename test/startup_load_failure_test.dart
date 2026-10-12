@@ -293,7 +293,22 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(shell.loadStatus, InstanceLoadStatus.ready);
-        expect(find.bySemanticsLabel('Saved site, forum menu'), findsOneWidget);
+        expect(find.text("Couldn't load your sites"), findsNothing);
+        expect(
+          find.byKey(const ValueKey('mobile-content-panel')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+
+        final savedSite = find.byKey(
+          const ValueKey('instance-rail-tooltip-https://saved.example'),
+        );
+        expect(savedSite, findsOneWidget);
+        expect(
+          tester.getSemantics(savedSite),
+          isSemantics(label: 'Saved site', isButton: true, isSelected: true),
+        );
         expect(store.saved, isEmpty);
       },
     );
