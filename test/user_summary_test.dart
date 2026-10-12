@@ -296,7 +296,17 @@ void main() {
                   .map(Uri.parse)
                   .where((uri) => uri.path.startsWith('/search'))
                   .map((uri) => (uri.path, uri.queryParameters['q'])),
-              [('/search.json', expected.join(' '))],
+              [
+                (
+                  '/search.json',
+                  [
+                    ...expected,
+                    // Author searches return every matching post unless the
+                    // opening-post filter explicitly narrows the request.
+                    if (!count.firstPosts) 'in:all-posts',
+                  ].join(' '),
+                ),
+              ],
             );
             expect(
               fixture.api.searchesRequested,
@@ -318,7 +328,7 @@ void main() {
         // The main panel is a list column beside the secondary one; the page
         // gets the window's width once the main panel has it to itself.
         await tester.tap(
-          find.byKey(const ValueKey('minimize-panel-secondary')),
+          find.byKey(const ValueKey('panel-split-view-secondary')),
         );
         await tester.pumpAndSettle();
         await _openSummaryFromMenu(tester);
