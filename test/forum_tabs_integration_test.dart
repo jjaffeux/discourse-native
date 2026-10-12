@@ -135,7 +135,7 @@ void main() {
       controller.selectTab(original.id);
       await tester.pumpAndSettle();
       await tester.tap(
-        find.text('flutter'),
+        find.text('#flutter'),
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );
@@ -309,9 +309,11 @@ void main() {
       expect(controller.tabsForCurrentForum, hasLength(2));
 
       unawaited(
-        showDialog<void>(
+        showDDialog<void>(
           context: tester.element(find.byType(MainContent).first),
-          builder: (_) => const AlertDialog(title: Text('Remove this forum?')),
+          builder: (_, _) => const DDialogContent(
+            children: [DDialogTitle(child: Text('Remove this forum?'))],
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -543,6 +545,20 @@ void main() {
             await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
             isTrue,
           );
+          await tester.pumpAndSettle();
+
+          // Closing a changed draft asks how to keep or discard it before
+          // removing the composer. The underlying tab stays open throughout.
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsOneWidget,
+          );
+          expect(find.byType(ComposerPanel), findsOneWidget);
+          expect(controller.tabsForCurrentForum.map((tab) => tab.id), tabIds);
+          expect(controller.activeTabId, activeTabId);
+          expect(controller.currentContent?.topicId, topic.id);
+          expect(binding.exitRequests, isEmpty);
+          await tester.tap(find.byKey(const ValueKey('composer-confirm-save')));
           await tester.pumpAndSettle();
 
           expect(find.byType(ComposerPanel), findsNothing);
@@ -994,12 +1010,14 @@ void main() {
                 find.byKey(ValueKey('desktop-panel-${target.name}')),
               );
               expect(headerRect.topLeft, panelRect.topLeft);
-              final minimize = tester.getRect(
-                find.byKey(ValueKey('minimize-panel-${target.name}')),
+              final splitToggle = find.byKey(
+                ValueKey('panel-split-view-${target.name}'),
               );
-              expect(minimize.size, const Size.square(30));
-              expect(panelRect.right - minimize.right, 10);
-              expect(minimize.center.dy, headerRect.center.dy);
+              expect(tester.widget<DToggle>(splitToggle).pressed, isTrue);
+              final toggleRect = tester.getRect(splitToggle);
+              expect(toggleRect.size, const Size.square(32));
+              expect(panelRect.right - toggleRect.right, 10);
+              expect(toggleRect.center.dy, headerRect.center.dy);
             }
           }
           if (size == _expanded) {
