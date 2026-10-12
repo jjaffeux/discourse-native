@@ -108,7 +108,10 @@ void main() {
       final initialPixels = position.pixels;
       final repeated = <int>[];
       final totals = <String, int>{};
-      for (final delta in [40.0, -40.0, 40.0, -40.0]) {
+      for (final delta in [160.0, -160.0, 160.0, -160.0]) {
+        // Wait out the endpoint hold, then cross the reversal slack and move
+        // the full header so every capture includes an actual transition.
+        await tester.pump(const Duration(milliseconds: 450));
         capture.start();
         position.pointerScroll(delta);
         await tester.pump(const Duration(milliseconds: 16));
@@ -125,7 +128,7 @@ void main() {
             if (!indices.add(index)) repeated.add(index);
           }
         }
-        expect(position.pixels, initialPixels + (delta > 0 ? 40 : 0));
+        expect(position.pixels, initialPixels + (delta > 0 ? 160 : 0));
         expect(
           position.viewportDimension,
           closeTo(initialHeight + (delta > 0 ? 104 : 0), 0.01),
