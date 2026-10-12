@@ -34,6 +34,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -1537,8 +1538,11 @@ void main() {
     });
 
     group('sidebar workflows', () {
-      testWidgets('pins the directory links beneath the inbox', (tester) async {
+      testWidgets('lists the directory destinations above the inbox', (
+        tester,
+      ) async {
         await shell.chat.loadChannels(_site);
+        expect(shell.openChatChannel(9), isTrue);
         late List<SidebarSection> sections;
         await tester.pumpWidget(
           ShellScope(
@@ -1548,14 +1552,13 @@ void main() {
               home: PluginUiScope.own(
                 chatPluginId,
                 Scaffold(
-                  body: Builder(
-                    builder: (context) {
-                      const plugin = ChatPlugin();
-                      sections = plugin.sidebarSections(context);
-                      return plugin.sidebarPanel(context)!.footerBuilder!(
-                        context,
-                      );
-                    },
+                  body: DSidebarProvider(
+                    child: Builder(
+                      builder: (context) {
+                        sections = const ChatPlugin().sidebarSections(context);
+                        return const InstanceSidebar();
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -1563,7 +1566,20 @@ void main() {
           ),
         );
 
-        final inbox = sections.single;
+        await tester.pumpAndSettle();
+        expect(sections.map((section) => section.id), [
+          'chat-directories',
+          'chat-inbox',
+        ]);
+        expect(
+          sections.first.destinations.map((destination) => destination.id),
+          [
+            ChatPlugin.inboxRouteId,
+            ChatPlugin.browseRouteId,
+            ChatPlugin.myThreadsRouteId,
+          ],
+        );
+        final inbox = sections.last;
         expect(inbox.id, 'chat-inbox');
         expect(inbox.showHeader, isFalse);
         expect(inbox.collapsible, isFalse);
@@ -1572,13 +1588,23 @@ void main() {
         // section's keyboard shortcut, not from a footer button.
         expect(inbox.actionLabel, 'Start a message');
         expect(inbox.onAction, isNotNull);
-        final footer = find.byKey(const ValueKey('chat-sidebar-footer'));
-        for (final key in ['chat-inbox-browse', 'chat-inbox-my-threads']) {
+        final filters = find.byKey(
+          const ValueKey('chat-inbox-activity-filter'),
+        );
+        expect(filters, findsOneWidget);
+        for (final routeId in [
+          ChatPlugin.inboxRouteId,
+          ChatPlugin.browseRouteId,
+          ChatPlugin.myThreadsRouteId,
+        ]) {
+          final destination = find.byKey(ValueKey(routeId));
+          expect(destination, findsOneWidget);
           expect(
-            find.descendant(of: footer, matching: find.byKey(ValueKey(key))),
-            findsOneWidget,
+            tester.getBottomLeft(destination).dy,
+            lessThanOrEqualTo(tester.getTopLeft(filters).dy),
           );
         }
+        expect(find.byKey(const ValueKey('chat-sidebar-footer')), findsNothing);
         expect(
           find.byKey(const ValueKey('chat-sidebar-start-message')),
           findsNothing,
@@ -1618,10 +1644,10 @@ void main() {
             final inbox = const ChatPlugin()
                 .sidebarSections(
                   tester.element(
-                    find.byKey(const ValueKey('chat-sidebar-footer')),
+                    find.byKey(const ValueKey('chat-inbox-activity-filter')),
                   ),
                 )
-                .single;
+                .singleWhere((section) => section.id == 'chat-inbox');
             expect(inbox.actionLabel, 'Start a message');
             final shortcut = inbox.actionShortcut!;
             expect(shortcut.trigger, LogicalKeyboardKey.keyK);
@@ -1644,7 +1670,7 @@ void main() {
         },
       );
 
-      testWidgets('show Browse threads, load channel rows, and open a thread', (
+      testWidgets('shows Threads, loads thread rows, and opens a thread', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1654,6 +1680,7 @@ void main() {
         );
         expect(shell.currentTotals?.hasChatEnabled, isTrue);
         expect(shell.chat.hasThreads(_site), isTrue);
+        expect(shell.openChatChannel(9), isTrue);
         await tester.pumpWidget(
           ShellScope(
             controller: shell,
@@ -1661,29 +1688,19 @@ void main() {
               theme: AppTheme.light,
               home: PluginUiScope.own(
                 chatPluginId,
-                Scaffold(
-                  body: Builder(
-                    builder: (context) => const ChatPlugin()
-                        .sidebarPanel(context)!
-                        .footerBuilder!(context),
-                  ),
+                const Scaffold(
+                  body: DSidebarProvider(child: InstanceSidebar()),
                 ),
               ),
             ),
           ),
         );
-        expect(
-          find.byKey(const ValueKey('chat-inbox-my-threads')),
-          findsOneWidget,
-        );
-
-        shell.selectDestination(
-          const SidebarDestination(
-            id: ChatPlugin.myThreadsRouteId,
-            label: 'My threads',
-            icon: DIcons.comments,
-          ),
-        );
+        await tester.pumpAndSettle();
+        final threads = find.byKey(const ValueKey(ChatPlugin.myThreadsRouteId));
+        expect(threads, findsOneWidget);
+        await tester.tap(threads);
+        await tester.pump();
+        expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
         await tester.pumpWidget(
           ShellScope(
             controller: shell,
@@ -1719,11 +1736,14 @@ void main() {
         await tester.pump();
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(shell.contentStack.map((route) => route.id), [
+          'chat-c-9',
           ChatPlugin.myThreadsRouteId,
           'chat-c-9-t-3',
         ]);
         expect(shell.handleBack(), isTrue);
         expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+        expect(shell.handleBack(), isTrue);
+        expect(shell.currentContent?.id, 'chat-c-9');
       });
 
       for (final nestedPreview in [false, true]) {
