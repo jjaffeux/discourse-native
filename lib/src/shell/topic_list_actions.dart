@@ -135,22 +135,26 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 12,
         children: [
-          TopicFilterInput(
-            siteUrl: widget.siteUrl,
-            initialQuery: _query,
-            options: _options ?? const [],
-            categories: ShellScope.read(
-              context,
-            ).filterCategoriesFor(widget.siteUrl),
-            hintText: context.l10n.addAFilter,
-            tokenized: true,
-            embedded: true,
-            onlyKey: widget.filterKey,
-            multiline: false,
-            padding: EdgeInsets.zero,
-            onChanged: (query) => setState(() => _query = query),
-            onSubmitted: _apply,
-            onDismiss: _popover.close,
+          Flexible(
+            child: DScrollArea(
+              child: TopicFilterInput(
+                siteUrl: widget.siteUrl,
+                initialQuery: widget.query,
+                options: _options ?? const [],
+                categories: ShellScope.read(
+                  context,
+                ).filterCategoriesFor(widget.siteUrl),
+                hintText: context.l10n.addAFilter,
+                tokenized: true,
+                embedded: true,
+                onlyKey: widget.filterKey,
+                multiline: false,
+                padding: EdgeInsets.zero,
+                onChanged: (query) => setState(() => _query = query),
+                onSubmitted: _apply,
+                onDismiss: _popover.close,
+              ),
+            ),
           ),
           const DSeparator(),
           Wrap(

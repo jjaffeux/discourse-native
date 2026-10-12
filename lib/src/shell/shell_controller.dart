@@ -140,6 +140,7 @@ import 'site_url.dart';
 import 'start_page_controller.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
+import 'topic_filter_controller.dart' show splitTopicFilterQuery;
 import 'topic_filter_scope.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
@@ -4357,8 +4358,9 @@ class ShellController extends FrameSafeNotifier
   String topicListFilterEditorQuery(ContentRoute route) => [
     route.topicFilterQuery,
     if (route.categoryId != null) 'category:${route.categoryId}',
-    for (final tag in _topicListFilterTagNames(currentInstance!.url, route))
-      'tag:${topicFilterScopeValue(tag)}',
+    if (_topicListFilterTagNames(currentInstance!.url, route) case final tags
+        when tags.isNotEmpty)
+      'tag:${topicFilterScopeValue(tags.join('+'))}',
   ].where((part) => part.isNotEmpty).join(' ');
 
   Future<void> applyTopicListFilterQuery(String query) async {
@@ -4368,19 +4370,45 @@ class ShellController extends FrameSafeNotifier
       query,
       filterCategoriesFor(instance.url),
     );
-    final route = scope.query.isEmpty
+    final tags = <String>[?scope.tag];
+    final remainder = <String>[];
+    for (final clause in splitTopicFilterQuery(scope.query)) {
+      final match = RegExp(r'^tags?:(.*)$').firstMatch(clause);
+      var value = match?.group(1) ?? '';
+      if (value.length > 1 &&
+          (value.startsWith('"') && value.endsWith('"') ||
+              value.startsWith("'") && value.endsWith("'"))) {
+        value = value.substring(1, value.length - 1);
+      }
+      final conjunction = value.split('+');
+      if (match != null &&
+          !value.contains(',') &&
+          conjunction.length > 1 &&
+          conjunction.every((tag) => tag.trim().isNotEmpty)) {
+        // Include-all tags are ordinary feed scope, so changing the feed
+        // retains them just as it retains a single category or tag.
+        tags.addAll(conjunction);
+      } else {
+        remainder.add(clause);
+      }
+    }
+    final source = topicListContent;
+    final route = remainder.isEmpty
         ? _topicListFilterRoute(
             siteUrl: instance.url,
             category: categoryFor(scope.categoryId),
-            tagName: scope.tag,
+            tagName: tags.firstOrNull,
+            tags: tags,
             mode:
                 TopicListMode.fromRoute(sidebarFilterRoute) ??
                 TopicListMode.latest,
+          ).withTopicListQueryFrom(
+            source?.isAdvancedTopicFilter == true ? null : source,
           )
         : ContentRoute.topicFilter(
-            scope.query,
+            remainder.join(' '),
             categoryId: scope.categoryId,
-            tags: [?scope.tag],
+            tags: tags,
           );
     _showMobileScopeList();
     _replaceTopicListContent(

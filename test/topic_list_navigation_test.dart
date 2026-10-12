@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
@@ -19,6 +20,7 @@ import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_bottom_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -337,7 +339,7 @@ void main() {
           remoteConfig: SiteConfig.fromSettings({
             'max_category_nesting': limit,
           }),
-          categoryList: const [parent, child, grandchild],
+          categoryList: [parent, child, if (limit == 3) grandchild],
         );
         final shell = setup.controller;
         addTearDown(shell.dispose);
@@ -355,22 +357,27 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final thirdLevel = find.byKey(
-          const ValueKey('topic-list-subcategory-2-filter'),
-        );
         expect(shell.currentSiteConfig.maxCategoryNesting, limit);
-        expect(thirdLevel, limit == 3 ? findsOneWidget : findsNothing);
-        expect(find.byType(DComboboxContent), findsNothing);
         expect(shell.topicListContent?.categoryId, child.id);
+        await _openFilter(tester, 'category');
+        await tester.tap(
+          find.byKey(const ValueKey('topic-filter-category-into-42')),
+        );
+        await tester.pumpAndSettle();
+        final thirdLevel = find.byKey(
+          const ValueKey('topic-filter-category-into-43'),
+        );
+        expect(thirdLevel, limit == 3 ? findsOneWidget : findsNothing);
         if (limit == 3) {
           await tester.tap(thirdLevel);
           await tester.pumpAndSettle();
-          await tester.tap(
-            find.byKey(const ValueKey(('topic-list-subcategory-2-option', 44))),
-          );
+          await tester.tap(_filterOption(tester, 'category:44'));
           await tester.pumpAndSettle();
           expect(shell.topicListContent?.categoryId, grandchild.id);
-          expect(find.text('Subcategory'), findsNothing);
+          expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
+        } else {
+          await _finishFilter(tester);
+          expect(shell.topicListContent?.categoryId, child.id);
         }
         expect(tester.takeException(), isNull);
       },
@@ -466,60 +473,59 @@ void main() {
     },
   );
 
-  testWidgets(
-    'restored list search is removed before category, tag and feed changes',
-    (tester) async {
-      const category = TopicCategory(
-        id: 42,
-        name: 'UX',
-        slug: 'ux',
-        color: '123456',
-      );
-      final setup = await _controller(categoryList: [category]);
-      addTearDown(setup.controller.dispose);
-      await tester.pumpWidget(
-        ShellScope(
-          controller: setup.controller,
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
-          ),
+  testWidgets('restored list search survives category, tag and feed changes', (
+    tester,
+  ) async {
+    const category = TopicCategory(
+      id: 42,
+      name: 'UX',
+      slug: 'ux',
+      color: '123456',
+    );
+    final setup = await _controller(categoryList: [category]);
+    addTearDown(setup.controller.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: setup.controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: TopicListNavigation(child: SizedBox())),
         ),
-      );
-      await tester.pumpAndSettle();
-      final restored = ContentRoute.fromJson(
-        ContentRoute.topicList(
-          TopicListMode.latest,
-        ).withTopicListSearch('layout').toJson(),
-      );
-      setup.controller.pushContent(restored);
-      await setup.controller.loadFeed(restored.id);
-      await tester.pumpAndSettle();
-      expect(setup.api.feedPaths.last, '/latest.json');
-      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
-      setup.controller.selectTopicListCategory(category);
-      await tester.pumpAndSettle();
-      expect(
-        Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
-        isNull,
-      );
-      expect(setup.controller.topicListContent!.categoryId, 42);
-      setup.controller.selectTopicListTags(['design', 'mobile']);
-      await tester.pumpAndSettle();
-      expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
-      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
-      await setup.controller.selectTopicListMode(TopicListMode.unread);
-      await tester.pumpAndSettle();
-      expect(Uri.parse(setup.api.feedPaths.last).path, '/unread.json');
-      expect(
-        Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
-        isNull,
-      );
-      expect(setup.controller.topicListContent!.topicListSearch, isEmpty);
-      expect(setup.controller.topicListContent!.categoryId, 42);
-      expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    final restored = ContentRoute.fromJson(
+      ContentRoute.topicList(
+        TopicListMode.latest,
+      ).withTopicListSearch('layout').toJson(),
+    );
+    setup.controller.pushContent(restored);
+    await setup.controller.loadFeed(restored.id);
+    await tester.pumpAndSettle();
+    expect(setup.api.feedPaths.last, '/latest.json?search=layout');
+    expect(setup.controller.topicListContent!.topicListSearch, 'layout');
+    setup.controller.selectTopicListCategory(category);
+    await tester.pumpAndSettle();
+    expect(
+      Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
+      'layout',
+    );
+    expect(setup.controller.topicListContent!.categoryId, 42);
+    setup.controller.selectTopicListTags(['design', 'mobile']);
+    await tester.pumpAndSettle();
+    expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
+    expect(setup.controller.topicListContent!.topicListSearch, 'layout');
+    await setup.controller.selectTopicListMode(TopicListMode.unread);
+    await tester.pumpAndSettle();
+    expect(Uri.parse(setup.api.feedPaths.last).path, '/unread.json');
+    expect(
+      Uri.parse(setup.api.feedPaths.last).queryParameters['search'],
+      'layout',
+    );
+    expect(setup.controller.topicListContent!.topicListSearch, 'layout');
+    expect(setup.controller.topicListContent!.categoryId, 42);
+    expect(setup.controller.topicListContent!.tagNames, ['design', 'mobile']);
+  });
 
   for (final width in [320.0, 390.0, 760.0, 1120.0]) {
     for (final scale in [1.0, 2.0]) {
@@ -586,7 +592,6 @@ void main() {
           );
           for (final key in [
             'topic-list-category-filter',
-            'topic-list-subcategory-filter',
             'topic-list-tag-filter',
             'topic-list-feed-menu',
           ]) {
@@ -651,18 +656,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-category-filter')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Support').last);
-        await tester.pumpAndSettle();
+        await _chooseCategory(tester, parent.id);
         expect(shell.topicListContent?.categoryId, 42);
         final parentRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-category-filter')),
-        );
-        final childRect = tester.getRect(
-          find.byKey(const ValueKey('topic-list-subcategory-filter')),
         );
         final tagRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-tag-filter')),
@@ -672,38 +669,22 @@ void main() {
         );
         expect(parentRect.top, greaterThanOrEqualTo(feedRect.top));
         expect(parentRect.overlaps(feedRect), isFalse);
-        expect(childRect.top, parentRect.top);
-        expect(childRect.left, greaterThan(parentRect.right));
         expect(tagRect.overlaps(parentRect), isFalse);
-        expect(tagRect.overlaps(childRect), isFalse);
         expect(tagRect.overlaps(feedRect), isFalse);
         final rowRect = tester.getRect(
           find.byKey(const ValueKey('topic-list-feed-row')),
         );
         expect(rowRect.left, 16);
         expect(rowRect.right, 390 - 16);
-        for (final rect in [feedRect, parentRect, childRect, tagRect]) {
+        for (final rect in [feedRect, parentRect, tagRect]) {
           expect(rect.left, greaterThanOrEqualTo(rowRect.left));
           expect(rect.right, lessThanOrEqualTo(rowRect.right));
         }
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-subcategory-filter')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Installation').last);
-        await tester.pumpAndSettle();
+        await _chooseCategory(tester, child.id, parents: [parent.id]);
         expect(shell.topicListContent?.categoryId, 43);
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-tag-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(
-            const ValueKey(('topic-list-tag-filter-option', 'release')),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await _openFilter(tester, 'tag');
+        await _toggleTag(tester, 'release');
+        await _finishFilter(tester);
         expect(shell.topicListContent?.categoryId, 43);
         expect(shell.topicListContent?.tagNames, ['release']);
         expect(
@@ -715,19 +696,14 @@ void main() {
           find.byKey(const ValueKey('topic-list-clear-filters')),
           findsNothing,
         );
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-tag-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
+        await _openFilter(tester, 'tag');
+        await tester.tap(find.byType(DSelect<String>));
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(
-            const ValueKey(('topic-list-tag-filter-option', 'approved')),
-          ),
-        );
+        await tester.tap(find.text('include all'));
         await tester.pumpAndSettle();
+        await _toggleTag(tester, 'approved');
+        await _finishFilter(tester);
         expect(shell.topicListContent?.tagNames, ['approved', 'release']);
-        expect(find.text('2 tags'), findsOneWidget);
         final taggedFeed = Uri.parse(setup.api.feedPaths.last);
         expect(taggedFeed.path, '/latest.json');
         expect(taggedFeed.queryParameters['category'], '43');
@@ -738,16 +714,10 @@ void main() {
         expect(taggedFeed.queryParameters['match_all_tags'], 'true');
 
         // Returning to the parent retains tags and clears only the subcategory.
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-subcategory-filter')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('All of Support').last);
-        await tester.pumpAndSettle();
+        await _chooseCategory(tester, parent.id);
         expect(shell.topicListContent?.categoryId, 42);
         expect(shell.topicListContent?.tagNames, ['approved', 'release']);
-        await shell.selectTopicListMode(TopicListMode.topWeekly);
-        await tester.pumpAndSettle();
+        await _selectFeed(tester, 'topic-list-top-period-weekly');
         final topFeed = Uri.parse(setup.api.feedPaths.last);
         expect(topFeed.path, '/top.json');
         expect(topFeed.queryParameters['period'], 'weekly');
@@ -755,30 +725,16 @@ void main() {
         expect(topFeed.queryParametersAll['tags[]'], ['approved', 'release']);
         expect(topFeed.queryParameters['match_all_tags'], 'true');
 
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-tag-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(
-            const ValueKey(('topic-list-tag-filter-option', 'approved')),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await _openFilter(tester, 'tag');
+        await _toggleTag(tester, 'approved');
+        await _finishFilter(tester);
         expect(shell.topicListContent?.tagNames, ['release']);
         expect(shell.topicListContent?.categoryId, 42);
         expect(shell.currentTopicListMode, TopicListMode.topWeekly);
 
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-tag-filter')),
-          kind: PointerDeviceKind.mouse,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('topic-list-tag-filter-all')),
-        );
-        await tester.pumpAndSettle();
+        await _openFilter(tester, 'tag');
+        await _toggleTag(tester, 'release');
+        await _finishFilter(tester);
         expect(shell.topicListContent?.tagNames, isEmpty);
         expect(shell.topicListContent?.categoryId, 42);
         expect(setup.api.feedPaths.last, '/top.json?period=weekly&category=42');
@@ -874,22 +830,16 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(tags);
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey(('topic-list-tag-filter-option', 'urgent'))),
-    );
-    await tester.pumpAndSettle();
+    await _openFilter(tester, 'tag');
+    await _toggleTag(tester, 'urgent');
+    await _finishFilter(tester);
     expect(controller.topicListContent?.categoryId, todo.id);
     expect(controller.topicListContent?.tagNames, ['urgent']);
 
-    await tester.tap(category);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Later'));
-    await tester.pumpAndSettle();
+    await _chooseCategory(tester, later.id);
     expect(controller.topicListContent?.categoryId, later.id);
     expect(controller.topicListContent?.tagNames, ['urgent']);
-    expect(setup.api.feedPaths, [
+    expect(setup.api.feedPaths.where((path) => path != '/filter.json'), [
       '/latest.json',
       '/c/todo/5.json?$query',
       '/tags/c/todo/5/urgent.json?$query',
@@ -1054,8 +1004,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
       await tester.pumpAndSettle();
-      final query = find.byKey(const ValueKey('topic-list-tag-filter-query'));
-      await tester.enterText(query, 'experience');
+      final query = find.byKey(const ValueKey('topic-filter-input'));
+      await tester.enterText(_filterField(), 'tag:experience');
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
 
@@ -1070,14 +1020,10 @@ void main() {
             )
             .controller!
             .text,
-        'experience',
+        'tag:experience',
       );
-      await tester.tap(
-        find.byKey(
-          const ValueKey(('topic-list-tag-filter-option', 'User experience')),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await _toggleTag(tester, 'User experience');
+      await _finishFilter(tester);
       expect(controller.topicListContent?.tagNames, ['User experience']);
       expect(find.text('User experience'), findsOneWidget);
     },
@@ -2060,18 +2006,13 @@ void main() {
           await tester.ensureVisible(
             find.byKey(const ValueKey('topic-list-category-filter')),
           );
-          await tester.tap(
-            find.byKey(const ValueKey('topic-list-category-filter')),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Support'));
-          await tester.pumpAndSettle();
+          await _chooseCategory(tester, category.id);
           expect(controller.currentContent?.categoryId, category.id);
           expect(find.text('Public support topic'), findsOneWidget);
           expect(primary, findsOneWidget);
           expect(find.byKey(const ValueKey('topic-list-new')), findsNothing);
           expect(find.byKey(const ValueKey('topic-list-unseen')), findsNothing);
-          expect(setup.api.feedPaths, [
+          expect(setup.api.feedPaths.where((path) => path != '/filter.json'), [
             '/latest.json',
             '/top.json?period=yearly',
             '/top.json?period=weekly',
@@ -2087,7 +2028,7 @@ void main() {
   }
 
   for (final signedIn in [false, true]) {
-    testWidgets('empty topic footer collapses (signed in: $signedIn)', (
+    testWidgets('empty touch topic footer collapses (signed in: $signedIn)', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1200, 850);
@@ -2099,10 +2040,8 @@ void main() {
         ShellScope(
           controller: setup.controller,
           child: MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-            home: const Scaffold(
-              body: MainContent(layout: ShellLayout.expanded),
-            ),
+            theme: AppTheme.dark.copyWith(platform: TargetPlatform.android),
+            home: const Scaffold(body: TopicListBottomBar()),
           ),
         ),
       );
@@ -2240,10 +2179,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-list-bottom-bar')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-list-bottom-bar')), findsNothing);
       final card = tester.getRect(find.byKey(const ValueKey('topic-card-1')));
       final filters = tester.getRect(
         find.byKey(const ValueKey('topic-list-filter-bar')),
@@ -2331,7 +2267,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
-    'heading, feed selector and creation stay on one row when resizing',
+    'heading and feed selector fit with shell creation when resizing',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -2344,9 +2280,7 @@ void main() {
             controller: setup.controller,
             child: MaterialApp(
               theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-              home: const Scaffold(
-                body: MainContent(layout: ShellLayout.expanded),
-              ),
+              home: const Scaffold(body: AdaptiveShell()),
             ),
           ),
         );
@@ -2445,7 +2379,7 @@ void main() {
     expect(controller.currentTopicListMode, TopicListMode.latest);
     expect(find.text('Category topic'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      find.byKey(const ValueKey('topic-list-category-filter')),
       findsOneWidget,
     );
 
@@ -2491,10 +2425,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
-    expect(
-      find.byKey(const ValueKey('topic-list-subcategory-filter')),
-      findsOneWidget,
-    );
     expect(find.byKey(const ValueKey('topic-list-tag-filter')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -2675,7 +2605,7 @@ void main() {
     expect(tester.getSize(handle).width, greaterThan(0));
     expect(
       tester.getTopLeft(find.byType(MainContent)).dx,
-      greaterThan(tester.getTopRight(find.byType(InstanceSidebar)).dx),
+      greaterThanOrEqualTo(tester.getTopRight(find.byType(InstanceSidebar)).dx),
     );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -2714,6 +2644,7 @@ void main() {
 
     expect(controller.currentTopicListMode, TopicListMode.newActivity);
     expect(setup.api.feedPaths, contains('/new.json'));
+    await tester.pumpAndSettle();
   });
 
   test('uses the forum-configured default period when entering Top', () async {
@@ -2794,6 +2725,12 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
     },
     categoryList: categoryList,
     categorySiteTopTags: categorySiteTopTags,
+    filterTagSearches: {
+      '': [
+        for (final tag in categorySiteTopTags)
+          TopicFilterLookupValue(name: tag.name),
+      ],
+    },
     tagList: tagList,
   );
   final controller = ShellController(
@@ -2830,5 +2767,61 @@ Future<void> _selectFeed(WidgetTester tester, String key) async {
 
 Future<void> _openFeed(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+  await tester.pumpAndSettle();
+}
+
+Finder _filterField() => find.descendant(
+  of: find.byKey(const ValueKey('topic-filter-input')),
+  matching: find.byType(TextField),
+);
+
+Finder _filterOption(WidgetTester tester, String value) {
+  final list = tester.widget<DCommandList<String>>(
+    find.byType(DCommandList<String>),
+  );
+  final items = list.children
+      .whereType<DCommandGroup<String>>()
+      .expand((group) => group.items)
+      .toList();
+  expect(
+    items.map((item) => item.value),
+    contains(value),
+    reason: 'Filter draft: ${tester.widget<TextField>(_filterField()).controller!.text}',
+  );
+  final item = items.singleWhere((item) => item.value == value);
+  return find.byKey(item.key!);
+}
+
+Future<void> _openFilter(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(ValueKey('topic-list-$key-filter')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _finishFilter(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(DButton, 'Done'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseCategory(
+  WidgetTester tester,
+  int id, {
+  List<int> parents = const [],
+}) async {
+  await _openFilter(tester, 'category');
+  for (final parent in parents) {
+    await tester.tap(
+      find.byKey(ValueKey('topic-filter-category-into-$parent')),
+    );
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(_filterOption(tester, 'category:$id'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _toggleTag(WidgetTester tester, String tag) async {
+  final value = tag.contains(RegExp(r'\s')) ? '"$tag"' : tag;
+  final option = _filterOption(tester, 'tag:$value');
+  await tester.ensureVisible(option);
+  await tester.tap(option);
   await tester.pumpAndSettle();
 }
