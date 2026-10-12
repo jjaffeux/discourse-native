@@ -30,6 +30,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
     required this.onChanged,
     required this.child,
     this.busy = false,
+    this.controlsKey,
   });
 
   final String title;
@@ -40,6 +41,9 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final Widget child;
   final bool busy;
+
+  /// Resets account-bound gestures without replacing the displayed feed.
+  final Key? controlsKey;
 
   static const double width = 400;
 
@@ -68,6 +72,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
               ),
               Flexible(
                 child: DButton(
+                  key: controlsKey,
                   label: Text(action, softWrap: true),
                   variant: DButtonVariant.ghost,
                   size: DButtonSize.small,
@@ -81,6 +86,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
           child: DToggleGroup<T>(
+            key: controlsKey,
             values: [value],
             onChanged: (values) => onChanged(values.single),
             allowEmptySelection: false,

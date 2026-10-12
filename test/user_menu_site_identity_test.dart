@@ -101,8 +101,7 @@ void main() {
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('user-menu-tab-invites')));
-        await tester.pumpAndSettle();
+        await _tapDesktopFilter(tester, 'invites');
         expect(find.text('meta-invite@example.com'), findsOneWidget);
         final shell = ShellScope.read(
           tester.element(find.byType(InviteSection)),
@@ -140,50 +139,51 @@ void main() {
 
   group('menu controls', () {
     testWidgets(
-      'expose labeled selected tabs with keyboard actions on pointer platforms',
+      'expose labeled toggle state with keyboard actions on pointer platforms',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
         final semantics = tester.ensureSemantics();
         try {
           await tester.tap(find.byKey(UserMenuButton.bellKey));
           await tester.pumpAndSettle();
 
-          final notifications = find.byKey(const ValueKey('user-menu-tab-all'));
-          final bookmarks = find.byKey(
-            const ValueKey('user-menu-tab-bookmarks'),
-          );
-          final replies = find.byKey(const ValueKey('user-menu-tab-replies'));
+          final notifications = _desktopFilter('all');
+          final bookmarks = _desktopFilter('bookmarks');
+          final replies = _desktopFilter('replies');
 
           for (final tab in [notifications, bookmarks, replies]) {
             expect(
               tester.getSize(tab).height,
-              greaterThanOrEqualTo(DControlStyle.largeHeight),
+              greaterThanOrEqualTo(
+                DToggle.visualDimensionFor(DToggleSize.small),
+              ),
             );
-            expect(tester.getSize(tab).width, greaterThan(100));
+            expect(tester.widget<DToggle>(tab).size, DToggleSize.small);
           }
           expect(
-            tester.getSemantics(notifications),
+            tester.getSemantics(_toggleSemantics(notifications)),
             isSemantics(
-              label: 'Notifications',
+              label: 'All',
               isButton: true,
-              hasSelectedState: true,
-              isSelected: true,
+              hasToggledState: true,
+              isToggled: true,
               hasTapAction: true,
             ),
           );
+          await _focusTab(tester, bookmarks);
+          expect(bookmarks.hitTestable(), findsOneWidget);
           expect(
-            tester.getSemantics(bookmarks),
+            tester.getSemantics(_toggleSemantics(bookmarks)),
             isSemantics(
               label: 'Bookmarks',
               isButton: true,
-              hasSelectedState: true,
-              isSelected: false,
+              hasToggledState: true,
+              isToggled: false,
               hasTapAction: true,
             ),
           );
 
-          await _focusTab(tester, bookmarks);
           expect(
-            tester.getSemantics(bookmarks),
+            tester.getSemantics(_toggleSemantics(bookmarks)),
             isSemantics(isFocusable: true, isFocused: true),
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -191,12 +191,14 @@ void main() {
 
           expect(find.byType(BookmarkSection), findsOneWidget);
           expect(
-            tester.getSemantics(bookmarks),
-            isSemantics(hasSelectedState: true, isSelected: true),
+            tester.getSemantics(_toggleSemantics(bookmarks)),
+            isSemantics(hasToggledState: true, isToggled: true),
           );
+          await tester.ensureVisible(notifications);
+          await tester.pumpAndSettle();
           expect(
-            tester.getSemantics(notifications),
-            isSemantics(hasSelectedState: true, isSelected: false),
+            tester.getSemantics(_toggleSemantics(notifications)),
+            isSemantics(hasToggledState: true, isToggled: false),
           );
 
           await _focusTab(tester, replies);
@@ -205,8 +207,8 @@ void main() {
 
           expect(find.byType(RepliesSection), findsOneWidget);
           expect(
-            tester.getSemantics(replies),
-            isSemantics(hasSelectedState: true, isSelected: true),
+            tester.getSemantics(_toggleSemantics(replies)),
+            isSemantics(hasToggledState: true, isToggled: true),
           );
         } finally {
           semantics.dispose();
@@ -404,6 +406,47 @@ void main() {
 
   group('site-scoped menu content', () {
     testWidgets(
+      'held desktop controls do not activate for the next selected site',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(
+          tester.element(find.byType(UserMenuPanel)),
+        );
+        final markAllRead = find.widgetWithText(DButton, 'Mark all read');
+        final heldAction = await tester.startGesture(
+          tester.getCenter(markAllRead),
+        );
+
+        shell.selectInstance(1);
+        await tester.pumpAndSettle();
+        await heldAction.up();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(UserMenuPanel), findsOneWidget);
+        expect(find.textContaining('Team Helper'), findsOneWidget);
+        expect(fixture.api.markedTypesRead, isEmpty);
+
+        final replies = _desktopFilter('replies');
+        await tester.ensureVisible(replies);
+        await tester.pumpAndSettle();
+        final heldFilter = await tester.startGesture(tester.getCenter(replies));
+
+        shell.selectInstance(0);
+        await tester.pumpAndSettle();
+        await heldFilter.up();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(NotificationSection), findsOneWidget);
+        expect(find.textContaining('Meta Helper'), findsOneWidget);
+        expect(fixture.api.replySites, isEmpty);
+        await tester.tap(markAllRead);
+        await tester.pumpAndSettle();
+        expect(fixture.api.markedTypesRead, hasLength(1));
+      }),
+    );
+
+    testWidgets(
       'reloads each selected activity section when an open popover changes sites',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         final api = fixture.api;
@@ -424,8 +467,7 @@ void main() {
         expect(api.notificationSites, [_metaUrl, _teamUrl]);
         expect(find.textContaining('Team Helper'), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('user-menu-tab-replies')));
-        await tester.pumpAndSettle();
+        await _tapDesktopFilter(tester, 'replies');
         expect(api.replySites, [_teamUrl]);
         expect(find.textContaining('Team reply'), findsOneWidget);
 
@@ -435,8 +477,7 @@ void main() {
         expect(api.replySites, [_teamUrl, _metaUrl]);
         expect(find.textContaining('Meta reply'), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('user-menu-tab-bookmarks')));
-        await tester.pumpAndSettle();
+        await _tapDesktopFilter(tester, 'bookmarks');
         expect(api.bookmarkSites, [_metaUrl]);
         expect(
           find.descendant(
@@ -688,15 +729,31 @@ bool _focusWithin(Finder finder) {
 }
 
 Future<void> _focusTab(WidgetTester tester, Finder tab) async {
-  final control = tester.widget<FocusableActionDetector>(
-    find
-        .descendant(of: tab, matching: find.byType(FocusableActionDetector))
-        .first,
-  );
-  final focus = control.focusNode!;
+  final focus = tester.widget<DToggle>(tab).focusNode!;
   focus.requestFocus();
   await tester.pumpAndSettle();
   expect(focus.hasPrimaryFocus, isTrue);
+}
+
+Finder _desktopFilter(String id) => find.ancestor(
+  of: find.byKey(ValueKey('user-menu-tab-$id')),
+  matching: find.byType(DToggle),
+);
+
+Finder _toggleSemantics(Finder filter) => find.descendant(
+  of: filter,
+  matching: find.byWidgetPredicate(
+    (widget) => widget is Semantics && widget.properties.toggled != null,
+  ),
+);
+
+Future<void> _tapDesktopFilter(WidgetTester tester, String id) async {
+  final filter = _desktopFilter(id);
+  await tester.ensureVisible(filter);
+  await tester.pumpAndSettle();
+  expect(filter.hitTestable(), findsOneWidget);
+  await tester.tap(filter);
+  await tester.pumpAndSettle();
 }
 
 typedef _MenuFixture = ({FakeAuthenticator auth, _SiteMenuApi api});

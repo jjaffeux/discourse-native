@@ -385,6 +385,13 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
               .toList();
           if (!context.isTouch && widget.view == UserMenuView.notifications) {
             return DesktopHeaderMenu<String>(
+              controlsKey: ValueKey((
+                controller,
+                siteUrl,
+                siteUrl == null
+                    ? null
+                    : controller.lifecycle.capture(siteUrl).session,
+              )),
               title: context.l10n.notifications,
               action: context.l10n.markAllRead,
               busy: _markingRead,

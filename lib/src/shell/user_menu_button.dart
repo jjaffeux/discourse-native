@@ -269,13 +269,7 @@ class _AccountMenuPopover extends StatelessWidget {
       );
     }
     if (!context.isTouch) {
-      final shell = ShellScope.read(context);
-      final siteUrl = shell.currentInstance?.url;
       return DDropdownMenu(
-        key: ValueKey((
-          siteUrl,
-          siteUrl == null ? null : shell.lifecycle.capture(siteUrl).session,
-        )),
         controller: controller,
         content: DDropdownMenuContent(
           semanticLabel: tooltip,
