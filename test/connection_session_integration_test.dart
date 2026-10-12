@@ -1123,7 +1123,7 @@ void _registerConnectionSessionTests() {
           ),
         );
         expect(chatTab, findsOneWidget);
-        await tester.tap(chatTab);
+        await _tapMenuTab(tester, chatTab);
         await tester.pumpAndSettle();
 
         expect(
@@ -1362,11 +1362,14 @@ void _registerConnectionSessionTests() {
         );
         await openMenu(tester);
 
-        await tester.tap(find.byKey(const ValueKey('user-menu-tab-messages')));
+        await _tapMenuTab(
+          tester,
+          find.byKey(const ValueKey('user-menu-tab-messages')),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(UserMenuPanel), findsNothing);
-        expect(find.text('A private message'), findsOneWidget);
+        expect(topicListTitle('A private message'), findsOneWidget);
         expect(
           api.feedPaths,
           contains('/topics/private-messages/joffreyj.json'),
@@ -1593,11 +1596,8 @@ void _registerConnectionSessionTests() {
         expect(shell.contentStack.last.title, 'Activity');
 
         final row = find.byKey(const ValueKey('user-activity-row-7/4'));
-        final target = find.byKey(
-          const ValueKey('user-activity-row-target-7/4'),
-        );
         expect(row, findsOneWidget);
-        expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
         final semantics = tester.ensureSemantics();
         try {
           final node = tester.getSemantics(row);
@@ -1609,14 +1609,15 @@ void _registerConnectionSessionTests() {
           expect(data.flagsCollection.isButton, isTrue);
           expect(data.hasAction(SemanticsAction.tap), isTrue);
 
-          final inkWell = find.descendant(
-            of: row,
-            matching: find.byType(InkWell),
-          );
-          final focusChild = find
-              .descendant(of: inkWell, matching: find.byType(MouseRegion))
+          final focusTarget = find
+              .descendant(
+                of: row,
+                matching: find.byType(FocusableActionDetector),
+              )
               .first;
-          final focus = Focus.of(tester.element(focusChild));
+          final focus = tester
+              .widget<FocusableActionDetector>(focusTarget)
+              .focusNode!;
           focus.requestFocus();
           await tester.pumpAndSettle();
           expect(focus.hasPrimaryFocus, isTrue);
