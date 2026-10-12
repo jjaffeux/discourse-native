@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -611,7 +612,7 @@ void main() {
     testWidgets(
       'a message sent from ${group ? 'the group inbox' : 'Sent'} joins it',
       (tester) async {
-        final setup = await _pumpInbox(tester);
+        final setup = await _pumpInbox(tester, desktopTitleBar: true);
         final shell = setup.controller;
         final api = setup.api;
         if (group) {
@@ -686,57 +687,58 @@ void main() {
     },
   );
 
-  testWidgets('message reader keeps its list, footer and collapse control', (
-    tester,
-  ) async {
-    final setup = await _pumpInbox(tester, inboxCount: 20);
-    final shell = setup.controller;
-    final list = find.byType(TopicListView);
-    final listElement = tester.element(list);
-    final scroll = tester
-        .widget<Scrollable>(
-          find.descendant(of: list, matching: find.byType(Scrollable)),
-        )
-        .controller!;
-    scroll.jumpTo(350);
-    await tester.pumpAndSettle();
-    final row = find.byKey(const ValueKey('topic-card-14'));
-    await tester.ensureVisible(row);
-    await tester.tap(row);
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.topicId, 14);
-    expect(shell.topicListContent, ContentRoute.messages());
-    expect(shell.currentFeedId, 'messages');
-    expect(tester.element(list), same(listElement));
-    expect(tester.widget<DItem>(row).selected, isTrue);
-    final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
-    final readerPane = find.byKey(const ValueKey('inbox-topic-reader-pane'));
-    expect(tester.getRect(listPane).right, tester.getRect(readerPane).left);
-    final listFooter = find.byKey(const ValueKey('topic-list-bottom-bar'));
-    final readerFooter = find.byKey(const ValueKey('topic-bottom-bar'));
-    expect(
-      tester.getRect(listFooter).bottom,
-      tester.getRect(readerFooter).bottom,
-    );
-    expect(
-      find.descendant(of: listFooter, matching: find.text('New message')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('topic-reply-button')), findsOneWidget);
-    // Bookmarking lives in the reader header; the footer keeps replying.
-    expect(
-      find.byKey(const ValueKey('topic-header-bookmark-button')),
-      findsOneWidget,
-    );
-    await tester.tap(find.byTooltip('Collapse message'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TopicView), findsNothing);
-    expect(tester.element(list), same(listElement));
-    expect(scroll.offset, greaterThan(0));
-    expect(row.hitTestable(), findsOneWidget);
-    expect(shell.currentContent, ContentRoute.messages());
-    expect(tester.takeException(), isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  testWidgets(
+    'message reader keeps its list, title-bar actions and collapse control',
+    (tester) async {
+      final setup = await _pumpInbox(
+        tester,
+        inboxCount: 20,
+        desktopTitleBar: true,
+      );
+      final shell = setup.controller;
+      final list = find.byType(TopicListView);
+      final listElement = tester.element(list);
+      final scroll = tester
+          .widget<Scrollable>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .controller!;
+      scroll.jumpTo(350);
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('topic-card-14'));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 14);
+      expect(shell.topicListContent, ContentRoute.messages());
+      expect(shell.currentFeedId, 'messages');
+      expect(tester.element(list), same(listElement));
+      expect(tester.widget<DItem>(row).selected, isTrue);
+      final listPane = find.byKey(const ValueKey('inbox-topic-list-pane'));
+      final readerPane = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+      expect(tester.getRect(listPane).right, tester.getRect(readerPane).left);
+      expect(find.byKey(const ValueKey('topic-list-bottom-bar')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-bottom-bar')), findsNothing);
+      expect(find.byKey(const ValueKey('title-bar-reply')), findsOneWidget);
+      expect(find.byKey(const ValueKey('new-message-button')), findsNothing);
+      // Bookmarking lives in the reader header; replying lives in the title bar.
+      expect(
+        find.byKey(const ValueKey('topic-header-bookmark-button')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Collapse message'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicView), findsNothing);
+      expect(tester.element(list), same(listElement));
+      expect(scroll.offset, greaterThan(0));
+      expect(row.hitTestable(), findsOneWidget);
+      expect(shell.currentContent, ContentRoute.messages());
+      expect(find.byKey(const ValueKey('title-bar-reply')), findsNothing);
+      expect(find.byKey(const ValueKey('new-message-button')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('reader tabs retain the message list and its scroll position', (
     tester,
@@ -812,54 +814,83 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets(
-    'message arrows and gj/gk navigate the source feed and paginate',
-    (tester) async {
-      final setup = await _pumpInbox(tester, inboxCount: 2, paginate: true);
-      final shell = setup.controller;
-      await tester.tap(find.byKey(const ValueKey('topic-card-1')));
-      await tester.pumpAndSettle();
-      final previous = find.byKey(const ValueKey('inbox-previous-topic'));
-      final next = find.byKey(const ValueKey('inbox-next-topic'));
-      expect(tester.widget<DButton>(previous).onPressed, isNull);
-      await tester.tap(next);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 10);
-      await tester.tap(previous);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 1);
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pump();
-      for (final id in [10, 100]) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform == TargetPlatform.macOS ? 'message gj/gk shortcuts' : 'message arrows'} navigate the source feed and paginate',
+      (tester) async {
+        final desktop = platform == TargetPlatform.macOS;
+        final setup = await _pumpInbox(
+          tester,
+          inboxCount: 2,
+          paginate: true,
+          desktopTitleBar: desktop,
+        );
+        final shell = setup.controller;
+        await tester.tap(find.byKey(const ValueKey('topic-card-1')));
         await tester.pumpAndSettle();
-        expect(shell.currentContent?.topicId, id);
-        expect(shell.contentStack, hasLength(2));
-      }
-      expect(setup.api.feedPaths, contains('$_inbox?page=1'));
-      expect(tester.widget<DButton>(next).onPressed, isNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 10);
+        final previous = find.byKey(const ValueKey('inbox-previous-topic'));
+        final next = find.byKey(const ValueKey('inbox-next-topic'));
+        if (desktop) {
+          expect(previous, findsNothing);
+          expect(next, findsNothing);
+        } else {
+          expect(tester.widget<DButton>(previous).onPressed, isNull);
+          await tester.tap(next);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.topicId, 10);
+          await tester.tap(previous);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.topicId, 1);
+        }
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        for (final id in [10, 100]) {
+          if (desktop) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+          } else {
+            await tester.tap(next);
+          }
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.topicId, id);
+          expect(shell.contentStack, hasLength(2));
+        }
+        expect(setup.api.feedPaths, contains('$_inbox?page=1'));
+        if (desktop) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+        } else {
+          expect(tester.widget<DButton>(next).onPressed, isNull);
+          await tester.tap(previous);
+        }
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 10);
 
-      // Recipients are chosen inside the composer, which this MainContent
-      // harness does not host; the composer keeps the source feed.
-      await tester.tap(find.byKey(const ValueKey('new-message-button')));
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 10);
-      expect(shell.visibleComposer?.target.targetRecipients, '');
-      expect(shell.visibleComposer?.target.originFeedId, 'messages');
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+        // Recipients are chosen inside the composer, which this MainContent
+        // harness does not host; the composer keeps the source feed.
+        if (desktop) {
+          await tester.tap(find.byTooltip('Collapse message'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byKey(const ValueKey('new-message-button')));
+        await tester.pumpAndSettle();
+        if (desktop) {
+          expect(shell.currentContent, ContentRoute.messages());
+        } else {
+          expect(shell.currentContent?.topicId, 10);
+        }
+        expect(shell.visibleComposer?.target.targetRecipients, '');
+        expect(shell.visibleComposer?.target.originFeedId, 'messages');
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
 
   testWidgets(
     'folders and group inboxes retain the reader and compose context',
     (tester) async {
-      final setup = await _pumpInbox(tester);
+      final setup = await _pumpInbox(tester, desktopTitleBar: true);
       final shell = setup.controller;
       await tester.tap(find.byKey(const ValueKey('topic-card-1')));
       await tester.pumpAndSettle();
@@ -882,6 +913,9 @@ void main() {
       expect(shell.activeTab?.rootDestinationId, 'messages');
       expect(tester.element(find.byType(TopicView)), same(reader));
       expect(find.byKey(const ValueKey('message-list-sent')), findsNothing);
+      await tester.tap(find.byTooltip('Collapse message'));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent, ContentRoute.messages(groupName: 'team'));
       await tester.tap(find.byKey(const ValueKey('new-message-button')));
       await tester.pumpAndSettle();
       expect(shell.visibleComposer?.target.targetRecipients, 'team');
@@ -940,6 +974,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
   int inboxCount = 1,
   bool paginate = false,
   bool desktopTopicTabs = false,
+  bool desktopTitleBar = false,
   bool mobileNavigation = false,
   DiscourseUser user = const DiscourseUser(
     id: 1,
@@ -1059,15 +1094,23 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
       child: MaterialApp(
         theme: AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: DToaster(
           child: Scaffold(
-            body: MainContent(
-              layout: width < 600 ? ShellLayout.compact : ShellLayout.expanded,
+            body: Column(
+              children: [
+                if (desktopTitleBar) const ShellTitleBar(),
+                Expanded(
+                  child: MainContent(
+                    layout: width < 600
+                        ? ShellLayout.compact
+                        : ShellLayout.expanded,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
