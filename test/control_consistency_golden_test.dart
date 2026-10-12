@@ -92,12 +92,9 @@ void main() {
         find.byKey(const ValueKey('controls')),
         matchesGoldenFile('goldens/controls-${palette.name}-hover.png'),
       );
-      await mouse.moveTo(
-        tester.getCenter(find.byType(DDropdownMenuTrigger)),
-      );
-      await mouse.down(
-        tester.getCenter(find.byType(DDropdownMenuTrigger)),
-      );
+      final categoryTrigger = find.widgetWithText(DDropdownMenuTrigger, 'Bugs');
+      await mouse.moveTo(tester.getCenter(categoryTrigger));
+      await mouse.down(tester.getCenter(categoryTrigger));
       await mouse.up();
       await mouse.removePointer();
       await tester.pumpAndSettle();
