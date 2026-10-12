@@ -181,7 +181,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel(RegExp('٣٠ أغسطس ٢٠٢٦')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp('١ أكتوبر ٢٠٢٦')), findsOneWidget);
+    expect(find.bySemanticsLabel('الأحد، 30 أغسطس 2026'), findsOneWidget);
+    expect(find.bySemanticsLabel('الخميس، 1 أكتوبر 2026'), findsOneWidget);
   });
 }
