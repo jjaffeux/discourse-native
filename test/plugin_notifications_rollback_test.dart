@@ -41,6 +41,7 @@ void main() {
           user: _user,
           totals: chatNotificationTotals(chatNotifications: 1),
           feeds: const {'/latest.json': []},
+          notificationList: const [],
           chatNotificationList: const [
             DiscourseNotification.test(
               id: 31,
@@ -69,14 +70,21 @@ void main() {
         );
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
-        final menu = find.byType(UserMenuPanel).evaluate().isNotEmpty
-            ? find.byType(UserMenuPanel)
-            : find.byKey(const ValueKey('user-menu-sheet'));
-        final tab = find.descendant(of: menu, matching: find.text('Chat')).last;
-        await tester.ensureVisible(tab);
-        await tester.pumpAndSettle();
-        await tester.tap(tab);
-        await tester.pumpAndSettle();
+        Future<void> selectChat() async {
+          final menu = find.byType(UserMenuPanel).evaluate().isNotEmpty
+              ? find.byType(UserMenuPanel)
+              : find.byKey(const ValueKey('user-menu-sheet'));
+          final tab = find
+              .descendant(of: menu, matching: find.text('Chat'))
+              .last;
+          await tester.ensureVisible(tab);
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.tap(tab);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+
+        await selectChat();
 
         final section = find.byType(PluginNotificationsSection);
         final state = tester.state(section);
@@ -94,8 +102,8 @@ void main() {
         expect(api.chatNotificationCalls, 1);
         expect(loaded(), isTrue);
 
-        // The account coordinator restores the account and visible menu before
-        // the next frame when persisting the signed-out snapshot fails.
+        // The account coordinator restores the account before the next frame
+        // when persisting the signed-out snapshot fails.
         store.failSignedOut = operation != _Operation.cancelledReconnect;
         if (operation == _Operation.failedDisconnect) {
           expect(
@@ -112,7 +120,23 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
-        expect(tester.state(section), same(state));
+        if (defaultTargetPlatform == TargetPlatform.macOS &&
+            operation != _Operation.cancelledReconnect) {
+          // Desktop menus retire with their account session. Reopening Chat
+          // must load notifications for the restored account.
+          expect(section, findsNothing);
+          expect(state.mounted, isFalse);
+          expect(loaded(), isFalse);
+          expect(api.chatNotificationCalls, 1);
+          await tester.tap(find.byKey(UserMenuButton.bellKey));
+          // Other restored shell content can still animate while Chat loads.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          await selectChat();
+          expect(tester.state(section), isNot(same(state)));
+        } else {
+          expect(tester.state(section), same(state));
+        }
         expect(
           api.chatNotificationCalls,
           operation == _Operation.cancelledReconnect ? 1 : 2,
