@@ -1316,30 +1316,42 @@ void main() {
               tester.getTopLeft(find.byKey(const ValueKey(100))).dy,
               closeTo(topicReadingViewportRect(tester).top, 1),
             );
+            // Header motion follows scroll distance and consumes reversal
+            // slack. Exercise a complete transition in both directions.
+            final motionDistance =
+                header.naturalExtent + const DHeaderTuning().slack;
             for (final nearEnd in [false, true]) {
+              // Measure the rows traversed by the wheel scroll before pinning
+              // the extent, so lazy estimates do not affect this animation test.
               scroll.jumpTo(
-                nearEnd ? scroll.position.maxScrollExtent - 16 : 400,
+                nearEnd
+                    ? scroll.position.maxScrollExtent - 16
+                    : 400 + motionDistance,
               );
               await tester.pumpAndSettle();
-              if (nearEnd) {
-                // The lazy list now has measured the terminal posts.
-                scroll.jumpTo(scroll.position.maxScrollExtent - 16);
-                await tester.pumpAndSettle();
-              }
+              scroll.jumpTo(
+                nearEnd
+                    ? scroll.position.maxScrollExtent - motionDistance - 16
+                    : 400,
+              );
+              await tester.pumpAndSettle();
               final rect = tester.getRect(viewport);
               final position = scroll.position;
               final maxExtent = position.maxScrollExtent;
+              final readingRect = topicReadingViewportRect(tester);
               final anchor =
                   [
                     for (var id = 100; id < 130; id++) find.byKey(ValueKey(id)),
                   ].firstWhere(
                     (post) =>
                         post.evaluate().isNotEmpty &&
-                        tester
-                            .getRect(post)
-                            .overlaps(topicReadingViewportRect(tester)),
+                        tester.getRect(post).top >=
+                            readingRect.top + motionDistance &&
+                        tester.getRect(post).overlaps(readingRect),
                   );
-              for (final delta in [8.0, -8.0]) {
+              for (final delta in [motionDistance, -motionDistance]) {
+                // A completed transition holds for 400ms before reversing.
+                await tester.pump(const Duration(milliseconds: 450));
                 final before = tester.getTopLeft(anchor).dy;
                 final offset = scroll.offset;
                 await tester.sendEventToBinding(
@@ -1349,13 +1361,14 @@ void main() {
                   ),
                 );
                 await tester.pump();
-                for (var frame = 0; frame < 10; frame++) {
+                for (var frame = 0; frame < 30; frame++) {
                   await tester.pump(const Duration(milliseconds: 16));
                   expect(tester.getRect(viewport), rect);
                   expect(scroll.position, same(position));
                   expect(
                     scroll.position.maxScrollExtent,
                     closeTo(maxExtent, .01),
+                    reason: 'nearEnd=$nearEnd, delta=$delta, frame=$frame',
                   );
                   expect(scroll.offset, closeTo(offset + delta, .01));
                   expect(
@@ -2975,82 +2988,98 @@ void main() {
         expect(controller.store.read<Post>(site.url, 300)?.postNumber, 12);
       });
 
-      testWidgets('large progress counts fit beside narrow Inbox actions', (
-        tester,
-      ) async {
-        tester.view.physicalSize = const Size(320, 700);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final site = instance('meta.example');
-        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-        final controller = _controller(site, api);
-        addTearDown(controller.dispose);
-        await controller.load();
-        controller.store
-          ..put(
-            site.url,
-            TopicDetail(
-              id: 1,
+      testWidgets(
+        'large progress counts fit in a narrow Inbox reader',
+        (tester) async {
+          tester.view.physicalSize = const Size(320, 700);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final site = instance('meta.example');
+          final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+          final controller = _controller(site, api);
+          addTearDown(controller.dispose);
+          await controller.load();
+          controller.store
+            ..put(
+              site.url,
+              TopicDetail(
+                id: 1,
+                title: 'Long topic',
+                stream: [for (var id = 1; id <= 5188; id++) id],
+                postsCount: 5188,
+              ),
+            )
+            ..putAll(site.url, [
+              for (var id = 5149; id <= 5188; id++)
+                Post(
+                  id: id,
+                  postNumber: id,
+                  username: 'sam',
+                  cooked: '<p>Post $id</p>',
+                ),
+            ]);
+          controller.pushContent(
+            ContentRoute.topic(
+              topicId: 1,
+              slug: 'long-topic',
               title: 'Long topic',
-              stream: [for (var id = 1; id <= 5188; id++) id],
-              postsCount: 5188,
+              postNumber: 5188,
             ),
-          )
-          ..putAll(site.url, [
-            for (var id = 5149; id <= 5188; id++)
-              Post(
-                id: id,
-                postNumber: id,
-                username: 'sam',
-                cooked: '<p>Post $id</p>',
-              ),
-          ]);
-        controller.pushContent(
-          ContentRoute.topic(
-            topicId: 1,
-            slug: 'long-topic',
-            title: 'Long topic',
-            postNumber: 5188,
-          ),
-        );
-        await tester.pumpWidget(
-          ShellScope(
-            controller: controller,
-            child: MaterialApp(
-              theme: AppTheme.dark,
-              home: const Scaffold(
-                body: TopicView(inbox: true, canReply: true, isConnected: true),
+          );
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: const Scaffold(
+                  body: TopicView(
+                    inbox: true,
+                    canReply: true,
+                    isConnected: true,
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final progress = find.byKey(const ValueKey('topic-progress-button'));
-        final footer = tester.getRect(
-          find.byKey(const ValueKey('topic-bottom-bar')),
-        );
-        final reply = tester.getRect(
-          find.byKey(const ValueKey('topic-reply-button')),
-        );
-        final progressBounds = tester.getRect(progress);
-        expect(progressBounds.center.dy, closeTo(reply.center.dy, .01));
-        expect(find.text('5188 / 5188'), findsOneWidget);
-        expect(footer.right - progressBounds.right, closeTo(8, .01));
-        expect(progressBounds.left, greaterThan(reply.right));
-        expect(tester.takeException(), isNull);
-        await tester.tap(progress);
-        await tester.pumpAndSettle();
-        expect(find.text('Post 5188 of 5188'), findsOneWidget);
-        expect(
-          tester
-              .widget<DSlider>(
-                find.byKey(const ValueKey('topic-progress-slider')),
-              )
-              .max,
-          5188,
-        );
-        expect(tester.takeException(), isNull);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+          );
+          await tester.pumpAndSettle();
+          final progress = find.byKey(const ValueKey('topic-progress-button'));
+          final footer = find.byKey(const ValueKey('topic-bottom-bar'));
+          final progressBounds = tester.getRect(progress);
+          expect(find.text('5188 / 5188'), findsOneWidget);
+          if (defaultTargetPlatform == TargetPlatform.macOS) {
+            expect(footer, findsNothing);
+            final viewport = tester.getRect(topicPostListFinder());
+            expect(viewport.contains(progressBounds.topLeft), isTrue);
+            expect(viewport.right - progressBounds.right, closeTo(8, .01));
+            expect(viewport.bottom - progressBounds.bottom, closeTo(8, .01));
+          } else {
+            final footerBounds = tester.getRect(footer);
+            final reply = tester.getRect(
+              find.byKey(const ValueKey('topic-reply-button')),
+            );
+            expect(progressBounds.center.dy, closeTo(reply.center.dy, .01));
+            expect(footerBounds.right - progressBounds.right, closeTo(8, .01));
+            expect(progressBounds.left, greaterThan(reply.right));
+          }
+          expect(tester.takeException(), isNull);
+          await tester.tap(progress);
+          await tester.pumpAndSettle();
+          expect(find.text('Post 5188 of 5188'), findsOneWidget);
+          expect(
+            tester
+                .widget<DSlider>(
+                  find.byKey(const ValueKey('topic-progress-slider')),
+                )
+                .max,
+            5188,
+          );
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.macOS,
+          TargetPlatform.iOS,
+        }),
+      );
 
       testWidgets('opens a stream-position navigator', (tester) async {
         final site = instance('meta.example');
