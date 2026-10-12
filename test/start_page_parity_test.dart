@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -29,7 +30,17 @@ void main() {
   testStartPage(
     'start-page filter builder navigates to applied topic filters',
     (tester) async {
-      await pumpShell(tester, desktop);
+      final api = FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [],
+          '/filter.json': [],
+          '/filter.json?q=status%3Aopen': [],
+        },
+        filterOptionsByPath: const {
+          '/filter.json': [TopicFilterOption(name: 'status:open')],
+        },
+      );
+      await pumpShell(tester, desktop, api: api);
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
       );
@@ -38,11 +49,21 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('topic-list-filter')).first);
       await tester.pumpAndSettle();
       expect(find.byType(TopicFilterInput), findsOneWidget);
-      await tester.tap(find.widgetWithText(DToggle, 'Open topics'));
+      expect(
+        tester
+            .widget<TopicFilterInput>(find.byType(TopicFilterInput))
+            .options
+            .map((option) => option.name),
+        ['status:open'],
+        reason: 'The builder loads its options from the forum.',
+      );
+      await tester.tap(find.text('Status: open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DButton, 'Apply filter'));
+      expect(find.text('status: open'), findsOneWidget);
+      await tester.tap(find.widgetWithText(DButton, 'Apply'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.topicFilterQuery, 'status:open');
+      expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
       expect(
         find.descendant(
           of: find.byType(MainContent).first,
