@@ -524,6 +524,9 @@ void main() {
         expect(title.hitTestable(), findsOneWidget);
 
         Future<void> wheel(double delta) async {
+          // pumpAndSettle waits for the motion, but the completed header also
+          // holds its position before accepting a reversal.
+          await tester.pump(Duration(milliseconds: const DHeaderTuning().hold));
           await tester.sendEventToBinding(
             PointerScrollEvent(
               position: tester.getCenter(list),
@@ -545,6 +548,9 @@ void main() {
           );
         }
         await wheel(-20);
+        // A small reversal stays within the Native header's 40px slack.
+        expect(title.hitTestable(), findsNothing);
+        await wheel(-40);
         expect(title.hitTestable(), findsOneWidget);
         await wheel(100);
         expect(title.hitTestable(), findsNothing);
