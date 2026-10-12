@@ -371,9 +371,7 @@ void main() {
     tester,
   ) async {
     final fixture = await _pump(tester);
-    await fixture.show(
-      const CustomScrollView(slivers: [ChatSidebarInbox(siteUrl: _site)]),
-    );
+    await fixture.show(_sidebarInbox());
     List<ChatInboxKind?> kinds() => [
       for (final entry
           in tester
@@ -386,8 +384,10 @@ void main() {
     expect(kinds(), isNot(contains(ChatInboxKind.voiceRooms)));
 
     // The conversations it lists are unchanged, so only the filters redraw.
-    final detach = fixture.rooms.attach(_Rooms());
+    final provider = _Rooms();
+    final detach = fixture.rooms.attach(provider);
     addTearDown(detach);
+    addTearDown(provider.dispose);
     await tester.pump();
 
     expect(kinds(), contains(ChatInboxKind.voiceRooms));
@@ -422,10 +422,9 @@ void main() {
                     color: canvas,
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: CustomScrollView(
+                      child: _sidebarInbox(
                         controller: scroll,
-                        slivers: const [
-                          ChatSidebarInbox(siteUrl: _site),
+                        trailingSlivers: const [
                           SliverToBoxAdapter(child: SizedBox(height: 800)),
                         ],
                       ),
@@ -489,6 +488,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+Widget _sidebarInbox({
+  ScrollController? controller,
+  List<Widget> trailingSlivers = const [],
+}) => Builder(
+  builder: (context) {
+    final section = const ChatPlugin()
+        .sidebarSections(context)
+        .singleWhere((section) => section.id == 'chat-inbox');
+    return CustomScrollView(
+      controller: controller,
+      slivers: [
+        PinnedHeaderSliver(
+          child: Builder(builder: section.pinnedHeaderBuilder!),
+        ),
+        Builder(builder: section.bodyBuilder!),
+        ...trailingSlivers,
+      ],
+    );
+  },
+);
 
 Rect _rowContentBounds(WidgetTester tester, Finder row) {
   final parts = find.descendant(
