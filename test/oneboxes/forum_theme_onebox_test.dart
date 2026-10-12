@@ -283,10 +283,12 @@ void main() {
               isNull,
               reason: '$width / $scale / $direction',
             );
-            expect(
-              tester.getSize(find.byType(DCard)).width,
-              lessThanOrEqualTo(width),
+            final card = find.ancestor(
+              of: find.byKey(const ValueKey('use-shared-theme')),
+              matching: find.byType(DCard),
             );
+            expect(card, findsOneWidget);
+            expect(tester.getSize(card).width, lessThanOrEqualTo(width));
           }
         }
       }
