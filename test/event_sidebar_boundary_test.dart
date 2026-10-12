@@ -159,10 +159,9 @@ void main() {
         final controller = ShellScope.read(tester.element(primaryMainContent));
         final mobile = controller.mobileNavigationEnabled;
         if (!mobile) {
-          // The main panel is a list column beside the secondary one, where
-          // the directory shows its compact calendar without event titles.
+          // Hide the secondary panel so the directory uses the full width.
           await tester.tap(
-            find.byKey(const ValueKey('minimize-panel-secondary')),
+            find.byKey(const ValueKey('panel-split-view-secondary')),
           );
           await tester.pumpAndSettle();
         }
