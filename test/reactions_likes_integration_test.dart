@@ -1729,7 +1729,7 @@ void _registerReactionAndLikeTests() {
       expect(pill('3'), findsOneWidget);
       expect(pill('9'), findsNothing);
 
-      await openFooterEmojiPicker(tester);
+      await openReactionPicker(tester);
       expect(
         tester.getSemantics(find.bySemanticsLabel('heart')),
         isSemantics(isToggled: true),
@@ -2078,23 +2078,35 @@ void _registerReactionAndLikeTests() {
       testWidgets('React follows the post write lane of its own post', (
         tester,
       ) async {
-        await openPosts(tester);
+        final api = await openPosts(tester);
         final shell = ShellScope.read(
           tester.element(find.byType(ReactionsRow).first),
         );
-        await openPostMenu(tester);
-        DToggle react() => tester.widget(menuAction('React').first);
-        expect(react().enabled, isTrue);
+        final rebuilds = countRebuilds();
+        Finder button(int postId) => find.descendant(
+          of: find.byKey(ValueKey('post-reaction-button-$postId')),
+          matching: find.byType(DToggle),
+        );
+        DToggle react(int postId) => tester.widget(button(postId));
+        expect(react(1).enabled, isTrue);
+        expect(react(2).enabled, isTrue);
 
         // Held by the host, as a core write does, with no reactions state
         // changing: only the shell says the post is busy.
         expect(shell.beginPluginPostWrite(site, 1), isTrue);
         await tester.pump();
-        expect(react().enabled, isFalse);
+        expect(react(1).enabled, isFalse);
+        expect(react(2).enabled, isTrue);
+        expect(rebuilds.keys, [1]);
+        await tester.tap(button(1));
+        await tester.pump();
+        expect(api.reacted, isEmpty);
 
         shell.endPluginPostWrite(site, 1);
         await tester.pump();
-        expect(react().enabled, isTrue);
+        expect(react(1).enabled, isTrue);
+        expect(react(2).enabled, isTrue);
+        expect(rebuilds.keys, [1]);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     });
   });

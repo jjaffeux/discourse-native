@@ -17,9 +17,13 @@ class PostFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<List<PostFlagType>>(
-      select: (controller) => controller.postFlagTypesFor(siteUrl),
-      builder: (context, catalog, child) => _buildFooter(context, catalog),
+    return ShellSelector<({List<PostFlagType> catalog, bool postBusy})>(
+      select: (controller) => (
+        catalog: controller.postFlagTypesFor(siteUrl),
+        // Plugin engagement controls share the host's post write lane.
+        postBusy: controller.postWriteInFlight(post.id, siteUrl: siteUrl),
+      ),
+      builder: (context, state, child) => _buildFooter(context, state.catalog),
     );
   }
 
