@@ -283,13 +283,20 @@ void main() {
     (tester) async {
       final api = await _pump(tester, supported: false);
       final shell = ShellScope.read(tester.element(primaryMainContent));
+      final navigation = shell.pluginSession.require(chatShellService);
       expect(
         find.byKey(const ValueKey('chat-sidebar-start-message')),
         findsNothing,
       );
-      expect(find.byKey(const ValueKey('chat-inbox-browse')), findsOneWidget);
+      final browse = _sidebar(
+        find.byKey(const ValueKey(ChatPlugin.browseRouteId)),
+      );
+      expect(browse, findsOneWidget);
+      await tester.tap(browse);
+      await tester.pumpAndSettle();
+      expect(navigation.currentContent?.id, ChatPlugin.browseRouteId);
 
-      shell.pluginSession.require(chatShellService).openChannels();
+      navigation.openChannels();
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('chat-list-options-channels')),
