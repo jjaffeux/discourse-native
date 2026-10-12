@@ -1370,7 +1370,7 @@ void main() {
       expect(_composerEditable(tester).showCursor, isTrue);
     });
 
-    testWidgets('escape unselects an upload before closing the composer', (
+    testWidgets('escape unselects an upload before prompting to close', (
       tester,
     ) async {
       final composer = ComposerController(
@@ -1406,11 +1406,33 @@ void main() {
         findsNothing,
       );
       expect(find.byKey(const ValueKey('composer-frame')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
       expect(shell.closeCalls, 0);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pump();
-      expect(shell.closeCalls, 1);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-confirm-save')),
+        findsOneWidget,
+      );
+      expect(shell.closeCalls, 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('composer-frame')), findsOneWidget);
+      expect(composer.text.text, '![old|640x480](upload://photo)');
+      expect(shell.closeCalls, 0);
       composer.draftSettled();
     });
 
@@ -2583,11 +2605,34 @@ void main() {
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsNothing,
       );
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
       expect(shell.closeCalls, 0);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pump();
-      expect(shell.closeCalls, 1);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-confirm-save')),
+        findsOneWidget,
+      );
+      expect(shell.closeCalls, 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('composer-frame')), findsOneWidget);
+      expect(composer.text.value, selectedValue);
+      expect(composer.text.galleryBlocks, hasLength(1));
+      expect(shell.closeCalls, 0);
       composer.draftSettled();
     });
 
