@@ -50,6 +50,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
@@ -685,7 +686,7 @@ void _registerChatShellTests() {
         );
 
         expect(urgent, findsOneWidget);
-        expect(find.text('99+'), findsOneWidget);
+        expect(tester.widget<Text>(urgent).data, '99+');
         expect(dot, findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
@@ -752,6 +753,10 @@ void _registerChatShellTests() {
         );
 
         await tester.tap(shortcut);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChatChannelView), findsNothing);
+        await tester.tap(find.widgetWithText(DButton, 'Open chat'));
         await tester.pumpAndSettle();
 
         final shell = ShellScope.read(
@@ -941,8 +946,14 @@ void _registerChatShellTests() {
             );
             await tester.pumpAndSettle();
 
-            expect(find.bySemanticsLabel('Chat navigation'), findsOneWidget);
-            expect(find.bySemanticsLabel('Forum navigation'), findsNothing);
+            expect(
+              find.bySemanticsLabel(RegExp(r'^Chat navigation(?:\n|$)')),
+              findsOneWidget,
+            );
+            expect(
+              find.bySemanticsLabel(RegExp(r'^Forum navigation(?:\n|$)')),
+              findsNothing,
+            );
             expect(sidebarDestination('Bugs'), findsOneWidget);
             expect(shell.currentContent?.id, 'latest');
             expect(
@@ -1643,11 +1654,9 @@ void _registerChatShellTests() {
         await tester.pump(const Duration(milliseconds: 450));
         await tester.pumpAndSettle();
 
-        final message = find.byKey(const ValueKey('chat-message-40'));
-        expect(message, findsOneWidget);
-        await tester.tap(
-          find.ancestor(of: message, matching: find.byType(InkWell)).first,
-        );
+        final result = find.widgetWithText(DItem, 'needle');
+        expect(result, findsOneWidget);
+        await tester.tap(result);
         await tester.pumpAndSettle();
 
         final shell = ShellScope.read(tester.element(primaryMainContent));
@@ -2290,7 +2299,7 @@ void _registerChatShellTests() {
           },
         );
         await pumpChat(tester, api: api);
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
@@ -2352,7 +2361,7 @@ void _registerChatShellTests() {
         );
         await pumpChat(tester, api: api);
 
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
 
         expect(
@@ -2407,7 +2416,7 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(tester);
 
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-browse')));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -2816,7 +2825,7 @@ void _registerChatShellTests() {
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
 
-      testWidgets('shows the mockup circular direct-message marker', (
+      testWidgets('shows the direct-message user avatar and online ring', (
         tester,
       ) async {
         await pumpChat(
@@ -2829,11 +2838,17 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
-        expect(tester.getSize(marker), const Size.square(12));
         expect(
-          tester.widget<DAvatar>(marker).borderRadius,
-          BorderRadius.circular(6),
+          tester.getSize(marker),
+          Size.square(DAvatarSize.standard.dimension),
         );
+        expect(tester.widget<ChatUserAvatar>(marker).userId, 2);
+        final avatar = find.descendant(
+          of: marker,
+          matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
+        );
+        expect(avatar, findsOneWidget);
+        expect(tester.widget<DAvatar>(avatar).ring, isTrue);
         expect(find.text('Direct message', findRichText: true), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2934,9 +2949,9 @@ void _registerChatShellTests() {
           tester.getTopLeft(edit).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(identity).dy),
         );
-        // Line tabs are their label line with 11px above and below on every
-        // platform, and answer exactly where they are painted; the rest of
-        // the 58px tab bar is not a target.
+        // Line tabs follow the mobile text scale with 11px above and below,
+        // and answer exactly where they are painted. The rest of the 58px
+        // tab bar is not a target.
         final settingsRect = tester.getRect(settingsTab);
         expect(
           settingsRect,
@@ -2949,7 +2964,7 @@ void _registerChatShellTests() {
         );
         expect(settingsRect.top, tester.getRect(settingsLabel).top - 11);
         expect(settingsRect.bottom, tester.getRect(settingsLabel).bottom + 11);
-        expect(settingsRect.height, 43);
+        expect(settingsRect.height, tester.getSize(settingsLabel).height + 22);
         final tabBar = tester.getRect(
           find.byKey(const ValueKey('chat-channel-info-tabs')),
         );
@@ -4011,15 +4026,18 @@ void _registerChatShellTests() {
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
-        // Each reaction answers exactly where its 24px pill is painted, on
-        // touch platforms too.
+        // Each reaction answers exactly where its Native pill is painted,
+        // on touch platforms too.
         final heartPill = tester.getRect(
           find.descendant(
             of: find.byKey(const ValueKey('chat-reaction-heart')),
             matching: find.byType(AnimatedContainer),
           ),
         );
-        expect(heartPill.height, 24);
+        expect(mine.density, DToggleDensity.chatReaction);
+        expect(other.density, DToggleDensity.chatReaction);
+        final textScale = MediaQuery.textScalerOf(tester.element(heart));
+        expect(heartPill.height, closeTo(textScale.scale(12) * 1.5 + 6, 0.5));
         expect(tester.getRect(heart), heartPill);
         for (final outside in [
           heartPill.topCenter - const Offset(0, 1),
@@ -4087,17 +4105,15 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         final reaction = find.byKey(const ValueKey('chat-reaction-clap'));
-        BoxDecoration decoration() =>
-            tester
-                    .widget<AnimatedContainer>(
-                      find.descendant(
-                        of: reaction,
-                        matching: find.byType(AnimatedContainer),
-                      ),
-                    )
-                    .decoration!
-                as BoxDecoration;
-        final resting = decoration().color;
+        Color surfaceColor() => tester
+            .widget<DMaterialSurface>(
+              find.descendant(
+                of: reaction,
+                matching: find.byType(DMaterialSurface),
+              ),
+            )
+            .color;
+        final resting = surfaceColor();
         final rect = tester.getRect(reaction);
 
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -4107,13 +4123,13 @@ void _registerChatShellTests() {
         await tester.pump();
 
         await tester.pumpAndSettle();
-        expect(decoration().color, isNot(resting));
+        expect(surfaceColor(), isNot(resting));
         expect(tester.getRect(reaction), rect);
 
         await mouse.moveTo(Offset.zero);
         await tester.pump();
         await tester.pumpAndSettle();
-        expect(decoration().color, resting);
+        expect(surfaceColor(), resting);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('an existing message reaction offers the full emoji picker', (
@@ -4399,7 +4415,7 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(
           tester,
-          public: [channel(9)],
+          public: [channel(9, threadingEnabled: true)],
           messages: {
             key(9): page([
               msg(
