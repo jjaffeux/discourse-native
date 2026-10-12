@@ -32,6 +32,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
     show
         ConstrainedBox,
+        BoxDecoration,
+        DecoratedBox,
         FilledButton,
         Focus,
         InkWell,
@@ -53,7 +55,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
@@ -87,33 +88,37 @@ void main() {
   }
 
   group('topic creation controls', () {
-    testWidgets('start a fresh topic while saved drafts stay in the menu', (
-      tester,
-    ) async {
-      final fixture = await _pump(tester);
-      await tester.tap(find.byKey(TopicCreateButton.buttonKey));
-      await tester.pumpAndSettle();
-      final shell = ShellScope.read(tester.element(find.byType(ComposerPanel)));
-      final fresh = shell.visibleComposer!;
+    testWidgets(
+      'start a fresh topic while saved drafts stay in the composer menu',
+      (tester) async {
+        final fixture = await _pump(tester);
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+        final fresh = shell.visibleComposer!;
 
-      expect(fresh.title.text, isEmpty);
-      expect(fresh.raw, isEmpty);
-      expect(fresh.target.draftKey, isNot(_draft.key));
-      expect(fixture.api.draftsRequested, isEmpty);
+        expect(fresh.title.text, isEmpty);
+        expect(fresh.raw, isEmpty);
+        expect(fresh.target.draftKey, isNot(_draft.key));
+        expect(fixture.api.draftsRequested, isEmpty);
 
-      await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey('recent-draft-${_draft.key}')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-all-drafts')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(_draft.displayTitle));
+        await tester.pumpAndSettle();
 
-      expect(shell.visibleComposer!.target.draftKey, _draft.key);
-      expect(shell.visibleComposer!.raw, _draft.data!.reply);
-      expect(shell.visibleComposer!.title.text, _draft.data!.title);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+        expect(shell.visibleComposer!.target.draftKey, _draft.key);
+        expect(shell.visibleComposer!.raw, _draft.data!.reply);
+        expect(shell.visibleComposer!.title.text, _draft.data!.title);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
 
     for (final minimized in [false, true]) {
       testWidgets(
-        'confirm before replacing ${minimized ? 'a minimized' : 'an open'} topic draft',
+        'retain ${minimized ? 'a minimized' : 'an open'} topic draft and confirm its explicit removal',
         (tester) async {
           final fixture = await _pump(tester);
           await tester.tap(find.byKey(TopicCreateButton.buttonKey));
@@ -130,7 +135,36 @@ void main() {
             await tester.pumpAndSettle();
           }
 
-          await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+          first.focus.unfocus();
+          first.titleFocus.unfocus();
+          await tester.pump();
+          await tester.sendKeyEvent(newTopicShortcut.trigger);
+          await tester.pumpAndSettle();
+          final second = shell.visibleComposer!;
+          expect(second, isNot(same(first)));
+          expect(second.target.draftKey, isNot(first.target.draftKey));
+          expect(second.raw, isEmpty);
+          expect(first.isDisposed, isFalse);
+          expect(shell.liveComposers, containsAll([first, second]));
+          expect(first.raw, 'Keep this unfinished body');
+          expect(fixture.api.userDraftsDeleted, isEmpty);
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsNothing,
+          );
+
+          await tester.tap(find.byKey(const ValueKey('composer-all-drafts')));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.descendant(
+              of: find.byType(DDropdownMenuContent),
+              matching: find.text(first.title.text),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.visibleComposer, same(first));
+
+          await tester.tap(find.byKey(const ValueKey('composer-close')));
           await tester.pumpAndSettle();
           expect(
             find.byKey(const ValueKey('composer-discard-dialog')),
@@ -144,7 +178,7 @@ void main() {
           expect(first.raw, 'Keep this unfinished body');
           expect(fixture.api.userDraftsDeleted, isEmpty);
 
-          await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+          await tester.tap(find.byKey(const ValueKey('composer-close')));
           await tester.pumpAndSettle();
           await tester.tap(
             find.byKey(const ValueKey('composer-confirm-discard')),
@@ -152,10 +186,7 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(first.isDisposed, isTrue);
-          expect(
-            shell.visibleComposer!.target.draftKey,
-            isNot(first.target.draftKey),
-          );
+          expect(shell.visibleComposer, same(second));
           expect(shell.visibleComposer!.raw, isEmpty);
           expect(
             fixture.api.userDraftsDeleted.single.draftKey,
@@ -166,53 +197,58 @@ void main() {
       );
     }
 
-    testWidgets('show the core label, icon, colors, and shortcut when wide', (
-      tester,
-    ) async {
-      await _pump(tester);
+    testWidgets(
+      'show the title-bar tooltip, icon, colors, and honor the shortcut when wide',
+      (tester) async {
+        await _pump(tester);
 
-      final button = tester.widget<FilledButton>(
-        find.descendant(
-          of: find.byKey(TopicCreateButton.buttonKey),
-          matching: find.byType(FilledButton),
-        ),
-      );
-      final tokens = DTokens.of(
-        tester.element(find.byKey(TopicCreateButton.buttonKey)),
-      );
-      expect(find.text('New topic'), findsOneWidget);
-      expect(
-        buttonSurface(
-          tester,
-          of: find.byKey(TopicCreateButton.buttonKey),
-        ).color,
-        tokens.buttonTheme.primary.background,
-      );
-      expect(
-        button.style?.foregroundColor?.resolve(<WidgetState>{}),
-        tokens.buttonTheme.primary.foreground,
-      );
-      expect(
-        tester
-            .widget<DTooltip>(
-              find.descendant(
-                of: find.byKey(TopicCreateButton.buttonKey),
-                matching: find.byType(DTooltip),
-              ),
-            )
-            .shortcut,
-        const DShortcut(newTopicShortcut),
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(TopicCreateButton.buttonKey),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.plus,
+        final button = tester.widget<FilledButton>(
+          find.descendant(
+            of: find.byKey(TopicCreateButton.buttonKey),
+            matching: find.byType(FilledButton),
           ),
-        ),
-        findsOneWidget,
-      );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+        );
+        final tokens = DTokens.of(
+          tester.element(find.byKey(TopicCreateButton.buttonKey)),
+        );
+        final nativeButton = tester.widget<DButton>(
+          find.byKey(TopicCreateButton.buttonKey),
+        );
+        expect(nativeButton.tooltip, 'New topic');
+        expect(nativeButton.shape, DButtonShape.pill);
+        expect(
+          tester
+              .widgetList<DecoratedBox>(
+                find.descendant(
+                  of: find.byKey(TopicCreateButton.buttonKey),
+                  matching: find.byType(DecoratedBox),
+                ),
+              )
+              .map((box) => box.decoration)
+              .whereType<BoxDecoration>()
+              .map((decoration) => decoration.color),
+          contains(tokens.buttonTheme.primary.background),
+        );
+        expect(
+          button.style?.foregroundColor?.resolve(<WidgetState>{}),
+          tokens.buttonTheme.primary.foreground,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(TopicCreateButton.buttonKey),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is DIcon && widget.icon == DIcons.farPenToSquare,
+            ),
+          ),
+          findsOneWidget,
+        );
+        await tester.sendKeyEvent(newTopicShortcut.trigger);
+        await tester.pumpAndSettle();
+        expect(find.byType(ComposerPanel), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
   });
 
   group('recent-draft menu', () {
@@ -460,7 +496,12 @@ void main() {
       );
       expect(
         tester
-            .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+            .widgetList<SiteEmojiImage>(
+              find.descendant(
+                of: find.byType(DraftListView),
+                matching: find.byType(SiteEmojiImage),
+              ),
+            )
             .map((emoji) => emoji.name),
         ['sparkles', 'smiley'],
       );
@@ -512,7 +553,9 @@ void main() {
       final semantics = tester.ensureSemantics();
       // The main panel is a list column beside the secondary one; drafts get
       // their wide rows once the main panel has the window to itself.
-      await tester.tap(find.byKey(const ValueKey('minimize-panel-secondary')));
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
       await tester.pumpAndSettle();
 
       try {
@@ -1236,7 +1279,12 @@ Future<_Fixture> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final site = instance('meta.discourse.org').copyWith(
-    user: DiscourseUser(id: 7, username: 'reader', draftCount: draftCount),
+    user: DiscourseUser(
+      id: 7,
+      username: 'reader',
+      draftCount: draftCount,
+      canCreateTopic: true,
+    ),
   );
   final api = FakeDiscourseApi(
     user: site.user,
