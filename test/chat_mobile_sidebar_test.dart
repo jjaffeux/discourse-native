@@ -150,15 +150,25 @@ void main() {
   ) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await _pumpChatInbox(tester, const Size(320, 720));
+    // The enlarged Native chrome needs enough room to become fixed again.
+    await _pumpChatInbox(tester, const Size(320, 1000));
+    final list = find.descendant(of: _inbox, matching: find.byType(ListView));
+    expect(list, findsOneWidget);
     final title = tester.getRect(_title);
     final navigation = tester.getRect(_navigation);
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
+    expect(list, findsNothing);
     await tester.drag(_title, const Offset(0, -150));
     await tester.pumpAndSettle();
+    expect(tester.getRect(_title).top, lessThan(title.top));
     tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(list, findsOneWidget);
+    expect(_title.hitTestable(), findsOneWidget);
+    expect(_navigation.hitTestable(), findsOneWidget);
+    await tester.drag(list, const Offset(0, -160));
     await tester.pumpAndSettle();
     expect(tester.getRect(_title), title);
     expect(tester.getRect(_navigation), navigation);
