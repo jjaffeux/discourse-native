@@ -4,7 +4,9 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
+import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,6 +50,28 @@ void main() {
     await shell.load();
     await shell.loadFeed('latest');
   });
+
+  ComposerController openChangedPostEdit() {
+    final list = shell.currentContent!;
+    shell.pushContent(
+      ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+    );
+    shell.openEdit(
+      const Post(
+        id: 70,
+        postNumber: 2,
+        username: 'reader',
+        cooked: '<p>Original post body</p>',
+        raw: 'Original post body',
+        canEdit: true,
+      ),
+    );
+    final composer = shell.visibleComposer!;
+    expect(composer.canSaveDraft, isFalse);
+    composer.text.text = 'Keep this unsaved edit';
+    shell.pushContent(list);
+    return composer;
+  }
 
   test(
     'starts fresh without looking up or clearing an existing draft',
@@ -123,52 +147,110 @@ void main() {
     },
   );
 
-  test('canceling replacement retains the same unfinished composer', () async {
+  test('opening another topic retains the unfinished draft without '
+      'confirmation', () async {
     await shell.openNewTopic();
     final first = shell.visibleComposer!;
     first.title.text = 'Keep this title-only draft';
-    shell.confirmComposerReplacement = (composer) async {
-      expect(composer, same(first));
+    var confirmations = 0;
+    shell.confirmComposerReplacement = (_) async {
+      confirmations++;
     };
 
     await shell.openNewTopic();
+    final second = shell.visibleComposer!;
 
+    expect(confirmations, 0);
+    expect(second.target.draftKey, isNot(first.target.draftKey));
+    expect(second.title.text, isEmpty);
+    expect(second.raw, isEmpty);
+    expect(first.isDisposed, isFalse);
+    expect(shell.liveComposers, unorderedEquals([first, second]));
+    shell.selectComposer(first);
     expect(shell.visibleComposer, same(first));
     expect(first.title.text, 'Keep this title-only draft');
     expect(api.userDraftsDeleted, isEmpty);
   });
 
+  test('canceling replacement retains the same unsaved post edit', () async {
+    final first = openChangedPostEdit();
+    var confirmations = 0;
+    shell.confirmComposerReplacement = (composer) async {
+      confirmations++;
+      expect(composer, same(first));
+    };
+
+    await shell.openNewTopic();
+
+    expect(confirmations, 1);
+    expect(shell.visibleComposer, same(first));
+    expect(first.raw, 'Keep this unsaved edit');
+    expect(shell.liveComposers, [first]);
+    expect(api.userDraftsDeleted, isEmpty);
+  });
+
+  test('discarding a retained topic deletes only that draft', () async {
+    await shell.openNewTopic();
+    final first = shell.visibleComposer!;
+    first.title.text = _savedDraft.title!;
+    first.text.text = _savedDraft.reply;
+    expect(await shell.prepareComposerForClose(first), isTrue);
+
+    await shell.openNewTopic();
+    final second = shell.visibleComposer!;
+    second.title.text = 'A different topic';
+    second.text.text = 'Keep the selected draft';
+    expect(await shell.prepareComposerForClose(second), isTrue);
+
+    expect(await shell.discardComposer(first), isNull);
+
+    expect(first.isDisposed, isTrue);
+    expect(shell.visibleComposer, same(second));
+    expect(second.raw, 'Keep the selected draft');
+    expect(shell.liveComposers, [second]);
+    expect(api.userDraftsDeleted.single.draftKey, first.target.draftKey);
+    expect(await drafts.read(_siteUrl, first.target.draftKey), isNull);
+    expect(
+      ComposerDraft.decode(
+        api.draftsSaved
+            .where((draft) => draft['draftKey'] == second.target.draftKey)
+            .last['data'],
+      )!.reply,
+      second.raw,
+    );
+  });
+
   test(
-    'confirmed discard opens a fresh topic after deleting only the old draft',
+    'confirmed discard replaces an unsaved post edit with a fresh topic',
     () async {
-      await shell.openNewTopic();
-      final first = shell.visibleComposer!;
-      first.text.text = _savedDraft.reply;
+      final first = openChangedPostEdit();
+      var confirmations = 0;
       shell.confirmComposerReplacement = (composer) async {
+        confirmations++;
+        expect(composer, same(first));
         expect(await shell.discardComposer(composer), isNull);
       };
 
       await shell.openNewTopic();
 
+      expect(confirmations, 1);
       expect(first.isDisposed, isTrue);
-      expect(
-        shell.visibleComposer!.target.draftKey,
-        isNot(first.target.draftKey),
-      );
+      expect(shell.visibleComposer!.target.mode, ComposerMode.newTopic);
+      expect(shell.visibleComposer!.title.text, isEmpty);
       expect(shell.visibleComposer!.raw, isEmpty);
-      expect(api.userDraftsDeleted.single.draftKey, first.target.draftKey);
+      expect(shell.liveComposers, [shell.visibleComposer]);
+      expect(api.userDraftsDeleted, isEmpty);
     },
   );
 
   test(
     'navigation during confirmation cancels the pending new topic',
     () async {
-      await shell.openNewTopic();
-      final first = shell.visibleComposer!;
-      first.text.text = _savedDraft.reply;
+      final first = openChangedPostEdit();
       final started = Completer<void>();
       final decision = Completer<void>();
       shell.confirmComposerReplacement = (composer) async {
+        expect(composer, same(first));
         started.complete();
         await decision.future;
         expect(await shell.discardComposer(composer), isNull);
@@ -177,12 +259,15 @@ void main() {
       final opening = shell.openNewTopic();
       await started.future;
       shell.pushContent(
-        ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
+        ContentRoute.topic(topicId: 8, slug: 'another', title: 'Another topic'),
       );
       decision.complete();
       await opening;
 
       expect(shell.visibleComposer, isNull);
+      expect(shell.liveComposers, isEmpty);
+      expect(first.isDisposed, isTrue);
+      expect(shell.currentContent!.topicId, 8);
     },
   );
 }
