@@ -264,6 +264,23 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           find.byKey(const ValueKey('composer-mobile-sheet')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('composer-discard-dialog')),
+          findsOneWidget,
+        );
+        expect(controller.visibleComposer, same(composer));
+        await tester.tap(
+          find.byKey(const ValueKey('composer-confirm-discard')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('composer-discard-dialog')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('composer-mobile-sheet')),
           findsNothing,
         );
         expect(tester.takeException(), isNull);
