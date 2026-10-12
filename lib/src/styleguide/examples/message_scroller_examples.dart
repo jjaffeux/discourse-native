@@ -45,9 +45,9 @@ final messageScrollerExamples = ComponentExamples(
     StyleguideExample(
       title: 'Opening a saved thread',
       description:
-          'Choose start, end or the last marked anchor without a visible first-frame jump.',
+          'Open at the newest message without a visible first-frame jump.',
       code: _openingCode,
-      states: const ['start', 'end', 'last anchor', 'no flash'],
+      states: const ['newest', 'no flash'],
       builder: (_) => const _OpeningExample(),
     ),
     StyleguideExample(
@@ -60,10 +60,9 @@ final messageScrollerExamples = ComponentExamples(
     ),
     StyleguideExample(
       title: 'Commands, visibility and scroll state',
-      description:
-          'Typed commands and a hover-preview outline target stable IDs and expose edge, anchor and visible-message state.',
+      description: 'Move to either edge and observe visible-message state.',
       code: _commandsCode,
-      states: const ['start', 'center', 'end', 'nearest'],
+      states: const ['start', 'end'],
       builder: (_) => const _CommandsExample(),
     ),
     StyleguideExample(
@@ -86,55 +85,8 @@ final messageScrollerExamples = ComponentExamples(
       title: 'Reference demo',
       description:
           'The canonical read-only chat card combines an empty transcript, reset action, queued prompt, composer tools, and send control.',
-      code: '''DMessageScrollerProvider(
-  child: Column(children: [
-    DCard(
-      spacing: DSpacing.xl,
-      children: [
-        DCardHeader(
-          border: true,
-          title: DCardTitle(child: Text('New Chat')),
-          description: DCardDescription(
-            child: Text('How can I help you today?')),
-          action: DCardAction(child: resetButton),
-        ),
-        DCardContent(
-          edgeToEdge: true,
-          joinNext: true,
-          child: SizedBox(
-            height: 294,
-            child: messages.isEmpty
-              ? DEmpty(
-                  padding: EdgeInsets.all(DSpacing.xl),
-                  children: [
-                    DEmptyHeader(children: [
-                      DEmptyMedia(
-                        variant: DEmptyMediaVariant.icon,
-                        child: Icon(Icons.chat_bubble_outline),
-                      ),
-                      DEmptyTitle('Morning, Alex!'),
-                      DEmptyDescription(
-                        'What are we working on today? Press send to start a new conversation'),
-                    ]),
-                  ],
-                )
-              : DMessageScroller(children: [
-                  DMessageScrollerViewport.builder(/* messages */),
-                  DMessageScrollerButton(),
-                ]),
-          ),
-        ),
-      ],
-      footer: DCardFooter(
-        border: false,
-        muted: false,
-        child: messageComposer,
-      ),
-    ),
-    SizedBox(height: DSpacing.lg),
-    Text('Demo is read only. Press send to send messages.'),
-  ]),
-)''',
+      code:
+          "DMessageScrollerProvider(\n  child: Column(children: [\n    DCard(\n      spacing: DSpacing.xl,\n      children: [\n        DCardHeader(\n          \n          title: DCardTitle(child: Text('New Chat')),\n          description: DCardDescription(\n            child: Text('How can I help you today?')),\n          action: DCardAction(child: resetButton),\n        ),\n        DCardContent(\n          \n          joinNext: true,\n          child: SizedBox(\n            height: 294,\n            child: messages.isEmpty\n              ? DEmpty(\n                  padding: EdgeInsets.all(DSpacing.xl),\n                  children: [\n                    DEmptyHeader(children: [\n                      DEmptyMedia(\n                        variant: DEmptyMediaVariant.icon,\n                        child: Icon(Icons.chat_bubble_outline),\n                      ),\n                      DEmptyTitle('Morning, Alex!'),\n                      DEmptyDescription(\n                        'What are we working on today? Press send to start a new conversation'),\n                    ]),\n                  ],\n                )\n              : DMessageScroller(children: [\n                  DMessageScrollerViewport.builder(/* messages */),\n                  DMessageScrollerButton(),\n                ]),\n          ),\n        ),\n      ],\n      footer: DCardFooter(\n        \n        \n        child: messageComposer,\n      ),\n    ),\n    SizedBox(height: DSpacing.lg),\n    Text('Demo is read only. Press send to send messages.'),\n  ]),\n)",
       states: const ['Empty', 'Messages', 'Reset', 'Composer', 'Read only'],
       builder: (_) => const _MessageScrollerReferenceDemo(),
     ),
@@ -172,7 +124,6 @@ class _MessageScrollerReferenceDemoState
 
   @override
   Widget build(BuildContext context) => DMessageScrollerProvider(
-    autoScroll: true,
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 384),
       child: Column(
@@ -182,8 +133,6 @@ class _MessageScrollerReferenceDemoState
           DCard(
             spacing: DSpacing.xl,
             footer: DCardFooter(
-              border: false,
-              muted: false,
               child: DInputGroup(
                 semanticLabel: 'Read-only message composer',
                 children: [
@@ -232,7 +181,6 @@ class _MessageScrollerReferenceDemoState
                               focusNode: menu.focusNode,
                               onPressed: menu.toggle,
                               size: DInputGroupButtonSize.small,
-                              variant: DButtonVariant.outline,
                             ),
                           ),
                         ),
@@ -244,7 +192,6 @@ class _MessageScrollerReferenceDemoState
                               ? _send
                               : null,
                           size: DInputGroupButtonSize.small,
-                          variant: DButtonVariant.primary,
                         ),
                       ],
                     ),
@@ -254,7 +201,6 @@ class _MessageScrollerReferenceDemoState
             ),
             children: [
               DCardHeader(
-                border: true,
                 title: const DCardTitle(child: Text('New Chat')),
                 description: const DCardDescription(
                   child: Text('How can I help you today?'),
@@ -275,7 +221,6 @@ class _MessageScrollerReferenceDemoState
                 ),
               ),
               DCardContent(
-                edgeToEdge: true,
                 joinNext: true,
                 child: SizedBox(
                   height: MediaQuery.textScalerOf(context).scale(294),
@@ -303,7 +248,7 @@ class _MessageScrollerReferenceDemoState
                               itemCount: _messages.length,
                               itemIdBuilder: (index) => 'reference-$index',
                               scrollAnchorBuilder: (index) => index.isEven,
-                              announcementBuilder: (index) => _messages[index],
+
                               contentPadding: const EdgeInsets.all(DSpacing.md),
                               itemBuilder: (context, index) => _MessageRow(
                                 text: _messages[index],
@@ -474,15 +419,13 @@ class _StreamingExampleState extends State<_StreamingExample> {
                 ],
               )
             : DMessageScrollerProvider(
-                autoScroll: true,
-                previousItemPeek: _previousContext,
                 child: DMessageScroller(
                   children: [
                     DMessageScrollerViewport.builder(
                       itemCount: _messages.length,
                       itemIdBuilder: (index) => 'stream-$index',
                       scrollAnchorBuilder: (index) => index.isEven,
-                      announcementBuilder: (index) => _messages[index],
+
                       busy: _streaming,
                       contentPadding: const EdgeInsets.all(16),
                       itemBuilder: (context, index) => _MessageRow(
@@ -539,7 +482,6 @@ class _StreamingExampleState extends State<_StreamingExample> {
                       focusNode: menu.focusNode,
                       onPressed: menu.toggle,
                       size: DInputGroupButtonSize.small,
-                      variant: DButtonVariant.outline,
                     ),
                   ),
                 ),
@@ -548,7 +490,6 @@ class _StreamingExampleState extends State<_StreamingExample> {
                   tooltip: 'Send message',
                   onPressed: _streaming ? null : _streamReply,
                   size: DInputGroupButtonSize.small,
-                  variant: DButtonVariant.primary,
                 ),
               ],
             ),
@@ -617,7 +558,7 @@ class _AnchoringExampleState extends State<_AnchoringExample> {
       _Frame(
         child: DMessageScrollerProvider(
           key: ValueKey(_reset),
-          initialPosition: DMessageScrollerInitialPosition.lastAnchor,
+
           child: DMessageScroller(
             children: [
               DMessageScrollerViewport.builder(
@@ -655,61 +596,11 @@ class _AnchoringExampleState extends State<_AnchoringExample> {
   );
 }
 
-class _OpeningExample extends StatefulWidget {
+class _OpeningExample extends StatelessWidget {
   const _OpeningExample();
-
-  @override
-  State<_OpeningExample> createState() => _OpeningExampleState();
-}
-
-class _OpeningExampleState extends State<_OpeningExample> {
-  var _position = DMessageScrollerInitialPosition.lastAnchor;
-
-  @override
-  Widget build(BuildContext context) =>
-      DTabs<DMessageScrollerInitialPosition>.controlled(
-        value: _position,
-        onChanged: (value) {
-          if (value != null) setState(() => _position = value);
-        },
-        children: [
-          const DTabList<DMessageScrollerInitialPosition>(
-            children: [
-              DTabTrigger(
-                value: DMessageScrollerInitialPosition.start,
-                child: Text('Start'),
-              ),
-              DTabTrigger(
-                value: DMessageScrollerInitialPosition.lastAnchor,
-                child: Text('Saved'),
-              ),
-              DTabTrigger(
-                value: DMessageScrollerInitialPosition.end,
-                child: Text('End'),
-              ),
-            ],
-          ),
-          for (final position in DMessageScrollerInitialPosition.values)
-            DTabPanel(
-              value: position,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: _OpeningTranscript(position: position),
-              ),
-            ),
-        ],
-      );
-}
-
-class _OpeningTranscript extends StatelessWidget {
-  const _OpeningTranscript({required this.position});
-
-  final DMessageScrollerInitialPosition position;
-
   @override
   Widget build(BuildContext context) => _Frame(
     child: DMessageScrollerProvider(
-      initialPosition: position,
       child: DMessageScroller(
         children: [
           DMessageScrollerViewport.builder(
@@ -752,7 +643,6 @@ class _HistoryExampleState extends State<_HistoryExample> {
       const SizedBox(height: 12),
       _Frame(
         child: DMessageScrollerProvider(
-          initialPosition: DMessageScrollerInitialPosition.start,
           child: DMessageScroller(
             children: [
               DMessageScrollerViewport.builder(
@@ -787,8 +677,6 @@ class _CommandsExample extends StatefulWidget {
 
 class _CommandsExampleState extends State<_CommandsExample> {
   final _controller = DMessageScrollerController();
-  var _outlineExpanded = false;
-
   @override
   void dispose() {
     _controller.dispose();
@@ -801,54 +689,20 @@ class _CommandsExampleState extends State<_CommandsExample> {
     children: [
       Wrap(
         spacing: 8,
-        runSpacing: 8,
         children: [
           DButton(
             label: const Text('Start'),
             onPressed: _controller.scrollToStart,
-            variant: DButtonVariant.secondary,
           ),
-          DButton(
-            label: const Text('Message 24'),
-            onPressed: () => _controller.scrollToMessage(
-              'command-23',
-              options: const DMessageScrollerScrollOptions(
-                alignment: DMessageScrollerAlignment.center,
-              ),
-            ),
-            variant: DButtonVariant.secondary,
-          ),
-          DButton(
-            label: const Text('End'),
-            onPressed: _controller.scrollToEnd,
-            variant: DButtonVariant.secondary,
-          ),
-          DHoverCard(
-            trigger: DHoverCardTrigger(
-              builder: (context, trigger) => Semantics(
-                expanded: _outlineExpanded,
-                child: DButton(
-                  label: const Text('Transcript outline'),
-                  focusNode: trigger.focusNode,
-                  variant: DButtonVariant.outline,
-                  onPressed: () =>
-                      setState(() => _outlineExpanded = !_outlineExpanded),
-                ),
-              ),
-            ),
-            content: DHoverCardContent(child: _outline(preview: true)),
-          ),
+          DButton(label: const Text('End'), onPressed: _controller.scrollToEnd),
         ],
       ),
-      if (_outlineExpanded) ...[const SizedBox(height: 8), _outline()],
       const SizedBox(height: 8),
       AnimatedBuilder(
         animation: _controller,
-        builder: (context, _) => Text(
-          'At start: ${!_controller.state.canScrollStart} · At end: ${!_controller.state.canScrollEnd} · Visible: ${_controller.state.visibleMessageIds.length} · Anchor: ${_controller.state.currentAnchorId ?? '—'}',
-        ),
+        builder: (context, _) =>
+            Text('Visible: ${_controller.state.visibleMessageIds.length}'),
       ),
-      const SizedBox(height: 12),
       _Frame(
         child: DMessageScrollerProvider(
           controller: _controller,
@@ -857,12 +711,9 @@ class _CommandsExampleState extends State<_CommandsExample> {
               DMessageScrollerViewport.builder(
                 itemCount: 40,
                 itemIdBuilder: (index) => 'command-$index',
-                scrollAnchorBuilder: (index) => index % 8 == 0,
                 contentPadding: const EdgeInsets.all(16),
-                itemBuilder: (context, index) => _MessageRow(
-                  text: 'Addressable message ${index + 1}',
-                  sender: 'System',
-                ),
+                itemBuilder: (context, index) =>
+                    _MessageRow(text: 'Message ${index + 1}', sender: 'System'),
               ),
               const DMessageScrollerButton(
                 direction: DMessageScrollerDirection.start,
@@ -873,30 +724,6 @@ class _CommandsExampleState extends State<_CommandsExample> {
         ),
       ),
     ],
-  );
-
-  Widget _outline({bool preview = false}) => AnimatedBuilder(
-    key: ValueKey('transcript-outline-$preview'),
-    animation: _controller,
-    builder: (context, _) => Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: [
-        for (var index = 0; index < 40; index += 8)
-          DButton(
-            label: Text('Turn ${index ~/ 8 + 1}'),
-            variant: _controller.state.currentAnchorId == 'command-$index'
-                ? DButtonVariant.secondary
-                : DButtonVariant.ghost,
-            onPressed: () => _controller.scrollToMessage(
-              'command-$index',
-              options: const DMessageScrollerScrollOptions(
-                behavior: DMessageScrollerScrollBehavior.smooth,
-              ),
-            ),
-          ),
-      ],
-    ),
   );
 }
 
@@ -921,15 +748,15 @@ class _VirtualizedExampleState extends State<_VirtualizedExample> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       DButton(
-        label: const Text('Jump to row 750'),
-        onPressed: () => _controller.scrollToMessage('virtual-749'),
+        label: const Text('Scroll to newest message'),
+        onPressed: _controller.scrollToEnd,
         variant: DButtonVariant.secondary,
       ),
       const SizedBox(height: 12),
       _Frame(
         child: DMessageScrollerProvider(
           controller: _controller,
-          initialPosition: DMessageScrollerInitialPosition.start,
+
           child: DMessageScroller(
             children: [
               DMessageScrollerViewport.builder(
@@ -995,18 +822,13 @@ class _AccessibilityExampleState extends State<_AccessibilityExample> {
       _Frame(
         decorated: false,
         child: DMessageScrollerProvider(
-          autoScroll: true,
           child: DMessageScroller(
             children: [
               DMessageScrollerViewport.builder(
-                semanticLabel: 'Accessible support conversation',
-                showFocusRing: _showFocusRing,
-                styled: false,
-                showScrollbar: false,
                 busy: _busy,
                 itemCount: _messages.length,
                 itemIdBuilder: (index) => 'accessible-$index',
-                announcementBuilder: (index) => _messages[index],
+
                 contentPadding: const EdgeInsets.all(16),
                 itemBuilder: (context, index) =>
                     _MessageRow(text: _messages[index], sender: 'Support'),
@@ -1059,10 +881,7 @@ class _MessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final align = outgoing ? DMessageAlign.end : DMessageAlign.start;
-    final bubbleAlign = outgoing ? DBubbleAlign.end : DBubbleAlign.start;
     final message = DMessage(
-      align: align,
       children: [
         DMessageAvatar(
           child: DAvatar(
@@ -1075,7 +894,6 @@ class _MessageRow extends StatelessWidget {
           children: [
             DMessageHeader(children: [Text(sender)]),
             DBubble(
-              align: bubbleAlign,
               variant: outgoing ? DBubbleVariant.primary : DBubbleVariant.muted,
               children: [DBubbleContent(child: Text(text))],
             ),
@@ -1107,18 +925,8 @@ class _MessageRow extends StatelessWidget {
   }
 }
 
-const _streamingCode = '''DMessageScrollerProvider(
-  autoScroll: true,
-  child: DMessageScroller(children: [
-    DMessageScrollerViewport.builder(
-      itemCount: messages.length,
-      itemIdBuilder: (index) => messages[index].id,
-      announcementBuilder: (index) => messages[index].accessibleText,
-      itemBuilder: (context, index) => MessageRow(messages[index]),
-    ),
-    DMessageScrollerButton(),
-  ]),
-)''';
+const _streamingCode =
+    "DMessageScrollerProvider(\n  \n  child: DMessageScroller(children: [\n    DMessageScrollerViewport.builder(\n      itemCount: messages.length,\n      itemIdBuilder: (index) => messages[index].id,\n      \n      itemBuilder: (context, index) => MessageRow(messages[index]),\n    ),\n    DMessageScrollerButton(),\n  ]),\n)";
 
 const _anchoringCode = '''DMessageScrollerViewport.builder(
   itemIdBuilder: (index) => messages[index].id,
@@ -1126,10 +934,7 @@ const _anchoringCode = '''DMessageScrollerViewport.builder(
   itemBuilder: (context, index) => DMessage(...),
 )''';
 
-const _openingCode = '''DMessageScrollerProvider(
-  initialPosition: DMessageScrollerInitialPosition.lastAnchor,
-  child: transcript,
-)''';
+const _openingCode = "DMessageScrollerProvider(\n  \n  child: transcript,\n)";
 
 const _historyCode = '''DMessageScrollerViewport.builder(
   preserveScrollOnPrepend: true,
@@ -1137,12 +942,7 @@ const _historyCode = '''DMessageScrollerViewport.builder(
   itemBuilder: buildVariableHeightMessage,
 )''';
 
-const _commandsCode = '''controller.scrollToMessage(
-  'message-24',
-  options: const DMessageScrollerScrollOptions(
-    alignment: DMessageScrollerAlignment.center,
-  ),
-);''';
+const _commandsCode = 'controller.scrollToStart();\ncontroller.scrollToEnd();';
 
 const _virtualizedCode = '''DMessageScrollerViewport.builder(
   itemCount: 1000,
@@ -1150,11 +950,5 @@ const _virtualizedCode = '''DMessageScrollerViewport.builder(
   itemBuilder: buildMessage,
 )''';
 
-const _accessibilityCode = '''DMessageScrollerViewport.builder(
-  semanticLabel: 'Support conversation',
-  busy: isLoading,
-  styled: false,
-  showScrollbar: false,
-  announcementBuilder: (index) => messages[index].accessibleText,
-  ...
-)''';
+const _accessibilityCode =
+    "DMessageScrollerViewport.builder(\n  \n  busy: isLoading,\n  \n  \n  \n  ...\n)";

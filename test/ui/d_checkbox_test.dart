@@ -177,12 +177,7 @@ void main() {
         var changes = 0;
         await tester.pumpWidget(
           host(
-            Center(
-              child: DCheckbox.defaultValue(
-                alignment: AlignmentDirectional.centerStart,
-                onChanged: (_) => changes++,
-              ),
-            ),
+            Center(child: DCheckbox.defaultValue(onChanged: (_) => changes++)),
             platform: platform,
             direction: direction,
           ),

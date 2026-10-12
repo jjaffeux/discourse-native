@@ -15,11 +15,10 @@ void main() {
     expect(properties(null), ['textDirection: inherited']);
   });
 
-  testWidgets('missing scope is nullable only for maybeOf', (tester) async {
+  testWidgets('inherited direction requires a scope', (tester) async {
     await tester.pumpWidget(
       Builder(
         builder: (context) {
-          expect(DDirection.maybeOf(context), isNull);
           expect(() => DDirection.of(context), throwsFlutterError);
           return const SizedBox.shrink();
         },
@@ -221,7 +220,7 @@ class _ReadDirection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final direction = DDirection.of(context);
-    expect(DDirection.maybeOf(context), direction);
+    expect(DDirection.of(context), direction);
     expect(Directionality.of(context), direction);
     return Text('$label: ${direction.name}');
   }

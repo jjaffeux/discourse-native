@@ -311,7 +311,7 @@ void main() {
             );
           }
           expect(find.byType(DCodeEditor), findsNothing);
-          expect(composer.raw, suffix.trim());
+          expect(composer.raw, suffix.trimRight());
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(

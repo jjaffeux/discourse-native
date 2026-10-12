@@ -19,7 +19,7 @@ class DCard extends ImplicitlyAnimatedWidget {
   const DCard({
     super.key,
     super.duration = Duration.zero,
-    super.curve = Curves.easeOutCubic,
+
     this.children = const [],
     this.child,
     this.size = DCardSize.normal,
@@ -33,7 +33,8 @@ class DCard extends ImplicitlyAnimatedWidget {
     this.leading,
     this.trailing,
     this.footer,
-  }) : assert(spacing == null || (spacing >= 0 && spacing < double.infinity));
+  }) : assert(spacing == null || (spacing >= 0 && spacing < double.infinity)),
+       super(curve: Curves.easeOutCubic);
 
   /// Full-surface composition, useful for an InkWell with caller-owned padding.
   final Widget? child;
@@ -250,32 +251,20 @@ double _spacing(BuildContext context) =>
 /// Title and description share the first column; action aligns at logical end.
 /// At narrow widths the action wraps below, keeping large text readable.
 class DCardHeader extends StatelessWidget {
-  const DCardHeader({
-    super.key,
-    this.title,
-    this.description,
-    this.action,
-    this.border = false,
-  });
+  const DCardHeader({super.key, this.title, this.description, this.action});
   final Widget? title;
   final Widget? description;
   final DCardAction? action;
-  final bool border;
+
   @override
   Widget build(BuildContext context) => Container(
     padding: EdgeInsetsDirectional.fromSTEB(
       _spacing(context),
       0,
       _spacing(context),
-      border ? _spacing(context) : 0,
+      0,
     ),
-    decoration: border
-        ? BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: DTokens.of(context).border),
-            ),
-          )
-        : null,
+    decoration: null,
     child: LayoutBuilder(
       builder: (context, constraints) {
         final text = Column(
@@ -362,20 +351,13 @@ class DCardAction extends StatelessWidget {
 /// [edgeToEdge] removes horizontal inset; [joinNext] removes the following gap.
 /// Together these express the reference's negative shared-spacing margins.
 class DCardContent extends StatelessWidget {
-  const DCardContent({
-    super.key,
-    required this.child,
-    this.edgeToEdge = false,
-    this.joinNext = false,
-  });
+  const DCardContent({super.key, required this.child, this.joinNext = false});
   final Widget child;
-  final bool edgeToEdge;
+
   final bool joinNext;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.symmetric(
-      horizontal: edgeToEdge ? 0 : _spacing(context),
-    ),
+    padding: EdgeInsets.symmetric(horizontal: (_spacing(context))),
     child: child,
   );
 }
@@ -385,16 +367,13 @@ class DCardFooter extends StatelessWidget {
   const DCardFooter({
     super.key,
     required this.child,
-    this.border = true,
-    this.muted = true,
+
     this.rounded = false,
     this.padding,
     this.backgroundColor,
     this.borderColor,
   });
   final Widget child;
-  final bool border;
-  final bool muted;
 
   /// Rounds the upper edge using the enclosing card's radius scale.
   final bool rounded;
@@ -413,22 +392,18 @@ class DCardFooter extends StatelessWidget {
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         borderRadius: radius,
-        border: border
-            ? Border(top: BorderSide(color: borderColor ?? tokens.border))
-            : null,
+        border: (Border(top: BorderSide(color: borderColor ?? tokens.border))),
       ),
       child: ClipRRect(
         borderRadius: radius,
         child: ColoredBox(
-          color:
-              backgroundColor ??
-              (muted ? tokens.muted.withValues(alpha: .5) : Colors.transparent),
+          color: backgroundColor ?? ((tokens.muted.withValues(alpha: .5))),
           child: Padding(
             padding:
                 padding ??
                 EdgeInsets.all(
                   _spacing(context),
-                ).add(EdgeInsets.only(top: border ? 1 : 0)),
+                ).add(const EdgeInsets.only(top: 1)),
             child: child,
           ),
         ),

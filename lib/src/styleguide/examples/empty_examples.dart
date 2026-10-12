@@ -80,7 +80,7 @@ class _EmptySampleState extends State<_EmptySample> {
   Widget build(BuildContext context) {
     final kind = widget.kind;
     final rtl = kind == 'RTL';
-    final tokens = DTokens.of(context);
+
     final (title, description, action) = switch (kind) {
       'Outline' => (
         'Cloud Storage Empty',
@@ -121,10 +121,6 @@ class _EmptySampleState extends State<_EmptySample> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DEmpty(
-            outlined: kind == 'Outline',
-            backgroundColor: kind == 'Background'
-                ? tokens.muted.withValues(alpha: tokens.muted.a * .3)
-                : null,
             children: [
               DEmptyHeader(
                 children: [
@@ -252,7 +248,7 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
   }
 
   void _submit() {
-    final valid = _form.currentState!.validate();
+    final valid = _query.trim().isNotEmpty;
     if (!valid) {
       setState(() => _validationError = 'Enter a search query.');
       return;
@@ -301,11 +297,8 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                           hintText: 'Try searching for pages...',
                           semanticLabel: 'Search pages',
                           textInputAction: TextInputAction.search,
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Enter a search query.'
-                              : null,
-                          onSaved: (value) => _query = value!.trim(),
+
+                          onChanged: (value) => _query = value,
                           onSubmitted: (_) => _submit(),
                         ),
                         const DInputGroupAddon(

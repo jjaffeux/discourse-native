@@ -11,31 +11,11 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_scroll_area.dart';
 
-/// Where a transcript lands on its first non-empty layout.
-enum DMessageScrollerInitialPosition { start, end, lastAnchor }
-
 /// A logical transcript edge, independent of a reversed Flutter viewport.
 enum DMessageScrollerDirection { start, end }
 
-/// Alignment used by [DMessageScrollerController.scrollToMessage].
-enum DMessageScrollerAlignment { start, center, end, nearest }
-
 /// Motion used by imperative transcript commands.
 enum DMessageScrollerScrollBehavior { instant, smooth }
-
-/// Per-command overrides for a transcript jump.
-@immutable
-class DMessageScrollerScrollOptions {
-  const DMessageScrollerScrollOptions({
-    this.alignment = DMessageScrollerAlignment.start,
-    this.behavior = DMessageScrollerScrollBehavior.instant,
-    this.scrollMargin,
-  });
-
-  final DMessageScrollerAlignment alignment;
-  final DMessageScrollerScrollBehavior behavior;
-  final double? scrollMargin;
-}
 
 /// Scroll and reader-position state exposed without rebuilding transcript rows.
 @immutable
@@ -63,28 +43,6 @@ class DMessageScrollerState {
     DMessageScrollerDirection.end => canScrollEnd,
   };
 
-  DMessageScrollerState copyWith({
-    bool? canScrollStart,
-    bool? canScrollEnd,
-    bool? autoScrolling,
-    bool? pendingInitialScroll,
-    bool? followingLiveEdge,
-    Object? currentAnchorId = _notProvided,
-    List<String>? visibleMessageIds,
-  }) => DMessageScrollerState(
-    canScrollStart: canScrollStart ?? this.canScrollStart,
-    canScrollEnd: canScrollEnd ?? this.canScrollEnd,
-    autoScrolling: autoScrolling ?? this.autoScrolling,
-    pendingInitialScroll: pendingInitialScroll ?? this.pendingInitialScroll,
-    followingLiveEdge: followingLiveEdge ?? this.followingLiveEdge,
-    currentAnchorId: identical(currentAnchorId, _notProvided)
-        ? this.currentAnchorId
-        : currentAnchorId as String?,
-    visibleMessageIds: List.unmodifiable(
-      visibleMessageIds ?? this.visibleMessageIds,
-    ),
-  );
-
   @override
   bool operator ==(Object other) =>
       other is DMessageScrollerState &&
@@ -108,8 +66,6 @@ class DMessageScrollerState {
   );
 }
 
-const _notProvided = Object();
-
 bool _listsEqual(List<Object?> first, List<Object?> second) {
   if (identical(first, second)) return true;
   if (first.length != second.length) return false;
@@ -122,8 +78,6 @@ bool _listsEqual(List<Object?> first, List<Object?> second) {
 abstract interface class _DMessageScrollerBinding {
   bool scrollToStart(DMessageScrollerScrollBehavior behavior);
   bool scrollToEnd(DMessageScrollerScrollBehavior behavior);
-  bool scrollToMessage(String messageId, DMessageScrollerScrollOptions options);
-  void stopFollowing();
 }
 
 /// Imperative commands and externally observable state for one viewport.
@@ -137,7 +91,6 @@ class DMessageScrollerController extends ChangeNotifier {
   DMessageScrollerState _state = const DMessageScrollerState();
 
   _DMessageScrollerBinding? _binding;
-  ({String id, DMessageScrollerScrollOptions options})? _pendingMessage;
 
   bool scrollToStart({
     DMessageScrollerScrollBehavior behavior =
@@ -149,33 +102,12 @@ class DMessageScrollerController extends ChangeNotifier {
         DMessageScrollerScrollBehavior.instant,
   }) => _binding?.scrollToEnd(behavior) ?? false;
 
-  bool scrollToMessage(
-    String messageId, {
-    DMessageScrollerScrollOptions options =
-        const DMessageScrollerScrollOptions(),
-  }) {
-    final binding = _binding;
-    if (binding == null) {
-      _pendingMessage = (id: messageId, options: options);
-      return true;
-    }
-    return binding.scrollToMessage(messageId, options);
-  }
-
-  /// Releases live-edge following without moving the viewport.
-  void stopFollowing() => _binding?.stopFollowing();
-
   void _attach(_DMessageScrollerBinding binding) {
     assert(
       _binding == null || identical(_binding, binding),
       'A DMessageScrollerController can only control one mounted viewport.',
     );
     _binding = binding;
-    final pending = _pendingMessage;
-    if (pending != null &&
-        binding.scrollToMessage(pending.id, pending.options)) {
-      _pendingMessage = null;
-    }
   }
 
   void _detach(_DMessageScrollerBinding binding) {
@@ -195,28 +127,17 @@ class DMessageScrollerProvider extends StatefulWidget {
     super.key,
     required this.child,
     this.controller,
-    this.autoScroll = false,
-    this.initialPosition = DMessageScrollerInitialPosition.end,
+
     this.manageInitialPosition = true,
-    this.scrollEdgeThreshold = 8,
-    this.scrollMargin = 0,
-    this.previousItemPeek = 64,
-  }) : assert(scrollEdgeThreshold >= 0),
-       assert(scrollMargin >= 0),
-       assert(previousItemPeek >= 0);
+  });
 
   final Widget child;
   final DMessageScrollerController? controller;
-  final bool autoScroll;
-  final DMessageScrollerInitialPosition initialPosition;
 
   /// Set false only when an application adapter already owns a specialized
   /// restoration target. The generic default and all catalogue compositions
   /// apply [initialPosition].
   final bool manageInitialPosition;
-  final double scrollEdgeThreshold;
-  final double scrollMargin;
-  final double previousItemPeek;
 
   @override
   State<DMessageScrollerProvider> createState() =>
@@ -237,12 +158,9 @@ class _DMessageScrollerProviderState extends State<DMessageScrollerProvider> {
   @override
   Widget build(BuildContext context) => _DMessageScrollerScope(
     controller: _controller,
-    autoScroll: widget.autoScroll,
-    initialPosition: widget.initialPosition,
+
     manageInitialPosition: widget.manageInitialPosition,
-    scrollEdgeThreshold: widget.scrollEdgeThreshold,
-    scrollMargin: widget.scrollMargin,
-    previousItemPeek: widget.previousItemPeek,
+
     child: widget.child,
   );
 }
@@ -250,22 +168,15 @@ class _DMessageScrollerProviderState extends State<DMessageScrollerProvider> {
 class _DMessageScrollerScope extends InheritedWidget {
   const _DMessageScrollerScope({
     required this.controller,
-    required this.autoScroll,
-    required this.initialPosition,
+
     required this.manageInitialPosition,
-    required this.scrollEdgeThreshold,
-    required this.scrollMargin,
-    required this.previousItemPeek,
+
     required super.child,
   });
 
   final DMessageScrollerController controller;
-  final bool autoScroll;
-  final DMessageScrollerInitialPosition initialPosition;
+
   final bool manageInitialPosition;
-  final double scrollEdgeThreshold;
-  final double scrollMargin;
-  final double previousItemPeek;
 
   static _DMessageScrollerScope of(BuildContext context) {
     final result = context
@@ -279,31 +190,21 @@ class _DMessageScrollerScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DMessageScrollerScope oldWidget) =>
-      controller != oldWidget.controller ||
-      autoScroll != oldWidget.autoScroll ||
-      initialPosition != oldWidget.initialPosition ||
-      manageInitialPosition != oldWidget.manageInitialPosition ||
-      scrollEdgeThreshold != oldWidget.scrollEdgeThreshold ||
-      scrollMargin != oldWidget.scrollMargin ||
-      previousItemPeek != oldWidget.previousItemPeek;
+      (((((controller != oldWidget.controller)) ||
+      manageInitialPosition != oldWidget.manageInitialPosition)));
 }
 
 /// The base-nova frame. It fills its constrained parent and layers controls
 /// over the viewport.
 class DMessageScroller extends StatelessWidget {
-  const DMessageScroller({
-    super.key,
-    required this.children,
-    this.clipBehavior = Clip.hardEdge,
-  });
+  const DMessageScroller({super.key, required this.children});
 
   final List<Widget> children;
-  final Clip clipBehavior;
 
   @override
   Widget build(BuildContext context) => Stack(
     fit: StackFit.expand,
-    clipBehavior: clipBehavior,
+    clipBehavior: Clip.hardEdge,
     children: children,
   );
 }
@@ -389,24 +290,20 @@ class DMessageScrollerViewport extends StatefulWidget {
     required DMessageScrollerContent this._content,
     this.scrollController,
     this.listController,
-    this.focusNode,
+
     this.preserveScrollOnPrepend = true,
     this.preserveReaderPositionOnResize = true,
-    this.preserveChildIdentity = true,
+
     this.reverse = false,
-    this.physics,
-    this.restorationId,
+
     this.cacheExtent,
-    String? semanticLabel,
-    this.showScrollbar = true,
-    this.showFocusRing = false,
-    this.styled = true,
+
     this.onScrollNotification,
-    this.onUserScrollIntent,
+
     this.scrollableBuilder,
   }) : // Named private formals would make this public constructor unusable.
        // ignore: prefer_initializing_formals
-       _semanticLabel = semanticLabel,
+
        _itemCount = null,
        _itemBuilder = null,
        _itemIdBuilder = null,
@@ -422,26 +319,22 @@ class DMessageScrollerViewport extends StatefulWidget {
     required DMessageScrollerIndexedWidgetBuilder itemBuilder,
     required DMessageScrollerIndexedIdBuilder itemIdBuilder,
     DMessageScrollerIndexedBoolBuilder? scrollAnchorBuilder,
-    DMessageScrollerIndexedStringBuilder? announcementBuilder,
+
     this.contentPadding = EdgeInsets.zero,
     this.gap = 24,
     this.busy = false,
     this.scrollController,
     this.listController,
-    this.focusNode,
+
     this.preserveScrollOnPrepend = true,
     this.preserveReaderPositionOnResize = true,
-    this.preserveChildIdentity = true,
+
     this.reverse = false,
-    this.physics,
-    this.restorationId,
+
     this.cacheExtent,
-    this._semanticLabel,
-    this.showScrollbar = true,
-    this.showFocusRing = false,
-    this.styled = true,
+
     this.onScrollNotification,
-    this.onUserScrollIntent,
+
     this.scrollableBuilder,
   }) : assert(itemCount >= 0),
        assert((gap ?? 0) >= 0),
@@ -455,7 +348,7 @@ class DMessageScrollerViewport extends StatefulWidget {
        // ignore: prefer_initializing_formals
        _scrollAnchorBuilder = scrollAnchorBuilder,
        // ignore: prefer_initializing_formals
-       _announcementBuilder = announcementBuilder;
+       _announcementBuilder = null;
 
   final DMessageScrollerContent? _content;
   final int? _itemCount;
@@ -469,7 +362,7 @@ class DMessageScrollerViewport extends StatefulWidget {
   final bool? busy;
   final ScrollController? scrollController;
   final ListController? listController;
-  final FocusNode? focusNode;
+
   final bool preserveScrollOnPrepend;
 
   /// Keeps the first visible stable row fixed when measured content changes.
@@ -477,26 +370,14 @@ class DMessageScrollerViewport extends StatefulWidget {
   /// the same invariant.
   final bool preserveReaderPositionOnResize;
 
-  /// Lets rows follow their stable ids across insertions, keeping each row's
-  /// element, state and keep-alive. Disabled, rows match by index: one
-  /// insertion ahead of them, such as the newest row of a reversed transcript,
-  /// rebuilds every mounted row after it from scratch. Layout offsets stay
-  /// positional either way, so reversal alone is no reason to disable this.
-  final bool preserveChildIdentity;
   final bool reverse;
-  final ScrollPhysics? physics;
-  final String? restorationId;
-  final double? cacheExtent;
-  final String? _semanticLabel;
-  String get semanticLabel => _semanticLabel ?? appL10n.messages;
-  final bool showScrollbar;
 
-  /// Whether to paint an outline when keyboard focus is visible.
-  /// Focus and keyboard scrolling remain available when this is false.
-  final bool showFocusRing;
-  final bool styled;
+  final double? cacheExtent;
+
+  String get semanticLabel => appL10n.messages;
+
   final bool Function(ScrollNotification notification)? onScrollNotification;
-  final VoidCallback? onUserScrollIntent;
+
   final DMessageScrollerScrollableBuilder? scrollableBuilder;
 
   int get itemCount => _content?.children.length ?? _itemCount!;
@@ -534,7 +415,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
   ScrollController get _scroll => widget.scrollController ?? _ownedScroll;
   ListController get _list => widget.listController ?? _ownedList;
-  FocusNode get _focus => widget.focusNode ?? _ownedFocus;
+  FocusNode get _focus => (_ownedFocus);
 
   _DMessageScrollerScope? _scope;
   DMessageScrollerController? _attachedController;
@@ -553,7 +434,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   double? _anchoredTop;
   ({String id, double top})? _readerHold;
   ({String id, double top})? _pendingRestore;
-  ({String id, DMessageScrollerScrollOptions options})? _pendingTarget;
+  String? _pendingTarget;
   List<String> _ids = const [];
 
   /// The sliver resolves every mounted keyed row through this on each rebuild.
@@ -576,17 +457,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       _attachedController?._detach(this);
       _attachedController = next.controller.._attach(this);
     }
-    final initialChanged =
-        _scope != null && _scope!.initialPosition != next.initialPosition;
+
     _scope = next;
-    if (initialChanged) {
-      _initialApplied = false;
-    }
+
     if (!_initialApplied) {
-      _mode = next.autoScroll ? _ScrollerMode.followingEnd : _ScrollerMode.free;
-      _pendingInitial =
-          next.manageInitialPosition &&
-          next.initialPosition != DMessageScrollerInitialPosition.start;
+      _mode = _ScrollerMode.free;
+      _pendingInitial = next.manageInitialPosition;
     }
     _captureItems();
     _scheduleContentChange();
@@ -655,24 +531,16 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     _ids = List.unmodifiable(ids);
     _indexes = indexes;
     _anchors = List.unmodifiable(anchors);
-    if (widget.preserveChildIdentity) {
+    {
       _indexedRowKeys.clear();
       _rowKeys.removeWhere((id, _) => !indexes.containsKey(id));
       for (final id in ids) {
         _rowKeys.putIfAbsent(id, GlobalKey.new);
       }
-    } else {
-      _rowKeys.clear();
-      _indexedRowKeys.removeWhere((index, _) => index >= ids.length);
-      for (var index = 0; index < ids.length; index++) {
-        _indexedRowKeys.putIfAbsent(index, GlobalKey.new);
-      }
     }
   }
 
-  GlobalKey? _rowKey(String id) => widget.preserveChildIdentity
-      ? _rowKeys[id]
-      : _indexedRowKeys[_indexOf(id)];
+  GlobalKey? _rowKey(String id) => (_rowKeys[id]);
 
   int _prependedCount(List<String> oldIds, List<String> newIds) {
     if (oldIds.isEmpty || newIds.length <= oldIds.length) return 0;
@@ -791,9 +659,9 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     }
 
     if (_pendingTarget case final pending?) {
-      if (_indexOf(pending.id) case final index?) {
+      if (_indexOf(pending) case final index?) {
         _pendingTarget = null;
-        _scrollToIndex(index, pending.options);
+        _scrollToIndex(index);
         return;
       }
     }
@@ -832,40 +700,14 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
         !_pendingInitial) {
       if (_restoreAnchor()) return;
     }
-    if (_mode == _ScrollerMode.followingEnd && _scope!.autoScroll) {
-      _moveToEdge(
-        DMessageScrollerDirection.end,
-        DMessageScrollerScrollBehavior.instant,
-        markAutoScrolling: true,
-      );
-      return;
-    }
+
     _scheduleStateSync();
   }
 
   void _applyInitialPosition() {
-    final position = _scope!.initialPosition;
     _initialApplied = true;
-    switch (position) {
-      case DMessageScrollerInitialPosition.start:
-        scrollToStart();
-      case DMessageScrollerInitialPosition.end:
-        scrollToEnd();
-      case DMessageScrollerInitialPosition.lastAnchor:
-        final anchor = _lastAnchorId();
-        if (anchor == null || _turnFromAnchorFits(anchor)) {
-          scrollToEnd();
-        } else {
-          _scrollToMessage(
-            anchor,
-            const DMessageScrollerScrollOptions(),
-            keepPreviousPeek: true,
-          );
-          // Item jumps need another layout before their margin correction.
-          // Keep the first paint hidden until that correction has settled.
-          _publishState();
-          return;
-        }
+    {
+      scrollToEnd();
     }
     _publishState();
     _scheduleReaderHoldCapture();
@@ -874,19 +716,6 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   void _setPendingInitial(bool value) {
     if (_pendingInitial == value) return;
     setState(() => _pendingInitial = value);
-  }
-
-  String? _lastAnchorId() {
-    for (var index = _anchors.length - 1; index >= 0; index--) {
-      if (_anchors[index]) return _ids[index];
-    }
-    return null;
-  }
-
-  bool _turnFromAnchorFits(String id) {
-    final index = _indexOf(id);
-    if (index == null || !_scroll.hasClients) return true;
-    return _remainingContentExtent(index) <= _scroll.position.viewportDimension;
   }
 
   double _remainingContentExtent(int index) {
@@ -907,21 +736,8 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
   void _anchorNewTurn(String id, {required int appendedAt}) {
     if (!_initialApplied || !_scroll.hasClients || !_list.isAttached) return;
-    final newAnchorCount = _anchors
-        .skip(appendedAt)
-        .where((value) => value)
-        .length;
-    if (_scope!.autoScroll &&
-        _mode == _ScrollerMode.followingEnd &&
-        newAnchorCount > 1) {
-      scrollToEnd();
-      return;
-    }
-    _scrollToMessage(
-      id,
-      const DMessageScrollerScrollOptions(),
-      keepPreviousPeek: true,
-    );
+
+    _scrollToMessage(id);
   }
 
   bool _restoreHold(({String id, double top}) hold) {
@@ -992,10 +808,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     _anchoredTop = null;
     _pendingRestore = null;
     _readerHold = null;
-    final nextMode =
-        direction == DMessageScrollerDirection.end && _scope?.autoScroll == true
-        ? _ScrollerMode.followingEnd
-        : _ScrollerMode.free;
+    const nextMode = _ScrollerMode.free;
     if (_spacerExtent > 0) {
       final generation = ++_programmaticGeneration;
       _mode = _ScrollerMode.settling;
@@ -1023,21 +836,11 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     return moved;
   }
 
-  @override
-  bool scrollToMessage(
-    String messageId,
-    DMessageScrollerScrollOptions options,
-  ) => _scrollToMessage(messageId, options);
-
-  bool _scrollToMessage(
-    String messageId,
-    DMessageScrollerScrollOptions options, {
-    bool keepPreviousPeek = false,
-  }) {
+  bool _scrollToMessage(String messageId) {
     final index = _indexOf(messageId);
     if (index == null) {
       if (_ids.isEmpty) {
-        _pendingTarget = (id: messageId, options: options);
+        _pendingTarget = messageId;
         _initialApplied = true;
         _pendingInitial = false;
         return true;
@@ -1045,43 +848,23 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       return false;
     }
     if (!_list.isAttached || !_scroll.hasClients) {
-      _pendingTarget = (id: messageId, options: options);
+      _pendingTarget = messageId;
       return true;
     }
-    _mode = keepPreviousPeek ? _ScrollerMode.anchored : _ScrollerMode.settling;
-    _anchoredId = keepPreviousPeek ? messageId : null;
-    return _scrollToIndex(
-      index,
-      options,
-      extraMargin: keepPreviousPeek ? _scope!.previousItemPeek : 0,
-    );
+    _mode = _ScrollerMode.anchored;
+    _anchoredId = messageId;
+    return _scrollToIndex(index, extraMargin: 64);
   }
 
-  bool _scrollToIndex(
-    int index,
-    DMessageScrollerScrollOptions options, {
-    double extraMargin = 0,
-  }) {
+  bool _scrollToIndex(int index, {double extraMargin = 0}) {
     final messageId = _ids[index];
     final generation = ++_programmaticGeneration;
     final keepAnchored = _mode == _ScrollerMode.anchored;
     if (!keepAnchored) _mode = _ScrollerMode.settling;
     _pendingRestore = null;
     _readerHold = null;
-    final margin = (options.scrollMargin ?? _scope!.scrollMargin) + extraMargin;
-    final alignment = switch (options.alignment) {
-      DMessageScrollerAlignment.start => 0.0,
-      DMessageScrollerAlignment.center => .5,
-      DMessageScrollerAlignment.end => 1.0,
-      DMessageScrollerAlignment.nearest => _nearestAlignment(index, margin),
-    };
-    if (alignment == null) {
-      _mode = _ScrollerMode.free;
-      _readerHold = _captureReaderHold();
-      _setPendingInitial(false);
-      _publishState();
-      return true;
-    }
+    final margin = 0 + extraMargin;
+    const alignment = 0.0;
     _setTargetSpacer(index, alignment, margin);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -1096,27 +879,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
         _scheduleStateSync();
         return;
       }
-      if (options.behavior == DMessageScrollerScrollBehavior.smooth &&
-          !MediaQuery.disableAnimationsOf(context)) {
-        _programmaticDepth++;
-        _list.animateToItem(
-          index: currentIndex,
-          scrollController: _scroll,
-          alignment: widget.reverse ? 1 - alignment : alignment,
-          duration: (_) => const Duration(milliseconds: 200),
-          curve: (_) => Curves.easeOutCubic,
-        );
-        Future<void>.delayed(const Duration(milliseconds: 220), () {
-          if (!mounted) return;
-          _programmaticDepth = (_programmaticDepth - 1).clamp(0, 1 << 20);
-          if (generation != _programmaticGeneration) {
-            _publishState();
-            return;
-          }
-          _correctItemMargin(messageId, alignment, margin);
-          _finishItemScroll(keepAnchored: keepAnchored);
-        });
-      } else {
+      {
         _list.jumpToItem(
           index: currentIndex,
           scrollController: _scroll,
@@ -1140,35 +903,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   void _finishItemScroll({required bool keepAnchored}) {
     // The initial estimate can overstate an unmounted tail. Reconsider the
     // saved-turn fit only after the jump has measured its real rows.
-    final anchor = _anchoredId;
-    if (_pendingInitial &&
-        keepAnchored &&
-        _scope!.initialPosition == DMessageScrollerInitialPosition.lastAnchor &&
-        anchor != null &&
-        _turnFromAnchorFits(anchor)) {
-      scrollToEnd();
-      _publishState();
-      return;
-    }
+
     if (!keepAnchored) _mode = _ScrollerMode.free;
     _readerHold = null;
     _scheduleReaderHoldCapture();
     _setPendingInitial(false);
     _publishState();
-  }
-
-  double? _nearestAlignment(int index, double margin) {
-    final id = _ids[index];
-    final rowTop = _rowTop(id);
-    final rowContext = _rowKey(id)?.currentContext;
-    final rowBox = rowContext?.findRenderObject() as RenderBox?;
-    if (rowTop == null || rowBox == null) return 0;
-    final rowBottom = rowTop + rowBox.size.height;
-    final viewport = _scroll.position.viewportDimension;
-    if (rowTop >= margin && rowBottom <= viewport - margin) {
-      return null;
-    }
-    return rowTop < margin ? 0 : 1;
   }
 
   void _correctItemMargin(String id, double alignment, double margin) {
@@ -1287,9 +1027,6 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     );
   }
 
-  @override
-  void stopFollowing() => _noteUserIntent();
-
   void _noteUserIntent() {
     _programmaticGeneration++;
     if (_programmaticDepth > 0 && _scroll.hasClients) {
@@ -1299,7 +1036,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     _anchoredId = null;
     _anchoredTop = null;
     _readerHold = _captureReaderHold();
-    widget.onUserScrollIntent?.call();
+
     _scheduleReaderHoldCapture();
     _scheduleStateSync();
   }
@@ -1359,15 +1096,11 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       return;
     }
     final position = _scroll.position;
-    final threshold = _scope!.scrollEdgeThreshold;
+    const threshold = 8;
     final towardMin = position.pixels - position.minScrollExtent > threshold;
     final towardMax = position.maxScrollExtent - position.pixels > threshold;
     final canStart = widget.reverse ? towardMax : towardMin;
     final canEnd = widget.reverse ? towardMin : towardMax;
-
-    if (_scope!.autoScroll && !canEnd && _mode == _ScrollerMode.free) {
-      _mode = _ScrollerMode.followingEnd;
-    }
 
     final visibility = _visibility();
     controller._setState(
@@ -1401,8 +1134,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
     String? currentAnchor;
     if (!widget.reverse) {
-      final readingLine =
-          _scroll.offset + _scope!.scrollMargin + _scope!.previousItemPeek + .5;
+      final readingLine = _scroll.offset + 0 + 64 + .5;
       for (var index = 0; index < _anchors.length; index++) {
         if (!_anchors[index]) continue;
         final top = _rowTop(_ids[index]);
@@ -1484,7 +1216,6 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
     final direction = Directionality.of(context);
     final padding = widget.resolvedPadding.resolve(direction);
     final physicalPadding = EdgeInsets.fromLTRB(
@@ -1500,20 +1231,16 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       controller: _scroll,
       listController: _list,
       reverse: widget.reverse,
-      physics: widget.physics,
-      restorationId: widget.restorationId,
+      physics: null,
+      restorationId: null,
       cacheExtent: widget.cacheExtent,
       padding: physicalPadding,
       itemCount: widget.itemCount,
-      findChildIndexCallback: widget.preserveChildIdentity
-          ? _findChildIndex
-          : null,
+      findChildIndexCallback: (_findChildIndex),
       itemBuilder: (context, index) {
         final gap = index + 1 < widget.itemCount ? widget.resolvedGap : 0.0;
         return KeyedSubtree(
-          key: widget.preserveChildIdentity
-              ? _DMessageScrollerRowKey(widget.itemId(index))
-              : null,
+          key: (_DMessageScrollerRowKey(widget.itemId(index))),
           child: Semantics(
             container: true,
             child: SizedBox(
@@ -1532,10 +1259,10 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       viewport = builder(context, _scroll, viewport);
     }
 
-    if (widget.styled) {
+    {
       viewport = DScrollBar(
         controller: _scroll,
-        thumbVisibility: widget.showScrollbar && !state.autoScrolling,
+        thumbVisibility: (!state.autoScrolling),
         child: viewport,
       );
     }
@@ -1575,17 +1302,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       onShowFocusHighlight: (value) {
         if (value != _focusVisible) setState(() => _focusVisible = value);
       },
-      child: CustomPaint(
-        foregroundPainter: widget.showFocusRing && _focusVisible
-            ? _MessageScrollerFocusRing(
-                color: tokens.focusRing.withValues(
-                  alpha: tokens.focusRing.a * .5,
-                ),
-                radius: BorderRadius.circular(tokens.radius * .8),
-              )
-            : null,
-        child: viewport,
-      ),
+      child: CustomPaint(foregroundPainter: null, child: viewport),
     );
     viewport = Focus(
       canRequestFocus: false,
@@ -1609,23 +1326,6 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 class _DMessageScrollerRowKey extends ValueKey<String> {
   const _DMessageScrollerRowKey(super.value);
   String get id => value;
-}
-
-class _MessageScrollerFocusRing extends CustomPainter {
-  const _MessageScrollerFocusRing({required this.color, required this.radius});
-
-  final Color color;
-  final BorderRadius radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final inner = radius.toRRect(Offset.zero & size);
-    canvas.drawDRRect(inner.inflate(3), inner, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_MessageScrollerFocusRing oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 /// Base-nova's centered start/end scroll control. Inactive controls remain

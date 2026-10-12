@@ -30,7 +30,6 @@ DCombobox<String> _single({
   anchor: const DComboboxInput<String>(
     key: ValueKey('input'),
     placeholder: 'Select a framework',
-    showClear: true,
   ),
   content: const DComboboxContent(
     children: [
@@ -166,84 +165,6 @@ void main() {
     });
   }
 
-  testWidgets('filtered results follow the query and replaced options', (
-    tester,
-  ) async {
-    late StateSetter update;
-    var options = const [
-      DComboboxOption(value: 'utc', label: 'UTC'),
-      DComboboxOption(
-        value: 'paris',
-        label: 'Europe/Paris',
-        searchText: 'Paris France CET',
-      ),
-      DComboboxOption(value: 'berlin', label: 'Europe/Berlin'),
-      DComboboxOption(value: 'tokyo', label: 'Asia/Tokyo'),
-    ];
-    int? limit;
-    await tester.pumpWidget(
-      _app(
-        StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return DCombobox<String>(
-              options: options,
-              limit: limit,
-              anchor: const DComboboxInput<String>(),
-              content: const DComboboxContent(
-                children: [
-                  DComboboxEmpty<String>(child: Text('No items found.')),
-                  DComboboxList<String>(),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-    List<String> rows() => [
-      for (final item in tester.widgetList<DComboboxItem<String>>(
-        find.byType(DComboboxItem<String>),
-      ))
-        item.option.value,
-    ];
-    await tester.tap(find.byType(TextField));
-    await tester.pumpAndSettle();
-    expect(rows(), ['utc', 'paris', 'berlin', 'tokyo']);
-
-    // Search text replaces the label, and matching ignores case and padding.
-    await tester.enterText(find.byType(TextField), 'EUROPE');
-    await tester.pump();
-    expect(rows(), ['berlin']);
-    await tester.enterText(find.byType(TextField), '  france ');
-    await tester.pump();
-    expect(rows(), ['paris']);
-    await tester.enterText(find.byType(TextField), 'o');
-    await tester.pump();
-    expect(rows(), ['berlin', 'tokyo']);
-
-    // A replaced configuration refilters the same query.
-    update(
-      () => options = [
-        ...options,
-        const DComboboxOption(value: 'lisbon', label: 'Europe/Lisbon'),
-      ],
-    );
-    await tester.pump();
-    expect(rows(), ['berlin', 'tokyo', 'lisbon']);
-    update(() => limit = 2);
-    await tester.pump();
-    expect(rows(), ['berlin', 'tokyo']);
-
-    await tester.enterText(find.byType(TextField), 'missing');
-    await tester.pump();
-    expect(rows(), isEmpty);
-    expect(find.text('No items found.'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '');
-    await tester.pump();
-    expect(rows(), ['utc', 'paris']);
-  });
-
   testWidgets('keyboard highlight replaces a stationary pointer highlight', (
     tester,
   ) async {
@@ -271,78 +192,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected, 'svelte');
   });
-
-  for (final scenario in [
-    (
-      name: 'disabled option',
-      hover: true,
-      controlled: false,
-      value: 'next',
-      target: 'nuxt',
-    ),
-    (
-      name: 'disabled pointer highlighting',
-      hover: false,
-      controlled: false,
-      value: 'next',
-      target: 'svelte',
-    ),
-    (
-      name: 'controlled highlight',
-      hover: true,
-      controlled: true,
-      value: 'next',
-      target: 'svelte',
-    ),
-    (
-      name: 'controlled null highlight',
-      hover: true,
-      controlled: true,
-      value: null,
-      target: 'svelte',
-    ),
-  ]) {
-    testWidgets('${scenario.name} does not paint an extra hovered row', (
-      tester,
-    ) async {
-      String? requested;
-      await tester.pumpWidget(
-        _app(
-          DCombobox<String>(
-            options: _options,
-            highlightItemOnHover: scenario.hover,
-            highlightControlled: scenario.controlled,
-            highlightedValue: scenario.value,
-            onHighlightChanged: (value, _) => requested = value,
-            anchor: const DComboboxInput<String>(),
-            content: const DComboboxContent(
-              children: [DComboboxList<String>()],
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.byType(TextField));
-      await tester.pumpAndSettle();
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer();
-      await mouse.moveTo(
-        tester.getCenter(
-          find.text(
-            _options.firstWhere((o) => o.value == scenario.target).label,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(_rowBackground(tester, scenario.target).a, 0);
-      expect(
-        _rowBackground(tester, 'next').a,
-        scenario.value == null ? 0 : greaterThan(0),
-      );
-      expect(requested, scenario.controlled ? scenario.target : null);
-    });
-  }
 
   testWidgets(
     'selecting after input blur closes without refocusing the popup',
@@ -383,7 +232,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('SvelteKit'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
-      expect(controller.value, 'svelte');
+      expect(_values(tester, controller).singleOrNull, 'svelte');
       expect(controller.isOpen, isFalse);
       expect(inputFocus.hasFocus, isFalse);
       expect(
@@ -518,7 +367,10 @@ void main() {
           ['svelte'],
         ]);
         expect(controller.isOpen, !closeOnSelect);
-        expect(controller.query, isEmpty);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          isEmpty,
+        );
         expect(
           tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
           isTrue,
@@ -596,7 +448,7 @@ void main() {
     await mouse.moveTo(tester.getCenter(row));
     await tester.pumpAndSettle();
 
-    expect(controller.highlightedValue, 'option-1');
+    expect(_highlighted(tester), 'option-1');
     expect(popupScroll.pixels, initialPopupOffset);
     expect(pageScroll.offset, 0);
 
@@ -606,7 +458,7 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    expect(controller.highlightedValue, 'option-16');
+    expect(_highlighted(tester), 'option-16');
     expect(popupScroll.maxScrollExtent, greaterThan(0));
     expect(popupScroll.pixels, greaterThan(initialPopupOffset));
     expect(pageScroll.offset, 0);
@@ -629,38 +481,22 @@ void main() {
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     controller.highlight('remix');
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    expect(controller.highlightedValue, isNull);
+    await tester.pump();
+    expect(_highlighted(tester), isNull);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    expect(controller.highlightedValue, 'next');
+    await tester.pump();
+    expect(_highlighted(tester), 'next');
     controller.highlight('next');
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-    expect(controller.highlightedValue, isNull);
+    await tester.pump();
+    expect(_highlighted(tester), isNull);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-    expect(controller.highlightedValue, 'remix');
+    await tester.pump();
+    expect(_highlighted(tester), 'remix');
     controller.dispose();
-  });
-
-  testWidgets('clear action clears selection and restores input focus', (
-    tester,
-  ) async {
-    String? selected = 'next';
-    await tester.pumpWidget(
-      _app(
-        DCombobox<String>(
-          options: _options,
-          initialValue: 'next',
-          onChanged: (value, _) => selected = value,
-          anchor: const DComboboxInput<String>(showClear: true),
-          content: const DComboboxContent(children: [DComboboxList<String>()]),
-        ),
-      ),
-    );
-    expect(find.text('Next.js'), findsOneWidget);
-    await tester.tap(find.byTooltip('Clear selection'));
-    await tester.pumpAndSettle();
-    expect(selected, isNull);
-    expect(tester.testTextInput.isVisible, isTrue);
   });
 
   testWidgets('multiple chips toggle, remove and backspace', (tester) async {
@@ -669,7 +505,7 @@ void main() {
       _app(
         DCombobox<String>.multiple(
           options: _options,
-          initialValue: const ['next'],
+
           onValuesChanged: (next, _) => values = next,
           anchor: const DComboboxChips<String>(
             input: DComboboxChipsInput<String>(placeholder: 'Add framework'),
@@ -679,7 +515,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Next.js'), findsOneWidget);
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next.js'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     await tester.tap(find.text('SvelteKit'));
@@ -705,7 +544,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('SvelteKit').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(IconButton).first);
+    await tester.tap(find.bySemanticsLabel('Remove SvelteKit'));
     await tester.pump();
     expect(values, isEmpty);
   });
@@ -724,7 +563,7 @@ void main() {
             child: DCombobox<String>.multiple(
               key: ValueKey(textDirection),
               controller: controller,
-              initialValue: values,
+
               options: _options,
               onValuesChanged: (next, _) {
                 values = next;
@@ -741,10 +580,21 @@ void main() {
         ),
       );
 
-      expect(controller.values, ['next', 'svelte']);
       await tester.tap(find.byType(TextField));
       await tester.pumpAndSettle();
-      expect(controller.values, ['next', 'svelte'], reason: '$changes');
+      await tester.tap(find.text('Next.js').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SvelteKit').last);
+      await tester.pumpAndSettle();
+      expect(_values(tester, controller), ['next', 'svelte']);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(_values(tester, controller), [
+        'next',
+        'svelte',
+      ], reason: '$changes');
       final editor = tester.widget<TextField>(find.byType(TextField));
       expect(editor.focusNode?.hasFocus, isTrue);
       expect(editor.controller?.selection.extentOffset, lessThanOrEqualTo(0));
@@ -758,7 +608,7 @@ void main() {
       await tester.enterText(find.byType(TextField), '');
       await tester.sendKeyEvent(towardChips);
       await tester.pump();
-      expect(controller.values, ['next', 'svelte']);
+      expect(_values(tester, controller), ['next', 'svelte']);
       expect(
         FocusManager.instance.primaryFocus?.debugLabel,
         'DCombobox chip',
@@ -844,12 +694,12 @@ void main() {
         await mouse.up();
         await mouse.removePointer();
         await tester.pumpAndSettle();
-        expect(controller.values, ['next']);
+        expect(_values(tester, controller), ['next']);
         expect(controller.isOpen, !closeOnSelect);
         expect(focus.hasFocus, isTrue);
 
         // A click beyond the combobox still dismisses and leaves the editor.
-        controller.open();
+        await tester.tap(find.byType(TextField));
         await tester.pumpAndSettle();
         final outside = await tester.startGesture(
           const Offset(10, 10),
@@ -1008,7 +858,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(value, 'svelte');
     expect(controller.isOpen, isFalse);
-    expect(controller.query, 'SvelteKit');
+    await tester.tap(find.text('Framework'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'SvelteKit',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1064,7 +919,7 @@ void main() {
             update = setState;
             return DCombobox<String>(
               controller: controller,
-              initialValue: 'next',
+
               options: options,
               anchor: const DComboboxInput<String>(),
               content: const DComboboxContent(
@@ -1075,14 +930,23 @@ void main() {
         ),
       ),
     );
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next.js').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
     controller.highlight('svelte');
-    expect(controller.highlightedValue, 'svelte');
+    await tester.pump();
+    expect(_highlighted(tester), 'svelte');
     update(
       () => options = const [DComboboxOption(value: 'remix', label: 'Remix')],
     );
     await tester.pump();
-    expect(controller.highlightedValue, isNull);
-    expect(controller.value, 'next');
+    expect(_highlighted(tester), isNull);
+    expect(_values(tester, controller).singleOrNull, 'next');
     controller.dispose();
   });
 
@@ -1108,7 +972,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     expect(requested, 'next');
-    expect(controller.highlightedValue, isNull);
+    expect(_highlighted(tester), isNull);
     controller.dispose();
   });
 
@@ -1121,7 +985,7 @@ void main() {
           DCombobox<String>(
             controller: controller,
             options: _options,
-            initialValue: 'next',
+
             anchor: const DComboboxInput<String>(),
             content: const DComboboxContent(
               children: [DComboboxList<String>()],
@@ -1129,6 +993,10 @@ void main() {
           ),
         ),
       );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next.js').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'rem');
       await tester.pumpAndSettle();
@@ -1173,7 +1041,7 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('Form reset restores the initial value', (tester) async {
+  testWidgets('Form reset clears the selection', (tester) async {
     final form = GlobalKey<FormState>();
     String? value;
     await tester.pumpWidget(
@@ -1182,7 +1050,7 @@ void main() {
           key: form,
           child: DCombobox<String>(
             options: _options,
-            initialValue: 'next',
+
             onChanged: (next, _) => value = next,
             anchor: const DComboboxInput<String>(),
             content: const DComboboxContent(
@@ -1201,33 +1069,11 @@ void main() {
     expect(value, 'svelte');
     form.currentState!.reset();
     await tester.pump();
-    expect(value, 'next');
-    expect(find.widgetWithText(TextField, 'Next.js'), findsOneWidget);
-  });
-
-  testWidgets('single Form save is typed as the selected value', (
-    tester,
-  ) async {
-    final form = GlobalKey<FormState>();
-    String? saved;
-    await tester.pumpWidget(
-      _app(
-        Form(
-          key: form,
-          child: DCombobox<String>(
-            initialValue: 'next',
-            options: _options,
-            onSaved: (value) => saved = value,
-            anchor: const DComboboxInput<String>(),
-            content: const DComboboxContent(
-              children: [DComboboxList<String>()],
-            ),
-          ),
-        ),
-      ),
+    expect(value, isNull);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
     );
-    form.currentState!.save();
-    expect(saved, 'next');
   });
 
   testWidgets('custom equality retains chip keyboard focus after rebuild', (
@@ -1274,39 +1120,6 @@ void main() {
     expect(find.text('Next.js'), findsNothing);
   });
 
-  testWidgets('read-only input can open but cannot edit, clear, or select', (
-    tester,
-  ) async {
-    String? changed;
-    final controller = DComboboxController<String>();
-    await tester.pumpWidget(
-      _app(
-        DCombobox<String>(
-          controller: controller,
-          readOnly: true,
-          initialValue: 'next',
-          options: _options,
-          onChanged: (value, _) => changed = value,
-          anchor: const DComboboxInput<String>(showClear: true),
-          content: const DComboboxContent(children: [DComboboxList<String>()]),
-        ),
-      ),
-    );
-    await tester.tap(find.byType(TextField));
-    await tester.pumpAndSettle();
-    expect(controller.isOpen, isTrue);
-    await tester.enterText(find.byType(TextField), 'SvelteKit');
-    await tester.pump();
-    expect(controller.query, 'Next.js');
-    await tester.tap(find.text('Next.js').last);
-    await tester.pump();
-    expect(changed, isNull);
-    expect(controller.value, 'next');
-    controller.clear();
-    expect(controller.value, 'next');
-    controller.dispose();
-  });
-
   testWidgets('touch items and actions retain 48 logical pixel targets', (
     tester,
   ) async {
@@ -1314,7 +1127,7 @@ void main() {
       _app(
         DCombobox<String>(
           options: _options,
-          anchor: const DComboboxInput<String>(showClear: true),
+          anchor: const DComboboxInput<String>(),
           content: const DComboboxContent(children: [DComboboxList<String>()]),
         ),
         theme: ThemeData(platform: TargetPlatform.iOS),
@@ -1431,3 +1244,28 @@ class _Choice {
 
   final String id;
 }
+
+String? _highlighted(WidgetTester tester) {
+  for (final item in tester.widgetList<DComboboxItem<String>>(
+    find.byType(DComboboxItem<String>),
+  )) {
+    if (_rowBackground(tester, item.option.value).a > 0) {
+      return item.option.value;
+    }
+  }
+  return null;
+}
+
+List<String> _values(
+  WidgetTester tester,
+  DComboboxController<String> controller,
+) =>
+    tester
+        .state<FormFieldState<List<String>>>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is DCombobox<String> && identical(w.controller, controller),
+          ),
+        )
+        .value ??
+    [];

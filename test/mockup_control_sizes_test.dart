@@ -163,10 +163,7 @@ void main() {
                 ),
               ],
             ),
-            child: DDropdownMenuTrigger.button(
-              size: DControlSize.filter,
-              label: const Text('Latest'),
-            ),
+            child: DDropdownMenuTrigger.button(label: const Text('Latest')),
           ),
         );
         await tester.tap(find.text('Latest'));

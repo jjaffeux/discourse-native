@@ -7,6 +7,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'support/event_fixtures.dart';
 
@@ -200,14 +201,15 @@ void main() {
     final after = DateTime.now().toUtc();
     final day = tester.widget<DDatePicker>(find.byKey(_date)).value!;
     final time = tester.widget<DTimeInput>(find.byKey(_time)).initialValue!;
-    final instant = day
-        .atTime(
-          ports.zones.location('Pacific/Kiritimati')!,
-          hour: time.hour,
-          minute: time.minute,
-          second: time.second,
-        )
-        .toUtc();
+    final instant = tz.TZDateTime(
+      ports.zones.location('Pacific/Kiritimati')!,
+      day.year,
+      day.month,
+      day.day,
+      time.hour,
+      time.minute,
+      time.second,
+    ).toUtc();
     expect(instant.isBefore(before), isFalse);
     expect(instant.isAfter(after), isFalse);
   });

@@ -27,9 +27,6 @@ class DCollapsible extends StatefulWidget {
   final ValueChanged<bool>? onOpenChange;
   final bool disabled;
 
-  /// Reads the nearest root; useful for state-dependent composition styling.
-  static bool isOpenOf(BuildContext context) => _Scope.of(context).open;
-
   @override
   State<DCollapsible> createState() => _DCollapsibleState();
 }
@@ -122,7 +119,7 @@ class DCollapsibleTrigger extends StatefulWidget {
     this.focusNode,
     this.semanticLabel,
     this.interactiveChildren = false,
-    this.disabled = false,
+
     this.focusBorderRadius,
     this.focusBorder = false,
     this.focusRingWidth = 2,
@@ -141,7 +138,6 @@ class DCollapsibleTrigger extends StatefulWidget {
   /// trigger itself has primary focus. A [semanticLabel] labels the disclosure
   /// without replacing its independently accessible children in this mode.
   final bool interactiveChildren;
-  final bool disabled;
 
   /// Optional rounded focus treatment for styled compositions.
   ///
@@ -257,7 +253,7 @@ class _TriggerState extends State<DCollapsibleTrigger> {
   @override
   Widget build(BuildContext context) {
     final scope = _Scope.of(context);
-    final enabled = !scope.disabled && !widget.disabled;
+    final enabled = (!scope.disabled);
     void activate() {
       if (enabled) {
         _focus.requestFocus();

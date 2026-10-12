@@ -74,23 +74,21 @@ class DInput extends FormField<String> {
     this.autofocus = false,
     this.readOnly = false,
     this.obscureText = false,
-    this.obscuringCharacter = '•',
+
     this.autocorrect = true,
     this.enableSuggestions = true,
-    this.enableInteractiveSelection = true,
+
     this.inputFormatters,
-    this.autofillHints,
+
     this.maxLength,
     this.maxLengthEnforcement,
-    this.textAlign = TextAlign.start,
+
     this.textDirection,
-    this.undoController,
+
     this.contextMenuBuilder = _contextMenu,
     super.enabled = true,
-    super.onSaved,
-    super.onReset,
+
     super.validator,
-    super.autovalidateMode,
   }) : assert(maxLines == null || maxLines > 0),
        assert(borderless || maxLines == 1),
        assert(!expands || (borderless && maxLines == null)),
@@ -152,15 +150,15 @@ class DInput extends FormField<String> {
   final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
   final bool autofocus, readOnly, obscureText;
-  final String obscuringCharacter;
-  final bool autocorrect, enableSuggestions, enableInteractiveSelection;
+
+  final bool autocorrect, enableSuggestions;
   final List<TextInputFormatter>? inputFormatters;
-  final Iterable<String>? autofillHints;
+
   final int? maxLength;
   final MaxLengthEnforcement? maxLengthEnforcement;
-  final TextAlign textAlign;
+
   final TextDirection? textDirection;
-  final UndoHistoryController? undoController;
+
   final EditableTextContextMenuBuilder? contextMenuBuilder;
 
   static Widget _contextMenu(BuildContext context, EditableTextState state) {
@@ -321,13 +319,7 @@ class _DInputState extends FormFieldState<String> {
     }
     final direction = input.textDirection ?? Directionality.of(context);
     final start = direction == TextDirection.ltr ? -1.0 : 1.0;
-    final horizontal = switch (input.textAlign) {
-      TextAlign.center => 0.0,
-      TextAlign.left => -1.0,
-      TextAlign.right => 1.0,
-      TextAlign.end => -start,
-      _ => start,
-    };
+    final horizontal = (start);
     return Stack(
       children: [
         if (_usingEmptyController && input.hintText != null)
@@ -339,7 +331,7 @@ class _DInputState extends FormFieldState<String> {
                   child: Text(
                     input.hintText!,
                     style: hintStyle,
-                    textAlign: input.textAlign,
+                    textAlign: TextAlign.start,
                     textDirection: input.textDirection,
                     maxLines: input.maxLines,
                     overflow: input.maxLines == 1
@@ -480,19 +472,19 @@ class _DInputState extends FormFieldState<String> {
                   textInputAction: input.textInputAction,
                   textCapitalization: input.textCapitalization,
                   obscureText: input.obscureText,
-                  obscuringCharacter: input.obscuringCharacter,
+                  obscuringCharacter: '•',
                   autocorrect: input.autocorrect,
                   enableSuggestions: input.enableSuggestions,
-                  enableInteractiveSelection: input.enableInteractiveSelection,
+                  enableInteractiveSelection: true,
                   inputFormatters: _usingEmptyController
                       ? [TextInputFormatter.withFunction(_formatEmptyInput)]
                       : input.inputFormatters,
-                  autofillHints: input.autofillHints,
+                  autofillHints: null,
                   maxLength: input.maxLength,
                   maxLengthEnforcement: input.maxLengthEnforcement,
-                  textAlign: input.textAlign,
+                  textAlign: TextAlign.start,
                   textDirection: input.textDirection,
-                  undoController: input.undoController,
+                  undoController: null,
                   contextMenuBuilder: input.contextMenuBuilder,
                   onChanged: _usingEmptyController
                       ? (_) => input.onChanged?.call(_controller.text)

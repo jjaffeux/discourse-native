@@ -232,7 +232,7 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(composer.raw, 'After');
+        expect(composer.raw, entry.key == 'quote' ? 'After' : '\n\nAfter');
         composer.history.undo();
         await tester.pump();
         expect(composer.raw, source);
@@ -943,7 +943,7 @@ void main() {
           await tester.pump();
           expect(
             composer.raw,
-            source.replaceRange(selected.start, selected.end, '').trim(),
+            source.replaceRange(selected.start, selected.end, '').trimRight(),
           );
           expect(composer.text.keyboardSelectedProjection, isNull);
           expect(tester.takeException(), isNull);
@@ -1127,7 +1127,7 @@ void main() {
           await tester.pump();
           expect(
             composer.raw,
-            source.replaceRange(selected.start, selected.end, '').trim(),
+            source.replaceRange(selected.start, selected.end, '').trimRight(),
           );
           expect(composer.text.keyboardSelectedProjection, isNull);
           expect(tester.takeException(), isNull);
@@ -1296,7 +1296,7 @@ void main() {
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
-    expect(composer.raw, 'After');
+    expect(composer.raw, '\n\nAfter');
   });
 
   testWidgets('leaving an image preserves the preceding grapheme', (

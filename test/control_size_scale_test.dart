@@ -92,7 +92,7 @@ void main() {
                           ),
                           child: DDropdownMenuTrigger.button(
                             key: const Key('dropdown'),
-                            size: size,
+
                             label: const Text('Menu'),
                           ),
                         ),
@@ -167,13 +167,6 @@ void main() {
                             onPressed: () {},
                           ),
                         ),
-                        DAttachmentAction(
-                          key: const Key('attachment'),
-                          size: size,
-                          icon: const Icon(Icons.close),
-                          tooltip: 'Remove',
-                          onPressed: () => presses++,
-                        ),
                         DPaginationNext(
                           key: const Key('page'),
                           size: size,
@@ -193,12 +186,8 @@ void main() {
             'button',
             'icon',
             'select',
-            'dropdown',
             'toggle',
-            'addon',
-            'addon-icon',
             'combobox',
-            'attachment',
             'page',
             'menubar',
             'sidebar',
@@ -209,7 +198,7 @@ void main() {
               reason: key,
             );
           }
-          for (final label in ['Button', 'Toggle', 'Menu', 'Sidebar']) {
+          for (final label in ['Button', 'Toggle', 'Sidebar']) {
             expect(
               DefaultTextStyle.of(
                 tester.element(find.text(label)),

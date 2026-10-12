@@ -44,10 +44,6 @@ class DDirection extends StatelessWidget {
   /// one cannot lay out either, so the lookup fails the same way.
   static TextDirection of(BuildContext context) => Directionality.of(context);
 
-  /// Reads and subscribes to the nearest direction, or returns null if absent.
-  static TextDirection? maybeOf(BuildContext context) =>
-      Directionality.maybeOf(context);
-
   @override
   Widget build(BuildContext context) =>
       Directionality(textDirection: textDirection ?? of(context), child: child);

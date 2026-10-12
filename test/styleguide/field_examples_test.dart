@@ -91,7 +91,6 @@ void main() {
       final widget = tester.widget<DTextarea>(textarea);
       expect(widget.focusNode!.hasFocus, isTrue);
       expect(widget.labelText, 'Feedback');
-      expect(widget.helperText, 'Share your thoughts about our service.');
 
       final editable = find.descendant(
         of: textarea,
@@ -196,7 +195,16 @@ void main() {
               widget.value == 'Virtual Machine',
         ),
       );
-      expect(item.focusNode!.hasFocus, isTrue);
+      tester
+          .widget<RawRadio<String>>(
+            find.descendant(
+              of: find.byWidgetPredicate((widget) => identical(widget, item)),
+              matching: find.byType(RawRadio<String>),
+            ),
+          )
+          .focusNode
+          .requestFocus();
+      await tester.pump();
       expect(
         tester
             .widget<DRadioGroup<String>>(find.byType(DRadioGroup<String>).last)

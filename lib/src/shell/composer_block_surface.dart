@@ -448,7 +448,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
       sheetOnMobile: true,
       content: DDropdownMenuContent(
         semanticLabel: appL10n.actionsComposerblocksurface(
-          (block.label).toString(),
+          block.label.toString(),
         ),
         children: [
           DDropdownMenuItem(
@@ -549,7 +549,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         tooltip: appL10n.addBlock,
         density: DButtonDensity.composerBlock,
         backgroundColor: const Color(0x00000000),
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         icon: const DIcon(DIcons.plus),
         hasPopup: true,
         onPressed:

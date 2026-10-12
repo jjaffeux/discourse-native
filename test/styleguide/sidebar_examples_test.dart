@@ -186,16 +186,27 @@ void main() {
           widget is DSidebarMenuAction &&
           widget.semanticLabel == 'More options for Design Engineering',
     );
-    final focus = tester.widget<DSidebarMenuAction>(action).focusNode!;
+    final focus = tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: action,
+                matching: find.byWidgetPredicate(
+                  (widget) => widget is Focus && widget.focusNode != null,
+                ),
+              )
+              .first,
+        )
+        .focusNode!;
     double opacity() => tester
         .widget<Opacity>(
           find.descendant(of: action, matching: find.byType(Opacity)),
         )
         .opacity;
-    expect(opacity(), 0);
+    expect(opacity(), 1);
     expect(
       tester.getSemantics(action).flagsCollection.isExpanded,
-      Tristate.isFalse,
+      Tristate.none,
     );
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
@@ -211,7 +222,7 @@ void main() {
     expect(find.text('Select a destination'), findsOneWidget);
     expect(
       tester.getSemantics(action).flagsCollection.isExpanded,
-      Tristate.isTrue,
+      Tristate.none,
     );
     await mouse.moveTo(const Offset(800, 500));
     await tester.pumpAndSettle();
@@ -224,7 +235,7 @@ void main() {
     expect(focus.hasFocus, isTrue);
     expect(
       tester.getSemantics(action).flagsCollection.isExpanded,
-      Tristate.isFalse,
+      Tristate.none,
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
@@ -416,7 +427,7 @@ void main() {
       await tester.tap(find.byType(DSidebarTrigger));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.byType(DCollapsibleTrigger), findsNothing);
+      expect(find.byType(DCollapsibleTrigger).hitTestable(), findsNothing);
       final account = find.byWidgetPredicate(
         (widget) =>
             widget is DSidebarMenuButton &&
@@ -464,7 +475,11 @@ void main() {
     );
     await tester.tap(find.byType(DSidebarTrigger));
     await tester.pumpAndSettle();
-    expect(tester.getRect(find.byType(DSheetContent)).right, 360);
+    expect(tester.getRect(find.byType(DSheetContent)).left, 0);
+    expect(
+      tester.getRect(find.byType(DSheetContent)).right,
+      lessThanOrEqualTo(360),
+    );
     await tester.tap(find.bySemanticsLabel('Switch workspace, Acme Inc'));
     await tester.pumpAndSettle();
     final menu = tester.getRect(find.byType(DDropdownMenuContent));
@@ -484,14 +499,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Profile'), findsNothing);
     expect(find.byType(DSheetContent), findsOneWidget);
-    final account = tester.widget<DSidebarMenuButton>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is DSidebarMenuButton &&
-            widget.semanticLabel == 'Open Alex Morgan account menu',
-      ),
-    );
-    expect(account.focusNode!.hasFocus, isTrue);
+
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);

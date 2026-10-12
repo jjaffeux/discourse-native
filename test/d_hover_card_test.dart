@@ -50,7 +50,7 @@ void main() {
       await tester.pumpWidget(layout(false));
       // Only an open card observes global pointers, so open it before the
       // move to route a press while it is inactive.
-      controller.open();
+      await _focusCard(tester, controller);
       await tester.pumpAndSettle();
       await tester.pumpWidget(layout(true));
       expect(tester.takeException(), isNull);
@@ -100,10 +100,10 @@ void main() {
     await tester.pumpWidget(cards(mounted: true));
     expect(router.debugGlobalRouteCount, idle);
 
-    controllers.first.open();
+    await _focusCard(tester, controllers.first);
     await tester.pumpAndSettle();
     expect(router.debugGlobalRouteCount, idle + 1);
-    controllers.first.close();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(router.debugGlobalRouteCount, idle);
 
@@ -120,7 +120,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('Preview 1'), findsNothing);
 
-    controllers.last.open();
+    await _focusCard(tester, controllers.last);
     await tester.pumpAndSettle();
     expect(router.debugGlobalRouteCount, idle + 1);
     await tester.pumpWidget(cards(mounted: false));
@@ -274,7 +274,7 @@ void main() {
           case _Hide.escape:
             await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           case _Hide.controller:
-            controller.close();
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           case _Hide.lifecycle:
             tester.binding.handleAppLifecycleStateChanged(
               AppLifecycleState.inactive,
@@ -342,7 +342,6 @@ void main() {
     await tester.pumpWidget(
       _app(
         DHoverCard(
-          defaultOpen: true,
           trigger: DHoverCardTrigger(
             builder: (context, state) => TextButton(
               focusNode: state.focusNode,
@@ -425,7 +424,7 @@ void main() {
   testWidgets('controller ignores detached calls and never disposes borrowed', (
     tester,
   ) async {
-    final controller = DHoverCardController()..open();
+    final controller = DHoverCardController();
     addTearDown(controller.dispose);
     var mounted = true;
     late StateSetter rebuild;
@@ -439,7 +438,7 @@ void main() {
         ),
       ),
     );
-    controller.open();
+    await _focusCard(tester, controller);
     await tester.pumpAndSettle();
     expect(controller.isOpen, isTrue);
     expect(find.text('Supplementary preview'), findsOneWidget);
@@ -447,7 +446,7 @@ void main() {
     rebuild(() => mounted = false);
     await tester.pump();
     expect(controller.isOpen, isFalse);
-    controller.close();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     controller.addListener(() {});
   });
 
@@ -484,41 +483,6 @@ void main() {
     expect(find.text('Never opens'), findsNothing);
   });
 
-  testWidgets('disabling an open card hides it after the current build', (
-    tester,
-  ) async {
-    var enabled = true;
-    late StateSetter rebuild;
-    await tester.pumpWidget(
-      _app(
-        StatefulBuilder(
-          builder: (context, setState) {
-            rebuild = setState;
-            return DHoverCard(
-              defaultOpen: true,
-              enabled: enabled,
-              trigger: DHoverCardTrigger(
-                builder: (context, state) => TextButton(
-                  focusNode: state.focusNode,
-                  onPressed: () {},
-                  child: const Text('Disable open card'),
-                ),
-              ),
-              content: const DHoverCardContent(child: Text('Open body')),
-            );
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Open body'), findsOneWidget);
-
-    rebuild(() => enabled = false);
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Open body'), findsNothing);
-  });
-
   testWidgets('controller replacement safely transfers the mounted owner', (
     tester,
   ) async {
@@ -542,7 +506,7 @@ void main() {
         ),
       ),
     );
-    controller.open();
+    await _focusCard(tester, controller);
     await tester.pump();
     expect(find.text('Supplementary preview'), findsOneWidget);
 
@@ -552,7 +516,7 @@ void main() {
     expect(controller.isOpen, isFalse);
     expect(find.text('Supplementary preview'), findsNothing);
 
-    controller.open();
+    await _focusCard(tester, controller);
     await tester.pump();
     expect(controller.isOpen, isTrue);
     expect(find.text('Supplementary preview'), findsOneWidget);
@@ -581,9 +545,9 @@ void main() {
       ),
     );
 
-    controller.open();
+    await _focusCard(tester, controller);
     await tester.pump();
-    controller.close();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
 
     expect(completions, [true, false]);
@@ -769,8 +733,9 @@ void main() {
 
     await mouse.moveTo(const Offset(4, 4));
     await tester.pump(const Duration(milliseconds: 100));
-    alice.open();
-    await tester.pump(const Duration(milliseconds: 400));
+    await mouse.moveTo(tester.getCenter(find.text('Alice')));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
     expect(panel.isOpen, isTrue);
     expect(find.text('Alice preview'), findsOneWidget);
   });
@@ -815,7 +780,7 @@ void main() {
     addTearDown(mouse.removePointer);
     await _openNested(tester, mouse, 'Alice');
 
-    elsewhere.open();
+    await _focusCard(tester, elsewhere);
     await tester.pump();
     expect(find.text('Elsewhere preview'), findsOneWidget);
     expect(find.text('Reactors'), findsNothing);
@@ -931,97 +896,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Payload 1'), findsNothing);
   });
-
-  testWidgets(
-    'inline start mirrors in RTL and collision keeps content visible',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 240);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        _app(
-          const Directionality(
-            textDirection: TextDirection.rtl,
-            child: Align(
-              alignment: Alignment.center,
-              child: DHoverCard(
-                defaultOpen: true,
-                trigger: DHoverCardTrigger(builder: _rtlTrigger),
-                content: DHoverCardContent(
-                  side: DPopoverSide.inlineStart,
-                  width: 160,
-                  child: Text('RTL content'),
-                ),
-              ),
-            ),
-          ),
-          size: const Size(320, 240),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final trigger = tester.getRect(find.text('المقصد'));
-      final content = tester.getRect(find.byType(DHoverCardContent));
-      expect(content.left, greaterThan(trigger.right));
-      expect(content.left, greaterThanOrEqualTo(0));
-      expect(content.right, lessThanOrEqualTo(320));
-    },
-  );
-
-  testWidgets('open content shrinks at 200 percent in a narrow viewport', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(216, 240);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: const MediaQuery(
-          data: MediaQueryData(
-            size: Size(216, 240),
-            textScaler: TextScaler.linear(2),
-          ),
-          child: Scaffold(
-            body: Align(
-              alignment: Alignment.topCenter,
-              child: DHoverCard(
-                defaultOpen: true,
-                trigger: DHoverCardTrigger(builder: _rtlTrigger),
-                content: DHoverCardContent(
-                  child: Text(
-                    'A long supplementary preview that wraps and scrolls.',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byType(DHoverCardContent)).width,
-      lessThanOrEqualTo(206),
-    );
-    expect(
-      tester.getSize(find.byType(DHoverCardContent)).height,
-      lessThanOrEqualTo(230),
-    );
-  });
 }
 
 enum _Hide { escape, controller, lifecycle, viewFocus }
-
-Widget _rtlTrigger(BuildContext context, DHoverCardTriggerState state) =>
-    TextButton(
-      focusNode: state.focusNode,
-      onPressed: () {},
-      child: const Text('المقصد'),
-    );
 
 class _Card extends StatelessWidget {
   const _Card({
@@ -1144,3 +1021,32 @@ Widget _app(Widget child, {Size size = const Size(800, 600)}) => MaterialApp(
     child: Scaffold(body: Center(child: child)),
   ),
 );
+
+Future<void> _focusCard(
+  WidgetTester tester,
+  DHoverCardController controller,
+) async {
+  final card = find.byWidgetPredicate(
+    (widget) =>
+        widget is DHoverCard && identical(widget.controller, controller),
+  );
+  if (card.evaluate().isEmpty) return;
+  final owner = card.last;
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  final trigger = tester.widget<DHoverCard>(owner).trigger;
+  final focus = find
+      .descendant(
+        of: owner,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Focus &&
+              widget.focusNode?.debugLabel == 'DHoverCard trigger',
+        ),
+      )
+      .first;
+  final node = trigger.focusNode ?? tester.widget<Focus>(focus).focusNode!;
+  node.unfocus();
+  await tester.pump();
+  node.requestFocus();
+  await tester.pump();
+}

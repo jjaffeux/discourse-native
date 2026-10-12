@@ -81,24 +81,7 @@ class DComboboxController<T> extends ChangeNotifier {
   _DComboboxState<T>? _owner;
   bool _disposed = false;
 
-  List<T> get values => _owner?.selectedValues ?? const [];
-  T? get value => values.firstOrNull;
-  String get query => _owner?.query ?? '';
   bool get isOpen => _owner?.isOpen ?? false;
-  T? get highlightedValue => _owner?.highlightedValue;
-
-  void open() => _owner?._requestOpen(
-    true,
-    DComboboxChangeReason.imperative,
-    focusInput: true,
-  );
-
-  void close() => _owner?._requestOpen(false, DComboboxChangeReason.imperative);
-
-  void clear() => _owner?._clear(DComboboxChangeReason.imperative);
-
-  void setQuery(String query) =>
-      _owner?._requestQuery(query, DComboboxChangeReason.imperative);
 
   void highlight(T? value) =>
       _owner?._requestHighlight(value, DComboboxChangeReason.imperative);
@@ -140,17 +123,17 @@ class DCombobox<T> extends FormField<List<T>> {
     required this.options,
     required this.anchor,
     required this.content,
-    T? initialValue,
+
     this.groups = const [],
     this.onChanged,
     this.controller,
     this.textController,
     this.focusNode,
     this.query,
-    this.initialQuery = '',
+
     this.onQueryChanged,
     this.open,
-    this.defaultOpen = false,
+
     this.onOpenChanged,
     this.highlightedValue,
     this.highlightControlled = false,
@@ -158,35 +141,27 @@ class DCombobox<T> extends FormField<List<T>> {
     this.autoHighlight = false,
     this.loopFocus = true,
     this.restoreFocus = true,
-    this.highlightItemOnHover = true,
+
     this.filterLocally = true,
     this.filter,
     this.equals,
     this.itemToStringLabel,
-    this.limit,
+
     this.closeOnSelect = true,
-    this.readOnly = false,
+
     super.enabled = true,
-    FormFieldSetter<T?>? onSaved,
-    super.onReset,
-    FormFieldValidator<T?>? validator,
-    super.autovalidateMode,
   }) : multiple = false,
        controlled = false,
        controlledValues = const [],
-       initialValues = List<T>.unmodifiable([?initialValue]),
+       initialValues = List<T>.unmodifiable([?null]),
        onValuesChanged = null,
-       singleValidator = validator,
+       singleValidator = null,
        assert(options.isEmpty || groups.isEmpty),
        assert(textController == null || query == null),
        super(
-         initialValue: List<T>.unmodifiable([?initialValue]),
-         validator: validator == null
-             ? null
-             : (values) => validator(values?.firstOrNull),
-         onSaved: onSaved == null
-             ? null
-             : (values) => onSaved(values?.firstOrNull),
+         initialValue: List<T>.unmodifiable([?null]),
+         validator: null,
+         onSaved: null,
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -203,10 +178,10 @@ class DCombobox<T> extends FormField<List<T>> {
     this.textController,
     this.focusNode,
     this.query,
-    this.initialQuery = '',
+
     this.onQueryChanged,
     this.open,
-    this.defaultOpen = false,
+
     this.onOpenChanged,
     this.highlightedValue,
     this.highlightControlled = false,
@@ -214,35 +189,27 @@ class DCombobox<T> extends FormField<List<T>> {
     this.autoHighlight = false,
     this.loopFocus = true,
     this.restoreFocus = true,
-    this.highlightItemOnHover = true,
+
     this.filterLocally = true,
     this.filter,
     this.equals,
     this.itemToStringLabel,
-    this.limit,
+
     this.closeOnSelect = true,
-    this.readOnly = false,
+
     super.enabled = true,
-    FormFieldSetter<T?>? onSaved,
-    super.onReset,
-    FormFieldValidator<T?>? validator,
-    super.autovalidateMode,
   }) : multiple = false,
        controlled = true,
        controlledValues = List<T>.unmodifiable([?value]),
        initialValues = List<T>.unmodifiable([?value]),
        onValuesChanged = null,
-       singleValidator = validator,
+       singleValidator = null,
        assert(options.isEmpty || groups.isEmpty),
        assert(textController == null || query == null),
        super(
          initialValue: List<T>.unmodifiable([?value]),
-         validator: validator == null
-             ? null
-             : (values) => validator(values?.firstOrNull),
-         onSaved: onSaved == null
-             ? null
-             : (values) => onSaved(values?.firstOrNull),
+         validator: null,
+         onSaved: null,
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -252,17 +219,17 @@ class DCombobox<T> extends FormField<List<T>> {
     required this.options,
     required this.anchor,
     required this.content,
-    List<T> initialValue = const [],
+
     this.groups = const [],
     this.onValuesChanged,
     this.controller,
     this.textController,
     this.focusNode,
     this.query,
-    this.initialQuery = '',
+
     this.onQueryChanged,
     this.open,
-    this.defaultOpen = false,
+
     this.onOpenChanged,
     this.highlightedValue,
     this.highlightControlled = false,
@@ -270,30 +237,26 @@ class DCombobox<T> extends FormField<List<T>> {
     this.autoHighlight = false,
     this.loopFocus = true,
     this.restoreFocus = true,
-    this.highlightItemOnHover = true,
+
     this.filterLocally = true,
     this.filter,
     this.equals,
     this.itemToStringLabel,
-    this.limit,
+
     this.closeOnSelect = true,
-    this.readOnly = false,
+
     super.enabled = true,
-    super.onSaved,
-    super.onReset,
-    FormFieldValidator<List<T>>? validator,
-    super.autovalidateMode,
   }) : multiple = true,
        controlled = false,
        controlledValues = const [],
-       initialValues = List<T>.unmodifiable(initialValue),
+       initialValues = List<T>.unmodifiable(const []),
        onChanged = null,
        singleValidator = null,
        assert(options.isEmpty || groups.isEmpty),
        assert(textController == null || query == null),
        super(
-         initialValue: List<T>.unmodifiable(initialValue),
-         validator: validator,
+         initialValue: List<T>.unmodifiable(const []),
+         validator: null,
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -310,10 +273,10 @@ class DCombobox<T> extends FormField<List<T>> {
     this.textController,
     this.focusNode,
     this.query,
-    this.initialQuery = '',
+
     this.onQueryChanged,
     this.open,
-    this.defaultOpen = false,
+
     this.onOpenChanged,
     this.highlightedValue,
     this.highlightControlled = false,
@@ -321,19 +284,15 @@ class DCombobox<T> extends FormField<List<T>> {
     this.autoHighlight = false,
     this.loopFocus = true,
     this.restoreFocus = true,
-    this.highlightItemOnHover = true,
+
     this.filterLocally = true,
     this.filter,
     this.equals,
     this.itemToStringLabel,
-    this.limit,
+
     this.closeOnSelect = true,
-    this.readOnly = false,
+
     super.enabled = true,
-    super.onSaved,
-    super.onReset,
-    FormFieldValidator<List<T>>? validator,
-    super.autovalidateMode,
   }) : multiple = true,
        controlled = true,
        controlledValues = List<T>.unmodifiable(value),
@@ -344,7 +303,7 @@ class DCombobox<T> extends FormField<List<T>> {
        assert(textController == null || query == null),
        super(
          initialValue: List<T>.unmodifiable(value),
-         validator: validator,
+         validator: null,
          builder: (state) => (state as _DComboboxState<T>)._build(),
        );
 
@@ -362,10 +321,10 @@ class DCombobox<T> extends FormField<List<T>> {
   final TextEditingController? textController;
   final FocusNode? focusNode;
   final String? query;
-  final String initialQuery;
+
   final DComboboxQueryChanged? onQueryChanged;
   final bool? open;
-  final bool defaultOpen;
+
   final DComboboxOpenChanged? onOpenChanged;
   final T? highlightedValue;
   final bool highlightControlled;
@@ -376,14 +335,14 @@ class DCombobox<T> extends FormField<List<T>> {
   /// Restore the trigger after dismissal. Completion editors can disable this
   /// when focus should continue to a neighboring input instead.
   final bool restoreFocus;
-  final bool highlightItemOnHover;
+
   final bool filterLocally;
   final DComboboxFilter<T>? filter;
   final bool Function(T left, T right)? equals;
   final String Function(T value)? itemToStringLabel;
-  final int? limit;
+
   final bool closeOnSelect;
-  final bool readOnly;
+
   final FormFieldValidator<T?>? singleValidator;
 
   @override
@@ -419,7 +378,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   String get query => combobox.query ?? textController.text;
   bool get isOpen => combobox.open ?? _open;
   bool get enabled => combobox.enabled;
-  bool get mutable => enabled && !combobox.readOnly;
+  bool get mutable => (enabled);
 
   List<DComboboxOption<T>> get _allOptions => combobox.groups.isEmpty
       ? combobox.options
@@ -474,10 +433,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           return _searchTextOf(option).contains(lowercase);
         })
         .toList(growable: false);
-    if (combobox.limit case final limit?
-        when limit >= 0 && result.length > limit) {
-      result = result.take(limit).toList(growable: false);
-    }
+
     _filteredFor = combobox;
     _filteredQuery = query;
     return _filtered = result;
@@ -487,10 +443,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   void initState() {
     super.initState();
     _ownedController = DComboboxController<T>();
-    _ownedTextController = TextEditingController(text: combobox.initialQuery);
+    _ownedTextController = TextEditingController(text: '');
     _ownedFocusNode = FocusNode(debugLabel: 'DCombobox input');
     _popoverController = DPopoverController();
-    _open = combobox.defaultOpen;
+    _open = false;
     _highlighted = combobox.highlightedValue;
     _controller._attach(this);
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
@@ -760,13 +716,6 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     focusNode.requestFocus();
   }
 
-  void _clear(DComboboxChangeReason reason) {
-    if (!mutable) return;
-    _emitValues(const [], reason);
-    _requestQuery('', reason);
-    focusNode.requestFocus();
-  }
-
   bool _submitHighlighted() {
     final highlighted = highlightedValue;
     if (!mutable || !isOpen || highlighted == null) return false;
@@ -901,13 +850,13 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         content: DPopoverContent(
           semanticLabel: combobox.content.semanticLabel ?? appL10n.suggestions,
           side: combobox.content.side,
-          align: combobox.content.align,
-          sideOffset: combobox.content.sideOffset,
-          alignOffset: combobox.content.alignOffset,
-          sideCollision: combobox.content.sideCollision,
-          alignCollision: combobox.content.alignCollision,
-          collisionPadding: combobox.content.collisionPadding,
-          collisionBoundary: combobox.content.collisionBoundary,
+          align: DPopoverAlign.start,
+          sideOffset: 6,
+          alignOffset: 0,
+          sideCollision: DPopoverCollision.flip,
+          alignCollision: DPopoverCollision.shift,
+          collisionPadding: 5,
+          collisionBoundary: null,
           width: popupWidth,
           constraints: BoxConstraints(maxHeight: combobox.content.maxHeight),
           padding: EdgeInsets.zero,
@@ -1061,8 +1010,7 @@ class DComboboxInput<T> extends StatelessWidget {
     this.size = DControlSize.regular,
     this.placeholder,
     this.showTrigger = true,
-    this.showClear = false,
-    this.invalid = false,
+
     this.addons = const [],
     this.autofocus = false,
     this.registerAsAnchor = true,
@@ -1073,8 +1021,7 @@ class DComboboxInput<T> extends StatelessWidget {
   final DControlSize size;
   final String? placeholder;
   final bool showTrigger;
-  final bool showClear;
-  final bool invalid;
+
   final List<DInputGroupAddon> addons;
   final bool autofocus;
   final bool registerAsAnchor;
@@ -1087,18 +1034,9 @@ class DComboboxInput<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
-    final isInvalid = invalid || root.hasError;
-    final hasValue = root.selectedValues.isNotEmpty || root.query.isNotEmpty;
-    final action = showClear && hasValue
-        ? DInputGroupButton.icon(
-            size: size,
-            tooltip: context.l10n.clearSelection,
-            icon: const DIcon(DIcons.xmark, size: 16),
-            onPressed: root.mutable
-                ? () => root._clear(DComboboxChangeReason.clear)
-                : null,
-          )
-        : showTrigger
+    final isInvalid = root.hasError;
+
+    final action = (showTrigger
         ? Semantics(
             expanded: root.isOpen,
             child: DInputGroupButton.icon(
@@ -1122,7 +1060,7 @@ class DComboboxInput<T> extends StatelessWidget {
               ),
             ),
           )
-        : null;
+        : null);
     final input = Focus(
       canRequestFocus: false,
       skipTraversal: true,
@@ -1210,7 +1148,7 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
         focusNode: focusNode,
         autofocus: autofocus,
         enabled: root.enabled,
-        readOnly: root.combobox.readOnly,
+        readOnly: false,
         autocorrect: false,
         enableSuggestions: false,
         textInputAction: TextInputAction.done,
@@ -1278,13 +1216,7 @@ class DComboboxContent extends StatelessWidget {
     required this.children,
     this.semanticLabel,
     this.side = DPopoverSide.bottom,
-    this.align = DPopoverAlign.start,
-    this.sideOffset = 6,
-    this.alignOffset = 0,
-    this.sideCollision = DPopoverCollision.flip,
-    this.alignCollision = DPopoverCollision.shift,
-    this.collisionPadding = 5,
-    this.collisionBoundary,
+
     this.width,
     this.maxHeight = 288,
     this.sheetOnMobile = false,
@@ -1294,13 +1226,7 @@ class DComboboxContent extends StatelessWidget {
   final List<Widget> children;
   final String? semanticLabel;
   final DPopoverSide side;
-  final DPopoverAlign align;
-  final double sideOffset;
-  final double alignOffset;
-  final DPopoverCollision sideCollision;
-  final DPopoverCollision alignCollision;
-  final double collisionPadding;
-  final Rect? collisionBoundary;
+
   final double? width;
   final double maxHeight;
 
@@ -1318,10 +1244,9 @@ class DComboboxContent extends StatelessWidget {
 }
 
 class DComboboxList<T> extends StatelessWidget {
-  const DComboboxList({super.key, this.itemBuilder, this.groupLabelBuilder});
+  const DComboboxList({super.key, this.itemBuilder});
 
   final DComboboxItemBuilder<T>? itemBuilder;
-  final Widget Function(BuildContext context, String label)? groupLabelBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -1342,7 +1267,7 @@ class DComboboxList<T> extends StatelessWidget {
         children.add(
           DComboboxGroup(
             label: group.label,
-            labelWidget: groupLabelBuilder?.call(context, group.label),
+            labelWidget: null,
             children: options
                 .map((option) => _item(context, root, option))
                 .toList(),
@@ -1390,7 +1315,7 @@ class DComboboxItem<T> extends StatelessWidget {
     Widget item = MouseRegion(
       cursor: itemEnabled ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) {
-        if (root.combobox.highlightItemOnHover && itemEnabled) {
+        if ((itemEnabled)) {
           root._requestHighlight(option.value, DComboboxChangeReason.pointer);
         }
       },
@@ -1542,16 +1467,9 @@ class DComboboxSeparator extends StatelessWidget {
 }
 
 class DComboboxChips<T> extends StatelessWidget {
-  const DComboboxChips({
-    super.key,
-    required this.input,
-    this.chipBuilder,
-    this.invalid = false,
-  });
+  const DComboboxChips({super.key, required this.input});
 
   final DComboboxChipsInput<T> input;
-  final DComboboxChipBuilder<T>? chipBuilder;
-  final bool invalid;
 
   @override
   Widget build(BuildContext context) {
@@ -1560,7 +1478,7 @@ class DComboboxChips<T> extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final focused =
         root.focusNode.hasFocus && DFocusHighlight.visibleOf(context);
-    final isInvalid = invalid || root.hasError;
+    final isInvalid = root.hasError;
     final border = isInvalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
@@ -1607,11 +1525,10 @@ class DComboboxChips<T> extends StatelessWidget {
             runSpacing: 4,
             children: [
               for (final value in root.selectedValues)
-                chipBuilder?.call(context, value) ??
-                    DComboboxChip<T>(
-                      value: value,
-                      child: Text(root.labelFor(value)),
-                    ),
+                (DComboboxChip<T>(
+                  value: value,
+                  child: Text(root.labelFor(value)),
+                )),
               input,
             ],
           ),
@@ -1629,16 +1546,10 @@ class DComboboxChips<T> extends StatelessWidget {
 }
 
 class DComboboxChip<T> extends StatefulWidget {
-  const DComboboxChip({
-    super.key,
-    required this.value,
-    required this.child,
-    this.showRemove = true,
-  });
+  const DComboboxChip({super.key, required this.value, required this.child});
 
   final T value;
   final Widget child;
-  final bool showRemove;
 
   @override
   State<DComboboxChip<T>> createState() => _DComboboxChipState<T>();
@@ -1707,7 +1618,7 @@ class _DComboboxChipState<T> extends State<DComboboxChip<T>> {
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
-    final canRemove = widget.showRemove && root.mutable;
+    final canRemove = root.mutable;
     return Focus(
       focusNode: _focusNode,
       canRequestFocus: root.enabled,
@@ -1809,7 +1720,7 @@ class DComboboxChipsInput<T> extends StatelessWidget {
         controller: root.textController,
         focusNode: root.focusNode,
         enabled: root.enabled,
-        readOnly: root.combobox.readOnly,
+        readOnly: false,
         autofocus: autofocus,
         autocorrect: false,
         enableSuggestions: false,
@@ -1852,27 +1763,23 @@ class DComboboxTriggerState<T> {
 
 class DComboboxTrigger<T> extends StatelessWidget {
   const DComboboxTrigger({super.key, required this.builder});
-  factory DComboboxTrigger.button({
-    Key? key,
-    required Widget label,
-    Widget? icon,
-    String? semanticLabel,
-    DControlSize size = DControlSize.regular,
-    DButtonVariant variant = DButtonVariant.outline,
-  }) => DComboboxTrigger<T>(
-    key: key,
-    builder: (context, state) => DButton(
-      label: label,
-      icon: icon,
-      size: size,
-      variant: variant,
-      semanticLabel: semanticLabel,
-      focusNode: state.focusNode,
-      hasPopup: true,
-      expanded: state.open,
-      onPressed: _DComboboxScope.of<T>(context).enabled ? state.toggle : null,
-    ),
-  );
+  factory DComboboxTrigger.button({Key? key, required Widget label}) =>
+      DComboboxTrigger<T>(
+        key: key,
+        builder: (context, state) => DButton(
+          label: label,
+          icon: null,
+          size: DControlSize.regular,
+          variant: DButtonVariant.outline,
+          semanticLabel: null,
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+          onPressed: _DComboboxScope.of<T>(context).enabled
+              ? state.toggle
+              : null,
+        ),
+      );
 
   final DComboboxTriggerBuilder<T> builder;
 

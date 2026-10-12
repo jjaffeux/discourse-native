@@ -322,7 +322,7 @@ class _DirectoryControls extends StatelessWidget {
                     key: const ValueKey('groups-show-search'),
                     icon: const DIcon(DIcons.magnifyingGlass),
                     tooltip: context.l10n.searchGroups,
-                    variant: DButtonVariant.transparentBackground,
+                    variant: DButtonVariant.ghost,
                     onPressed: onShowSearch,
                   ),
                   if (data.canCreateGroup)
@@ -360,7 +360,7 @@ class _DirectoryControls extends StatelessWidget {
                           searchController.clear();
                           onSearchSubmitted('');
                         },
-                        variant: DButtonVariant.transparentBackground,
+                        variant: DButtonVariant.ghost,
                         tooltip: context.l10n.clearSearch,
                         icon: const DIcon(DIcons.xmark),
                       ),

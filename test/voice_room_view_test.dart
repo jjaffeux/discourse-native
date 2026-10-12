@@ -4575,6 +4575,11 @@ void _mobileVoiceFormTests() {
             _expectMicrophoneReleased(calls);
           }
 
+          final closeToast = find.bySemanticsLabel('Close notification');
+          if (closeToast.evaluate().isNotEmpty) {
+            await tester.tap(closeToast);
+            await tester.pumpAndSettle();
+          }
           final headerBounds = tester.getRect(find.byType(DSheetHeader));
           final footerBounds = tester.getRect(find.byType(DSheetFooter));
           await tester.drag(find.byType(DSheetBody), const Offset(0, -180));
@@ -5298,8 +5303,7 @@ Widget _app(
   ThemeData? theme,
 }) => MaterialApp(
   theme: theme ?? ThemeData(platform: TargetPlatform.macOS),
-  builder: (context, child) =>
-      DToaster(position: DToastPosition.topEnd, child: child!),
+  builder: (context, child) => DToaster(child: child!),
   home: Scaffold(
     body: ListenableBuilder(
       listenable: controller,

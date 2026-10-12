@@ -59,12 +59,12 @@ void main() {
       expect(completed, [true, false]);
       expect(controller.isOpen, isFalse);
       expect(find.text('Latest'), findsNothing);
-      controller.open();
+      await tester.tap(find.text('Choose'));
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(controller.isOpen, isFalse);
-      controller.open();
+      await tester.tap(find.text('Choose'));
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
@@ -133,7 +133,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.isOpen, isFalse);
       expect(tester.takeException(), isNull);
-      controller.open();
+      await tester.tap(find.text('Tags'));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();

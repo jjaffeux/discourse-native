@@ -404,30 +404,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a radio item label slot keeps its invalid color through a nested label',
-    (tester) async {
-      await _pump(
-        tester,
-        DRadioGroup<String>(
-          child: const DRadioGroupItem<String>(
-            value: 'a',
-            invalid: true,
-            description: Text('Description'),
-            label: DLabel(child: Text('Alpha')),
-          ),
-        ),
-      );
-      final style = tester
-          .renderObject<RenderParagraph>(find.text('Alpha'))
-          .text
-          .style!;
-      final context = tester.element(find.text('Alpha'));
-      expect(style.color, DTokens.of(context).destructive);
-      expect(style.height, 1.375);
-    },
-  );
-
   for (final (outer, inner) in [(false, false), (true, false), (false, true)]) {
     testWidgets(
       'nested labels dim once when outer enabled=$outer and inner enabled=$inner',

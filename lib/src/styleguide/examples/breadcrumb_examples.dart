@@ -35,9 +35,7 @@ final breadcrumbExamples = ComponentExamples(
       title: 'Custom separator',
       description:
           'Any widget can replace the directional chevron. The dot remains hidden from accessibility clients.',
-      code: '''DBreadcrumbSeparator(
-  child: Icon(Icons.circle, size: 4),
-)''',
+      code: "DBreadcrumbSeparator(\n  \n)",
       builder: (_) => const _CustomSeparatorBreadcrumb(),
     ),
     StyleguideExample(
@@ -278,11 +276,11 @@ class _CustomSeparatorBreadcrumb extends StatelessWidget {
         DBreadcrumbItem(
           child: DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
         ),
-        DBreadcrumbSeparator(child: Icon(Icons.circle, size: 4)),
+        DBreadcrumbSeparator(),
         DBreadcrumbItem(
           child: DBreadcrumbLink(onPressed: _noop, child: Text('Components')),
         ),
-        DBreadcrumbSeparator(child: Icon(Icons.circle, size: 4)),
+        DBreadcrumbSeparator(),
         DBreadcrumbItem(child: DBreadcrumbPage(child: Text('Breadcrumb'))),
       ],
     ),
@@ -310,9 +308,9 @@ class _DropdownBreadcrumbState extends State<_DropdownBreadcrumb> {
             const DBreadcrumbItem(
               child: DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
             ),
-            const DBreadcrumbSeparator(child: Icon(Icons.circle, size: 4)),
+            const DBreadcrumbSeparator(),
             DBreadcrumbItem(child: _levelMenu(label: 'Components')),
-            const DBreadcrumbSeparator(child: Icon(Icons.circle, size: 4)),
+            const DBreadcrumbSeparator(),
             const DBreadcrumbItem(
               child: DBreadcrumbPage(child: Text('Breadcrumb')),
             ),

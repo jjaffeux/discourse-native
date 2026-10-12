@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final sheetExamples = ComponentExamples(
@@ -119,8 +118,7 @@ final sheetExamples = ComponentExamples(
       title: 'Side accessory',
       description:
           'Centered navigation keeps a reserved gutter outside the sheet surface, including at the first and last item.',
-      code:
-          "DSheetContent(inset: true, sideAccessory: navigation, sideAccessoryWidth: 52, children: [body])",
+      code: "DSheetContent(inset: true,   children: [body])",
       builder: (_) => const _AccessorySheet(),
       states: const ['navigation', 'disabled', 'focus', 'reserved space'],
     ),
@@ -128,14 +126,8 @@ final sheetExamples = ComponentExamples(
       title: 'Non-modal',
       description:
           'Open the sheet, then click or type in the exposed background. Outside clicks leave it open; use Close or Escape from the sheet to dismiss it.',
-      code: '''DSheet<void>(
-  modal: false,
-  trigger: trigger,
-  content: DSheetContent(
-    inset: true,
-    children: [header, DSheetBody(child: editor)],
-  ),
-)''',
+      code:
+          "DSheet<void>(\n  \n  trigger: trigger,\n  content: DSheetContent(\n    inset: true,\n    children: [header, DSheetBody(child: editor)],\n  ),\n)",
       builder: (_) => const _NonModalSheet(),
       states: const ['background interaction', 'retained input', 'focus'],
     ),
@@ -193,16 +185,8 @@ final sheetExamples = ComponentExamples(
       title: 'Inset and expanding',
       description:
           'An opt-in floating sheet keeps its content mounted as its width changes. Reduced motion disables resizing animation.',
-      code: '''DSheet<void>(
-  trigger: trigger,
-  content: DSheetContent(
-    inset: true,
-    animateSize: true,
-    sidePanelWidth: expanded ? 700 : 400,
-    sidePanelMaxWidth: 900,
-    children: [header, DSheetBody(child: editor)],
-  ),
-)''',
+      code:
+          "DSheet<void>(\n  trigger: trigger,\n  content: DSheetContent(\n    inset: true,\n    \n    sidePanelWidth: expanded ? 700 : 400,\n    sidePanelMaxWidth: 900,\n    children: [header, DSheetBody(child: editor)],\n  ),\n)",
       builder: (_) => const _ExpandingSheet(),
       states: const ['reading', 'expanded', 'retained input', 'reduced motion'],
     ),
@@ -221,7 +205,6 @@ class _NonModalSheetState extends State<_NonModalSheet> {
 
   @override
   Widget build(BuildContext context) => DSheet<void>(
-    modal: false,
     trigger: DSheetTrigger(
       builder: (_, open) => Align(
         alignment: AlignmentDirectional.topStart,
@@ -286,7 +269,7 @@ class _ExpandingSheetState extends State<_ExpandingSheet> {
     ),
     content: DSheetContent(
       inset: true,
-      animateSize: true,
+
       sidePanelWidth: _expanded ? 700 : 400,
       sidePanelMaxWidth: 900,
       children: [
@@ -413,6 +396,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
   final _username = TextEditingController(text: '@peduarte');
   final _controller = DSheetController<String>();
   String _status = '';
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -420,6 +404,19 @@ class _ProfileSheetState extends State<_ProfileSheet> {
     _username.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final result = await _save();
+      if (mounted && _controller.isOpen) _controller.close(result);
+    } on FormatException {
+      // The form displays its own validation errors.
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<String> _save() async {
@@ -498,14 +495,8 @@ class _ProfileSheetState extends State<_ProfileSheet> {
                 builder: (context, _) => DSheetFooter(
                   children: [
                     DButton(
-                      onPressed: _controller.isBusy
-                          ? null
-                          : () => unawaited(
-                              _controller
-                                  .submit(_save)
-                                  .catchError((Object _) => null),
-                            ),
-                      loading: _controller.isBusy,
+                      onPressed: _saving ? null : () => unawaited(_submit()),
+                      loading: _saving,
                       label: Text(ar ? 'حفظ التغييرات' : 'Save changes'),
                     ),
                     DSheetClose<String>(
@@ -710,7 +701,6 @@ class _ControlledSheetState extends State<_ControlledSheet> {
                 DSheetFooter(
                   children: [
                     DSheetClose<String>(
-                      result: 'accepted',
                       builder: (context, close) => DButton(
                         onPressed: close,
                         label: const Text('Return result'),
@@ -736,7 +726,6 @@ class _ControlledSheetState extends State<_ControlledSheet> {
                     DSheetFooter(
                       children: [
                         DSheetClose<String>(
-                          result: 'helper result',
                           builder: (context, close) => DButton(
                             onPressed: close,
                             label: const Text('Return helper result'),
@@ -769,7 +758,7 @@ class _AccessorySheet extends StatefulWidget {
 }
 
 class _AccessorySheetState extends State<_AccessorySheet> {
-  int _index = 0;
+  final int _index = 0;
 
   @override
   Widget build(BuildContext context) => DSheet<void>(
@@ -781,29 +770,7 @@ class _AccessorySheetState extends State<_AccessorySheet> {
       inset: true,
       sidePanelWidth: 500,
       sidePanelMaxWidth: 500,
-      sideAccessory: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DButton.iconOnly(
-            tooltip: 'Previous item',
-            variant: DButtonVariant.outline,
-            size: DButtonSize.regular,
-            icon: const RotatedBox(
-              quarterTurns: 2,
-              child: DIcon(DIcons.chevronDown),
-            ),
-            onPressed: _index == 0 ? null : () => setState(() => _index--),
-          ),
-          const SizedBox(height: DSpacing.xs),
-          DButton.iconOnly(
-            tooltip: 'Next item',
-            variant: DButtonVariant.outline,
-            size: DButtonSize.regular,
-            icon: const DIcon(DIcons.chevronDown),
-            onPressed: _index == 2 ? null : () => setState(() => _index++),
-          ),
-        ],
-      ),
+
       children: [
         DSheetHeader(
           children: [DSheetTitle(child: Text('Item ${_index + 1} of 3'))],

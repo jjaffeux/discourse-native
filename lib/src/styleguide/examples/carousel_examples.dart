@@ -21,39 +21,14 @@ final carouselExamples = ComponentExamples(
       'uses this track and DCarouselDot indicators. Dots use 10px artwork (22px when selected) with matching hit areas.',
   examples: [
     _example('Default', 'One full-width Card per snap.', const _CarouselDemo()),
-    _example(
-      'Sizes',
-      'Three Card slides fit at wide widths.',
-      const _CarouselDemo(extent: 1 / 3),
-      code: 'DCarouselContent(extentFraction: 1 / 3, children: items)',
-    ),
-    _example(
-      'Responsive sizes',
-      'Two slides below 480px, then three.',
-      const _CarouselDemo(responsive: true),
-      code:
-          'DCarouselContent(extentResolver: (width) => width < 480 ? .5 : 1 / 3, children: items)',
-    ),
+
     _example(
       'Spacing',
       'An 8px compact gap demonstrates explicit slide spacing.',
       const _CarouselDemo(extent: .5, spacing: 8),
-      code: 'DCarouselContent(extentFraction: .5, spacing: 8, children: items)',
+      code: "DCarouselContent( spacing: 8, children: items)",
     ),
-    _example(
-      'Vertical',
-      'Vertical swipe and Up/Down navigation preserve the same composition.',
-      const _CarouselDemo(vertical: true),
-      code:
-          'DCarousel(orientation: Axis.vertical, children: [DCarouselContent(height: 224, children: items), const DCarouselPrevious(), const DCarouselNext()])',
-    ),
-    _example(
-      'Options: loop and center',
-      'Looping keeps both controls enabled; centered alignment reveals adjacent slides.',
-      const _CarouselDemo(loop: true, extent: .72, centered: true),
-      code:
-          'DCarousel(loop: true, children: [DCarouselContent(extentFraction: .72, alignment: DCarouselAlignment.center, children: items)])',
-    ),
+
     StyleguideExample(
       title: 'API and events',
       description:
@@ -63,19 +38,7 @@ final carouselExamples = ComponentExamples(
           "final controller = DCarouselController();\nDCarousel(controller: controller, onSelected: (index) => setState(() => current = index), children: parts)",
       builder: (_) => const _ApiDemo(),
     ),
-    StyleguideExample(
-      title: 'Autoplay plugin',
-      description: 'Two-second autoplay with explicit play and stop controls.',
-      states: const [
-        'Autoplay',
-        'Interaction stop',
-        'Reduced motion',
-        'Disposal',
-      ],
-      code:
-          'DCarousel(ownedPlugins: [DCarouselAutoplay(delay: const Duration(seconds: 2))], children: parts)',
-      builder: (_) => const _AutoplayDemo(),
-    ),
+
     _example(
       'RTL',
       'Direction-aware drag, arrow keys and chevrons in Arabic.',
@@ -107,21 +70,20 @@ class _CarouselDemo extends StatelessWidget {
   const _CarouselDemo({
     this.extent = 1,
     this.spacing = 16,
-    this.responsive = false,
-    this.vertical = false,
-    this.loop = false,
-    this.centered = false,
     this.arabic = false,
     this.controller,
-    this.plugins = const [],
+
     this.onSelected,
     this.onScrollStart,
     this.onScrollEnd,
-  });
+  }) : responsive = false,
+       vertical = false,
+       loop = false,
+       centered = false;
   final double extent, spacing;
   final bool responsive, vertical, loop, centered, arabic;
   final DCarouselController? controller;
-  final List<DCarouselPlugin> plugins;
+
   final ValueChanged<int>? onSelected;
   final VoidCallback? onScrollStart, onScrollEnd;
 
@@ -132,24 +94,18 @@ class _CarouselDemo extends StatelessWidget {
     ];
     final carousel = DCarousel(
       controller: controller,
-      orientation: vertical ? Axis.vertical : Axis.horizontal,
+
       loop: loop,
-      plugins: plugins,
+
       semanticLabel: arabic ? 'شرائح' : 'Featured slides',
       onSelected: onSelected,
-      onScrollStart: onScrollStart,
-      onScrollEnd: onScrollEnd,
+
       children: [
         DCarouselContent(
           height: vertical ? 224 : 160,
-          extentFraction: extent,
-          extentResolver: responsive
-              ? (width) => width < 480 ? .5 : 1 / 3
-              : null,
+
           spacing: spacing,
-          alignment: centered
-              ? DCarouselAlignment.center
-              : DCarouselAlignment.start,
+
           children: cards,
         ),
         const DCarouselPrevious(),
@@ -213,54 +169,6 @@ class _ApiDemoState extends State<_ApiDemo> {
         size: DButtonSize.small,
         variant: DButtonVariant.outline,
         onPressed: () => _controller.select(3),
-      ),
-    ],
-  );
-}
-
-class _AutoplayDemo extends StatefulWidget {
-  const _AutoplayDemo();
-  @override
-  State<_AutoplayDemo> createState() => _AutoplayDemoState();
-}
-
-class _AutoplayDemoState extends State<_AutoplayDemo> {
-  final _controller = DCarouselController();
-  final _autoplay = DCarouselAutoplay(delay: const Duration(seconds: 2));
-  int _current = 0;
-  @override
-  void dispose() {
-    _autoplay.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _CarouselDemo(
-        controller: _controller,
-        loop: true,
-        plugins: [_autoplay],
-        onSelected: (value) => setState(() => _current = value),
-      ),
-      Text('Slide ${_current + 1} of 5'),
-      Wrap(
-        spacing: 8,
-        children: [
-          DButton(
-            label: const Text('Play'),
-            size: DButtonSize.small,
-            onPressed: _autoplay.play,
-          ),
-          DButton(
-            label: const Text('Stop'),
-            size: DButtonSize.small,
-            variant: DButtonVariant.outline,
-            onPressed: _autoplay.stop,
-          ),
-        ],
       ),
     ],
   );

@@ -109,27 +109,22 @@ class DDropdownMenuTrigger extends StatelessWidget {
   factory DDropdownMenuTrigger.button({
     Key? key,
     required Widget label,
-    Widget? icon,
-    DButtonIconPosition iconPosition = DButtonIconPosition.start,
-    DButtonVariant variant = DButtonVariant.outline,
-    DButtonSize size = DButtonSize.regular,
-    bool enabled = true,
-    String? semanticLabel,
+
     FocusNode? focusNode,
   }) => DDropdownMenuTrigger(
     key: key,
     focusNode: focusNode,
     builder: (context, state) => DButton(
       label: label,
-      icon: icon,
-      iconPosition: iconPosition,
-      variant: variant,
-      size: size,
-      semanticLabel: semanticLabel,
+      icon: null,
+      iconPosition: DButtonIconPosition.start,
+      variant: DButtonVariant.outline,
+      size: DButtonSize.regular,
+      semanticLabel: null,
       focusNode: state.focusNode,
       hasPopup: true,
       expanded: state.open,
-      onPressed: enabled ? state.toggle : null,
+      onPressed: state.toggle,
     ),
   );
 

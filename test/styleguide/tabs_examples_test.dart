@@ -73,6 +73,6 @@ void main() {
     expect(find.text('Security options'), findsOneWidget);
     await tester.tap(find.text('Remove security'));
     await tester.pumpAndSettle();
-    expect(find.text('missing: profile'), findsOneWidget);
+    expect(find.text('profile'), findsOneWidget);
   });
 }

@@ -21,21 +21,16 @@ class DSkeleton extends StatelessWidget {
     this.height,
     this.borderRadius,
     this.color,
-    this.animate = true,
   }) : assert(width == null || width >= 0),
        assert(height == null || height >= 0),
        shape = BoxShape.rectangle;
 
-  const DSkeleton.circle({
-    super.key,
-    required double diameter,
-    this.color,
-    this.animate = true,
-  }) : assert(diameter >= 0),
-       width = diameter,
-       height = diameter,
-       borderRadius = null,
-       shape = BoxShape.circle;
+  const DSkeleton.circle({super.key, required double diameter, this.color})
+    : assert(diameter >= 0),
+      width = diameter,
+      height = diameter,
+      borderRadius = null,
+      shape = BoxShape.circle;
 
   final double? width;
   final double? height;
@@ -49,10 +44,6 @@ class DSkeleton extends StatelessWidget {
   /// Directional corners follow Directionality.
   final BorderRadiusGeometry? borderRadius;
   final BoxShape shape;
-
-  /// False opts this shape out of pulsing, including inside an animated region.
-  /// True still respects the region's setting and the host's motion preference.
-  final bool animate;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +62,7 @@ class DSkeleton extends StatelessWidget {
         child: Container(width: width, height: height, decoration: decoration),
       ),
     );
-    if (!animate) return visual;
+
     if (region != null) {
       return FadeTransition(opacity: region.opacity, child: visual);
     }
@@ -92,7 +83,7 @@ class DSkeletonRegion extends StatelessWidget {
     required this.semanticsLabel,
     required this.child,
     this.color,
-    this.animate = true,
+
     this.liveRegion = true,
     this.expand = false,
   }) : assert(semanticsLabel != '');
@@ -108,7 +99,6 @@ class DSkeletonRegion extends StatelessWidget {
   /// surface. Set it once here when the whole composition sits on a surface
   /// the muted fill disappears against.
   final Color? color;
-  final bool animate;
 
   /// Whether assistive technology should announce this loading region.
   final bool liveRegion;
@@ -121,11 +111,7 @@ class DSkeletonRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = _SkeletonPulse(
-      animate: animate,
-      color: color,
-      child: child,
-    );
+    final content = _SkeletonPulse(color: color, child: child);
     return Semantics(
       container: true,
       liveRegion: liveRegion,
@@ -156,9 +142,8 @@ class DSkeletonRegion extends StatelessWidget {
 }
 
 class _SkeletonPulse extends StatefulWidget {
-  const _SkeletonPulse({this.animate = true, this.color, required this.child});
+  const _SkeletonPulse({this.color, required this.child});
 
-  final bool animate;
   final Color? color;
   final Widget child;
 
@@ -188,13 +173,11 @@ class _SkeletonPulseState extends State<_SkeletonPulse>
   @override
   void didUpdateWidget(_SkeletonPulse oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.animate != widget.animate) _updateAnimation();
   }
 
   void _updateAnimation() {
     final active =
-        widget.animate &&
-        DMotion.duration(context, DMotion.pulse) != Duration.zero &&
+        (DMotion.duration(context, DMotion.pulse) != Duration.zero) &&
         TickerMode.valuesOf(context).enabled;
     if (active) {
       if (!_controller.isAnimating) {

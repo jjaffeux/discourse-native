@@ -669,9 +669,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Topic assignment removed'), findsOneWidget);
       expect(find.text('Undo'), findsOneWidget);
-      DToast.of(
+      final toasts = DToast.of(
         tester.element(find.text('Topic assignment removed')),
-      ).closeAll();
+      );
+      for (final toast in toasts.toasts.toList()) {
+        toasts.close(toast.id);
+      }
       await tester.pump();
       await tester.tap(find.byKey(const Key('assign-post-12-remove')));
       await tester.pumpAndSettle();

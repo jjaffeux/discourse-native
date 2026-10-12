@@ -56,10 +56,7 @@ void main() {
     );
     expect(tester.widget<DButton>(toggle).tooltip, 'Collapse sidebar');
     final expandedColor = tester.widget<DButton>(toggle).foregroundColor!;
-    expect(
-      tester.widget<DButton>(toggle).variant,
-      DButtonVariant.transparentBackground,
-    );
+    expect(tester.widget<DButton>(toggle).variant, DButtonVariant.ghost);
 
     await tester.tap(toggle);
     await tester.pumpAndSettle();

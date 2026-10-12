@@ -248,7 +248,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
                       '@$usernameLower',
                   }),
                   icon: const DIcon(DIcons.users),
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   focusNode: trigger.focusNode,
                   hasPopup: true,
                   expanded: trigger.open,

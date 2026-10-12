@@ -208,10 +208,7 @@ void main() {
                   children: [
                     const DFieldContent(
                       children: [
-                        DFieldTitle(
-                          excludeSemantics: true,
-                          child: Text('Kubernetes'),
-                        ),
+                        DFieldTitle(child: Text('Kubernetes')),
                         DFieldDescription(child: Text('Run GPU workloads.')),
                       ],
                     ),
@@ -249,60 +246,6 @@ void main() {
   );
 
   testWidgets(
-    'disabled fieldset blocks label and control interaction without disposing focus',
-    (tester) async {
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      var changed = false;
-      await tester.pumpWidget(
-        host(
-          DFieldSet(
-            enabled: false,
-            children: [
-              DFieldLabel.choice(
-                selected: false,
-                onPressed: () => changed = true,
-                child: DField(
-                  children: [
-                    DFieldControl(
-                      label: 'Disabled',
-                      child: Checkbox(
-                        focusNode: focus,
-                        value: false,
-                        onChanged: (_) => changed = true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-      await tester.tap(find.byType(Checkbox), warnIfMissed: false);
-      focus.requestFocus();
-      await tester.pump();
-      expect(changed, isFalse);
-      expect(focus.hasFocus, isFalse);
-      final disabledOpacity = tester
-          .widgetList<Opacity>(
-            find.descendant(
-              of: find.byType(DFieldLabel),
-              matching: find.byType(Opacity),
-            ),
-          )
-          .singleWhere((widget) => widget.opacity == 0.5);
-      expect(
-        find.descendant(
-          of: find.byWidget(disabledOpacity),
-          matching: find.byType(DecoratedBox),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets(
     'errors deduplicate ignore missing messages and custom content wins',
     (tester) async {
       await tester.pumpWidget(
@@ -325,55 +268,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'field gaps and typography match registry while RTL large text wraps',
-    (tester) async {
-      const content = DFieldGroup(
-        children: [
-          DField(
-            children: [
-              DFieldLabel(child: Text('First label')),
-              SizedBox(height: 32),
-              DFieldDescription(child: Text('First description')),
-            ],
-          ),
-          DFieldSeparator(child: Text('Or continue with')),
-          DField(
-            children: [
-              DFieldLabel(child: Text('Second label')),
-              SizedBox(height: 32),
-            ],
-          ),
-        ],
-      );
-      await tester.pumpWidget(host(content));
-      expect(
-        tester.getTopLeft(find.text('First description')).dy -
-            tester
-                .getBottomLeft(
-                  find
-                      .byWidgetPredicate((w) => w is SizedBox && w.height == 32)
-                      .first,
-                )
-                .dy,
-        8,
-      );
-      final labelStyle = DefaultTextStyle.of(
-        tester.element(find.text('First label')),
-      ).style;
-      expect(labelStyle.fontSize, 14);
-      expect(labelStyle.height, 1.375);
-      expect(labelStyle.fontWeight, FontWeight.w500);
-      await tester.pumpWidget(
-        host(content, width: 180, scale: 2, direction: TextDirection.rtl),
-      );
-      expect(tester.takeException(), isNull);
-      expect(
-        tester.getSize(find.byType(DFieldSeparator)).height,
-        greaterThan(20),
-      );
-    },
-  );
   testWidgets(
     'only direct nested groups use 16px and empty errors add no gap',
     (tester) async {

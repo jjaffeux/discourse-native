@@ -186,6 +186,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   final _username = TextEditingController(text: '@peduarte');
   final _controller = DDialogController<String>();
   String _status = '';
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -193,6 +194,19 @@ class _ProfileDialogState extends State<_ProfileDialog> {
     _username.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final result = await _save();
+      if (mounted && _controller.isOpen) _controller.close(result);
+    } on FormatException {
+      // The form displays its own validation errors.
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<String> _save() async {
@@ -264,16 +278,8 @@ class _ProfileDialogState extends State<_ProfileDialog> {
                   children: [
                     const DDialogClose<String>(builder: _closeButton),
                     DButton(
-                      onPressed: _controller.isBusy
-                          ? null
-                          : () {
-                              unawaited(
-                                _controller
-                                    .submit(_save)
-                                    .catchError((Object _) => null),
-                              );
-                            },
-                      loading: _controller.isBusy,
+                      onPressed: _saving ? null : () => unawaited(_submit()),
+                      loading: _saving,
                       label: Text(ar ? 'حفظ التغييرات' : 'Save changes'),
                     ),
                   ],

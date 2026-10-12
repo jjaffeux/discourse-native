@@ -16,61 +16,32 @@ final sidebarExamples = ComponentExamples(
       title: 'Application sidebar',
       description:
           'An application sidebar with team and account switchers, the Platform hierarchy, project action menus, icon collapse and rail. Each project’s three-dot menu offers View, Share and Delete with local feedback. Below 500px it uses the shared Sheet adaptation. Cmd/Ctrl+B toggles, Tab navigates, Enter/Space activates and Escape dismisses.',
-      code: '''DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [
-  DSidebar(
-    collapsible: DSidebarCollapsible.icon,
-    header: DSidebarHeader(child: teamSwitcher),
-    footer: DSidebarFooter(child: accountMenu),
-    rail: const DSidebarRail(),
-    child: DSidebarContent(children: [
-      DSidebarGroup(
-        label: const DSidebarGroupLabel(child: Text('Platform')),
-        child: DSidebarMenu(children: platformItems),
-      ),
-      DSidebarGroup(
-        label: const DSidebarGroupLabel(child: Text('Projects')),
-        child: DSidebarMenu(children: projectItems),
-      ),
-    ]),
-  ),
-  Expanded(child: Column(children: [DSidebarTrigger(), content])),
-]))''',
+      code:
+          "DSidebarProvider(mobileBreakpoint: 500, child: Row(children: [\n  DSidebar(\n    collapsible: DSidebarCollapsible.icon,\n    header: DSidebarHeader(child: teamSwitcher),\n    footer: DSidebarFooter(child: accountMenu),\n    \n    child: DSidebarContent(children: [\n      DSidebarGroup(\n        \n        child: DSidebarMenu(children: platformItems),\n      ),\n      DSidebarGroup(\n        \n        child: DSidebarMenu(children: projectItems),\n      ),\n    ]),\n  ),\n  Expanded(child: Column(children: [DSidebarTrigger(), content])),\n]))",
       builder: (_) => const _ApplicationSidebarDemo(),
     ),
     StyleguideExample(
       title: 'Icon, floating and inset',
       description:
           'Floating panel and icon collapse. Collapsed icons keep accessible names and Tooltip. The icon rail toggle remains pointer accessible.',
-      code: '''DSidebar(collapsible: DSidebarCollapsible.icon,
-  variant: DSidebarVariant.floating, rail: DSidebarRail(),
-  child: DSidebarContent(children: groups))''',
-      builder: (_) => const _SidebarDemo(
-        mode: DSidebarCollapsible.icon,
-        variant: DSidebarVariant.floating,
-      ),
+      code:
+          "DSidebar(collapsible: DSidebarCollapsible.icon, \n  child: DSidebarContent(children: groups))",
+      builder: (_) => const _SidebarDemo(mode: DSidebarCollapsible.icon),
     ),
     StyleguideExample(
       title: 'Controlled inset',
       description:
           'The parent owns open state. The inset main surface uses the live background and radius; the button reflects the requested state.',
-      code: '''DSidebarProvider(mobileBreakpoint: 500,
-  open: open, onOpenChange: (value) => setState(() => open = value),
-  child: Row(children: [DSidebar(variant: DSidebarVariant.inset, child: menu),
-    Expanded(child: DSidebarInset(child: content))]))''',
-      builder: (_) =>
-          const _SidebarDemo(controlled: true, variant: DSidebarVariant.inset),
+      code:
+          "DSidebarProvider(mobileBreakpoint: 500,\n  open: open, \n  child: Row(children: [DSidebar(\nchild: menu),\n    Expanded(child: DSidebarInset(child: content))]))",
+      builder: (_) => const _SidebarDemo(controlled: true),
     ),
     StyleguideExample(
       title: 'Documentation',
       description:
           'Same-background, static navigation with 30px minimum rows. Long labels grow at large text sizes. Search filters self-contained examples. This is the composition used by the styleguide shell.',
-      code: '''DSidebarProvider(mobileBreakpoint: 900, child: DSidebar(
-  width: 240, collapsible: DSidebarCollapsible.none,
-  backgroundColor: DTokens.of(context).background,
-  child: DSidebarContent(children: [DSidebarGroup(
-    label: DSidebarGroupLabel(child: Text('Components')),
-    child: DSidebarMenu(children: [DSidebarMenuButton(height: 30,
-      isActive: true, onPressed: select, child: Text('Sidebar'))]))])))''',
+      code:
+          "DSidebarProvider(mobileBreakpoint: 900, child: DSidebar(\n  width: 240, collapsible: DSidebarCollapsible.none,\n  backgroundColor: DTokens.of(context).background,\n  child: DSidebarContent(children: [DSidebarGroup(\n    \n    child: DSidebarMenu(children: [DSidebarMenuButton(height: 30,\n      isActive: true, onPressed: select, child: Text('Sidebar'))]))])))",
       builder: (_) => const _SidebarDemo(
         documentation: true,
         mode: DSidebarCollapsible.none,
@@ -80,12 +51,8 @@ final sidebarExamples = ComponentExamples(
       title: 'Right side and nested menus',
       description:
           'Physical right placement works in either text direction. DCollapsible owns project disclosure and retains local selection. Small/default/large buttons, outline rows, submenus, disabled actions and action feedback are interactive.',
-      code: '''DCollapsible(open: expanded, onOpenChange: setExpanded, child:
-  DSidebarGroup(
-    label: DCollapsibleTrigger(builder: projectLabel),
-    child: DCollapsibleContent(child: DSidebarMenuSub(children: [
-      DSidebarMenuSubButton(onPressed: select, child: Text('Design')),
-    ]))))''',
+      code:
+          "DCollapsible(open: expanded, onOpenChange: setExpanded, child:\n  DSidebarGroup(\n    \n    child: DCollapsibleContent(child: DSidebarMenuSub(children: [\n      DSidebarMenuSubButton(onPressed: select, child: Text('Design')),\n    ]))))",
       builder: (_) => const _SidebarDemo(side: DSidebarSide.right),
     ),
     StyleguideExample(
@@ -100,18 +67,8 @@ final sidebarExamples = ComponentExamples(
       title: 'Lazy navigation',
       description:
           '400 destinations share one scroll area. Collapse Channels, scroll to the end, increase the unread count, or open a row action. Headers and footer stay fixed. Large text grows rows and trailing counts reserve their actual width.',
-      code: '''DSidebarContent.slivers(slivers: [
-  DCollapsible(defaultOpen: true, child: DSidebarGroup.sliver(
-    label: DCollapsibleTrigger(child:
-      DSidebarGroupLabel(child: Text('Channels'))),
-    sliver: DCollapsibleContent.sliver(sliver:
-      DSidebarMenu.sliverBuilder(
-        itemCount: channels.length,
-        itemBuilder: buildChannel,
-        findChildIndexCallback: findChannelIndex,
-      )),
-  )),
-])''',
+      code:
+          "DSidebarContent.slivers(slivers: [\n  DCollapsible(defaultOpen: true, child: DSidebarGroup.sliver(\n    \n    sliver: DCollapsibleContent.sliver(sliver:\n      DSidebarMenu.sliverBuilder(\n        itemCount: channels.length,\n        itemBuilder: buildChannel,\n        findChildIndexCallback: findChannelIndex,\n      )),\n  )),\n])",
       builder: (_) => const _LazySidebarDemo(),
     ),
     StyleguideExample(
@@ -126,24 +83,8 @@ final sidebarExamples = ComponentExamples(
       title: 'Reorderable links',
       description:
           'Drag links within a section or onto another section’s rows or header. Empty sections accept header drops. Focus a row and use Alt+Up/Down to reorder it. On touch, long-press to drag; quick swipes scroll and taps open links.',
-      code: """DSidebarReorderScope(
-  child: DSidebarContent.slivers(slivers: [
-    for (final section in sections.entries)
-      DSidebarGroup.sliver(
-        label: DSidebarDropTarget(
-          sectionId: section.key, index: section.value.length,
-          append: true, onMove: moveLink,
-          child: DSidebarGroupLabel(child: Text(section.key))),
-        sliver: DSidebarReorderableMenu.sliverBuilder(
-          sectionId: section.key, onMove: moveLink,
-          itemCount: section.value.length,
-          itemBuilder: (context, index) => DSidebarMenuButton(
-            key: ValueKey(section.value[index]), onPressed: openLink,
-            child: Text(section.value[index])),
-          onReorder: reorderLinks),
-      ),
-  ]),
-)""",
+      code:
+          "DSidebarReorderScope(\n  child: DSidebarContent.slivers(slivers: [\n    for (final section in sections.entries)\n      DSidebarGroup.sliver(\n        \n        sliver: DSidebarReorderableMenu.sliverBuilder(\n          sectionId: section.key, onMove: moveLink,\n          itemCount: section.value.length,\n          itemBuilder: (context, index) => DSidebarMenuButton(\n            key: ValueKey(section.value[index]), onPressed: openLink,\n            child: Text(section.value[index])),\n          onReorder: reorderLinks),\n      ),\n  ]),\n)",
       builder: (_) => const _ReorderableSidebarDemo(),
     ),
   ],
@@ -246,78 +187,84 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
                   open: _open,
                   onOpenChange: (value) => setState(() => _open = value),
                   child: DSidebarGroup.sliver(
-                    label: DCollapsibleTrigger(
-                      child: DSidebarGroupLabel(
-                        child: Row(
-                          children: [
-                            const Expanded(child: Text('Channels')),
-                            Icon(
-                              _open
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.chevron_right,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    sliver: DCollapsibleContent.sliver(
-                      sliver: DSidebarMenu.sliverBuilder(
-                        itemCount: 400,
-                        itemExtent: scalable
-                            ? null
-                            : touch
-                            ? 48
-                            : 32,
-                        findChildIndexCallback: (key) =>
-                            key is ValueKey<int> ? key.value : null,
-                        itemBuilder: (context, index) => DSidebarMenuItem(
-                          key: ValueKey(index),
-                          badge: index < 2
-                              ? DSidebarMenuBadge(
-                                  child: Text(index == 0 ? '$_count' : 'muted'),
-                                )
-                              : null,
-                          action: DDropdownMenu(
-                            content: DDropdownMenuContent(
-                              side: DPopoverSide.bottom,
-                              align: DPopoverAlign.end,
-                              children: [
-                                DDropdownMenuItem(
-                                  onPressed: () => setState(
-                                    () =>
-                                        _message = 'Actions for channel $index',
+                    sliver: SliverMainAxisGroup(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: DCollapsibleTrigger(
+                            child: DSidebarGroupLabel(
+                              child: Row(
+                                children: [
+                                  const Expanded(child: Text('Channels')),
+                                  Icon(
+                                    _open
+                                        ? Icons.keyboard_arrow_down
+                                        : Icons.chevron_right,
+                                    size: 16,
                                   ),
-                                  child: const Text('View channel details'),
-                                ),
-                              ],
-                            ),
-                            child: DDropdownMenuTrigger(
-                              builder: (context, menu) => DSidebarMenuAction(
-                                semanticLabel: 'Channel $index actions',
-                                showOnHover: true,
-                                focusNode: menu.focusNode,
-                                expanded: menu.open,
-                                onPressed: menu.toggle,
-                                child: const Icon(Icons.more_horiz),
+                                ],
                               ),
                             ),
                           ),
-                          child: DSidebarMenuButton(
-                            icon: const Icon(Icons.tag, size: 16),
-                            isActive: _selected == index,
-                            onPressed: () => setState(() {
-                              _selected = index;
-                              _message = 'Selected channel $index';
-                            }),
-                            child: Text(
-                              index == 0
-                                  ? 'Announcements and community updates'
-                                  : 'Channel $index',
+                        ),
+                        DCollapsibleContent.sliver(
+                          sliver: DSidebarMenu.sliverBuilder(
+                            itemCount: 400,
+                            itemExtent: scalable
+                                ? null
+                                : touch
+                                ? 48
+                                : 32,
+                            findChildIndexCallback: (key) =>
+                                key is ValueKey<int> ? key.value : null,
+                            itemBuilder: (context, index) => DSidebarMenuItem(
+                              key: ValueKey(index),
+                              badge: index < 2
+                                  ? DSidebarMenuBadge(
+                                      child: Text(
+                                        index == 0 ? '$_count' : 'muted',
+                                      ),
+                                    )
+                                  : null,
+                              action: DDropdownMenu(
+                                content: DDropdownMenuContent(
+                                  side: DPopoverSide.bottom,
+                                  align: DPopoverAlign.end,
+                                  children: [
+                                    DDropdownMenuItem(
+                                      onPressed: () => setState(
+                                        () => _message =
+                                            'Actions for channel $index',
+                                      ),
+                                      child: const Text('View channel details'),
+                                    ),
+                                  ],
+                                ),
+                                child: DDropdownMenuTrigger(
+                                  builder: (context, menu) =>
+                                      DSidebarMenuAction(
+                                        semanticLabel: 'Channel $index actions',
+                                        onPressed: menu.toggle,
+                                        child: const Icon(Icons.more_horiz),
+                                      ),
+                                ),
+                              ),
+                              child: DSidebarMenuButton(
+                                icon: const Icon(Icons.tag, size: 16),
+                                isActive: _selected == index,
+                                onPressed: () => setState(() {
+                                  _selected = index;
+                                  _message = 'Selected channel $index';
+                                }),
+                                child: Text(
+                                  index == 0
+                                      ? 'Announcements and community updates'
+                                      : 'Channel $index',
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -493,7 +440,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
               _SidebarReferenceIcon.galleryVerticalEnd,
             ),
           ),
-          tooltip: team.name,
+
           semanticLabel: 'Switch team, ${team.name}, ${team.plan}',
           focusNode: state.focusNode,
           expanded: state.open,
@@ -510,136 +457,152 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
   }
 
   Widget _platformNavigation(BuildContext context) => DSidebarGroup(
-    label: const DSidebarGroupLabel(child: Text('Platform')),
-    child: DSidebarMenu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final item in _navigation)
-          DCollapsible(
-            defaultOpen: item.title == 'Playground',
-            child: DSidebarMenuItem(
-              submenu: DCollapsibleContent(
-                child: DSidebarMenuSub(
-                  children: [
-                    for (final child in item.children)
-                      DSidebarMenuSubItem(
-                        child: DSidebarMenuSubButton(
-                          onPressed: () => _select(context, child),
-                          child: Text(child),
+        const DSidebarGroupLabel(child: Text('Platform')),
+        DSidebarMenu(
+          children: [
+            for (final item in _navigation)
+              DCollapsible(
+                defaultOpen: item.title == 'Playground',
+                child: DSidebarMenuItem(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DCollapsibleTrigger(
+                        semanticLabel: 'Toggle ${item.title}',
+                        focusBorderRadius: BorderRadius.circular(
+                          DTokens.of(context).radius * .8,
                         ),
-                      ),
-                  ],
-                ),
-              ),
-              child: DCollapsibleTrigger(
-                semanticLabel: 'Toggle ${item.title}',
-                focusBorderRadius: BorderRadius.circular(
-                  DTokens.of(context).radius * .8,
-                ),
-                builder: (context, state) => ExcludeFocus(
-                  child: IgnorePointer(
-                    child: DSidebarMenuButton(
-                      icon: _SidebarReferenceIcon(item.icon),
-                      tooltip: item.title,
-                      expanded: state.open,
-                      onPressed: () {},
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(item.title)),
-                          AnimatedRotation(
-                            turns: state.open ? .25 : 0,
-                            duration: DMotion.duration(
-                              context,
-                              const Duration(milliseconds: 200),
-                            ),
-                            child: const _SidebarReferenceIcon(
-                              _SidebarReferenceIcon.chevronRight,
+                        builder: (context, state) => ExcludeFocus(
+                          child: IgnorePointer(
+                            child: DSidebarMenuButton(
+                              icon: _SidebarReferenceIcon(item.icon),
+                              expanded: state.open,
+                              onPressed: () {},
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(item.title)),
+                                  AnimatedRotation(
+                                    turns: state.open ? .25 : 0,
+                                    duration: DMotion.duration(
+                                      context,
+                                      const Duration(milliseconds: 200),
+                                    ),
+                                    child: const _SidebarReferenceIcon(
+                                      _SidebarReferenceIcon.chevronRight,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                      DCollapsibleContent(
+                        child: DSidebarMenuSub(
+                          children: [
+                            for (final label in item.children)
+                              DSidebarMenuSubItem(
+                                child: DSidebarMenuSubButton(
+                                  onPressed: () => setState(
+                                    () => _message = '$label selected',
+                                  ),
+                                  child: Text(label),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ),
+          ],
+        ),
       ],
     ),
   );
 
   Widget _projectNavigation(BuildContext context) => DSidebarGroup(
-    label: const DSidebarGroupLabel(child: Text('Projects')),
-    child: DSidebarMenu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final project in _projects)
-          DSidebarMenuItem(
-            action: DDropdownMenu(
-              content: DDropdownMenuContent(
-                semanticLabel: '${project.title} project menu',
-                side: _menuSide(context),
-                align: DSidebarProvider.of(context).isMobile
-                    ? DPopoverAlign.end
-                    : DPopoverAlign.start,
-                children: [
-                  DDropdownMenuItem(
-                    leading: const _SidebarReferenceIcon(
-                      _SidebarReferenceIcon.folder,
-                    ),
-                    onPressed: () => setState(
-                      () => _message = 'View ${project.title} selected',
-                    ),
-                    child: const Text('View Project'),
+        const DSidebarGroupLabel(child: Text('Projects')),
+        DSidebarMenu(
+          children: [
+            for (final project in _projects)
+              DSidebarMenuItem(
+                action: DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    semanticLabel: '${project.title} project menu',
+                    side: _menuSide(context),
+                    align: DSidebarProvider.of(context).isMobile
+                        ? DPopoverAlign.end
+                        : DPopoverAlign.start,
+                    children: [
+                      DDropdownMenuItem(
+                        leading: const _SidebarReferenceIcon(
+                          _SidebarReferenceIcon.folder,
+                        ),
+                        onPressed: () => setState(
+                          () => _message = 'View ${project.title} selected',
+                        ),
+                        child: const Text('View Project'),
+                      ),
+                      DDropdownMenuItem(
+                        leading: const _SidebarReferenceIcon(
+                          _SidebarReferenceIcon.arrowRight,
+                        ),
+                        onPressed: () => setState(
+                          () => _message = 'Share ${project.title} selected',
+                        ),
+                        child: const Text('Share Project'),
+                      ),
+                      const DDropdownMenuSeparator(),
+                      DDropdownMenuItem(
+                        variant: DDropdownMenuItemVariant.destructive,
+                        leading: const _SidebarReferenceIcon(
+                          _SidebarReferenceIcon.trash2,
+                        ),
+                        onPressed: () => setState(
+                          () => _message = 'Delete ${project.title} selected',
+                        ),
+                        child: const Text('Delete Project'),
+                      ),
+                    ],
                   ),
-                  DDropdownMenuItem(
-                    leading: const _SidebarReferenceIcon(
-                      _SidebarReferenceIcon.arrowRight,
+                  child: DDropdownMenuTrigger(
+                    builder: (context, state) => DSidebarMenuAction(
+                      semanticLabel: 'More options for ${project.title}',
+                      onPressed: state.toggle,
+                      child: const _SidebarReferenceIcon(
+                        _SidebarReferenceIcon.ellipsis,
+                      ),
                     ),
-                    onPressed: () => setState(
-                      () => _message = 'Share ${project.title} selected',
-                    ),
-                    child: const Text('Share Project'),
-                  ),
-                  const DDropdownMenuSeparator(),
-                  DDropdownMenuItem(
-                    variant: DDropdownMenuItemVariant.destructive,
-                    leading: const _SidebarReferenceIcon(
-                      _SidebarReferenceIcon.trash2,
-                    ),
-                    onPressed: () => setState(
-                      () => _message = 'Delete ${project.title} selected',
-                    ),
-                    child: const Text('Delete Project'),
-                  ),
-                ],
-              ),
-              child: DDropdownMenuTrigger(
-                builder: (context, state) => DSidebarMenuAction(
-                  semanticLabel: 'More options for ${project.title}',
-                  showOnHover: true,
-                  focusNode: state.focusNode,
-                  expanded: state.open,
-                  onPressed: state.toggle,
-                  child: const _SidebarReferenceIcon(
-                    _SidebarReferenceIcon.ellipsis,
                   ),
                 ),
+                child: DSidebarMenuButton(
+                  icon: _SidebarReferenceIcon(project.icon),
+                  onPressed: () => _select(context, project.title),
+                  child: Text(project.title),
+                ),
+              ),
+            DSidebarMenuItem(
+              child: DSidebarMenuButton(
+                icon: const _SidebarReferenceIcon(
+                  _SidebarReferenceIcon.ellipsis,
+                ),
+                onPressed: () =>
+                    setState(() => _message = 'More projects selected'),
+                child: const Text('More'),
               ),
             ),
-            child: DSidebarMenuButton(
-              icon: _SidebarReferenceIcon(project.icon),
-              tooltip: project.title,
-              onPressed: () => _select(context, project.title),
-              child: Text(project.title),
-            ),
-          ),
-        DSidebarMenuItem(
-          child: DSidebarMenuButton(
-            icon: const _SidebarReferenceIcon(_SidebarReferenceIcon.ellipsis),
-            tooltip: 'More projects',
-            onPressed: () =>
-                setState(() => _message = 'More projects selected'),
-            child: const Text('More'),
-          ),
+          ],
         ),
       ],
     ),
@@ -703,7 +666,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
         iconSize: 32,
         icon: _avatar(context),
         size: DSidebarMenuButtonSize.large,
-        tooltip: 'Alex',
+
         semanticLabel: 'Open Alex account menu',
         focusNode: state.focusNode,
         expanded: state.open,
@@ -736,7 +699,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
           final panel = DSidebar(
             width: 256,
             collapsible: DSidebarCollapsible.icon,
-            rail: const DSidebarRail(),
+
             header: DSidebarHeader(child: _teamSwitcher(context)),
             footer: DSidebarFooter(child: _accountMenu(context)),
             child: DSidebarContent(
@@ -856,31 +819,37 @@ class _ReorderableSidebarDemoState extends State<_ReorderableSidebarDemo> {
             slivers: [
               for (final section in _sections.entries)
                 DSidebarGroup.sliver(
-                  label: DSidebarDropTarget(
-                    sectionId: section.key,
-                    index: section.value.length,
-                    append: true,
-                    onMove: _move,
-                    child: DSidebarGroupLabel(child: Text(section.key)),
-                  ),
-                  sliver: DSidebarReorderableMenu.sliverBuilder(
-                    sectionId: section.key,
-                    onMove: _move,
-                    itemCount: section.value.length,
-                    itemBuilder: (context, index) => DSidebarMenuButton(
-                      key: ValueKey(section.value[index]),
-                      isActive: _selected == section.value[index],
-                      onPressed: () =>
-                          setState(() => _selected = section.value[index]),
-                      child: Text(section.value[index]),
-                    ),
-                    onReorder: (oldIndex, newIndex) => setState(() {
-                      final link = section.value.removeAt(oldIndex);
-                      section.value.insert(
-                        newIndex > oldIndex ? newIndex - 1 : newIndex,
-                        link,
-                      );
-                    }),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: DSidebarDropTarget(
+                          sectionId: section.key,
+                          index: section.value.length,
+                          append: true,
+                          onMove: _move,
+                          child: DSidebarGroupLabel(child: Text(section.key)),
+                        ),
+                      ),
+                      DSidebarReorderableMenu.sliverBuilder(
+                        sectionId: section.key,
+                        onMove: _move,
+                        itemCount: section.value.length,
+                        itemBuilder: (context, index) => DSidebarMenuButton(
+                          key: ValueKey(section.value[index]),
+                          isActive: _selected == section.value[index],
+                          onPressed: () =>
+                              setState(() => _selected = section.value[index]),
+                          child: Text(section.value[index]),
+                        ),
+                        onReorder: (oldIndex, newIndex) => setState(() {
+                          final link = section.value.removeAt(oldIndex);
+                          section.value.insert(
+                            newIndex > oldIndex ? newIndex - 1 : newIndex,
+                            link,
+                          );
+                        }),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -894,14 +863,14 @@ class _ReorderableSidebarDemoState extends State<_ReorderableSidebarDemo> {
 class _SidebarDemo extends StatefulWidget {
   const _SidebarDemo({
     this.mode = DSidebarCollapsible.offcanvas,
-    this.variant = DSidebarVariant.sidebar,
+
     this.side = DSidebarSide.left,
     this.controlled = false,
     this.documentation = false,
     this.loading = false,
   });
   final DSidebarCollapsible mode;
-  final DSidebarVariant variant;
+
   final DSidebarSide side;
   final bool controlled, documentation, loading;
   @override
@@ -961,7 +930,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
     child: DDropdownMenuTrigger(
       builder: (context, state) => DSidebarMenuButton(
         icon: const Icon(Icons.layers_outlined),
-        tooltip: workspace,
+
         semanticLabel: 'Switch workspace, $workspace',
         focusNode: state.focusNode,
         expanded: state.open,
@@ -1011,7 +980,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
           semanticLabel: 'Alex Morgan',
         ),
         size: DSidebarMenuButtonSize.large,
-        tooltip: 'Alex Morgan',
+
         semanticLabel: 'Open Alex Morgan account menu',
         focusNode: state.focusNode,
         expanded: state.open,
@@ -1027,20 +996,18 @@ class _SidebarDemoState extends State<_SidebarDemo> {
     child: DSidebarProvider(
       mobileBreakpoint: widget.documentation ? 0 : 500,
       open: widget.controlled ? open : null,
-      onOpenChange: widget.controlled ? (v) => setState(() => open = v) : null,
+
       child: Builder(
         builder: (context) {
           final panel = DSidebar(
             width: widget.documentation ? 240 : 256,
-            side: widget.side,
+
             collapsible: widget.mode,
-            variant: widget.variant,
+
             backgroundColor: widget.documentation
                 ? DTokens.of(context).background
                 : null,
-            rail: widget.mode == DSidebarCollapsible.icon
-                ? const DSidebarRail()
-                : null,
+
             header: DSidebarHeader(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1090,59 +1057,68 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                   )
                 else ...[
                   DSidebarGroup(
-                    label: DSidebarGroupLabel(
-                      child: Text(
-                        widget.documentation ? 'Components' : 'Application',
-                      ),
-                    ),
-                    child: DSidebarMenu(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (final (index, name) in [
-                          'Home',
-                          'Inbox',
-                          'Calendar',
-                          'Search',
-                          'Settings',
-                          'A long navigation title that wraps with large text',
-                        ].indexed)
-                          if (name.toLowerCase().contains(query.toLowerCase()))
-                            DSidebarMenuItem(
-                              badge: name == 'Inbox'
-                                  ? const DSidebarMenuBadge(child: Text('24'))
-                                  : null,
-                              action: name == 'Home' && !widget.documentation
-                                  ? DSidebarMenuAction(
-                                      semanticLabel: 'Add home shortcut',
-                                      showOnHover: true,
-                                      onPressed: () => setState(
-                                        () => message = 'Shortcut added',
-                                      ),
-                                      child: const Icon(Icons.add),
-                                    )
-                                  : null,
-                              child: DSidebarMenuButton(
-                                icon: widget.documentation
-                                    ? null
-                                    : Icon(
-                                        [
-                                          Icons.home_outlined,
-                                          Icons.inbox_outlined,
-                                          Icons.calendar_today_outlined,
-                                          Icons.search,
-                                          Icons.settings_outlined,
-                                          Icons.description_outlined,
-                                        ][index],
-                                      ),
-                                tooltip: name,
-                                semanticLabel: name,
-                                isActive: selected == name,
-                                onPressed: () => select(context, name),
-                                child: Text(name),
-                              ),
+                        DSidebarGroupLabel(
+                          child: Text(
+                            widget.documentation ? 'Components' : 'Application',
+                          ),
+                        ),
+                        DSidebarMenu(
+                          children: [
+                            for (final (index, name) in [
+                              'Home',
+                              'Inbox',
+                              'Calendar',
+                              'Search',
+                              'Settings',
+                              'A long navigation title that wraps with large text',
+                            ].indexed)
+                              if (name.toLowerCase().contains(
+                                query.toLowerCase(),
+                              ))
+                                DSidebarMenuItem(
+                                  badge: name == 'Inbox'
+                                      ? const DSidebarMenuBadge(
+                                          child: Text('24'),
+                                        )
+                                      : null,
+                                  action:
+                                      name == 'Home' && !widget.documentation
+                                      ? DSidebarMenuAction(
+                                          semanticLabel: 'Add home shortcut',
+                                          onPressed: () => setState(
+                                            () => message = 'Shortcut added',
+                                          ),
+                                          child: const Icon(Icons.add),
+                                        )
+                                      : null,
+                                  child: DSidebarMenuButton(
+                                    icon: widget.documentation
+                                        ? null
+                                        : Icon(
+                                            [
+                                              Icons.home_outlined,
+                                              Icons.inbox_outlined,
+                                              Icons.calendar_today_outlined,
+                                              Icons.search,
+                                              Icons.settings_outlined,
+                                              Icons.description_outlined,
+                                            ][index],
+                                          ),
+                                    semanticLabel: name,
+                                    isActive: selected == name,
+                                    onPressed: () => select(context, name),
+                                    child: Text(name),
+                                  ),
+                                ),
+                            const DSidebarMenuButton(
+                              icon: Icon(Icons.lock_outline),
+                              child: Text('Disabled'),
                             ),
-                        const DSidebarMenuButton(
-                          icon: Icon(Icons.lock_outline),
-                          child: Text('Disabled'),
+                          ],
                         ),
                       ],
                     ),
@@ -1152,68 +1128,90 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                     open: expanded,
                     onOpenChange: (value) => setState(() => expanded = value),
                     child: DSidebarGroup(
-                      label: DCollapsibleTrigger(
-                        focusBorderRadius: BorderRadius.circular(
-                          DTokens.of(context).radius * .8,
-                        ),
-                        builder: (context, state) => DSidebarGroupLabel(
-                          child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
                             children: [
-                              const Expanded(child: Text('Projects')),
-                              AnimatedRotation(
-                                turns: state.open ? .5 : 0,
-                                duration: DMotion.duration(
-                                  context,
-                                  const Duration(milliseconds: 200),
+                              Expanded(
+                                child: DCollapsibleTrigger(
+                                  focusBorderRadius: BorderRadius.circular(
+                                    DTokens.of(context).radius * .8,
+                                  ),
+                                  builder: (context, state) =>
+                                      DSidebarGroupLabel(
+                                        child: Row(
+                                          children: [
+                                            const Expanded(
+                                              child: Text('Projects'),
+                                            ),
+                                            AnimatedRotation(
+                                              turns: state.open ? .5 : 0,
+                                              duration: DMotion.duration(
+                                                context,
+                                                const Duration(
+                                                  milliseconds: 200,
+                                                ),
+                                              ),
+                                              child: const Icon(
+                                                Icons.expand_more,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                 ),
-                                child: const Icon(Icons.expand_more),
+                              ),
+                              DSidebarGroupAction(
+                                semanticLabel: 'New project',
+                                onPressed: () =>
+                                    setState(() => message = 'Project created'),
+                                child: const Icon(Icons.add),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                      action: DSidebarGroupAction(
-                        semanticLabel: 'New project',
-                        onPressed: () =>
-                            setState(() => message = 'Project created'),
-                        child: const Icon(Icons.add),
-                      ),
-                      child: DCollapsibleContent(
-                        child: DSidebarGroupContent(
-                          child: DSidebarMenu(
-                            children: [
-                              DSidebarMenuSub(
+                          DCollapsibleContent(
+                            child: DSidebarGroupContent(
+                              child: DSidebarMenu(
                                 children: [
-                                  for (final name in ['Design', 'Engineering'])
-                                    DSidebarMenuSubItem(
-                                      child: DSidebarMenuSubButton(
-                                        isActive: selected == name,
-                                        onPressed: () => select(context, name),
-                                        child: Text(name),
-                                      ),
+                                  DSidebarMenuSub(
+                                    children: [
+                                      for (final name in [
+                                        'Design',
+                                        'Engineering',
+                                      ])
+                                        DSidebarMenuSubItem(
+                                          child: DSidebarMenuSubButton(
+                                            isActive: selected == name,
+                                            onPressed: () =>
+                                                select(context, name),
+                                            child: Text(name),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  DSidebarMenuButton(
+                                    size: DSidebarMenuButtonSize.small,
+                                    onPressed: () => select(context, 'Small'),
+                                    child: const Text('Small row'),
+                                  ),
+                                  DSidebarMenuButton(
+                                    size: DSidebarMenuButtonSize.large,
+                                    onPressed: () => select(context, 'Upgrade'),
+                                    child: const Text('Upgrade workspace'),
+                                  ),
+                                  for (var i = 1; i <= 12; i++)
+                                    DSidebarMenuButton(
+                                      onPressed: () =>
+                                          select(context, 'Project $i'),
+                                      child: Text('Project $i'),
                                     ),
                                 ],
                               ),
-                              DSidebarMenuButton(
-                                size: DSidebarMenuButtonSize.small,
-                                onPressed: () => select(context, 'Small'),
-                                child: const Text('Small row'),
-                              ),
-                              DSidebarMenuButton(
-                                size: DSidebarMenuButtonSize.large,
-                                variant: DSidebarMenuButtonVariant.outline,
-                                onPressed: () => select(context, 'Upgrade'),
-                                child: const Text('Upgrade workspace'),
-                              ),
-                              for (var i = 1; i <= 12; i++)
-                                DSidebarMenuButton(
-                                  onPressed: () =>
-                                      select(context, 'Project $i'),
-                                  child: Text('Project $i'),
-                                ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -1271,11 +1269,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                 : TextDirection.rtl,
             children: [
               panel,
-              Expanded(
-                child: widget.variant == DSidebarVariant.inset
-                    ? DSidebarInset(child: body)
-                    : body,
-              ),
+              Expanded(child: body),
             ],
           );
         },

@@ -203,7 +203,7 @@ class TopicShareButton extends StatelessWidget {
       onPressed: () => _share(context),
       icon: const DIcon(DIcons.link),
       tooltip: context.l10n.shareTopic,
-      variant: DButtonVariant.transparentBackground,
+      variant: DButtonVariant.ghost,
       size: DButtonSize.regular,
     );
   }
@@ -215,7 +215,7 @@ class TopicStatusButton extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     this.topicFlags = const [],
-    this.variant = DButtonVariant.transparentBackground,
+    this.variant = DButtonVariant.ghost,
     this.density = DButtonDensity.standard,
     this.size = DButtonSize.chip,
   });
@@ -608,7 +608,7 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
 class TopicStatusButtonPlaceholder extends StatelessWidget {
   const TopicStatusButtonPlaceholder({
     super.key,
-    this.variant = DButtonVariant.transparentBackground,
+    this.variant = DButtonVariant.ghost,
     this.density = DButtonDensity.standard,
     this.size = DButtonSize.chip,
   });

@@ -33,7 +33,7 @@ final sliderExamples = ComponentExamples(
       description:
           'A filled vertical capsule for effect strength, with the same pointer, keyboard and screen-reader behavior.',
       code:
-          'DSlider(value: strength, variant: DSliderVariant.filled, orientation: Axis.vertical, semanticLabel: "Strength", onChanged: updateStrength)',
+          "DSlider(value: strength, variant: DSliderVariant.standard,  semanticLabel: \"Strength\", onChanged: updateStrength)",
       builder: (_) => const _FilledStrength(),
     ),
     for (final example in [
@@ -216,7 +216,7 @@ class _VerticalReferenceState extends State<_VerticalReference> {
           width: 48,
           child: DSlider(
             value: _first,
-            orientation: Axis.vertical,
+
             semanticLabel: 'First vertical value',
             onChanged: (v) => setState(() => _first = v),
           ),
@@ -228,7 +228,7 @@ class _VerticalReferenceState extends State<_VerticalReference> {
           width: 48,
           child: DSlider(
             value: _second,
-            orientation: Axis.vertical,
+
             semanticLabel: 'Second vertical value',
             onChanged: (v) => setState(() => _second = v),
           ),
@@ -326,15 +326,7 @@ class _PlaybackDemoState extends State<_PlaybackDemo> {
 }
 
 const _verticalCode =
-    '''// Two independent vertical sliders, 160px high; 36px between thumb centers.
-SizedBox(width: 84, height: 160, child: Stack(children: [
-  Positioned(left: 0, top: 0, bottom: 0, width: 48,
-    child: DSlider(value: first, orientation: Axis.vertical,
-      semanticLabel: 'First value', onChanged: (v) => setState(() => first = v))),
-  Positioned(left: 36, top: 0, bottom: 0, width: 48,
-    child: DSlider(value: second, orientation: Axis.vertical,
-      semanticLabel: 'Second value', onChanged: (v) => setState(() => second = v))),
-]))''';
+    "// Two independent vertical sliders, 160px high; 36px between thumb centers.\nSizedBox(width: 84, height: 160, child: Stack(children: [\n  Positioned(left: 0, top: 0, bottom: 0, width: 48,\n    child: DSlider(value: first, \n      semanticLabel: 'First value', onChanged: (v) => setState(() => first = v))),\n  Positioned(left: 36, top: 0, bottom: 0, width: 48,\n    child: DSlider(value: second, \n      semanticLabel: 'Second value', onChanged: (v) => setState(() => second = v))),\n]))";
 
 class _CollisionDemo extends StatefulWidget {
   const _CollisionDemo({required this.policy});
@@ -398,8 +390,8 @@ class _FilledStrengthState extends State<_FilledStrength> {
     height: 136,
     child: DSlider(
       value: strength,
-      variant: DSliderVariant.filled,
-      orientation: Axis.vertical,
+      variant: DSliderVariant.standard,
+
       semanticLabel: 'Strength',
       onChanged: (value) => setState(() => strength = value),
     ),

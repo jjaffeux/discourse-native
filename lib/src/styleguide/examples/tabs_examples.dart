@@ -11,7 +11,7 @@ final tabsExamples = ComponentExamples(
       'The default list is 32px high with 3px inset, 25px triggers, 6px horizontal padding, 14/20 medium text and the host lg/md radius scale. Horizontal line tabs use 20px gaps, content-width labels, a 2px active underline inside the trigger and a subtle full-width divider. Regular triggers are 42px high, with semibold selection and muted regular inactive labels. Vertical line tabs retain their trailing rule. '
       'The pill variant uses the shared control size and radius, semibold labels, 4px gaps and an immediate neutral selected fill without a surrounding track, border or shadow. '
       'The outlinePill variant keeps every tab capsule-shaped, with 6px gaps, outlined inactive tabs and the shared button accent fill on selection. Mobile notification menus use small, horizontally scrolling labels with matching hit areas. '
-      'DTabs owns local selection, DTabs.controlled follows application routing, and DTabController is a borrowed imperative option. DTabList supports manual or automatic activation and looping roving focus. Arrow direction follows orientation and RTL; Home/End jump to the boundary; Enter/Space activate in manual mode. Disabled and dynamically removed triggers are skipped. '
+      'DTabs owns local selection, DTabs.controlled follows application routing. DTabList supports manual or automatic activation and looping roving focus. Arrow direction follows orientation and RTL; Home/End jump to the boundary; Enter/Space activate in manual mode. Disabled and dynamically removed triggers are skipped. '
       'Pointer activation retains focus without an outline. Keyboard entry, arrow navigation, and Enter/Space activation show the focus ring by default. '
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Hit areas match the compact artwork on every platform. All colors, font family, radius and reduced motion update live from the preview.',
   examples: [
@@ -20,35 +20,14 @@ final tabsExamples = ComponentExamples(
       description:
           'Start-aligned icon tabs with a top selection marker and a fixed New topic action. Tabs scroll independently when space is tight; the action stays visible.',
       states: const ['Navigation', 'Icons', 'Action', 'Keyboard', 'RTL'],
-      code: '''DTabs<String>(
-  initialValue: 'home',
-  children: [
-    DTabList<String>(
-      variant: DTabListVariant.navigation,
-      expandNavigationTabs: false,
-      trailing: DButton.iconOnly(icon: DIcon(DIcons.plus), tooltip: 'New topic', onPressed: createTopic),
-      children: [
-        DTabTrigger(value: 'home', semanticLabel: 'Home', child: DIcon(DIcons.house)),
-        DTabTrigger(value: 'chat', semanticLabel: 'Chat', child: DIcon(DIcons.comment)),
-        DTabTrigger(value: 'voice', semanticLabel: 'Voice', child: DIcon(DIcons.microphoneLines)),
-      ],
-    ),
-  ],
-)''',
-      builder: (_) => DTabs<String>(
-        initialValue: 'home',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(\n      variant: DTabListVariant.plain,\n      \n      \n      children: [\n        DTabTrigger(value: 'home', semanticLabel: 'Home', child: DIcon(DIcons.house)),\n        DTabTrigger(value: 'chat', semanticLabel: 'Chat', child: DIcon(DIcons.comment)),\n        DTabTrigger(value: 'voice', semanticLabel: 'Voice', child: DIcon(DIcons.microphoneLines)),\n      ],\n    ),\n  ],\n)",
+      builder: (_) => const DTabs<String>(
         children: [
           DTabList<String>(
-            variant: DTabListVariant.navigation,
-            expandNavigationTabs: false,
-            trailing: Builder(
-              builder: (context) => DButton.iconOnly(
-                icon: const DIcon(DIcons.plus),
-                tooltip: 'New topic',
-                onPressed: () => DToast.show(context, 'New topic'),
-              ),
-            ),
-            children: const [
+            variant: DTabListVariant.plain,
+
+            children: [
               DTabTrigger(
                 value: 'home',
                 semanticLabel: 'Home',
@@ -74,8 +53,7 @@ final tabsExamples = ComponentExamples(
       description:
           'The navigation bar animates to 85% while its layout allocation stays fixed, so scrolling content does not jump. Reduced motion applies the change immediately.',
       states: const ['Navigation', 'Animation', 'Reduced motion'],
-      code:
-          'DTabList<String>(variant: DTabListVariant.navigation, navigationCompact: compact, children: tabs)',
+      code: "DTabList<String>(variant: DTabListVariant.plain,  children: tabs)",
       builder: (_) => const _CompactNavigation(),
     ),
     StyleguideExample(
@@ -84,7 +62,7 @@ final tabsExamples = ComponentExamples(
           'Workspace tabs use 35px pill surfaces with 13px labels and an 18px close action. The selected tab has a raised fill and subtle outline. Inactive tabs stay transparent and give their close space to the label.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
-          "DDocumentTab(size: DControlSize.documentTab, selected: true, closeOnlyWhenSelected: true, onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
+          "DDocumentTab(size: DControlSize.documentTab, selected: true,  onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",
       builder: (_) => const _DocumentTabs(),
     ),
     StyleguideExample(
@@ -92,19 +70,8 @@ final tabsExamples = ComponentExamples(
       description:
           'The documented overview composes four tabs with the final Card component and local panel content.',
       states: const ['Usage', 'Composition', 'Card', 'Controlled content'],
-      code: '''DTabs<String>(
-  initialValue: 'overview',
-  children: [
-    DTabList<String>(children: const [
-      DTabTrigger(value: 'overview', child: Text('Overview')),
-      DTabTrigger(value: 'analytics', child: Text('Analytics')),
-      DTabTrigger(value: 'reports', child: Text('Reports')),
-      DTabTrigger(value: 'settings', child: Text('Settings')),
-    ]),
-    DTabPanel(value: 'overview', child: DCard(children: [/* … */])),
-    // Matching panels for analytics, reports and settings.
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(children: const [\n      DTabTrigger(value: 'overview', child: Text('Overview')),\n      DTabTrigger(value: 'analytics', child: Text('Analytics')),\n      DTabTrigger(value: 'reports', child: Text('Reports')),\n      DTabTrigger(value: 'settings', child: Text('Settings')),\n    ]),\n    DTabPanel(value: 'overview', child: DCard(children: [/* … */])),\n    // Matching panels for analytics, reports and settings.\n  ],\n)",
       builder: (_) => const _CardTabs(),
     ),
     StyleguideExample(
@@ -112,19 +79,8 @@ final tabsExamples = ComponentExamples(
       description:
           'A transparent list marks selection with an underline. Click a tab, then use arrow keys or Enter/Space to reveal its keyboard focus ring.',
       states: const ['Line', 'Hover', 'Focus', 'Keyboard'],
-      code: '''DTabs<String>(
-  initialValue: 'overview',
-  children: [
-    DTabList<String>(
-      variant: DTabListVariant.line,
-      children: const [
-        DTabTrigger(value: 'overview', child: Text('Overview')),
-        DTabTrigger(value: 'analytics', child: Text('Analytics')),
-        DTabTrigger(value: 'reports', child: Text('Reports')),
-      ],
-    ),
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(\n      variant: DTabListVariant.line,\n      children: const [\n        DTabTrigger(value: 'overview', child: Text('Overview')),\n        DTabTrigger(value: 'analytics', child: Text('Analytics')),\n        DTabTrigger(value: 'reports', child: Text('Reports')),\n      ],\n    ),\n  ],\n)",
       builder: (_) => const _LineTabs(),
     ),
     StyleguideExample(
@@ -132,22 +88,9 @@ final tabsExamples = ComponentExamples(
       description:
           'A transparent navigation row with muted labels and a rounded neutral selection. Topic feeds use this variant with inline counts.',
       states: const ['Pill', 'Counts', 'Hover', 'Focus', 'Keyboard'],
-      code: '''DTabs<String>(
-  initialValue: 'unread',
-  children: [
-    DTabList<String>(
-      variant: DTabListVariant.pill,
-      children: const [
-        DTabTrigger(value: 'latest', child: Text('Latest')),
-        DTabTrigger(value: 'new', child: Text('New 3')),
-        DTabTrigger(value: 'unread', child: Text('Unread 4')),
-        DTabTrigger(value: 'top', child: Text('Top')),
-      ],
-    ),
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(\n      variant: DTabListVariant.pill,\n      children: const [\n        DTabTrigger(value: 'latest', child: Text('Latest')),\n        DTabTrigger(value: 'new', child: Text('New 3')),\n        DTabTrigger(value: 'unread', child: Text('Unread 4')),\n        DTabTrigger(value: 'top', child: Text('Top')),\n      ],\n    ),\n  ],\n)",
       builder: (_) => const DTabs<String>(
-        initialValue: 'unread',
         children: [
           DTabList<String>(
             variant: DTabListVariant.pill,
@@ -166,24 +109,9 @@ final tabsExamples = ComponentExamples(
       description:
           'Mobile notification categories scroll horizontally. Selection uses the forum accent, with outlined inactive tabs and full touch targets.',
       states: const ['Outline', 'Accent', 'Scroll', 'Touch', 'Keyboard', 'RTL'],
-      code: '''DTabs<String>(
-  initialValue: 'all',
-  children: [
-    DTabList<String>(
-      variant: DTabListVariant.outlinePill,
-      size: DControlSize.small,
-      children: [
-        DTabTrigger(value: 'all', child: Text('Notifications')),
-        DTabTrigger(value: 'replies', child: Text('Replies')),
-        DTabTrigger(value: 'likes', child: Text('Likes')),
-        DTabTrigger(value: 'messages', child: Text('Messages')),
-        DTabTrigger(value: 'bookmarks', child: Text('Bookmarks')),
-      ],
-    ),
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(\n      variant: DTabListVariant.outlinePill,\n      size: DControlSize.small,\n      children: [\n        DTabTrigger(value: 'all', child: Text('Notifications')),\n        DTabTrigger(value: 'replies', child: Text('Replies')),\n        DTabTrigger(value: 'likes', child: Text('Likes')),\n        DTabTrigger(value: 'messages', child: Text('Messages')),\n        DTabTrigger(value: 'bookmarks', child: Text('Bookmarks')),\n      ],\n    ),\n  ],\n)",
       builder: (_) => const DTabs<String>(
-        initialValue: 'all',
         children: [
           DTabList<String>(
             variant: DTabListVariant.outlinePill,
@@ -207,7 +135,6 @@ final tabsExamples = ComponentExamples(
       code:
           "DTabList<String>(variant: DTabListVariant.plain, children: [/* triggers */])",
       builder: (_) => const DTabs<String>(
-        initialValue: 'notifications',
         orientation: Axis.vertical,
         children: [
           DTabList<String>(
@@ -227,18 +154,8 @@ final tabsExamples = ComponentExamples(
       description:
           'Vertical orientation changes layout and arrow-key navigation while panels remain composable.',
       states: const ['Vertical', 'Up/Down', 'Responsive panel'],
-      code: '''DTabs<String>(
-  initialValue: 'account',
-  orientation: Axis.vertical,
-  children: [
-    DTabList<String>(children: const [
-      DTabTrigger(value: 'account', child: Text('Account')),
-      DTabTrigger(value: 'password', child: Text('Password')),
-      DTabTrigger(value: 'notifications', child: Text('Notifications')),
-    ]),
-    const DTabPanel(value: 'account', child: Text('Account settings')),
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  orientation: Axis.vertical,\n  children: [\n    DTabList<String>(children: const [\n      DTabTrigger(value: 'account', child: Text('Account')),\n      DTabTrigger(value: 'password', child: Text('Password')),\n      DTabTrigger(value: 'notifications', child: Text('Notifications')),\n    ]),\n    const DTabPanel(value: 'account', child: Text('Account settings')),\n  ],\n)",
       builder: (_) => const _VerticalTabs(),
     ),
     StyleguideExample(
@@ -246,15 +163,8 @@ final tabsExamples = ComponentExamples(
       description:
           'Disabled triggers remain announced but reject pointer, keyboard and semantic activation.',
       states: const ['Disabled', 'Skip on arrow', 'Semantics'],
-      code: '''DTabs<String>(
-  initialValue: 'home',
-  children: [
-    DTabList<String>(children: const [
-      DTabTrigger(value: 'home', child: Text('Home')),
-      DTabTrigger(value: 'settings', enabled: false, child: Text('Disabled')),
-    ]),
-  ],
-)''',
+      code:
+          "DTabs<String>(\n  \n  children: [\n    DTabList<String>(children: const [\n      DTabTrigger(value: 'home', child: Text('Home')),\n      DTabTrigger(value: 'settings',  child: Text('Disabled')),\n    ]),\n  ],\n)",
       builder: (_) => const _DisabledTabs(),
     ),
     StyleguideExample(
@@ -283,19 +193,8 @@ final tabsExamples = ComponentExamples(
       description:
           'Arabic content, logical layout and horizontal roving focus follow right-to-left direction.',
       states: const ['RTL', 'Card', 'Arrow keys'],
-      code: '''Directionality(
-  textDirection: TextDirection.rtl,
-  child: DTabs<String>(
-    initialValue: 'overview',
-    children: [
-      DTabList<String>(children: const [
-        DTabTrigger(value: 'overview', child: Text('نظرة عامة')),
-        DTabTrigger(value: 'analytics', child: Text('التحليلات')),
-        DTabTrigger(value: 'reports', child: Text('التقارير')),
-      ]),
-    ],
-  ),
-)''',
+      code:
+          "Directionality(\n  textDirection: TextDirection.rtl,\n  child: DTabs<String>(\n    \n    children: [\n      DTabList<String>(children: const [\n        DTabTrigger(value: 'overview', child: Text('نظرة عامة')),\n        DTabTrigger(value: 'analytics', child: Text('التحليلات')),\n        DTabTrigger(value: 'reports', child: Text('التقارير')),\n      ]),\n    ],\n  ),\n)",
       builder: (_) => const _RtlTabs(),
     ),
     StyleguideExample(
@@ -310,23 +209,8 @@ final tabsExamples = ComponentExamples(
         'maintainState',
         'Narrow overflow',
       ],
-      code: '''final controller = DTabController<String>('profile');
-
-DTabs<String>(
-  controller: controller,
-  onSelectionChanged: (change) => print(change.reason),
-  children: [
-    DTabList<String>(activateOnFocus: true, children: [
-      for (final route in routes)
-        DTabTrigger(value: route, child: Text(route)),
-    ]),
-    DTabPanel(
-      value: 'profile',
-      maintainState: true,
-      child: DInput(label: const Text('Display name')),
-    ),
-  ],
-)''',
+      code:
+          "String? selected = 'profile';\n\nDTabs<String>(\n  \n  \n  children: [\n    DTabList<String>(activateOnFocus: true, children: [\n      for (final route in routes)\n        DTabTrigger(value: route, child: Text(route)),\n    ]),\n    DTabPanel(\n      value: 'profile',\n      \n      child: DInput(label: const Text('Display name')),\n    ),\n  ],\n)",
       builder: (_) => const _DynamicTabs(),
     ),
   ],
@@ -361,7 +245,6 @@ class _CardTabs extends StatelessWidget {
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: 400),
     child: DTabs<String>(
-      initialValue: 'overview',
       children: [
         DTabList<String>(
           children: [
@@ -398,7 +281,6 @@ class _LineTabs extends StatelessWidget {
   const _LineTabs();
   @override
   Widget build(BuildContext context) => const DTabs<String>(
-    initialValue: 'overview',
     children: [
       DTabList<String>(
         variant: DTabListVariant.line,
@@ -418,7 +300,6 @@ class _VerticalTabs extends StatelessWidget {
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: const BoxConstraints(maxWidth: 400),
     child: const DTabs<String>(
-      initialValue: 'account',
       orientation: Axis.vertical,
       children: [
         DTabList<String>(
@@ -449,16 +330,11 @@ class _DisabledTabs extends StatelessWidget {
   const _DisabledTabs();
   @override
   Widget build(BuildContext context) => const DTabs<String>(
-    initialValue: 'home',
     children: [
       DTabList<String>(
         children: [
           DTabTrigger(value: 'home', child: Text('Home')),
-          DTabTrigger(
-            value: 'settings',
-            enabled: false,
-            child: Text('Disabled'),
-          ),
+          DTabTrigger(value: 'settings', child: Text('Disabled')),
         ],
       ),
     ],
@@ -469,7 +345,6 @@ class _IconTabs extends StatelessWidget {
   const _IconTabs();
   @override
   Widget build(BuildContext context) => const DTabs<String>(
-    initialValue: 'preview',
     children: [
       DTabList<String>(
         children: [
@@ -505,7 +380,6 @@ class _RtlTabs extends StatelessWidget {
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 400),
       child: const DTabs<String>(
-        initialValue: 'overview',
         children: [
           DTabList<String>(
             children: [
@@ -546,13 +420,12 @@ class _DynamicTabs extends StatefulWidget {
 }
 
 class _DynamicTabsState extends State<_DynamicTabs> {
-  final controller = DTabController<String>('profile');
+  String? selected = 'profile';
   final routes = <String>['profile', 'security', 'notifications'];
   String event = 'Ready';
 
   @override
   void dispose() {
-    controller.dispose();
     super.dispose();
   }
 
@@ -580,18 +453,20 @@ class _DynamicTabsState extends State<_DynamicTabs> {
             ),
             DButton(
               label: const Text('Select profile'),
-              onPressed: () => controller.value = 'profile',
+              onPressed: () => setState(() => selected = 'profile'),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Text(event, key: const ValueKey('tabs-dynamic-event')),
         const SizedBox(height: 8),
-        DTabs<String>(
-          controller: controller,
-          onSelectionChanged: (change) => setState(() {
-            event = '${change.reason.name}: ${change.value ?? 'none'}';
+        DTabs<String>.controlled(
+          value: selected,
+          onChanged: (value) => setState(() {
+            selected = value;
+            event = value ?? 'No selection';
           }),
+
           children: [
             DTabList<String>(
               activateOnFocus: true,
@@ -606,7 +481,7 @@ class _DynamicTabsState extends State<_DynamicTabs> {
             ),
             DTabPanel(
               value: 'profile',
-              maintainState: true,
+
               child: DInput(
                 labelText: 'Display name',
                 hintText: 'Kept while hidden',
@@ -652,7 +527,7 @@ class _DocumentTabsState extends State<_DocumentTabs> {
                 child: DDocumentTab(
                   size: DControlSize.documentTab,
                   selected: _selected == title,
-                  closeOnlyWhenSelected: true,
+
                   onSelect: () => setState(() => _selected = title),
                   onClose: () => setState(() {
                     _tabs.remove(title);
@@ -712,13 +587,12 @@ class _CompactNavigationState extends State<_CompactNavigation> {
         onPressedChanged: (value) => setState(() => _compact = value),
         child: const Text('Compact navigation'),
       ),
-      DTabs<String>(
-        initialValue: 'home',
+      const DTabs<String>(
         children: [
           DTabList<String>(
-            variant: DTabListVariant.navigation,
-            navigationCompact: _compact,
-            children: const [
+            variant: DTabListVariant.plain,
+
+            children: [
               DTabTrigger(
                 value: 'home',
                 semanticLabel: 'Home',

@@ -65,8 +65,11 @@ class ShellTitleBar extends StatelessWidget {
     final stacked =
         width < 560 ||
         (width < 760 && MediaQuery.textScalerOf(context).scale(12) > 18);
-    return stacked ? rowHeight * 2 : rowHeight;
+    return stacked ? rowHeight * (1 + _actionRows(context, width)) : rowHeight;
   }
+
+  static int _actionRows(BuildContext context, double width) =>
+      width < 440 && MediaQuery.textScalerOf(context).scale(12) > 18 ? 2 : 1;
 
   static void _toggleMaximized() {
     unawaited(_windowChannel.invokeMethod<void>('toggleMaximized'));
@@ -127,7 +130,9 @@ class ShellTitleBar extends StatelessWidget {
               ),
           ];
           return SizedBox(
-            height: stacked ? rowHeight * 2 : rowHeight,
+            height: stacked
+                ? rowHeight * (1 + _actionRows(context, constraints.maxWidth))
+                : rowHeight,
             child: ColoredBox(
               color:
                   Theme.of(
@@ -165,10 +170,18 @@ class ShellTitleBar extends StatelessWidget {
                             ),
                           ),
                           SizedBox(
-                            height: rowHeight,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: actions,
+                            height:
+                                rowHeight *
+                                _actionRows(context, constraints.maxWidth),
+                            width: double.infinity,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                alignment: WrapAlignment.end,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                runSpacing: DSpacing.controlGap,
+                                children: actions,
+                              ),
                             ),
                           ),
                         ],
@@ -201,7 +214,20 @@ class _DesktopPrimaryAction extends StatelessWidget {
   const _DesktopPrimaryAction();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<Object>(
+    select: (shell) => (
+      shell.forumActive,
+      shell.currentContent,
+      shell.canReplyHere,
+      shell.canCreateTopicFromList,
+      shell.canCreateTopicFromSidebar,
+      shell.currentInstance?.isConnected,
+      shell.currentInstance?.user?.canSendPrivateMessages,
+    ),
+    builder: (context, _, _) => _action(context),
+  );
+
+  Widget _action(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
     if (shell == null ||
         !shell.forumActive ||
@@ -234,9 +260,14 @@ class _DesktopPrimaryAction extends StatelessWidget {
           ),
         );
       }
-    } else if (shell.canCreateTopicFromSidebar) {
+    } else if (shell.canCreateTopicFromList ||
+        shell.canCreateTopicFromSidebar) {
       action = TopicCreateButton(
-        onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+        onPressed: () => unawaited(
+          shell.canCreateTopicFromList
+              ? shell.openNewTopicFromList()
+              : shell.openNewTopicFromSidebar(),
+        ),
         alwaysShowDrafts: true,
         primaryAction: DButton.iconOnly(
           key: TopicCreateButton.buttonKey,
@@ -245,7 +276,11 @@ class _DesktopPrimaryAction extends StatelessWidget {
           shape: DButtonShape.pill,
           variant: DButtonVariant.primary,
           size: DButtonSize.action,
-          onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
+          onPressed: () => unawaited(
+            shell.canCreateTopicFromList
+                ? shell.openNewTopicFromList()
+                : shell.openNewTopicFromSidebar(),
+          ),
         ),
       );
     }

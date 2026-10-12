@@ -78,25 +78,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'explicitly oversized custom artwork fits the requested diameter',
-    (tester) async {
-      await _pump(
-        tester,
-        const DSpinner(
-          size: 24,
-          animating: false,
-          child: Icon(Icons.autorenew, size: 100),
-        ),
-      );
-      expect(
-        tester.getRect(find.byIcon(Icons.autorenew)),
-        tester.getRect(find.byType(DSpinner)),
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
   for (final (platform, custom) in [
     (TargetPlatform.macOS, false),
     (TargetPlatform.linux, false),
@@ -107,12 +88,7 @@ void main() {
       (tester) async {
         final semantics = tester.ensureSemantics();
         try {
-          final spinner = DSpinner(
-            semanticLabel: 'Saving draft',
-            child: custom
-                ? const Icon(Icons.autorenew, semanticLabel: 'Hidden artwork')
-                : null,
-          );
+          const spinner = DSpinner(semanticLabel: 'Saving draft');
           await _pump(tester, spinner, platform: platform);
           await tester.pump(const Duration(milliseconds: 200));
           expect(tester.binding.transientCallbackCount, greaterThan(0));
@@ -147,8 +123,7 @@ void main() {
   testWidgets('custom rotation pauses, resumes, and remains clockwise in RTL', (
     tester,
   ) async {
-    Widget spinner({bool animate = true}) =>
-        DSpinner(animating: animate, child: const Icon(Icons.autorenew));
+    Widget spinner({bool animate = true}) => DSpinner(animating: animate);
     double turns() => tester
         .widget<RotationTransition>(
           find.descendant(
@@ -186,10 +161,7 @@ void main() {
         );
         const indicators = Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            DSpinner(),
-            DSpinner(child: Icon(Icons.autorenew)),
-          ],
+          children: [DSpinner(), DSpinner()],
         );
         await _pump(tester, indicators, platform: platform);
         await tester.pump(const Duration(milliseconds: 100));
@@ -246,15 +218,7 @@ void main() {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => presses++,
-                child: DSpinner(
-                  size: 48,
-                  semanticLabel: null,
-                  child: TextButton(
-                    focusNode: artworkFocus,
-                    onPressed: () => artworkPresses++,
-                    child: const Text('Artwork'),
-                  ),
-                ),
+                child: const DSpinner(size: 48, semanticLabel: null),
               ),
               TextButton(
                 focusNode: actionFocus,
@@ -280,42 +244,6 @@ void main() {
       }
     },
   );
-
-  testWidgets('live site palettes and explicit colors reach custom artwork', (
-    tester,
-  ) async {
-    for (final sample in [
-      StyleguideTheme.light,
-      StyleguideTheme.dark,
-      StyleguideTheme.forest,
-      StyleguideTheme.plum,
-    ]) {
-      final theme = sample.resolve(AppTheme.light);
-      await _pump(
-        tester,
-        const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DSpinner(child: Icon(Icons.autorenew)),
-            DSpinner(color: Color(0xfff2ab34), child: Icon(Icons.refresh)),
-          ],
-        ),
-        theme: theme,
-      );
-      expect(
-        IconTheme.of(tester.element(find.byIcon(Icons.autorenew))).color,
-        theme.iconTheme.color,
-      );
-      expect(
-        IconTheme.of(tester.element(find.byIcon(Icons.refresh))).color,
-        const Color(0xfff2ab34),
-      );
-      expect(
-        IconTheme.of(tester.element(find.byIcon(Icons.autorenew))).size,
-        16,
-      );
-    }
-  });
 
   testWidgets(
     'loading button spinner inherits its variant color and keeps one named action',

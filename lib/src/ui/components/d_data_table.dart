@@ -11,7 +11,6 @@ import '../../theme/d_native_icons.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
-import 'd_checkbox.dart';
 import 'd_context_menu.dart';
 import 'd_dropdown_menu.dart';
 import 'd_input.dart';
@@ -200,18 +199,14 @@ class DDataTableColumn<T> {
     this.cellContextMenuBuilder,
     this.headerContextMenu,
     this.compare,
-    this.filter,
-    this.filterText,
+
     this.hideable = true,
-    this.initiallyHidden = false,
+
     this.width,
     this.resizable = false,
     this.minWidth = 64,
     this.maxWidth = 800,
     this.alignment = AlignmentDirectional.centerStart,
-    this.headerAlignment = AlignmentDirectional.centerStart,
-    this._padding,
-    this._headerPadding,
   }) : assert(id != ''),
        assert(minWidth > 0),
        assert(maxWidth >= minWidth);
@@ -231,10 +226,9 @@ class DDataTableColumn<T> {
   cellContextMenuBuilder;
   final DContextMenuContent? headerContextMenu;
   final DDataTableComparator<T>? compare;
-  final DDataTableFilter<T>? filter;
-  final String Function(T row)? filterText;
+
   final bool hideable;
-  final bool initiallyHidden;
+
   final TableColumnWidth? width;
 
   /// Adds an accessible pointer/keyboard resize handle to this header.
@@ -242,23 +236,17 @@ class DDataTableColumn<T> {
   final double minWidth;
   final double maxWidth;
   final AlignmentGeometry alignment;
-  final AlignmentGeometry headerAlignment;
-  final EdgeInsetsGeometry? _padding;
-  final EdgeInsetsGeometry? _headerPadding;
 
   /// Explicit cell spacing, or the standard variant's default when omitted.
   /// Omitted spacing follows the table's variant when rendered.
-  EdgeInsetsGeometry get padding => _padding ?? const EdgeInsets.all(8);
+  EdgeInsetsGeometry get padding => (const EdgeInsets.all(8));
   EdgeInsetsGeometry get headerPadding =>
-      _headerPadding ?? const EdgeInsets.symmetric(horizontal: 8);
+      (const EdgeInsets.symmetric(horizontal: 8));
 
   bool get sortable => compare != null;
-  bool get filterable => filter != null || filterText != null;
+  bool get filterable => false;
 
-  bool matches(T row, String query) =>
-      filter?.call(row, query) ??
-      (filterText?.call(row).toLowerCase().contains(query.toLowerCase()) ??
-          true);
+  bool matches(T row, String query) => true;
 }
 
 @immutable
@@ -332,63 +320,41 @@ class DDataTable<T> extends StatefulWidget {
     required this.columns,
     required this.rowId,
     this.variant = DDataTableVariant.standard,
-    this.controller,
+
     this.state,
     this.onStateChanged,
     this.operationMode = DDataTableOperationMode.local,
     this.rowCount,
-    this.pageCount,
-    this.selectedFilteredRowCount,
-    this.selectable = false,
-    this.selectionEnabled,
-    this._selectionColumnLabel,
-    this._selectAllLabel,
-    this.selectRowLabel,
+
     this._empty,
     this.semanticLabel,
-    this.minimumWidth = 0,
+
     this.scrollController,
-    this.footerBuilder,
+
     this.columnWidths = const {},
     this.onColumnWidthsChanged,
     this.onColumnResizeEnd,
     this.onColumnResizeStart,
     this.virtualized = false,
     this.verticalScrollController,
-  }) : assert(controller == null || state == null),
-       assert(state == null || onStateChanged != null),
-       assert(rowCount == null || rowCount >= 0),
-       assert(pageCount == null || pageCount >= 0),
-       assert(
-         selectedFilteredRowCount == null || selectedFilteredRowCount >= 0,
-       ),
-       assert(minimumWidth >= 0);
+  }) : assert(state == null || onStateChanged != null),
+       assert(rowCount == null || rowCount >= 0);
 
   final List<T> data;
   final List<DDataTableColumn<T>> columns;
   final DDataTableRowId<T> rowId;
   final DDataTableVariant variant;
-  final DDataTableController? controller;
+
   final DDataTableState? state;
   final ValueChanged<DDataTableState>? onStateChanged;
   final DDataTableOperationMode operationMode;
   final int? rowCount;
-  final int? pageCount;
-  final int? selectedFilteredRowCount;
-  final bool selectable;
-  final bool Function(T row)? selectionEnabled;
-  final String? _selectionColumnLabel;
-  String get selectionColumnLabel => _selectionColumnLabel ?? appL10n.select;
-  final String? _selectAllLabel;
-  String get selectAllLabel =>
-      _selectAllLabel ?? appL10n.selectAllRowsOnThisPage;
-  final String Function(T row)? selectRowLabel;
+
   final Widget? _empty;
   Widget get empty => _empty ?? Text(appL10n.noResults);
   final String? semanticLabel;
-  final double minimumWidth;
+
   final ScrollController? scrollController;
-  final DDataTableFooterBuilder? footerBuilder;
 
   /// Pixel widths keyed by stable column ID. Persist these in the app adapter.
   final Map<String, double> columnWidths;
@@ -412,20 +378,13 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   bool _normalizationScheduled = false;
   final Map<String, double> _resizedWidths = {};
 
-  DDataTableState _defaultState() => DDataTableState(
-    hiddenColumnIds: {
-      for (final column in widget.columns)
-        if (column.initiallyHidden && column.hideable) column.id,
-    },
-  );
+  DDataTableState _defaultState() => DDataTableState(hiddenColumnIds: const {});
 
-  DDataTableState get _sourceState =>
-      widget.state ?? widget.controller?.value ?? _ownedState;
+  DDataTableState get _sourceState => widget.state ?? _ownedState;
 
   @override
   void initState() {
     super.initState();
-    widget.controller?.addListener(_controllerChanged);
   }
 
   @override
@@ -434,27 +393,16 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     if (!mapEquals(oldWidget.columnWidths, widget.columnWidths)) {
       _resizedWidths.clear();
     }
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller?.removeListener(_controllerChanged);
-      widget.controller?.addListener(_controllerChanged);
-    }
   }
 
   @override
   void dispose() {
-    widget.controller?.removeListener(_controllerChanged);
     super.dispose();
-  }
-
-  void _controllerChanged() {
-    if (mounted) setState(() {});
   }
 
   void _request(DDataTableState next) {
     if (widget.state != null) {
       widget.onStateChanged?.call(next);
-    } else if (widget.controller != null) {
-      widget.controller!.value = next;
     } else {
       setState(() => _ownedState = next);
       widget.onStateChanged?.call(next);
@@ -511,7 +459,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         ? effectiveRows.length
         : (widget.rowCount ?? widget.data.length);
     final computedPages = count == 0 ? 1 : (count / source.pageSize).ceil();
-    final pages = math.max(1, widget.pageCount ?? computedPages);
+    final pages = math.max(1, (computedPages));
     return source.copyWith(
       sort: normalizedSort,
       filters: filters,
@@ -536,17 +484,14 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   _DDataTableView<T> _view(DDataTableState state) {
     if (widget.operationMode == DDataTableOperationMode.manual) {
       final count = widget.rowCount ?? widget.data.length;
-      final pages =
-          widget.pageCount ??
-          (count == 0 ? 0 : (count / state.pageSize).ceil());
+      final pages = ((count == 0 ? 0 : (count / state.pageSize).ceil()));
       return _DDataTableView(
         pageRows: List.unmodifiable(widget.data),
         metrics: DDataTableMetrics(
           state: state,
           pageCount: pages,
           filteredRowCount: count,
-          selectedFilteredRowCount:
-              widget.selectedFilteredRowCount ?? state.selectedRowIds.length,
+          selectedFilteredRowCount: (state.selectedRowIds.length),
         ),
       );
     }
@@ -611,25 +556,12 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       for (final column in widget.columns)
         if (!state.hiddenColumnIds.contains(column.id)) column,
     ];
-    final selectableRows = [
-      for (final row in view.pageRows)
-        if (widget.selectionEnabled?.call(row) ?? true) widget.rowId(row),
-    ];
-    final selectedOnPage = selectableRows
-        .where(state.selectedRowIds.contains)
-        .length;
-    final allPageSelected =
-        selectableRows.isNotEmpty && selectedOnPage == selectableRows.length;
-    final somePageSelected = selectedOnPage > 0 && !allPageSelected;
 
     void change(DDataTableState next) => _request(_normalized(next));
 
     final columnWidths = <int, TableColumnWidth>{};
     var offset = 0;
-    if (widget.selectable) {
-      columnWidths[0] = const FixedColumnWidth(48);
-      offset = 1;
-    }
+
     for (var index = 0; index < visible.length; index++) {
       final column = visible[index];
       final width =
@@ -683,50 +615,19 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
               ? (key) => rowIndices[key]
               : null,
           verticalScrollController: widget.verticalScrollController,
-          minimumWidth: widget.minimumWidth,
+          minimumWidth: 0,
           controller: widget.scrollController,
           columnWidths: columnWidths,
           header: DTableHeader(
             rows: [
               DTableRow(
                 cells: [
-                  if (!widget.selectable && visible.isEmpty)
+                  if (visible.isEmpty)
                     const DTableHead(child: SizedBox.shrink()),
-                  if (widget.selectable)
-                    DTableHead(
-                      padding: EdgeInsets.zero,
-                      child: Semantics(
-                        container: true,
-                        explicitChildNodes: true,
-                        label: widget.selectionColumnLabel,
-                        child: DCheckbox(
-                          value: allPageSelected
-                              ? true
-                              : somePageSelected
-                              ? null
-                              : false,
-                          tristate: true,
-                          enabled: selectableRows.isNotEmpty,
-                          semanticLabel: widget.selectAllLabel,
-                          onChanged: selectableRows.isEmpty
-                              ? null
-                              : (selected) => change(
-                                  state.copyWith(
-                                    selectedRowIds: selected == true
-                                        ? ({
-                                            ...state.selectedRowIds,
-                                            ...selectableRows,
-                                          })
-                                        : (Set<Object>.of(state.selectedRowIds)
-                                            ..removeAll(selectableRows)),
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
+
                   for (final column in visible)
                     DTableHead(
-                      alignment: column.headerAlignment,
+                      alignment: AlignmentDirectional.centerStart,
                       onTap: column.onHeaderTap,
                       contextMenu: column.headerContextMenu,
                       mouseCursor: column.cellMouseCursor,
@@ -792,10 +693,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                     DTableRow(
                       cells: [
                         DTableCell(
-                          columnSpan: math.max(
-                            1,
-                            visible.length + (widget.selectable ? 1 : 0),
-                          ),
+                          columnSpan: math.max(1, visible.length + 0),
                           alignment: Alignment.center,
                           child: SizedBox(
                             height: 80,
@@ -826,15 +724,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       variant: widget.variant,
       child: table,
     );
-    final footerBuilder = widget.footerBuilder;
-    if (footerBuilder == null) return styledTable;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (widget.virtualized) Expanded(child: styledTable) else styledTable,
-        footerBuilder(context, view.metrics),
-      ],
-    );
+
+    return styledTable;
   }
 
   double _columnWidth(DDataTableColumn<T> column) {
@@ -851,13 +742,11 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
 
   Widget _resizableHeader(DDataTableColumn<T> column, Widget child) {
     final padded = Padding(
-      padding:
-          column._headerPadding ??
-          (_softHeader
-              ? const EdgeInsets.symmetric(horizontal: 14)
-              : widget.variant == DDataTableVariant.borderless
-              ? const EdgeInsets.symmetric(horizontal: 16)
-              : column.headerPadding),
+      padding: ((_softHeader
+          ? const EdgeInsets.symmetric(horizontal: 14)
+          : widget.variant == DDataTableVariant.borderless
+          ? const EdgeInsets.symmetric(horizontal: 16)
+          : column.headerPadding)),
       child: child,
     );
     if (!column.resizable) return padded;
@@ -875,7 +764,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             end: 0,
             width: DResizableHandle.visualExtent(),
             child: DResizableHandle.standalone(
-              semanticLabel: appL10n.resizeColumn((column.label).toString()),
+              semanticLabel: appL10n.resizeColumn(column.label.toString()),
               value: _columnWidth(column),
               min: column.minWidth,
               max: column.maxWidth,
@@ -905,39 +794,20 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   ) {
     final id = widget.rowId(row);
     final selected = state.selectedRowIds.contains(id);
-    final enabled = widget.selectionEnabled?.call(row) ?? true;
-
-    void select(bool value) {
-      final selection = Set<Object>.of(state.selectedRowIds);
-      value ? selection.add(id) : selection.remove(id);
-      change(state.copyWith(selectedRowIds: selection));
-    }
 
     final cell = DDataTableCellContext<T>(
       row: row,
       rowId: id,
       index: index,
       selected: selected,
-      onSelectedChanged: widget.selectable && enabled ? select : null,
+      onSelectedChanged: null,
     );
     return DTableRow(
       key: ValueKey(id),
       selected: selected,
       cells: [
-        if (!widget.selectable && columns.isEmpty)
-          const DTableCell(child: SizedBox.shrink()),
-        if (widget.selectable)
-          DTableCell(
-            padding: EdgeInsets.zero,
-            child: DCheckbox(
-              value: selected,
-              enabled: enabled,
-              semanticLabel:
-                  widget.selectRowLabel?.call(row) ??
-                  appL10n.selectRow((index + 1).toString()),
-              onChanged: enabled ? (value) => select(value == true) : null,
-            ),
-          ),
+        if (columns.isEmpty) const DTableCell(child: SizedBox.shrink()),
+
         for (final column in columns)
           DTableCell(
             alignment: column.alignment,
@@ -946,13 +816,11 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 : () => column.onCellTap!(cell),
             mouseCursor: column.cellMouseCursor,
             contextMenu: column.cellContextMenuBuilder?.call(cell),
-            padding:
-                column._padding ??
-                (_softHeader
-                    ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
-                    : widget.variant == DDataTableVariant.borderless
-                    ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
-                    : column.padding),
+            padding: ((_softHeader
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
+                : widget.variant == DDataTableVariant.borderless
+                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
+                : column.padding)),
             textStyle: _softHeader ? const TextStyle(height: 1.5) : null,
             child: column.cellBuilder(context, cell),
           ),
@@ -969,9 +837,7 @@ class DDataTableColumnHeader extends StatelessWidget {
     this.sortDirection,
     this.onSortChanged,
     this.onHide,
-    this._ascendingLabel,
-    this._descendingLabel,
-    this._hideLabel,
+
     this.size = DControlSize.small,
   });
 
@@ -979,12 +845,12 @@ class DDataTableColumnHeader extends StatelessWidget {
   final DDataTableSortDirection? sortDirection;
   final ValueChanged<DDataTableSortDirection?>? onSortChanged;
   final VoidCallback? onHide;
-  final String? _ascendingLabel;
-  String get ascendingLabel => _ascendingLabel ?? appL10n.sortAscending;
-  final String? _descendingLabel;
-  String get descendingLabel => _descendingLabel ?? appL10n.sortDescending;
-  final String? _hideLabel;
-  String get hideLabel => _hideLabel ?? appL10n.hideColumn;
+
+  String get ascendingLabel => appL10n.sortAscending;
+
+  String get descendingLabel => appL10n.sortDescending;
+
+  String get hideLabel => appL10n.hideColumn;
   final DControlSize size;
 
   @override
@@ -1083,7 +949,7 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
     required this.columns,
     required this.hiddenColumnIds,
     required this.onChanged,
-    this._label,
+
     this._menuLabel,
     this.size = DControlSize.regular,
   });
@@ -1091,8 +957,8 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
   final List<DDataTableColumn<T>> columns;
   final Set<String> hiddenColumnIds;
   final ValueChanged<Set<String>>? onChanged;
-  final String? _label;
-  String get label => _label ?? appL10n.columns;
+
+  String get label => appL10n.columns;
   final String? _menuLabel;
   String get menuLabel => _menuLabel ?? appL10n.toggleColumns;
   final DControlSize size;

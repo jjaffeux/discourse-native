@@ -43,7 +43,7 @@ class DMessageInboxMenu<T> extends StatefulWidget {
     required this.value,
     required this.options,
     required this.onChanged,
-    this._semanticLabel,
+
     this.size = DButtonSize.small,
     this.variant = DButtonVariant.ghost,
     this.buttonKey,
@@ -52,8 +52,8 @@ class DMessageInboxMenu<T> extends StatefulWidget {
   final T value;
   final List<DMessageInboxOption<T>> options;
   final ValueChanged<T>? onChanged;
-  final String? _semanticLabel;
-  String get semanticLabel => _semanticLabel ?? appL10n.chooseInbox;
+
+  String get semanticLabel => appL10n.chooseInbox;
   final DButtonSize size;
   final DButtonVariant variant;
   final Key? buttonKey;

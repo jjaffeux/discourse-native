@@ -18,12 +18,12 @@ final toggleGroupExamples = ComponentExamples(
           'The Start page density control draws a 68×32px frame with two 30×26px choices. Each choice uses its visible bounds for interaction.',
       states: const ['Inset', 'Compact artwork', 'Matching hit areas'],
       code:
-          'DToggleGroup<bool>(inset: true, density: DToggleDensity.compactInset, allowEmptySelection: false, initialValues: const [true], items: const [DToggleGroupItem.iconOnly(value: false, semanticLabel: "Comfortable", icon: Icon(Icons.grid_view, size: 12)), DToggleGroupItem.iconOnly(value: true, semanticLabel: "Compact", icon: Icon(Icons.list, size: 12))])',
+          "DToggleGroup<bool>(inset: true, density: DToggleDensity.compactInset, allowEmptySelection: false,  items: const [DToggleGroupItem.iconOnly(value: false, semanticLabel: \"Comfortable\", icon: Icon(Icons.grid_view, size: 12)), DToggleGroupItem.iconOnly(value: true, semanticLabel: \"Compact\", icon: Icon(Icons.list, size: 12))])",
       builder: (_) => const DToggleGroup<bool>(
         inset: true,
         density: DToggleDensity.compactInset,
         allowEmptySelection: false,
-        initialValues: [true],
+
         items: [
           DToggleGroupItem.iconOnly(
             value: false,
@@ -43,22 +43,13 @@ final toggleGroupExamples = ComponentExamples(
       description:
           'Equal-width inset choices use muted labels and a stronger selected segment. The icons and labels stay centered together.',
       states: const ['Inset', 'Equal width', 'Icons', 'Keyboard'],
-      code: '''DToggleGroup<String>(
-  inset: true,
-  expanded: true,
-  allowEmptySelection: false,
-  initialValues: const ['auto'],
-  items: const [
-    DToggleGroupItem(value: 'light', icon: ThemeIcon(ThemeIcons.sun, size: 12), child: Text('Light')),
-    DToggleGroupItem(value: 'dark', icon: ThemeIcon(ThemeIcons.moon, size: 12), child: Text('Dark')),
-    DToggleGroupItem(value: 'auto', icon: ThemeIcon(ThemeIcons.automatic, size: 12), child: Text('Auto')),
-  ],
-)''',
+      code:
+          "DToggleGroup<String>(\n  inset: true,\n  expanded: true,\n  allowEmptySelection: false,\n  \n  items: const [\n    DToggleGroupItem(value: 'light', icon: ThemeIcon(ThemeIcons.sun, size: 12), child: Text('Light')),\n    DToggleGroupItem(value: 'dark', icon: ThemeIcon(ThemeIcons.moon, size: 12), child: Text('Dark')),\n    DToggleGroupItem(value: 'auto', icon: ThemeIcon(ThemeIcons.automatic, size: 12), child: Text('Auto')),\n  ],\n)",
       builder: (_) => const DToggleGroup<String>(
         inset: true,
         expanded: true,
         allowEmptySelection: false,
-        initialValues: ['auto'],
+
         items: [
           DToggleGroupItem(
             value: 'light',
@@ -83,13 +74,13 @@ final toggleGroupExamples = ComponentExamples(
       description:
           'Equal-width inset choices place an icon above each label. The selected tile fills its whole slot; arrow keys move focus.',
       code:
-          'DToggleGroup<String>(expanded: true, inset: true, density: DToggleDensity.tile, allowEmptySelection: false, initialValues: ["None"], items: items)',
+          "DToggleGroup<String>(expanded: true, inset: true, density: DToggleDensity.tile, allowEmptySelection: false,  items: items)",
       builder: (_) => const DToggleGroup<String>(
         expanded: true,
         inset: true,
         density: DToggleDensity.tile,
         allowEmptySelection: false,
-        initialValues: ['None'],
+
         items: [
           DToggleGroupItem(
             value: 'None',
@@ -120,11 +111,11 @@ final toggleGroupExamples = ComponentExamples(
           'A recessed frame groups mutually exclusive layout choices. Arrow keys move between choices.',
       states: const ['Single selection', 'Inset', 'Icons'],
       code:
-          "DToggleGroup<bool>(inset: true, allowEmptySelection: false, initialValues: const [false], items: items)",
+          "DToggleGroup<bool>(inset: true, allowEmptySelection: false,  items: items)",
       builder: (_) => const DToggleGroup<bool>(
         inset: true,
         allowEmptySelection: false,
-        initialValues: [false],
+
         items: [
           DToggleGroupItem.iconOnly(
             value: false,
@@ -163,7 +154,7 @@ final toggleGroupExamples = ComponentExamples(
           'A single-select text group starts with All selected and permits deselection like Base UI.',
       states: const ['Single', 'Outline', 'Text', 'Deselectable'],
       code:
-          "DToggleGroup<String>(initialValues: const ['all'], variant: DToggleVariant.outline, items: const [DToggleGroupItem(value: 'all', child: Text('All')), DToggleGroupItem(value: 'missed', child: Text('Missed'))])",
+          "DToggleGroup<String>( variant: DToggleVariant.outline, items: const [DToggleGroupItem(value: 'all', child: Text('All')), DToggleGroupItem(value: 'missed', child: Text('Missed'))])",
       builder: (_) => const _SimpleGroup(
         labels: ['All', 'Missed'],
         initial: ['All'],
@@ -176,7 +167,7 @@ final toggleGroupExamples = ComponentExamples(
           'Small and default groups retain the accepted 28px and 32px Toggle artwork.',
       states: const ['Small 28px', 'Default 32px', 'Outline'],
       code:
-          "DToggleGroup<String>(size: DToggleSize.small, initialValues: const ['Top'], variant: DToggleVariant.outline, items: items)",
+          "DToggleGroup<String>(size: DToggleSize.small,  variant: DToggleVariant.outline, items: items)",
       builder: (_) => const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -201,7 +192,7 @@ final toggleGroupExamples = ComponentExamples(
           'Compare the frozen 8px default with connected spacing 0 and a 4px vertical group.',
       states: const ['Default 8px', 'Connected 0px', 'Vertical 4px'],
       code:
-          "DToggleGroup<String>(spacing: 0, variant: DToggleVariant.outline, initialValues: const ['Top'], items: items)",
+          "DToggleGroup<String>(spacing: 0, variant: DToggleVariant.outline,  items: items)",
       builder: (_) => const Wrap(
         spacing: 20,
         runSpacing: 16,
@@ -229,7 +220,7 @@ final toggleGroupExamples = ComponentExamples(
           'Multiple formatting choices stack vertically with 4px spacing and vertical arrow focus.',
       states: const ['Vertical', 'Multiple', '4px gap', 'Arrow keys'],
       code:
-          "DToggleGroup<String>(multiple: true, orientation: Axis.vertical, spacing: 1, initialValues: const ['bold', 'italic'], items: formattingItems)",
+          "DToggleGroup<String>(multiple: true,  spacing: 1,  items: formattingItems)",
       builder: (_) => const _FormattingGroup(vertical: true),
     ),
     StyleguideExample(
@@ -237,8 +228,7 @@ final toggleGroupExamples = ComponentExamples(
       description:
           'A disabled group preserves selection semantics but blocks pointer, keyboard and semantic activation.',
       states: const ['Disabled group', 'Pressed state retained'],
-      code:
-          "DToggleGroup<String>(enabled: false, initialValues: const ['bold'], items: formattingItems)",
+      code: "DToggleGroup<String>(  items: formattingItems)",
       builder: (_) => const _FormattingGroup(enabled: false),
     ),
     StyleguideExample(
@@ -280,7 +270,7 @@ final toggleGroupExamples = ComponentExamples(
           'Arabic text follows reading order; Left/Right arrows move visually in RTL.',
       states: const ['RTL', 'Arabic', 'Single', 'Outline'],
       code:
-          "Directionality(textDirection: TextDirection.rtl, child: DToggleGroup<String>(variant: DToggleVariant.outline, initialValues: const ['قائمة'], items: arabicItems))",
+          "Directionality(textDirection: TextDirection.rtl, child: DToggleGroup<String>(variant: DToggleVariant.outline,  items: arabicItems))",
       builder: (_) => const Directionality(
         textDirection: TextDirection.rtl,
         child: _SimpleGroup(
@@ -334,10 +324,9 @@ class _FormattingGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DToggleGroup<String>(
     multiple: true,
-    initialValues: vertical ? const ['bold', 'italic'] : const [],
-    orientation: vertical ? Axis.vertical : Axis.horizontal,
+
     spacing: vertical ? 1 : 8,
-    enabled: enabled,
+
     variant: vertical ? DToggleVariant.standard : DToggleVariant.outline,
     semanticLabel: 'Text formatting',
     items: _formattingItems(),
@@ -361,7 +350,6 @@ class _SimpleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DToggleGroup<String>(
-    initialValues: initial,
     variant: outline ? DToggleVariant.outline : DToggleVariant.standard,
     size: size,
     spacing: spacing,
@@ -484,16 +472,12 @@ class _DynamicGroupState extends State<_DynamicGroup> {
         controller: _controller,
         onChanged: (_) => setState(() {}),
         allowEmptySelection: false,
-        loopFocus: true,
+
         variant: DToggleVariant.outline,
         semanticLabel: 'Layout',
         items: [
           const DToggleGroupItem(value: 'list', child: Text('List')),
-          const DToggleGroupItem(
-            value: 'grid',
-            enabled: false,
-            child: Text('Grid'),
-          ),
+          const DToggleGroupItem(value: 'grid', child: Text('Grid')),
           if (_showCards)
             const DToggleGroupItem(value: 'cards', child: Text('Cards')),
         ],

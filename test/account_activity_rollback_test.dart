@@ -100,7 +100,7 @@ void main() {
           final title = page == _Page.activity
               ? 'Activity restored'
               : 'Bookmark restored';
-          expect(find.text(title), findsOneWidget);
+          expect(contentText(title), findsOneWidget);
           int requests() => page == _Page.activity
               ? api.userActivityRequests.length
               : api.bookmarkListRequests.length;
@@ -133,7 +133,7 @@ void main() {
             requests(),
             operation == _Operation.cancelledReconnect ? 1 : 2,
           );
-          expect(find.text(title), findsOneWidget);
+          expect(contentText(title), findsOneWidget);
           expect(loaded(), isTrue);
           expect(tester.takeException(), isNull);
         },

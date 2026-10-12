@@ -22,8 +22,8 @@ final switchExamples = ComponentExamples(
       title: 'Airplane Mode',
       description: 'The reference default: a switch and an associated label.',
       states: const ['Default', 'Keyboard', 'Touch'],
-      code: '''DSwitchTile(leading: true, value: airplane, onChanged: (value) =>
-  setState(() => airplane = value), title: const Text('Airplane Mode'))''',
+      code:
+          "DSwitchTile( value: airplane, onChanged: (value) =>\n  setState(() => airplane = value), title: const Text('Airplane Mode'))",
       builder: (_) => const _SwitchDemo(kind: 'default'),
     ),
     StyleguideExample(
@@ -62,9 +62,8 @@ final switchExamples = ComponentExamples(
       description:
           'Disabled switches leave traversal. Read-only switches retain focus without edits.',
       states: const ['Disabled', 'Read-only'],
-      code: '''const DSwitch(value: false, semanticLabel: 'Disabled');
-const DSwitch(initialValue: true, enabled: false, semanticLabel: 'Disabled checked');
-const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''',
+      code:
+          "const DSwitch(value: false, semanticLabel: 'Disabled');\nconst DSwitch( enabled: false, semanticLabel: 'Disabled checked');\nconst DSwitch( readOnly: true, semanticLabel: 'Read-only');",
       builder: (_) => const Column(
         children: [
           DSwitchTile(value: false, onChanged: null, title: Text('Disabled')),
@@ -75,11 +74,7 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
           ),
           Row(
             children: [
-              DSwitch(
-                initialValue: true,
-                readOnly: true,
-                semanticLabel: 'Read-only',
-              ),
+              DSwitch(readOnly: true, semanticLabel: 'Read-only'),
               Flexible(child: DLabel(child: Text('Read-only'))),
             ],
           ),
@@ -113,12 +108,8 @@ const DSwitch(initialValue: true, readOnly: true, semanticLabel: 'Read-only');''
       description:
           'Small and default keep their exact artwork inside accessible targets.',
       states: const ['Small', 'Default', 'Associated label'],
-      code: '''DSwitchTile(leading: true, size: DSwitchSize.small, value: small,
-  onChanged: (value) => setState(() => small = value),
-  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Small')));
-DSwitchTile(leading: true, value: standard,
-  onChanged: (value) => setState(() => standard = value),
-  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Default')));''',
+      code:
+          "DSwitchTile( size: DSwitchSize.standard, value: small,\n  onChanged: (value) => setState(() => small = value),\n  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Small')));\nDSwitchTile( value: standard,\n  onChanged: (value) => setState(() => standard = value),\n  title: const DLabel(style: TextStyle(height: 1.375), child: Text('Default')));",
       builder: (_) => const _SwitchSizes(),
     ),
     StyleguideExample(
@@ -170,7 +161,7 @@ class _SwitchDemoState extends State<_SwitchDemo> {
           choiceCard: kind == 'card',
           hoverHighlight: kind == 'settings',
           invalid: kind == 'invalid',
-          leading: kind == 'default',
+
           title: Text(
             kind == 'invalid'
                 ? 'Accept terms and conditions'
@@ -294,8 +285,7 @@ class _SwitchSizesState extends State<_SwitchSizes> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DSwitchTile(
-            leading: true,
-            size: DSwitchSize.small,
+            size: DSwitchSize.standard,
             value: _small,
             onChanged: (value) => setState(() => _small = value),
             title: const DLabel(
@@ -305,7 +295,6 @@ class _SwitchSizesState extends State<_SwitchSizes> {
           ),
           const SizedBox(height: 20),
           DSwitchTile(
-            leading: true,
             value: _standard,
             onChanged: (value) => setState(() => _standard = value),
             title: const DLabel(

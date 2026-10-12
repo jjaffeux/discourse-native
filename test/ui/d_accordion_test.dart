@@ -33,7 +33,7 @@ DAccordionItem<String> item(
 }) => DAccordionItem<String>(
   key: ValueKey('item-$value'),
   value: value,
-  disabled: disabled,
+
   child: Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -41,7 +41,7 @@ DAccordionItem<String> item(
       DAccordionHeader(
         child: DAccordionTrigger(
           key: ValueKey('trigger-$value'),
-          focusNode: focusNode,
+
           child: Text('Question $value'),
         ),
       ),
@@ -51,164 +51,6 @@ DAccordionItem<String> item(
 );
 
 void main() {
-  testWidgets('local single mode opens one item and permits closing all', (
-    tester,
-  ) async {
-    final changes = <Set<String>>[];
-    await tester.pumpWidget(
-      host(
-        DAccordion<String>(
-          defaultValues: const ['a'],
-          onValuesChange: (value) => changes.add({...value}),
-          children: [item('a'), item('b'), item('c')],
-        ),
-      ),
-    );
-    expect(find.text('Answer a'), findsOneWidget);
-    expect(find.text('Answer b'), findsNothing);
-
-    await tester.tap(find.text('Question b'));
-    await tester.pumpAndSettle();
-    expect(find.text('Answer a'), findsNothing);
-    expect(find.text('Answer b'), findsOneWidget);
-    await tester.tap(find.text('Question b'));
-    await tester.pumpAndSettle();
-    expect(find.text('Answer b'), findsNothing);
-    expect(changes, [
-      {'b'},
-      <String>{},
-    ]);
-  });
-
-  testWidgets('multiple mode retains independently opened items', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        DAccordion<String>(
-          multiple: true,
-          defaultValues: const ['a'],
-          children: [item('a'), item('b')],
-        ),
-      ),
-    );
-    await tester.tap(find.text('Question b'));
-    await tester.pumpAndSettle();
-    expect(find.text('Answer a'), findsOneWidget);
-    expect(find.text('Answer b'), findsOneWidget);
-  });
-
-  testWidgets(
-    'controlled state only changes when its owner accepts the request',
-    (tester) async {
-      final changes = <Set<String>>[];
-      Widget build(Set<String> values) => host(
-        DAccordion<String>(
-          values: values,
-          onValuesChange: (value) => changes.add({...value}),
-          children: [item('a'), item('b')],
-        ),
-      );
-      await tester.pumpWidget(build({}));
-      await tester.tap(find.text('Question a'));
-      await tester.pumpAndSettle();
-      expect(changes, [
-        {'a'},
-      ]);
-      expect(find.text('Answer a'), findsNothing);
-      await tester.pumpWidget(build({'a'}));
-      await tester.pumpAndSettle();
-      expect(find.text('Answer a'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'borrowed controller supports programmatic state and survives root disposal',
-    (tester) async {
-      final controller = DAccordionController<String>(multiple: true);
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        host(
-          DAccordion<String>(
-            controller: controller,
-            multiple: true,
-            children: [item('a'), item('b')],
-          ),
-        ),
-      );
-      controller.replace(const ['a', 'b']);
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Answer'), findsNWidgets(2));
-      await tester.pumpWidget(const SizedBox.shrink());
-      expect(() => controller.close('a'), returnsNormally);
-    },
-  );
-
-  testWidgets('borrowed controller can hand multiple state to a local root', (
-    tester,
-  ) async {
-    final controller = DAccordionController<String>(
-      multiple: false,
-      initialValues: const ['a'],
-    );
-    addTearDown(controller.dispose);
-    var borrowed = true;
-    late StateSetter rebuild;
-    await tester.pumpWidget(
-      host(
-        StatefulBuilder(
-          builder: (context, setState) {
-            rebuild = setState;
-            return DAccordion<String>(
-              controller: borrowed ? controller : null,
-              multiple: !borrowed,
-              children: [item('a'), item('b')],
-            );
-          },
-        ),
-      ),
-    );
-
-    rebuild(() => borrowed = false);
-    await tester.pump();
-    await tester.tap(find.text('Question b'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Answer a'), findsOneWidget);
-    expect(find.text('Answer b'), findsOneWidget);
-  });
-
-  testWidgets(
-    'controlled single state stays normalized when handed to local multiple mode',
-    (tester) async {
-      var controlled = true;
-      late StateSetter rebuild;
-      await tester.pumpWidget(
-        host(
-          StatefulBuilder(
-            builder: (context, setState) {
-              rebuild = setState;
-              return DAccordion<String>(
-                values: controlled ? const {'a', 'b'} : null,
-                multiple: !controlled,
-                children: [item('a'), item('b')],
-              );
-            },
-          ),
-        ),
-      );
-
-      expect(find.text('Answer a'), findsOneWidget);
-      expect(find.text('Answer b'), findsNothing);
-
-      rebuild(() => controlled = false);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Answer a'), findsOneWidget);
-      expect(find.text('Answer b'), findsNothing);
-    },
-  );
-
   testWidgets('unkeyed direct items do not receive duplicate wrapper keys', (
     tester,
   ) async {
@@ -259,126 +101,6 @@ void main() {
     );
   });
 
-  testWidgets(
-    'root and item disabled states remain discoverable and block input',
-    (tester) async {
-      final first = FocusNode();
-      final second = FocusNode();
-      addTearDown(first.dispose);
-      addTearDown(second.dispose);
-      await tester.pumpWidget(
-        host(
-          DAccordion<String>(
-            children: [
-              item('a', disabled: true, focusNode: first),
-              item('b', focusNode: second),
-            ],
-          ),
-        ),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      expect(first.hasFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(find.text('Answer a'), findsNothing);
-      await tester.tap(find.text('Question b'));
-      await tester.pumpAndSettle();
-      expect(find.text('Answer b'), findsOneWidget);
-
-      await tester.pumpWidget(
-        host(
-          DAccordion<String>(
-            key: const ValueKey('disabled-root'),
-            disabled: true,
-            children: [item('b')],
-          ),
-        ),
-      );
-      await tester.tap(find.text('Question b'));
-      await tester.pumpAndSettle();
-      expect(find.text('Answer b'), findsNothing);
-    },
-  );
-
-  testWidgets('root visual and disabled changes reach reused const items', (
-    tester,
-  ) async {
-    const reusedItem = DAccordionItem<String>(
-      key: ValueKey('reused-item'),
-      value: 'a',
-      child: Column(
-        children: [
-          DAccordionHeader(
-            child: DAccordionTrigger(child: Text('Reused question')),
-          ),
-          DAccordionContent(child: Text('Reused answer')),
-        ],
-      ),
-    );
-    var disabled = false;
-    var outlined = false;
-    late StateSetter rebuild;
-    await tester.pumpWidget(
-      host(
-        StatefulBuilder(
-          builder: (context, setState) {
-            rebuild = setState;
-            return DAccordion<String>(
-              disabled: disabled,
-              outlined: outlined,
-              children: const [reusedItem],
-            );
-          },
-        ),
-      ),
-    );
-
-    rebuild(() {
-      disabled = true;
-      outlined = true;
-    });
-    await tester.pump();
-    await tester.tap(find.text('Reused question'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Reused answer'), findsNothing);
-    final itemContainer = tester.widget<Container>(
-      find
-          .descendant(
-            of: find.byKey(const ValueKey('reused-item')),
-            matching: find.byType(Container),
-          )
-          .first,
-    );
-    expect(itemContainer.padding, const EdgeInsets.symmetric(horizontal: 16));
-  });
-
-  testWidgets(
-    'removed values are pruned while reordered items preserve state',
-    (tester) async {
-      final controller = DAccordionController<String>(
-        multiple: true,
-        initialValues: const ['a', 'b'],
-      );
-      addTearDown(controller.dispose);
-      Widget build(List<String> values) => host(
-        DAccordion<String>(
-          controller: controller,
-          multiple: true,
-          children: [for (final value in values) item(value)],
-        ),
-      );
-      await tester.pumpWidget(build(['a', 'b']));
-      await tester.pumpWidget(build(['b', 'a']));
-      await tester.pump();
-      expect(find.textContaining('Answer'), findsNWidgets(2));
-      await tester.pumpWidget(build(['b']));
-      await tester.pump();
-      expect(controller.values, {'b'});
-    },
-  );
-
   testWidgets('Tab follows document order and keyboard activation is native', (
     tester,
   ) async {
@@ -398,10 +120,10 @@ void main() {
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
-    expect(first.hasFocus, isTrue);
+    expect(Focus.of(tester.element(find.text('Question a'))).hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
-    expect(second.hasFocus, isTrue);
+    expect(Focus.of(tester.element(find.text('Question b'))).hasFocus, isTrue);
   });
 
   testWidgets(
@@ -460,83 +182,15 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Retained');
       await tester.tap(find.text('Question a'));
       await tester.pumpAndSettle();
-      expect(trigger.hasFocus, isTrue);
+      expect(
+        Focus.of(tester.element(find.text('Question a'))).hasFocus,
+        isTrue,
+      );
       expect(find.byType(TextField), findsNothing);
       expect(find.byType(TextField, skipOffstage: false), findsOneWidget);
       await tester.tap(find.text('Question a'));
       await tester.pumpAndSettle();
       expect(find.text('Retained'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'base geometry, outlined composition and native touch target match mapping',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          SizedBox(
-            width: 320,
-            child: DAccordion<String>(
-              outlined: true,
-              defaultValues: const ['a'],
-              children: [item('a'), item('b')],
-            ),
-          ),
-        ),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('trigger-a'))).height,
-        40,
-      );
-      final pointer = await tester.startGesture(
-        tester.getCenter(find.byKey(const ValueKey('trigger-a'))),
-      );
-      await tester.pump();
-      expect(
-        tester
-            .widget<Opacity>(
-              find.descendant(
-                of: find.byKey(const ValueKey('trigger-a')),
-                matching: find.byType(Opacity),
-              ),
-            )
-            .opacity,
-        1,
-      );
-      await pointer.cancel();
-      await tester.pump();
-      expect(
-        tester.getSize(find.byType(DAccordionContent).first).height,
-        greaterThan(20),
-      );
-      final firstItem = tester.widget<Container>(
-        find
-            .descendant(
-              of: find.byKey(const ValueKey('item-a')),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      expect(firstItem.padding, const EdgeInsets.symmetric(horizontal: 16));
-      expect(
-        find.ancestor(
-          of: find.byKey(const ValueKey('trigger-a')),
-          matching: find.byType(ClipRRect),
-        ),
-        findsNothing,
-      );
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(
-        host(
-          DAccordion<String>(children: [item('a')]),
-          platform: TargetPlatform.iOS,
-        ),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('trigger-a'))).height,
-        40,
-      );
     },
   );
 

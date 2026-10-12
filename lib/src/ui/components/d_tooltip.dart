@@ -17,95 +17,11 @@ enum DTooltipSide { top, bottom, left, right, inlineStart, inlineEnd }
 
 enum DTooltipAlign { start, center, end }
 
-enum DTooltipTrackCursor { none, x, y, both }
-
-enum DTooltipChangeReason {
-  hover,
-  focus,
-  triggerPress,
-  outsidePress,
-  escape,
-  disabled,
-  imperative,
-  lifecycle,
-}
-
-typedef DTooltipOpenChange =
-    void Function(bool open, DTooltipChangeReason reason);
-
-/// An imperative handle that can be borrowed by one or several tooltips.
-///
-/// With multiple triggers, give each [DTooltip] a distinct [DTooltip.triggerId]
-/// and pass that ID to [show]. Each trigger composes its own content, so ordinary
-/// Dart closures replace the web handle's payload/render-function pairing.
-/// Calls before mounting or after removal are ignored. The handle never owns
-/// focus, action callbacks or keyboard bindings. Its owner disposes it.
-class DTooltipController extends ChangeNotifier {
-  final _triggers = <DTooltipState>{};
-  DTooltipState? _active;
-  bool _disposed = false;
-  bool _notificationScheduled = false;
-
-  bool get isOpen => _active?._open ?? false;
-  Object? get activeTriggerId => isOpen ? _active?.widget.triggerId : null;
-
-  void show({Object? triggerId}) {
-    if (_disposed) return;
-    final candidates = _triggers.where(
-      (state) => triggerId == null || state.widget.triggerId == triggerId,
-    );
-    if (candidates.isEmpty) return;
-    candidates.first._request(true, DTooltipChangeReason.imperative);
-  }
-
-  void hide() => _active?._request(false, DTooltipChangeReason.imperative);
-
-  /// Removes the popup immediately, including a pending exit animation.
-  void dismiss() {
-    for (final trigger in _triggers.toList()) {
-      trigger._request(false, DTooltipChangeReason.imperative, immediate: true);
-    }
-  }
-
-  void _changed(DTooltipState state) {
-    if (_disposed) return;
-    if (state._open) {
-      final previous = _active;
-      _active = state;
-      if (previous != state) {
-        previous?._request(false, DTooltipChangeReason.imperative);
-      }
-    } else if (_active == state) {
-      _active = null;
-    }
-    notifyListeners();
-  }
-
-  // A trigger detaches during widget update/disposal. Notify after the frame so
-  // listeners can rebuild siblings or ancestors without mutating a locked tree.
-  void _notifyAfterFrame() {
-    if (_disposed || _notificationScheduled) return;
-    _notificationScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _notificationScheduled = false;
-      if (!_disposed) notifyListeners();
-    });
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    _triggers.clear();
-    _active = null;
-    super.dispose();
-  }
-}
-
 /// Shares hover timing and opens neighboring tooltips instantly for [timeout]
 /// after a tooltip closes. Nested providers form independent groups.
 ///
 /// The default hover delay is 250 ms. Explicit [DTooltip.hoverDelay]
-/// overrides [delay]; keyboard focus and imperative opening are immediate.
+/// overrides [delay]; keyboard focus opens immediately.
 class DTooltipProvider extends StatefulWidget {
   const DTooltipProvider({
     super.key,
@@ -135,7 +51,7 @@ class _DTooltipProviderState extends State<DTooltipProvider> {
     final previous = active;
     active = state;
     if (previous != state) {
-      previous?._request(false, DTooltipChangeReason.hover);
+      previous?._request(false);
     }
   }
 
@@ -189,11 +105,6 @@ class _TooltipGroup extends InheritedWidget {
 /// works as [child]; [focusable] adds one visible focus stop for an otherwise
 /// unfocusable trigger, without enabling its action.
 ///
-/// [open] is controlled when non-null: interaction requests call [onOpenChange]
-/// and the parent decides whether to update it. Otherwise [defaultOpen] seeds
-/// local state. [controller] can open or close mounted triggers without a key.
-/// [DTooltipState.ensureTooltipVisible] is also available for existing callers.
-///
 /// A RawTooltip subtype preserves Flutter's `find.byTooltip` and inspection
 /// contract. This component owns its state and uses OverlayPortal, Focus and
 /// native gesture recognizers; it does not instantiate a second RawTooltip.
@@ -205,51 +116,34 @@ class DTooltip extends RawTooltip {
     required super.child,
     this.content,
     this.shortcut,
-    this.containsKeycaps = false,
+
     this.excludeFromSemantics = false,
     this.labelTrigger = false,
     this.side = DTooltipSide.top,
     this.align = DTooltipAlign.center,
-    this.sideOffset = 4,
-    this.alignOffset = 0,
-    this.collisionPadding = 5,
-    this.avoidCollisions = true,
-    this.showArrow = true,
-    this.maxWidth = 320,
-    this.open,
-    this.defaultOpen = false,
-    this.controller,
-    this.triggerId,
-    this.onOpenChange,
-    this.onOpenChangeComplete,
+
     this.disabled = false,
     this.focusable = false,
-    this.focusNode,
-    this.disableHoverablePopup = false,
-    this.closeOnClick = true,
-    this.trackCursorAxis = DTooltipTrackCursor.none,
+
     Duration? hoverDelay,
     Duration? dismissDelay,
-    super.touchDelay = const Duration(milliseconds: 1800),
+
     super.triggerMode = TooltipTriggerMode.longPress,
     super.enableFeedback = true,
-    super.onTriggered,
-  }) : assert(sideOffset >= 0),
-       assert(collisionPadding >= 0),
-       assert(maxWidth > 0),
-       _hoverDelay = hoverDelay,
+  }) : _hoverDelay = hoverDelay,
        _dismissDelay = dismissDelay,
        super(
          semanticsTooltip: message,
          tooltipBuilder: _buildContent,
          hoverDelay: hoverDelay ?? defaultHoverDelay,
          dismissDelay: dismissDelay ?? Duration.zero,
-         ignorePointer: disableHoverablePopup,
+         ignorePointer: false,
          animationStyle: const AnimationStyle(
            duration: Duration(milliseconds: 150),
            reverseDuration: Duration(milliseconds: 150),
            curve: Curves.ease,
          ),
+         touchDelay: const Duration(milliseconds: 1800),
        );
 
   /// How long the pointer must remain over a trigger before showing its hint.
@@ -267,10 +161,6 @@ class DTooltip extends RawTooltip {
   final Widget? content;
   final DShortcut? shortcut;
 
-  /// Reduces trailing padding to 6px for custom content containing keycaps.
-  /// [shortcut] enables this automatically.
-  /// On mobile, [message] replaces custom keycap content.
-  final bool containsKeycaps;
   final bool excludeFromSemantics;
 
   /// Names a trigger that has no independent accessible label. The message is
@@ -279,26 +169,10 @@ class DTooltip extends RawTooltip {
   final bool labelTrigger;
   final DTooltipSide side;
   final DTooltipAlign align;
-  final double sideOffset;
-  final double alignOffset;
-  final double collisionPadding;
-  final bool avoidCollisions;
-  final bool showArrow;
-  final double maxWidth;
-  final bool? open;
-  final bool defaultOpen;
-  final DTooltipController? controller;
-  final Object? triggerId;
-  final DTooltipOpenChange? onOpenChange;
-  final ValueChanged<bool>? onOpenChangeComplete;
+
   final bool disabled;
   final bool focusable;
 
-  /// Borrowed focus node for the wrapper. Existing child focus is observed too.
-  final FocusNode? focusNode;
-  final bool disableHoverablePopup;
-  final bool closeOnClick;
-  final DTooltipTrackCursor trackCursorAxis;
   final Duration? _hoverDelay;
   final Duration? _dismissDelay;
 
@@ -358,8 +232,6 @@ class DTooltipState extends State<DTooltip>
   int? _tapPointer;
   Offset? _tapStart;
 
-  bool get isOpen => _open;
-
   Duration get _delay => _group?.warm == true
       ? Duration.zero
       : widget._hoverDelay ??
@@ -378,7 +250,6 @@ class DTooltipState extends State<DTooltip>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.controller?._triggers.add(this);
   }
 
   @override
@@ -402,10 +273,7 @@ class DTooltipState extends State<DTooltip>
   @override
   void didUpdateWidget(DTooltip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      _detachController(oldWidget.controller);
-      widget.controller?._triggers.add(this);
-    }
+
     _available =
         !widget.disabled &&
         widget.message.isNotEmpty &&
@@ -424,26 +292,12 @@ class DTooltipState extends State<DTooltip>
         _cancelTimers();
         _hovered = _popupHovered = false;
         if (_open) {
-          _request(
-            false,
-            DTooltipChangeReason.disabled,
-            immediate: true,
-            force: true,
-          );
+          _request(false, immediate: true);
         }
-      } else if (widget.open != null) {
-        _setOpen(widget.open!);
       } else if (!_initialized) {
-        _setOpen(widget.defaultOpen);
+        _setOpen(false);
       }
       _initialized = true;
-      // Replacing a borrowed handle does not change the popup's open state.
-      // Adopt that already-open trigger after build, including notifying the
-      // new handle's listeners and closing its previously active trigger.
-      final controller = widget.controller;
-      if (_open && controller != null && controller._active != this) {
-        controller._changed(this);
-      }
       if (MediaQuery.disableAnimationsOf(context) &&
           (_allocatedAnimation?.isAnimating ?? false)) {
         _animation.value = _open ? 1 : 0;
@@ -453,16 +307,6 @@ class DTooltipState extends State<DTooltip>
 
   bool _initialized = false;
 
-  /// Opens immediately when mounted and available. Controlled tooltips request
-  /// their parent's update; this method never overrides [DTooltip.open].
-  bool ensureTooltipVisible() {
-    if (_open || !_available || _suspended) return false;
-    _request(true, DTooltipChangeReason.imperative);
-    return true;
-  }
-
-  void hide() => _request(false, DTooltipChangeReason.imperative);
-
   void _cancelTimers() {
     _showTimer?.cancel();
     _showTimer = null;
@@ -470,12 +314,7 @@ class DTooltipState extends State<DTooltip>
     _hideTimer = null;
   }
 
-  void _request(
-    bool value,
-    DTooltipChangeReason reason, {
-    bool immediate = false,
-    bool force = false,
-  }) {
+  void _request(bool value, {bool immediate = false}) {
     _cancelTimers();
     if (!mounted || (value && (!_available || _suspended))) return;
     if (value == _open) {
@@ -486,8 +325,7 @@ class DTooltipState extends State<DTooltip>
       }
       return;
     }
-    if (widget.open == null || force) _setOpen(value, immediate: immediate);
-    widget.onOpenChange?.call(value, reason);
+    _setOpen(value, immediate: immediate);
   }
 
   void _setOpen(bool value, {bool immediate = false}) {
@@ -498,7 +336,7 @@ class DTooltipState extends State<DTooltip>
       final overlay = Overlay.of(context);
       for (final previous in DTooltip._visible.toList()) {
         if (previous != this && Overlay.of(previous.context) == overlay) {
-          previous._request(false, DTooltipChangeReason.hover);
+          previous._request(false);
         }
       }
       DTooltip._visible.add(this);
@@ -524,7 +362,6 @@ class DTooltipState extends State<DTooltip>
       }
     }
     _syncGlobalListeners();
-    widget.controller?._changed(this);
   }
 
   // Global pointer and key observation exists only while a popup is open or a
@@ -565,12 +402,7 @@ class DTooltipState extends State<DTooltip>
   // accessibility anchor. Imperative and keyboard hints still track the anchor.
   void _scrollChanged() {
     if (!_focused && (_pointerEngaged || _hovered || !_open)) {
-      _request(
-        false,
-        DTooltipChangeReason.lifecycle,
-        immediate: true,
-        force: true,
-      );
+      _request(false, immediate: true);
     }
   }
 
@@ -587,10 +419,7 @@ class DTooltipState extends State<DTooltip>
     if (status == AnimationStatus.dismissed) {
       _stopScrollTracking();
       _hidePortal();
-      widget.onOpenChangeComplete?.call(false);
-    } else if (status == AnimationStatus.completed) {
-      widget.onOpenChangeComplete?.call(true);
-    }
+    } else if (status == AnimationStatus.completed) {}
   }
 
   void _enter(PointerEnterEvent event) {
@@ -602,10 +431,10 @@ class DTooltipState extends State<DTooltip>
     _startScrollTracking();
     _showTimer?.cancel();
     if (_delay == Duration.zero) {
-      _request(true, DTooltipChangeReason.hover);
+      _request(true);
     } else {
       _showTimer = Timer(_delay, () {
-        if (_hovered) _request(true, DTooltipChangeReason.hover);
+        if (_hovered) _request(true);
       });
     }
   }
@@ -620,16 +449,16 @@ class DTooltipState extends State<DTooltip>
 
   void _scheduleHide() {
     if (_focused || _hovered || _popupHovered || _longPressed) return;
-    if (!widget.disableHoverablePopup && _inBridge(_pointer)) return;
+    if ((_inBridge(_pointer))) return;
     // A pending close keeps its deadline; movement outside the pair does not
     // postpone it.
     if (_hideTimer?.isActive ?? false) return;
     if (_closeDelay == Duration.zero) {
-      _request(false, DTooltipChangeReason.hover);
+      _request(false);
     } else {
       _hideTimer = Timer(_closeDelay, () {
         if (!_hovered && !_popupHovered && !_focused && !_longPressed) {
-          _request(false, DTooltipChangeReason.hover);
+          _request(false);
         }
       });
     }
@@ -680,11 +509,8 @@ class DTooltipState extends State<DTooltip>
         _tapPointer = null;
         _tapStart = null;
         if (widget.enableFeedback) unawaited(Feedback.forTap(context));
-        _request(true, DTooltipChangeReason.triggerPress);
-        _hideTimer = Timer(
-          widget.touchDelay,
-          () => _request(false, DTooltipChangeReason.triggerPress),
-        );
+        _request(true);
+        _hideTimer = Timer(widget.touchDelay, () => _request(false));
         _syncGlobalListeners();
       }
     }
@@ -696,17 +522,11 @@ class DTooltipState extends State<DTooltip>
       }
       final onTrigger = _globalRect(context)?.contains(event.position) ?? false;
       if (onTrigger &&
-          (!widget.closeOnClick ||
-              event.pointer == _longPress?.primaryPointer ||
+          ((event.pointer == _longPress?.primaryPointer) ||
               event.pointer == _tapPointer)) {
         return;
       }
-      _request(
-        false,
-        onTrigger
-            ? DTooltipChangeReason.triggerPress
-            : DTooltipChangeReason.outsidePress,
-      );
+      _request(false);
     } else if (event is PointerHoverEvent || event is PointerMoveEvent) {
       _pointer = event.position;
       if (_open && _pointerEngaged && !_hovered && !_popupHovered) {
@@ -729,14 +549,11 @@ class DTooltipState extends State<DTooltip>
             if (widget.enableFeedback) {
               unawaited(Feedback.forLongPress(context));
             }
-            _request(true, DTooltipChangeReason.triggerPress);
+            _request(true);
           }
           ..onLongPressEnd = (_) {
             _longPressed = false;
-            _hideTimer = Timer(
-              widget.touchDelay,
-              () => _request(false, DTooltipChangeReason.triggerPress),
-            );
+            _hideTimer = Timer(widget.touchDelay, () => _request(false));
           }
           ..onLongPressCancel = () => _longPressed = false;
         _longPress!.addPointer(event);
@@ -755,23 +572,22 @@ class DTooltipState extends State<DTooltip>
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
     if (focused &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional) {
-      _request(true, DTooltipChangeReason.focus);
+      _request(true);
     } else if (!focused && !_hovered && !_popupHovered) {
-      _request(false, DTooltipChangeReason.focus);
+      _request(false);
     }
   }
 
   KeyEventResult _keyEvent(KeyEvent event) {
     if (!_open || event is! KeyDownEvent) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.escape) {
-      _request(false, DTooltipChangeReason.escape);
+      _request(false);
       return KeyEventResult.handled;
     }
-    if (_focused &&
-        widget.closeOnClick &&
+    if ((_focused) &&
         (event.logicalKey == LogicalKeyboardKey.enter ||
             event.logicalKey == LogicalKeyboardKey.space)) {
-      _request(false, DTooltipChangeReason.triggerPress);
+      _request(false);
     }
     return KeyEventResult.ignored;
   }
@@ -780,12 +596,7 @@ class DTooltipState extends State<DTooltip>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _suspended = state != AppLifecycleState.resumed;
     if (_suspended) {
-      _request(
-        false,
-        DTooltipChangeReason.lifecycle,
-        immediate: true,
-        force: true,
-      );
+      _request(false, immediate: true);
     }
   }
 
@@ -794,12 +605,7 @@ class DTooltipState extends State<DTooltip>
     if (event.viewId != View.of(context).viewId) return;
     _suspended = event.state == ViewFocusState.unfocused;
     if (_suspended) {
-      _request(
-        false,
-        DTooltipChangeReason.lifecycle,
-        immediate: true,
-        force: true,
-      );
+      _request(false, immediate: true);
     }
   }
 
@@ -843,23 +649,14 @@ class DTooltipState extends State<DTooltip>
       if (_open) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _request(
-              false,
-              DTooltipChangeReason.lifecycle,
-              immediate: true,
-              force: true,
-            );
+            _request(false, immediate: true);
           }
         });
       }
       return const SizedBox.shrink();
     }
     Offset? cursor;
-    if (widget.trackCursorAxis != DTooltipTrackCursor.none &&
-        _hovered &&
-        _pointer != null) {
-      cursor = overlay.globalToLocal(_pointer!);
-    }
+
     return Positioned.fill(
       child: ExcludeSemantics(
         child: ExcludeFocus(
@@ -879,7 +676,7 @@ class DTooltipState extends State<DTooltip>
               )!,
               radius: DTokens.of(context).radius * 0.8,
               child: IgnorePointer(
-                ignoring: widget.disableHoverablePopup,
+                ignoring: false,
                 child: MouseRegion(
                   onEnter: (_) {
                     _popupHovered = true;
@@ -907,7 +704,7 @@ class DTooltipState extends State<DTooltip>
   @override
   Widget build(BuildContext context) {
     Widget child = Focus(
-      focusNode: widget.focusNode,
+      focusNode: null,
       includeSemantics: widget.focusable,
       canRequestFocus: widget.focusable,
       skipTraversal: !widget.focusable,
@@ -923,11 +720,7 @@ class DTooltipState extends State<DTooltip>
       child: _TooltipMouseRegion(
         onEnter: _enter,
         onExit: _exit,
-        onHover: (event) {
-          if (widget.trackCursorAxis != DTooltipTrackCursor.none && _open) {
-            setState(() => _pointer = event.position);
-          }
-        },
+        onHover: (event) {},
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: _pointerDown,
@@ -952,21 +745,13 @@ class DTooltipState extends State<DTooltip>
     return widget.labelTrigger ? MergeSemantics(child: child) : child;
   }
 
-  void _detachController(DTooltipController? controller) {
-    controller?._triggers.remove(this);
-    if (controller?._active == this) {
-      controller?._active = null;
-      controller?._notifyAfterFrame();
-    }
-  }
-
   @override
   void dispose() {
     _cancelTimers();
     _stopScrollTracking();
     _longPress?.onLongPressCancel = null;
     _longPress?.dispose();
-    _detachController(widget.controller);
+
     _group?.closed(this);
     DTooltip._visible.remove(this);
     _open = false;
@@ -1036,10 +821,7 @@ class _TooltipContent extends StatelessWidget {
             padding: EdgeInsetsDirectional.fromSTEB(
               12,
               6,
-              showKeycaps &&
-                      (tooltip.shortcut != null || tooltip.containsKeycaps)
-                  ? 6
-                  : 12,
+              showKeycaps && ((tooltip.shortcut != null)) ? 6 : 12,
               6,
             ),
             child: Wrap(
@@ -1047,10 +829,7 @@ class _TooltipContent extends StatelessWidget {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (!showKeycaps && tooltip.containsKeycaps)
-                  Text(tooltip.message)
-                else
-                  tooltip.content ?? Text(tooltip.message),
+                tooltip.content ?? Text(tooltip.message),
                 if (showKeycaps)
                   if (tooltip.shortcut case final shortcut?)
                     DShortcutKeycaps(shortcut: shortcut),
@@ -1142,11 +921,9 @@ class _RenderTooltip extends RenderShiftedBox {
     size = constraints.biggest;
     final c = _configuration;
     final t = c.tooltip;
-    final b = c.boundary.deflate(t.collisionPadding);
-    final tracksX =
-        c.cursor != null && t.trackCursorAxis != DTooltipTrackCursor.y;
-    final tracksY =
-        c.cursor != null && t.trackCursorAxis != DTooltipTrackCursor.x;
+    final b = c.boundary.deflate(5);
+    final tracksX = (c.cursor != null);
+    final tracksY = (c.cursor != null);
     final anchor = Rect.fromLTRB(
       tracksX ? c.cursor!.dx : c.target.left,
       tracksY ? c.cursor!.dy : c.target.top,
@@ -1154,15 +931,15 @@ class _RenderTooltip extends RenderShiftedBox {
       tracksY ? c.cursor!.dy : c.target.bottom,
     );
     final spaces = {
-      DTooltipSide.top: anchor.top - b.top - t.sideOffset,
-      DTooltipSide.bottom: b.bottom - anchor.bottom - t.sideOffset,
-      DTooltipSide.left: anchor.left - b.left - t.sideOffset,
-      DTooltipSide.right: b.right - anchor.right - t.sideOffset,
+      DTooltipSide.top: anchor.top - b.top - 4,
+      DTooltipSide.bottom: b.bottom - anchor.bottom - 4,
+      DTooltipSide.left: anchor.left - b.left - 4,
+      DTooltipSide.right: b.right - anchor.right - 4,
     };
     _side = _physical(t.side);
     child!.layout(
       BoxConstraints(
-        maxWidth: math.max(0.0, math.min(t.maxWidth, b.width)),
+        maxWidth: math.max(0.0, math.min(320, b.width)),
         maxHeight: math.max(0.0, b.height),
       ),
       parentUsesSize: true,
@@ -1175,17 +952,15 @@ class _RenderTooltip extends RenderShiftedBox {
       _ => DTooltipSide.left,
     };
     final extent = vertical ? child!.size.height : child!.size.width;
-    if (t.avoidCollisions &&
-        extent > spaces[_side]! &&
-        spaces[opposite]! > spaces[_side]!) {
+    if ((extent > spaces[_side]!) && spaces[opposite]! > spaces[_side]!) {
       _side = opposite;
     }
-    if (t.avoidCollisions) {
+    {
       child!.layout(
         BoxConstraints(
           maxWidth: math.max(
             0,
-            math.min(t.maxWidth, vertical ? b.width : spaces[_side]!),
+            math.min(320, vertical ? b.width : spaces[_side]!),
           ),
           maxHeight: math.max(0.0, vertical ? spaces[_side]! : b.height),
         ),
@@ -1203,10 +978,7 @@ class _RenderTooltip extends RenderShiftedBox {
     }
     var center = anchor.center;
     if (c.cursor case final cursor?) {
-      center = Offset(
-        t.trackCursorAxis == DTooltipTrackCursor.y ? center.dx : cursor.dx,
-        t.trackCursorAxis == DTooltipTrackCursor.x ? center.dy : cursor.dy,
-      );
+      center = Offset(cursor.dx, cursor.dy);
     }
     double aligned(double start, double middle, double end, double extent) =>
         switch (align) {
@@ -1215,30 +987,30 @@ class _RenderTooltip extends RenderShiftedBox {
           DTooltipAlign.end => end - extent,
         };
     final crossOffset =
-        t.alignOffset * (vertical && c.direction == TextDirection.rtl ? -1 : 1);
+        0 * (vertical && c.direction == TextDirection.rtl ? -1 : 1);
     var offset = switch (_side) {
       DTooltipSide.top => Offset(
         aligned(anchor.left, center.dx, anchor.right, childSize.width) +
             crossOffset,
-        anchor.top - t.sideOffset - childSize.height,
+        anchor.top - 4 - childSize.height,
       ),
       DTooltipSide.bottom => Offset(
         aligned(anchor.left, center.dx, anchor.right, childSize.width) +
             crossOffset,
-        anchor.bottom + t.sideOffset,
+        anchor.bottom + 4,
       ),
       DTooltipSide.left => Offset(
-        anchor.left - t.sideOffset - childSize.width,
+        anchor.left - 4 - childSize.width,
         aligned(anchor.top, center.dy, anchor.bottom, childSize.height) +
             crossOffset,
       ),
       _ => Offset(
-        anchor.right + t.sideOffset,
+        anchor.right + 4,
         aligned(anchor.top, center.dy, anchor.bottom, childSize.height) +
             crossOffset,
       ),
     };
-    if (t.avoidCollisions) {
+    {
       offset = Offset(
         offset.dx.clamp(b.left, math.max(b.left, b.right - childSize.width)),
         offset.dy.clamp(b.top, math.max(b.top, b.bottom - childSize.height)),
@@ -1262,10 +1034,10 @@ class _RenderTooltip extends RenderShiftedBox {
     // Base UI scales around the trigger-facing edge plus the side gap, rather
     // than the diamond's center (for top: 50% calc(100% + sideOffset)).
     _transformOrigin = switch (_side) {
-      DTooltipSide.top => Offset(_arrow.dx, childSize.height + t.sideOffset),
-      DTooltipSide.bottom => Offset(_arrow.dx, -t.sideOffset),
-      DTooltipSide.left => Offset(childSize.width + t.sideOffset, _arrow.dy),
-      _ => Offset(-t.sideOffset, _arrow.dy),
+      DTooltipSide.top => Offset(_arrow.dx, childSize.height + 4),
+      DTooltipSide.bottom => Offset(_arrow.dx, -4),
+      DTooltipSide.left => Offset(childSize.width + 4, _arrow.dy),
+      _ => Offset(-4, _arrow.dy),
     };
   }
 
@@ -1299,7 +1071,7 @@ class _RenderTooltip extends RenderShiftedBox {
         final body = (offset + origin) & child!.size;
         var outline = Path()
           ..addRRect(RRect.fromRectAndRadius(body, Radius.circular(c.radius)));
-        if (c.tooltip.showArrow) {
+        {
           final arrow = Path()
             ..addRRect(
               RRect.fromRectAndRadius(

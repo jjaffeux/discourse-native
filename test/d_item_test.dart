@@ -44,7 +44,7 @@ Widget sample(DItemSize size) => DItem(
   children: const [
     DItemMedia(
       key: mediaKey,
-      variant: DItemMediaVariant.image,
+      variant: DItemMediaVariant.avatar,
       child: ColoredBox(color: Colors.blue),
     ),
     DItemContent(
@@ -685,7 +685,7 @@ void main() {
             builder: (context, setState) => DItem(
               focusNode: focus,
               selected: selected,
-              selectionStyle: DItemSelectionStyle.neutral,
+              selectionStyle: DItemSelectionStyle.tinted,
               showSelectionIndicator: false,
               onPressed: () => setState(() => selected = !selected),
               children: const [
@@ -1320,10 +1320,7 @@ void main() {
             ),
             Form(
               key: form,
-              child: DInput(
-                initialValue: 'Initial',
-                onSaved: (value) => saved = value,
-              ),
+              child: DInput(initialValue: 'Initial'),
             ),
           ],
         ),

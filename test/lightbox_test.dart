@@ -631,7 +631,7 @@ void main() {
       await tester.tap(find.dIcon(DIcons.xmark));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Spoiler'));
+      await tester.tap(find.byType(DSpoiler));
       await tester.pumpAndSettle();
       expect(find.byType(LightboxThumbnail), findsNWidgets(4));
       final revealed = find.byWidgetPredicate(

@@ -115,6 +115,7 @@ void main() {
         for (var frame = 0; frame < 16; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
         }
+        await tester.pumpAndSettle();
         capture.stop();
         final indices = <int>{};
         for (final event in capture.events) {

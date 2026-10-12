@@ -473,11 +473,8 @@ class _ConditionalQuestionnaireState extends State<_ConditionalQuestionnaire> {
       animateItems: true,
       progressBuilder: (context, state, _) => DProgress(
         value: state.current.toDouble(),
-        min: 0,
+
         max: state.total.toDouble(),
-        label: DProgressLabel(
-          child: Text('Checkpoint ${state.current} of ${state.total}'),
-        ),
       ),
     ),
   );

@@ -45,12 +45,17 @@ Future<void> _pump(
   await tester.pump();
 }
 
+int _nextMouse = 20;
 Future<TestGesture> _mouse(
   WidgetTester tester,
   Finder target, {
   Duration wait = const Duration(milliseconds: 250),
 }) async {
-  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  final mouse = TestGesture(
+    dispatcher: tester.sendEventToBinding,
+    kind: PointerDeviceKind.mouse,
+    device: _nextMouse++,
+  );
   addTearDown(mouse.removePointer);
   await mouse.addPointer(location: Offset.zero);
   await mouse.moveTo(tester.getCenter(target));
@@ -68,8 +73,6 @@ void main() {
   testWidgets(
     'default source metrics, wrapped content and shortcut colors are live',
     (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
       for (final palette in [
         StyleguideTheme.light,
         StyleguideTheme.dark,
@@ -79,16 +82,15 @@ void main() {
         final theme = palette.resolve(AppTheme.light);
         await _pump(
           tester,
-          DTooltip(
-            controller: controller,
+          const DTooltip(
             message: 'Information',
-            shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.keyS)),
+            shortcut: DShortcut(SingleActivator(LogicalKeyboardKey.keyS)),
             child: _target,
           ),
           theme: theme,
           still: true,
         );
-        controller.show();
+        await _mouse(tester, find.byType(DTooltip));
         await tester.pump();
         final style = DefaultTextStyle.of(tester.element(_hint)).style;
         expect(style.fontSize, 12);
@@ -129,15 +131,11 @@ void main() {
       ) async {
         await _pump(
           tester,
-          DTooltip(
-            message: 'Information',
-            side: side,
-            defaultOpen: true,
-            child: _target,
-          ),
+          DTooltip(message: 'Information', side: side, child: _target),
           direction: direction,
           still: true,
         );
+        await _mouse(tester, find.byType(DTooltip));
         final anchor = tester.getRect(find.byType(DTooltip));
         final popup = tester.getRect(_surface(_hint));
         final actual = switch (side) {
@@ -165,39 +163,6 @@ void main() {
     }
   }
 
-  testWidgets('start and end alignment and offsets follow text direction', (
-    tester,
-  ) async {
-    for (final direction in TextDirection.values) {
-      for (final align in [DTooltipAlign.start, DTooltipAlign.end]) {
-        await _pump(
-          tester,
-          DTooltip(
-            key: ValueKey('$direction$align'),
-            message: 'Information',
-            defaultOpen: true,
-            align: align,
-            sideOffset: 8,
-            alignOffset: 4,
-            child: _target,
-          ),
-          direction: direction,
-          still: true,
-        );
-        final anchor = tester.getRect(find.byType(DTooltip));
-        final popup = tester.getRect(_surface(_hint));
-        expect(anchor.top - popup.bottom, 8);
-        final offset = direction == TextDirection.ltr ? 4 : -4;
-        if ((align == DTooltipAlign.start) ==
-            (direction == TextDirection.ltr)) {
-          expect(popup.left, anchor.left + offset);
-        } else {
-          expect(popup.right, anchor.right + offset);
-        }
-      }
-    }
-  });
-
   testWidgets(
     'flips from the top edge and stays inside a nested narrow overlay at 200 percent',
     (tester) async {
@@ -214,7 +179,7 @@ void main() {
                 child: DTooltip(
                   message:
                       'A long explanation that wraps with enlarged accessible text without leaving this preview.',
-                  defaultOpen: true,
+
                   child: _target,
                 ),
               ),
@@ -224,6 +189,7 @@ void main() {
         scale: 2,
         still: true,
       );
+      await _mouse(tester, find.byType(DTooltip));
       await tester.pump();
       final anchor = tester.getRect(find.byType(DTooltip));
       final hint = find.textContaining('A long explanation');
@@ -244,14 +210,11 @@ void main() {
       tester,
       ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: const DTooltip(
-          message: 'Information',
-          defaultOpen: true,
-          child: _target,
-        ),
+        child: const DTooltip(message: 'Information', child: _target),
       ),
       still: true,
     );
+    await _mouse(tester, find.byType(DTooltip));
     expect(_hint, findsOneWidget);
     expect(tester.getRect(_surface(_hint)).height, 30);
     expect(
@@ -346,7 +309,7 @@ void main() {
     (tester) async {
       await _pump(
         tester,
-        const DTooltip(message: 'Information', sideOffset: 12, child: _target),
+        const DTooltip(message: 'Information', child: _target),
         still: true,
       );
       final mouse = await _mouse(tester, find.text('Target'));
@@ -499,7 +462,7 @@ void main() {
         tester,
         DTooltip(
           message: 'Information',
-          touchDelay: const Duration(milliseconds: 900),
+
           child: DButton(
             label: const Text('Target'),
             onPressed: () => actions++,
@@ -511,90 +474,14 @@ void main() {
       await tester.pump();
       expect(actions, 0);
       expect(_hint, findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(
+        tester.widget<DTooltip>(find.byType(DTooltip)).touchDelay,
+      );
       expect(_hint, findsNothing);
       await tester.tap(find.text('Target'));
       await tester.pump();
       expect(actions, 1);
       expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'controlled state reports requests and cannot be changed by its controller',
-    (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
-      final requests = <(bool, DTooltipChangeReason)>[];
-      final open = ValueNotifier(false);
-      addTearDown(open.dispose);
-      await _pump(
-        tester,
-        ValueListenableBuilder<bool>(
-          valueListenable: open,
-          builder: (context, value, _) => DTooltip(
-            message: 'Information',
-            controller: controller,
-            open: value,
-            onOpenChange: (value, reason) => requests.add((value, reason)),
-            child: _target,
-          ),
-        ),
-        still: true,
-      );
-      controller.show();
-      await tester.pump();
-      expect(_hint, findsNothing);
-      expect(requests, [(true, DTooltipChangeReason.imperative)]);
-      open.value = true;
-      await tester.pump();
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      controller.hide();
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      expect(requests.last, (false, DTooltipChangeReason.imperative));
-      open.value = false;
-      await tester.pump();
-      await tester.pump();
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'controller selects multiple triggers and detached calls never replay',
-    (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
-      controller.show();
-      Widget triggers() => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final id in ['One', 'Two'])
-            DTooltip(
-              message: '$id hint',
-              triggerId: id,
-              controller: controller,
-              child: Text(id),
-            ),
-        ],
-      );
-      await _pump(tester, triggers(), still: true);
-      expect(controller.isOpen, isFalse);
-      controller.show(triggerId: 'Two');
-      await tester.pump();
-      expect(find.text('Two hint'), findsOneWidget);
-      expect(controller.activeTriggerId, 'Two');
-      controller.show(triggerId: 'One');
-      await tester.pump();
-      expect(find.text('One hint'), findsOneWidget);
-      expect(find.text('Two hint'), findsNothing);
-      await _pump(tester, const SizedBox(), still: true);
-      expect(controller.isOpen, isFalse);
-      controller.show();
-      await _pump(tester, triggers(), still: true);
-      expect(controller.isOpen, isFalse);
-      expect(find.text('One hint'), findsNothing);
     },
   );
 
@@ -607,7 +494,7 @@ void main() {
           tester,
           const DTooltip(
             message: 'Information',
-            defaultOpen: true,
+
             shortcut: DShortcut(
               SingleActivator(LogicalKeyboardKey.keyS, control: true),
             ),
@@ -615,6 +502,7 @@ void main() {
           ),
           still: true,
         );
+        await _mouse(tester, find.byType(DTooltip));
         expect(
           tester.getSemantics(find.text('Target')).getSemanticsData().tooltip,
           'Information, Control + S',
@@ -637,308 +525,6 @@ void main() {
       } finally {
         semantics.dispose();
       }
-    },
-  );
-
-  testWidgets('scrolling tracks the anchor then removes an offscreen popup', (
-    tester,
-  ) async {
-    final scroll = ScrollController();
-    final controller = DTooltipController();
-    addTearDown(scroll.dispose);
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      SizedBox(
-        width: 300,
-        height: 250,
-        child: SingleChildScrollView(
-          controller: scroll,
-          child: Column(
-            children: [
-              const SizedBox(height: 80),
-              DTooltip(
-                message: 'Information',
-                controller: controller,
-                child: _target,
-              ),
-              const SizedBox(height: 700),
-            ],
-          ),
-        ),
-      ),
-      still: true,
-    );
-    controller.show();
-    await tester.pump();
-    final before = tester.getTopLeft(_hint).dy;
-    scroll.jumpTo(10);
-    await tester.pump();
-    expect(tester.getTopLeft(_hint).dy, before - 10);
-    scroll.jumpTo(300);
-    await tester.pump();
-    await tester.pump();
-    expect(_hint, findsNothing);
-    expect(controller.isOpen, isFalse);
-  });
-
-  testWidgets(
-    'hidden panes and lifecycle cancel pending and open hints without remounting controls',
-    (tester) async {
-      final visible = ValueNotifier(true);
-      final controller = DTooltipController();
-      addTearDown(visible.dispose);
-      addTearDown(controller.dispose);
-      await _pump(
-        tester,
-        ValueListenableBuilder<bool>(
-          valueListenable: visible,
-          builder: (context, value, _) => TooltipVisibility(
-            visible: value,
-            child: DTooltip(
-              message: 'Information',
-              controller: controller,
-              hoverDelay: const Duration(milliseconds: 500),
-              child: _target,
-            ),
-          ),
-        ),
-        still: true,
-      );
-      await _mouse(tester, find.text('Target'));
-      visible.value = false;
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(_hint, findsNothing);
-      visible.value = true;
-      await tester.pump();
-      controller.show();
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      await tester.pump();
-      expect(_hint, findsNothing);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      await tester.pump();
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets('cursor tracking moves a popup without activating its child', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      const DTooltip(
-        message: 'Information',
-        trackCursorAxis: DTooltipTrackCursor.x,
-        child: _target,
-      ),
-      still: true,
-    );
-    final mouse = await _mouse(tester, find.text('Target'));
-    final before = tester.getTopLeft(_hint);
-    await mouse.moveTo(
-      tester.getCenter(find.text('Target')) + const Offset(20, 0),
-    );
-    await tester.pump();
-    expect(tester.getTopLeft(_hint).dx, before.dx + 20);
-  });
-
-  testWidgets(
-    'replacing an open borrowed controller updates listeners and keeps hide usable',
-    (tester) async {
-      final first = DTooltipController();
-      final second = DTooltipController();
-      final selected = ValueNotifier<DTooltipController?>(first);
-      final present = ValueNotifier(true);
-      addTearDown(first.dispose);
-      addTearDown(second.dispose);
-      addTearDown(selected.dispose);
-      addTearDown(present.dispose);
-      final firstEvents = <bool>[];
-      final secondEvents = <bool>[];
-      first.addListener(() => firstEvents.add(first.isOpen));
-      second.addListener(() => secondEvents.add(second.isOpen));
-      await _pump(
-        tester,
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListenableBuilder(
-              listenable: Listenable.merge([first, second]),
-              builder: (_, _) => Text('${first.isOpen}/${second.isOpen}'),
-            ),
-            ValueListenableBuilder<bool>(
-              valueListenable: present,
-              builder: (_, visible, _) => visible
-                  ? ValueListenableBuilder<DTooltipController?>(
-                      valueListenable: selected,
-                      builder: (_, controller, _) => DTooltip(
-                        message: 'Information',
-                        controller: controller,
-                        child: _target,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-        still: true,
-      );
-      first.show();
-      await tester.pumpAndSettle();
-      expect(find.text('true/false'), findsOneWidget);
-
-      selected.value = second;
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(first.isOpen, isFalse);
-      expect(second.isOpen, isTrue);
-      expect(find.text('false/true'), findsOneWidget);
-      expect(firstEvents, [true, false]);
-      expect(secondEvents, [true]);
-      second.hide();
-      await tester.pumpAndSettle();
-      expect(_hint, findsNothing);
-
-      second.show();
-      await tester.pumpAndSettle();
-      present.value = false;
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(second.isOpen, isFalse);
-      expect(find.text('false/false'), findsOneWidget);
-      expect(secondEvents, [true, false, true, false]);
-      // Neither borrowed handle is disposed by its former trigger.
-      first.addListener(() {});
-      second.addListener(() {});
-      second.show();
-      await tester.pumpAndSettle();
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'a handle attached to an already-open controlled tooltip requests its parent',
-    (tester) async {
-      final controller = DTooltipController();
-      final selected = ValueNotifier<DTooltipController?>(null);
-      final open = ValueNotifier(true);
-      addTearDown(controller.dispose);
-      addTearDown(selected.dispose);
-      addTearDown(open.dispose);
-      await _pump(
-        tester,
-        ValueListenableBuilder<DTooltipController?>(
-          valueListenable: selected,
-          builder: (_, handle, _) => ValueListenableBuilder<bool>(
-            valueListenable: open,
-            builder: (_, value, _) => DTooltip(
-              message: 'Information',
-              controller: handle,
-              triggerId: 'controlled',
-              open: value,
-              onOpenChange: (next, reason) {
-                expect(reason, DTooltipChangeReason.imperative);
-                open.value = next;
-              },
-              child: _target,
-            ),
-          ),
-        ),
-        still: true,
-      );
-      selected.value = controller;
-      await tester.pumpAndSettle();
-      expect(controller.activeTriggerId, 'controlled');
-      controller.hide();
-      await tester.pumpAndSettle();
-      expect(open.value, isFalse);
-      expect(controller.isOpen, isFalse);
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'immediate dismissal removes an exit in progress including a controlled close',
-    (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
-      await _pump(
-        tester,
-        DTooltip(
-          message: 'Information',
-          controller: controller,
-          child: _target,
-        ),
-      );
-      controller.show();
-      await tester.pumpAndSettle();
-      controller.hide();
-      await tester.pump(const Duration(milliseconds: 40));
-      expect(_hint, findsOneWidget);
-      controller.dismiss();
-      await tester.pump();
-      expect(_hint, findsNothing);
-      final open = ValueNotifier(true);
-      addTearDown(open.dispose);
-      await _pump(
-        tester,
-        ValueListenableBuilder<bool>(
-          valueListenable: open,
-          builder: (_, value, _) => DTooltip(
-            message: 'Information',
-            controller: controller,
-            open: value,
-            onOpenChange: (value, _) => open.value = value,
-            child: _target,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      controller.hide();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 40));
-      expect(_hint, findsOneWidget);
-      controller.dismiss();
-      await tester.pump();
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'pressing and scrolling inside the popup keeps it open while outside press dismisses',
-    (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
-      await _pump(
-        tester,
-        DTooltip(
-          message: 'Information',
-          controller: controller,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [for (var i = 0; i < 40; i++) Text('Line $i')],
-          ),
-          child: _target,
-        ),
-        still: true,
-      );
-      controller.show();
-      await tester.pump();
-      final surface = _surface(find.text('Line 0'));
-      await tester.tapAt(tester.getCenter(surface));
-      await tester.pump();
-      expect(controller.isOpen, isTrue);
-      final initialY = tester.getTopLeft(find.text('Line 0')).dy;
-      await tester.drag(surface, const Offset(0, -80));
-      await tester.pump();
-      expect(controller.isOpen, isTrue);
-      expect(tester.getTopLeft(find.text('Line 0')).dy, lessThan(initialY));
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pump();
-      expect(controller.isOpen, isFalse);
     },
   );
 
@@ -967,41 +553,6 @@ void main() {
       await tester.drag(find.text('Target'), const Offset(0, 50));
       await tester.pump();
       expect(actions, 1);
-      expect(_hint, findsNothing);
-    },
-  );
-
-  testWidgets(
-    'an imperatively opened popup survives unrelated pointer movement until the pointer leaves its trigger',
-    (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
-      await _pump(
-        tester,
-        DTooltip(
-          message: 'Information',
-          controller: controller,
-          child: _target,
-        ),
-        still: true,
-      );
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer(location: Offset.zero);
-      await tester.pump();
-      controller.show();
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      await mouse.moveTo(const Offset(40, 40));
-      await tester.pump();
-      await mouse.moveTo(const Offset(60, 90));
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      await mouse.moveTo(tester.getCenter(find.text('Target')));
-      await tester.pump();
-      expect(_hint, findsOneWidget);
-      await mouse.moveTo(Offset.zero);
-      await tester.pump();
       expect(_hint, findsNothing);
     },
   );
@@ -1042,7 +593,7 @@ void main() {
             message: 'Information',
             side: side,
             align: DTooltipAlign.start,
-            defaultOpen: true,
+
             content: const Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1056,6 +607,7 @@ void main() {
           ),
           still: true,
         );
+        await _mouse(tester, find.byType(DTooltip));
         await tester.pump();
         final popup = tester.getRect(_surface(_hint));
         final anchor = tester.getRect(find.byType(DTooltip));
@@ -1152,14 +704,12 @@ void main() {
   testWidgets(
     'reduced motion removes an open exit immediately and disabled tooltip leaves the action usable',
     (tester) async {
-      final controller = DTooltipController();
-      addTearDown(controller.dispose);
       var actions = 0;
       await _pump(
         tester,
         DTooltip(
           message: 'Information',
-          controller: controller,
+
           child: DButton(
             label: const Text('Target'),
             onPressed: () => actions++,
@@ -1167,12 +717,22 @@ void main() {
         ),
         still: true,
       );
-      controller.show();
+      await _mouse(tester, find.byType(DTooltip));
       await tester.pump();
-      controller.hide();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(_hint, findsNothing);
-      expect(tester.hasRunningAnimations, isFalse);
+      expect(
+        find
+            .byType(FadeTransition)
+            .evaluate()
+            .any(
+              (element) =>
+                  (element.widget as FadeTransition).opacity.status ==
+                  AnimationStatus.reverse,
+            ),
+        isFalse,
+      );
       await _pump(
         tester,
         DTooltip(

@@ -375,46 +375,6 @@ void main() {
     },
   );
 
-  testWidgets('filled strength slider supports drag, keyboard and endpoints', (
-    tester,
-  ) async {
-    var value = 50.0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Center(
-          child: SizedBox(
-            height: 136,
-            child: StatefulBuilder(
-              builder: (context, setState) => DSlider(
-                variant: DSliderVariant.filled,
-                orientation: Axis.vertical,
-                value: value,
-                semanticLabel: 'Strength',
-                onChanged: (next) => setState(() => value = next),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.byType(DSlider));
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-    await tester.pump();
-    expect(value, 51);
-    await tester.sendKeyEvent(LogicalKeyboardKey.end);
-    await tester.pump();
-    expect(value, 100);
-    await tester.sendKeyEvent(LogicalKeyboardKey.home);
-    await tester.pump();
-    expect(value, 0);
-    await tester.dragFrom(
-      tester.getCenter(find.byType(DSlider)),
-      const Offset(0, -30),
-    );
-    await tester.pump();
-    expect(value, greaterThan(50));
-  });
-
   testWidgets('only nonzero lava animates and reduced motion stops it', (
     tester,
   ) async {

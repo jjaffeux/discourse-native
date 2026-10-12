@@ -187,11 +187,8 @@ DButton.iconOnly(
       description:
           'Start, center and end alignment, with an 8px side gap and a 4px directional alignment offset.',
       states: const ['Start', 'Center', 'End', 'Offsets'],
-      code: '''DTooltip(
-  message: 'Aligned information', align: DTooltipAlign.start,
-  sideOffset: 8, alignOffset: 4,
-  child: DButton(label: const Text('Start'), onPressed: inspect),
-)''',
+      code:
+          "DTooltip(\n  message: 'Aligned information', align: DTooltipAlign.start,\n   \n  child: DButton(label: const Text('Start'), onPressed: inspect),\n)",
       builder: (_) => _Space(
         child: Wrap(
           spacing: 8,
@@ -201,8 +198,7 @@ DButton.iconOnly(
               DTooltip(
                 message: 'Aligned information',
                 align: align,
-                sideOffset: 8,
-                alignOffset: 4,
+
                 child: DButton(label: Text(align.name), onPressed: () {}),
               ),
           ],
@@ -242,63 +238,21 @@ DButton.iconOnly(
         ),
       ),
     ),
-    StyleguideExample(
-      title: 'Controlled visibility and live themes',
-      description:
-          'Pin the tooltip to compare live preview palettes and large text. This parent accepts focus/hover opening and Escape dismissal but deliberately ignores outside clicks while pinned. Removing the trigger always removes its popup.',
-      states: const ['Controlled', 'Live theme', 'Removal', 'Large text'],
-      code: '''DTooltip(
-  message: 'This pinned hint uses the current palette, font and text scale.',
-  open: pinned,
-  onOpenChange: (next, reason) {
-    if (reason == DTooltipChangeReason.escape ||
-        reason == DTooltipChangeReason.lifecycle ||
-        reason == DTooltipChangeReason.disabled) {
-      setState(() => pinned = next);
-    }
-  },
-  child: DButton(label: const Text('Pin hint'),
-    onPressed: () => setState(() => pinned = !pinned)),
-)''',
-      builder: (_) => const _Controlled(),
-    ),
-    StyleguideExample(
-      title: 'Imperative and multiple triggers',
-      description:
-          'One borrowed controller selects either named trigger. Use the actions to open its second hint or close the active hint.',
-      states: const ['Controller', 'Multiple triggers', 'Borrowed lifecycle'],
-      code:
-          '''final controller = DTooltipController(); // Dispose in State.dispose.
-DTooltip(controller: controller, triggerId: 'first',
-  message: 'First hint', child: firstButton);
-DTooltip(controller: controller, triggerId: 'second',
-  message: 'Second hint', child: secondButton);
-controller.show(triggerId: 'second');
-controller.hide();''',
-      builder: (_) => const _Imperative(),
-    ),
+
     StyleguideExample(
       title: 'Rich content and narrow boundaries',
       description:
           'Rich labels and keycaps wrap at large text sizes. Open this hint near the preview edge to exercise viewport constraints, arrow clamping and flipping.',
       states: const ['Rich content', 'Wrapping', 'Keycaps', 'Narrow viewport'],
-      code: '''DTooltip(
-  message: 'Save your current changes, then publish with Control plus Enter.',
-  containsKeycaps: true,
-  content: const Wrap(spacing: 6, runSpacing: 6, children: [
-    Text('Save your current changes, then publish'),
-    DKbdGroup(children: [DKbd('Ctrl'), DKbd('↵')]),
-  ]),
-  child: DButton(label: const Text('Publishing hint', maxLines: null),
-    onPressed: inspect),
-)''',
+      code:
+          "DTooltip(\n  message: 'Save your current changes, then publish with Control plus Enter.',\n  \n  content: const Wrap(spacing: 6, runSpacing: 6, children: [\n    Text('Save your current changes, then publish'),\n    DKbdGroup(children: [DKbd('Ctrl'), DKbd('↵')]),\n  ]),\n  child: DButton(label: const Text('Publishing hint', maxLines: null),\n    onPressed: inspect),\n)",
       builder: (_) => _Space(
         child: Align(
           alignment: AlignmentDirectional.centerEnd,
           child: DTooltip(
             message:
                 'Save your current changes, then publish with Control plus Enter.',
-            containsKeycaps: true,
+
             content: const Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -314,18 +268,6 @@ controller.hide();''',
           ),
         ),
       ),
-    ),
-    StyleguideExample(
-      title: 'Cursor tracking and disabled hints',
-      description:
-          'The first hint follows both pointer axes. The second tooltip is disabled while its button continues to work.',
-      states: const ['Cursor tracking', 'Tooltip disabled', 'Enabled action'],
-      code: '''DTooltip(message: 'Following the pointer',
-  trackCursorAxis: DTooltipTrackCursor.both,
-  child: DButton(label: const Text('Track cursor'), onPressed: inspect));
-DTooltip(message: 'Hidden hint', disabled: true,
-  child: DButton(label: const Text('Action works'), onPressed: inspect));''',
-      builder: (_) => const _Tracking(),
     ),
   ],
 );
@@ -438,139 +380,5 @@ class _KeyboardState extends State<_Keyboard> {
         ],
       ),
     ),
-  );
-}
-
-class _Controlled extends StatefulWidget {
-  const _Controlled();
-  @override
-  State<_Controlled> createState() => _ControlledState();
-}
-
-class _ControlledState extends State<_Controlled> {
-  bool pinned = false;
-  bool present = true;
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _Space(
-        child: present
-            ? DTooltip(
-                message:
-                    'This pinned hint uses the current palette, font and text scale.',
-                open: pinned,
-                onOpenChange: (next, reason) {
-                  if (reason == DTooltipChangeReason.escape ||
-                      reason == DTooltipChangeReason.lifecycle ||
-                      reason == DTooltipChangeReason.disabled) {
-                    setState(() => pinned = next);
-                  }
-                },
-                child: DButton(
-                  label: const Text('Pin hint'),
-                  onPressed: () => setState(() => pinned = !pinned),
-                ),
-              )
-            : const Text('Trigger removed'),
-      ),
-      DButton(
-        label: Text(present ? 'Remove trigger' : 'Restore trigger'),
-        onPressed: () => setState(() {
-          present = !present;
-          pinned = false;
-        }),
-      ),
-      Text('Pinned: $pinned'),
-    ],
-  );
-}
-
-class _Imperative extends StatefulWidget {
-  const _Imperative();
-  @override
-  State<_Imperative> createState() => _ImperativeState();
-}
-
-class _ImperativeState extends State<_Imperative> {
-  final controller = DTooltipController();
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _Space(
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final id in ['first', 'second'])
-              DTooltip(
-                controller: controller,
-                triggerId: id,
-                message: '$id hint',
-                child: DButton(label: Text(id), onPressed: () {}),
-              ),
-          ],
-        ),
-      ),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          DButton(
-            label: const Text('Open second'),
-            onPressed: () => controller.show(triggerId: 'second'),
-          ),
-          DButton(label: const Text('Close hint'), onPressed: controller.hide),
-        ],
-      ),
-    ],
-  );
-}
-
-class _Tracking extends StatefulWidget {
-  const _Tracking();
-  @override
-  State<_Tracking> createState() => _TrackingState();
-}
-
-class _TrackingState extends State<_Tracking> {
-  int count = 0;
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _Space(
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            DTooltip(
-              message: 'Following the pointer',
-              trackCursorAxis: DTooltipTrackCursor.both,
-              child: DButton(
-                label: const Text('Track cursor'),
-                onPressed: () => setState(() => count++),
-              ),
-            ),
-            DTooltip(
-              message: 'Hidden hint',
-              disabled: true,
-              child: DButton(
-                label: const Text('Action works'),
-                onPressed: () => setState(() => count++),
-              ),
-            ),
-          ],
-        ),
-      ),
-      Text('Actions: $count'),
-    ],
   );
 }

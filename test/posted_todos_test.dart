@@ -688,8 +688,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-        builder: (context, child) =>
-            DToaster(controller: toasts, child: child!),
+        builder: (context, child) => DToaster(child: child!),
         home: ShellScope(
           controller: shell,
           child: ValueListenableBuilder<Post?>(
@@ -964,7 +963,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text(kind == 'details' ? 'Tasks' : 'Spoiler'));
+        await tester.tap(
+          kind == 'details'
+              ? find.text('Tasks')
+              : find.bySemanticsLabel('Spoiler'),
+        );
         await tester.pumpAndSettle();
         expect(find.byType(DCheckbox), findsNWidgets(2));
         await tester.tap(find.byType(DCheckbox).last);

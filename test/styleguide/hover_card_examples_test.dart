@@ -6,6 +6,7 @@ import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -100,6 +101,10 @@ void main() {
         ),
       ),
     );
+    final target = find.ancestor(of: find.text('Controller target'), matching: find.byType(DButton));
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    tester.widget<DButton>(target).focusNode!.requestFocus();
+    await tester.pump();
     await tester.tap(find.text('Open preview'));
     await tester.pumpAndSettle();
     expect(find.text('Controller preview'), findsOneWidget);

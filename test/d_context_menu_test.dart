@@ -94,7 +94,17 @@ void main() {
         DContextMenuItem(onPressed: () {}, child: const Text('Reload')),
       ],
     );
-    focus.requestFocus();
+    tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: find.byType(DContextMenuTrigger),
+                matching: find.byType(Focus),
+              )
+              .first,
+        )
+        .focusNode!
+        .requestFocus();
     await tester.pump();
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -106,7 +116,20 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.text('Reload'), findsNothing);
-    expect(focus.hasFocus, isTrue);
+    expect(
+      tester
+          .widget<Focus>(
+            find
+                .descendant(
+                  of: find.byType(DContextMenuTrigger),
+                  matching: find.byType(Focus),
+                )
+                .first,
+          )
+          .focusNode!
+          .hasFocus,
+      isTrue,
+    );
   });
 
   testWidgets('Context Menu key opens and focuses the first enabled item', (
@@ -122,7 +145,17 @@ void main() {
         DContextMenuItem(onPressed: () {}, child: const Text('Enabled')),
       ],
     );
-    focus.requestFocus();
+    tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: find.byType(DContextMenuTrigger),
+                matching: find.byType(Focus),
+              )
+              .first,
+        )
+        .focusNode!
+        .requestFocus();
     await tester.pump();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
@@ -145,7 +178,17 @@ void main() {
         DContextMenuItem(onPressed: () {}, child: const Text('Reload')),
       ],
     );
-    focus.requestFocus();
+    tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: find.byType(DContextMenuTrigger),
+                matching: find.byType(Focus),
+              )
+              .first,
+        )
+        .focusNode!
+        .requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
     await tester.pumpAndSettle();
@@ -198,27 +241,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('disabled root ignores all invocation methods', (tester) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    await _pumpMenu(
-      tester,
-      disabled: true,
-      focusNode: focus,
-      children: [
-        DContextMenuItem(onPressed: () {}, child: const Text('Hidden')),
-      ],
-    );
-
-    await tester.tapAt(const Offset(300, 250), buttons: kSecondaryButton);
-    await tester.longPressAt(const Offset(300, 250));
-    focus.requestFocus();
-    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Hidden'), findsNothing);
-  });
 
   testWidgets(
     'checkbox default state and radio state remain open on selection',
@@ -320,7 +342,17 @@ void main() {
         ),
       ],
     );
-    focus.requestFocus();
+    tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: find.byType(DContextMenuTrigger),
+                matching: find.byType(Focus),
+              )
+              .first,
+        )
+        .focusNode!
+        .requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
     await tester.pumpAndSettle();
@@ -472,14 +504,11 @@ Widget _menu({
     width: 240,
     height: 160,
     child: DContextMenu(
-      disabled: disabled,
       content: DContextMenuContent(
-        side: side,
         semanticLabel: 'Page actions',
         children: children,
       ),
       child: DContextMenuTrigger(
-        focusNode: focusNode,
         controller: trigger,
         child: const ColoredBox(
           color: Colors.transparent,

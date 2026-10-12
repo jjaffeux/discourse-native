@@ -142,10 +142,7 @@ final contextMenuExamples = ComponentExamples(
         'Inline end',
         'Collision',
       ],
-      code: '''DContextMenuContent(
-  side: DPopoverSide.top,
-  children: actions,
-)''',
+      code: "DContextMenuContent(\n  \n  children: actions,\n)",
       builder: (_) => const _SidesContextMenus(),
     ),
     StyleguideExample(
@@ -346,13 +343,10 @@ Widget _contextMenu({
   content: DContextMenuContent(
     semanticLabel: 'Context actions',
     width: width,
-    side: side,
+
     children: children,
   ),
-  child: DContextMenuTrigger(
-    semanticLabel: 'Context menu target',
-    child: _ContextTarget(label: label),
-  ),
+  child: DContextMenuTrigger(child: _ContextTarget(label: label)),
 );
 
 List<Widget> _submenuItems() => [

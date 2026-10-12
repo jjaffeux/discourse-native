@@ -261,20 +261,14 @@ class _CustomCommandState extends State<_CustomCommand> {
       DCommand<String>(
         outlined: true,
         loading: _loading,
-        filter: (value, query, keywords) {
-          final text = '$value ${keywords.join(' ')}'.toLowerCase();
-          return text.contains(query.toLowerCase()) ? 1 : 0;
-        },
+
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const DCommandInput<String>(placeholder: 'Search settings...'),
             DCommandList<String>(
               children: [
-                const DCommandLoading(
-                  semanticLabel: 'Fetching settings',
-                  child: Text('Fetching settings…'),
-                ),
+                const DCommandLoading(child: Text('Fetching settings…')),
                 const DCommandEmpty(child: Text('No matching settings.')),
                 DCommandGroup<String>(
                   heading: const Text('Settings'),
@@ -417,21 +411,11 @@ const _dialogCode = '''DCommandDialog<String>(
   ),
 )''';
 
-const _customCode = '''DCommand<String>(
-  loading: loading,
-  filter: (value, query, keywords) =>
-    ('\$value \${keywords.join(' ')}').contains(query) ? 1 : 0,
-  child: DCommandList<String>(children: [
-    DCommandLoading(child: Text('Fetching…')),
-    DCommandGroup<String>(items: remoteItems),
-  ]),
-)''';
+const _customCode =
+    "DCommand<String>(\n  loading: loading,\n  \n  child: DCommandList<String>(children: [\n    DCommandLoading(child: Text('Fetching…')),\n    DCommandGroup<String>(items: remoteItems),\n  ]),\n)";
 
-const _scrollableCode = '''DCommandList<String>(
-  maxHeight: 288,
-  controller: borrowedScrollController,
-  children: groupedActions,
-)''';
+const _scrollableCode =
+    "DCommandList<String>(\n  maxHeight: 288,\n  \n  children: groupedActions,\n)";
 
 const _rtlCode = '''Directionality(
   textDirection: TextDirection.rtl,

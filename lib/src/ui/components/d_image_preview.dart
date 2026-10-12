@@ -20,7 +20,6 @@ class DImagePreview extends StatefulWidget {
     required this.onPressed,
     this.filename,
     this.details,
-    this.focusNode,
   });
 
   final Widget child;
@@ -28,7 +27,6 @@ class DImagePreview extends StatefulWidget {
   final VoidCallback? onPressed;
   final String? filename;
   final String? details;
-  final FocusNode? focusNode;
 
   @override
   State<DImagePreview> createState() => _DImagePreviewState();
@@ -109,7 +107,7 @@ class _DImagePreviewState extends State<DImagePreview> {
                 child: Material(
                   type: MaterialType.transparency,
                   child: InkWell(
-                    focusNode: widget.focusNode,
+                    focusNode: null,
                     canRequestFocus: enabled,
                     onFocusChange: (value) => setState(() => _focused = value),
                     onTap: widget.onPressed,

@@ -95,7 +95,7 @@ void main() {
                 for (final variant in [
                   DButtonVariant.primary,
                   DButtonVariant.outline,
-                  DButtonVariant.transparentBackground,
+                  DButtonVariant.ghost,
                 ])
                   DButton(
                     key: ValueKey(variant),
@@ -111,9 +111,7 @@ void main() {
       await tester.pumpAndSettle();
       final primary = find.byKey(const ValueKey(DButtonVariant.primary));
       final outline = find.byKey(const ValueKey(DButtonVariant.outline));
-      final clear = find.byKey(
-        const ValueKey(DButtonVariant.transparentBackground),
-      );
+      final clear = find.byKey(const ValueKey(DButtonVariant.ghost));
       expect(
         buttonSurface(tester, of: primary).color,
         Color.lerp(canvas, accent, .25),

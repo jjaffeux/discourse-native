@@ -37,10 +37,10 @@ class DAttachment extends StatefulWidget {
     this.orientation = DAttachmentOrientation.horizontal,
     this.width,
     this.constraints,
-    this.semanticLabel,
+
     this.liveRegion = false,
     this.backgroundColor,
-    this.borderColor,
+
     this.borderRadius,
   });
 
@@ -50,10 +50,10 @@ class DAttachment extends StatefulWidget {
   final DAttachmentOrientation orientation;
   final double? width;
   final BoxConstraints? constraints;
-  final String? semanticLabel;
+
   final bool liveRegion;
   final Color? backgroundColor;
-  final Color? borderColor;
+
   final BorderRadius? borderRadius;
 
   @override
@@ -82,11 +82,9 @@ class _DAttachmentState extends State<DAttachment> {
           tokens.radius * (widget.size == DAttachmentSize.extraSmall ? 1 : 1.4),
         );
     final error = widget.state == DAttachmentState.error;
-    final borderColor =
-        widget.borderColor ??
-        (error
-            ? tokens.destructive.withValues(alpha: tokens.destructive.a * .3)
-            : tokens.border);
+    final borderColor = ((error
+        ? tokens.destructive.withValues(alpha: tokens.destructive.a * .3)
+        : tokens.border));
     final background =
         widget.backgroundColor ??
         (trigger != null && _hovered
@@ -187,7 +185,7 @@ class _DAttachmentState extends State<DAttachment> {
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: widget.semanticLabel,
+      label: null,
       liveRegion: widget.liveRegion,
       child: card,
     );
@@ -303,13 +301,11 @@ class DAttachmentMedia extends StatelessWidget {
     required this.child,
     this.variant = DAttachmentMediaVariant.icon,
     this.semanticLabel,
-    this.backgroundColor,
   });
 
   final Widget child;
   final DAttachmentMediaVariant variant;
   final String? semanticLabel;
-  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -365,13 +361,9 @@ class DAttachmentMedia extends StatelessWidget {
     artwork = ClipRRect(
       borderRadius: radius,
       child: ColoredBox(
-        color:
-            backgroundColor ??
-            (error
-                ? tokens.destructive.withValues(
-                    alpha: tokens.destructive.a * .1,
-                  )
-                : tokens.muted),
+        color: ((error
+            ? tokens.destructive.withValues(alpha: tokens.destructive.a * .1)
+            : tokens.muted)),
         child: artwork,
       ),
     );
@@ -466,20 +458,12 @@ class DAttachmentActions extends StatelessWidget {
   const DAttachmentActions({super.key, required this.children});
   final List<DAttachmentAction> children;
 
-  double get horizontalVisualWidth => math.max(
-    DButton.visualDimensionFor(DButtonSize.small),
-    children.fold(
-      0,
-      (width, action) => width + DButton.visualDimensionFor(action.size),
-    ),
-  );
-
   double visualWidth(BuildContext context) => children.fold(
     0,
     (width, action) =>
         width +
         DControlStyle.scaledHeight(
-          action.size,
+          DButtonSize.small,
           MediaQuery.textScalerOf(context),
           context: context,
         ),
@@ -510,36 +494,24 @@ class DAttachmentAction extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.semanticLabel,
-    this.focusNode,
-    this.autofocus = false,
-    this.loading = false,
-    this.variant = DButtonVariant.ghost,
-    this.size = DButtonSize.small,
   });
 
   final Widget icon;
   final String tooltip;
   final VoidCallback? onPressed;
-  final String? semanticLabel;
-  final FocusNode? focusNode;
-  final bool autofocus;
-  final bool loading;
-  final DButtonVariant variant;
-  final DButtonSize size;
 
   @override
   Widget build(BuildContext context) {
     return DButton.iconOnly(
       icon: icon,
       tooltip: tooltip,
-      semanticLabel: semanticLabel ?? tooltip,
+      semanticLabel: (tooltip),
       onPressed: onPressed,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      loading: loading,
-      variant: variant,
-      size: size,
+      focusNode: null,
+      autofocus: false,
+      loading: false,
+      variant: DButtonVariant.ghost,
+      size: DButtonSize.small,
     );
   }
 }
@@ -553,15 +525,11 @@ class DAttachmentTrigger extends StatefulWidget {
     required this.semanticLabel,
     required this.onPressed,
     this.isLink = false,
-    this.focusNode,
-    this.autofocus = false,
   });
 
   final String semanticLabel;
   final VoidCallback? onPressed;
   final bool isLink;
-  final FocusNode? focusNode;
-  final bool autofocus;
 
   bool get enabled => onPressed != null;
 
@@ -572,27 +540,19 @@ class DAttachmentTrigger extends StatefulWidget {
 class _DAttachmentTriggerState extends State<DAttachmentTrigger> {
   FocusNode? _ownedFocusNode;
 
-  FocusNode get _focusNode => widget.focusNode ?? _ownedFocusNode!;
+  FocusNode get _focusNode => (_ownedFocusNode!);
 
   @override
   void initState() {
     super.initState();
-    _ownedFocusNode = widget.focusNode == null
-        ? FocusNode(debugLabel: 'Attachment trigger')
-        : null;
+    _ownedFocusNode = (FocusNode(debugLabel: 'Attachment trigger'));
     _focusNode.addListener(_focusChanged);
   }
 
   @override
   void didUpdateWidget(DAttachmentTrigger oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusNode == widget.focusNode) return;
-    (oldWidget.focusNode ?? _ownedFocusNode)?.removeListener(_focusChanged);
-    _ownedFocusNode?.dispose();
-    _ownedFocusNode = widget.focusNode == null
-        ? FocusNode(debugLabel: 'Attachment trigger')
-        : null;
-    _focusNode.addListener(_focusChanged);
+    return;
   }
 
   void _focusChanged() {
@@ -620,7 +580,7 @@ class _DAttachmentTriggerState extends State<DAttachmentTrigger> {
     onTap: widget.onPressed,
     child: InkWell(
       focusNode: _focusNode,
-      autofocus: widget.autofocus,
+      autofocus: false,
       canRequestFocus: widget.enabled,
       onTap: widget.onPressed,
       mouseCursor: widget.enabled

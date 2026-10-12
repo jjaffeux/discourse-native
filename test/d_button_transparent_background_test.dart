@@ -13,7 +13,7 @@ import 'support/button_surface.dart';
 void main() {
   for (final variant in [
     DButtonVariant.ghost,
-    DButtonVariant.transparentBackground,
+    DButtonVariant.ghost,
     DButtonVariant.inline,
   ]) {
     testWidgets(
@@ -106,7 +106,7 @@ void main() {
                       ? DButton.iconOnly(
                           icon: const DIcon(DIcons.reply),
                           tooltip: 'Reply',
-                          variant: DButtonVariant.transparentBackground,
+                          variant: DButtonVariant.ghost,
                           focusNode: focus,
                           expanded: expanded,
                           onPressed: () => activations++,
@@ -114,7 +114,7 @@ void main() {
                       : DButton(
                           label: const Text('Reply'),
                           icon: const DIcon(DIcons.reply),
-                          variant: DButtonVariant.transparentBackground,
+                          variant: DButtonVariant.ghost,
                           focusNode: focus,
                           expanded: expanded,
                           onPressed: () => activations++,
@@ -197,7 +197,7 @@ void main() {
               body: Center(
                 child: DButton(
                   label: const Text('Reply'),
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   expanded: true,
                   loading: loading,
                   onPressed: loading ? () => activations++ : null,

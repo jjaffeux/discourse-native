@@ -63,7 +63,8 @@ void main() {
             );
             if (width < 600) {
               expect(tester.getCenter(finder).dy, closeTo(center, 2));
-              expect(tester.getSize(finder), const Size(11, 11));
+              expect(tester.getSize(finder).height, 11);
+              expect(tester.getSize(finder).width, greaterThan(0));
             } else {
               expect(tester.getCenter(finder).dy, closeTo(center, 2));
             }

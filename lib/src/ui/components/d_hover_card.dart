@@ -54,18 +54,6 @@ class DHoverCardController extends ChangeNotifier {
 
   bool get isOpen => _owner?._open ?? false;
 
-  void open() => _owner?._request(
-    true,
-    DHoverCardChangeReason.imperative,
-    immediate: true,
-  );
-
-  void close() => _owner?._request(
-    false,
-    DHoverCardChangeReason.imperative,
-    immediate: true,
-  );
-
   void _attach(_DHoverCardState owner) {
     if (_disposed) return;
     final previous = _owner;
@@ -106,7 +94,7 @@ class DHoverCard extends StatefulWidget {
     required this.trigger,
     required this.content,
     this.open,
-    this.defaultOpen = false,
+
     this.controller,
     this.onOpenChange,
     this.onOpenChangeComplete,
@@ -116,7 +104,7 @@ class DHoverCard extends StatefulWidget {
   final DHoverCardTrigger trigger;
   final DHoverCardContent content;
   final bool? open;
-  final bool defaultOpen;
+
   final DHoverCardController? controller;
   final DHoverCardOpenChange? onOpenChange;
   final ValueChanged<bool>? onOpenChangeComplete;
@@ -456,7 +444,7 @@ class _DHoverCardState extends State<DHoverCard>
       } else if (widget.open != null) {
         _setOpen(widget.open!);
       } else if (!_initialized) {
-        _setOpen(widget.defaultOpen);
+        _setOpen(false);
       }
       _initialized = true;
       if (MediaQuery.disableAnimationsOf(context) &&
@@ -761,15 +749,14 @@ class _DHoverCardState extends State<DHoverCard>
     );
     final padding = MediaQuery.paddingOf(context);
     final viewInsets = MediaQuery.viewInsetsOf(context);
-    final viewport = Offset.zero & info.overlaySize;
+
     final safeBoundary = Rect.fromLTRB(
       padding.left,
       padding.top,
       info.overlaySize.width - math.max(padding.right, viewInsets.right),
       info.overlaySize.height - math.max(padding.bottom, viewInsets.bottom),
     );
-    final boundary =
-        widget.content.collisionBoundary?.intersect(viewport) ?? safeBoundary;
+    final boundary = (safeBoundary);
     if (target.intersect(boundary).isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _open) _dismissForLifecycle();
@@ -930,33 +917,17 @@ class DHoverCardContent extends StatelessWidget {
   const DHoverCardContent({
     super.key,
     required this.child,
-    this.side = DPopoverSide.bottom,
+
     this.align = DPopoverAlign.center,
-    this.sideOffset = 4,
-    this.alignOffset = 4,
-    this.sideCollision = DPopoverCollision.flip,
-    this.alignCollision = DPopoverCollision.shift,
-    this.collisionPadding = 5,
-    this.collisionBoundary,
+
     this.width = 256,
-    this.constraints = const BoxConstraints(),
-    this.padding = const EdgeInsets.all(10),
-  }) : assert(sideOffset >= 0),
-       assert(collisionPadding >= 0),
-       assert(width > 0);
+  }) : assert(width > 0);
 
   final Widget child;
-  final DPopoverSide side;
+
   final DPopoverAlign align;
-  final double sideOffset;
-  final double alignOffset;
-  final DPopoverCollision sideCollision;
-  final DPopoverCollision alignCollision;
-  final double collisionPadding;
-  final Rect? collisionBoundary;
+
   final double width;
-  final BoxConstraints constraints;
-  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -974,7 +945,10 @@ class DHoverCardContent extends StatelessWidget {
       child: IconTheme.merge(
         data: IconThemeData(color: tokens.foreground, size: 16),
         child: ConstrainedBox(
-          constraints: constraints.copyWith(minWidth: width, maxWidth: width),
+          constraints: const BoxConstraints().copyWith(
+            minWidth: width,
+            maxWidth: width,
+          ),
           child: CustomPaint(
             foregroundPainter: _HoverCardRingPainter(
               color: tokens.foreground.withValues(
@@ -1003,7 +977,7 @@ class DHoverCardContent extends StatelessWidget {
               ),
               child: SingleChildScrollView(
                 primary: false,
-                padding: padding,
+                padding: const EdgeInsets.all(10),
                 child: child,
               ),
             ),
@@ -1119,8 +1093,8 @@ class _RenderHoverCard extends RenderShiftedBox {
     size = constraints.biggest;
     final c = _configuration;
     final config = c.content;
-    final boundary = c.boundary.deflate(config.collisionPadding);
-    _side = _physical(config.side);
+    final boundary = c.boundary.deflate(5);
+    _side = _physical(DPopoverSide.bottom);
     child!.layout(
       BoxConstraints(
         maxWidth: math.max(0, boundary.width),
@@ -1131,13 +1105,12 @@ class _RenderHoverCard extends RenderShiftedBox {
     var childSize = child!.size;
     final vertical = _side == DPopoverSide.top || _side == DPopoverSide.bottom;
     double room(DPopoverSide side) => switch (side) {
-      DPopoverSide.top => c.target.top - boundary.top - config.sideOffset,
-      DPopoverSide.bottom =>
-        boundary.bottom - c.target.bottom - config.sideOffset,
-      DPopoverSide.left => c.target.left - boundary.left - config.sideOffset,
-      _ => boundary.right - c.target.right - config.sideOffset,
+      DPopoverSide.top => c.target.top - boundary.top - 4,
+      DPopoverSide.bottom => boundary.bottom - c.target.bottom - 4,
+      DPopoverSide.left => c.target.left - boundary.left - 4,
+      _ => boundary.right - c.target.right - 4,
     };
-    if (config.sideCollision == DPopoverCollision.flip) {
+    {
       final opposite = _opposite(_side);
       final extent = vertical ? childSize.height : childSize.width;
       // A centred trigger leaves equal room on both sides up to rounding
@@ -1149,7 +1122,7 @@ class _RenderHoverCard extends RenderShiftedBox {
     }
     final placedVertical =
         _side == DPopoverSide.top || _side == DPopoverSide.bottom;
-    if (config.sideCollision == DPopoverCollision.flip) {
+    {
       child!.layout(
         BoxConstraints(
           maxWidth: math.max(0, placedVertical ? boundary.width : room(_side)),
@@ -1182,8 +1155,7 @@ class _RenderHoverCard extends RenderShiftedBox {
       DPopoverAlign.end => end - extent,
     };
     final logicalOffset =
-        config.alignOffset *
-        (placedVertical && c.direction == TextDirection.rtl ? -1 : 1);
+        4 * (placedVertical && c.direction == TextDirection.rtl ? -1 : 1);
     Offset place(DPopoverAlign placement) => switch (_side) {
       DPopoverSide.top => Offset(
         aligned(
@@ -1194,7 +1166,7 @@ class _RenderHoverCard extends RenderShiftedBox {
               childSize.width,
             ) +
             logicalOffset,
-        c.target.top - config.sideOffset - childSize.height,
+        c.target.top - 4 - childSize.height,
       ),
       DPopoverSide.bottom => Offset(
         aligned(
@@ -1205,10 +1177,10 @@ class _RenderHoverCard extends RenderShiftedBox {
               childSize.width,
             ) +
             logicalOffset,
-        c.target.bottom + config.sideOffset,
+        c.target.bottom + 4,
       ),
       DPopoverSide.left => Offset(
-        c.target.left - config.sideOffset - childSize.width,
+        c.target.left - 4 - childSize.width,
         aligned(
               placement,
               c.target.top,
@@ -1216,10 +1188,10 @@ class _RenderHoverCard extends RenderShiftedBox {
               c.target.bottom,
               childSize.height,
             ) +
-            config.alignOffset,
+            4,
       ),
       _ => Offset(
-        c.target.right + config.sideOffset,
+        c.target.right + 4,
         aligned(
               placement,
               c.target.top,
@@ -1227,40 +1199,15 @@ class _RenderHoverCard extends RenderShiftedBox {
               c.target.bottom,
               childSize.height,
             ) +
-            config.alignOffset,
+            4,
       ),
     };
     var offset = place(align);
-    if (config.alignCollision == DPopoverCollision.flip &&
-        align != DPopoverAlign.center) {
-      final overflows = placedVertical
-          ? offset.dx < boundary.left ||
-                offset.dx + childSize.width > boundary.right
-          : offset.dy < boundary.top ||
-                offset.dy + childSize.height > boundary.bottom;
-      if (overflows) {
-        align = align == DPopoverAlign.start
-            ? DPopoverAlign.end
-            : DPopoverAlign.start;
-        offset = place(align);
-      }
-    }
+
     var dx = offset.dx;
     var dy = offset.dy;
-    if (config.sideCollision == DPopoverCollision.shift) {
-      if (placedVertical) {
-        dy = dy.clamp(
-          boundary.top,
-          math.max(boundary.top, boundary.bottom - childSize.height),
-        );
-      } else {
-        dx = dx.clamp(
-          boundary.left,
-          math.max(boundary.left, boundary.right - childSize.width),
-        );
-      }
-    }
-    if (config.alignCollision == DPopoverCollision.shift) {
+
+    {
       if (placedVertical) {
         dx = dx.clamp(
           boundary.left,
@@ -1277,16 +1224,10 @@ class _RenderHoverCard extends RenderShiftedBox {
     (child!.parentData! as BoxParentData).offset = offset;
     final anchor = c.target.center - offset;
     _transformOrigin = switch (_side) {
-      DPopoverSide.top => Offset(
-        anchor.dx,
-        childSize.height + config.sideOffset,
-      ),
-      DPopoverSide.bottom => Offset(anchor.dx, -config.sideOffset),
-      DPopoverSide.left => Offset(
-        childSize.width + config.sideOffset,
-        anchor.dy,
-      ),
-      _ => Offset(-config.sideOffset, anchor.dy),
+      DPopoverSide.top => Offset(anchor.dx, childSize.height + 4),
+      DPopoverSide.bottom => Offset(anchor.dx, -4),
+      DPopoverSide.left => Offset(childSize.width + 4, anchor.dy),
+      _ => Offset(-4, anchor.dy),
     };
   }
 

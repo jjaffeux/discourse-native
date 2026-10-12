@@ -15,7 +15,6 @@ void main() {
             ),
             home: const Scaffold(
               body: DTabs<String>(
-                initialValue: 'all',
                 children: [
                   DTabList<String>(
                     variant: DTabListVariant.outlinePill,

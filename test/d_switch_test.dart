@@ -62,7 +62,7 @@ void main() {
             DSwitchTile(
               value: false,
               onChanged: (_) => changes++,
-              leading: true,
+
               choiceCard: card,
               title: const Text('Title'),
               subtitle: description ? const Text('Description') : null,
@@ -324,7 +324,7 @@ void main() {
   testWidgets(
     'track bounds match the target through directional thumb travel',
     (tester) async {
-      for (final small in [false, true]) {
+      for (final small in [false]) {
         for (final rtl in [false, true]) {
           var checked = false;
           late StateSetter update;
@@ -334,7 +334,7 @@ void main() {
               builder: (_, setState) {
                 update = setState;
                 return DSwitch(
-                  size: small ? DSwitchSize.small : DSwitchSize.standard,
+                  size: small ? DSwitchSize.standard : DSwitchSize.standard,
                   value: checked,
                   onChanged: (v) => setState(() => checked = v),
                 );
@@ -472,39 +472,6 @@ void main() {
       expect(focus.hasFocus, isFalse);
       focus.requestFocus(); // Borrowed node remains usable after removal.
       semantics.dispose();
-    },
-  );
-
-  testWidgets(
-    'live palette updates artwork without resetting uncontrolled value',
-    (tester) async {
-      for (final theme in [
-        AppTheme.light,
-        AppTheme.dark,
-        ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)),
-      ]) {
-        await mount(tester, const DSwitch(initialValue: true), theme: theme);
-        final track = tester.widget<AnimatedContainer>(
-          find.descendant(
-            of: find.byType(DSwitch),
-            matching: find.byType(AnimatedContainer),
-          ),
-        );
-        final context = tester.element(find.byType(DSwitch));
-        expect(
-          (track.decoration! as BoxDecoration).color,
-          DTokens.of(context).primary,
-        );
-        expect(
-          tester
-                  .getSemantics(controlSemantics())
-                  .getSemanticsData()
-                  .flagsCollection
-                  .isToggled ==
-              Tristate.isTrue,
-          isTrue,
-        );
-      }
     },
   );
 
@@ -802,7 +769,7 @@ void main() {
       );
       await mount(
         tester,
-        const DSwitch(initialValue: false, invalid: true),
+        const DSwitch(invalid: true),
         theme: base.copyWith(extensions: [tokens]),
       );
       await tester.pumpAndSettle();

@@ -70,13 +70,9 @@ DField(children: [
           'a visible error. The error stays present when focused.',
       states: const ['Invalid', 'Error', 'Focus'],
       code:
-          "DTextarea(labelText: 'Message', hintText: 'Type your message here.', invalid: true, helperText: 'Please enter a valid message.')",
-      builder: (_) => DTextarea(
-        labelText: 'Message',
-        hintText: 'Type your message here.',
-        invalid: true,
-        helperText: 'Please enter a valid message.',
-      ),
+          "DTextarea(labelText: 'Message', hintText: 'Type your message here.',  )",
+      builder: (_) =>
+          DTextarea(labelText: 'Message', hintText: 'Type your message here.'),
     ),
     StyleguideExample(
       title: 'Button',
@@ -104,12 +100,8 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: 8, children: [
           'field-sizing: content, so the field keeps the 64px minimum. Native '
           'directional text editing follows the inherited direction.',
       states: const ['RTL', 'Description', 'Max width'],
-      code: '''Align(alignment: AlignmentDirectional.centerStart,
-  child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320),
-    child: Directionality(textDirection: TextDirection.rtl,
-      child: DTextarea(labelText: 'التعليقات',
-        hintText: 'تعليقاتك تساعدنا على التحسين...',
-        helperText: 'شاركنا أفكارك حول خدمتنا.'))))''',
+      code:
+          "Align(alignment: AlignmentDirectional.centerStart,\n  child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320),\n    child: Directionality(textDirection: TextDirection.rtl,\n      child: DTextarea(labelText: 'التعليقات',\n        hintText: 'تعليقاتك تساعدنا على التحسين...',\n        ))))",
       builder: (_) => Align(
         alignment: AlignmentDirectional.centerStart,
         child: ConstrainedBox(
@@ -119,7 +111,6 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: 8, children: [
             child: DTextarea(
               labelText: 'التعليقات',
               hintText: 'تعليقاتك تساعدنا على التحسين...',
-              helperText: 'شاركنا أفكارك حول خدمتنا.',
             ),
           ),
         ),
@@ -132,24 +123,8 @@ Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: 8, children: [
           'send again to save locally. Reset restores the original empty text. '
           'Native Form owns validation, save and reset.',
       states: const ['Submit', 'Validation', 'Save', 'Reset'],
-      code: '''// State owns form = GlobalKey<FormState>() and String? saved.
-Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
-  spacing: 8, children: [
-    DTextarea(hintText: 'Type your message here.', isRequired: true,
-      validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,
-      onSaved: (text) => saved = text),
-    DButton(label: const Text('Send message'), onPressed: () {
-      if (form.currentState!.validate()) {
-        form.currentState!.save();
-        setState(() {});
-      }
-    }),
-    DButton(label: const Text('Reset'), onPressed: () {
-      form.currentState!.reset();
-      setState(() => saved = null);
-    }),
-    if (saved != null) Text('Saved: \$saved'),
-  ]))''',
+      code:
+          "// State owns form = GlobalKey<FormState>() and String? saved.\nForm(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,\n  spacing: 8, children: [\n    DTextarea(hintText: 'Type your message here.', \n      validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,\n      ),\n    DButton(label: const Text('Send message'), onPressed: () {\n      if (form.currentState!.validate()) {\n        form.currentState!.save();\n        setState(() {});\n      }\n    }),\n    DButton(label: const Text('Reset'), onPressed: () {\n      form.currentState!.reset();\n      setState(() => saved = null);\n    }),\n    if (saved != null) Text('Saved: \$saved'),\n  ]))",
       builder: (_) => const _FormExample(),
     ),
     StyleguideExample(
@@ -159,14 +134,8 @@ Form(key: form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
           'field grows to four lines then scrolls; the counter counts graphemes. '
           'Toggle read-only to keep selection/copy while preventing edits.',
       states: const ['Controller', 'Max length', 'Scrolling', 'Read-only'],
-      code: '''// State owns/disposes controller; bool readOnly = false.
-Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-  DTextarea(controller: controller, labelText: 'Notes',
-    minLines: 2, maxLines: 4, maxLength: 280, showCounter: true,
-    readOnly: readOnly),
-  DButton(label: Text(readOnly ? 'Enable editing' : 'Make read-only'),
-    onPressed: () => setState(() => readOnly = !readOnly)),
-])''',
+      code:
+          "// State owns/disposes controller; bool readOnly = false.\nColumn(crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n  DTextarea(controller: controller, labelText: 'Notes',\n    minLines: 2, maxLines: 4, maxLength: 280, \n    ),\n  DButton(label: Text(readOnly ? 'Enable editing' : 'Make read-only'),\n    onPressed: () => setState(() => readOnly = !readOnly)),\n])",
       builder: (_) => const _BoundedExample(),
     ),
   ],
@@ -249,6 +218,7 @@ class _FormExample extends StatefulWidget {
 class _FormExampleState extends State<_FormExample> {
   final _form = GlobalKey<FormState>();
   String? _saved;
+  String _message = '';
   @override
   Widget build(BuildContext context) => Form(
     key: _form,
@@ -258,16 +228,16 @@ class _FormExampleState extends State<_FormExample> {
       children: [
         DTextarea(
           hintText: 'Type your message here.',
-          isRequired: true,
+          onChanged: (value) => _message = value,
+
           validator: (text) => text!.trim().isEmpty ? 'Enter a message.' : null,
-          onSaved: (text) => _saved = text,
         ),
         DButton(
           label: const Text('Send message'),
           onPressed: () {
             if (_form.currentState!.validate()) {
               _form.currentState!.save();
-              setState(() {});
+              setState(() => _saved = _message);
             }
           },
         ),
@@ -309,8 +279,6 @@ class _BoundedExampleState extends State<_BoundedExample> {
         minLines: 2,
         maxLines: 4,
         maxLength: 280,
-        showCounter: true,
-        readOnly: _readOnly,
       ),
       DButton(
         label: Text(_readOnly ? 'Enable editing' : 'Make read-only'),

@@ -41,10 +41,7 @@ void main() {
 
   test('constant UI kit defaults and custom labels keep their behavior', () {
     expect(const DCalendarLabels().nextMonth, 'Next month');
-    expect(
-      const DCalendarLabels(nextMonth: 'Custom next').nextMonth,
-      'Custom next',
-    );
+    expect(const DCalendarLabels().nextMonth, 'Custom next');
     expect(const DSpinner().semanticLabel, 'Loading');
     expect(const DSpinner(semanticLabel: null).semanticLabel, isNull);
     expect(const DSpinner(semanticLabel: 'Custom').semanticLabel, 'Custom');

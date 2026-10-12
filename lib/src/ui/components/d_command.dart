@@ -225,39 +225,38 @@ class DCommand<T> extends StatefulWidget {
     required this.child,
     this.controller,
     this.query,
-    this.initialQuery = '',
+
     this.onQueryChanged,
     this.value,
-    this.initialValue,
+
     this.onValueChanged,
     this.onSelected,
-    this.filter,
+
     this.shouldFilter = true,
     this.loop = false,
     this.vimBindings = true,
-    this.disablePointerSelection = false,
+
     this.loading = false,
     this.onEscape,
     this._semanticLabel,
     this.outlined = false,
     this.backgroundColor,
-  }) : assert(query == null || initialQuery == ''),
-       assert(value == null || initialValue == null);
+  });
 
   final Widget child;
   final DCommandController<T>? controller;
   final String? query;
-  final String initialQuery;
+
   final ValueChanged<String>? onQueryChanged;
   final T? value;
-  final T? initialValue;
+
   final ValueChanged<T?>? onValueChanged;
   final ValueChanged<T>? onSelected;
-  final DCommandFilter? filter;
+
   final bool shouldFilter;
   final bool loop;
   final bool vimBindings;
-  final bool disablePointerSelection;
+
   final bool loading;
   final VoidCallback? onEscape;
   final String? _semanticLabel;
@@ -283,8 +282,8 @@ class _DCommandState<T> extends State<DCommand<T>> {
     _controller =
         widget.controller ??
         DCommandController<T>(
-          initialQuery: widget.query ?? widget.initialQuery,
-          initialValue: widget.value ?? widget.initialValue,
+          initialQuery: widget.query ?? '',
+          initialValue: widget.value,
         );
     _attach();
     _syncControlled();
@@ -409,10 +408,10 @@ class _DCommandState<T> extends State<DCommand<T>> {
     final backgroundColor = widget.backgroundColor ?? tokens.surface;
     return _DCommandScope<T>(
       controller: _controller,
-      filter: widget.filter ?? _defaultCommandFilter,
+      filter: (_defaultCommandFilter),
       shouldFilter: widget.shouldFilter,
       loading: widget.loading,
-      disablePointerSelection: widget.disablePointerSelection,
+
       backgroundColor: backgroundColor,
       child: Focus(
         canRequestFocus: false,
@@ -475,7 +474,7 @@ class _DCommandScope<T> extends InheritedWidget {
     required this.filter,
     required this.shouldFilter,
     required this.loading,
-    required this.disablePointerSelection,
+
     required this.backgroundColor,
     required super.child,
   });
@@ -484,7 +483,7 @@ class _DCommandScope<T> extends InheritedWidget {
   final DCommandFilter filter;
   final bool shouldFilter;
   final bool loading;
-  final bool disablePointerSelection;
+
   final Color backgroundColor;
 
   static _DCommandScope<T> of<T>(BuildContext context) {
@@ -496,11 +495,10 @@ class _DCommandScope<T> extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DCommandScope<T> oldWidget) =>
-      controller != oldWidget.controller ||
-      filter != oldWidget.filter ||
-      shouldFilter != oldWidget.shouldFilter ||
-      loading != oldWidget.loading ||
-      disablePointerSelection != oldWidget.disablePointerSelection ||
+      (controller != oldWidget.controller ||
+          filter != oldWidget.filter ||
+          shouldFilter != oldWidget.shouldFilter ||
+          loading != oldWidget.loading) ||
       backgroundColor != oldWidget.backgroundColor;
 }
 
@@ -511,7 +509,7 @@ class DCommandInput<T> extends StatefulWidget {
     this._placeholder,
     this.controller,
     this.focusNode,
-    this.autofocus = true,
+
     this.enabled = true,
     this.onEmptyBackspace,
     this._semanticLabel,
@@ -521,7 +519,7 @@ class DCommandInput<T> extends StatefulWidget {
   String get placeholder => _placeholder ?? appL10n.typeACommandOrSearch;
   final TextEditingController? controller;
   final FocusNode? focusNode;
-  final bool autofocus;
+
   final bool enabled;
 
   /// Called when Backspace is pressed in an empty query, including on mobile.
@@ -642,7 +640,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
               focusNode: widget.focusNode,
               semanticLabel: widget.semanticLabel,
               hintText: widget.placeholder,
-              autofocus: widget.autofocus,
+              autofocus: true,
               enabled: widget.enabled,
               onEmptyBackspace: widget.onEmptyBackspace,
               autocorrect: false,
@@ -677,7 +675,7 @@ class DCommandList<T> extends StatefulWidget {
   const DCommandList({
     super.key,
     required this.children,
-    this.controller,
+
     this.maxHeight = 288,
     this.height,
     this._semanticLabel,
@@ -685,7 +683,7 @@ class DCommandList<T> extends StatefulWidget {
        assert(height == null || height > 0);
 
   final List<Widget> children;
-  final ScrollController? controller;
+
   final double maxHeight;
 
   /// When set, the list occupies exactly this height whatever its results,
@@ -703,26 +701,17 @@ class DCommandList<T> extends StatefulWidget {
 class _DCommandListState<T> extends State<DCommandList<T>> {
   ScrollController? _owned;
   final Map<Object, GlobalKey> _itemKeys = {};
-  ScrollController get _scroll => widget.controller ?? _owned!;
+  ScrollController get _scroll => (_owned!);
 
   @override
   void initState() {
     super.initState();
-    if (widget.controller == null) _owned = ScrollController();
+    _owned = ScrollController();
   }
 
   @override
   void didUpdateWidget(DCommandList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      final oldOffset = (oldWidget.controller ?? _owned!).hasClients
-          ? (oldWidget.controller ?? _owned!).offset
-          : 0.0;
-      _owned?.dispose();
-      _owned = widget.controller == null
-          ? ScrollController(initialScrollOffset: oldOffset)
-          : null;
-    }
   }
 
   List<_DScoredItem<T>> _score(
@@ -769,14 +758,14 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         for (final child in widget.children) {
           if (child is DCommandGroup<T>) {
             final items = _score(child.items, scope);
-            if (items.isNotEmpty || child.forceMount) {
+            if (items.isNotEmpty) {
               resultNodes.add(_DGroupNode(child, items));
             }
           } else if (child is DCommandItem<T>) {
             final items = _score([child], scope);
             if (items.isNotEmpty) resultNodes.add(_DItemNode(items.single));
           } else if (child is DCommandSeparator<T>) {
-            if (child.alwaysRender || scope.controller.query.isEmpty) {
+            if ((scope.controller.query.isEmpty)) {
               resultNodes.add(_DSeparatorNode(child));
             }
           } else if (child is DCommandEmpty) {
@@ -986,11 +975,7 @@ class _DSeparatorNode<T> extends _DResultNode<T> {
     BuildContext context,
     _DCommandScope<T> scope,
     Map<Object, GlobalKey> keys,
-  ) => Divider(
-    height: 1,
-    thickness: 1,
-    color: separator.color ?? DTokens.of(context).border,
-  );
+  ) => Divider(height: 1, thickness: 1, color: (DTokens.of(context).border));
 }
 
 class _DScoredItem<T> {
@@ -1017,15 +1002,10 @@ class _DCommandEntry<T> {
 
 /// A labelled result group. Filtering hides empty groups unless [forceMount].
 class DCommandGroup<T> extends StatelessWidget {
-  const DCommandGroup({
-    super.key,
-    required this.items,
-    this.heading,
-    this.forceMount = false,
-  });
+  const DCommandGroup({super.key, required this.items, this.heading});
   final Widget? heading;
   final List<DCommandItem<T>> items;
-  final bool forceMount;
+
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
@@ -1042,7 +1022,7 @@ class DCommandItem<T> extends StatelessWidget {
     this.leading,
     this.trailing,
     this.enabled = true,
-    this.destructive = false,
+
     this.checked = false,
     this.forceMount = false,
     this.onSelected,
@@ -1056,7 +1036,7 @@ class DCommandItem<T> extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final bool enabled;
-  final bool destructive;
+
   final bool checked;
   final bool forceMount;
   final ValueChanged<T>? onSelected;
@@ -1122,9 +1102,7 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                 fontSize: DControlStyle.labelFontSize,
                 height:
                     DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
-                color: item.destructive
-                    ? tokens.destructive
-                    : tokens.foreground,
+                color: tokens.foreground,
               ),
               child: Row(
                 children: [
@@ -1182,9 +1160,7 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
               // row beneath a stationary mouse. Only actual pointer movement
               // should take selection back from the keyboard.
               onHover: (event) {
-                if (item.enabled &&
-                    !widget.scope.disablePointerSelection &&
-                    event.delta != Offset.zero) {
+                if (item.enabled && event.delta != Offset.zero) {
                   widget.scope.controller.highlight(item.value);
                 }
               },
@@ -1247,11 +1223,8 @@ class _DCommandItemVisualScope extends InheritedWidget {
 
 /// A separator between visible command sections.
 class DCommandSeparator<T> extends StatelessWidget {
-  const DCommandSeparator({super.key, this.color, this.alwaysRender = false});
-  final Color? color;
+  const DCommandSeparator({super.key});
 
-  /// Keeps the separator visible while a non-empty query is filtering results.
-  final bool alwaysRender;
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
@@ -1280,27 +1253,19 @@ class DCommandEmpty extends StatelessWidget {
 
 /// Rendered while the root's externally owned asynchronous load is active.
 class DCommandLoading extends StatelessWidget {
-  const DCommandLoading({
-    super.key,
-    required this.child,
-    this.progress,
-    this._semanticLabel,
-  }) : assert(progress == null || (progress >= 0 && progress <= 100));
+  const DCommandLoading({super.key, required this.child});
   final Widget child;
-  final double? progress;
-  final String? _semanticLabel;
-  String get semanticLabel => _semanticLabel ?? appL10n.loading;
+
+  String get semanticLabel => appL10n.loading;
   @override
   Widget build(BuildContext context) => Semantics(
     container: true,
-    role: progress == null
-        ? SemanticsRole.loadingSpinner
-        : SemanticsRole.progressBar,
+    role: SemanticsRole.loadingSpinner,
     liveRegion: true,
     label: semanticLabel,
-    value: progress == null ? null : '${progress!.round()}',
-    minValue: progress == null ? null : '0',
-    maxValue: progress == null ? null : '100',
+    value: null,
+    minValue: null,
+    maxValue: null,
     excludeSemantics: true,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),

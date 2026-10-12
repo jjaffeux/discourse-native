@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../discourse_ui.dart';
 import '../styleguide_example.dart';
@@ -93,14 +92,7 @@ final spinnerExamples = ComponentExamples(
           'update inherited colors live. Reduce motion freezes both artworks.',
       states: const ['Loader icon', 'Accent color', 'Stationary'],
       code:
-          '''// Custom artwork inherits size and color. The caller owns these values.
-DSpinner(
-  size: size,
-  color: useAccent ? DTokens.of(context).primary : null,
-  animating: animate,
-  semanticLabel: 'Processing sample',
-  child: custom ? const LoaderIcon() : null, // Any child, e.g. an SVG icon.
-)''',
+          "// Custom artwork inherits size and color. The caller owns these values.\nDSpinner(\n  size: size,\n  color: useAccent ? DTokens.of(context).primary : null,\n  animating: animate,\n  semanticLabel: 'Processing sample',\n   // Any child, e.g. an SVG icon.\n)",
       builder: (_) => const _SpinnerAppearance(),
     ),
     StyleguideExample(
@@ -163,12 +155,8 @@ const DButton(
           'preview direction together; the status remains understandable '
           'without animation or color.',
       states: const ['Default', 'Secondary', 'Outline', 'Inline end', 'RTL'],
-      code: """DBadge(
-  variant: DBadgeVariant.secondary,
-  leading: syncing ? const DSpinner(size: 12, semanticLabel: null) : null,
-  liveRegion: true,
-  child: Text(syncing ? 'Syncing' : 'Synced'),
-)""",
+      code:
+          "DBadge(\n  variant: DBadgeVariant.secondary,\n  leading: syncing ? const DSpinner(size: 12, semanticLabel: null) : null,\n  \n  child: Text(syncing ? 'Syncing' : 'Synced'),\n)",
       builder: (_) => const _SpinnerBadges(),
     ),
     StyleguideExample(
@@ -180,30 +168,8 @@ const DButton(
           'reject the sample to restore editing without losing text, then '
           'validate again. No requests are made.',
       states: const ['Inline end', 'Block end', 'Disabled', 'Error', 'Success'],
-      code: '''DInputGroup(children: [
-  DInputGroupInput(enabled: !validating, hintText: 'Send a message...',
-    semanticLabel: 'Subject'),
-  if (validating) const DInputGroupAddon(
-    alignment: DInputGroupAddonAlignment.inlineEnd,
-    child: DSpinner(semanticLabel: 'Validating subject')),
-])
-DInputGroup(invalid: error != null, children: [
-  DInputGroupTextarea(enabled: !validating, minLines: 3, maxLines: 4,
-    hintText: 'Send a message...', semanticLabel: 'Message'),
-  DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd,
-    child: Row(children: [
-      if (validating) ...[
-        const DSpinner(semanticLabel: null),
-        const SizedBox(width: DSpacing.sm),
-      ],
-      Expanded(child: Text(status)),
-      const SizedBox(width: DSpacing.sm),
-      DInputGroupButton.icon(
-        icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),
-        tooltip: 'Send', variant: DButtonVariant.primary,
-        onPressed: validating ? null : send),
-    ])),
-])''',
+      code:
+          "DInputGroup(children: [\n  DInputGroupInput(enabled: !validating, hintText: 'Send a message...',\n    semanticLabel: 'Subject'),\n  if (validating) const DInputGroupAddon(\n    alignment: DInputGroupAddonAlignment.inlineEnd,\n    child: DSpinner(semanticLabel: 'Validating subject')),\n])\nDInputGroup(invalid: error != null, children: [\n  DInputGroupTextarea(enabled: !validating, minLines: 3, maxLines: 4,\n    hintText: 'Send a message...', semanticLabel: 'Message'),\n  DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd,\n    child: Row(children: [\n      if (validating) ...[\n        const DSpinner(semanticLabel: null),\n        const SizedBox(width: DSpacing.sm),\n      ],\n      Expanded(child: Text(status)),\n      const SizedBox(width: DSpacing.sm),\n      DInputGroupButton.icon(\n        icon: const ButtonReferenceIcon(ButtonReferenceIcon.arrowUp),\n        tooltip: 'Send', \n        onPressed: validating ? null : send),\n    ])),\n])",
       builder: (_) => const _SpinnerInputs(),
     ),
     StyleguideExample(
@@ -351,7 +317,6 @@ class _SpinnerAppearance extends StatefulWidget {
 
 class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
   double _size = 16;
-  bool _custom = true;
   bool _accent = false;
   bool _animate = true;
 
@@ -367,7 +332,6 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
             color: _accent ? DTokens.of(context).primary : null,
             animating: _animate,
             semanticLabel: 'Processing sample',
-            child: _custom ? const _ReferenceLoader() : null,
           ),
           const SizedBox(width: DSpacing.lg),
           const Expanded(child: Text('Processing sample')),
@@ -385,11 +349,6 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
               onSelected: (_) => setState(() => _size = size),
             ),
         ],
-      ),
-      DSwitchTile(
-        title: const Text('Custom artwork'),
-        value: _custom,
-        onChanged: (value) => setState(() => _custom = value),
       ),
       DSwitchTile(
         title: const Text('Accent color'),
@@ -536,7 +495,7 @@ class _SpinnerBadgesState extends State<_SpinnerBadges> {
           ])
             DBadge(
               variant: variant,
-              liveRegion: true,
+
               leading: _busy && !_trailing
                   ? const DSpinner(size: 12, semanticLabel: null)
                   : null,
@@ -642,7 +601,7 @@ class _SpinnerInputsState extends State<_SpinnerInputs> {
                           ),
                         ),
                         tooltip: 'Send',
-                        variant: DButtonVariant.primary,
+
                         onPressed: _validating
                             ? null
                             : () => setState(
@@ -768,42 +727,4 @@ class _SpinnerEmptyState extends State<_SpinnerEmpty> {
       ),
     ],
   );
-}
-
-/// Lucide LoaderIcon, the reference customization artwork; attribution in
-/// licenses/lucide.txt. It inherits the spinner's size and color.
-class _ReferenceLoader extends StatelessWidget {
-  const _ReferenceLoader();
-
-  @override
-  Widget build(BuildContext context) {
-    final icons = IconTheme.of(context);
-    return SvgPicture.string(
-      '''<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M12 2v4" />
-  <path d="m16.2 7.8 2.9-2.9" />
-  <path d="M18 12h4" />
-  <path d="m16.2 16.2 2.9 2.9" />
-  <path d="M12 18v4" />
-  <path d="m4.9 19.1 2.9-2.9" />
-  <path d="M2 12h4" />
-  <path d="m4.9 4.9 2.9 2.9" />
-</svg>''',
-      width: icons.size ?? 16,
-      height: icons.size ?? 16,
-      theme: SvgTheme(
-        currentColor: icons.color ?? DTokens.of(context).foreground,
-      ),
-    );
-  }
 }

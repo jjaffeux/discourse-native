@@ -30,7 +30,7 @@ class DPageSurface extends StatefulWidget {
     this.hideHeaderOnScroll = false,
     this.revealHeaderAtEnd = false,
     this.headerSuppressed,
-    this.scrollBody = false,
+
     this.limitContentSize,
     required this.child,
     this.identity,
@@ -57,8 +57,7 @@ class DPageSurface extends StatefulWidget {
     this.identity,
     required this.bodyBuilder,
   }) : assert(bodyBuilder != null),
-       child = null,
-       scrollBody = false;
+       child = null;
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
@@ -67,12 +66,6 @@ class DPageSurface extends StatefulWidget {
   /// The title's original space remains reserved above the scrolling body, so
   /// retraction moves the bar without moving the content or its scroll anchor.
   final Widget? headerControls;
-
-  /// Owns a vertical scroll view for [child]. The header floats above it and
-  /// reserves its full natural height inside the scroll content. Rows can
-  /// scroll into the space released by the retracting title without jumping.
-  /// Use non-scrolling content as [child] when enabled.
-  final bool scrollBody;
 
   /// Follow vertical scroll distance, or reveal when scrolling reaches the
   /// top. Content shorter than
@@ -217,8 +210,7 @@ class _DPageSurfaceState extends State<DPageSurface>
               ?.naturalHeight ??
           64,
       layoutReduction: () {
-        if (!widget.hideHeaderOnScroll ||
-            widget.scrollBody ||
+        if ((!widget.hideHeaderOnScroll) ||
             widget.bodyBuilder != null ||
             widget.headerControls != null) {
           return 0;
@@ -229,8 +221,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         return header == null ? 0 : header.naturalHeight - header.size.height;
       },
       layoutExtent: () {
-        if (!widget.hideHeaderOnScroll ||
-            widget.scrollBody ||
+        if ((!widget.hideHeaderOnScroll) ||
             widget.bodyBuilder != null ||
             widget.headerControls != null) {
           return 0;
@@ -309,7 +300,7 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   bool _keepHeaderVisibleForShortContent(ScrollMetrics metrics) {
     var viewport = metrics.viewportDimension;
-    if (!widget.scrollBody && widget.bodyBuilder == null) {
+    if ((widget.bodyBuilder == null)) {
       final header =
           _headerKey.currentContext?.findRenderObject()
               as _RenderScrollHeaderExtent?;
@@ -433,7 +424,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                 progress: _progress,
                 suppression: _suppression,
                 enabled: widget.hideHeaderOnScroll,
-                floating: widget.scrollBody || widget.bodyBuilder != null,
+                floating: (widget.bodyBuilder != null),
                 geometry: _headerGeometry,
                 controls: widget.headerControls,
                 child: ExcludeSemantics(
@@ -469,7 +460,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     _RenderScrollHeaderExtent? headerBox() =>
         _headerKey.currentContext?.findRenderObject()
             as _RenderScrollHeaderExtent?;
-    final floating = widget.scrollBody || widget.bodyBuilder != null;
+    final floating = (widget.bodyBuilder != null);
     Widget scrollableBody() => _builtBody ??= Builder(
       builder: (context) => widget.bodyBuilder!(context, _headerGeometry),
     );

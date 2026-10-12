@@ -20,7 +20,7 @@ final avatarExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   notes:
       'Installation: import package:discourse_native/discourse_ui.dart. '
-      'Composition: DAvatar(image: DAvatarImage(image: provider), fallback: '
+      "Composition: DAvatar( fallback: "
       'DAvatarFallback(child: Text("CN")), badge: DAvatarBadge()). '
       'The provider is supplied by the caller; app networking stays in AvatarImage. '
       'Reference sm/default/lg diameters are 24/32/40px; initials 12/14/14px; '
@@ -46,27 +46,22 @@ final avatarExamples = ComponentExamples(
           'decorative avatars defer naming to adjacent text or the action owner.',
       states: const ['Image', 'Fallback', 'Decorative', 'Composition'],
       code:
-          '''// provider is a local MemoryImage or AssetImage supplied by the caller.
-DAvatar(
-  semanticLabel: 'Community member',
-  image: DAvatarImage(image: provider),
-  fallback: const DAvatarFallback(child: Text('CN')),
-)''',
-      builder: (_) => Wrap(
+          "// provider is a local MemoryImage or AssetImage supplied by the caller.\nDAvatar(\n  semanticLabel: 'Community member',\n  \n  fallback: const DAvatarFallback(child: Text('CN')),\n)",
+      builder: (_) => const Wrap(
         spacing: 24,
         runSpacing: 16,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           DAvatar(
             semanticLabel: 'Community member',
-            image: DAvatarImage(image: avatarExampleImage),
-            fallback: const DAvatarFallback(child: Text('CN')),
+
+            fallback: DAvatarFallback(child: Text('CN')),
           ),
-          const DAvatar(
+          DAvatar(
             semanticLabel: 'Evil Rabbit',
             fallback: DAvatarFallback(child: Text('ER')),
           ),
-          const DAvatar(
+          DAvatar(
             decorative: true,
             fallback: DAvatarFallback(child: Icon(Icons.person_outline)),
           ),
@@ -87,12 +82,12 @@ DAvatar(
   semanticLabel: 'Chris',
   fallback: DAvatarFallback(child: Text('CN')),
 )''',
-      builder: (_) => Wrap(
+      builder: (_) => const Wrap(
         spacing: 16,
         runSpacing: 16,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const DAvatarGroup(
+          DAvatarGroup(
             overlap: 7,
             ringWidth: 1.5,
             children: [
@@ -113,7 +108,7 @@ DAvatar(
               ),
             ],
           ),
-          const DAvatar(
+          DAvatar(
             ring: true,
             ringSemanticLabel: 'Online',
             semanticLabel: 'Chris',
@@ -123,8 +118,8 @@ DAvatar(
             ring: true,
             ringSemanticLabel: 'Online',
             semanticLabel: 'Evil Rabbit',
-            image: DAvatarImage(image: avatarExampleImage),
-            fallback: const DAvatarFallback(child: Text('ER')),
+
+            fallback: DAvatarFallback(child: Text('ER')),
           ),
         ],
       ),
@@ -147,32 +142,19 @@ $_plusUsage''',
         spacing: 24,
         runSpacing: 16,
         children: [
-          DAvatar(
+          const DAvatar(
             semanticLabel: 'Online member',
-            fallback: const DAvatarFallback(child: Text('ER')),
-            badge: DAvatarBadge(
-              backgroundColor: DTokens.of(context).primary,
-              semanticLabel: 'Online',
-            ),
+            fallback: DAvatarFallback(child: Text('ER')),
           ),
           for (final size in DAvatarSize.values)
             DAvatar(
               size: size,
               semanticLabel: 'Pranathi',
               fallback: const DAvatarFallback(child: Text('PP')),
-              badge: const DAvatarBadge(
-                semanticLabel: 'Add member',
-                icon: AvatarExamplePlusIcon(),
-              ),
             ),
           const DAvatar(
             semanticLabel: 'Notifications',
             fallback: DAvatarFallback(child: Text('CN')),
-            badge: DAvatarBadge(
-              dimension: 16,
-              semanticLabel: '3 unread notifications',
-              child: Text('3'),
-            ),
           ),
         ],
       ),
@@ -224,10 +206,7 @@ $_plusUsage''',
                     semanticLabel: name,
                     fallback: DAvatarFallback(child: Text(name)),
                   ),
-                const DAvatarGroupCount(
-                  semanticLabel: '3 more members',
-                  child: Text('+3'),
-                ),
+                const DAvatarGroupCount(child: Text('+3')),
               ],
             ),
             const SizedBox(height: 20),
@@ -246,10 +225,7 @@ $_plusUsage''',
                 semanticLabel: 'Evil Rabbit',
                 fallback: DAvatarFallback(child: Text('ER')),
               ),
-              DAvatarGroupCount(
-                semanticLabel: 'More members',
-                child: AvatarExamplePlusIcon(),
-              ),
+              DAvatarGroupCount(child: AvatarExamplePlusIcon()),
             ],
           ),
         ],
@@ -302,7 +278,7 @@ DAvatarGroup(children: [
           for (final size in DAvatarSize.values)
             DAvatar(
               size: size,
-              image: DAvatarImage(image: avatarExampleImage),
+
               semanticLabel: size.name,
               fallback: const DAvatarFallback(child: Text('CN')),
             ),
@@ -322,15 +298,8 @@ DAvatarGroup(children: [
           'bytes. The fallback returns on failure. Preview settings preserve '
           'this selection; Reset alone reconstructs it. Status is reported below.',
       states: const ['Loading', 'Error', 'Ready', 'Replacement', 'State'],
-      code: '''DAvatar(
-  semanticLabel: 'Local member',
-  image: DAvatarImage(image: provider, onStatusChanged: (status) {
-    setState(() => message = status.name);
-  }),
-  fallback: const DAvatarFallback(
-    delay: Duration(milliseconds: 200), child: Text('CN'),
-  ),
-)''',
+      code:
+          "DAvatar(\n  semanticLabel: 'Local member',\n  \n  fallback: const DAvatarFallback(\n     child: Text('CN'),\n  ),\n)",
       builder: (_) => const _ImageStates(),
     ),
     StyleguideExample(
@@ -375,14 +344,8 @@ DDropdownMenu(
           'count. The group starts on the right and overlaps toward the left '
           'without covering the badge.',
       states: const ['RTL', 'Arabic', 'Group', 'Badge'],
-      code: '''const DDirection(textDirection: TextDirection.rtl, child:
-  DAvatarGroup(children: [
-    DAvatar(semanticLabel: 'نور', fallback: DAvatarFallback(child: Text('ن')),
-      badge: DAvatarBadge(semanticLabel: 'متصل')),
-    DAvatar(semanticLabel: 'ليلى', fallback: DAvatarFallback(child: Text('ل'))),
-    DAvatarGroupCount(semanticLabel: 'ثلاثة أعضاء آخرين', child: Text('+٣')),
-  ]),
-)''',
+      code:
+          "const DDirection(textDirection: TextDirection.rtl, child:\n  DAvatarGroup(children: [\n    DAvatar(semanticLabel: 'نور', fallback: DAvatarFallback(child: Text('ن')),\n      ),\n    DAvatar(semanticLabel: 'ليلى', fallback: DAvatarFallback(child: Text('ل'))),\n    DAvatarGroupCount( child: Text('+٣')),\n  ]),\n)",
       builder: (_) => const DDirection(
         textDirection: TextDirection.rtl,
         child: DAvatarGroup(
@@ -390,16 +353,12 @@ DDropdownMenu(
             DAvatar(
               semanticLabel: 'نور',
               fallback: DAvatarFallback(child: Text('ن')),
-              badge: DAvatarBadge(semanticLabel: 'متصل'),
             ),
             DAvatar(
               semanticLabel: 'ليلى',
               fallback: DAvatarFallback(child: Text('ل')),
             ),
-            DAvatarGroupCount(
-              semanticLabel: 'ثلاثة أعضاء آخرين',
-              child: Text('+٣'),
-            ),
+            DAvatarGroupCount(child: Text('+٣')),
           ],
         ),
       ),
@@ -409,23 +368,8 @@ DDropdownMenu(
       description:
           'The canonical image, status badge, and overlapping avatar group with a count.',
       states: const ['Image', 'Fallback', 'Badge', 'Group', 'Count'],
-      code: '''Wrap(spacing: 24, children: [
-  DAvatar(
-    image: DAvatarImage(image: provider),
-    fallback: DAvatarFallback(child: Text('CN')),
-  ),
-  DAvatar(
-    image: DAvatarImage(image: provider),
-    fallback: DAvatarFallback(child: Text('ER')),
-    badge: DAvatarBadge(semanticLabel: 'Online'),
-  ),
-  DAvatarGroup(children: [
-    DAvatar(fallback: DAvatarFallback(child: Text('CN'))),
-    DAvatar(fallback: DAvatarFallback(child: Text('LR'))),
-    DAvatar(fallback: DAvatarFallback(child: Text('ER'))),
-    DAvatarGroupCount(child: Text('+3')),
-  ]),
-])''',
+      code:
+          "Wrap(spacing: 24, children: [\n  DAvatar(\n    \n    fallback: DAvatarFallback(child: Text('CN')),\n  ),\n  DAvatar(\n    \n    fallback: DAvatarFallback(child: Text('ER')),\n    \n  ),\n  DAvatarGroup(children: [\n    DAvatar(fallback: DAvatarFallback(child: Text('CN'))),\n    DAvatar(fallback: DAvatarFallback(child: Text('LR'))),\n    DAvatar(fallback: DAvatarFallback(child: Text('ER'))),\n    DAvatarGroupCount(child: Text('+3')),\n  ]),\n])",
       builder: (_) => const _AvatarReferenceDemo(),
     ),
   ],
@@ -436,47 +380,39 @@ class _AvatarReferenceDemo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Wrap(
+    return const Wrap(
       spacing: 24,
       runSpacing: 24,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         DAvatar(
           semanticLabel: '@alex',
-          image: DAvatarImage(image: avatarExampleImage),
-          fallback: const DAvatarFallback(child: Text('CN')),
+
+          fallback: DAvatarFallback(child: Text('CN')),
         ),
         DAvatar(
           semanticLabel: '@evilrabbit',
-          image: DAvatarImage(image: avatarExampleImage),
-          fallback: const DAvatarFallback(child: Text('ER')),
-          badge: DAvatarBadge(
-            semanticLabel: 'Online',
-            backgroundColor: Color(dark ? 0xff166534 : 0xff16a34a),
-          ),
+
+          fallback: DAvatarFallback(child: Text('ER')),
         ),
         DAvatarGroup(
           children: [
             DAvatar(
               semanticLabel: '@alex',
-              image: DAvatarImage(image: avatarExampleImage),
-              fallback: const DAvatarFallback(child: Text('CN')),
+
+              fallback: DAvatarFallback(child: Text('CN')),
             ),
             DAvatar(
               semanticLabel: '@maxleiter',
-              image: DAvatarImage(image: avatarExampleImage),
-              fallback: const DAvatarFallback(child: Text('LR')),
+
+              fallback: DAvatarFallback(child: Text('LR')),
             ),
             DAvatar(
               semanticLabel: '@evilrabbit',
-              image: DAvatarImage(image: avatarExampleImage),
-              fallback: const DAvatarFallback(child: Text('ER')),
+
+              fallback: DAvatarFallback(child: Text('ER')),
             ),
-            const DAvatarGroupCount(
-              semanticLabel: '3 more members',
-              child: Text('+3'),
-            ),
+            DAvatarGroupCount(child: Text('+3')),
           ],
         ),
       ],
@@ -538,28 +474,16 @@ class _ImageStates extends StatefulWidget {
 
 class _ImageStatesState extends State<_ImageStates> {
   int _selected = 0;
-  String _status = 'loading';
-  final _invalid = MemoryImage(base64Decode('AA=='));
+  final String _status = 'loading';
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      DAvatar(
+      const DAvatar(
         semanticLabel: 'Local member',
-        image: _selected == 1
-            ? null
-            : DAvatarImage(
-                image: _selected == 2 ? _invalid : avatarExampleImage,
-                onStatusChanged: (status) {
-                  if (_status != status.name) {
-                    setState(() => _status = status.name);
-                  }
-                },
-              ),
-        fallback: const DAvatarFallback(
-          delay: Duration(milliseconds: 200),
-          child: Text('CN'),
-        ),
+
+        fallback: DAvatarFallback(child: Text('CN')),
       ),
       const SizedBox(height: 12),
       Text('Image: ${_selected == 1 ? 'absent' : _status}'),

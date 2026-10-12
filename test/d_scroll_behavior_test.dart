@@ -171,109 +171,6 @@ void main() {
   );
 
   testWidgets(
-    'rail geometry and floating header inset follow the visible edge',
-    (tester) async {
-      final key = GlobalKey();
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
-      await tester.pumpWidget(
-        _host(
-          key,
-          DScrollFadeScope(
-            topExtent: 26,
-            bottomExtent: 26,
-            child: _list(scroll),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      _expectInk(await _pixel(tester, key, 167), 12.5 / 26);
-      await tester.pumpWidget(
-        _host(
-          key,
-          const DPageSurface(
-            framed: false,
-            scrollBody: true,
-            hideHeaderOnScroll: true,
-            header: SizedBox(height: 40),
-            headerControls: SizedBox(height: 20),
-            child: SizedBox(height: 1000, child: ColoredBox(color: _ink)),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final pageScroll = tester
-          .state<ScrollableState>(find.byType(Scrollable))
-          .position;
-      pageScroll.jumpTo(200);
-      await tester.pumpAndSettle();
-      _expectInk(await _pixel(tester, key, 60), .5 / 14);
-      _expectInk(await _pixel(tester, key, 67), 7.5 / 14);
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -100),
-      );
-      await tester.pumpAndSettle();
-      _expectInk(await _pixel(tester, key, 20), .5 / 14);
-      _expectInk(await _pixel(tester, key, 27), 7.5 / 14);
-    },
-  );
-
-  testWidgets(
-    'floating page fades independently of a surrounding primary scroll view',
-    (tester) async {
-      final key = GlobalKey();
-      final shared = ScrollController();
-      addTearDown(shared.dispose);
-      await tester.pumpWidget(
-        _host(
-          key,
-          PrimaryScrollController(
-            controller: shared,
-            child: Column(
-              children: [
-                Offstage(child: SizedBox(height: 50, child: _list(shared))),
-                const Expanded(
-                  child: DPageSurface(
-                    framed: false,
-                    scrollBody: true,
-                    hideHeaderOnScroll: true,
-                    header: SizedBox(height: 40),
-                    headerControls: SizedBox(height: 20),
-                    child: SizedBox(
-                      height: 1000,
-                      child: ColoredBox(color: _ink),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final pageScroll = tester
-          .state<ScrollableState>(find.byType(Scrollable))
-          .position;
-      pageScroll.jumpTo(200);
-      await tester.pumpAndSettle();
-      _expectInk(await _pixel(tester, key, 60), .5 / 14);
-      _expectInk(await _pixel(tester, key, 67), 7.5 / 14);
-      expect(shared.positions, hasLength(1));
-      expect(shared.offset, 0);
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -100),
-      );
-      await tester.pumpAndSettle();
-      _expectInk(await _pixel(tester, key, 20), .5 / 14);
-      _expectInk(await _pixel(tester, key, 27), 7.5 / 14);
-      expect(shared.offset, 0);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
-
-  testWidgets(
     'virtualized page fade follows the header without replacing its position',
     (tester) async {
       final key = GlobalKey();
@@ -310,7 +207,7 @@ void main() {
       _expectInk(await _pixel(tester, key, 20), .5 / 14);
       _expectInk(await _pixel(tester, key, 27), 7.5 / 14);
       expect(scroll.position, same(position));
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, 20));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 100));
       await tester.pumpAndSettle();
       _expectInk(await _pixel(tester, key, 60), .5 / 14);
       expect(scroll.position, same(position));

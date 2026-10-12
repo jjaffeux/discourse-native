@@ -31,14 +31,14 @@ void main() {
                   DButton.iconOnly(
                     tooltip: 'Toolbar action',
                     icon: const Icon(Icons.close),
-                    variant: DButtonVariant.transparentBackground,
+                    variant: DButtonVariant.ghost,
                     onPressed: () {},
                   ),
                   DButton.iconOnly(
                     tooltip: 'Toolbar menu action',
                     icon: const Icon(Icons.tune),
                     size: DButtonSize.large,
-                    variant: DButtonVariant.transparentBackground,
+                    variant: DButtonVariant.ghost,
                     hasPopup: true,
                     onPressed: () {},
                   ),
@@ -94,7 +94,8 @@ void main() {
           );
           expect(buttonSurface(tester, of: button).borderRadius, radius);
         }
-        for (final surface in [filter, select]) {
+        expect(filter.borderRadius, BorderRadius.circular(999));
+        for (final surface in [select]) {
           expect(surface.borderRadius, radius);
           expect(surface.borderColor, action.borderColor);
           expect(surface.color, action.color);
@@ -171,7 +172,7 @@ void main() {
     await tester.tap(find.text('Trending').last);
     await tester.pumpAndSettle();
     expect(find.text('Trending'), findsNWidgets(3));
-    await tester.tap(find.bySemanticsLabel('small category'));
+    await tester.tap(find.text('Bugs').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Support'));
     await tester.pumpAndSettle();
@@ -183,26 +184,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Normal'), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('disabled standard trigger cannot open', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DDropdownMenu(
-            content: const DDropdownMenuContent(
-              children: [DDropdownMenuItem(child: Text('Hidden'))],
-            ),
-            child: DDropdownMenuTrigger.button(
-              label: const Text('Disabled'),
-              enabled: false,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Disabled'));
-    await tester.pumpAndSettle();
-    expect(find.text('Hidden'), findsNothing);
   });
 }

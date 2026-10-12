@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
@@ -56,8 +55,6 @@ void main() {
     DMessageScrollerController? controller,
     ScrollController? scrollController,
     bool autoScroll = false,
-    DMessageScrollerInitialPosition initial =
-        DMessageScrollerInitialPosition.end,
     bool busy = false,
     bool showButton = true,
     bool reverse = false,
@@ -65,15 +62,14 @@ void main() {
     VoidCallback? onUserScrollIntent,
   }) => DMessageScrollerProvider(
     controller: controller,
-    autoScroll: autoScroll,
-    initialPosition: initial,
+
     child: DMessageScroller(
       children: [
         DMessageScrollerViewport(
           reverse: reverse,
-          preserveChildIdentity: preserveChildIdentity,
+
           scrollController: scrollController,
-          onUserScrollIntent: onUserScrollIntent,
+
           content: DMessageScrollerContent(
             padding: const EdgeInsets.all(16),
             busy: busy,
@@ -84,93 +80,6 @@ void main() {
       ],
     ),
   );
-
-  for (final useBuilder in [false, true]) {
-    testWidgets(
-      'focus ring is opt-in (${useBuilder ? 'builder' : 'content'})',
-      (tester) async {
-        final focus = FocusNode();
-        final scroll = ScrollController();
-        addTearDown(focus.dispose);
-        addTearDown(scroll.dispose);
-        final items = rows(List.generate(12, (index) => '$index'));
-        final defaultViewport = useBuilder
-            ? DMessageScrollerViewport.builder(
-                focusNode: focus,
-                scrollController: scroll,
-                itemCount: items.length,
-                itemIdBuilder: (index) => items[index].messageId,
-                itemBuilder: (context, index) => items[index],
-              )
-            : DMessageScrollerViewport(
-                focusNode: focus,
-                scrollController: scroll,
-                content: DMessageScrollerContent(children: items),
-              );
-
-        Widget viewport({required bool showFocusRing}) => useBuilder
-            ? DMessageScrollerViewport.builder(
-                focusNode: focus,
-                scrollController: scroll,
-                itemCount: items.length,
-                itemIdBuilder: (index) => items[index].messageId,
-                itemBuilder: (context, index) => items[index],
-                showFocusRing: showFocusRing,
-              )
-            : DMessageScrollerViewport(
-                focusNode: focus,
-                scrollController: scroll,
-                content: DMessageScrollerContent(children: items),
-                showFocusRing: showFocusRing,
-              );
-
-        Future<void> pumpViewport({bool? showFocusRing}) async {
-          await tester.pumpWidget(
-            host(
-              DMessageScrollerProvider(
-                initialPosition: DMessageScrollerInitialPosition.start,
-                child: DMessageScroller(
-                  children: [
-                    showFocusRing == null
-                        ? defaultViewport
-                        : viewport(showFocusRing: showFocusRing),
-                  ],
-                ),
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-        }
-
-        CustomPainter? ring() => tester
-            .widget<CustomPaint>(
-              find
-                  .descendant(
-                    of: find.byType(DMessageScrollerViewport),
-                    matching: find.byType(CustomPaint),
-                  )
-                  .first,
-            )
-            .foregroundPainter;
-
-        await pumpViewport();
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pumpAndSettle();
-        expect(focus.hasFocus, isTrue);
-        expect(ring(), isNull);
-        await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
-        await tester.pumpAndSettle();
-        expect(scroll.offset, greaterThan(0));
-
-        await pumpViewport(showFocusRing: true);
-        expect(focus.hasFocus, isTrue);
-        expect(ring(), isNotNull);
-        await pumpViewport(showFocusRing: false);
-        expect(ring(), isNull);
-        expect(focus.hasFocus, isTrue);
-      },
-    );
-  }
 
   testWidgets('opens at the end without flashing and publishes edge state', (
     tester,
@@ -203,33 +112,18 @@ void main() {
     expect(find.bySemanticsLabel('Messages'), findsOneWidget);
   });
 
-  testWidgets('commands align stable ids and reject an unknown mounted id', (
-    tester,
-  ) async {
+  testWidgets('edge commands expose their resting state', (tester) async {
     final controller = DMessageScrollerController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       host(
         scroller(
           controller: controller,
-          initial: DMessageScrollerInitialPosition.start,
           items: rows(List.generate(10, (index) => '$index')),
         ),
       ),
     );
     await tester.pump();
-
-    expect(controller.scrollToMessage('6'), isTrue);
-    await tester.pumpAndSettle();
-    final viewportTop = tester
-        .getTopLeft(find.byType(DMessageScrollerViewport))
-        .dy;
-    // The label is centered inside its 72px row; the row itself is at start.
-    expect(
-      tester.getTopLeft(find.text('Message 6')).dy - viewportTop,
-      closeTo(26, 1),
-    );
-    expect(controller.scrollToMessage('missing'), isFalse);
 
     expect(controller.scrollToStart(), isTrue);
     await tester.pump();
@@ -237,81 +131,6 @@ void main() {
     expect(controller.scrollToEnd(), isTrue);
     await tester.pump();
     expect(controller.state.canScrollEnd, isFalse);
-  });
-
-  testWidgets('custom edge-button content keeps scrolling and callbacks', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    var presses = 0;
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      host(
-        DMessageScrollerProvider(
-          controller: controller,
-          initialPosition: DMessageScrollerInitialPosition.start,
-          child: DMessageScroller(
-            children: [
-              DMessageScrollerViewport(
-                content: DMessageScrollerContent(
-                  children: rows(['1', '2', '3', '4', '5', '6']),
-                ),
-              ),
-              DMessageScrollerButton(
-                semanticLabel: 'Latest custom',
-                onPressed: () => presses++,
-                child: const Icon(Icons.vertical_align_bottom),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(controller.state.canScrollEnd, isTrue);
-
-    expect(find.bySemanticsLabel('Latest custom'), findsOneWidget);
-    await tester.tap(find.byType(DButton));
-    expect(presses, 1);
-    await tester.pumpAndSettle();
-
-    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
-    expect(scroll.position.pixels, scroll.position.maxScrollExtent);
-  });
-
-  testWidgets('nearest leaves a fully visible message in place', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    final scroll = ScrollController();
-    addTearDown(controller.dispose);
-    addTearDown(scroll.dispose);
-    await tester.pumpWidget(
-      host(
-        scroller(
-          controller: controller,
-          scrollController: scroll,
-          initial: DMessageScrollerInitialPosition.start,
-          items: rows(List.generate(10, (index) => '$index')),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    scroll.jumpTo(40);
-    await tester.pumpAndSettle();
-    final before = scroll.offset;
-
-    expect(
-      controller.scrollToMessage(
-        '1',
-        options: const DMessageScrollerScrollOptions(
-          alignment: DMessageScrollerAlignment.nearest,
-        ),
-      ),
-      isTrue,
-    );
-    await tester.pumpAndSettle();
-    expect(scroll.offset, before);
   });
 
   testWidgets('a short last anchored turn opens at the natural end', (
@@ -323,7 +142,6 @@ void main() {
       host(
         scroller(
           controller: controller,
-          initial: DMessageScrollerInitialPosition.lastAnchor,
           items: rows(List.generate(10, (index) => '$index'), anchors: {'8'}),
         ),
         height: 200,
@@ -331,140 +149,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(controller.state.canScrollEnd, isFalse);
-  });
-
-  for (final (reverse, preserveChildIdentity) in [
-    (false, true),
-    (true, true),
-    (false, false),
-    (true, false),
-  ]) {
-    testWidgets(
-      'message alignment respects margin with reverse=$reverse, stable children=$preserveChildIdentity',
-      (tester) async {
-        final controller = DMessageScrollerController();
-        addTearDown(controller.dispose);
-        await tester.pumpWidget(
-          host(
-            scroller(
-              controller: controller,
-              reverse: reverse,
-              preserveChildIdentity: preserveChildIdentity,
-              items: rows(List.generate(10, (index) => '$index')),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        for (final alignment in [
-          DMessageScrollerAlignment.start,
-          DMessageScrollerAlignment.center,
-          DMessageScrollerAlignment.end,
-        ]) {
-          controller.scrollToMessage(
-            '3',
-            options: DMessageScrollerScrollOptions(
-              alignment: alignment,
-              scrollMargin: 16,
-            ),
-          );
-          await tester.pumpAndSettle();
-          final top =
-              tester.getTopLeft(find.byKey(const ValueKey('3'))).dy -
-              tester.getTopLeft(find.byType(DMessageScrollerViewport)).dy;
-          final expectedTop = switch (alignment) {
-            DMessageScrollerAlignment.start => 16.0,
-            DMessageScrollerAlignment.center => 128.0,
-            _ => 208.0,
-          };
-          expect(top, closeTo(expectedTop, 1), reason: alignment.name);
-        }
-      },
-    );
-  }
-
-  testWidgets('last-anchor startup remains pending until the target lands', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      host(
-        scroller(
-          controller: controller,
-          initial: DMessageScrollerInitialPosition.lastAnchor,
-          items: rows(List.generate(12, (index) => '$index'), anchors: {'7'}),
-        ),
-      ),
-    );
-    expect(controller.state.pendingInitialScroll, isTrue);
-    await tester.pumpAndSettle();
-    expect(controller.state.pendingInitialScroll, isFalse);
-    final viewportTop = tester
-        .getTopLeft(find.byType(DMessageScrollerViewport))
-        .dy;
-    expect(
-      tester.getTopLeft(find.byKey(const ValueKey('7'))).dy - viewportTop,
-      closeTo(64, 1),
-    );
-  });
-
-  testWidgets('an edge command removes a previous message-target spacer', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    final scroll = ScrollController();
-    addTearDown(controller.dispose);
-    addTearDown(scroll.dispose);
-    await tester.pumpWidget(
-      host(
-        scroller(
-          controller: controller,
-          scrollController: scroll,
-          items: rows(List.generate(10, (index) => '$index')),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final naturalEnd = scroll.position.maxScrollExtent;
-    controller.scrollToMessage('9');
-    await tester.pumpAndSettle();
-    expect(scroll.position.maxScrollExtent, greaterThan(naturalEnd));
-
-    controller.scrollToEnd();
-    await tester.pumpAndSettle();
-    expect(scroll.position.maxScrollExtent, closeTo(naturalEnd, 1));
-    expect(scroll.offset, closeTo(naturalEnd, 1));
-    expect(controller.state.canScrollEnd, isFalse);
-  });
-
-  testWidgets('a deferred message command keeps its stable id after prepend', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    addTearDown(controller.dispose);
-    final key = GlobalKey<_MutableTranscriptState>();
-    await tester.pumpWidget(
-      host(
-        _MutableTranscript(
-          key: key,
-          controller: controller,
-          initial: DMessageScrollerInitialPosition.start,
-          initialIds: List.generate(10, (index) => '$index'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    controller.scrollToMessage('3');
-    key.currentState!.prepend(['older-1', 'older-2'], heights: [72, 72]);
-    await tester.pumpAndSettle();
-    final viewportTop = tester
-        .getTopLeft(find.byType(DMessageScrollerViewport))
-        .dy;
-    expect(
-      tester.getTopLeft(find.text('Message 3')).dy - viewportTop,
-      closeTo(0, 1),
-    );
   });
 
   testWidgets('borrowed controllers and focus nodes remain caller-owned', (
@@ -488,7 +172,7 @@ void main() {
               DMessageScrollerViewport(
                 scrollController: scroll,
                 listController: list,
-                focusNode: focus,
+
                 content: DMessageScrollerContent(children: rows(['1', '2'])),
               ),
             ],
@@ -520,7 +204,6 @@ void main() {
           builder: (context, setState) {
             rebuild = setState;
             return scroller(
-              initial: DMessageScrollerInitialPosition.start,
               items: rows([if (prepend) 'older', 'retained', 'tail']),
             );
           },
@@ -619,61 +302,6 @@ void main() {
     },
   );
 
-  testWidgets('reader intent stops an in-flight smooth command', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    final scroll = ScrollController();
-    addTearDown(controller.dispose);
-    addTearDown(scroll.dispose);
-    await tester.pumpWidget(
-      host(
-        scroller(
-          controller: controller,
-          scrollController: scroll,
-          initial: DMessageScrollerInitialPosition.start,
-          items: rows(List.generate(20, (index) => '$index')),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    controller.scrollToEnd(behavior: DMessageScrollerScrollBehavior.smooth);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    final interruptedAt = scroll.offset;
-    expect(interruptedAt, greaterThan(0));
-    expect(interruptedAt, lessThan(scroll.position.maxScrollExtent));
-
-    controller.stopFollowing();
-    await tester.pumpAndSettle();
-    expect(scroll.offset, closeTo(interruptedAt, 1));
-    expect(controller.state.autoScrolling, isFalse);
-  });
-
-  testWidgets(
-    'queues a message target until an initially empty transcript mounts',
-    (tester) async {
-      final controller = DMessageScrollerController();
-      addTearDown(controller.dispose);
-      final key = GlobalKey<_MutableTranscriptState>();
-      await tester.pumpWidget(
-        host(_MutableTranscript(key: key, controller: controller)),
-      );
-      await tester.pump();
-
-      expect(controller.scrollToMessage('later'), isTrue);
-      key.currentState!.replace(['before', 'later', 'after', 'tail']);
-      await tester.pumpAndSettle();
-      final viewportTop = tester
-          .getTopLeft(find.byType(DMessageScrollerViewport))
-          .dy;
-      expect(
-        tester.getTopLeft(find.text('Message later')).dy - viewportTop,
-        closeTo(0, 1),
-      );
-    },
-  );
-
   testWidgets('anchors a newly appended turn with the previous-context peek', (
     tester,
   ) async {
@@ -718,47 +346,6 @@ void main() {
     expect(controller.state.currentAnchorId, 'second-turn');
   });
 
-  testWidgets('follows streaming growth only until the reader moves away', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    addTearDown(controller.dispose);
-    final key = GlobalKey<_MutableTranscriptState>();
-    await tester.pumpWidget(
-      host(
-        _MutableTranscript(
-          key: key,
-          controller: controller,
-          autoScroll: true,
-          initialIds: const ['1', '2', '3', '4'],
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(controller.state.followingLiveEdge, isTrue);
-
-    key.currentState!.setHeight('4', 180);
-    await tester.pumpAndSettle();
-    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
-    expect(scroll.position.pixels, scroll.position.maxScrollExtent);
-
-    await tester.drag(find.byType(Scrollable), const Offset(0, 150));
-    await tester.pumpAndSettle();
-    expect(controller.state.followingLiveEdge, isFalse);
-    final heldId = controller.state.visibleMessageIds.first;
-    final heldTop = tester.getTopLeft(find.text('Message $heldId')).dy;
-    key.currentState!.setHeight('4', 260);
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(
-      tester.getTopLeft(find.text('Message $heldId')).dy,
-      closeTo(heldTop, 1),
-    );
-    expect(controller.state.canScrollEnd, isTrue);
-  });
-
   testWidgets(
     'preserves the first visible variable-height row when history prepends',
     (tester) async {
@@ -774,7 +361,6 @@ void main() {
             controller: controller,
             scrollController: scroll,
             initialIds: const ['4', '5', '6', '7', '8', '9'],
-            initial: DMessageScrollerInitialPosition.start,
           ),
         ),
       );
@@ -807,7 +393,6 @@ void main() {
                 return scroller(
                   controller: controller,
                   reverse: reverse,
-                  initial: DMessageScrollerInitialPosition.start,
                   items: rows(
                     List.generate(50 - first, (index) => '${first + index}'),
                     height: (id) => int.parse(id).isEven ? 92 : 60,
@@ -818,9 +403,19 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        controller.scrollToMessage(
-          '25',
-          options: const DMessageScrollerScrollOptions(scrollMargin: 24),
+        final scroll = tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byType(DMessageScrollerViewport),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position;
+        scroll.jumpTo(5 * 76);
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byType(DMessageScrollerViewport),
+          const Offset(0, -30),
         );
         await tester.pumpAndSettle();
         final retained = find.text('Message 25');
@@ -834,84 +429,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('virtualized builder jumps across a thousand stable rows', (
-    tester,
-  ) async {
-    final controller = DMessageScrollerController();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      host(
-        DMessageScrollerProvider(
-          controller: controller,
-          initialPosition: DMessageScrollerInitialPosition.start,
-          child: DMessageScroller(
-            children: [
-              DMessageScrollerViewport.builder(
-                itemCount: 1000,
-                itemIdBuilder: (index) => 'row-$index',
-                scrollAnchorBuilder: (index) => index % 200 == 0,
-                itemBuilder: (_, index) => SizedBox(
-                  height: 40 + (index % 4) * 11,
-                  child: Text('Virtual $index'),
-                ),
-              ),
-              const DMessageScrollerButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(find.text('Virtual 900'), findsNothing);
-    expect(controller.state.currentAnchorId, 'row-0');
-    expect(controller.scrollToMessage('row-900'), isTrue);
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Virtual 900'), findsOneWidget);
-    expect(controller.state.visibleMessageIds, contains('row-900'));
-    expect(controller.state.currentAnchorId, 'row-800');
-  });
-
-  testWidgets(
-    'keyboard, wheel, RTL, large text and reduced motion preserve intent',
-    (tester) async {
-      final controller = DMessageScrollerController();
-      var intents = 0;
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        host(
-          scroller(
-            controller: controller,
-            initial: DMessageScrollerInitialPosition.start,
-            onUserScrollIntent: () => intents++,
-            items: rows(List.generate(12, (index) => '$index')),
-          ),
-          width: 220,
-          textScale: 2,
-          direction: TextDirection.rtl,
-          disableAnimations: true,
-        ),
-      );
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
-      await tester.pump();
-      expect(controller.state.canScrollStart, isTrue);
-      expect(intents, greaterThan(0));
-
-      final rect = tester.getRect(find.byType(DMessageScrollerViewport));
-      await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: rect.center,
-          scrollDelta: const Offset(0, 40),
-        ),
-      );
-      await tester.pump();
-      expect(intents, greaterThan(1));
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   group('reader drags', () {
     // Rows own a tap recognizer, as transcript content does, so a touch drag
@@ -930,7 +447,7 @@ void main() {
               rebuild = setState;
               return DMessageScrollerProvider(
                 controller: controller,
-                initialPosition: DMessageScrollerInitialPosition.start,
+
                 child: DMessageScroller(
                   children: [
                     DMessageScrollerViewport.builder(
@@ -1006,6 +523,8 @@ void main() {
           scroll,
           controller: controller,
         );
+        scroll.jumpTo(400);
+        await tester.pumpAndSettle();
         final gesture = await dragTowardEnd(tester);
         await gesture.up();
         await tester.pumpAndSettle();
@@ -1058,14 +577,12 @@ class _MutableTranscript extends StatefulWidget {
     this.scrollController,
     this.initialIds = const [],
     this.autoScroll = false,
-    this.initial = DMessageScrollerInitialPosition.end,
   });
 
   final DMessageScrollerController controller;
   final ScrollController? scrollController;
   final List<String> initialIds;
   final bool autoScroll;
-  final DMessageScrollerInitialPosition initial;
 
   @override
   State<_MutableTranscript> createState() => _MutableTranscriptState();
@@ -1098,8 +615,7 @@ class _MutableTranscriptState extends State<_MutableTranscript> {
   @override
   Widget build(BuildContext context) => DMessageScrollerProvider(
     controller: widget.controller,
-    autoScroll: widget.autoScroll,
-    initialPosition: widget.initial,
+
     child: DMessageScroller(
       children: [
         DMessageScrollerViewport(

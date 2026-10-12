@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState, SemanticsRole;
+import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
@@ -24,11 +24,9 @@ Widget _command({
   ValueChanged<String>? onQueryChanged,
   ValueChanged<String?>? onValueChanged,
   ValueChanged<String>? onSelected,
-  DCommandFilter? filter,
   bool shouldFilter = true,
   bool loop = false,
   bool loading = false,
-  bool disablePointerSelection = false,
   TextEditingController? editingController,
   FocusNode? inputFocus,
   VoidCallback? onEmptyBackspace,
@@ -40,11 +38,11 @@ Widget _command({
   onQueryChanged: onQueryChanged,
   onValueChanged: onValueChanged,
   onSelected: onSelected,
-  filter: filter,
+
   shouldFilter: shouldFilter,
   loop: loop,
   loading: loading,
-  disablePointerSelection: disablePointerSelection,
+
   child: Column(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -53,9 +51,8 @@ Widget _command({
         focusNode: inputFocus,
         onEmptyBackspace: onEmptyBackspace,
       ),
-      DCommandList<String>(
-        controller: scrollController,
-        children: const [
+      const DCommandList<String>(
+        children: [
           DCommandLoading(child: Text('Loading results…')),
           DCommandEmpty(child: Text('No results found.')),
           DCommandGroup<String>(
@@ -389,139 +386,6 @@ void main() {
     expect(controller.value, 'Profile');
   });
 
-  testWidgets('separators hide while filtering unless alwaysRender is set', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_host(_command()));
-    await tester.pump();
-    expect(find.byType(Divider), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'profile');
-    await tester.pump();
-    expect(find.byType(Divider), findsNothing);
-
-    await tester.pumpWidget(
-      _host(
-        const DCommand<String>(
-          initialQuery: 'profile',
-          child: DCommandList<String>(
-            children: [
-              DCommandItem(value: 'Profile', child: Text('Profile')),
-              DCommandSeparator<String>(alwaysRender: true),
-              DCommandItem(value: 'Profiles', child: Text('Profiles')),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(find.byType(Divider), findsOneWidget);
-  });
-
-  testWidgets('keyboard movement scrolls the highlight into view', (
-    tester,
-  ) async {
-    final controller = DCommandController<String>();
-    final focus = FocusNode();
-    final scroll = ScrollController();
-    addTearDown(controller.dispose);
-    addTearDown(focus.dispose);
-    addTearDown(scroll.dispose);
-    await tester.pumpWidget(
-      _host(
-        DCommand<String>(
-          controller: controller,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DCommandInput<String>(focusNode: focus),
-              DCommandList<String>(
-                controller: scroll,
-                maxHeight: 96,
-                children: [
-                  DCommandGroup<String>(
-                    items: [
-                      for (var index = 0; index < 20; index++)
-                        DCommandItem(
-                          value: 'Item $index',
-                          child: Text('Item $index'),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    focus.requestFocus();
-    await tester.pump();
-
-    for (var index = 0; index < 15; index++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
-
-    expect(controller.value, 'Item 15');
-    expect(scroll.offset, greaterThan(0));
-    expect(focus.hasFocus, isTrue);
-  });
-
-  testWidgets('keyboard scrolling stays inside the command list', (
-    tester,
-  ) async {
-    final outer = ScrollController();
-    final inner = ScrollController();
-    final focus = FocusNode();
-    addTearDown(outer.dispose);
-    addTearDown(inner.dispose);
-    addTearDown(focus.dispose);
-    await tester.pumpWidget(
-      _host(
-        SingleChildScrollView(
-          controller: outer,
-          child: Column(
-            children: [
-              const SizedBox(height: 360),
-              DCommand<int>(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DCommandInput<int>(focusNode: focus),
-                    DCommandList<int>(
-                      controller: inner,
-                      height: 100,
-                      children: [
-                        for (var i = 0; i < 40; i++)
-                          DCommandItem<int>(value: i, child: Text('Choice $i')),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 900),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    focus.requestFocus();
-    await tester.pumpAndSettle();
-    final before = outer.offset;
-    for (var i = 0; i < 25; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
-    expect(inner.offset, greaterThan(0));
-    expect(outer.offset, before);
-    expect(focus.hasFocus, isTrue);
-  });
-
   testWidgets('a fixed height holds while results change and centres states', (
     tester,
   ) async {
@@ -774,22 +638,6 @@ void main() {
     await mouse.removePointer();
   });
 
-  testWidgets('pointer highlighting can be disabled', (tester) async {
-    final controller = DCommandController<String>(initialValue: 'Calendar');
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      _host(_command(controller: controller, disablePointerSelection: true)),
-    );
-    await tester.pump();
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.text('Profile')));
-    await tester.pump();
-
-    expect(controller.value, 'Calendar');
-    await mouse.removePointer();
-  });
-
   testWidgets('checked state is semantic and touch rows are 48 pixels', (
     tester,
   ) async {
@@ -879,63 +727,6 @@ void main() {
     },
   );
 
-  testWidgets('custom scores sort matches and filtering can be disabled', (
-    tester,
-  ) async {
-    double reverseScore(String value, String query, List<String> keywords) =>
-        value == 'Settings'
-        ? 1
-        : value.toLowerCase().contains(query)
-        ? .5
-        : 0;
-    await tester.pumpWidget(_host(_command(filter: reverseScore)));
-    await tester.enterText(find.byType(TextField), 'i');
-    await tester.pump();
-    final settingsY = tester.getTopLeft(find.text('Settings').last).dy;
-    final billingY = tester.getTopLeft(find.text('Billing')).dy;
-    expect(settingsY, lessThan(billingY));
-
-    await tester.pumpWidget(
-      _host(_command(query: 'missing', shouldFilter: false)),
-    );
-    await tester.pump();
-    expect(find.text('Calendar'), findsOneWidget);
-    expect(find.text('No results found.'), findsNothing);
-  });
-
-  testWidgets('custom filters receive trimmed values and keyword aliases', (
-    tester,
-  ) async {
-    String? value;
-    List<String>? keywords;
-    await tester.pumpWidget(
-      _host(
-        DCommand<String>(
-          initialQuery: 'needle',
-          filter: (candidate, query, aliases) {
-            value = candidate;
-            keywords = aliases;
-            return 1;
-          },
-          child: const DCommandList<String>(
-            children: [
-              DCommandItem(
-                value: 'item',
-                searchValue: '  Search value  ',
-                keywords: [' alias ', 'second  '],
-                child: Text('Item'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(value, 'Search value');
-    expect(keywords, ['alias', 'second']);
-  });
-
   testWidgets('loading, scrolling, borrowed resources and RTL remain live', (
     tester,
   ) async {
@@ -967,37 +758,6 @@ void main() {
     editing.dispose();
     focus.dispose();
     scroll.dispose();
-  });
-
-  testWidgets('loading state exposes an accessible label and progress', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        const DCommand<String>(
-          loading: true,
-          child: DCommandList<String>(
-            children: [
-              DCommandLoading(
-                progress: 42,
-                semanticLabel: 'Fetching commands',
-                child: Text('Please wait'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final semantics = tester.getSemantics(
-      find.bySemanticsLabel('Fetching commands'),
-    );
-    expect(semantics.label, 'Fetching commands');
-    expect(semantics.role, SemanticsRole.progressBar);
-    expect(semantics.value, '42');
-    expect(semantics.minValue, '0');
-    expect(semantics.maxValue, '100');
   });
 
   testWidgets(

@@ -98,21 +98,19 @@ class DAlertDialogContent extends StatelessWidget {
     required this.children,
     this.size = DAlertDialogSize.regular,
     this.semanticLabel,
-    this.maxWidth,
-  }) : assert(maxWidth == null || maxWidth > 0);
+  });
 
   final List<Widget> children;
   final DAlertDialogSize size;
   final String? semanticLabel;
-  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final windowWide = MediaQuery.sizeOf(context).width >= 640;
-    final width =
-        maxWidth ??
-        (size == DAlertDialogSize.regular && windowWide ? 384.0 : 320.0);
+    final width = ((size == DAlertDialogSize.regular && windowWide
+        ? 384.0
+        : 320.0));
     final radius = BorderRadius.circular(DRadius.panel);
     final body = Material(
       animationDuration: Duration.zero,
@@ -415,22 +413,10 @@ class DAlertDialogFooter extends StatelessWidget {
 }
 
 class DAlertDialogCancel<T> extends StatelessWidget {
-  const DAlertDialogCancel({
-    super.key,
-    required this.label,
-    this.result,
-    this.onPressed,
-    this.enabled = true,
-    this.loading = false,
-    this.semanticLabel,
-  });
+  const DAlertDialogCancel({super.key, required this.label, this.result});
 
   final Widget label;
   final T? result;
-  final VoidCallback? onPressed;
-  final bool enabled;
-  final bool loading;
-  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) => FocusTraversalOrder(
@@ -439,15 +425,12 @@ class DAlertDialogCancel<T> extends StatelessWidget {
       result: result,
       builder: (context, close) => DButton(
         label: label,
-        semanticLabel: semanticLabel,
-        loading: loading,
+        semanticLabel: null,
+        loading: false,
         variant: DButtonVariant.outline,
-        onPressed: enabled && !loading
-            ? () {
-                onPressed?.call();
-                close();
-              }
-            : null,
+        onPressed: (() {
+          close();
+        }),
       ),
     ),
   );
@@ -461,53 +444,26 @@ class DAlertDialogAction<T> extends StatelessWidget {
     super.key,
     required this.label,
     this.result,
-    this.onPressed,
+
     this.variant = DButtonVariant.primary,
-    this.enabled = true,
-    this.loading = false,
-    this.closeOnPressed = true,
-    this.controller,
-    this.onSubmit,
-    this.onError,
-    this.semanticLabel,
-  }) : assert((controller == null) == (onSubmit == null)),
-       assert(onSubmit == null || !closeOnPressed);
+  });
 
   final Widget label;
   final T? result;
-  final VoidCallback? onPressed;
-  final DButtonVariant variant;
-  final bool enabled;
-  final bool loading;
-  final bool closeOnPressed;
-  final DDialogController<T>? controller;
-  final Future<T> Function()? onSubmit;
-  final void Function(Object error, StackTrace stackTrace)? onError;
-  final String? semanticLabel;
 
-  void _submit() {
-    final future = controller!.submit(onSubmit!);
-    unawaited(
-      future.then<void>((_) {}).catchError((Object error, StackTrace stack) {
-        onError?.call(error, stack);
-      }),
-    );
-  }
+  final DButtonVariant variant;
 
   @override
   Widget build(BuildContext context) {
     Widget buildButton(bool controllerBusy, VoidCallback close) => DButton(
       label: label,
-      semanticLabel: semanticLabel,
+      semanticLabel: null,
       variant: variant,
-      loading: loading || controllerBusy,
+      loading: (controllerBusy),
       invalid: false,
-      onPressed: enabled && !loading && !controllerBusy
+      onPressed: (!controllerBusy)
           ? () {
-              onPressed?.call();
-              if (onSubmit != null) {
-                _submit();
-              } else if (closeOnPressed) {
+              {
                 close();
               }
             }
@@ -519,12 +475,7 @@ class DAlertDialogAction<T> extends StatelessWidget {
       child: DDialogClose<T>(
         result: result,
         builder: (context, close) {
-          final owner = controller;
-          if (owner == null) return buildButton(false, close);
-          return AnimatedBuilder(
-            animation: owner,
-            builder: (context, _) => buildButton(owner.isBusy, close),
-          );
+          return buildButton(false, close);
         },
       ),
     );
@@ -536,20 +487,17 @@ class DAlertDialogAction<T> extends StatelessWidget {
 Future<T?> showDAlertDialog<T>({
   required BuildContext context,
   required DDialogContentBuilder<T> builder,
-  bool useRootNavigator = false,
+
   bool dismissOnEscape = true,
   String? barrierLabel,
-  RouteSettings? routeSettings,
-  FocusNode? initialFocusNode,
-  FocusNode? finalFocusNode,
 }) => showDDialog<T>(
   context: context,
   builder: builder,
-  useRootNavigator: useRootNavigator,
+  useRootNavigator: false,
   dismissOnBarrier: false,
   dismissOnEscape: dismissOnEscape,
   barrierLabel: barrierLabel ?? appL10n.alertDialog,
-  routeSettings: routeSettings,
-  initialFocusNode: initialFocusNode,
-  finalFocusNode: finalFocusNode,
+  routeSettings: null,
+  initialFocusNode: null,
+  finalFocusNode: null,
 );

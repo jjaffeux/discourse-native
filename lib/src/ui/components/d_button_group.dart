@@ -194,37 +194,24 @@ class DButtonGroupExpanded extends StatelessWidget {
 /// horizontal when dividing controls in a vertical group. Two full-length
 /// shades of [color] create a recessed edge matching the adjacent buttons.
 class DButtonGroupSeparator extends StatelessWidget {
-  const DButtonGroupSeparator({
-    super.key,
-    this.orientation = Axis.vertical,
-    this.color,
-    this.decorative = true,
-    this.semanticLabel,
-  });
-
-  final Axis orientation;
+  const DButtonGroupSeparator({super.key, this.color});
 
   /// Adjacent button fill. Defaults to the secondary button color.
   final Color? color;
-  final bool decorative;
-  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final base = color ?? DTokens.of(context).muted;
     return _GroupSeparatorExtent(
-      orientation: orientation,
       child: ColoredBox(
         color: Color.lerp(base, const Color(0xff000000), .25)!,
         child: Padding(
-          padding: orientation == Axis.vertical
-              ? const EdgeInsetsDirectional.only(start: 1)
-              : const EdgeInsets.only(top: 1),
+          padding: (const EdgeInsetsDirectional.only(start: 1)),
           child: DSeparator(
-            orientation: orientation,
+            orientation: Axis.vertical,
             color: Color.lerp(base, const Color(0xffffffff), .15),
-            decorative: decorative,
-            semanticLabel: semanticLabel,
+            decorative: true,
+            semanticLabel: null,
           ),
         ),
       ),
@@ -240,15 +227,13 @@ class DButtonGroupText extends StatelessWidget {
   const DButtonGroupText({
     super.key,
     required this.child,
-    this.semanticLabel,
+
     this.padding = const EdgeInsetsDirectional.symmetric(horizontal: 10),
-    this.alignment = AlignmentDirectional.center,
   });
 
   final Widget child;
-  final String? semanticLabel;
+
   final EdgeInsetsGeometry padding;
-  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -270,8 +255,8 @@ class DButtonGroupText extends StatelessWidget {
       ),
     );
     return Semantics(
-      label: semanticLabel,
-      excludeSemantics: semanticLabel != null,
+      label: null,
+      excludeSemantics: false,
       child: _GroupTextExtent(
         child: DMaterialSurface(
           color: tokens.buttonTheme.outline.background,
@@ -294,7 +279,7 @@ class DButtonGroupText extends StatelessWidget {
             child: Padding(
               padding: padding,
               child: Align(
-                alignment: alignment,
+                alignment: AlignmentDirectional.center,
                 widthFactor: 1,
                 heightFactor: 1,
                 child: text,
@@ -441,22 +426,17 @@ class _RenderButtonGroup extends RenderFlex {
 }
 
 class _GroupSeparatorExtent extends SingleChildRenderObjectWidget {
-  const _GroupSeparatorExtent({
-    required this.orientation,
-    required super.child,
-  });
-
-  final Axis orientation;
+  const _GroupSeparatorExtent({required super.child});
 
   @override
   _RenderGroupSeparatorExtent createRenderObject(BuildContext context) =>
-      _RenderGroupSeparatorExtent(orientation);
+      _RenderGroupSeparatorExtent(Axis.vertical);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderGroupSeparatorExtent renderObject,
-  ) => renderObject.orientation = orientation;
+  ) => renderObject.orientation = Axis.vertical;
 }
 
 class _RenderGroupSeparatorExtent extends RenderProxyBox {

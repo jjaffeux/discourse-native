@@ -53,16 +53,10 @@ final datePickerExamples = ComponentExamples(
     _example(
       'Date of Birth',
       'Month/year caption controls and close-on-select.',
-      '''DDatePicker(
-  label: 'Date of birth',
-  labels: DDatePickerLabels(placeholder: 'Select date'),
-  captionLayout: DCalendarCaptionLayout.dropdown,
-  closeBehavior: DDatePickerCloseBehavior.onSelection,
-  showChevron: false,
-)''',
+      "DDatePicker(\n  label: 'Date of birth',\n  labels: DDatePickerLabels(),\n  captionLayout: DCalendarCaptionLayout.dropdown,\n  closeBehavior: DDatePickerCloseBehavior.onSelection,\n  showChevron: false,\n)",
       (_) => DDatePicker(
         label: 'Date of birth',
-        labels: const DDatePickerLabels(placeholder: 'Select date'),
+        labels: const DDatePickerLabels(),
         width: 176,
         showChevron: false,
         closeBehavior: DDatePickerCloseBehavior.onSelection,
@@ -99,11 +93,7 @@ final datePickerExamples = ComponentExamples(
     _example(
       'Natural Language Picker',
       'Relative input parsed against an explicit deterministic clock.',
-      '''DDatePickerInput.controlled(
-  label: 'Schedule Date',
-  naturalDateParser: DEnglishNaturalDateParser(),
-  referenceDate: DateTime(2026, 9, 9),
-)''',
+      "DDatePickerInput.controlled(\n  label: 'Schedule Date',\n  \n  \n)",
       (_) => const _NaturalExample(),
     ),
     _example(
@@ -147,7 +137,7 @@ class _DateAndTimeExampleState extends State<_DateAndTimeExample> {
         value: date,
         onChanged: (value) => setState(() => date = value),
         label: 'Date',
-        labels: const DDatePickerLabels(placeholder: 'Select date'),
+        labels: const DDatePickerLabels(),
         width: 128,
         closeBehavior: DDatePickerCloseBehavior.onSelection,
       ),
@@ -183,9 +173,7 @@ class _NaturalExampleState extends State<_NaturalExample> {
           controller: controller,
           onChanged: (value) => setState(() => date = value),
           label: 'Schedule Date',
-          placeholder: 'In 2 days',
-          naturalDateParser: const DEnglishNaturalDateParser(),
-          referenceDate: reference,
+
           width: 320,
         ),
         const SizedBox(height: 8),
@@ -223,11 +211,7 @@ class _RtlDatePickerExampleState extends State<_RtlDatePickerExample> {
       'he' => const Locale('he'),
       _ => const Locale('en', 'US'),
     };
-    final placeholder = switch (_language) {
-      'ar' => 'اختر تاريخًا',
-      'he' => 'בחר תאריך',
-      _ => 'Pick a date',
-    };
+
     return Directionality(
       textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
       child: Column(
@@ -257,7 +241,7 @@ class _RtlDatePickerExampleState extends State<_RtlDatePickerExample> {
           const SizedBox(height: 12),
           DDatePicker(
             locale: locale,
-            labels: DDatePickerLabels(placeholder: placeholder),
+            labels: const DDatePickerLabels(),
             initialDisplayedMonth: DCalendarDate(2025, 6, 1),
           ),
         ],

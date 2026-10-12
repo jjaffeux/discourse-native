@@ -8,7 +8,7 @@ import '../foundation/tokens.dart';
 import 'd_label.dart';
 
 /// Compact and standard Linear switch sizes, in logical pixels.
-enum DSwitchSize { standard, small, preference }
+enum DSwitchSize { standard, preference }
 
 /// A switch with native focus, keyboard and accessibility interaction.
 ///
@@ -21,7 +21,7 @@ class DSwitch extends StatefulWidget {
   const DSwitch({
     super.key,
     this.value,
-    this.initialValue = false,
+
     this.onChanged,
     this.enabled = true,
     this.readOnly = false,
@@ -30,7 +30,6 @@ class DSwitch extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.semanticLabel,
-    this.semanticHint,
   }) : _content = null;
 
   const DSwitch._tile({
@@ -43,12 +42,10 @@ class DSwitch extends StatefulWidget {
     required this.focusNode,
     required this.autofocus,
     required this._content,
-  }) : initialValue = false,
-       semanticLabel = null,
-       semanticHint = null;
+  }) : semanticLabel = null;
 
   final bool? value;
-  final bool initialValue;
+
   final ValueChanged<bool>? onChanged;
   final bool enabled;
   final bool readOnly;
@@ -57,7 +54,7 @@ class DSwitch extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final String? semanticLabel;
-  final String? semanticHint;
+
   final Widget Function(BuildContext, Widget, bool, bool)? _content;
 
   @override
@@ -65,7 +62,7 @@ class DSwitch extends StatefulWidget {
 }
 
 class _DSwitchState extends State<DSwitch> {
-  late bool _value = widget.initialValue;
+  late bool _value = false;
   bool _focusVisible = false;
   bool _hovered = false;
   bool _pressed = false;
@@ -114,7 +111,7 @@ class _DSwitchState extends State<DSwitch> {
         enabled: _enabled,
         readOnly: widget.readOnly,
         label: widget.semanticLabel,
-        hint: widget.semanticHint,
+        hint: null,
         validationResult: widget.invalid
             ? SemanticsValidationResult.invalid
             : SemanticsValidationResult.none,
@@ -200,7 +197,7 @@ class _SwitchArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final small = size == DSwitchSize.small;
+
     final preference = size == DSwitchSize.preference;
     final ring = invalid ? tokens.destructive : tokens.focusRing;
     final duration = DMotion.duration(
@@ -210,16 +207,8 @@ class _SwitchArtwork extends StatelessWidget {
     return AnimatedContainer(
       duration: duration,
       curve: const Cubic(0.4, 0, 0.2, 1),
-      width: preference
-          ? 38
-          : small
-          ? 24
-          : 30,
-      height: preference
-          ? 22
-          : small
-          ? 16
-          : 20,
+      width: preference ? 38 : 30,
+      height: preference ? 22 : 20,
       padding: EdgeInsets.all(preference ? 2 : 3),
       decoration: BoxDecoration(
         color: checked
@@ -248,11 +237,7 @@ class _SwitchArtwork extends StatelessWidget {
             ? AlignmentDirectional.centerEnd
             : AlignmentDirectional.centerStart,
         child: SizedBox.square(
-          dimension: preference
-              ? 18
-              : small
-              ? 10
-              : 14,
+          dimension: preference ? 18 : 14,
           child: const DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -284,11 +269,10 @@ class DSwitchTile extends StatelessWidget {
     this.invalid = false,
     this.choiceCard = false,
     this.hoverHighlight = false,
-    this.leading = false,
+
     this.size = DSwitchSize.standard,
     this.contentPadding = EdgeInsets.zero,
     this.focusNode,
-    this.autofocus = false,
   });
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -299,11 +283,10 @@ class DSwitchTile extends StatelessWidget {
   final bool invalid;
   final bool choiceCard;
   final bool hoverHighlight;
-  final bool leading;
+
   final DSwitchSize size;
   final EdgeInsetsGeometry contentPadding;
   final FocusNode? focusNode;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) => DSwitch._tile(
@@ -314,7 +297,7 @@ class DSwitchTile extends StatelessWidget {
     invalid: invalid,
     size: size,
     focusNode: focusNode,
-    autofocus: autofocus,
+    autofocus: false,
     content: (context, artwork, focused, hovered) {
       final tokens = DTokens.of(context);
       final dark = Theme.of(context).brightness == Brightness.dark;
@@ -370,7 +353,6 @@ class DSwitchTile extends StatelessWidget {
               ? CrossAxisAlignment.center
               : CrossAxisAlignment.start,
           children: [
-            if (leading) ...[artwork, const SizedBox(width: 8)],
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -379,22 +361,14 @@ class DSwitchTile extends StatelessWidget {
                   title is DLabel
                       ? DLabel(
                           style: TextStyle(
-                            height: choiceCard
-                                ? 20 / 14
-                                : subtitle == null && leading
-                                ? 1
-                                : 1.375,
+                            height: choiceCard ? 20 / 14 : (1.375),
                             color: invalid ? tokens.destructive : null,
                           ).merge((title as DLabel).style),
                           child: (title as DLabel).child,
                         )
                       : DLabel(
                           style: TextStyle(
-                            height: choiceCard
-                                ? 20 / 14
-                                : subtitle == null && leading
-                                ? 1
-                                : 1.375,
+                            height: choiceCard ? 20 / 14 : (1.375),
                             color: invalid ? tokens.destructive : null,
                           ),
                           child: title,
@@ -413,7 +387,7 @@ class DSwitchTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (!leading) ...[const SizedBox(width: 8), artwork],
+            ...[const SizedBox(width: 8), artwork],
           ],
         ),
       );

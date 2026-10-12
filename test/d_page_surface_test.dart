@@ -10,10 +10,18 @@ const _tabs = ValueKey('page-tabs');
 const _footer = ValueKey('page-footer');
 
 Future<void> _wheel(WidgetTester tester, Finder target, double delta) async {
+  await tester.pump(const Duration(milliseconds: 450));
   await tester.sendEventToBinding(
     PointerScrollEvent(
       position: tester.getCenter(target),
-      scrollDelta: Offset(0, delta),
+      scrollDelta: Offset(0, delta / 2),
+    ),
+  );
+  await tester.pump();
+  await tester.sendEventToBinding(
+    PointerScrollEvent(
+      position: tester.getCenter(target),
+      scrollDelta: Offset(0, delta / 2),
     ),
   );
   await tester.pumpAndSettle();
@@ -76,6 +84,7 @@ void main() {
       expect(rect.bottom, tester.getTopLeft(find.byKey(_footer)).dy);
 
       Future<void> move(double delta) async {
+        await tester.pump(const Duration(milliseconds: 450));
         final rowBefore = tester.getTopLeft(row).dy;
         final offsetBefore = scroll.offset;
         await tester.sendEventToBinding(
@@ -96,9 +105,12 @@ void main() {
         }
       }
 
-      await move(8);
+      await move(160);
+      await tester.pumpAndSettle();
       expect(geometry.visibleExtent, 0);
-      await move(-8);
+      await move(-80);
+      await move(-80);
+      await tester.pumpAndSettle();
       expect(geometry.visibleExtent, 80);
       expect(tester.getTopLeft(row).dy, before);
       expect(bodyBuilds, 1);
@@ -139,42 +151,6 @@ void main() {
     expect(tester.getRect(find.byKey(_viewport)), rect);
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets(
-    'floating header releases space for scrolling rows without changing their anchor',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DPageSurface(
-            framed: false,
-            scrollBody: true,
-            hideHeaderOnScroll: true,
-            header: const SizedBox(
-              key: _header,
-              height: 64,
-              child: Text('Forum'),
-            ),
-            headerControls: const SizedBox(height: 36, child: Text('Filters')),
-            child: Column(
-              children: [
-                for (var i = 0; i < 100; i++)
-                  SizedBox(height: 50, child: Text('Row $i')),
-              ],
-            ),
-          ),
-        ),
-      );
-      final scroll = find.byType(SingleChildScrollView);
-      expect(tester.getTopLeft(find.text('Row 0')).dy, 100);
-      await _wheel(tester, scroll, 200);
-      expect(tester.getTopLeft(find.text('Filters')).dy, 0);
-      expect(tester.getTopLeft(find.text('Row 4')).dy, 100);
-      // Rows are visible in the title's former space below the 36px toolbar.
-      expect(find.text('Row 3').hitTestable(), findsOneWidget);
-      expect(tester.getRect(scroll).top, 0);
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   testWidgets('persistent header controls move while the body stays anchored', (
     tester,

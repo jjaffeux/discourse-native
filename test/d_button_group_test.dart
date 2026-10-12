@@ -104,64 +104,6 @@ void main() {
     }
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final orientation in DButtonGroupOrientation.values) {
-      for (final size in DButtonSize.values) {
-        testWidgets(
-          'separator matches touch artwork: $platform $orientation $size',
-          (tester) async {
-            final horizontal =
-                orientation == DButtonGroupOrientation.horizontal;
-            await _pump(
-              tester,
-              DButtonGroup(
-                orientation: orientation,
-                children: [
-                  DButton.iconOnly(
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Create',
-                    size: size,
-                    onPressed: _noop,
-                  ),
-                  DButtonGroupSeparator(
-                    orientation: horizontal ? Axis.vertical : Axis.horizontal,
-                  ),
-                  DButton.iconOnly(
-                    icon: const Icon(Icons.expand_more),
-                    tooltip: 'Drafts',
-                    size: size,
-                    onPressed: _noop,
-                  ),
-                ],
-              ),
-              platform: platform,
-            );
-            final surface = tester.getRect(
-              find
-                  .byWidgetPredicate(
-                    (widget) =>
-                        widget is AnimatedContainer &&
-                        widget.decoration is DButtonDecoration,
-                  )
-                  .first,
-            );
-            final separator = tester.getRect(
-              find.byType(DButtonGroupSeparator),
-            );
-            if (horizontal) {
-              expect(separator.top, surface.top);
-              expect(separator.bottom, surface.bottom);
-            } else {
-              expect(separator.left, surface.left);
-              expect(separator.right, surface.right);
-            }
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
-    }
-  }
-
   testWidgets('passive label remeasures after decreasing and increasing', (
     tester,
   ) async {
@@ -275,108 +217,6 @@ void main() {
         image.dispose();
       });
     });
-  }
-  for (final axis in Axis.values) {
-    for (final direction in TextDirection.values) {
-      testWidgets('recessed separator paints two edges: $axis $direction', (
-        tester,
-      ) async {
-        const background = Color(0xff080808);
-        const fill = Color(0xff262626);
-        const rule = Color(0xff0785aa);
-        final boundary = GlobalKey();
-        await _pump(
-          tester,
-          Directionality(
-            textDirection: direction,
-            child: RepaintBoundary(
-              key: boundary,
-              child: ColoredBox(
-                color: background,
-                child: DButtonGroup(
-                  orientation: axis == Axis.horizontal
-                      ? DButtonGroupOrientation.horizontal
-                      : DButtonGroupOrientation.vertical,
-                  children: [
-                    const DButton(
-                      label: Text('Copy'),
-                      backgroundColor: fill,
-                      onPressed: _noop,
-                    ),
-                    DButtonGroupSeparator(
-                      orientation: axis == Axis.horizontal
-                          ? Axis.vertical
-                          : Axis.horizontal,
-                      color: rule,
-                    ),
-                    const DButton(
-                      label: Text('Paste'),
-                      backgroundColor: fill,
-                      onPressed: _noop,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        expect(
-          tester.getSize(find.byType(DSeparator)),
-          axis == Axis.horizontal
-              ? Size(1, tester.getSize(find.byType(DButtonGroup)).height)
-              : Size(tester.getSize(find.byType(DButtonGroup)).width, 1),
-        );
-        final origin = tester.getTopLeft(find.byKey(boundary));
-        final seam = tester
-            .getRect(find.byType(DButtonGroupSeparator))
-            .shift(-origin);
-        expect(axis == Axis.horizontal ? seam.width : seam.height, 2);
-        final colors = await tester.runAsync(() async {
-          final box =
-              boundary.currentContext!.findRenderObject()!
-                  as RenderRepaintBoundary;
-          final image = await box.toImage(pixelRatio: 1);
-          final data = (await image.toByteData(
-            format: ImageByteFormat.rawRgba,
-          ))!;
-          final result = <Color>[];
-          for (var index = 0; index < 2; index++) {
-            final x = axis == Axis.horizontal
-                ? seam.left.toInt() + index
-                : seam.center.dx.toInt();
-            final y = axis == Axis.horizontal
-                ? seam.center.dy.toInt()
-                : seam.top.toInt() + index;
-            final offset = (y * image.width + x) * 4;
-            result.add(
-              Color.fromARGB(
-                data.getUint8(offset + 3),
-                data.getUint8(offset),
-                data.getUint8(offset + 1),
-                data.getUint8(offset + 2),
-              ),
-            );
-          }
-          image.dispose();
-          return result;
-        });
-        final expected =
-            axis == Axis.horizontal && direction == TextDirection.rtl
-            ? [
-                Color.lerp(rule, Colors.white, .15)!,
-                Color.lerp(rule, Colors.black, .25)!,
-              ]
-            : [
-                Color.lerp(rule, Colors.black, .25)!,
-                Color.lerp(rule, Colors.white, .15)!,
-              ];
-        expect(
-          colors!.map((color) => color.toARGB32()),
-          expected.map((color) => color.toARGB32()),
-        );
-        expect(tester.takeException(), isNull);
-      });
-    }
   }
 
   testWidgets(
@@ -709,7 +549,6 @@ void main() {
       const DButtonGroup(
         children: [
           DButtonGroupText(
-            semanticLabel: 'Current branch main',
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [Icon(Icons.account_tree), Text('main')],
@@ -736,7 +575,7 @@ void main() {
     expect(tester.getSize(find.byType(DSeparator)).height, buttonHeight);
     expect(
       tester.getSemantics(find.byType(DButtonGroupText)),
-      matchesSemantics(label: 'Current branch main'),
+      matchesSemantics(),
     );
   });
 
@@ -767,25 +606,6 @@ void main() {
     for (final button in find.byType(FilledButton).evaluate()) {
       expect(tester.getSize(find.byWidget(button.widget)).height, 40);
     }
-  });
-
-  testWidgets('vertical separator follows the widest control', (tester) async {
-    await _pump(
-      tester,
-      const DButtonGroup(
-        orientation: DButtonGroupOrientation.vertical,
-        children: [
-          DButton(label: Text('Short'), onPressed: _noop),
-          DButtonGroupSeparator(orientation: Axis.horizontal),
-          DButton(label: Text('A wider action'), onPressed: _noop),
-        ],
-      ),
-    );
-
-    final width = tester.getSize(find.byType(FilledButton).last).width;
-    expect(tester.getSize(find.byType(DButtonGroup)).width, width);
-    expect(tester.getSize(find.byType(DSeparator)).width, width);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

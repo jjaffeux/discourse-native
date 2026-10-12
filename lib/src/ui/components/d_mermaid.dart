@@ -36,22 +36,21 @@ class DMermaid extends StatefulWidget {
     super.key,
     required this.source,
     this.height,
-    this._semanticLabel,
+
     this.showControls = true,
   }) : assert(height == null || (height > 0 && height < double.infinity)),
        _expanded = false;
 
   const DMermaid._fullscreen({required this.source, required this.height})
-    : _semanticLabel = null,
-      showControls = true,
+    : showControls = true,
       _expanded = true;
 
   /// Hide reader actions when embedded beside an editable source pane.
   final bool showControls;
   final String source;
   final double? height;
-  final String? _semanticLabel;
-  String get semanticLabel => _semanticLabel ?? appL10n.mermaidDiagram;
+
+  String get semanticLabel => appL10n.mermaidDiagram;
   final bool _expanded;
 
   @override

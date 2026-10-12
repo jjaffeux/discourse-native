@@ -84,11 +84,8 @@ final hoverCardExamples = ComponentExamples(
           'Top/start placement uses logical alignment and collision correction '
           'inside the preview viewport.',
       states: const ['Top', 'Start alignment', 'Collision'],
-      code: '''const DHoverCardContent(
-  side: DPopoverSide.top,
-  align: DPopoverAlign.start,
-  child: Text('Top/start content'),
-)''',
+      code:
+          "const DHoverCardContent(\n  \n  align: DPopoverAlign.start,\n  child: Text('Top/start content'),\n)",
       builder: (_) => const Padding(
         padding: EdgeInsets.only(top: 84),
         child: _SimpleHoverCard(
@@ -105,10 +102,8 @@ final hoverCardExamples = ComponentExamples(
           'Each outline trigger requests the matching physical side. Cards '
           'flip or shift only when the viewport cannot fit that request.',
       states: const ['Left', 'Top', 'Bottom', 'Right'],
-      code: '''for (final side in const [
-  DPopoverSide.left, DPopoverSide.top,
-  DPopoverSide.bottom, DPopoverSide.right,
-]) DHoverCard(content: DHoverCardContent(side: side, child: ...), trigger: ...)''',
+      code:
+          "for (final side in const [\n  DPopoverSide.left, DPopoverSide.top,\n  DPopoverSide.bottom, DPopoverSide.right,\n]) DHoverCard(content: DHoverCardContent( child: ...), trigger: ...)",
       builder: (_) => const Padding(
         padding: EdgeInsets.symmetric(vertical: 84),
         child: Wrap(
@@ -136,13 +131,8 @@ final hoverCardExamples = ComponentExamples(
         'Inline start',
         'Inline end',
       ],
-      code: '''Directionality(
-  textDirection: TextDirection.rtl,
-  child: DHoverCard(
-    content: DHoverCardContent(side: DPopoverSide.inlineStart, child: ...),
-    trigger: DHoverCardTrigger(builder: buildArabicButton),
-  ),
-)''',
+      code:
+          "Directionality(\n  textDirection: TextDirection.rtl,\n  child: DHoverCard(\n    content: DHoverCardContent( child: ...),\n    trigger: DHoverCardTrigger(builder: buildArabicButton),\n  ),\n)",
       builder: (_) => const Directionality(
         textDirection: TextDirection.rtl,
         child: Padding(
@@ -326,7 +316,7 @@ class _SimpleHoverCard extends StatelessWidget {
         onPressed: () {},
       ),
     ),
-    content: DHoverCardContent(side: side, align: align, child: Text(body)),
+    content: DHoverCardContent(align: align, child: Text(body)),
   );
 }
 
@@ -349,7 +339,6 @@ class _SideHoverCard extends StatelessWidget {
       ),
     ),
     content: DHoverCardContent(
-      side: side,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,7 +374,6 @@ class _RtlHoverCard extends StatelessWidget {
       ),
     ),
     content: DHoverCardContent(
-      side: side,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,6 +473,7 @@ class _ControlledHoverCards extends StatefulWidget {
 class _ControlledHoverCardsState extends State<_ControlledHoverCards> {
   final DHoverCardController _controller = DHoverCardController();
   bool _open = false;
+  bool _secondOpen = false;
   DHoverCardChangeReason? _reason;
 
   @override
@@ -519,6 +508,8 @@ class _ControlledHoverCardsState extends State<_ControlledHoverCards> {
       Text(_reason == null ? 'No change yet' : 'Reason: ${_reason!.name}'),
       DHoverCard(
         controller: _controller,
+        open: _secondOpen,
+        onOpenChange: (open, _) => setState(() => _secondOpen = open),
         trigger: DHoverCardTrigger(
           builder: (context, state) => DButton(
             label: const Text('Controller target'),
@@ -532,7 +523,7 @@ class _ControlledHoverCardsState extends State<_ControlledHoverCards> {
       DButton(
         label: const Text('Open preview'),
         variant: DButtonVariant.secondary,
-        onPressed: _controller.open,
+        onPressed: () => setState(() => _secondOpen = true),
       ),
     ],
   );

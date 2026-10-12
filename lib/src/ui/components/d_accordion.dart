@@ -12,65 +12,53 @@ import 'd_collapsible.dart';
 /// an internal controller.
 class DAccordionController<T> extends ChangeNotifier {
   DAccordionController({
-    this.multiple = false,
     Iterable<T> initialValues = const [],
-  }) : _values = _normalize(initialValues, multiple);
+  }) : _values = _normalize(initialValues);
 
-  final bool multiple;
   Set<T> _values;
 
   Set<T> get values => UnmodifiableSetView(_values);
-  bool isOpen(T value) => _values.contains(value);
 
-  void replace(Iterable<T> values) {
-    final next = _normalize(values, multiple);
+  void _replace(Iterable<T> values) {
+    final next = _normalize(values);
     if (setEquals(_values, next)) return;
     _values = next;
     notifyListeners();
   }
 
-  void open(T value) => replace(multiple ? {..._values, value} : {value});
-  void close(T value) => replace(_values.where((item) => item != value));
-  void toggle(T value) => isOpen(value) ? close(value) : open(value);
+  void open(T value) => _replace({value});
 
-  static Set<T> _normalize<T>(Iterable<T> values, bool multiple) {
+  static Set<T> _normalize<T>(Iterable<T> values) {
     final result = LinkedHashSet<T>.of(values);
-    if (!multiple && result.length > 1) return {result.first};
+    if (result.length > 1) return {result.first};
     return result;
   }
 }
 
 /// A vertically stacked group of disclosure items.
 ///
-/// [values] selects controlled mode: activation reports through
-/// [onValuesChange] and the caller must rebuild with the accepted values.
-/// [controller] selects borrowed-controller mode. With neither, the root owns
-/// local state initialized by [defaultValues]. Values must be stable and unique.
+/// Borrow a [controller] to read or open the current panel. Without one, the
+/// root owns local state initialized by [defaultValues]. Item values must be
+/// stable and unique; one panel opens at a time.
 class DAccordion<T> extends StatefulWidget {
   const DAccordion({
     super.key,
     required this.children,
-    this.values,
+
     this.defaultValues = const [],
-    this.onValuesChange,
+
     this.controller,
-    this.multiple = false,
-    this.disabled = false,
+
     this.keepMounted = false,
-    this.outlined = false,
-  }) : assert(values == null || controller == null);
+  });
 
   final List<Widget> children;
-  final Set<T>? values;
-  final Iterable<T> defaultValues;
-  final ValueChanged<Set<T>>? onValuesChange;
-  final DAccordionController<T>? controller;
-  final bool multiple;
-  final bool disabled;
-  final bool keepMounted;
 
-  /// Reference Borders composition: a rounded outer border and 16px item inset.
-  final bool outlined;
+  final Iterable<T> defaultValues;
+
+  final DAccordionController<T>? controller;
+
+  final bool keepMounted;
 
   @override
   State<DAccordion<T>> createState() => _DAccordionState<T>();
@@ -83,59 +71,31 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
 
   DAccordionController<T> get _activeController =>
       widget.controller ?? _ownedController;
-  bool get _controlled => widget.values != null;
-  Set<T> get values => _controlled
-      ? DAccordionController._normalize(widget.values!, widget.multiple)
-      : _activeController.values;
+
+  Set<T> get values => _activeController.values;
 
   @override
   void initState() {
     super.initState();
-    assert(
-      widget.controller == null ||
-          widget.controller!.multiple == widget.multiple,
-      'The controller and DAccordion must use the same multiple value.',
-    );
     _ownedController = DAccordionController<T>(
-      multiple: widget.multiple,
       initialValues: widget.defaultValues,
     );
-    if (!_controlled) _activeController.addListener(_controllerChanged);
+    _activeController.addListener(_controllerChanged);
   }
 
   @override
   void didUpdateWidget(DAccordion<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    assert(
-      widget.controller == null ||
-          widget.controller!.multiple == widget.multiple,
-      'DAccordion and its controller must use the same multiple value.',
-    );
-    final wasControlled = oldWidget.values != null;
-    final oldActive = oldWidget.controller ?? _ownedController;
-    final oldValues = Set<T>.of(
-      oldWidget.values == null
-          ? oldActive.values
-          : DAccordionController._normalize(
-              oldWidget.values!,
-              oldWidget.multiple,
-            ),
-    );
-    if (!wasControlled) oldActive.removeListener(_controllerChanged);
 
-    final becomingLocal = widget.values == null && widget.controller == null;
-    if (_ownedController.multiple != widget.multiple) {
-      final oldOwned = _ownedController;
-      _ownedController = DAccordionController<T>(
-        multiple: widget.multiple,
-        initialValues: becomingLocal ? oldValues : oldOwned.values,
-      );
-      oldOwned.dispose();
-    } else if (becomingLocal &&
-        (oldWidget.values != null || oldWidget.controller != null)) {
-      _ownedController.replace(oldValues);
+    final oldActive = oldWidget.controller ?? _ownedController;
+    final oldValues = Set<T>.of(oldActive.values);
+    oldActive.removeListener(_controllerChanged);
+
+    final becomingLocal = (widget.controller == null);
+    if (becomingLocal && oldWidget.controller != null) {
+      _ownedController._replace(oldValues);
     }
-    if (!_controlled) _activeController.addListener(_controllerChanged);
+    _activeController.addListener(_controllerChanged);
   }
 
   void _controllerChanged() {
@@ -145,15 +105,12 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
   void _change(T value, bool open) {
     var next = LinkedHashSet<T>.of(values);
     if (open) {
-      next = widget.multiple ? (next..add(value)) : LinkedHashSet.of([value]);
+      next = (LinkedHashSet.of([value]));
     } else {
       next.remove(value);
     }
-    if (_controlled) {
-      widget.onValuesChange?.call(UnmodifiableSetView(next));
-    } else {
-      _activeController.replace(next);
-      widget.onValuesChange?.call(_activeController.values);
+    {
+      _activeController._replace(next);
     }
   }
 
@@ -176,12 +133,12 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
     } else {
       _registrations[value] = count - 1;
     }
-    if (_controlled || _pruneScheduled) return;
+    if ((_pruneScheduled)) return;
     _pruneScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _pruneScheduled = false;
-      if (!mounted || _controlled) return;
-      _activeController.replace(
+      if ((!mounted)) return;
+      _activeController._replace(
         _activeController.values.where(_registrations.containsKey),
       );
     });
@@ -189,7 +146,7 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
 
   @override
   void dispose() {
-    if (!_controlled) _activeController.removeListener(_controllerChanged);
+    _activeController.removeListener(_controllerChanged);
     _ownedController.dispose();
     super.dispose();
   }
@@ -200,7 +157,7 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
       _debugItemsHaveUniqueValues(),
       'Every direct DAccordionItem must have a unique value.',
     );
-    final tokens = DTokens.of(context);
+
     Widget result = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -215,22 +172,13 @@ class _DAccordionState<T> extends State<DAccordion<T>> {
           ),
       ],
     );
-    if (widget.outlined) {
-      result = DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(tokens.radius),
-        ),
-        child: result,
-      );
-    }
+
     return _DAccordionVisualScope(
       keepMounted: widget.keepMounted,
       child: _DAccordionScope<T>(
         owner: this,
         values: Set<T>.unmodifiable(values),
-        disabled: widget.disabled,
-        outlined: widget.outlined,
+
         child: result,
       ),
     );
@@ -241,14 +189,11 @@ class _DAccordionScope<T> extends InheritedWidget {
   const _DAccordionScope({
     required this.owner,
     required this.values,
-    required this.disabled,
-    required this.outlined,
+
     required super.child,
   });
   final _DAccordionState<T> owner;
   final Set<T> values;
-  final bool disabled;
-  final bool outlined;
 
   static _DAccordionScope<T> of<T>(BuildContext context) {
     final scope = context
@@ -259,9 +204,7 @@ class _DAccordionScope<T> extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DAccordionScope<T> oldWidget) =>
-      !setEquals(values, oldWidget.values) ||
-      disabled != oldWidget.disabled ||
-      outlined != oldWidget.outlined;
+      ((!setEquals(values, oldWidget.values)));
 }
 
 class _DAccordionVisualScope extends InheritedWidget {
@@ -295,22 +238,10 @@ class _DAccordionPosition extends InheritedWidget {
 /// Groups one heading and its panel. [value] is the stable identity used by the
 /// root. [onOpenChange] observes user requests after root/item disabled checks.
 class DAccordionItem<T> extends StatefulWidget {
-  const DAccordionItem({
-    super.key,
-    required this.value,
-    required this.child,
-    this.disabled = false,
-    this.onOpenChange,
-    this.border,
-  });
+  const DAccordionItem({super.key, required this.value, required this.child});
 
   final T value;
   final Widget child;
-  final bool disabled;
-  final ValueChanged<bool>? onOpenChange;
-
-  /// Null applies the base-nova bottom border except to the final item.
-  final bool? border;
 
   @override
   State<DAccordionItem<T>> createState() => _DAccordionItemState<T>();
@@ -348,14 +279,14 @@ class _DAccordionItemState<T> extends State<DAccordionItem<T>> {
   @override
   Widget build(BuildContext context) {
     final scope = _DAccordionScope.of<T>(context);
-    final disabled = scope.disabled || widget.disabled;
+    const disabled = false;
     final open = scope.values.contains(widget.value);
-    final showBorder = widget.border ?? !_DAccordionPosition.isLastOf(context);
+    final showBorder = (!_DAccordionPosition.isLastOf(context));
     return _DAccordionItemScope<T>(
       value: widget.value,
       disabled: disabled,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: scope.outlined ? 16 : 0),
+        padding: const EdgeInsets.symmetric(horizontal: 0),
         decoration: showBorder
             ? BoxDecoration(
                 border: Border(
@@ -368,7 +299,6 @@ class _DAccordionItemState<T> extends State<DAccordionItem<T>> {
           disabled: disabled,
           onOpenChange: (next) {
             scope.owner._change(widget.value, next);
-            widget.onOpenChange?.call(next);
           },
           child: widget.child,
         ),
@@ -406,25 +336,16 @@ class DAccordionHeader extends StatelessWidget {
 
 /// Styled base-nova heading button with a bounded expanded-state semantic node.
 class DAccordionTrigger extends StatelessWidget {
-  const DAccordionTrigger({
-    super.key,
-    required this.child,
-    this.focusNode,
-    this.semanticLabel,
-    this.showChevron = true,
-  });
+  const DAccordionTrigger({super.key, required this.child});
 
   final Widget child;
-  final FocusNode? focusNode;
-  final String? semanticLabel;
-  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     return DCollapsibleTrigger(
-      focusNode: focusNode,
-      semanticLabel: semanticLabel,
+      focusNode: null,
+      semanticLabel: null,
       focusBorderRadius: BorderRadius.circular(tokens.radius),
       focusBorder: true,
       focusRingWidth: 3,
@@ -453,7 +374,7 @@ class DAccordionTrigger extends StatelessWidget {
                     child: child,
                   ),
                 ),
-                if (showChevron) ...[
+                ...[
                   const SizedBox(width: 16),
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -513,18 +434,9 @@ class _ChevronPainter extends CustomPainter {
 /// Animated panel. Closed content is lazy by default; [keepMounted] retains
 /// state while excluding it from focus, semantics, hit testing and tickers.
 class DAccordionContent extends StatelessWidget {
-  const DAccordionContent({
-    super.key,
-    required this.child,
-    this.keepMounted,
-    this.duration = const Duration(milliseconds: 200),
-    this.curve = Curves.easeInOut,
-  });
+  const DAccordionContent({super.key, required this.child});
 
   final Widget child;
-  final bool? keepMounted;
-  final Duration duration;
-  final Curve curve;
 
   @override
   Widget build(BuildContext context) {
@@ -535,9 +447,9 @@ class DAccordionContent extends StatelessWidget {
       container: true,
       explicitChildNodes: true,
       child: DCollapsibleContent(
-        keepMounted: keepMounted ?? inheritedKeepMounted ?? false,
-        duration: duration,
-        curve: curve,
+        keepMounted: (inheritedKeepMounted) ?? false,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: DefaultTextStyle.merge(

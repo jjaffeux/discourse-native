@@ -32,7 +32,6 @@ Widget _fixture({
           child: DSidebar(
             collapsible: DSidebarCollapsible.none,
             child: DSidebarContent.slivers(
-              controller: scroll,
               slivers: [
                 DSidebarReorderableMenu.sliverBuilder(
                   itemCount: values.length,
@@ -75,7 +74,6 @@ Widget _transferFixture({
             collapsible: DSidebarCollapsible.none,
             child: DSidebarReorderScope(
               child: DSidebarContent.slivers(
-                controller: scroll,
                 slivers: [
                   DSidebarReorderableMenu.sliverBuilder(
                     sectionId: 'source',
@@ -136,7 +134,7 @@ void main() {
         for (var frame = 0; frame < 20; frame++) {
           await tester.pump(const Duration(milliseconds: 50));
         }
-        expect(scroll.offset, greaterThan(0));
+        expect(_sidebarPosition(tester).pixels, greaterThan(0));
         final targets = find.byType(DSidebarDropTarget).evaluate().where((
           element,
         ) {
@@ -261,7 +259,7 @@ void main() {
       expect(taps, 1);
       await tester.drag(find.text('Link 2'), const Offset(0, -100));
       await tester.pumpAndSettle();
-      expect(scroll.offset, greaterThan(0));
+      expect(_sidebarPosition(tester).pixels, greaterThan(0));
       expect(calls, isEmpty);
       expect(taps, 1);
       expect(tester.takeException(), isNull);
@@ -294,7 +292,7 @@ void main() {
         for (var frame = 0; frame < 20; frame++) {
           await tester.pump(const Duration(milliseconds: 50));
         }
-        expect(scroll.offset, greaterThan(0));
+        expect(_sidebarPosition(tester).pixels, greaterThan(0));
         await gesture.up();
         await tester.pumpAndSettle();
         expect(calls.single.$1, 0);
@@ -304,3 +302,14 @@ void main() {
     );
   }
 }
+
+ScrollPosition _sidebarPosition(WidgetTester tester) => tester
+    .state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(DSidebarContent),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    )
+    .position;

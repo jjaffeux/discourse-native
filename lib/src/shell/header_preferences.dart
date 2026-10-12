@@ -103,18 +103,12 @@ class _HeaderPreferencesHostState extends State<HeaderPreferencesHost> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    if (controller == null) {
-      return DHeaderMotionSettings(
-        tuning: const DHeaderTuning(),
-        child: widget.child,
-      );
-    }
     return ListenableBuilder(
-      listenable: controller,
+      listenable: controller ?? Listenable.merge(const []),
       builder: (context, _) => _HeaderPreferencesScope(
         controller: controller,
         child: DHeaderMotionSettings(
-          tuning: controller.tuning,
+          tuning: controller?.tuning ?? const DHeaderTuning(),
           child: widget.child,
         ),
       ),
@@ -133,7 +127,7 @@ class _HeaderPreferencesScope extends InheritedWidget {
     required this.controller,
     required super.child,
   });
-  final HeaderPreferencesController controller;
+  final HeaderPreferencesController? controller;
   @override
   bool updateShouldNotify(_HeaderPreferencesScope oldWidget) =>
       controller != oldWidget.controller;

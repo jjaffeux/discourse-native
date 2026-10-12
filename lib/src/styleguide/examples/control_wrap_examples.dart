@@ -150,7 +150,7 @@ class _AlignedRowsExampleState extends State<_AlignedRowsExample> {
         ),
         DControlWrap(
           wrap: false,
-          alignment: WrapAlignment.end,
+
           children: [
             DButton(
               size: DControlSize.chip,

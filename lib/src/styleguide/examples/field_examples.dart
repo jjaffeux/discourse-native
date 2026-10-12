@@ -150,10 +150,10 @@ class _EditorState extends State<_Editor> {
           DTextarea(
             focusNode: _focus,
             labelText: widget.label,
-            helperText: widget.description,
+
             maxLines: widget.lines,
             hintText: widget.placeholder,
-            isRequired: widget.required,
+
             validator: widget.required
                 ? (value) =>
                       value == null || value.trim().isEmpty ? 'Required' : null
@@ -230,7 +230,7 @@ class _ChoiceState extends State<_Choice> {
                   : null,
               title: DFieldLabel(
                 excludeSemantics: true,
-                style: const TextStyle(fontWeight: FontWeight.w400),
+
                 child: Text(widget.label),
               ),
               subtitle: widget.description == null
@@ -252,10 +252,7 @@ class _ChoiceState extends State<_Choice> {
           value: _value,
           enabled: widget.enabled,
           onChanged: widget.enabled ? _change : null,
-          title: DFieldLabel(
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(widget.label),
-          ),
+          title: DFieldLabel(child: Text(widget.label)),
           subtitle: widget.description == null
               ? null
               : DFieldDescription(child: Text(widget.description!)),
@@ -568,10 +565,7 @@ class FieldCheckboxExample extends StatelessWidget {
     children: [
       DFieldSet(
         children: [
-          DFieldLegend(
-            variant: DFieldLegendVariant.label,
-            child: Text('Show these items on the desktop'),
-          ),
+          DFieldLegend(child: Text('Show these items on the desktop')),
           DFieldDescription(
             child: Text('Select the items you want to show on the desktop.'),
           ),
@@ -606,27 +600,12 @@ class FieldChoiceExample extends StatefulWidget {
 class _FieldChoiceExampleState extends State<FieldChoiceExample> {
   String _plan = 'Monthly (\$9.99/month)';
   String _compute = 'Kubernetes';
-  final _focusNodes = <String, FocusNode>{};
-  FocusNode _focus(String value) =>
-      _focusNodes.putIfAbsent(value, FocusNode.new);
-  @override
-  void dispose() {
-    for (final node in _focusNodes.values) {
-      node.dispose();
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) => DFieldGroup(
     children: [
       DFieldSet(
-        spacing: 12,
         children: [
-          const DFieldLegend(
-            variant: DFieldLegendVariant.label,
-            child: Text('Subscription Plan'),
-          ),
+          const DFieldLegend(child: Text('Subscription Plan')),
           const DFieldDescription(
             child: Text('Yearly and lifetime plans offer significant savings.'),
           ),
@@ -641,27 +620,9 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
                   'Yearly (\$99.99/year)',
                   'Lifetime (\$299.99)',
                 ])
-                  DField(
-                    orientation: DFieldOrientation.horizontal,
-                    children: [
-                      DFieldControl(
-                        label: plan,
-                        expand: false,
-                        alignIndicatorToContent: true,
-                        child: DRadioGroupItem<String>(
-                          value: plan,
-                          focusNode: _focus(plan),
-                          semanticLabel: '',
-                        ),
-                      ),
-                      DFieldLabel(
-                        excludeSemantics: true,
-                        onPressed: () => setState(() => _plan = plan),
-                        focusNode: _focus(plan),
-                        style: const TextStyle(fontWeight: FontWeight.w400),
-                        child: Text(plan),
-                      ),
-                    ],
+                  DRadioGroupItem<String>(
+                    value: plan,
+                    label: DFieldLabel(child: Text(plan)),
                   ),
               ],
             ),
@@ -669,12 +630,8 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
         ],
       ),
       DFieldSet(
-        spacing: 12,
         children: [
-          const DFieldLegend(
-            variant: DFieldLegendVariant.label,
-            child: Text('Compute Environment'),
-          ),
+          const DFieldLegend(child: Text('Compute Environment')),
           const DFieldDescription(
             child: Text('Select the compute environment for your cluster.'),
           ),
@@ -689,41 +646,17 @@ class _FieldChoiceExampleState extends State<FieldChoiceExample> {
                   'Virtual Machine',
                   'Unavailable environment',
                 ])
-                  DFieldLabel.choice(
-                    selected: _compute == name,
+                  DRadioGroupItem<String>(
+                    value: name,
                     enabled: name != 'Unavailable environment',
-                    onPressed: () => setState(() => _compute = name),
-                    focusNode: _focus(name),
-                    child: DField(
-                      orientation: DFieldOrientation.horizontal,
-                      children: [
-                        DFieldContent(
-                          children: [
-                            DFieldTitle(
-                              excludeSemantics: true,
-                              child: Text(name),
-                            ),
-                            DFieldDescription(
-                              child: Text(
-                                name == 'Kubernetes'
-                                    ? 'Run GPU workloads on a K8s cluster.'
-                                    : 'Access a cluster to run GPU workloads.',
-                              ),
-                            ),
-                          ],
-                        ),
-                        DFieldControl(
-                          label: name,
-                          expand: false,
-                          alignIndicatorToContent: true,
-                          child: DRadioGroupItem<String>(
-                            semanticLabel: '',
-                            value: name,
-                            focusNode: _focus(name),
-                            enabled: name != 'Unavailable environment',
-                          ),
-                        ),
-                      ],
+                    card: true,
+                    label: DFieldTitle(child: Text(name)),
+                    description: DFieldDescription(
+                      child: Text(
+                        name == 'Kubernetes'
+                            ? 'Run GPU workloads on a K8s cluster.'
+                            : 'Access a cluster to run GPU workloads.',
+                      ),
                     ),
                   ),
               ],
@@ -749,10 +682,7 @@ class _FieldNotificationsExampleState extends State<FieldNotificationsExample> {
     children: [
       const DFieldSet(
         children: [
-          DFieldLegend(
-            variant: DFieldLegendVariant.label,
-            child: Text('Responses'),
-          ),
+          DFieldLegend(child: Text('Responses')),
           DFieldDescription(
             child: Text(
               'Get notified when ChatGPT responds to requests that take time, like research or image generation.',
@@ -761,13 +691,10 @@ class _FieldNotificationsExampleState extends State<FieldNotificationsExample> {
           _Choice('Push notifications', initial: true, enabled: false),
         ],
       ),
-      const DFieldSeparator(child: Text('Notification preferences')),
+      const DFieldSeparator(),
       DFieldSet(
         children: [
-          const DFieldLegend(
-            variant: DFieldLegendVariant.label,
-            child: Text('Tasks'),
-          ),
+          const DFieldLegend(child: Text('Tasks')),
           const DFieldDescription(
             child: Text("Get notified when tasks you've created have updates."),
           ),

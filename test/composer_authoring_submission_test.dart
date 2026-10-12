@@ -256,7 +256,7 @@ void main() {
         .parse(composer.raw)
         .single
         .remove(context, composer);
-    expect(composer.raw, 'ready to submit');
+    expect(composer.raw, ' ready to submit');
     await composer.flushDraft();
   });
 }

@@ -58,7 +58,7 @@ class _LinearControlsExampleState extends State<LinearControlsExample> {
           DButton(
             icon: const DIcon(DIcons.chevronLeft),
             label: const Text('Back to app'),
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: () => setState(() => _result = 'Back action activated'),
           ),
         ],

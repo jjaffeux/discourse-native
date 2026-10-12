@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
 
 /// The application reference's control families at their natural artwork size.
 class MockupControlSizesExample extends StatefulWidget {
@@ -42,13 +41,10 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
               ],
             ),
             child: DDropdownMenuTrigger.button(
-              size: DControlSize.filter,
               label: Text(
                 _filter,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              icon: const DIcon(DNativeIcons.filterChevron, size: 10),
-              iconPosition: DButtonIconPosition.end,
             ),
           ),
           DSelect<String>(
@@ -102,7 +98,7 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
         children: [
           DButton.iconOnly(
             size: DControlSize.toolbar,
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             icon: const DIcon(DIcons.bold),
             tooltip: 'Bold',
             onPressed: () => setState(() => _result = 'Bold activated'),
@@ -110,7 +106,7 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
           const DToggleGroup<String>(
             size: DControlSize.segment,
             inset: true,
-            initialValues: ['list'],
+
             items: [
               DToggleGroupItem.iconOnly(
                 value: 'list',
@@ -140,7 +136,7 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
           const DToggle(
             size: DControlSize.post,
             variant: DToggleVariant.outline,
-            initialPressed: true,
+
             semanticLabel: '3 likes',
             icon: DIcon(DIcons.heart),
             child: Text('3'),

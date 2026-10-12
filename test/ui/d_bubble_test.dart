@@ -125,93 +125,6 @@ void main() {
     },
   );
 
-  testWidgets('custom directional corners follow text direction', (
-    tester,
-  ) async {
-    const corners = BorderRadiusDirectional.only(
-      topStart: Radius.zero,
-      topEnd: Radius.circular(12),
-      bottomStart: Radius.circular(12),
-      bottomEnd: Radius.zero,
-    );
-    for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
-      await tester.pumpWidget(
-        host(
-          const DBubble(
-            children: [
-              DBubbleContent(borderRadius: corners, child: Text('Message')),
-            ],
-          ),
-          direction: direction,
-        ),
-      );
-      final surface = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byType(DBubbleContent),
-          matching: find.byType(AnimatedContainer),
-        ),
-      );
-      expect(
-        (surface.decoration! as BoxDecoration).borderRadius,
-        corners.resolve(direction),
-      );
-    }
-  });
-
-  testWidgets('matches content geometry, width, alignment and group spacing', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DBubble(
-              children: [
-                DBubbleContent(
-                  key: ValueKey('start'),
-                  child: Text('A long bubble that uses the width available'),
-                ),
-              ],
-            ),
-            DBubbleGroup(
-              children: [
-                DBubble(
-                  align: DBubbleAlign.end,
-                  children: [
-                    DBubbleContent(
-                      key: ValueKey('first'),
-                      child: Text('First'),
-                    ),
-                  ],
-                ),
-                DBubble(
-                  align: DBubbleAlign.end,
-                  children: [
-                    DBubbleContent(
-                      key: ValueKey('second'),
-                      child: Text('Second'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-
-    final start = tester.getRect(find.byKey(const ValueKey('start')));
-    final first = tester.getRect(find.byKey(const ValueKey('first')));
-    final second = tester.getRect(find.byKey(const ValueKey('second')));
-    expect(start.width, lessThanOrEqualTo(320));
-    expect(start.left, 0);
-    expect(first.right, 400);
-    expect(second.right, 400);
-    expect(second.top - first.bottom, 8);
-    expect(start.height, greaterThanOrEqualTo(39));
-  });
-
   testWidgets('all variants render and ghost can use the full row', (
     tester,
   ) async {
@@ -299,100 +212,6 @@ void main() {
       ),
     );
   });
-
-  testWidgets('secondary remains distinct from muted in the live palette', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const Column(
-          children: [
-            DBubble(
-              variant: DBubbleVariant.secondary,
-              children: [
-                DBubbleContent(
-                  key: ValueKey('secondary-surface'),
-                  child: Text('Secondary'),
-                ),
-              ],
-            ),
-            DBubble(
-              variant: DBubbleVariant.muted,
-              children: [
-                DBubbleContent(
-                  key: ValueKey('muted-surface'),
-                  child: Text('Muted'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-
-    Color surfaceColor(String key) {
-      final surface = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byKey(ValueKey(key)),
-          matching: find.byType(AnimatedContainer),
-        ),
-      );
-      return (surface.decoration! as BoxDecoration).color!;
-    }
-
-    const muted = Color(0xffeeeeee);
-    final foreground = DTokens.of(
-      tester.element(find.byKey(const ValueKey('secondary-surface'))),
-    ).foreground;
-    expect(surfaceColor('muted-surface'), muted);
-    expect(
-      surfaceColor('secondary-surface'),
-      Color.lerp(muted, foreground, .01),
-    );
-    expect(
-      surfaceColor('secondary-surface'),
-      isNot(surfaceColor('muted-surface')),
-    );
-  });
-
-  testWidgets(
-    'borrowed focus survives disposal and reduced motion is immediate',
-    (tester) async {
-      final focusNode = FocusNode(debugLabel: 'Borrowed Bubble focus');
-      await tester.pumpWidget(
-        host(
-          DBubble(
-            children: [
-              DBubbleContent(
-                key: const ValueKey('borrowed-action'),
-                action: DBubbleContentAction.button,
-                focusNode: focusNode,
-                onPressed: _noop,
-                child: const Text('Borrowed focus'),
-              ),
-            ],
-          ),
-          disableAnimations: true,
-        ),
-      );
-
-      final surface = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byKey(const ValueKey('borrowed-action')),
-          matching: find.byType(AnimatedContainer),
-        ),
-      );
-      expect(surface.duration, Duration.zero);
-      await tester.tap(find.byKey(const ValueKey('borrowed-action')));
-      expect(focusNode.hasFocus, isTrue);
-
-      await tester.pumpWidget(host(const SizedBox.shrink()));
-      void listener() {}
-      expect(() => focusNode.addListener(listener), returnsNormally);
-      focusNode.removeListener(listener);
-      focusNode.dispose();
-    },
-  );
 
   testWidgets(
     'reaction positions are logical and grouped semantics are clear',
@@ -493,7 +312,7 @@ void main() {
         await tester.pumpWidget(
           host(
             DBubble(
-              variant: DBubbleVariant.accent,
+              variant: DBubbleVariant.primary,
               children: [
                 DBubbleContent(
                   key: const ValueKey('surface'),
@@ -555,96 +374,6 @@ void main() {
     },
   );
 
-  testWidgets('link uses Enter while disabled and busy state stay truthful', (
-    tester,
-  ) async {
-    var presses = 0;
-    await tester.pumpWidget(
-      host(
-        Column(
-          children: [
-            DBubble(
-              children: [
-                DBubbleContent(
-                  key: const ValueKey('link'),
-                  action: DBubbleContentAction.link,
-                  onPressed: () => presses++,
-                  selected: true,
-                  semanticLabel: 'Open help center',
-                  child: const Text('Help center'),
-                ),
-              ],
-            ),
-            const DBubble(
-              children: [
-                DBubbleContent(
-                  key: ValueKey('busy'),
-                  action: DBubbleContentAction.button,
-                  onPressed: _noop,
-                  busy: true,
-                  busyLabel: 'Sending reply',
-                  semanticLabel: 'Send reply',
-                  child: Text('Send'),
-                ),
-              ],
-            ),
-            const DBubble(
-              variant: DBubbleVariant.destructive,
-              children: [
-                DBubbleContent(
-                  key: ValueKey('error'),
-                  action: DBubbleContentAction.button,
-                  disabled: true,
-                  invalid: true,
-                  errorLabel: 'Network unavailable',
-                  semanticLabel: 'Retry failed message',
-                  child: Text('Message failed. Retry unavailable.'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-
-    await tester.tap(find.byKey(const ValueKey('link')));
-    expect(presses, 1);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    expect(presses, 1);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(presses, 2);
-    expect(find.byType(DSpinner), findsOneWidget);
-    expect(find.byIcon(Icons.error_outline), findsOneWidget);
-    expect(
-      tester.getSemantics(find.byKey(const ValueKey('busy'))),
-      matchesSemantics(
-        hasEnabledState: true,
-        isButton: true,
-        hasSelectedState: true,
-        isFocusable: true,
-        isLiveRegion: true,
-        hasFocusAction: true,
-        label: 'Send reply',
-        value: 'Sending reply',
-        textDirection: TextDirection.ltr,
-      ),
-    );
-    expect(
-      tester.getSemantics(find.byKey(const ValueKey('error'))),
-      matchesSemantics(
-        hasEnabledState: true,
-        isButton: true,
-        hasSelectedState: true,
-        isFocusable: true,
-        isLiveRegion: true,
-        hasFocusAction: true,
-        label: 'Retry failed message',
-        value: 'Network unavailable',
-        textDirection: TextDirection.ltr,
-      ),
-    );
-  });
-
   testWidgets('touch target, large text and narrow RTL layouts do not overflow', (
     tester,
   ) async {
@@ -652,7 +381,6 @@ void main() {
       host(
         const SingleChildScrollView(
           child: DBubble(
-            align: DBubbleAlign.end,
             children: [
               DBubbleContent(
                 key: ValueKey('touch-action'),

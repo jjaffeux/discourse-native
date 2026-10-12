@@ -40,9 +40,7 @@ class TopicProgressButton extends StatelessWidget {
         (boundedPosition).toString(),
         (boundedTotal).toString(),
       ),
-      variant: floating
-          ? DButtonVariant.outline
-          : DButtonVariant.transparentBackground,
+      variant: floating ? DButtonVariant.outline : DButtonVariant.ghost,
       backgroundColor: floating ? null : Colors.transparent,
       interactiveBackgroundColor: floating ? null : Colors.transparent,
       shape: floating ? DButtonShape.pill : DButtonShape.rounded,
@@ -241,7 +239,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
             text: context.l10n.postTopicprogress((_selected).toString()),
             children: [
               TextSpan(
-                text: context.l10n.messageOf((widget.total).toString()),
+                text: context.l10n.messageOf(widget.total.toString()),
                 style: TextStyle(
                   color: DTokens.of(context).mutedForeground,
                   fontWeight: FontWeight.w400,

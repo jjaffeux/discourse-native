@@ -606,9 +606,18 @@ void main() {
         find.ancestor(of: avatar, matching: find.byType(InkWell)).first,
       );
 
-      expect(ink.mouseCursor, SystemMouseCursors.click);
-      expect(ink.hoverColor, Colors.transparent);
-      expect(ink.focusColor, Theme.of(tester.element(avatar)).shell.hover);
+      expect(
+        WidgetStateProperty.resolveAs<MouseCursor>(ink.mouseCursor!, {}),
+        SystemMouseCursors.click,
+      );
+      expect(
+        ink.overlayColor?.resolve({WidgetState.hovered}),
+        Colors.transparent,
+      );
+      expect(
+        ink.overlayColor?.resolve({WidgetState.focused}),
+        Colors.transparent,
+      );
     });
 
     testWidgets(
@@ -2694,7 +2703,7 @@ class _TestTile extends StatelessWidget {
             .copyWith(platform: platform),
         builder: (context, child) {
           if (withToaster) {
-            child = DToaster(position: DToastPosition.topEnd, child: child!);
+            child = DToaster(child: child!);
           }
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: textScaler),

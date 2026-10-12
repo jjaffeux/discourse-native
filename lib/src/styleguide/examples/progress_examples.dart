@@ -32,17 +32,8 @@ final progressExamples = ComponentExamples(
       description:
           'Source composition at 56%, with a full-width track below the header.',
       states: const ['Label', 'Value', 'Composition'],
-      code: '''const DProgress(value: 56,
-  label: DProgressLabel(child: Text('Upload progress')),
-  valueLabel: DProgressValue(),
-)''',
-      builder: (_) => const _ReferenceFrame(
-        child: DProgress(
-          value: 56,
-          label: DProgressLabel(child: Text('Upload progress')),
-          valueLabel: DProgressValue(),
-        ),
-      ),
+      code: "const DProgress(value: 56,\n  \n  \n)",
+      builder: (_) => const _ReferenceFrame(child: DProgress(value: 56)),
     ),
     StyleguideExample(
       title: 'Controlled',
@@ -50,29 +41,20 @@ final progressExamples = ComponentExamples(
           'Change local progress with pointer, touch, Tab and Return. '
           'The value survives live theme, direction and text-size changes.',
       states: const ['Controlled', 'Keyboard', 'Clamping'],
-      code: '''DProgress(value: value,
-  label: const DProgressLabel(child: Text('Upload progress')),
-  valueLabel: const DProgressValue())
-// Caller owns value; DButton updates it with setState.
-// Later compose the independently implemented Slider here.''',
+      code:
+          "DProgress(value: value,\n  \n  )\n// Caller owns value; DButton updates it with setState.\n// Later compose the independently implemented Slider here.",
       builder: (_) => const _ReferenceFrame(child: _Controlled()),
     ),
     StyleguideExample(
       title: 'RTL',
       description: 'Logical-start fill and localized Arabic percentage.',
       states: const ['RTL', 'Localized'],
-      code: '''Directionality(textDirection: TextDirection.rtl,
-  child: DProgress(value: 56,
-    label: const DProgressLabel(child: Text('تقدم الرفع')),
-    valueLabel: DProgressValue(builder: (_, fraction) => const Text('٥٦٪'))))''',
-      builder: (_) => _ReferenceFrame(
+      code:
+          "Directionality(textDirection: TextDirection.rtl,\n  child: DProgress(value: 56,\n    \n    ))",
+      builder: (_) => const _ReferenceFrame(
         child: Directionality(
           textDirection: TextDirection.rtl,
-          child: DProgress(
-            value: 56,
-            label: const DProgressLabel(child: Text('تقدم الرفع')),
-            valueLabel: DProgressValue(builder: (_, _) => const Text('٥٦٪')),
-          ),
+          child: DProgress(value: 56),
         ),
       ),
     ),
@@ -82,38 +64,17 @@ final progressExamples = ComponentExamples(
           'Unknown, zero, complete and out-of-range data. Reduced motion '
           'stops unknown-work animation. Long labels wrap at narrow widths.',
       states: const ['Indeterminate', 'Reduced motion', 'Min/max', 'Narrow'],
-      code: '''const DProgress(value: null,
-  label: DProgressLabel(child: Text('Waiting for server response')),
-  valueLabel: DProgressValue())
-const DProgress(value: 150, min: 100, max: 200,
-  label: DProgressLabel(child: Text('Processing records')),
-  valueLabel: DProgressValue())''',
+      code:
+          "const DProgress(value: null,\n  \n  )\nconst DProgress(value: 150,  max: 200,\n  \n  )",
       builder: (_) => const Column(
         children: [
-          DProgress(
-            label: DProgressLabel(child: Text('Waiting for server response')),
-            valueLabel: DProgressValue(),
-          ),
+          DProgress(),
           SizedBox(height: 24),
-          DProgress(
-            value: 150,
-            min: 100,
-            max: 200,
-            label: DProgressLabel(child: Text('Processing records')),
-            valueLabel: DProgressValue(),
-          ),
+          DProgress(value: 150, max: 200),
           SizedBox(height: 24),
-          DProgress(
-            value: -10,
-            label: DProgressLabel(child: Text('Not started')),
-            valueLabel: DProgressValue(),
-          ),
+          DProgress(value: -10),
           SizedBox(height: 24),
-          DProgress(
-            value: 120,
-            label: DProgressLabel(child: Text('Complete')),
-            valueLabel: DProgressValue(),
-          ),
+          DProgress(value: 120),
         ],
       ),
     ),
@@ -123,24 +84,8 @@ const DProgress(value: 150, min: 100, max: 200,
           'The root can supply state and semantics to a caller-owned '
           'layout. Track and indicator colors remain live tokens by default.',
       states: const ['Track', 'Indicator', 'Custom composition'],
-      code: '''const DProgress(value: 40, child: Column(children: [
-  DProgressLabel(child: Text('Processing attachments')),
-  SizedBox(height: 12),
-  DProgressTrack(child: DProgressIndicator()),
-  SizedBox(height: 12), DProgressValue(),
-]))''',
-      builder: (_) => const DProgress(
-        value: 40,
-        child: Column(
-          children: [
-            DProgressLabel(child: Text('Processing attachments')),
-            SizedBox(height: 12),
-            DProgressTrack(child: DProgressIndicator()),
-            SizedBox(height: 12),
-            DProgressValue(),
-          ],
-        ),
-      ),
+      code: "const DProgress(value: 40, )",
+      builder: (_) => const DProgress(value: 40),
     ),
   ],
 );
@@ -204,11 +149,9 @@ class _ControlledState extends State<_Controlled> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      DProgress(
-        value: value,
-        label: const DProgressLabel(child: Text('Upload progress')),
-        valueLabel: const DProgressValue(),
-      ),
+      DProgress(value: value, track: const Column(
+        children: [DProgressTrack(), DProgressValue()],
+      )),
       const SizedBox(height: 24),
       Wrap(
         spacing: 8,

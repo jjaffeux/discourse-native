@@ -181,7 +181,7 @@ void main() {
       find.byKey(const ValueKey('topic-status-button')),
     ]) {
       expect(tester.widget<DButton>(control).size, DButtonSize.filter);
-      expect(tester.getRect(surface(control)).height, categorySurface.height);
+      expect(tester.getRect(surface(control)).height, closeTo(categorySurface.height, .01));
     }
     expect(
       tester.getRect(surface(bookmark)).right,
@@ -205,7 +205,9 @@ void main() {
       surface(find.byKey(const ValueKey('topic-status-button'))),
     );
     expect(statusSurface.top, notificationSurface.top);
-    expect(statusSurface.left - notificationSurface.right, 8);
+    final moreSurface = tester.getRect(surface(find.byKey(const ValueKey('topic-more-actions'))));
+    expect(moreSurface.left - notificationSurface.right, closeTo(8, .01));
+    expect(statusSurface.left - moreSurface.right, closeTo(6, .01));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
   testWidgets('mobile topic chrome fits and keeps the reader footer free', (

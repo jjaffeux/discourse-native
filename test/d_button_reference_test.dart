@@ -623,7 +623,7 @@ void main() {
   testWidgets(
     'touch presses highlight without translation, including legacy aliases',
     (tester) async {
-      for (final variant in [DButtonVariant.primary, DButtonVariant.standard]) {
+      for (final variant in [DButtonVariant.primary, DButtonVariant.outline]) {
         await pump(
           tester,
           DButton(
@@ -801,8 +801,8 @@ void main() {
         TargetPlatform.android,
       ]) {
         for (final variant in [
-          DButtonVariant.flat,
-          DButtonVariant.flatClose,
+          DButtonVariant.ghost,
+          DButtonVariant.ghost,
           DButtonVariant.outline,
         ]) {
           var presses = 0;

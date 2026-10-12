@@ -94,18 +94,18 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Collapse'));
-      await tester.pump();
-      expect(find.textContaining('left: 0px'), findsOneWidget);
-      await tester.tap(find.text('Expand'));
-      await tester.pump();
-      expect(find.textContaining('left: 0px'), findsNothing);
+      final handle = find.byType(DResizableHandle).first;
+      await tester.drag(handle, const Offset(40, 0));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('left:'), findsOneWidget);
       await tester.tap(find.text('Remove middle'));
       await tester.pump();
       expect(find.text('Fixed'), findsNothing);
       await tester.tap(find.text('Insert middle'));
       await tester.pump();
       expect(find.text('Fixed'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
   );

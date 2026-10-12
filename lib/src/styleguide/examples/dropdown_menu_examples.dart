@@ -583,9 +583,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
         align: DPopoverAlign.end,
         children: _avatar,
         trigger: DButton.iconOnly(
-          icon: const DAvatar(
-            fallback: DAvatarFallback(delay: Duration.zero, child: Text('LR')),
-          ),
+          icon: const DAvatar(fallback: DAvatarFallback(child: Text('LR'))),
           tooltip: 'Open account menu',
           variant: DButtonVariant.ghost,
           borderRadius: BorderRadius.circular(999),
@@ -614,10 +612,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
             child: DDropdownMenuTrigger(
               builder: (context, state) => DButton.iconOnly(
                 icon: const DAvatar(
-                  fallback: DAvatarFallback(
-                    delay: Duration.zero,
-                    child: Text('LR'),
-                  ),
+                  fallback: DAvatarFallback(child: Text('LR')),
                 ),
                 tooltip: 'Open account menu',
                 variant: DButtonVariant.ghost,

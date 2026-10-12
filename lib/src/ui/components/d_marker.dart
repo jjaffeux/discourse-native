@@ -1,16 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
 /// The three conversation marker layouts from shadcn Base UI.
-enum DMarkerVariant { inline, border, separator }
-
-/// Explicit action semantics. Navigation remains owned by the caller.
-enum DMarkerAction { button, link }
+enum DMarkerVariant { inline, separator }
 
 /// A conversation note, status, action, or labeled boundary.
 ///
@@ -27,24 +23,16 @@ class DMarker extends StatefulWidget {
     this.variant = DMarkerVariant.inline,
     this.axis = Axis.horizontal,
     this.liveRegion = false,
-    this.semanticLabel,
-    this.action,
-    this.onPressed,
-    this.focusNode,
-    this.color,
+
     this.borderColor,
-  }) : assert(onPressed == null || action != null);
+  });
 
   final Widget child;
   final DMarkerIcon? icon;
   final DMarkerVariant variant;
   final Axis axis;
   final bool liveRegion;
-  final String? semanticLabel;
-  final DMarkerAction? action;
-  final VoidCallback? onPressed;
-  final FocusNode? focusNode;
-  final Color? color;
+
   final Color? borderColor;
 
   @override
@@ -52,27 +40,19 @@ class DMarker extends StatefulWidget {
 }
 
 class _DMarkerState extends State<DMarker> {
-  bool _hover = false;
-  bool _focus = false;
-
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final interactive = widget.action != null;
-    final enabled = interactive && widget.onPressed != null;
+
     final separator = widget.variant == DMarkerVariant.separator;
-    final color =
-        widget.color ??
-        (enabled && _hover ? tokens.foreground : tokens.mutedForeground);
+    final color = tokens.mutedForeground;
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       fontSize: DiscourseTypography.sm,
       height: 20 / 14,
       fontWeight: FontWeight.w400,
       letterSpacing: 0,
       color: color,
-      decoration: widget.action == DMarkerAction.link
-          ? TextDecoration.underline
-          : TextDecoration.none,
+      decoration: TextDecoration.none,
     );
     Widget content = DefaultTextStyle(
       style: style,
@@ -138,23 +118,9 @@ class _DMarkerState extends State<DMarker> {
     content = Container(
       constraints: const BoxConstraints(minHeight: 16),
       width: double.infinity,
-      padding: widget.variant == DMarkerVariant.border
-          ? const EdgeInsets.only(bottom: 8)
-          : null,
-      decoration: widget.variant == DMarkerVariant.border
-          ? BoxDecoration(
-              border: Border(bottom: BorderSide(color: lineColor)),
-            )
-          : null,
-      foregroundDecoration: _focus && enabled
-          ? BoxDecoration(
-              border: Border.all(
-                color: tokens.focusRing,
-                width: 2,
-                strokeAlign: BorderSide.strokeAlignOutside,
-              ),
-            )
-          : null,
+      padding: null,
+      decoration: null,
+      foregroundDecoration: null,
       child: Align(
         heightFactor: 1,
         alignment: separator || widget.axis == Axis.vertical
@@ -163,45 +129,16 @@ class _DMarkerState extends State<DMarker> {
         child: content,
       ),
     );
-    if (interactive) {
-      content = FocusableActionDetector(
-        enabled: enabled,
-        focusNode: widget.focusNode,
-        mouseCursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onShowFocusHighlight: (value) => setState(() => _focus = value),
-        onShowHoverHighlight: (value) => setState(() => _hover = value),
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-        },
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onPressed?.call();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTap: widget.onPressed,
-          child: content,
-        ),
-      );
-    }
+
     return Semantics(
-      container:
-          interactive || widget.liveRegion || widget.semanticLabel != null,
+      container: widget.liveRegion,
       liveRegion: widget.liveRegion,
-      label: widget.semanticLabel,
-      excludeSemantics: widget.semanticLabel != null,
-      button: widget.action == DMarkerAction.button,
-      link: widget.action == DMarkerAction.link,
-      enabled: interactive ? enabled : null,
-      onTap: enabled ? widget.onPressed : null,
+      label: null,
+      excludeSemantics: false,
+      button: false,
+      link: false,
+      enabled: null,
+      onTap: null,
       child: content,
     );
   }
@@ -209,20 +146,19 @@ class _DMarkerState extends State<DMarker> {
 
 /// Decorative, non-interactive artwork. Adjacent content carries its meaning.
 class DMarkerIcon extends StatelessWidget {
-  const DMarkerIcon({super.key, required this.child, this.size = 16})
-    : assert(size > 0 && size < double.infinity);
+  const DMarkerIcon({super.key, required this.child})
+    : assert((16 < double.infinity));
   final Widget child;
-  final double size;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
     child: ExcludeFocus(
       child: IgnorePointer(
         child: SizedBox.square(
-          dimension: size,
+          dimension: 16,
           child: FittedBox(
             child: IconTheme.merge(
-              data: IconThemeData(size: size),
+              data: const IconThemeData(size: 16),
               child: child,
             ),
           ),

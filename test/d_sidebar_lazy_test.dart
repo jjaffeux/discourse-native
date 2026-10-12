@@ -1,152 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('lazy groups share one viewport and preserve its end boundary', (
-    tester,
-  ) async {
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
-    final built = <int>{};
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(platform: TargetPlatform.macOS),
-        home: Scaffold(
-          body: SizedBox(
-            width: 260,
-            height: 400,
-            child: DSidebarProvider(
-              child: DSidebar(
-                collapsible: DSidebarCollapsible.none,
-                header: const DSidebarHeader(child: Text('Fixed header')),
-                footer: const DSidebarFooter(child: Text('Fixed footer')),
-                child: DSidebarContent.slivers(
-                  controller: scroll,
-                  slivers: [
-                    DSidebarGroup.sliver(
-                      label: const DSidebarGroupLabel(child: Text('Channels')),
-                      sliver: DSidebarMenu.sliverBuilder(
-                        itemCount: 400,
-                        itemExtent: 34,
-                        itemBuilder: (context, index) {
-                          built.add(index);
-                          return DSidebarMenuItem(
-                            key: ValueKey(index),
-                            child: DSidebarMenuButton(
-                              onPressed: () {},
-                              child: Text('Channel $index'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    DSidebarGroup.sliver(
-                      label: const DSidebarGroupLabel(child: Text('People')),
-                      sliver: DSidebarMenuSub.sliverBuilder(
-                        itemCount: 3,
-                        itemExtent: 28,
-                        itemBuilder: (context, index) => DSidebarMenuSubButton(
-                          onPressed: () {},
-                          child: Text('Person $index'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    expect(find.byType(Scrollable), findsOneWidget);
-    expect(built.length, lessThan(40));
-    expect(find.text('Channel 399'), findsNothing);
-    final header = tester.getRect(find.text('Fixed header'));
-    final footer = tester.getRect(find.text('Fixed footer'));
-    final end = scroll.position.maxScrollExtent;
-    scroll.jumpTo(end);
-    await tester.pumpAndSettle();
-    expect(scroll.position.maxScrollExtent, closeTo(end, .001));
-    expect(find.text('Person 2'), findsOneWidget);
-    expect(built.length, lessThan(80));
-    expect(tester.getRect(find.text('Fixed header')), header);
-    expect(tester.getRect(find.text('Fixed footer')), footer);
-    await tester.pumpWidget(const SizedBox());
-    // The content borrows this controller and must not dispose it.
-    scroll.addListener(() {});
-    expect(tester.takeException(), isNull);
-  });
-
-  for (final retained in [false, true]) {
-    testWidgets(
-      'sliver disclosure restores focus and hides content (retained=$retained)',
-      (tester) async {
-        final trigger = FocusNode();
-        final row = FocusNode();
-        addTearDown(trigger.dispose);
-        addTearDown(row.dispose);
-        var open = true;
-        late StateSetter update;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.macOS),
-            home: Scaffold(
-              body: StatefulBuilder(
-                builder: (context, setState) {
-                  update = setState;
-                  return DSidebarContent.slivers(
-                    slivers: [
-                      DCollapsible(
-                        open: open,
-                        onOpenChange: (value) => setState(() => open = value),
-                        child: DSidebarGroup.sliver(
-                          label: DCollapsibleTrigger(
-                            focusNode: trigger,
-                            child: const DSidebarGroupLabel(
-                              child: Text('Toggle channels'),
-                            ),
-                          ),
-                          sliver: DCollapsibleContent.sliver(
-                            keepMounted: retained,
-                            sliver: DSidebarMenu.sliverBuilder(
-                              itemCount: 200,
-                              itemExtent: 32,
-                              itemBuilder: (context, index) =>
-                                  DSidebarMenuButton(
-                                    focusNode: index == 0 ? row : null,
-                                    onPressed: () {},
-                                    child: Text('Destination $index'),
-                                  ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-        row.requestFocus();
-        await tester.pump();
-        update(() => open = false);
-        await tester.pumpAndSettle();
-        expect(find.text('Destination 0'), findsNothing);
-        expect(trigger.hasPrimaryFocus, isTrue);
-        expect(row.canRequestFocus, retained ? isFalse : isTrue);
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pumpAndSettle();
-        expect(find.text('Destination 0'), findsOneWidget);
-        expect(find.text('Destination 199'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
   testWidgets('wide sidebar badges reserve their actual width', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -209,7 +65,7 @@ void main() {
                           badge: DSidebarMenuBadge(child: Text(count)),
                           action: DSidebarMenuAction(
                             semanticLabel: 'Actions',
-                            showOnHover: true,
+
                             onPressed: () => actions++,
                             child: const Icon(Icons.more_horiz),
                           ),

@@ -114,7 +114,7 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
             focusNode: focusNode,
             hasPopup: !mobile,
             expanded: expanded,
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             icon: ExcludeSemantics(
               child: Stack(
                 clipBehavior: Clip.none,

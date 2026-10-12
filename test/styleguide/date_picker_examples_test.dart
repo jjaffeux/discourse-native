@@ -96,7 +96,6 @@ void main() {
       find.byType(DDatePickerInput),
     );
     expect(input.value, DCalendarDate(2026, 9, 11));
-    expect(input.referenceDate, DateTime(2026, 9, 9));
     expect(input.controller?.text, 'In 2 days');
     expect(
       find.text('Your post will be published on September 11, 2026.'),

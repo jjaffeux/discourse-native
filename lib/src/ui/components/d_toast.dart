@@ -14,16 +14,6 @@ import 'd_spinner.dart';
 /// Visual status used by the built-in shadcn toast renderer.
 enum DToastType { standard, success, info, warning, error, loading }
 
-/// Placement of the toast viewport inside its local [DToaster] scope.
-enum DToastPosition {
-  topStart,
-  topCenter,
-  topEnd,
-  bottomStart,
-  bottomCenter,
-  bottomEnd,
-}
-
 enum DToastCloseReason {
   timeout,
   action,
@@ -42,13 +32,11 @@ class DToastAction {
     required this.label,
     required this.onPressed,
     this.dismissOnPressed = false,
-    this.semanticLabel,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool dismissOnPressed;
-  final String? semanticLabel;
 }
 
 typedef DToastContentBuilder =
@@ -87,30 +75,19 @@ class DToastOptions {
   final bool showClose;
   final ValueChanged<DToastCloseReason>? onClose;
 
-  DToastOptions copyWith({
-    String? title,
-    String? description,
-    DToastType? type,
-    DToastAction? action,
-    Duration? duration,
-    bool clearDuration = false,
-    DToastPriority? priority,
-    DToastContentBuilder? contentBuilder,
-    Object? data,
-    bool? showClose,
-    ValueChanged<DToastCloseReason>? onClose,
-  }) => DToastOptions(
-    title: title ?? this.title,
-    description: description ?? this.description,
-    type: type ?? this.type,
-    action: action ?? this.action,
-    duration: clearDuration ? null : (duration ?? this.duration),
-    priority: priority ?? this.priority,
-    contentBuilder: contentBuilder ?? this.contentBuilder,
-    data: data ?? this.data,
-    showClose: showClose ?? this.showClose,
-    onClose: onClose ?? this.onClose,
-  );
+  DToastOptions copyWith({DToastType? type, bool clearDuration = false}) =>
+      DToastOptions(
+        title: (title),
+        description: (description),
+        type: type ?? this.type,
+        action: (action),
+        duration: clearDuration ? null : ((duration)),
+        priority: (priority),
+        contentBuilder: (contentBuilder),
+        data: (data),
+        showClose: (showClose),
+        onClose: (onClose),
+      );
 }
 
 @immutable
@@ -144,8 +121,6 @@ class DToastController extends ChangeNotifier {
   final Set<Object> _pauseOwners = {};
   int _nextId = 0;
   bool _disposed = false;
-
-  static final Object _manualPauseOwner = Object();
 
   List<DToastEntry> get toasts => List.unmodifiable(_toasts);
   bool get isDisposed => _disposed;
@@ -203,15 +178,6 @@ class DToastController extends ChangeNotifier {
     return true;
   }
 
-  void closeAll({DToastCloseReason reason = DToastCloseReason.programmatic}) {
-    if (_disposed) return;
-    final ids = _toasts.map((toast) => toast.id).toList(growable: false);
-    for (final id in ids) {
-      _remove(id, reason);
-    }
-    notifyListeners();
-  }
-
   Object promise<T>(
     Future<T> future, {
     required DToastOptions loading,
@@ -240,10 +206,6 @@ class DToastController extends ChangeNotifier {
     return resolvedId;
   }
 
-  void pause() {
-    _pause(_manualPauseOwner);
-  }
-
   void _pause(Object owner) {
     if (_disposed || !_pauseOwners.add(owner) || _pauseOwners.length != 1) {
       return;
@@ -260,10 +222,6 @@ class DToastController extends ChangeNotifier {
     }
     _timers.clear();
     _elapsed.clear();
-  }
-
-  void resume() {
-    _resume(_manualPauseOwner);
   }
 
   void _resume(Object owner) {
@@ -348,20 +306,18 @@ abstract final class DToast {
   static Object? show(
     BuildContext context,
     String description, {
-    String? title,
+
     DToastType type = DToastType.standard,
-    DToastAction? action,
-    Duration? duration = const Duration(seconds: 5),
+
     Object? id,
-    DToastPriority priority = DToastPriority.normal,
   }) => maybeOf(context)?.add(
     DToastOptions(
-      title: title,
+      title: null,
       description: description,
       type: type,
-      action: action,
-      duration: duration,
-      priority: priority,
+      action: null,
+      duration: const Duration(seconds: 5),
+      priority: DToastPriority.normal,
     ),
     id: id,
   );
@@ -373,20 +329,9 @@ abstract final class DToast {
 /// controller is borrowed. Removing this widget therefore cancels only owned
 /// timers; late promise completions never target a replacement scope.
 class DToaster extends StatefulWidget {
-  const DToaster({
-    super.key,
-    required this.child,
-    this.controller,
-    this.position = DToastPosition.bottomEnd,
-    this.limit = 3,
-    this.viewportPadding = const EdgeInsets.all(16),
-  });
+  const DToaster({super.key, required this.child});
 
   final Widget child;
-  final DToastController? controller;
-  final DToastPosition position;
-  final int limit;
-  final EdgeInsetsGeometry viewportPadding;
 
   @override
   State<DToaster> createState() => _DToasterState();
@@ -409,21 +354,17 @@ class _DToasterState extends State<DToaster> with WidgetsBindingObserver {
   }
 
   void _setController() {
-    _ownsController = widget.controller == null;
-    _controller = widget.controller ?? DToastController(limit: widget.limit);
+    _ownsController = true;
+    _controller = (DToastController(limit: 3));
     if (_lifecyclePaused) _controller._pause(_lifecyclePauseOwner);
   }
 
   @override
   void didUpdateWidget(DToaster oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller == widget.controller &&
-        (widget.controller != null || oldWidget.limit == widget.limit)) {
+    {
       return;
     }
-    _controller._resume(_lifecyclePauseOwner);
-    if (_ownsController) _controller.dispose();
-    _setController();
   }
 
   @override
@@ -468,8 +409,8 @@ class _DToasterState extends State<DToaster> with WidgetsBindingObserver {
             _DToastViewport(
               controller: _controller,
               focusNode: _viewportFocus,
-              position: widget.position,
-              padding: widget.viewportPadding,
+
+              padding: const EdgeInsets.all(16),
             ),
           ],
         ),
@@ -495,12 +436,12 @@ class _DToastViewport extends StatefulWidget {
   const _DToastViewport({
     required this.controller,
     required this.focusNode,
-    required this.position,
+
     required this.padding,
   });
   final DToastController controller;
   final FocusNode focusNode;
-  final DToastPosition position;
+
   final EdgeInsetsGeometry padding;
 
   @override
@@ -552,21 +493,9 @@ class _DToastViewportState extends State<_DToastViewport> {
     builder: (context, _) {
       final entries = widget.controller.toasts.reversed.toList();
       if (entries.isEmpty) return const SizedBox.shrink();
-      final top = switch (widget.position) {
-        DToastPosition.topStart ||
-        DToastPosition.topCenter ||
-        DToastPosition.topEnd => true,
-        _ => false,
-      };
-      final alignment = switch (widget.position) {
-        DToastPosition.topStart => AlignmentDirectional.topStart,
-        DToastPosition.topCenter => Alignment.topCenter,
-        DToastPosition.topEnd => AlignmentDirectional.topEnd,
-        DToastPosition.bottomStart => AlignmentDirectional.bottomStart,
-        DToastPosition.bottomCenter => Alignment.bottomCenter,
-        DToastPosition.bottomEnd => AlignmentDirectional.bottomEnd,
-      };
-      final ordered = top ? entries.reversed.toList() : entries;
+      const top = false;
+      const alignment = AlignmentDirectional.bottomEnd;
+      final ordered = (entries);
       return SafeArea(
         minimum: widget.padding.resolve(Directionality.of(context)),
         child: Align(
@@ -611,9 +540,7 @@ class _DToastViewportState extends State<_DToastViewport> {
                           reverse: !top,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
-                            verticalDirection: top
-                                ? VerticalDirection.down
-                                : VerticalDirection.up,
+                            verticalDirection: VerticalDirection.up,
                             children: [
                               for (final entry in ordered)
                                 Padding(
@@ -792,7 +719,7 @@ class _DToastCardState extends State<_DToastCard> {
                     const SizedBox(width: 12),
                     DButton(
                       label: Text(action.label),
-                      semanticLabel: action.semanticLabel,
+                      semanticLabel: null,
                       variant: DButtonVariant.outline,
                       size: DButtonSize.small,
                       onPressed: action.onPressed == null

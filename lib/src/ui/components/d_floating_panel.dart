@@ -22,14 +22,12 @@ class DFloatingPanel extends StatefulWidget {
     required this.restoreLabel,
     this.controller,
     this.width = 184,
-    this.padding = const EdgeInsets.all(DSpacing.md),
   });
 
   final Widget child;
   final String restoreLabel;
   final DFloatingPanelController? controller;
   final double width;
-  final EdgeInsets padding;
 
   @override
   State<DFloatingPanel> createState() => _DFloatingPanelState();
@@ -116,7 +114,7 @@ class _DFloatingPanelState extends State<DFloatingPanel> {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: widget.padding,
+    padding: const EdgeInsets.all(DSpacing.md),
     child: LayoutBuilder(
       builder: (context, constraints) {
         final available = constraints.biggest;

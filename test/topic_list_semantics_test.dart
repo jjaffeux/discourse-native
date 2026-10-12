@@ -53,10 +53,11 @@ void main() {
       for (final tooltip in tester.stateList<DTooltipState>(
         find.byType(DTooltip),
       )) {
-        tooltip.ensureTooltipVisible();
+        await mouse.moveTo(tester.getCenter(find.byWidget(tooltip.widget)));
+        await tester.pump(DTooltip.defaultHoverDelay);
         await tester.pumpAndSettle();
         expect(binding.errors, isEmpty);
-        tooltip.hide();
+        await mouse.moveTo(Offset.zero);
         await tester.pumpAndSettle();
         expect(binding.errors, isEmpty);
       }

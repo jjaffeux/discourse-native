@@ -143,71 +143,7 @@ DDirection(
 );
 
 const _cardRtlCode =
-    '''// In a State: var language = 'ar'; translations map a language
-// to its direction and strings, like the reference useTranslation.
-final t = translations[language]!;
-Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-  // The selector keeps dir="ltr" on its trigger and popup.
-  Align(alignment: AlignmentDirectional.centerEnd, child: DDirection(
-    textDirection: TextDirection.ltr,
-    child: DSelect<String>(
-      value: language,
-      size: DSelectSize.small,
-      width: 144,
-      semanticLabel: 'Language',
-      entries: const [
-        DSelectOption(value: 'en', label: 'English', child: Text('English')),
-        DSelectOption(value: 'ar', label: 'Arabic (العربية)',
-          child: Text('Arabic (العربية)')),
-        DSelectOption(value: 'he', label: 'Hebrew (עברית)',
-          child: Text('Hebrew (עברית)')),
-      ],
-      onChanged: (value) => setState(() => language = value!),
-    ),
-  )),
-  const SizedBox(height: 16),
-  DDirection(textDirection: t.dir, child: DCard(children: [
-    DCardHeader(
-      title: DCardTitle(child: Text(t.title)),
-      description: DCardDescription(child: Text(t.description)),
-      action: DCardAction(child: DButton(onPressed: signUp,
-        variant: DButtonVariant.link, label: Text(t.signUp))),
-    ),
-    DCardContent(child: Form(key: formKey, child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      DField(children: [
-        DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
-          style: TextStyle(height: 1), child: Text(t.email)),
-        DFieldControl(label: t.email, required: true, child: DInput(
-          focusNode: emailFocus, keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => passwordFocus.requestFocus(),
-          hintText: t.emailPlaceholder, isRequired: true,
-          validator: validateEmail)),
-      ]),
-      SizedBox(height: 24),
-      DField(children: [
-        Wrap(alignment: WrapAlignment.spaceBetween, children: [
-          DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
-            style: TextStyle(height: 1), child: Text(t.password)),
-          // Inline text bounds, no padding; DButton retains native activation.
-          forgotPasswordLink,
-        ]),
-        DFieldControl(label: t.password, required: true, child: DInput(
-          focusNode: passwordFocus, obscureText: true, isRequired: true,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => submit(), validator: validatePassword)),
-      ]),
-    ]))),
-  ], footer: DCardFooter(child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    DButton(onPressed: submit, variant: DButtonVariant.primary,
-      label: Text(t.login)),
-    SizedBox(height: 8),
-    DButton(onPressed: google, variant: DButtonVariant.outline,
-      label: Text(t.loginWithGoogle)),
-  ])))),
-])''';
+    "// In a State: var language = 'ar'; translations map a language\n// to its direction and strings, like the reference useTranslation.\nfinal t = translations[language]!;\nColumn(crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n  // The selector keeps dir=\"ltr\" on its trigger and popup.\n  Align(alignment: AlignmentDirectional.centerEnd, child: DDirection(\n    textDirection: TextDirection.ltr,\n    child: DSelect<String>(\n      value: language,\n      size: DSelectSize.small,\n      width: 144,\n      semanticLabel: 'Language',\n      entries: const [\n        DSelectOption(value: 'en', label: 'English', child: Text('English')),\n        DSelectOption(value: 'ar', label: 'Arabic (العربية)',\n          child: Text('Arabic (العربية)')),\n        DSelectOption(value: 'he', label: 'Hebrew (עברית)',\n          child: Text('Hebrew (עברית)')),\n      ],\n      onChanged: (value) => setState(() => language = value!),\n    ),\n  )),\n  const SizedBox(height: 16),\n  DDirection(textDirection: t.dir, child: DCard(children: [\n    DCardHeader(\n      title: DCardTitle(child: Text(t.title)),\n      description: DCardDescription(child: Text(t.description)),\n      action: DCardAction(child: DButton(onPressed: signUp,\n        variant: DButtonVariant.link, label: Text(t.signUp))),\n    ),\n    DCardContent(child: Form(key: formKey, child: Column(\n      crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n      DField(children: [\n        DFieldLabel(focusNode: emailFocus, excludeSemantics: true,\n           child: Text(t.email)),\n        DFieldControl(label: t.email, required: true, child: DInput(\n          focusNode: emailFocus, keyboardType: TextInputType.emailAddress,\n          textInputAction: TextInputAction.next,\n          onSubmitted: (_) => passwordFocus.requestFocus(),\n          hintText: t.emailPlaceholder, isRequired: true,\n          validator: validateEmail)),\n      ]),\n      SizedBox(height: 24),\n      DField(children: [\n        Wrap(alignment: WrapAlignment.spaceBetween, children: [\n          DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,\n             child: Text(t.password)),\n          // Inline text bounds, no padding; DButton retains native activation.\n          forgotPasswordLink,\n        ]),\n        DFieldControl(label: t.password, required: true, child: DInput(\n          focusNode: passwordFocus, obscureText: true, isRequired: true,\n          textInputAction: TextInputAction.done,\n          onSubmitted: (_) => submit(), validator: validatePassword)),\n      ]),\n    ]))),\n  ], footer: DCardFooter(child: Column(\n    crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n    DButton(onPressed: submit, variant: DButtonVariant.primary,\n      label: Text(t.login)),\n    SizedBox(height: 8),\n    DButton(onPressed: google, variant: DButtonVariant.outline,\n      label: Text(t.loginWithGoogle)),\n  ])))),\n])";
 
 /// One language of the reference `Translations` record: its direction and
 /// the login card strings.
@@ -423,7 +359,7 @@ class _LoginCardState extends State<_LoginCard> {
                     DFieldLabel(
                       focusNode: _emailFocus,
                       excludeSemantics: true,
-                      style: const TextStyle(height: 1),
+
                       child: Text(t.email),
                     ),
                     DFieldControl(
@@ -455,7 +391,7 @@ class _LoginCardState extends State<_LoginCard> {
                         DFieldLabel(
                           focusNode: _passwordFocus,
                           excludeSemantics: true,
-                          style: const TextStyle(height: 1),
+
                           child: Text(t.password),
                         ),
                         _InlineLink(

@@ -442,42 +442,6 @@ void main() {
     );
   }
 
-  testWidgets('small title metrics, image edges and joined content', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const DCard(
-          size: DCardSize.small,
-          leading: SizedBox(key: Key('image'), height: 90),
-          footer: DCardFooter(child: Text('Footer')),
-          children: [
-            DCardHeader(
-              title: DCardTitle(child: Text('Small', key: Key('title'))),
-            ),
-            DCardContent(
-              edgeToEdge: true,
-              joinNext: true,
-              child: SizedBox(key: Key('content'), height: 20),
-            ),
-          ],
-        ),
-      ),
-    );
-    expect(tester.getTopLeft(find.byKey(const Key('image'))), Offset.zero);
-    expect(tester.getSize(find.byKey(const Key('image'))).width, 384);
-    final text = tester.element(find.byKey(const Key('title')));
-    final style = DefaultTextStyle.of(text).style;
-    expect(style.fontSize, 14);
-    expect(style.height, 1.35);
-    expect(style.fontWeight, FontWeight.w600);
-    expect(
-      tester.getTopLeft(find.byType(DCardFooter)).dy,
-      tester.getBottomLeft(find.byKey(const Key('content'))).dy,
-    );
-    expect(tester.getSize(find.byKey(const Key('content'))).width, 384);
-  });
-
   testWidgets(
     'palette spacing and direction changes retain editing focus and callbacks',
     (tester) async {

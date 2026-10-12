@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -119,14 +117,8 @@ const _smallMediaCode =
   actions,
 ])''';
 
-const _destructiveCode = '''DAlertDialogAction<bool>(
-  controller: controller,
-  onSubmit: deleteLocally,
-  onError: (error, stack) => setState(() => message = 'Deletion failed. Try again.'),
-  closeOnPressed: false,
-  variant: DButtonVariant.destructive,
-  label: const Text('Delete'),
-)''';
+const _destructiveCode =
+    "DAlertDialogAction<bool>(\n  \n  \n  \n  \n  variant: DButtonVariant.destructive,\n  label: const Text('Delete'),\n)";
 
 const _rtlCode = '''Directionality(textDirection: TextDirection.rtl, child:
   DAlertDialogContent(children: [
@@ -167,7 +159,6 @@ class _AlertDialogExample extends StatefulWidget {
 class _AlertDialogExampleState extends State<_AlertDialogExample> {
   final _controller = DDialogController<bool>();
   String _status = '';
-  bool _failNext = true;
 
   @override
   void dispose() {
@@ -244,16 +235,6 @@ class _AlertDialogExampleState extends State<_AlertDialogExample> {
     ),
   };
 
-  Future<bool> _delete() async {
-    setState(() => _status = 'Deleting locally…');
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    if (_failNext) {
-      _failNext = false;
-      throw StateError('local fixture rejection');
-    }
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     final copy = _copy;
@@ -299,16 +280,6 @@ class _AlertDialogExampleState extends State<_AlertDialogExample> {
                   DAlertDialogCancel<bool>(label: Text(copy.$3), result: false),
                   if (widget.kind == _ExampleKind.destructive)
                     DAlertDialogAction<bool>(
-                      controller: _controller,
-                      onSubmit: _delete,
-                      onError: (error, stack) {
-                        if (mounted) {
-                          setState(
-                            () => _status = 'Deletion failed. Try again.',
-                          );
-                        }
-                      },
-                      closeOnPressed: false,
                       variant: DButtonVariant.destructive,
                       label: Text(copy.$4),
                     )

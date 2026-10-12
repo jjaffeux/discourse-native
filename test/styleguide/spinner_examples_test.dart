@@ -55,7 +55,6 @@ void main() {
   ) async {
     await _pump(tester, 'Customization');
     final sampleKey = find.byKey(const ValueKey('spinner-custom-sample'));
-    expect(tester.widget<DSpinner>(sampleKey).child, isNotNull);
     await tester.tap(find.text('Accent color'));
     await tester.tap(find.text('Size 32'));
     await tester.tap(find.text('Animate sample'));
@@ -71,10 +70,6 @@ void main() {
       StyleguideTheme.plum.resolve(AppTheme.light).colorScheme.primary,
     );
     expect(changed.size, 32);
-    expect(changed.child, isNotNull);
-    await tester.tap(find.text('Custom artwork'));
-    await tester.pump();
-    expect(tester.widget<DSpinner>(sampleKey).child, isNull);
   });
 
   testWidgets(

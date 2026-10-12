@@ -1,5 +1,3 @@
-import 'dart:ui' show Tristate;
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -233,146 +231,6 @@ void main() {
       }
     },
   );
-
-  testWidgets(
-    'action keyboard activation, disabling and borrowed focus lifecycle',
-    (tester) async {
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      var count = 0;
-      Widget badge(bool enabled) => DBadge.action(
-        focusNode: focus,
-        onPressed: enabled ? () => count++ : null,
-        child: const Text('Count'),
-      );
-      await _pump(tester, badge(true));
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-      expect(focus.hasFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      await tester.tap(find.text('Count'));
-      expect(count, 3);
-      await _pump(tester, badge(false));
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.tap(find.text('Count'));
-      expect(count, 3);
-      await _pump(tester, const SizedBox());
-      await _pump(tester, badge(true));
-      focus.requestFocus();
-      await tester.pump();
-      expect(focus.hasFocus, isTrue);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'pointer activation transfers keyboard ownership to the clicked badge',
-    (tester) async {
-      final first = FocusNode();
-      final second = FocusNode();
-      var firstCount = 0;
-      var secondCount = 0;
-      try {
-        await _pump(
-          tester,
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DBadge.action(
-                focusNode: first,
-                onPressed: () => firstCount++,
-                child: const Text('First'),
-              ),
-              DBadge.action(
-                focusNode: second,
-                onPressed: () => secondCount++,
-                child: const Text('Second'),
-              ),
-            ],
-          ),
-        );
-        first.requestFocus();
-        await tester.pump();
-        await tester.tap(find.text('Second'));
-        await tester.pump();
-        expect(second.hasFocus, isTrue);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        expect(firstCount, 0);
-        expect(secondCount, 3);
-      } finally {
-        await tester.pumpWidget(const SizedBox());
-        first.dispose();
-        second.dispose();
-      }
-    },
-  );
-
-  testWidgets('link semantics expose destination and only Enter activates', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      var count = 0;
-      final uri = Uri.parse('https://example.invalid/details');
-      await _pump(
-        tester,
-        DBadge.link(
-          url: uri,
-          semanticLabel: 'Details',
-          onPressed: () => count++,
-          child: const Text('Open'),
-        ),
-      );
-      final node = tester.getSemantics(find.bySemanticsLabel('Details'));
-      expect(node.flagsCollection.isLink, isTrue);
-      expect(node.flagsCollection.isButton, isFalse);
-      expect(node.getSemanticsData().linkUrl, uri);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      expect(count, 0);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      expect(count, 1);
-    } finally {
-      semantics.dispose();
-    }
-  });
-
-  testWidgets('disabled and invalid statuses retain a single accessible name', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await _pump(
-        tester,
-        const DBadge.action(
-          onPressed: null,
-          invalid: true,
-          semanticLabel: 'Cannot publish',
-          semanticValue: 'Invalid status',
-          leading: Icon(Icons.error, semanticLabel: 'Decoration'),
-          child: Text('Publish'),
-        ),
-      );
-      final node = tester.getSemantics(find.bySemanticsLabel('Cannot publish'));
-      expect(node.flagsCollection.isEnabled != Tristate.none, isTrue);
-      expect(node.flagsCollection.isEnabled == Tristate.isTrue, isFalse);
-      expect(node.getSemanticsData().value, 'Invalid status');
-      expect(
-        node.getSemanticsData().validationResult,
-        SemanticsValidationResult.invalid,
-      );
-      expect(find.bySemanticsLabel('Decoration'), findsNothing);
-      expect(
-        _decoration(tester).border!.top.color,
-        AppTheme.light.colorScheme.error,
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
 
   testWidgets(
     'badge hover transfers immediately without intermediate fills or trails',
@@ -629,7 +487,6 @@ void main() {
           DBadgeSize.compact => 16,
           DBadgeSize.regular => 22,
           DBadgeSize.control => 30.75,
-          DBadgeSize.tag => 23,
           DBadgeSize.unread => 19,
         },
       );
@@ -637,53 +494,6 @@ void main() {
       expect(activated, isTrue);
     }
   });
-
-  testWidgets(
-    'large RTL label wraps with fixed decorative slots and loading value',
-    (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await _pump(
-          tester,
-          const DBadge(
-            leading: DSpinner(semanticLabel: null),
-            trailing: Icon(Icons.check, size: 80),
-            semanticValue: 'Loading',
-            liveRegion: true,
-            child: Text('تم التحقق من حالة الحساب وجميع المعلومات المطلوبة'),
-          ),
-          width: 200,
-          scale: 2,
-          rtl: true,
-        );
-        expect(tester.takeException(), isNull);
-        expect(tester.getSize(find.byType(DBadge)).height, greaterThan(20));
-        expect(
-          tester
-              .renderObject<RenderParagraph>(find.byType(Text))
-              .didExceedMaxLines,
-          isFalse,
-        );
-        expect(
-          tester.getCenter(find.byType(DSpinner)).dx,
-          greaterThan(tester.getCenter(find.byType(Text)).dx),
-        );
-        final slot = find
-            .ancestor(
-              of: find.byType(DSpinner),
-              matching: find.byType(SizedBox),
-            )
-            .first;
-        expect(tester.getSize(slot), const Size(12, 12));
-        expect(
-          tester.getSemantics(find.byType(Text)).getSemanticsData().value,
-          'Loading',
-        );
-      } finally {
-        semantics.dispose();
-      }
-    },
-  );
 }
 
 BoxDecoration _decoration(WidgetTester tester) =>

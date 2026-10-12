@@ -155,57 +155,6 @@ void main() {
   });
 
   testWidgets(
-    'a labelled group speaks one localized chord with no duplicate key labels',
-    (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await _pump(
-          tester,
-          child: const DShortcutKeycaps(
-            shortcut: chord,
-            semanticLabel: 'تراجع',
-            platform: TargetPlatform.macOS,
-          ),
-        );
-        expect(find.bySemanticsLabel('تراجع'), findsOneWidget);
-        expect(find.bySemanticsLabel('Command'), findsNothing);
-        expect(find.text('⌘'), findsOneWidget);
-        expect(find.text('⌥'), findsOneWidget);
-      } finally {
-        semantics.dispose();
-      }
-    },
-  );
-
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.linux,
-  ]) {
-    testWidgets(
-      '${platform.name} formats hints without changing logical keys',
-      (tester) async {
-        await _pump(
-          tester,
-          child: DShortcutKeycaps(shortcut: chord, platform: platform),
-        );
-        final apple = platform != TargetPlatform.linux;
-        expect(find.text(apple ? '⌘' : 'Meta'), findsOneWidget);
-        expect(find.text(apple ? '⌃' : 'Ctrl'), findsOneWidget);
-        expect(find.text(apple ? '⌥' : 'Alt'), findsOneWidget);
-        expect(find.text('←'), findsOneWidget);
-        expect(
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft),
-          isFalse,
-        );
-        await tester.pump();
-        expect(_cap(tester, 0, 0).highlighted, isTrue);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      },
-    );
-  }
-
-  testWidgets(
     'wrapping and intrinsic labels fit narrow widths at 200 percent text',
     (tester) async {
       for (final width in [80.0, 240.0, 360.0]) {
@@ -218,7 +167,7 @@ void main() {
               DKbd('Control + Backspace'),
               DKbd('Page Down'),
               DKbd('KeyboardLanguageSwitch'),
-              DShortcutKeycaps(shortcut: chord, platform: TargetPlatform.linux),
+              DShortcutKeycaps(shortcut: chord),
             ],
           ),
         );
@@ -491,49 +440,6 @@ void main() {
       );
     },
   );
-
-  testWidgets('named keys render their printed names on keycaps', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      child: const DShortcutKeycaps(
-        platform: TargetPlatform.linux,
-        listenToKeyboard: false,
-        shortcut: DShortcut.sequence(
-          SingleActivator(LogicalKeyboardKey.pageDown, control: true),
-          [SingleActivator(LogicalKeyboardKey.home)],
-        ),
-      ),
-    );
-    expect(find.widgetWithText(DKbd, 'Ctrl'), findsOneWidget);
-    expect(find.widgetWithText(DKbd, 'Page Down'), findsOneWidget);
-    expect(find.widgetWithText(DKbd, 'Home'), findsOneWidget);
-    expect(find.text('then'), findsOneWidget);
-  });
-
-  testWidgets('a custom text style leaves icons at the reference 12px', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      child: const DKbdGroup(
-        children: [
-          DKbd('K', style: TextStyle(fontSize: 18)),
-          DKbd.child(
-            semanticLabel: 'Brightness up',
-            style: TextStyle(fontSize: 18),
-            child: Icon(Icons.brightness_high),
-          ),
-        ],
-      ),
-    );
-    expect(
-      DefaultTextStyle.of(tester.element(find.text('K'))).style.fontSize,
-      18,
-    );
-    expect(tester.getSize(find.byType(Icon)), const Size(12, 12));
-  });
 
   testWidgets(
     'an ancestor keycap theme supplies colors and radius without changing geometry',

@@ -141,10 +141,10 @@ void main() {
           find.bySemanticsLabel(canonical ? 'Poll' : 'Poll, read only'),
           findsOneWidget,
         );
-        await tester.tap(find.text('Spoiler'));
+        await tester.tap(find.byType(DSpoiler));
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), contains('SECRET TITLE'));
-        await tester.tap(find.text('Spoiler'));
+        await tester.tap(find.byType(DSpoiler));
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), isNot(contains('SECRET TITLE')));
         await tester.pumpWidget(const SizedBox.shrink());
@@ -220,7 +220,7 @@ void main() {
         );
         expect(_semanticsTree(tester), isNot(contains('SECRET OPTION')));
         expect(_semanticsTree(tester), isNot(contains('PRIVATE OPTION')));
-        await tester.tap(find.text('Spoiler'));
+        await tester.tap(find.byType(DSpoiler));
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), contains('SECRET OPTION'));
         expect(_semanticsTree(tester), isNot(contains('PRIVATE OPTION')));
@@ -231,7 +231,7 @@ void main() {
             isFalse,
           );
         }
-        await tester.tap(find.text('Spoiler'));
+        await tester.tap(find.byType(DSpoiler));
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), isNot(contains('SECRET OPTION')));
         final choice = multiple
@@ -319,15 +319,15 @@ void main() {
         );
         expect(_semanticsTree(tester), isNot(contains('SECRET OPTION')));
         expect(_semanticsTree(tester), isNot(contains('PRIVATE CANDIDATE')));
-        expect(find.text('Spoiler'), findsNWidgets(2));
-        await tester.tap(find.text('Spoiler').first);
+        expect(find.byType(DSpoiler), findsNWidgets(2));
+        await tester.tap(find.byType(DSpoiler).first);
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), contains('SECRET OPTION'));
         expect(_semanticsTree(tester), isNot(contains('PRIVATE CANDIDATE')));
-        await tester.tap(find.text('Spoiler').first);
+        await tester.tap(find.byType(DSpoiler).first);
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), isNot(contains('SECRET OPTION')));
-        await tester.tap(find.text('Spoiler').last);
+        await tester.tap(find.byType(DSpoiler).last);
         await tester.pumpAndSettle();
         expect(_semanticsTree(tester), contains('SECRET OPTION'));
         await tester.pumpWidget(const SizedBox.shrink());

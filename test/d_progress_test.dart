@@ -8,7 +8,6 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     double? value = 25,
-    double min = 0,
     double max = 100,
     bool rtl = false,
     bool reduced = true,
@@ -30,12 +29,22 @@ void main() {
               width: width,
               child: DProgress(
                 value: value,
-                min: min,
                 max: max,
-                label: const DProgressLabel(
-                  child: Text('Uploading attachments'),
+                semanticsLabel: 'Uploading attachments',
+
+                track: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ExcludeSemantics(
+                      child: DProgressLabel(
+                        child: Text('Uploading attachments'),
+                      ),
+                    ),
+                    DProgressValue(),
+                    SizedBox(height: 12),
+                    DProgressTrack(),
+                  ],
                 ),
-                valueLabel: const DProgressValue(),
               ),
             ),
           ),
@@ -48,55 +57,52 @@ void main() {
     matching: find.byType(ColoredBox),
   );
 
-  testWidgets('clamps custom range and exposes numeric read-only semantics', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      for (final (input, width, percentage) in [
-        (50.0, 0.0, '0'),
-        (150.0, 100.0, '50'),
-        (250.0, 200.0, '100'),
-      ]) {
-        await pump(tester, value: input, min: 100, max: 200);
-        await tester.pump();
-        expect(tester.getSize(fill()).width, width);
-        final data = tester
-            .getSemantics(find.byType(DProgress))
-            .getSemanticsData();
-        expect(data.value, percentage);
-        expect(data.minValue, '0');
-        expect(data.maxValue, '100');
-        expect(data.role, SemanticsRole.progressBar);
-        expect(data.label, 'Uploading attachments');
-        expect(data.hasAction(SemanticsAction.increase), isFalse);
-        expect(find.text('$percentage%'), findsOneWidget);
+  testWidgets(
+    'clamps the zero-based range and exposes numeric read-only semantics',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final (input, width, percentage) in [
+          (-5.0, 0.0, '0'),
+          (100.0, 100.0, '50'),
+          (250.0, 200.0, '100'),
+        ]) {
+          await pump(tester, value: input, max: 200);
+          await tester.pump();
+          expect(tester.getSize(fill()).width, width);
+          final data = tester
+              .getSemantics(find.byType(DProgress))
+              .getSemanticsData();
+          expect(data.value, percentage);
+          expect(data.minValue, '0');
+          expect(data.maxValue, '100');
+          expect(data.role, SemanticsRole.progressBar);
+          expect(data.label, 'Uploading attachments');
+          expect(data.hasAction(SemanticsAction.increase), isFalse);
+          expect(find.text('$percentage%'), findsOneWidget);
+        }
+      } finally {
+        semantics.dispose();
       }
-    } finally {
-      semantics.dispose();
-    }
-  });
-  testWidgets('track is 4px with 12px header gap and logical-start fill', (
-    tester,
-  ) async {
-    await pump(tester);
-    expect(tester.getSize(find.byType(DProgressTrack)), const Size(200, 4));
-    expect(tester.getSize(fill()).width, 50);
-    expect(
-      tester.getTopLeft(fill()).dx,
-      tester.getTopLeft(find.byType(DProgressTrack)).dx,
-    );
-    expect(
-      tester.getTopLeft(find.byType(DProgressTrack)).dy -
-          tester.getBottomLeft(find.byType(Wrap)).dy,
-      12,
-    );
-    await pump(tester, rtl: true);
-    expect(
-      tester.getTopRight(fill()).dx,
-      tester.getTopRight(find.byType(DProgressTrack)).dx,
-    );
-  });
+    },
+  );
+  testWidgets(
+    'composed progress parts keep a 4px track and logical-start fill',
+    (tester) async {
+      await pump(tester);
+      expect(tester.getSize(find.byType(DProgressTrack)), const Size(200, 4));
+      expect(tester.getSize(fill()).width, 50);
+      expect(
+        tester.getTopLeft(fill()).dx,
+        tester.getTopLeft(find.byType(DProgressTrack)).dx,
+      );
+      await pump(tester, rtl: true);
+      expect(
+        tester.getTopRight(fill()).dx,
+        tester.getTopRight(find.byType(DProgressTrack)).dx,
+      );
+    },
+  );
   testWidgets(
     'unknown and non-finite values have no fabricated range and respect reduced motion',
     (tester) async {
@@ -176,7 +182,7 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(DProgressTrack)).height, 2);
-      await pump(tester, min: -1e308, max: 1e308, value: 0);
+      await pump(tester, max: 1e308, value: 5e307);
       expect(tester.getSize(fill()).width, 100);
     },
   );

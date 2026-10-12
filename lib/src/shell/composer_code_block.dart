@@ -374,7 +374,7 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
                               semanticLabel: context.l10n.language,
                               size: DSelectSize.small,
                               triggerBuilder: (context, state, _) => DButton(
-                                variant: DButtonVariant.transparentBackground,
+                                variant: DButtonVariant.ghost,
                                 size: DButtonSize.small,
                                 focusNode: state.focusNode,
                                 hasPopup: true,

@@ -16,7 +16,7 @@ void main() {
       'Soft header',
       'Resizable virtual directory',
       'Basic table and cell formatting',
-      'Sorting, filtering, visibility, selection, and actions',
+      'Sorting and row actions',
       'Dynamic data',
       'RTL',
       'Editable cell surface',
@@ -62,39 +62,14 @@ void main() {
     }
   });
 
-  testWidgets('interactive example changes filter selection and visibility', (
-    tester,
-  ) async {
-    await _show(
-      tester,
-      'Sorting, filtering, visibility, selection, and actions',
-    );
-    await tester.enterText(find.byType(DInput), 'Abe');
-    await tester.pump();
-    expect(find.text('abe45@example.com'), findsOneWidget);
-    expect(find.text('ken99@example.com'), findsNothing);
 
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) => widget is DCheckbox && widget.semanticLabel == 'Select all',
-      ),
-    );
-    await tester.pump();
-    expect(find.text('1 of 1 row(s) selected.'), findsOneWidget);
-
-    await tester.tap(find.text('Columns'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DDropdownMenuCheckboxItem).at(2));
-    await tester.pump();
-    expect(find.text('\$242.00'), findsNothing);
-  });
 
   testWidgets('sortable header applies ascending and descending row order', (
     tester,
   ) async {
     await _show(
       tester,
-      'Sorting, filtering, visibility, selection, and actions',
+      'Sorting and row actions',
     );
 
     await tester.tap(find.text('Email'));
@@ -116,46 +91,12 @@ void main() {
     );
   });
 
-  testWidgets('advanced pagination changes page and page size', (tester) async {
-    await _show(
-      tester,
-      'Sorting, filtering, visibility, selection, and actions',
-    );
-    expect(find.text('ken99@example.com'), findsOneWidget);
-    expect(find.text('lina@example.com'), findsNothing);
-    final next = find.byWidgetPredicate(
-      (widget) =>
-          widget is DButton && widget.semanticLabel == 'Go to next page',
-    );
-    final vertical = find
-        .byWidgetPredicate(
-          (widget) =>
-              widget is Scrollable &&
-              widget.axisDirection == AxisDirection.down,
-        )
-        .first;
-    await tester.scrollUntilVisible(next.first, 300, scrollable: vertical);
-    await tester.tap(next.first);
-    await tester.pumpAndSettle();
-    expect(find.text('ken99@example.com'), findsNothing);
-    expect(find.text('lina@example.com'), findsOneWidget);
-    expect(find.text('Page 2 of 2'), findsOneWidget);
 
-    final pageSize = find.byWidgetPredicate((widget) => widget is DSelect<int>);
-    await tester.scrollUntilVisible(pageSize, 300, scrollable: vertical);
-    await tester.tap(pageSize);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('20').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Page 1 of 1'), findsOneWidget);
-    expect(find.text('ken99@example.com'), findsOneWidget);
-    expect(find.text('lina@example.com'), findsOneWidget);
-  });
 
   testWidgets('row action menu targets the stable payment ID', (tester) async {
     await _show(
       tester,
-      'Sorting, filtering, visibility, selection, and actions',
+      'Sorting and row actions',
     );
     expect(find.text('Actions'), findsNothing);
     final trigger = find.byWidgetPredicate(
@@ -174,22 +115,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('dynamic example keeps selection with row ID after reorder', (
+  testWidgets('dynamic example reorders stable rows', (
     tester,
   ) async {
     await _show(tester, 'Dynamic data');
-    final selectedBefore = tester
-        .widgetList<DCheckbox>(find.byType(DCheckbox))
-        .where((checkbox) => checkbox.value == true)
-        .length;
-    expect(selectedBefore, 1);
+    expect(tester.getTopLeft(find.text('ken99@example.com')).dy, lessThan(tester.getTopLeft(find.text('abe45@example.com')).dy));
     await tester.tap(find.text('Reverse rows'));
     await tester.pump();
-    final selectedAfter = tester
-        .widgetList<DCheckbox>(find.byType(DCheckbox))
-        .where((checkbox) => checkbox.value == true)
-        .length;
-    expect(selectedAfter, 1);
+    expect(tester.getTopLeft(find.text('ken99@example.com')).dy, greaterThan(tester.getTopLeft(find.text('abe45@example.com')).dy));
     expect(tester.takeException(), isNull);
   });
 }

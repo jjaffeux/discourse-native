@@ -23,12 +23,12 @@ enum DItemSelectionStyle {
   /// Accent fill without a border or leading stripe.
   filled,
   outline,
-  neutral,
+
   strongNeutral,
   leadingAccent,
 }
 
-enum DItemMediaVariant { standard, icon, avatar, image }
+enum DItemMediaVariant { standard, icon, avatar }
 
 /// A content row, optionally an action or link. Editable fields keep their own
 /// FormField owner; selection is controlled by the caller.
@@ -56,7 +56,7 @@ class DItem extends StatefulWidget {
     this.selectionStyle = DItemSelectionStyle.tinted,
     this.showSelectionIndicator = true,
     this.focusNode,
-    this.autofocus = false,
+
     this.semanticLabel,
     this.padding,
     this.cornerAction,
@@ -118,7 +118,6 @@ class DItem extends StatefulWidget {
 
   /// Borrowed when supplied; never disposed by Item.
   final FocusNode? focusNode;
-  final bool autofocus;
 
   /// Additional row announcement. Descendants retain their own semantics;
   /// use ExcludeSemantics on passive content when this replaces its full label.
@@ -183,8 +182,7 @@ class _DItemState extends State<DItem> {
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
-        widget.selectionStyle == DItemSelectionStyle.neutral ||
-        widget.selectionStyle == DItemSelectionStyle.strongNeutral;
+        (widget.selectionStyle == DItemSelectionStyle.strongNeutral);
     final strongNeutralSelection =
         widget.selectionStyle == DItemSelectionStyle.strongNeutral;
     final leadingSelection =
@@ -359,7 +357,7 @@ class _DItemState extends State<DItem> {
         child: FocusableActionDetector(
           enabled: _active,
           focusNode: _focus,
-          autofocus: widget.autofocus,
+          autofocus: false,
           mouseCursor: _active
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
@@ -594,24 +592,18 @@ class _ItemScope extends InheritedWidget {
 /// for paginated lists. [size] sets spacing when children wrap their own Items;
 /// otherwise direct Item children determine the tightest spacing as CSS :has.
 class DItemGroup extends StatelessWidget {
-  const DItemGroup({
-    super.key,
-    required this.children,
-    this.size,
-    this.spacing,
-  });
+  const DItemGroup({super.key, required this.children, this.spacing});
   final List<Widget> children;
-  final DItemSize? size;
+
   final double? spacing;
   @override
   Widget build(BuildContext context) {
     final effective =
-        size ??
-        (children.whereType<DItem>().any((c) => c.size == DItemSize.xs)
-            ? DItemSize.xs
-            : children.whereType<DItem>().any((c) => c.size == DItemSize.sm)
-            ? DItemSize.sm
-            : DItemSize.standard);
+        ((children.whereType<DItem>().any((c) => c.size == DItemSize.xs)
+        ? DItemSize.xs
+        : children.whereType<DItem>().any((c) => c.size == DItemSize.sm)
+        ? DItemSize.sm
+        : DItemSize.standard));
     final gap =
         spacing ??
         switch (effective) {
@@ -659,17 +651,6 @@ class DItemMedia extends StatelessWidget {
   final DItemMediaVariant variant;
   @override
   Widget build(BuildContext context) {
-    if (variant == DItemMediaVariant.image) {
-      final dimension = switch (_ItemScope.sizeOf(context)) {
-        DItemSize.standard => 40.0,
-        DItemSize.sm => 32.0,
-        DItemSize.xs => 24.0,
-      };
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(DTokens.of(context).radius * .6),
-        child: SizedBox.square(dimension: dimension, child: child),
-      );
-    }
     return IconTheme.merge(
       data: IconThemeData(
         size: variant == DItemMediaVariant.icon ? 16 : null,
@@ -737,15 +718,10 @@ class DItemTitle extends StatelessWidget {
 }
 
 class DItemDescription extends StatelessWidget {
-  const DItemDescription({
-    super.key,
-    required this.child,
-    this.maxLines = 2,
-    this.height = DiscourseTypography.lineHeightPreview,
-  });
+  const DItemDescription({super.key, required this.child, this.maxLines = 2});
   final Widget child;
   final int? maxLines;
-  final double height;
+
   @override
   Widget build(BuildContext context) {
     final effectiveMaxLines = MediaQuery.textScalerOf(context).scale(14) > 21
@@ -755,7 +731,7 @@ class DItemDescription extends StatelessWidget {
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
           fontSize: DiscourseTypography.preview,
-          height: height,
+          height: DiscourseTypography.lineHeightPreview,
           fontWeight: FontWeight.w400,
           color: DTokens.of(context).mutedForeground,
           letterSpacing: 0,

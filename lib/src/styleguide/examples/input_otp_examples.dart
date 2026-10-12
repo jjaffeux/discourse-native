@@ -438,7 +438,6 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
             ),
           ),
           DCardFooter(
-            muted: false,
             child: DField(
               children: [
                 DButton(

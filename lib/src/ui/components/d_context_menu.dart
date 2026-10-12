@@ -46,34 +46,32 @@ class DContextMenu extends StatelessWidget {
     required this.child,
     required this.content,
     this.open,
-    this.defaultOpen = false,
+
     this.controller,
     this.onOpenChange,
-    this.onOpenChangeComplete,
+
     this.restoreFocus = true,
-    this.disabled = false,
   });
 
   final Widget child;
   final DContextMenuContent content;
   final bool? open;
-  final bool defaultOpen;
+
   final DContextMenuController? controller;
   final DContextMenuOpenChange? onOpenChange;
-  final ValueChanged<bool>? onOpenChangeComplete;
+
   final bool restoreFocus;
-  final bool disabled;
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
-    open: disabled ? false : open,
-    defaultOpen: disabled ? false : defaultOpen,
+    open: (open),
+    defaultOpen: false,
     controller: controller,
-    onOpenChange: disabled ? null : onOpenChange,
-    onOpenChangeComplete: onOpenChangeComplete,
+    onOpenChange: (onOpenChange),
+    onOpenChangeComplete: null,
     restoreFocus: restoreFocus,
     content: content,
-    child: _ContextMenuEnabled(enabled: !disabled, child: child),
+    child: _ContextMenuEnabled(enabled: !false, child: child),
   );
 }
 
@@ -103,26 +101,24 @@ class DContextMenuTrigger extends StatefulWidget {
   const DContextMenuTrigger({
     super.key,
     required this.child,
-    this.focusNode,
+
     this.controller,
-    this.enabled = true,
+
     this.focusable = true,
     this.longPressEnabled = true,
     this.captureSecondaryTap = false,
-    this.semanticLabel,
   });
 
   final Widget child;
-  final FocusNode? focusNode;
+
   final DContextMenuTriggerController? controller;
-  final bool enabled;
+
   final bool focusable;
   final bool longPressEnabled;
 
   /// Own secondary clicks even when a descendant has its own context menu,
   /// such as a text field inside an editable table. Primary gestures are intact.
   final bool captureSecondaryTap;
-  final String? semanticLabel;
 
   @override
   State<DContextMenuTrigger> createState() => _DContextMenuTriggerState();
@@ -132,7 +128,7 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
   Offset _anchor = Offset.zero;
   DDropdownMenuTriggerState? _trigger;
 
-  bool get _enabled => widget.enabled && _ContextMenuEnabled.of(context);
+  bool get _enabled => (_ContextMenuEnabled.of(context));
 
   Size get _size => context.size ?? Size.zero;
 
@@ -202,11 +198,11 @@ class _DContextMenuTriggerState extends State<DContextMenuTrigger> {
 
   @override
   Widget build(BuildContext context) => DDropdownMenuTrigger(
-    focusNode: widget.focusNode,
+    focusNode: null,
     builder: (context, trigger) {
       _trigger = trigger;
       final region = Semantics(
-        label: widget.semanticLabel,
+        label: null,
         enabled: _enabled,
         onLongPress: _enabled && widget.longPressEnabled
             ? () => _openFromKeyboard(trigger)
@@ -288,19 +284,20 @@ class DContextMenuContent extends DDropdownMenuContent {
     super.key,
     required super.children,
     super.semanticLabel,
-    super.side = DPopoverSide.right,
-    super.align = DPopoverAlign.start,
-    super.sideOffset = 0,
-    super.alignOffset = 4,
-    super.sideCollision = DPopoverCollision.flip,
-    super.alignCollision = DPopoverCollision.shift,
-    super.collisionPadding = 5,
-    super.collisionBoundary,
+
     super.width = 144,
     super.constraints = const BoxConstraints(minWidth: 144),
-    super.isSubmenu = false,
-    super.autofocus = true,
-  });
+  }) : super(
+         side: DPopoverSide.right,
+         align: DPopoverAlign.start,
+         sideOffset: 0,
+         alignOffset: 4,
+         sideCollision: DPopoverCollision.flip,
+         alignCollision: DPopoverCollision.shift,
+         collisionPadding: 5,
+         isSubmenu: false,
+         autofocus: true,
+       );
 }
 
 class DContextMenuGroup extends StatelessWidget {
@@ -354,35 +351,29 @@ class DContextMenuItem extends StatelessWidget {
     this.onPressed,
     this.leading,
     this.trailing,
-    this.inset = false,
+
     this.variant = DContextMenuItemVariant.standard,
-    this.closeOnSelect = true,
-    this.semanticLabel,
-    this.focusNode,
   });
 
   final Widget child;
   final VoidCallback? onPressed;
   final Widget? leading;
   final Widget? trailing;
-  final bool inset;
+
   final DContextMenuItemVariant variant;
-  final bool closeOnSelect;
-  final String? semanticLabel;
-  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) => DDropdownMenuItem(
     onPressed: onPressed,
     leading: leading,
     trailing: trailing,
-    inset: inset,
+    inset: false,
     variant: variant == DContextMenuItemVariant.destructive
         ? DDropdownMenuItemVariant.destructive
         : DDropdownMenuItemVariant.standard,
-    closeOnSelect: closeOnSelect,
-    semanticLabel: semanticLabel,
-    focusNode: focusNode,
+    closeOnSelect: true,
+    semanticLabel: null,
+    focusNode: null,
     child: child,
   );
 }

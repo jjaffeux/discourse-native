@@ -95,7 +95,6 @@ class DSelectOption<T> extends DSelectItem<T> {
     required super.child,
     required String label,
     super.enabled,
-    super.semanticLabel,
   }) : super(textValue: label);
 }
 
@@ -139,12 +138,12 @@ List<DSelectEntry<T>> _entriesFromDropdownItems<T>(
 class DSelect<T> extends FormField<T> {
   DSelect({
     super.key,
-    List<DSelectEntry<T>>? entries,
-    List<DropdownMenuItem<T>>? items,
+    required this.entries,
+
     this.value,
     super.initialValue,
     this.onChanged,
-    this.onChangedWithReason,
+
     this._placeholder,
     this.label,
     this.description,
@@ -152,46 +151,31 @@ class DSelect<T> extends FormField<T> {
     this.semanticLabel,
     this.valueBuilder,
     this.triggerBuilder,
-    this.icon,
-    this.indicator,
+
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.filled = false,
-    this.invalid = false,
+
     this.readOnly = false,
     this.required = false,
-    this.highlightItemOnHover = true,
-    this.loop = true,
-    this.modal = true,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
-    this.onOpenChangeComplete,
+
     this.focusNode,
-    this.popoverController,
-    this.scrollController,
-    this.autofocus = false,
+
     this.alignItemWithTrigger = true,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = DSpacing.controlGap,
-    this.alignOffset = 0,
-    this.sideCollision = DPopoverCollision.flip,
-    this.alignCollision = DPopoverCollision.shift,
-    this.collisionPadding = 5,
-    this.collisionBoundary,
+
     this.maxPopupHeight = 320,
-    this.isItemEqualToValue,
+
     super.enabled = true,
     super.validator,
     super.onSaved,
     super.autovalidateMode,
     super.forceErrorText,
-  }) : assert(entries != null || items != null),
-       assert(width > 0),
+  }) : assert(width > 0),
        assert(maxPopupHeight > 0),
-       entries = entries ?? _entriesFromDropdownItems<T>(items!),
+
        _controlled = value != null,
        super(builder: (state) => (state as _DSelectFormState<T>)._build());
 
@@ -200,7 +184,7 @@ class DSelect<T> extends FormField<T> {
     required this.entries,
     required this.value,
     required this.onChanged,
-    this.onChangedWithReason,
+
     super.initialValue,
     this._placeholder,
     this.label,
@@ -209,37 +193,23 @@ class DSelect<T> extends FormField<T> {
     this.semanticLabel,
     this.valueBuilder,
     this.triggerBuilder,
-    this.icon,
-    this.indicator,
+
     this.size = DSelectSize.regular,
     this.width = 180,
     this.isExpanded = false,
     this.filled = false,
-    this.invalid = false,
+
     this.readOnly = false,
     this.required = false,
-    this.highlightItemOnHover = true,
-    this.loop = true,
-    this.modal = true,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
-    this.onOpenChangeComplete,
+
     this.focusNode,
-    this.popoverController,
-    this.scrollController,
-    this.autofocus = false,
+
     this.alignItemWithTrigger = true,
     this.side = DPopoverSide.bottom,
     this.align = DPopoverAlign.center,
-    this.sideOffset = DSpacing.controlGap,
-    this.alignOffset = 0,
-    this.sideCollision = DPopoverCollision.flip,
-    this.alignCollision = DPopoverCollision.shift,
-    this.collisionPadding = 5,
-    this.collisionBoundary,
+
     this.maxPopupHeight = 320,
-    this.isItemEqualToValue,
+
     super.enabled = true,
     super.validator,
     super.onSaved,
@@ -253,7 +223,7 @@ class DSelect<T> extends FormField<T> {
   final List<DSelectEntry<T>> entries;
   final T? value;
   final ValueChanged<T?>? onChanged;
-  final DSelectValueChanged<T>? onChangedWithReason;
+
   final String? _placeholder;
   String get placeholder => _placeholder ?? appL10n.selectAnOption;
   final Widget? label;
@@ -262,42 +232,25 @@ class DSelect<T> extends FormField<T> {
   final String? semanticLabel;
   final DSelectValueBuilder<T>? valueBuilder;
   final DSelectTriggerBuilder<T>? triggerBuilder;
-  final Widget? icon;
-  final Widget? indicator;
+
   final DSelectSize size;
   final double width;
   final bool isExpanded;
 
   /// A raised form surface using the theme foreground at ten percent.
   final bool filled;
-  final bool invalid;
+
   final bool readOnly;
   final bool required;
-  final bool highlightItemOnHover;
-  final bool loop;
 
-  /// Keeps keyboard focus within the popup. Flutter pointer dismissal occurs
-  /// before the underlying action; unlike the DOM no page scroll lock is added.
-  final bool modal;
-  final bool? open;
-  final bool defaultOpen;
-  final DPopoverOpenChange? onOpenChange;
-  final ValueChanged<bool>? onOpenChangeComplete;
   final FocusNode? focusNode;
-  final DPopoverController? popoverController;
-  final ScrollController? scrollController;
-  final bool autofocus;
+
   final bool alignItemWithTrigger;
   final DPopoverSide side;
   final DPopoverAlign align;
-  final double sideOffset;
-  final double alignOffset;
-  final DPopoverCollision sideCollision;
-  final DPopoverCollision alignCollision;
-  final double collisionPadding;
-  final Rect? collisionBoundary;
+
   final double maxPopupHeight;
-  final bool Function(T? itemValue, T? value)? isItemEqualToValue;
+
   final bool _controlled;
 
   @override
@@ -324,10 +277,7 @@ class _DSelectFormState<T> extends FormFieldState<T> {
   void reset() {
     super.reset();
     widget.onChanged?.call(widget.initialValue);
-    widget.onChangedWithReason?.call(
-      widget.initialValue,
-      DSelectChangeReason.formReset,
-    );
+
     if (widget._controlled && mounted) setValue(widget.value);
   }
 
@@ -335,7 +285,7 @@ class _DSelectFormState<T> extends FormFieldState<T> {
     if (!widget.enabled || widget.readOnly) return;
     didChange(next);
     widget.onChanged?.call(next);
-    widget.onChangedWithReason?.call(next, reason);
+
     if (widget._controlled && mounted) setValue(widget.value);
   }
 
@@ -351,38 +301,38 @@ class _DSelectFormState<T> extends FormFieldState<T> {
     semanticLabel: widget.semanticLabel,
     valueBuilder: widget.valueBuilder,
     triggerBuilder: widget.triggerBuilder,
-    icon: widget.icon,
-    indicator: widget.indicator,
+    icon: null,
+    indicator: null,
     size: widget.size,
     width: widget.width,
     isExpanded: widget.isExpanded,
     filled: widget.filled,
     enabled: widget.enabled,
-    invalid: widget.invalid || hasError,
+    invalid: (hasError),
     readOnly: widget.readOnly,
     required: widget.required,
-    highlightItemOnHover: widget.highlightItemOnHover,
-    loop: widget.loop,
-    modal: widget.modal,
-    open: widget.open,
-    defaultOpen: widget.defaultOpen,
-    onOpenChange: widget.onOpenChange,
-    onOpenChangeComplete: widget.onOpenChangeComplete,
+    highlightItemOnHover: true,
+    loop: true,
+    modal: true,
+    open: null,
+    defaultOpen: false,
+    onOpenChange: null,
+    onOpenChangeComplete: null,
     focusNode: widget.focusNode,
-    popoverController: widget.popoverController,
-    scrollController: widget.scrollController,
-    autofocus: widget.autofocus,
+    popoverController: null,
+    scrollController: null,
+    autofocus: false,
     alignItemWithTrigger: widget.alignItemWithTrigger,
     side: widget.side,
     align: widget.align,
-    sideOffset: widget.sideOffset,
-    alignOffset: widget.alignOffset,
-    sideCollision: widget.sideCollision,
-    alignCollision: widget.alignCollision,
-    collisionPadding: widget.collisionPadding,
-    collisionBoundary: widget.collisionBoundary,
+    sideOffset: DSpacing.controlGap,
+    alignOffset: 0,
+    sideCollision: DPopoverCollision.flip,
+    alignCollision: DPopoverCollision.shift,
+    collisionPadding: 5,
+    collisionBoundary: null,
     maxPopupHeight: widget.maxPopupHeight,
-    equals: widget.isItemEqualToValue ?? (left, right) => left == right,
+    equals: ((left, right) => left == right),
   );
 }
 

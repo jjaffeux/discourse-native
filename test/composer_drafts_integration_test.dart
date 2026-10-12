@@ -136,7 +136,7 @@ void _registerTopicReplyTests() {
 
       // can_create_post is the whole question — the guardian behind it has
       // already accounted for closed, archived and who may post past them.
-      expect(find.byTooltip('Reply to this topic'), findsNothing);
+      expect(find.byKey(const ValueKey('title-bar-reply')), findsNothing);
       await hoverPost(tester);
       expect(find.byTooltip('Reply to this post'), findsNothing);
 
@@ -282,7 +282,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -319,7 +319,7 @@ void _registerTopicReplyTests() {
         );
 
         await openTopic(tester, api);
-        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
         final shell = ShellScope.read(
           tester.element(find.byType(ComposerPanel)),
@@ -363,7 +363,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api, user: whisperer);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'For the team only.');
       await tester.pump();
@@ -499,7 +499,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Quick one.');
       await tester.pumpAndSettle();
@@ -521,7 +521,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Shipped.');
       await tester.pumpAndSettle();
@@ -546,7 +546,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'no');
       await tester.pumpAndSettle();
@@ -578,7 +578,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Held for review.');
       await tester.pumpAndSettle();
@@ -607,7 +607,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Held for review.');
       await tester.pumpAndSettle();
@@ -640,7 +640,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Meant for meta.');
       await tester.pumpAndSettle();
@@ -676,7 +676,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Too eager.');
       await tester.pumpAndSettle();
@@ -713,7 +713,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'It landed.');
       await tester.pumpAndSettle();
@@ -746,7 +746,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Never arrived.');
       await tester.pumpAndSettle();
@@ -768,7 +768,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Unknown fate.');
       await tester.pumpAndSettle();
@@ -801,7 +801,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await tester.enterText(_composerField, 'Offline thought.');
       await tester.pumpAndSettle();
@@ -847,7 +847,7 @@ void _registerTopicReplyTests() {
         );
 
         await openTopic(tester, api);
-        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
         await tester.enterText(_composerField, 'It landed.');
         await tester.pumpAndSettle();
@@ -906,7 +906,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       // An IME space, as a Japanese keyboard types it.
       await tester.enterText(_composerField, 'ありがとう\u3000ございます');
@@ -1030,7 +1030,7 @@ void _registerTopicReplyTests() {
       );
 
       await openTopic(tester, api);
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       // Only a sendable reply tells closing apart from sending.
       await tester.enterText(_composerField, 'Not ready to send this yet');
@@ -1088,7 +1088,7 @@ void _registerComposerAndDraftTests() {
       );
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
     }
 
@@ -1218,7 +1218,7 @@ void _registerComposerAndDraftTests() {
       );
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
     }
 
@@ -1691,7 +1691,7 @@ void _registerComposerAndDraftTests() {
       );
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
     }
 
@@ -1823,7 +1823,7 @@ void _registerComposerAndDraftTests() {
         await _saveAndClose(tester);
         await tester.pump();
 
-        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
         final replacement = shell.visibleComposer!;
         expect(replacement, isNot(same(closing)));
@@ -2640,7 +2640,7 @@ void _registerComposerAndDraftTests() {
 
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       await _requestDiscard(tester);
       await tester.pumpAndSettle();
@@ -2684,7 +2684,7 @@ void _registerComposerAndDraftTests() {
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       for (var attempt = 0; attempt < 2; attempt++) {
-        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
         await _saveAndClose(tester);
         await tester.pumpAndSettle();
@@ -2847,7 +2847,7 @@ void _registerComposerAndDraftTests() {
       expect(shell.currentTopic?.draft, isNull);
       expect(drafts.saved, isEmpty);
 
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       expect(shell.visibleComposer?.text.text, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -2966,7 +2966,7 @@ void _registerComposerAndDraftTests() {
 
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
       final accountBComposer = shell.visibleComposer!;
       accountBComposer.text.text = 'Account B draft';
@@ -3154,7 +3154,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       expect(find.byType(ComposerPanel), findsNothing);
 
-      await tester.tap(find.byTooltip('Reply to this topic'));
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
 
       expect(find.text('Come back to this'), findsOneWidget);
@@ -3317,7 +3317,7 @@ void _registerComposerAndDraftTests() {
           // it to the site again: the second post the check exists to prevent.
           expect(drafts.saved, isEmpty);
 
-          await tester.tap(find.byTooltip('Reply to this topic'));
+          await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
           await tester.pumpAndSettle();
           expect(
             tester.widget<TextField>(_composerField).controller!.text,

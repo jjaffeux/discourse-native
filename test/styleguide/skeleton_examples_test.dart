@@ -119,16 +119,6 @@ void main() {
           .shape,
       BoxShape.circle,
     );
-    await tester.tap(find.widgetWithText(FilterChip, 'Pulse'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<DSkeleton>(
-            find.byKey(const ValueKey('skeleton-geometry-shape')),
-          )
-          .animate,
-      isFalse,
-    );
     await tester.tap(find.widgetWithText(ChoiceChip, 'Pill'));
     await tester.pumpAndSettle();
     expect(

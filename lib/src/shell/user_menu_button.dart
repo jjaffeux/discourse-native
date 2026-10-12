@@ -243,7 +243,7 @@ class _AccountMenuPopover extends StatelessWidget {
         icon: ExcludeSemantics(child: icon),
         tooltip: connecting ? context.l10n.connecting : tooltip,
         semanticLabel: semanticLabel,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         density: isProfile ? DButtonDensity.avatar : DButtonDensity.standard,
         size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
         shape: isProfile ? DButtonShape.pill : DButtonShape.rounded,

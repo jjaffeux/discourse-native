@@ -1242,10 +1242,10 @@ class _ContentHeader extends StatelessWidget {
                                 ),
                                 onPressed: contentHeaderTitleAction,
                                 size: DButtonSize.large,
-                                variant: DButtonVariant.transparentBackground,
+                                variant: DButtonVariant.ghost,
                                 semanticLabel: context.l10n
                                     .openDetailsMaincontent(
-                                      (route.title).toString(),
+                                      route.title.toString(),
                                     ),
                                 icon: contentHeaderLeading == null
                                     ? DIcon(route.icon)
@@ -1266,7 +1266,7 @@ class _ContentHeader extends StatelessWidget {
                           label: contentHeaderTitleAction == null
                               ? null
                               : context.l10n.openDetailsMaincontent(
-                                  (route.title).toString(),
+                                  route.title.toString(),
                                 ),
                           child: InkWell(
                             key: contentHeaderTitleAction == null
@@ -1504,7 +1504,7 @@ class _CategoryHeaderIdentity extends StatelessWidget {
                 key: const ValueKey('content-header-parent-category'),
                 onTap: () => controller.openCategory(parent, siteUrl: siteUrl),
                 semanticLabel: context.l10n.parentCategory(
-                  (parent.name).toString(),
+                  parent.name.toString(),
                 ),
                 excludeChildSemantics: true,
                 child: ConstrainedBox(
@@ -1595,7 +1595,7 @@ class _CategoryHeaderTitle extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: context.l10n.openDetailsMaincontent((route.title).toString()),
+      label: context.l10n.openDetailsMaincontent(route.title.toString()),
       child: InkWell(
         key: const ValueKey('content-header-title-action'),
         onTap: titleAction,

@@ -256,8 +256,11 @@ void main() {
       final second = openReply(8);
 
       gate.complete();
-      await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save draft'));
+      await tester.pumpAndSettle();
       await closing;
+      await tester.pumpAndSettle();
       expect(first.isDisposed, isTrue);
       expect(shell.visibleComposer, same(second));
       shell.selectTab(firstTab);

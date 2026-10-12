@@ -1339,8 +1339,11 @@ final class _GatedForumTabStore extends FakeForumTabStore {
   bool gated = false;
 
   @override
-  Future<void> save(Iterable<ForumWorkspace> workspaces) async {
-    await super.save(workspaces);
+  Future<void> save(
+    Iterable<ForumWorkspace> workspaces, {
+    String? selectedSiteUrl,
+  }) async {
+    await super.save(workspaces, selectedSiteUrl: selectedSiteUrl);
     if (gated) await release.future;
   }
 }

@@ -167,6 +167,9 @@ dev_dependencies:
   share_plus_platform_interface: 7.2.0
 
   flutter_lints: ^6.0.0
+  path_provider_linux: any
+  path_provider_platform_interface: any
+  shared_preferences_linux: any
 flutter:
   generate: true
   uses-material-design: true

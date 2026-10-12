@@ -103,8 +103,6 @@ class _Reference extends StatefulWidget {
 }
 
 class _ReferenceState extends State<_Reference> {
-  final _focusNodes = <String, FocusNode>{};
-
   // The reference RTL example reads useTranslation(translations, 'ar'): one
   // record per language with its direction and strings.
   static const _translations =
@@ -188,74 +186,29 @@ class _ReferenceState extends State<_Reference> {
     if (oldWidget.mode != widget.mode) _value = initial;
   }
 
-  FocusNode _focus(String value) =>
-      _focusNodes.putIfAbsent(value, FocusNode.new);
-
-  @override
-  void dispose() {
-    for (final node in _focusNodes.values) {
-      node.dispose();
-    }
-    super.dispose();
-  }
-
-  void _select(String value, {bool enabled = true}) {
-    // Labels activate the native radio; they do not become another value owner.
-    if (enabled) {
-      Actions.maybeInvoke(_focus(value).context!, const ActivateIntent());
-    }
-  }
-
   Widget _item({
     required int index,
     bool description = false,
     bool invalid = false,
     bool enabled = true,
-  }) {
-    final value = values[index];
-    final label = labels[index];
-    final help = description ? descriptions[index] : null;
-    return DField(
-      orientation: DFieldOrientation.horizontal,
-      invalid: invalid,
-      enabled: enabled,
-      children: [
-        DFieldControl(
-          label: label,
-          description: help,
-          expand: false,
-          alignIndicatorToContent: description,
-          child: DRadioGroupItem<String>(
-            value: value,
-            semanticLabel: '',
-            enabled: enabled,
-            focusNode: _focus(value),
-          ),
+  }) => DField(
+    orientation: DFieldOrientation.horizontal,
+    invalid: invalid,
+    enabled: enabled,
+    children: [
+      DFieldControl(
+        label: '',
+        child: DRadioGroupItem<String>(
+          value: values[index],
+          enabled: enabled,
+          label: DFieldLabel(child: Text(labels[index])),
+          description: description
+              ? DFieldDescription(child: Text(descriptions[index]))
+              : null,
         ),
-        if (description)
-          DFieldContent(
-            children: [
-              DFieldLabel(
-                excludeSemantics: true,
-                focusNode: _focus(value),
-                onPressed: () => _select(value, enabled: enabled),
-                child: Text(label),
-              ),
-              DFieldDescription(child: Text(help!)),
-            ],
-          )
-        else
-          DFieldLabel(
-            excludeSemantics: true,
-            enabled: enabled,
-            focusNode: _focus(value),
-            onPressed: enabled ? () => _select(value) : null,
-            style: const TextStyle(fontWeight: FontWeight.w400),
-            child: Text(label),
-          ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
   Widget _items({
     bool description = false,
@@ -285,7 +238,7 @@ class _ReferenceState extends State<_Reference> {
   Widget _group(Widget child, {bool invalid = false}) =>
       DRadioGroup<String>.controlled(
         groupValue: _value,
-        invalid: invalid,
+
         onChanged: (next) => setState(() => _value = next!),
         child: child,
       );
@@ -293,32 +246,11 @@ class _ReferenceState extends State<_Reference> {
   Widget _choiceCards() => _group(
     _spaced([
       for (var i = 0; i < 3; i++)
-        DFieldLabel.choice(
-          selected: _value == values[i],
-          focusNode: _focus(values[i]),
-          onPressed: () => _select(values[i]),
-          child: DField(
-            orientation: DFieldOrientation.horizontal,
-            children: [
-              DFieldContent(
-                children: [
-                  DFieldTitle(excludeSemantics: true, child: Text(labels[i])),
-                  DFieldDescription(child: Text(descriptions[i])),
-                ],
-              ),
-              DFieldControl(
-                label: labels[i],
-                description: descriptions[i],
-                expand: false,
-                alignIndicatorToContent: true,
-                child: DRadioGroupItem<String>(
-                  value: values[i],
-                  semanticLabel: '',
-                  focusNode: _focus(values[i]),
-                ),
-              ),
-            ],
-          ),
+        DRadioGroupItem<String>(
+          value: values[i],
+          card: true,
+          label: DFieldTitle(child: Text(labels[i])),
+          description: DFieldDescription(child: Text(descriptions[i])),
         ),
     ]),
   );
@@ -339,7 +271,7 @@ class _ReferenceState extends State<_Reference> {
             for (var i = 0; i < 3; i++)
               DRadioGroupItem<String>(
                 value: values[i],
-                focusNode: _focus(values[i]),
+
                 label: DLabel(child: Text(labels[i])),
               ),
           ]),
@@ -348,14 +280,11 @@ class _ReferenceState extends State<_Reference> {
         'Choice Card' => _choiceCards(),
         'Fieldset' => DFieldSet(
           semanticLabel: 'Subscription Plan',
-          spacing: 12,
+
           children: [
             const DFieldContent(
               children: [
-                DFieldLegend(
-                  variant: DFieldLegendVariant.label,
-                  child: Text('Subscription Plan'),
-                ),
+                DFieldLegend(child: Text('Subscription Plan')),
                 DFieldDescription(
                   child: Text(
                     'Yearly and lifetime plans offer significant savings.',
@@ -369,14 +298,11 @@ class _ReferenceState extends State<_Reference> {
         'Disabled' => _group(_items(firstDisabled: true)),
         'Invalid' => DFieldSet(
           semanticLabel: 'Notification Preferences',
-          spacing: 12,
+
           children: [
             const DFieldContent(
               children: [
-                DFieldLegend(
-                  variant: DFieldLegendVariant.label,
-                  child: Text('Notification Preferences'),
-                ),
+                DFieldLegend(child: Text('Notification Preferences')),
                 DFieldDescription(
                   child: Text('Choose how you want to receive notifications.'),
                 ),
@@ -460,9 +386,7 @@ class _FormPreviewState extends State<_FormPreview> {
         DRadioGroup<String>.controlled(
           groupValue: _value,
           onChanged: (value) => setState(() => _value = value),
-          validator: (value) =>
-              value == null ? 'Choose a delivery method.' : null,
-          onSaved: (value) => setState(() => _saved = value),
+
           child: const Column(
             spacing: 8,
             children: [
@@ -514,24 +438,15 @@ class _ReadOnlyPreviewState extends State<_ReadOnlyPreview> {
       children: [
         DRadioGroup<String>.controlled(
           groupValue: _value,
-          readOnly: _readOnly,
-          required: true,
+
           onChanged: (next) => setState(() => _value = next),
-          validator: (next) => next == null ? 'Choose an option.' : null,
+
           child: const Column(
             spacing: 8,
             children: [
               DRadioGroupItem(value: 'a', label: Text('Inherited')),
-              DRadioGroupItem(
-                value: 'b',
-                label: Text('Editable'),
-                readOnly: false,
-              ),
-              DRadioGroupItem(
-                value: 'c',
-                label: Text('Locked'),
-                readOnly: true,
-              ),
+              DRadioGroupItem(value: 'b', label: Text('Editable')),
+              DRadioGroupItem(value: 'c', label: Text('Locked')),
             ],
           ),
         ),

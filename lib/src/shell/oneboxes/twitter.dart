@@ -327,7 +327,7 @@ class _Author extends StatelessWidget {
         ),
         const SizedBox(width: DSpacing.sm),
         DButton.iconOnly(
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.post,
           icon: DIcon(_xLogo, color: tokens.foreground),
           tooltip: context.l10n.viewPostOnX,
@@ -462,7 +462,7 @@ class _PostActionsState extends State<_PostActions> {
           children: [
             if (data.likes case final likes?)
               DButton(
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
                 icon: const DIcon(DIcons.heart, color: Color(0xfff91880)),
                 label: Text(
@@ -482,7 +482,7 @@ class _PostActionsState extends State<_PostActions> {
               ),
             if (data.reposts case final reposts?)
               DButton(
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
                 icon: const Icon(Icons.repeat),
                 label: Text(reposts),
@@ -494,7 +494,7 @@ class _PostActionsState extends State<_PostActions> {
               ),
             if (url != null) ...[
               DButton(
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
                 icon: DIcon(DIcons.comment, color: tokens.primary),
                 label: Text(
@@ -508,7 +508,7 @@ class _PostActionsState extends State<_PostActions> {
                 ),
               ),
               DButton(
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
                 icon: DIcon(_copied ? DIcons.check : DIcons.link),
                 label: Text(

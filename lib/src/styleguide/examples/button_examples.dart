@@ -111,18 +111,18 @@ final buttonExamples = ComponentExamples(
           ),
           DButton(
             label: const Text('Discard'),
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: () {},
           ),
           DButton.iconOnly(
             icon: const DIcon(DIcons.xmark),
             tooltip: 'Close',
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: () {},
           ),
           DButton.iconOnly(
             density: DButtonDensity.avatar,
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             icon: const DAvatar(
               border: false,
               fallback: DAvatarFallback(child: Text('U')),
@@ -193,7 +193,7 @@ final buttonExamples = ComponentExamples(
       description:
           '24px-high surfaces, 32px icon actions and 14px icons, with hit areas matching their surfaces. Compare the shorter actions with a regular tag chip.',
       code:
-          "DButton.iconOnly(density: DButtonDensity.compactToolbar, variant: DButtonVariant.outline, icon: DIcon(DIcons.bookmark), tooltip: 'Bookmark', onPressed: bookmark)",
+          "DButton.iconOnly(density: DButtonDensity.standard, variant: DButtonVariant.outline, icon: DIcon(DIcons.bookmark), tooltip: 'Bookmark', onPressed: bookmark)",
       builder: (_) => const _CompactToolbarExample(),
     ),
     StyleguideExample(
@@ -201,10 +201,10 @@ final buttonExamples = ComponentExamples(
       description:
           'A transparent 26px message action with a 16px icon and 6px corners.',
       code:
-          "DButton.iconOnly(density: DButtonDensity.chatMessageAction, variant: DButtonVariant.transparentBackground, icon: DIcon(DIcons.farFaceSmile), tooltip: 'Add reaction', onPressed: addReaction)",
+          "DButton.iconOnly(density: DButtonDensity.chatMessageAction, variant: DButtonVariant.ghost, icon: DIcon(DIcons.farFaceSmile), tooltip: 'Add reaction', onPressed: addReaction)",
       builder: (_) => DButton.iconOnly(
         density: DButtonDensity.chatMessageAction,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         icon: const DIcon(DIcons.farFaceSmile),
         tooltip: 'Add reaction',
         onPressed: () {},
@@ -215,7 +215,7 @@ final buttonExamples = ComponentExamples(
       description:
           'Switch tabs to see the 240ms circle-to-rounded-square transition. 44px surfaces, 18px icons and matching hit areas.',
       code:
-          "DButton.iconOnly(density: DButtonDensity.mobileNavigation, shape: DButtonShape.pill, icon: DIcon(DIcons.layerGroup), tooltip: 'Topics', onPressed: openTopics)",
+          "DButton.iconOnly(density: DButtonDensity.standard, shape: DButtonShape.pill, icon: DIcon(DIcons.layerGroup), tooltip: 'Topics', onPressed: openTopics)",
       builder: (_) => const _MobileNavigationExample(),
     ),
     StyleguideExample(
@@ -426,7 +426,7 @@ DButtonGroup(children: [
       code: '''DButton.iconOnly(
   icon: const DIcon(DIcons.link),
   tooltip: 'Copy link',
-  variant: DButtonVariant.transparentBackground,
+  variant: DButtonVariant.ghost,
   onPressed: copyLink,
 )
 DButton(
@@ -483,13 +483,13 @@ class _ButtonTransparentBackgroundState
           DButton(
             label: const Text('Reply'),
             icon: const DIcon(DIcons.reply),
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: () => setState(() => _result = 'Reply activated'),
           ),
           DButton.iconOnly(
             icon: const DIcon(DIcons.link),
             tooltip: 'Copy link',
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: () => setState(() => _result = 'Link copied'),
           ),
           DDropdownMenu(
@@ -505,7 +505,7 @@ class _ButtonTransparentBackgroundState
               builder: (_, trigger) => DButton.iconOnly(
                 icon: const DIcon(DIcons.circlePlus),
                 tooltip: 'Insert',
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 hasPopup: true,
                 expanded: trigger.open,
                 focusNode: trigger.focusNode,
@@ -516,7 +516,7 @@ class _ButtonTransparentBackgroundState
           const DButton.iconOnly(
             icon: DIcon(DIcons.trashCan),
             tooltip: 'Discard draft',
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: null,
           ),
         ],
@@ -1172,7 +1172,7 @@ class _ButtonRtl extends StatelessWidget {
 void _buttonFeedback(BuildContext context) => DToast.show(
   context,
   'Button activated',
-  duration: const Duration(seconds: 1),
+
 );
 
 class _MobileNavigationExample extends StatefulWidget {
@@ -1192,12 +1192,12 @@ class _MobileNavigationExampleState extends State<_MobileNavigationExample> {
     children: [
       for (var index = 0; index < 2; index++)
         DButton.iconOnly(
-          density: DButtonDensity.mobileNavigation,
+          density: DButtonDensity.standard,
           shape: selected == index ? DButtonShape.rounded : DButtonShape.pill,
           borderRadius: selected == index
               ? BorderRadius.circular(DRadius.panel)
               : null,
-          animationDuration: const Duration(milliseconds: 240),
+
           variant: selected == index
               ? DButtonVariant.primary
               : DButtonVariant.ghost,
@@ -1239,7 +1239,7 @@ class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
             child: const Text('# show-and-tell'),
           ),
           DButton.iconOnly(
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             icon: DIcon(_bookmarked ? DIcons.check : DIcons.bookmark),
             tooltip: _bookmarked ? 'Remove bookmark' : 'Bookmark',
             variant: DButtonVariant.outline,
@@ -1247,7 +1247,7 @@ class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
           ),
           DNotificationLevelMenu<int>(
             value: _notifications,
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             showChevron: true,
             variant: DButtonVariant.outline,
             semanticLabel: 'Topic notifications',
@@ -1268,14 +1268,14 @@ class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
             onChanged: (value) => setState(() => _notifications = value),
           ),
           DButton.iconOnly(
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             icon: const DIcon(DIcons.userPlus),
             tooltip: 'Assign topic',
             variant: DButtonVariant.outline,
             onPressed: () => setState(() => _action = 'Assignment activated'),
           ),
           DButton.iconOnly(
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             icon: const DIcon(DIcons.wrench),
             tooltip: 'Topic actions',
             variant: DButtonVariant.outline,
@@ -1283,14 +1283,14 @@ class _CompactToolbarExampleState extends State<_CompactToolbarExample> {
                 setState(() => _action = 'Topic actions activated'),
           ),
           const DButton.iconOnly(
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             icon: DIcon(DIcons.bookmark),
             tooltip: 'Disabled bookmark',
             variant: DButtonVariant.outline,
             onPressed: null,
           ),
           DButton.iconOnly(
-            density: DButtonDensity.compactToolbar,
+            density: DButtonDensity.standard,
             icon: const DIcon(DIcons.bookmark),
             tooltip: 'Saving bookmark',
             variant: DButtonVariant.outline,

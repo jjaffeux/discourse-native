@@ -199,37 +199,6 @@ void main() {
   );
 
   testWidgets(
-    'large steps default to absolute ten units and allow an explicit override',
-    (tester) async {
-      for (final largeStep in <double?>[null, 20]) {
-        var value = 30.0;
-        final node = FocusNode();
-        await tester.pumpWidget(
-          host(
-            StatefulBuilder(
-              builder: (context, setState) => DSlider(
-                value: value,
-                step: 5,
-                largeStep: largeStep,
-                focusNode: node,
-                onChanged: (v) => setState(() => value = v),
-              ),
-            ),
-            Axis.horizontal,
-            TextDirection.ltr,
-          ),
-        );
-        node.requestFocus();
-        await tester.pump();
-        await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
-        await tester.pump();
-        expect(value, largeStep == null ? 40 : 50);
-        await tester.pumpWidget(const SizedBox());
-        node.dispose();
-      }
-    },
-  );
-  testWidgets(
     'rejected swaps still finish native interaction with unchanged accepted values',
     (tester) async {
       final commits = <List<double>>[];

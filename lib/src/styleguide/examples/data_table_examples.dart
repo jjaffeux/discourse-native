@@ -7,7 +7,7 @@ final dataTableExamples = ComponentExamples(
   topLevelExampleIndex: 4,
   status: ComponentStatus.implemented,
   description:
-      'A typed, headless-friendly table with sorting, filtering, visibility, stable selection, row actions, and local or server-controlled state.',
+      'A typed, headless-friendly table with sorting, resizable columns, stable row IDs and row actions.',
   notes:
       'Ports the frozen Base UI/base-nova Data Table guide without bringing a web TanStack dependency into Flutter. Columns define stable IDs, typed cell formatting and optional compare/filter functions; rows define stable IDs separately from their display order. DTable remains the semantic presentation owner while Checkbox, Input, Dropdown Menu, Button, Badge, Pagination and Select retain their independent interactions. Accepted shared owners are integrated. Independent rendered-reference and macOS review covers the documented compositions, keyboard actions, live palettes, RTL, reduced motion and narrow large-text layouts; exact evidence and platform limits are recorded in the component documentation.',
   examples: [
@@ -63,9 +63,9 @@ final dataTableExamples = ComponentExamples(
       states: const ['empty', 'horizontal overflow', 'large text'],
     ),
     StyleguideExample(
-      title: 'Sorting, filtering, visibility, selection, and actions',
+      title: 'Sorting and row actions',
       description:
-          'Filter emails, open a sortable column header, toggle columns repeatedly, select stable row IDs and run independent row actions.',
+          'Open sortable column headers and run row actions for stable payment IDs.',
       code: _interactiveCode,
       builder: (_) => const DataTableInteractiveExample(),
       states: const [
@@ -323,10 +323,10 @@ List<DDataTableColumn<_Payment>> _paymentColumns({
     id: id,
     label: label,
     compare: compare,
-    filterText: filterText,
+
     hideable: hideable,
     alignment: alignment,
-    headerAlignment: headerAlignment,
+
     width: width,
     headerBuilder: compare == null || !interactiveHeaders
         ? null
@@ -337,9 +337,6 @@ List<DDataTableColumn<_Payment>> _paymentColumns({
             onHide: header.onVisibilityChanged == null
                 ? null
                 : () => header.onVisibilityChanged!(false),
-            ascendingLabel: t('Sort ascending', 'ترتيب تصاعدي'),
-            descendingLabel: t('Sort descending', 'ترتيب تنازلي'),
-            hideLabel: t('Hide column', 'إخفاء العمود'),
           ),
     cellBuilder: cell,
   );
@@ -396,7 +393,7 @@ List<DDataTableColumn<_Payment>> _paymentColumns({
         hideable: false,
         width: const FixedColumnWidth(48),
         alignment: AlignmentDirectional.centerEnd,
-        headerAlignment: AlignmentDirectional.centerEnd,
+
         headerBuilder: (context, header) => Semantics(
           label: header.column.label,
           child: const SizedBox.shrink(),
@@ -419,7 +416,6 @@ class DataTableBasicExample extends StatelessWidget {
     columns: _paymentColumns(arabic: false),
     rowId: (row) => row.id,
     semanticLabel: 'Recent payments',
-    minimumWidth: 480,
   );
 }
 
@@ -435,24 +431,7 @@ class DataTableInteractiveExample extends StatefulWidget {
 
 class _DataTableInteractiveExampleState
     extends State<DataTableInteractiveExample> {
-  late final DDataTableController _controller = DDataTableController();
   String _status = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_changed);
-  }
-
-  void _changed() => setState(() {});
-
-  @override
-  void dispose() {
-    _controller
-      ..removeListener(_changed)
-      ..dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -466,64 +445,16 @@ class _DataTableInteractiveExampleState
         _status = t('Opened ${payment.id}', 'تم فتح ${payment.id}');
       }),
     );
-    final filter = _controller.value.filters['email'] ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) => Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            runAlignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              SizedBox(
-                width: mathMin(384, constraints.maxWidth),
-                child: DDataTableFilterField(
-                  value: filter,
-                  hintText: t('Filter emails...', 'تصفية البريد الإلكتروني...'),
-                  onChanged: (value) => _controller.setFilter('email', value),
-                ),
-              ),
-              DDataTableColumnToggle<_Payment>(
-                columns: columns,
-                hiddenColumnIds: _controller.value.hiddenColumnIds,
-                label: t('Columns', 'الأعمدة'),
-                menuLabel: t('Toggle columns', 'تبديل الأعمدة'),
-                onChanged: (hidden) => _controller.value = _controller.value
-                    .copyWith(hiddenColumnIds: hidden, page: 1),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
         DDataTable<_Payment>(
           data: _extendedPayments,
           columns: columns,
           rowId: (row) => row.id,
-          controller: _controller,
-          selectable: true,
-          selectAllLabel: t('Select all', 'تحديد الكل'),
-          selectRowLabel: (row) =>
-              t('Select ${row.email}', 'تحديد ${row.email}'),
+
           semanticLabel: t('Payments', 'المدفوعات'),
-          minimumWidth: 620,
-          footerBuilder: (context, metrics) => DDataTablePagination(
-            metrics: metrics,
-            rowsPerPageLabel: t('Rows per page', 'صفوف لكل صفحة'),
-            pageLabel: arabic
-                ? (page, pages) => 'الصفحة $page من $pages'
-                : null,
-            selectionLabel: arabic
-                ? (selected, total) => '$selected من $total صف(وف) محدد.'
-                : null,
-            paginationLabel: t('Table pagination', 'ترقيم صفحات الجدول'),
-            previousLabel: t('Previous', 'السابق'),
-            nextLabel: t('Next', 'التالي'),
-            onPageChanged: _controller.setPage,
-            onPageSizeChanged: _controller.setPageSize,
-          ),
         ),
         if (_status.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -599,16 +530,7 @@ class DataTableDynamicExample extends StatefulWidget {
 }
 
 class _DataTableDynamicExampleState extends State<DataTableDynamicExample> {
-  final DDataTableController _controller = DDataTableController(
-    initialState: DDataTableState(selectedRowIds: const {'3u1reuv4'}),
-  );
   var _rows = List<_Payment>.of(_payments.take(3));
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -644,10 +566,6 @@ class _DataTableDynamicExampleState extends State<DataTableDynamicExample> {
         data: _rows,
         columns: _paymentColumns(arabic: false),
         rowId: (row) => row.id,
-        controller: _controller,
-        selectable: true,
-        selectRowLabel: (row) => 'Select ${row.email}',
-        minimumWidth: 480,
       ),
     ],
   );
@@ -670,32 +588,11 @@ DDataTable<Payment>(
 )
 ''';
 
-const _interactiveCode = '''
-final controller = DDataTableController();
+const _interactiveCode =
+    "final controller = DDataTableController();\n\nDDataTableFilterField(\n  value: controller.value.filters['email'] ?? '',\n  onChanged: (value) => controller.setFilter('email', value),\n)\nDDataTable<Payment>(\n  data: payments,\n  columns: columns,\n  rowId: (payment) => payment.id,\n  \n  \n)\n";
 
-DDataTableFilterField(
-  value: controller.value.filters['email'] ?? '',
-  onChanged: (value) => controller.setFilter('email', value),
-)
-DDataTable<Payment>(
-  data: payments,
-  columns: columns,
-  rowId: (payment) => payment.id,
-  controller: controller,
-  selectable: true,
-)
-''';
-
-const _dynamicCode = '''
-// Stable row IDs keep selection attached when immutable snapshots reorder.
-DDataTable<Payment>(
-  data: currentRows,
-  rowId: (payment) => payment.id,
-  columns: columns,
-  controller: controller,
-  selectable: true,
-)
-''';
+const _dynamicCode =
+    "// Stable row IDs keep selection attached when immutable snapshots reorder.\nDDataTable<Payment>(\n  data: currentRows,\n  rowId: (payment) => payment.id,\n  columns: columns,\n  \n  \n)\n";
 
 const _rtlCode = '''
 Directionality(

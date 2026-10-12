@@ -224,7 +224,7 @@ class _PanelRailState extends State<PanelRail>
           : DTooltipSide.inlineEnd,
       size: DControlSize.segment,
       shape: DButtonShape.pill,
-      variant: DButtonVariant.transparentBackground,
+      variant: DButtonVariant.ghost,
       backgroundColor: selected ? _mix(tokens, .10) : null,
       borderColor: selected ? _mix(tokens, .22) : null,
       foregroundColor: selected ? tokens.foreground : null,
@@ -251,7 +251,7 @@ class _PanelRailState extends State<PanelRail>
             ? DButtonIconPosition.end
             : DButtonIconPosition.start,
         size: DControlSize.segment,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         alignment: widget.opensTowardStart
             ? AlignmentDirectional.centerEnd
             : AlignmentDirectional.centerStart,

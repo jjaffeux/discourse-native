@@ -141,12 +141,8 @@ const _deliveryCode = '''DDrawer<String>(
   ]),
 )''';
 
-const _customSizeCode = '''DDrawer(
-  showSwipeHandle: true,
-  content: DDrawerContent(height: 300, inset: 12,
-    bleedBackground: DTokens.of(context).surface,
-    children: [...]),
-)''';
+const _customSizeCode =
+    "DDrawer(\n  showSwipeHandle: true,\n  content: DDrawerContent(height: 300, \n    \n    children: [...]),\n)";
 
 const _positionCode = '''for (final direction in DDrawerSwipeDirection.values)
   DDrawer(swipeDirection: direction, content: drawerContent)''';
@@ -225,7 +221,7 @@ class _BasicDrawer extends StatelessWidget {
     ),
     content: DDrawerContent(
       height: height,
-      inset: inset,
+
       semanticLabel: title,
       children: [
         DDrawerHeader(

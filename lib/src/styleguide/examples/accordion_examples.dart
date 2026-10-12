@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import '../styleguide_example.dart';
 
 final accordionExamples = ComponentExamples(
-  topLevelExampleIndex: 7,
+  topLevelExampleIndex: 4,
   status: ComponentStatus.implemented,
   description:
       'A vertically stacked set of interactive headings that reveal content.',
   notes:
       'Accepted after independent source, browser and native review. DAccordion '
       'composes the accepted '
-      'DCollapsible owner, adds single/multiple coordination, stable typed values, '
-      'headings, base-nova visuals and controlled, local or borrowed-controller '
+      'DCollapsible owner, adds one-panel coordination and stable typed values, '
+      'headings, base-nova visuals and local or borrowed-controller '
       'state. Headers remain bounded accessibility buttons; retained panel fields '
       'stay independently accessible. Desktop uses compact 40px artwork and touch '
       'platforms use the same visible bounds. Host palette, font, radius, scaling, RTL and '
@@ -27,41 +27,9 @@ final accordionExamples = ComponentExamples(
         child: _Example(items: _basicItems, initial: ['password']),
       ),
     ),
-    StyleguideExample(
-      title: 'Multiple',
-      description:
-          'Open several settings panels independently. Notifications starts open.',
-      code: _multipleCode,
-      builder: (_) => const _Frame(
-        child: _Example(
-          items: _multipleItems,
-          initial: ['notifications'],
-          multiple: true,
-        ),
-      ),
-    ),
-    StyleguideExample(
-      title: 'Disabled',
-      description:
-          'The premium heading remains discoverable but cannot be activated.',
-      code: _disabledCode,
-      builder: (_) => const _Frame(
-        child: _Example(items: _disabledItems, disabledValue: 'premium'),
-      ),
-    ),
-    StyleguideExample(
-      title: 'Borders',
-      description:
-          'Rounded outer border, 16px item inset and no doubled final divider.',
-      code: _bordersCode,
-      builder: (_) => const _Frame(
-        child: _Example(
-          items: _borderItems,
-          initial: ['billing'],
-          outlined: true,
-        ),
-      ),
-    ),
+
+
+
     StyleguideExample(
       title: 'Card',
       description:
@@ -85,7 +53,7 @@ final accordionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Controlled and lifecycle',
       description:
-          'External controls reorder/remove items, toggle disabled state and retain a local draft in an open panel.',
+          'External controls reorder/remove items and retain a local draft in an open panel.',
       code: _controlledCode,
       builder: (_) => const _Frame(child: _ControlledExample()),
     ),
@@ -141,36 +109,28 @@ class _Example extends StatelessWidget {
   const _Example({
     required this.items,
     this.initial = const [],
-    this.multiple = false,
-    this.disabledValue,
-    this.outlined = false,
   });
   final List<_Entry> items;
   final List<String> initial;
-  final bool multiple;
-  final String? disabledValue;
-  final bool outlined;
 
   @override
   Widget build(BuildContext context) => DAccordion<String>(
     defaultValues: initial,
-    multiple: multiple,
-    outlined: outlined,
+
     children: [
       for (final entry in items)
-        _item(entry, disabled: entry.value == disabledValue),
+        _item(entry),
     ],
   );
 }
 
 DAccordionItem<String> _item(
   _Entry entry, {
-  bool disabled = false,
   Widget? content,
 }) => DAccordionItem<String>(
   key: ValueKey('accordion-${entry.value}'),
   value: entry.value,
-  disabled: disabled,
+
   child: Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -212,14 +172,21 @@ class _ControlledExample extends StatefulWidget {
 
 class _ControlledExampleState extends State<_ControlledExample> {
   final _draft = TextEditingController(text: 'Local draft');
-  Set<String> _values = {'profile'};
+  final _controller = DAccordionController<String>(initialValues: ['profile']);
+  Set<String> get _values => _controller.values;
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_changed);
+  }
+  void _changed() => setState(() {});
   bool _reversed = false;
-  bool _disabled = false;
   bool _showSecurity = true;
 
   @override
   void dispose() {
     _draft.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -250,26 +217,18 @@ class _ControlledExampleState extends State<_ControlledExample> {
               onPressed: () => setState(() {
                 _showSecurity = !_showSecurity;
                 if (!_showSecurity) {
-                  _values.remove('security');
+                  _controller.open('profile');
                 }
               }),
               label: Text(_showSecurity ? 'Remove security' : 'Add security'),
-            ),
-            DButton(
-              size: DButtonSize.small,
-              variant: DButtonVariant.outline,
-              onPressed: () => setState(() => _disabled = !_disabled),
-              label: Text(_disabled ? 'Enable accordion' : 'Disable accordion'),
             ),
           ],
         ),
         const SizedBox(height: 12),
         DAccordion<String>(
-          multiple: true,
-          disabled: _disabled,
+          controller: _controller,
           keepMounted: true,
-          values: _values,
-          onValuesChange: (value) => setState(() => _values = {...value}),
+
           children: [
             for (final entry in entries)
               _item(
@@ -332,59 +291,11 @@ const _referenceItems = [
   ),
 ];
 
-const _multipleItems = [
-  _Entry(
-    'notifications',
-    'Notification Settings',
-    'Choose email alerts for updates or push notifications for mobile devices.',
-  ),
-  _Entry(
-    'privacy',
-    'Privacy & Security',
-    'Manage two-factor authentication, connected devices, active sessions and data sharing.',
-  ),
-  _Entry(
-    'billing',
-    'Billing & Subscription',
-    'View your plan, payment history and invoices, or update and cancel your subscription.',
-  ),
-];
 
-const _disabledItems = [
-  _Entry(
-    'history',
-    'Can I access my account history?',
-    'Yes, open Account History to view transactions, plan changes and support tickets.',
-  ),
-  _Entry(
-    'premium',
-    'Premium feature information',
-    'Upgrade your plan to access premium feature information.',
-  ),
-  _Entry(
-    'email',
-    'How do I update my email address?',
-    'Update it in account settings, then confirm the verification email.',
-  ),
-];
 
-const _borderItems = [
-  _Entry(
-    'billing',
-    'How does billing work?',
-    'Monthly and annual plans are charged at the start of each cycle and can be cancelled anytime.',
-  ),
-  _Entry(
-    'security',
-    'Is my data secure?',
-    'Data is encrypted at rest and in transit with regular third-party security audits.',
-  ),
-  _Entry(
-    'integration',
-    'What integrations do you support?',
-    'Connect popular tools or build custom integrations with the REST API and webhooks.',
-  ),
-];
+
+
+
 
 const _cardItems = [
   _Entry(
@@ -443,19 +354,11 @@ const _basicCode =
   ])),
 ])''';
 
-const _multipleCode = '''DAccordion<String>(multiple: true,
-  defaultValues: {'notifications'}, children: items)''';
 
-const _disabledCode =
-    '''DAccordionItem<String>(value: 'premium', disabled: true,
-  child: Column(children: [
-    DAccordionHeader(child: DAccordionTrigger(child: Text('Premium feature information'))),
-    DAccordionContent(child: Text('Upgrade to access this content.')),
-  ]))''';
 
-const _bordersCode = '''DAccordion<String>(outlined: true,
-  defaultValues: {'billing'}, children: items)
-// outlined maps the documented rounded border + 16px item inset composition.''';
+
+
+
 
 const _cardCode = '''DCard(children: [
   DCardHeader(title: DCardTitle(child: Text('Subscription & Billing')),
@@ -467,7 +370,5 @@ const _cardCode = '''DCard(children: [
 const _rtlCode = '''Directionality(textDirection: TextDirection.rtl,
   child: DAccordion<String>(defaultValues: {'password'}, children: translatedItems))''';
 
-const _controlledCode = '''Set<String> values = {'profile'};
-DAccordion<String>(multiple: true, values: values,
-  onValuesChange: (next) => setState(() => values = {...next}),
-  keepMounted: true, disabled: disabled, children: dynamicItems)''';
+const _controlledCode =
+    "Set<String> values = {'profile'};\nDAccordion<String>( \n  \n  keepMounted: true,  children: dynamicItems)";

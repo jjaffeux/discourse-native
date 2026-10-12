@@ -82,20 +82,11 @@ DToast.show(context, 'Creating event…',
       builder: (_) => const _StackToastExample(),
     ),
     StyleguideExample(
-      title: 'Position, direction, and scale',
+      title: 'Direction and scale',
       description:
-          'Cycle all six placements. Start/end follow RTL, and visible toasts retain state through live theme, radius, and text-scale changes.',
-      states: const [
-        'Six positions',
-        'RTL',
-        '200% text',
-        'Narrow',
-        'Live theme',
-      ],
-      code: r'''DToaster(
-  position: DToastPosition.topStart,
-  child: page,
-)''',
+          'The bottom-end viewport follows RTL and retains state through live theme and text-scale changes.',
+      states: const ['RTL', '200% text', 'Narrow', 'Live theme'],
+      code: "DToaster(\n  \n  child: page,\n)",
       builder: (_) => const _PositionToastExample(),
     ),
   ],
@@ -140,12 +131,8 @@ class _TypesToastExample extends StatelessWidget {
             context,
             _typeMessage(type),
             type: type,
-            duration: type == DToastType.loading
-                ? null
-                : const Duration(seconds: 5),
-            priority: type == DToastType.error
-                ? DToastPriority.high
-                : DToastPriority.normal,
+
+
           ),
         ),
     ],
@@ -211,7 +198,7 @@ class _PromiseToastExampleState extends State<_PromiseToastExample> {
           context,
           'The pending result no longer owns this notice.',
           id: 'styleguide-promise',
-          duration: null,
+
         ),
       ),
     ],
@@ -238,7 +225,7 @@ class _StackToastExampleState extends State<_StackToastExample> {
         onPressed: () => DToast.show(
           context,
           'Notice ${++_count}; only the newest three remain.',
-          duration: null,
+
         ),
       ),
       DButton(
@@ -249,7 +236,7 @@ class _StackToastExampleState extends State<_StackToastExample> {
           'Synchronized revision ${++_count}',
           id: 'sync',
           type: DToastType.info,
-          duration: null,
+
         ),
       ),
       DButton(
@@ -284,64 +271,29 @@ class _StackToastExampleState extends State<_StackToastExample> {
       DButton(
         label: const Text('Dismiss all'),
         variant: DButtonVariant.ghost,
-        onPressed: () => DToast.of(context).closeAll(),
+        onPressed: () {
+          final toasts = DToast.of(context);
+          for (final toast in toasts.toasts.toList()) {
+            toasts.close(toast.id);
+          }
+        },
       ),
     ],
   );
 }
 
-class _PositionToastExample extends StatefulWidget {
+class _PositionToastExample extends StatelessWidget {
   const _PositionToastExample();
   @override
-  State<_PositionToastExample> createState() => _PositionToastExampleState();
-}
-
-class _PositionToastExampleState extends State<_PositionToastExample> {
-  final _controller = DToastController();
-  var _position = DToastPosition.bottomEnd;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) => SizedBox(
-    width: 560,
-    height: 260,
+    height: 300,
     child: DToaster(
-      controller: _controller,
-      position: _position,
       child: Center(
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            DButton(
-              label: Text(_position.name),
-              variant: DButtonVariant.outline,
-              onPressed: () {
-                setState(() {
-                  _position =
-                      DToastPosition.values[(_position.index + 1) %
-                          DToastPosition.values.length];
-                });
-                _controller.add(
-                  DToastOptions(
-                    description: 'Placed at ${_position.name}',
-                    duration: null,
-                  ),
-                  id: 'position',
-                );
-              },
-            ),
-            DButton(
-              label: const Text('Dismiss'),
-              variant: DButtonVariant.ghost,
-              onPressed: _controller.closeAll,
-            ),
-          ],
+        child: Builder(
+          builder: (context) => DButton(
+            label: const Text('Show toast'),
+            onPressed: () => DToast.show(context, 'Viewport toast'),
+          ),
         ),
       ),
     ),

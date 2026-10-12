@@ -155,6 +155,7 @@ Future<Finder> _control(WidgetTester tester, String action) async {
   if (action == 'Reply') {
     return find.byKey(const ValueKey(('post-footer-action', 2, 'Reply')));
   }
+  if (action == 'Like') return find.descendant(of: find.byType(PostLikes), matching: find.byWidgetPredicate((w) => w is DToggle && (w.semanticLabel == 'Like this post' || w.semanticHint == 'like this post')));
   if (action == 'like count') {
     return find.descendant(
       of: find.byType(PostLikes),

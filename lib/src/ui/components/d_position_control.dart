@@ -150,7 +150,7 @@ class _DPositionControlState<T extends Object>
               hasPopup: true,
               expanded: trigger.open,
               focusNode: trigger.focusNode,
-              variant: DButtonVariant.transparentBackground,
+              variant: DButtonVariant.ghost,
               size: DButtonSize.toolbar,
               onPressed: trigger.toggle,
             ),

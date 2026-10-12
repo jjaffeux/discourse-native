@@ -27,49 +27,6 @@ class DResizableSize {
 /// Immutable sizes keyed by stable panel ID, in logical pixels.
 typedef DResizableLayout = Map<String, double>;
 
-/// Measured geometry; percentage excludes the group's divider space.
-@immutable
-class DResizablePanelSize {
-  const DResizablePanelSize({required this.pixels, required this.percentage});
-  final double pixels, percentage;
-}
-
-/// A borrowed controller can attach to only one group at a time. Commands
-/// require attachment and a completed layout; detached commands throw.
-class DResizableController {
-  _DResizablePanelGroupState? _owner;
-  bool _disposed = false;
-  DResizableLayout get layout => Map.unmodifiable(_owner?._sizes ?? {});
-  _DResizablePanelGroupState get _attached {
-    if (_disposed || _owner == null || _owner!._extent <= 0) {
-      throw StateError('Resizable controller needs a laid-out group.');
-    }
-    return _owner!;
-  }
-
-  DResizablePanelSize sizeOf(String id) {
-    final owner = _attached;
-    owner._panel(id);
-    final pixels = owner._sizes[id]!;
-    return DResizablePanelSize(
-      pixels: pixels,
-      percentage: pixels / owner._extent * 100,
-    );
-  }
-
-  void setLayout(Map<String, DResizableSize> layout) =>
-      _attached._setLayout(layout);
-  void resize(String id, DResizableSize size) =>
-      _attached._resizePanel(id, size);
-  void collapse(String id) => _attached._collapse(id);
-  void expand(String id) => _attached._expand(id);
-  bool isCollapsed(String id) => _attached._isCollapsed(id);
-  void dispose() {
-    _disposed = true;
-    _owner = null;
-  }
-}
-
 /// Direct children alternate panels and handles. IDs preserve widget state and
 /// size through reorder; removed IDs are forgotten, inserted IDs use defaults.
 class DResizablePanel extends StatelessWidget {
@@ -77,22 +34,14 @@ class DResizablePanel extends StatelessWidget {
     super.key,
     required this.id,
     required this.child,
-    this.defaultSize,
+
     this.minSize = const DResizableSize.pixels(0),
-    this.maxSize = const DResizableSize.percent(100),
-    this.collapsible = false,
-    this.collapsedSize = const DResizableSize.pixels(0),
-    this.disabled = false,
-    this.preservePixelSize = false,
-    this.onResize,
   });
   final String id;
   final Widget child;
-  final DResizableSize? defaultSize;
-  final DResizableSize minSize, maxSize, collapsedSize;
-  final bool collapsible, disabled, preservePixelSize;
-  final void Function(DResizablePanelSize size, DResizablePanelSize? previous)?
-  onResize;
+
+  final DResizableSize minSize;
+
   @override
   Widget build(BuildContext context) => child;
 }
@@ -107,25 +56,24 @@ class DResizablePanelGroup extends StatefulWidget {
     super.key,
     required this.children,
     this.orientation = Axis.horizontal,
-    this.controller,
+
     this.layout,
     this.onLayoutChange,
     this.onLayoutChanged,
-    this.disabled = false,
   });
   final List<Widget> children;
   final Axis orientation;
-  final DResizableController? controller;
+
   final Map<String, DResizableSize>? layout;
   final ValueChanged<DResizableLayout>? onLayoutChange, onLayoutChanged;
-  final bool disabled;
+
   @override
   State<DResizablePanelGroup> createState() => _DResizablePanelGroupState();
 }
 
 class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
   Map<String, double> _sizes = {};
-  final Map<String, double> _expanded = {};
+
   double _extent = 0;
   Map<String, double>? _reported;
   double _reportedExtent = 0;
@@ -134,21 +82,6 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
   double _dragTotal = 0;
   List<DResizablePanel> get _panels =>
       widget.children.whereType<DResizablePanel>().toList();
-  void _attach() {
-    final c = widget.controller;
-    if (c == null) return;
-    if (c._disposed || (c._owner != null && c._owner != this)) {
-      throw StateError('Controller is disposed or attached to another group.');
-    }
-    c._owner = this;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _attach();
-  }
-
   @override
   void didUpdateWidget(DResizablePanelGroup oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -163,17 +96,10 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       _dragOrigin = null;
       _dragTotal = 0;
     }
-    if (oldWidget.controller != widget.controller) {
-      if (oldWidget.controller?._owner == this) {
-        oldWidget.controller?._owner = null;
-      }
-      _attach();
-    }
   }
 
   @override
   void dispose() {
-    if (widget.controller?._owner == this) widget.controller?._owner = null;
     super.dispose();
   }
 
@@ -183,18 +109,9 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
   );
   double _min(DResizablePanel p) => p.minSize.resolve(_extent);
   double _max(DResizablePanel p) =>
-      math.max(_min(p), p.maxSize.resolve(_extent));
-  double _collapsed(DResizablePanel p) =>
-      math.min(_min(p), p.collapsedSize.resolve(_extent));
-  bool _isCollapsed(String id) {
-    final p = _panel(id);
-    return p.collapsible && (_sizes[id]! - _collapsed(p)).abs() < .01;
-  }
+      math.max(_min(p), const DResizableSize.percent(100).resolve(_extent));
 
   double _clamp(DResizablePanel p, double value) {
-    if (p.collapsible && value < (_min(p) + _collapsed(p)) / 2) {
-      return _collapsed(p);
-    }
     return value.clamp(_min(p), _max(p)).toDouble();
   }
 
@@ -209,15 +126,12 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       if (remainder.abs() < .001) break;
       var eligible = ps
           .where(
-            (p) =>
-                !p.disabled &&
-                (remainder > 0
-                    ? result[p.id]! < _max(p) &&
-                          !(p.collapsible && result[p.id]! == _collapsed(p))
-                    : result[p.id]! > _min(p)),
+            (p) => ((remainder > 0
+                ? (result[p.id]! < _max(p))
+                : result[p.id]! > _min(p))),
           )
           .toList();
-      final relative = eligible.where((p) => !p.preservePixelSize).toList();
+      final relative = eligible.where((p) => !false).toList();
       if (relative.isNotEmpty) eligible = relative;
       if (eligible.isEmpty) break;
       for (final p in eligible) {
@@ -231,13 +145,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
 
   void _publish(Map<String, double> next, {bool commit = true}) {
     if (mapEquals(next, _sizes)) return;
-    for (final p in _panels) {
-      if (p.collapsible &&
-          next[p.id] == _collapsed(p) &&
-          _sizes[p.id]! >= _min(p)) {
-        _expanded[p.id] = _sizes[p.id]!;
-      }
-    }
+
     final snapshot = Map<String, double>.unmodifiable(next);
     if (widget.layout != null) {
       widget.onLayoutChange?.call(snapshot);
@@ -258,15 +166,6 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       if (previous?[p.id] == snapshot[p.id] && previousExtent == _extent) {
         continue;
       }
-      DResizablePanelSize size(double pixels, double extent) =>
-          DResizablePanelSize(
-            pixels: pixels,
-            percentage: extent == 0 ? 0 : pixels / extent * 100,
-          );
-      p.onResize?.call(
-        size(snapshot[p.id]!, _extent),
-        previous?[p.id] == null ? null : size(previous![p.id]!, previousExtent),
-      );
     }
     if (!mounted) return;
     widget.onLayoutChange?.call(Map.unmodifiable(snapshot));
@@ -291,47 +190,11 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
     });
   }
 
-  void _setLayout(Map<String, DResizableSize> values) {
-    if (widget.disabled) return;
-    for (final id in values.keys) {
-      _panel(id);
-    }
-    final next = _fit({
-      for (final p in _panels)
-        p.id: p.disabled
-            ? _sizes[p.id]!
-            : values[p.id]?.resolve(_extent) ?? _sizes[p.id]!,
-    });
-    _publish(next);
-  }
-
-  void _collapse(String id) {
-    final p = _panel(id);
-    if (!p.collapsible || p.disabled || widget.disabled) return;
-    if (!_isCollapsed(id)) _expanded[id] = _sizes[id]!;
-    _resizePanel(id, DResizableSize.pixels(_collapsed(p)));
-  }
-
-  void _expand(String id) {
-    final p = _panel(id);
-    if (!_isCollapsed(id)) return;
-    _resizePanel(
-      id,
-      DResizableSize.pixels(
-        _expanded[id] ??
-            math.max(
-              _min(p),
-              p.defaultSize?.resolve(_extent) ?? _extent / _panels.length,
-            ),
-      ),
-    );
-  }
-
   void _resizePanel(String id, DResizableSize size) {
     final ps = _panels;
     final index = ps.indexWhere((p) => p.id == id);
     final p = _panel(id);
-    if (widget.disabled || p.disabled) return;
+
     final others = [...ps.skip(index + 1), ...ps.take(index).toList().reversed];
     _publish(
       _transfer([p], others, _clamp(p, size.resolve(_extent)) - _sizes[id]!),
@@ -352,23 +215,12 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       0.0,
       (sum, p) =>
           sum +
-          (p.disabled
-              ? 0
-              : growing
-              ? _max(p) - _sizes[p.id]!
-              : _sizes[p.id]! - (p.collapsible ? _collapsed(p) : _min(p))),
+          ((growing ? _max(p) - _sizes[p.id]! : _sizes[p.id]! - ((_min(p))))),
     );
     final growCapacity = capacity(grow, true);
     final shrinkCapacity = capacity(shrink, false);
     var requested = delta.abs();
-    final pivot = grow.first;
-    if (!pivot.disabled &&
-        pivot.collapsible &&
-        _sizes[pivot.id]! < _min(pivot)) {
-      final gap = _min(pivot) - _sizes[pivot.id]!;
-      if (requested <= gap / 2) return Map.of(_sizes);
-      requested = math.max(requested, gap);
-    }
+
     final amount = math.min(requested, math.min(growCapacity, shrinkCapacity));
     Map<String, double> apply(
       List<DResizablePanel> ps,
@@ -379,7 +231,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       final out = <String, double>{};
       var usedTotal = 0.0;
       for (final p in ps) {
-        if (p.disabled || usedTotal >= requested) continue;
+        if ((usedTotal >= requested)) continue;
         final old = _sizes[p.id]!;
         final target = _clamp(
           p,
@@ -411,29 +263,12 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
     return Map.of(_sizes);
   }
 
-  double _keyboardDelta(int index, double delta) {
-    final ps = _panels;
-    final growing = ps[delta > 0 ? index : index + 1];
-    final shrinking = ps[delta > 0 ? index + 1 : index];
-    for (final p in [growing, shrinking]) {
-      if (p.disabled || !p.collapsible) continue;
-      final atBoundary = p == growing
-          ? _isCollapsed(p.id)
-          : (_sizes[p.id]! - _min(p)).abs() < .001;
-      if (atBoundary) {
-        delta = delta.sign * math.max(delta.abs(), _min(p) - _collapsed(p));
-      }
-    }
-    return delta;
-  }
-
   void _drag(int index, double delta, {bool keyboard = false}) {
     final ps = _panels;
     final current = _sizes;
     if (keyboard) {
       _dragOrigin = Map.of(_sizes);
       _dragTotal = 0;
-      delta = _keyboardDelta(index, delta);
     }
     _dragOrigin ??= Map.of(_sizes);
     _dragTotal += delta;
@@ -488,17 +323,14 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
         requested[p.id] =
             widget.layout?[p.id]?.resolve(_extent) ??
             (previous == null
-                ? p.defaultSize?.resolve(_extent) ?? _extent / ps.length
-                : oldExtent > 0 && !p.preservePixelSize
+                ? (_extent / ps.length)
+                : (oldExtent > 0)
                 ? previous * _extent / oldExtent
                 : previous);
       }
       final automatic = ps
           .where(
-            (p) =>
-                !_sizes.containsKey(p.id) &&
-                p.defaultSize == null &&
-                widget.layout?[p.id] == null,
+            (p) => (!_sizes.containsKey(p.id)) && widget.layout?[p.id] == null,
           )
           .toList();
       if (automatic.isNotEmpty) {
@@ -514,7 +346,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
       }
       _sizes = _fit(requested);
       _scheduleReport();
-      _expanded.removeWhere((id, _) => !ps.any((p) => p.id == id));
+
       final children = <Widget>[];
       var position = 0.0;
       final rtl = horizontal && DDirection.of(context) == TextDirection.rtl;
@@ -591,14 +423,9 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
               value: handleValue,
               min: handleMin,
               max: handleMax,
-              increase: positionIn(
-                _transfer(before, after, _keyboardDelta(i, h.keyboardStep)),
-              ),
-              decrease: positionIn(
-                _transfer(before, after, _keyboardDelta(i, -h.keyboardStep)),
-              ),
-              disabled:
-                  widget.disabled || h.disabled || handleMax - handleMin < .001,
+              increase: positionIn(_transfer(before, after, h.keyboardStep)),
+              decrease: positionIn(_transfer(before, after, -h.keyboardStep)),
+              disabled: (handleMax - handleMin < .001),
               onDelta: (d) => _drag(handleIndex, d),
               onKeyboardDelta: (d) => _drag(handleIndex, d, keyboard: true),
               onCommit: () {
@@ -606,13 +433,9 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
                 _dragTotal = 0;
                 widget.onLayoutChanged?.call(Map.unmodifiable(_sizes));
               },
-              onToggle: p.collapsible
-                  ? () => _isCollapsed(p.id) ? _expand(p.id) : _collapse(p.id)
-                  : null,
-              onReset: () => _resizePanel(
-                p.id,
-                p.defaultSize ?? DResizableSize.percent(100 / ps.length),
-              ),
+
+              onReset: () =>
+                  _resizePanel(p.id, (DResizableSize.percent(100 / ps.length))),
               child: h,
             ),
             handleStart,
@@ -639,7 +462,7 @@ class _HandleBinding extends InheritedWidget {
     required this.increase,
     required this.decrease,
     required this.onCommit,
-    this.onToggle,
+
     this.onReset,
     required super.child,
   });
@@ -649,7 +472,7 @@ class _HandleBinding extends InheritedWidget {
   final ValueChanged<double> onDelta, onKeyboardDelta;
   final double paintOffset;
   final VoidCallback onCommit;
-  final VoidCallback? onToggle, onReset;
+  final VoidCallback? onReset;
   @override
   bool updateShouldNotify(_HandleBinding oldWidget) => true;
 }
@@ -677,11 +500,11 @@ class DResizableHandle extends StatefulWidget {
   const DResizableHandle({
     super.key,
     this.withHandle = false,
-    this.disabled = false,
+
     this._semanticLabel,
-    this.focusNode,
+
     this.keyboardStep = 10,
-    this.disableDoubleClick = false,
+
     this.dividerThickness = 1,
     this.focusedDividerThickness,
     this.focusKey,
@@ -690,7 +513,7 @@ class DResizableHandle extends StatefulWidget {
     this.dividerKey,
     this.valueFormatter,
   }) : dividerAlignment = Alignment.center,
-       orientation = Axis.horizontal,
+
        value = 0,
        min = 0,
        max = double.infinity,
@@ -699,17 +522,15 @@ class DResizableHandle extends StatefulWidget {
        onChangeEnd = null,
        reverse = false,
        trackUnrenderedChanges = true,
-       onReset = null,
-       onToggle = null,
+
        assert(keyboardStep > 0);
 
   const DResizableHandle.standalone({
     super.key,
     this.withHandle = false,
-    this.disabled = false,
+
     this._semanticLabel,
-    this.focusNode,
-    this.orientation = Axis.horizontal,
+
     required this.value,
     this.min = 0,
     this.max = double.infinity,
@@ -719,9 +540,7 @@ class DResizableHandle extends StatefulWidget {
     this.reverse = false,
     this.trackUnrenderedChanges = true,
     this.keyboardStep = 10,
-    this.onReset,
-    this.onToggle,
-    this.disableDoubleClick = false,
+
     this.dividerThickness = 1,
     this.focusedDividerThickness,
     this.dividerAlignment = Alignment.center,
@@ -732,19 +551,19 @@ class DResizableHandle extends StatefulWidget {
     this.valueFormatter,
   }) : assert(keyboardStep > 0),
        assert(min <= max);
-  final bool withHandle, disabled, reverse, disableDoubleClick;
+  final bool withHandle, reverse;
 
   /// Accumulates pointer updates that arrive before the next frame. App adapters
   /// can disable this when saved widths must follow only rendered geometry.
   final bool trackUnrenderedChanges;
   final double value, min, max, keyboardStep, dividerThickness;
   final double? focusedDividerThickness;
-  final Axis orientation;
+
   final String? _semanticLabel;
   String get semanticLabel => _semanticLabel ?? appL10n.resizePanel;
-  final FocusNode? focusNode;
+
   final ValueChanged<double>? onChanged;
-  final VoidCallback? onChangeEnd, onChangeStart, onReset, onToggle;
+  final VoidCallback? onChangeEnd, onChangeStart;
   final AlignmentGeometry dividerAlignment;
   final Key? focusKey, semanticsKey, gestureKey, dividerKey;
   final String Function(double)? valueFormatter;
@@ -753,12 +572,12 @@ class DResizableHandle extends StatefulWidget {
 }
 
 class _DResizableHandleState extends State<DResizableHandle> {
-  late FocusNode _focus = widget.focusNode ?? FocusNode();
+  late final FocusNode _focus = (FocusNode());
   bool _focused = false, _pending = false, _hovered = false;
   double? _pendingValue;
   _HandleBinding? get _binding =>
       context.getInheritedWidgetOfExactType<_HandleBinding>();
-  Axis get _axis => _binding?.orientation ?? widget.orientation;
+  Axis get _axis => _binding?.orientation ?? Axis.horizontal;
   double get _value => _binding?.value ?? widget.value;
   double get _increase =>
       _binding?.increase ?? math.min(_max, _value + widget.keyboardStep);
@@ -766,8 +585,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
       _binding?.decrease ?? math.max(_min, _value - widget.keyboardStep);
   double get _min => _binding?.min ?? widget.min;
   double get _max => _binding?.max ?? widget.max;
-  bool get _disabled =>
-      widget.disabled || (_binding?.disabled ?? widget.onChanged == null);
+  bool get _disabled => ((_binding?.disabled ?? widget.onChanged == null));
   double get _sign =>
       (widget.reverse ? -1 : 1) *
       (_axis == Axis.horizontal && DDirection.of(context) == TextDirection.rtl
@@ -778,10 +596,6 @@ class _DResizableHandleState extends State<DResizableHandle> {
   @override
   void didUpdateWidget(DResizableHandle oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusNode != widget.focusNode) {
-      if (oldWidget.focusNode == null) _focus.dispose();
-      _focus = widget.focusNode ?? FocusNode();
-    }
   }
 
   void _begin() {
@@ -817,7 +631,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
   void dispose() {
     // Persistence adapters also flush on removal; do not invoke app callbacks
     // from tree teardown or dereference inherited state after deactivation.
-    if (widget.focusNode == null) _focus.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -857,9 +671,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
               (k.isShiftPressed && delta.abs() == widget.keyboardStep ? 10 : 1),
           keyboard: true,
         );
-      } else {
-        (_binding?.onToggle ?? widget.onToggle)?.call();
-      }
+      } else {}
     }
     return KeyEventResult.handled;
   }
@@ -993,9 +805,7 @@ class _DResizableHandleState extends State<DResizableHandle> {
                 onVerticalDragUpdate: enabled && !horizontal ? update : null,
                 onVerticalDragEnd: enabled && !horizontal ? (_) => end() : null,
                 onVerticalDragCancel: enabled && !horizontal ? end : null,
-                onDoubleTap: enabled && !widget.disableDoubleClick
-                    ? _binding?.onReset ?? widget.onReset
-                    : null,
+                onDoubleTap: (enabled) ? (_binding?.onReset) : null,
                 // The focus ring and focused divider are wider than the hit
                 // strip; they paint past it while hit testing stays within it.
                 child: Stack(

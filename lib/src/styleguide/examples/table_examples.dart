@@ -170,7 +170,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
     (2, 'USB-C Hub', '\$49.99'),
   ];
   int _nextId = 3;
-  int? _expanded;
+
   String _status = '';
 
   final _focusNodes = <int, FocusNode>{};
@@ -212,7 +212,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
             for (final product in _products)
               DTableRow(
                 key: ValueKey(product.$1),
-                expanded: _expanded == product.$1,
+
                 cells: [
                   DTableCell(
                     textStyle: const TextStyle(fontWeight: FontWeight.w500),
@@ -222,8 +222,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                   DTableCell(
                     alignment: AlignmentDirectional.centerEnd,
                     child: DDropdownMenu(
-                      onOpenChange: (open, _) =>
-                          setState(() => _expanded = open ? product.$1 : null),
+                      onOpenChange: (open, _) => setState(() {}),
                       content: DDropdownMenuContent(
                         semanticLabel: 'Actions for ${product.$2}',
                         width: 144,
@@ -381,57 +380,8 @@ $data
 }
 
 // These complete usage listings mirror the runnable state owners above.
-const _actionsCode = r'''
-import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/material.dart';
-
-class ProductTable extends StatefulWidget {
-  const ProductTable({super.key});
-  @override
-  State<ProductTable> createState() => _ProductTableState();
-}
-class _ProductTableState extends State<ProductTable> {
-  final products = <(int, String, String)>[
-    (0, 'Wireless Mouse', '$29.99'), (1, 'Mechanical Keyboard', '$129.99'), (2, 'USB-C Hub', '$49.99')];
-  int nextId = 3;
-  int? expanded;
-  final focusNodes = <int, FocusNode>{};
-  FocusNode focusNode(int id) => focusNodes.putIfAbsent(id, FocusNode.new);
-  @override
-  void dispose() {
-    for (final node in focusNodes.values) { node.dispose(); }
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) => DTable(
-    header: const DTableHeader(rows: [DTableRow(cells: [
-      DTableHead(child: Text('Product')), DTableHead(child: Text('Price')),
-      DTableHead(alignment: AlignmentDirectional.centerEnd, child: Text('Actions')),
-    ])]),
-    body: DTableBody(rows: [for (final p in products)
-      DTableRow(key: ValueKey(p.$1), expanded: expanded == p.$1, cells: [
-        DTableCell(child: Text(p.$2)), DTableCell(child: Text(p.$3)),
-        DTableCell(alignment: AlignmentDirectional.centerEnd, child: DDropdownMenu(
-          onOpenChange: (open, _) => setState(() => expanded = open ? p.$1 : null),
-          content: DDropdownMenuContent(children: [for (final action in ['Edit', 'Duplicate', 'Delete'])
-            DDropdownMenuItem(onPressed: () => setState(() {
-              final i = products.indexWhere((item) => item.$1 == p.$1);
-              if (action == 'Edit') products[i] = (p.$1, '${p.$2} (edited)', p.$3);
-              if (action == 'Duplicate') products.insert(i + 1, (nextId++, '${p.$2} (copy)', p.$3));
-              if (action == 'Delete') products.removeAt(i);
-            }), child: Text(action)),
-          ]),
-          child: DDropdownMenuTrigger(focusNode: focusNode(p.$1),
-            builder: (context, menu) => DButton(
-              focusNode: menu.focusNode, onPressed: menu.toggle,
-              label: Text('Open menu for ${p.$2}'))),
-        )),
-      ]),
-      if (products.isEmpty) const DTableRow(cells: [DTableCell(columnSpan: 3, child: Text('No products'))]),
-    ]),
-  );
-}
-''';
+const _actionsCode =
+    "import 'package:discourse_native/discourse_ui.dart';\nimport 'package:flutter/material.dart';\n\nclass ProductTable extends StatefulWidget {\n  const ProductTable({super.key});\n  @override\n  State<ProductTable> createState() => _ProductTableState();\n}\nclass _ProductTableState extends State<ProductTable> {\n  final products = <(int, String, String)>[\n    (0, 'Wireless Mouse', '\$29.99'), (1, 'Mechanical Keyboard', '\$129.99'), (2, 'USB-C Hub', '\$49.99')];\n  int nextId = 3;\n  int? expanded;\n  final focusNodes = <int, FocusNode>{};\n  FocusNode focusNode(int id) => focusNodes.putIfAbsent(id, FocusNode.new);\n  @override\n  void dispose() {\n    for (final node in focusNodes.values) { node.dispose(); }\n    super.dispose();\n  }\n  @override\n  Widget build(BuildContext context) => DTable(\n    header: const DTableHeader(rows: [DTableRow(cells: [\n      DTableHead(child: Text('Product')), DTableHead(child: Text('Price')),\n      DTableHead(alignment: AlignmentDirectional.centerEnd, child: Text('Actions')),\n    ])]),\n    body: DTableBody(rows: [for (final p in products)\n      DTableRow(key: ValueKey(p.\$1),  cells: [\n        DTableCell(child: Text(p.\$2)), DTableCell(child: Text(p.\$3)),\n        DTableCell(alignment: AlignmentDirectional.centerEnd, child: DDropdownMenu(\n          onOpenChange: (open, _) => setState(() => expanded = open ? p.\$1 : null),\n          content: DDropdownMenuContent(children: [for (final action in ['Edit', 'Duplicate', 'Delete'])\n            DDropdownMenuItem(onPressed: () => setState(() {\n              final i = products.indexWhere((item) => item.\$1 == p.\$1);\n              if (action == 'Edit') products[i] = (p.\$1, '\${p.\$2} (edited)', p.\$3);\n              if (action == 'Duplicate') products.insert(i + 1, (nextId++, '\${p.\$2} (copy)', p.\$3));\n              if (action == 'Delete') products.removeAt(i);\n            }), child: Text(action)),\n          ]),\n          child: DDropdownMenuTrigger(focusNode: focusNode(p.\$1),\n            builder: (context, menu) => DButton(\n              focusNode: menu.focusNode, onPressed: menu.toggle,\n              label: Text('Open menu for \${p.\$2}'))),\n        )),\n      ]),\n      if (products.isEmpty) const DTableRow(cells: [DTableCell(columnSpan: 3, child: Text('No products'))]),\n    ]),\n  );\n}\n";
 const _selectionCode = r'''
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';

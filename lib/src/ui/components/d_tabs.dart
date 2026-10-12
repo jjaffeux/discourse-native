@@ -29,48 +29,6 @@ enum DTabListVariant {
 
   /// Text-only selection without a background, border, shadow or indicator.
   plain,
-
-  /// A horizontal, full-width navigation bar with equal slots and a short top
-  /// selection marker. Icon-only triggers must supply a semantic label. Other
-  /// children may be independent actions; they receive the same slot width.
-  navigation,
-}
-
-/// Why a tabs root changed its active value.
-enum DTabChangeReason { user, initial, disabled, missing, controller }
-
-@immutable
-class DTabChange<T> {
-  const DTabChange({required this.value, required this.reason});
-
-  final T? value;
-  final DTabChangeReason reason;
-
-  @override
-  bool operator ==(Object other) =>
-      other is DTabChange<T> && value == other.value && reason == other.reason;
-
-  @override
-  int get hashCode => Object.hash(value, reason);
-}
-
-/// Optional imperative selection owner for [DTabs].
-///
-/// The widget never disposes a borrowed controller. Set [value] to select a
-/// tab from application routing, or call [clear] to leave every panel hidden.
-class DTabController<T> extends ChangeNotifier {
-  DTabController([T? value]) : _value = value;
-
-  T? _value;
-  T? get value => _value;
-
-  set value(T? next) {
-    if (_value == next) return;
-    _value = next;
-    notifyListeners();
-  }
-
-  void clear() => value = null;
 }
 
 /// A compositional shadcn-style tabs root.
@@ -86,11 +44,10 @@ class DTabs<T> extends StatefulWidget {
   const DTabs({
     super.key,
     required this.children,
-    this.initialValue,
-    this.controller,
+
     this.onChanged,
     this.onActivated,
-    this.onSelectionChanged,
+
     this.orientation = Axis.horizontal,
     this.enabled = true,
     this.selectFirstOnMount = true,
@@ -103,23 +60,21 @@ class DTabs<T> extends StatefulWidget {
     required this.value,
     this.onChanged,
     this.onActivated,
-    this.onSelectionChanged,
+
     this.orientation = Axis.horizontal,
     this.enabled = true,
-  }) : initialValue = null,
-       controller = null,
-       selectFirstOnMount = false,
+  }) : selectFirstOnMount = false,
        _controlled = true;
 
   final List<Widget> children;
-  final T? initialValue;
+
   final T? value;
-  final DTabController<T>? controller;
+
   final ValueChanged<T?>? onChanged;
 
   /// Called for every user activation, including the already-selected tab.
   final ValueChanged<T>? onActivated;
-  final ValueChanged<DTabChange<T>>? onSelectionChanged;
+
   final Axis orientation;
   final bool enabled;
   final bool selectFirstOnMount;
@@ -131,54 +86,28 @@ class DTabs<T> extends StatefulWidget {
 
 class _DTabsState<T> extends State<DTabs<T>> {
   final List<_DTabTriggerState<T>> _triggers = [];
-  late T? _value = widget.initialValue;
+  T? _value;
   _DTabTriggerState<T>? _highlightedTrigger;
   T? _highlightedForValue;
   bool _reconcileScheduled = false;
-  bool _updatingController = false;
-  bool _controllerExplicitlyCleared = false;
 
-  T? get value => widget._controlled
-      ? widget.value
-      : widget.controller != null
-      ? widget.controller!.value
-      : _value;
+  T? get value => widget._controlled ? widget.value : (_value);
 
   @override
   void initState() {
     super.initState();
-    widget.controller?.addListener(_controllerChanged);
   }
 
   @override
   void didUpdateWidget(DTabs<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(widget.controller, oldWidget.controller)) {
-      oldWidget.controller?.removeListener(_controllerChanged);
-      widget.controller?.addListener(_controllerChanged);
-      _controllerExplicitlyCleared = false;
-    }
+
     _scheduleReconcile();
   }
 
   @override
   void dispose() {
-    widget.controller?.removeListener(_controllerChanged);
     super.dispose();
-  }
-
-  void _controllerChanged() {
-    if (!mounted) return;
-    if (!_updatingController) {
-      _controllerExplicitlyCleared = widget.controller?.value == null;
-    }
-    setState(() {});
-    _scheduleReconcile();
-    if (!_updatingController) {
-      widget.onSelectionChanged?.call(
-        DTabChange(value: value, reason: DTabChangeReason.controller),
-      );
-    }
   }
 
   void register(_DTabTriggerState<T> trigger) {
@@ -220,16 +149,10 @@ class _DTabsState<T> extends State<DTabs<T>> {
     if (widget._controlled) return;
     if (selectedTrigger != null && selectedTrigger.isEnabled) return;
 
-    if (value == null &&
-        (!widget.selectFirstOnMount || _controllerExplicitlyCleared)) {
+    if (value == null && !widget.selectFirstOnMount) {
       return;
     }
-    final reason = selectedTrigger == null
-        ? value == null
-              ? DTabChangeReason.initial
-              : DTabChangeReason.missing
-        : DTabChangeReason.disabled;
-    _setValue(enabled.firstOrNull?.widget.value, reason: reason);
+    _setValue(enabled.firstOrNull?.widget.value);
   }
 
   void _reconcileHighlight(
@@ -289,24 +212,18 @@ class _DTabsState<T> extends State<DTabs<T>> {
         .where((candidate) => candidate.widget.value == value)
         .firstOrNull;
     if (!widget.enabled || trigger == null || !trigger.isEnabled) return;
-    _setValue(value, reason: DTabChangeReason.user);
+    _setValue(value);
     widget.onActivated?.call(value);
   }
 
-  void _setValue(T? next, {required DTabChangeReason reason}) {
+  void _setValue(T? next) {
     if (value == next) return;
     if (!widget._controlled) {
-      if (widget.controller case final controller?) {
-        if (next != null) _controllerExplicitlyCleared = false;
-        _updatingController = true;
-        controller.value = next;
-        _updatingController = false;
-      } else {
+      {
         setState(() => _value = next);
       }
     }
     widget.onChanged?.call(next);
-    widget.onSelectionChanged?.call(DTabChange(value: next, reason: reason));
   }
 
   void moveFocus(
@@ -468,38 +385,18 @@ class DTabList<T> extends StatelessWidget {
     this.size = DControlSize.regular,
     this.variant = DTabListVariant.defaultStyle,
     this.activateOnFocus = false,
-    this.loopFocus = true,
-    this.scrollController,
-    this.navigationCompact = false,
-    this.expandNavigationTabs = true,
+
     this.expandSelected = false,
-    this.trailing,
   });
 
   final List<Widget> children;
   final DTabListVariant variant;
 
-  /// Animate navigation controls and their hit areas to 85%.
-  /// Width stops shrinking at the minimum control width.
-  /// Independent actions retain their control geometry. Other variants ignore
-  /// this option. Reduced motion changes it immediately.
-  final bool navigationCompact;
   final DControlSize size;
   final bool activateOnFocus;
-  final bool loopFocus;
-
-  /// Whether navigation tabs share the available width or pack at the start.
-  final bool expandNavigationTabs;
 
   /// Icon tabs share the strip with the selected label taking the spare width.
   final bool expandSelected;
-
-  /// A fixed trailing action outside the navigation tabs' scrolling area.
-  /// Only supported by [DTabListVariant.navigation].
-  final Widget? trailing;
-
-  /// An optional borrowed controller for horizontal overflow.
-  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -507,7 +404,7 @@ class DTabList<T> extends StatelessWidget {
     final tokens = DTokens.of(context);
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
-    assert(trailing == null || variant == DTabListVariant.navigation);
+
     if (expandSelected) {
       assert(root.orientation == Axis.horizontal);
       final tabs = children.cast<DTabTrigger<T>>();
@@ -527,7 +424,7 @@ class DTabList<T> extends StatelessWidget {
               ? math.max(minimum * 2, constraints.maxWidth - total - 6)
               : minimum * 2;
           return SingleChildScrollView(
-            controller: scrollController,
+            controller: null,
             scrollDirection: Axis.horizontal,
             child: Container(
               padding: const EdgeInsets.all(3),
@@ -539,7 +436,7 @@ class DTabList<T> extends StatelessWidget {
                 variant: variant,
                 size: size,
                 activateOnFocus: activateOnFocus,
-                loopFocus: loopFocus,
+
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -554,8 +451,10 @@ class DTabList<T> extends StatelessWidget {
                         duration: DMotion.duration(context, DMotion.change),
                         curve: Curves.easeOutCubic,
                         child: tabs[i],
-                        builder: (_, width, child) =>
-                            SizedBox(width: width, child: child),
+                        builder: (_, width, child) => ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: width),
+                          child: IntrinsicWidth(child: child),
+                        ),
                       ),
                   ],
                 ),
@@ -565,114 +464,7 @@ class DTabList<T> extends StatelessWidget {
         },
       );
     }
-    if (variant == DTabListVariant.navigation) {
-      assert(
-        root.orientation == Axis.horizontal,
-        'Navigation tabs require horizontal orientation.',
-      );
-      return TweenAnimationBuilder<double>(
-        tween: Tween(end: navigationCompact ? .85 : 1),
-        duration: DMotion.duration(context, DMotion.change),
-        curve: Curves.easeOutCubic,
-        builder: (context, scale, _) => LayoutBuilder(
-          builder: (context, constraints) {
-            final minimumWidth =
-                children.length * DControlStyle.height(size, context: context) +
-                (trailing == null
-                    ? 0
-                    : DControlStyle.height(size, context: context) +
-                          2 * DSpacing.controlGap);
-            final availableWidth = constraints.hasBoundedWidth
-                ? constraints.maxWidth
-                : minimumWidth;
-            final viewportWidth = math.min(
-              availableWidth,
-              math.max(availableWidth * scale, minimumWidth),
-            );
-            return Align(
-              heightFactor: 1,
-              child: SizedBox(
-                width: viewportWidth,
-                child: Semantics(
-                  container: true,
-                  explicitChildNodes: true,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: tokens.muted,
-                            borderRadius: BorderRadius.circular(DRadius.panel),
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: LayoutBuilder(
-                              builder: (context, tabConstraints) =>
-                                  SingleChildScrollView(
-                                    controller: scrollController,
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width: expandNavigationTabs
-                                          ? math.max(
-                                              tabConstraints.maxWidth,
-                                              children.length *
-                                                  DControlStyle.height(
-                                                    size,
-                                                    context: context,
-                                                  ),
-                                            )
-                                          : null,
-                                      child: _DTabListScope<T>(
-                                        variant: variant,
-                                        size: size,
-                                        activateOnFocus: activateOnFocus,
-                                        loopFocus: loopFocus,
-                                        navigationScale: scale,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            for (final child in children)
-                                              if (expandNavigationTabs)
-                                                Expanded(child: child)
-                                              else
-                                                ConstrainedBox(
-                                                  constraints: BoxConstraints(
-                                                    minWidth:
-                                                        DControlStyle.height(
-                                                          size,
-                                                          context: context,
-                                                        ),
-                                                  ),
-                                                  child: child,
-                                                ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            ),
-                          ),
-                          if (trailing case final action?)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: DSpacing.controlGap,
-                              ),
-                              child: action,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
+
     final decoration = BoxDecoration(
       color: variant == DTabListVariant.defaultStyle
           ? tokens.muted
@@ -685,7 +477,7 @@ class DTabList<T> extends StatelessWidget {
       variant: variant,
       size: size,
       activateOnFocus: activateOnFocus,
-      loopFocus: loopFocus,
+
       child: Flex(
         direction: root.orientation,
         mainAxisSize: MainAxisSize.min,
@@ -720,7 +512,7 @@ class DTabList<T> extends StatelessWidget {
             border: Border(bottom: BorderSide(color: tokens.border)),
           ),
           child: SingleChildScrollView(
-            controller: scrollController,
+            controller: null,
             scrollDirection: Axis.horizontal,
             child: scope,
           ),
@@ -744,7 +536,7 @@ class DTabList<T> extends StatelessWidget {
     );
     if (root.orientation == Axis.horizontal) {
       visual = SingleChildScrollView(
-        controller: scrollController,
+        controller: null,
         scrollDirection: Axis.horizontal,
         child: visual,
       );
@@ -760,16 +552,14 @@ class _DTabListScope<T> extends InheritedWidget {
     required this.variant,
     required this.size,
     required this.activateOnFocus,
-    required this.loopFocus,
+
     required super.child,
-    this.navigationScale = 1,
   });
 
   final DTabListVariant variant;
   final DControlSize size;
-  final double navigationScale;
+
   final bool activateOnFocus;
-  final bool loopFocus;
 
   static _DTabListScope<T> require<T>(BuildContext context) {
     final scope = context
@@ -780,11 +570,8 @@ class _DTabListScope<T> extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DTabListScope<T> oldWidget) =>
-      variant != oldWidget.variant ||
-      size != oldWidget.size ||
-      navigationScale != oldWidget.navigationScale ||
-      activateOnFocus != oldWidget.activateOnFocus ||
-      loopFocus != oldWidget.loopFocus;
+      ((variant != oldWidget.variant || size != oldWidget.size) ||
+      activateOnFocus != oldWidget.activateOnFocus);
 }
 
 /// An individual tab button.
@@ -798,22 +585,16 @@ class DTabTrigger<T> extends StatefulWidget {
     super.key,
     required this.value,
     required this.child,
-    this.size,
-    this.enabled = true,
-    this.focusNode,
-    this.autofocus = false,
+
     this.semanticLabel,
     this.icon,
     this.trailing,
     this.selectedLabelOnly = false,
   });
 
-  final DControlSize? size;
   final T value;
   final Widget child;
-  final bool enabled;
-  final FocusNode? focusNode;
-  final bool autofocus;
+
   final String? semanticLabel;
   final Widget? icon;
   final Widget? trailing;
@@ -826,18 +607,17 @@ class DTabTrigger<T> extends StatefulWidget {
 class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   final FocusNode _ownedFocusNode = FocusNode();
   _DTabsState<T>? _root;
-  bool? _borrowedSkipTraversal;
+
   bool _hovered = false;
   bool _focused = false;
   bool _focusFromPointer = false;
 
-  FocusNode get focusNode => widget.focusNode ?? _ownedFocusNode;
-  bool get isEnabled => widget.enabled && (_root?.widget.enabled ?? true);
+  FocusNode get focusNode => (_ownedFocusNode);
+  bool get isEnabled => ((_root?.widget.enabled ?? true));
 
   @override
   void initState() {
     super.initState();
-    _borrowedSkipTraversal = widget.focusNode?.skipTraversal;
   }
 
   @override
@@ -853,14 +633,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   @override
   void didUpdateWidget(DTabTrigger<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.focusNode, widget.focusNode)) {
-      if (oldWidget.focusNode case final old?) {
-        old.skipTraversal = _borrowedSkipTraversal ?? false;
-      }
-      _borrowedSkipTraversal = widget.focusNode?.skipTraversal;
-    }
-    if (oldWidget.value != widget.value ||
-        oldWidget.enabled != widget.enabled) {
+
+    if ((oldWidget.value != widget.value)) {
       _root?._scheduleReconcile();
     }
   }
@@ -868,9 +642,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   @override
   void dispose() {
     _root?.unregister(this);
-    if (widget.focusNode case final borrowed?) {
-      borrowed.skipTraversal = _borrowedSkipTraversal ?? false;
-    }
+
     _ownedFocusNode.dispose();
     super.dispose();
   }
@@ -881,10 +653,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   }
 
   bool get _skipsTraversal {
-    final originalSkip = widget.focusNode == null
-        ? false
-        : _borrowedSkipTraversal ?? false;
-    return originalSkip || !isEnabled || !(_root?.isTabStop(this) ?? false);
+    return (!isEnabled) || !(_root?.isTabStop(this) ?? false);
   }
 
   /// The flag is written only during build: the root moves the Tab stop from
@@ -910,10 +679,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   Widget build(BuildContext context) {
     final root = _DTabScope.require<T>(context);
     final list = _DTabListScope.require<T>(context);
-    final size = widget.size ?? list.size;
+    final size = list.size;
     final tokens = DTokens.of(context);
     final selected = root.value == widget.value;
-    final enabled = widget.enabled && root.enabled;
+    final enabled = root.enabled;
     focusNode.skipTraversal = _skipsTraversal;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
@@ -921,8 +690,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final pill = list.variant == DTabListVariant.pill;
     final outlinePill = list.variant == DTabListVariant.outlinePill;
     final plain = list.variant == DTabListVariant.plain;
-    final navigation = list.variant == DTabListVariant.navigation;
-    final flat = pill || outlinePill || plain || navigation;
+    const navigation = false;
+    final flat = (pill || outlinePill || plain);
     final radius = selected && !outlinePill ? DRadius.panel : DRadius.pill;
     final accent = tokens.buttonTheme.primary;
     final outline = tokens.buttonTheme.outline;
@@ -978,29 +747,22 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
-        minHeight: navigation
-            ? 56 * list.navigationScale
-            : horizontalLine
+        minHeight: (horizontalLine
             ? 0
             : DControlStyle.scaledHeight(
                     size,
                     MediaQuery.textScalerOf(context),
                     context: context,
                   ) -
-                  (flat ? 0 : 7),
+                  (flat ? 0 : 7)),
       ),
-      padding: navigation
-          ? EdgeInsets.symmetric(
-              horizontal: 8 * list.navigationScale,
-              vertical: 14 * list.navigationScale,
-            )
-          : horizontalLine
+      padding: (horizontalLine
           ? const EdgeInsets.symmetric(vertical: 11)
           : flat
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
-          : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5)),
       decoration: BoxDecoration(
-        color: selected && !line && !plain && !navigation
+        color: (selected && !line && !plain)
             ? selectedBackground
             : outlinePill && _hovered
             ? outline.hover
@@ -1046,10 +808,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           letterSpacing: 0,
         ),
         child: IconTheme.merge(
-          data: IconThemeData(
-            color: foreground,
-            size: navigation ? 22 * list.navigationScale : 16,
-          ),
+          data: IconThemeData(color: foreground, size: 16),
           child: Align(
             alignment: root.orientation == Axis.horizontal
                 ? Alignment.center
@@ -1066,7 +825,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       foregroundPainter: _DTabIndicatorPainter(
         color: tokens.foreground,
         orientation: root.orientation,
-        visible: (line || navigation) && selected,
+        visible: ((line)) && selected,
         topMarker: navigation,
         direction: Directionality.of(context),
       ),
@@ -1098,7 +857,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       child: FocusableActionDetector(
         enabled: enabled,
         focusNode: focusNode,
-        autofocus: widget.autofocus,
+        autofocus: false,
         descendantsAreFocusable: false,
         mouseCursor: enabled
             ? SystemMouseCursors.click
@@ -1145,7 +904,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               root.state.moveFocus(
                 this,
                 intent.key,
-                list.loopFocus,
+                true,
                 list.activateOnFocus,
               );
               return null;
@@ -1263,15 +1022,13 @@ class DTabPanel<T> extends StatefulWidget {
     super.key,
     required this.value,
     required this.child,
-    this.maintainState = false,
-    this.focusNode,
+
     this.semanticLabel,
   });
 
   final T value;
   final Widget child;
-  final bool maintainState;
-  final FocusScopeNode? focusNode;
+
   final String? semanticLabel;
 
   @override
@@ -1281,7 +1038,7 @@ class DTabPanel<T> extends StatefulWidget {
 class _DTabPanelState<T> extends State<DTabPanel<T>> {
   final FocusScopeNode _ownedFocusNode = FocusScopeNode();
   bool _wasActive = false;
-  FocusScopeNode get focusNode => widget.focusNode ?? _ownedFocusNode;
+  FocusScopeNode get focusNode => (_ownedFocusNode);
 
   @override
   void dispose() {
@@ -1310,12 +1067,7 @@ class _DTabPanelState<T> extends State<DTabPanel<T>> {
       style: const TextStyle(fontSize: DiscourseTypography.sm, height: 20 / 14),
       child: panel,
     );
-    if (widget.maintainState) {
-      return Offstage(
-        offstage: !active,
-        child: TickerMode(enabled: active, child: panel),
-      );
-    }
+
     return active ? panel : const SizedBox.shrink();
   }
 }
@@ -1335,12 +1087,12 @@ class DDocumentTab extends StatefulWidget {
     required this.onClose,
     required this.closeLabel,
     this.closeShortcut,
-    this.closeOnlyWhenSelected = false,
+
     this.onDoubleTap,
     this.onTapDown,
     this.onTapCancel,
     this.editor,
-    this.dropTarget = false,
+
     this.excludeSelectionSemantics = false,
     this.surfaceKey,
     this.pointerKey,
@@ -1354,14 +1106,11 @@ class DDocumentTab extends StatefulWidget {
   final VoidCallback onClose;
   final String closeLabel;
 
-  /// Remove the close action and its space from inactive tabs.
-  final bool closeOnlyWhenSelected;
   final DShortcut? closeShortcut;
   final VoidCallback? onDoubleTap;
   final GestureTapDownCallback? onTapDown;
   final GestureTapCancelCallback? onTapCancel;
   final Widget? editor;
-  final bool dropTarget;
 
   /// Whether the host already supplies the tab selection semantics.
   /// The close action always retains its own semantics.
@@ -1438,12 +1187,10 @@ class _DDocumentTabState extends State<DDocumentTab> {
           color: widget.selected || _hovered ? mix(.10) : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: radius,
-            side: widget.dropTarget
-                ? BorderSide(color: tokens.focusRing, width: 2)
-                : BorderSide(
-                    color: widget.selected ? mix(.22) : Colors.transparent,
-                    strokeAlign: BorderSide.strokeAlignInside,
-                  ),
+            side: (BorderSide(
+              color: widget.selected ? mix(.22) : Colors.transparent,
+              strokeAlign: BorderSide.strokeAlignInside,
+            )),
           ),
         ),
         child: IconTheme.merge(
@@ -1500,33 +1247,31 @@ class _DDocumentTabState extends State<DDocumentTab> {
                         ),
                       ),
                 ),
-                if (!widget.closeOnlyWhenSelected || widget.selected)
-                  ListenableBuilder(
-                    listenable: _closeFocus,
-                    builder: (context, _) => AnimatedOpacity(
-                      opacity:
-                          widget.selected || _hovered || _closeFocus.hasFocus
-                          ? 1
-                          : 0,
-                      alwaysIncludeSemantics: true,
-                      duration: DMotion.duration(context, DMotion.change),
-                      child: Center(
-                        widthFactor: 1,
-                        child: DButton.iconOnly(
-                          key: widget.closeKey,
-                          tooltip: widget.closeLabel,
-                          shortcut: widget.closeShortcut,
-                          focusNode: _closeFocus,
-                          size: widget.size == DControlSize.documentTab
-                              ? DControlSize.tabClose
-                              : DButtonSize.small,
-                          variant: DButtonVariant.inline,
-                          icon: const DIcon(DIcons.xmark),
-                          onPressed: widget.onClose,
-                        ),
+                ListenableBuilder(
+                  listenable: _closeFocus,
+                  builder: (context, _) => AnimatedOpacity(
+                    opacity: widget.selected || _hovered || _closeFocus.hasFocus
+                        ? 1
+                        : 0,
+                    alwaysIncludeSemantics: true,
+                    duration: DMotion.duration(context, DMotion.change),
+                    child: Center(
+                      widthFactor: 1,
+                      child: DButton.iconOnly(
+                        key: widget.closeKey,
+                        tooltip: widget.closeLabel,
+                        shortcut: widget.closeShortcut,
+                        focusNode: _closeFocus,
+                        size: widget.size == DControlSize.documentTab
+                            ? DControlSize.tabClose
+                            : DButtonSize.small,
+                        variant: DButtonVariant.inline,
+                        icon: const DIcon(DIcons.xmark),
+                        onPressed: widget.onClose,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),

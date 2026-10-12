@@ -130,7 +130,6 @@ void main() {
       final tokens = DTokens.fromTheme(base);
       Widget sample(ThemeData theme) => _host(
         DEmpty(
-          outlined: true,
           children: [
             const DEmptyHeader(
               children: [

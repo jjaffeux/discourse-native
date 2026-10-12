@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/control_comparison_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -92,10 +93,10 @@ void main() {
         matchesGoldenFile('goldens/controls-${palette.name}-hover.png'),
       );
       await mouse.moveTo(
-        tester.getCenter(find.bySemanticsLabel('regular category')),
+        tester.getCenter(find.byType(DDropdownMenuTrigger)),
       );
       await mouse.down(
-        tester.getCenter(find.bySemanticsLabel('regular category')),
+        tester.getCenter(find.byType(DDropdownMenuTrigger)),
       );
       await mouse.up();
       await mouse.removePointer();

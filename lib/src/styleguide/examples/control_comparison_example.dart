@@ -71,7 +71,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                 ],
                 onChanged: (value) => setState(() => _feed = value!),
               ),
-              DDropdownMenu(
+              if (size == DControlSize.regular) DDropdownMenu(
                 content: DDropdownMenuContent(
                   children: [
                     for (final label in ['Bugs', 'Support', 'General'])
@@ -81,13 +81,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                       ),
                   ],
                 ),
-                child: DDropdownMenuTrigger.button(
-                  label: Text(_category),
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                  iconPosition: DButtonIconPosition.end,
-                  semanticLabel: '${size.name} category',
-                  size: size,
-                ),
+                child: DDropdownMenuTrigger.button(label: Text(_category)),
               ),
               DButton(
                 label: const Text('Disabled'),

@@ -378,11 +378,9 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
     return DSidebar(
       key: const ValueKey('styleguide-sidebar'),
       width: 240,
-      mobileWidth: 320,
+
       semanticLabel: context.l10n.componentNavigation,
-      side: Directionality.of(context) == TextDirection.rtl
-          ? DSidebarSide.right
-          : DSidebarSide.left,
+
       backgroundColor: DTokens.of(context).background,
       header: wide
           ? null
@@ -413,16 +411,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
             else if (_search.text.isNotEmpty)
               DSidebarGroup(child: menu(entries))
             else ...[
-              DSidebarGroup(
-                label: DSidebarGroupLabel(
-                  child: Text(context.l10n.gettingStarted),
-                ),
-                child: menu([_foundations]),
-              ),
-              DSidebarGroup(
-                label: DSidebarGroupLabel(child: Text(context.l10n.components)),
-                child: menu(_components),
-              ),
+              DSidebarGroup(child: menu([_foundations])),
+              DSidebarGroup(child: menu(_components)),
             ],
           ],
         ),

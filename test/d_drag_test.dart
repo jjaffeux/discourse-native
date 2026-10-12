@@ -194,35 +194,6 @@ void main() {
     });
   }
 
-  testWidgets('disabled content cannot be dragged', (tester) async {
-    var starts = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DContentDrag<int>(
-            data: 7,
-            enabled: false,
-            onDragStarted: () => starts++,
-            feedback: const Text('Moving'),
-            child: const DCard(child: Text('Source')),
-          ),
-        ),
-      ),
-    );
-    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.text('Source')),
-        kind: kind,
-      );
-      await tester.pump(kLongPressTimeout);
-      await gesture.moveBy(const Offset(100, 0));
-      await gesture.up();
-      await tester.pumpAndSettle();
-    }
-    expect(starts, 0);
-    expect(find.text('Moving'), findsNothing);
-  });
-
   for (final enabled in [false, true]) {
     testWidgets(
       'long-press region preserves child gestures when enabled=$enabled',

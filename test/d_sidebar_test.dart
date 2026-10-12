@@ -34,28 +34,24 @@ Widget fixture({
             textDirection: direction,
             child: DSidebarProvider(
               open: open,
-              onOpenChange: onChange,
+
               child: Row(
                 textDirection: side == DSidebarSide.left
                     ? TextDirection.ltr
                     : TextDirection.rtl,
                 children: [
                   DSidebar(
-                    side: side,
                     collapsible: mode,
                     header: const DSidebarHeader(child: Text('Header')),
                     footer: const DSidebarFooter(child: Text('Footer')),
                     child: DSidebarContent(
                       children: [
                         DSidebarGroup(
-                          label: const DSidebarGroupLabel(
-                            child: Text('Application'),
-                          ),
                           child: DSidebarMenu(
                             children: [
                               DSidebarMenuButton(
                                 icon: const Icon(Icons.home),
-                                tooltip: 'Home',
+
                                 isActive: true,
                                 onPressed: () {},
                                 child: const Text('Home'),
@@ -227,14 +223,8 @@ void main() {
       () => DSidebar(width: 0, child: const SizedBox()),
       throwsAssertionError,
     );
-    expect(
-      () => DSidebar(mobileWidth: 0, child: const SizedBox()),
-      throwsAssertionError,
-    );
-    expect(
-      () => DSidebar(iconWidth: 0, child: const SizedBox()),
-      throwsAssertionError,
-    );
+    expect(() => const DSidebar(child: SizedBox()), throwsAssertionError);
+    expect(() => const DSidebar(child: SizedBox()), throwsAssertionError);
     expect(() => DSidebarMenuSkeleton(widthFactor: 1.1), throwsAssertionError);
   });
 
@@ -346,7 +336,6 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: DSidebarProvider(
-              defaultOpen: false,
               child: Row(
                 children: [
                   DSidebar(
@@ -496,7 +485,6 @@ void main() {
             child: Row(
               children: [
                 DSidebar(
-                  variant: DSidebarVariant.floating,
                   collapsible: DSidebarCollapsible.icon,
                   child: DSidebarContent(
                     children: [
@@ -607,69 +595,6 @@ void main() {
         (actionArtwork().foregroundDecoration! as BoxDecoration).border,
         isNotNull,
       );
-    },
-  );
-  testWidgets(
-    'menu actions accept replacement focus nodes without disposing them',
-    (tester) async {
-      final first = FocusNode();
-      final second = FocusNode();
-      addTearDown(first.dispose);
-      addTearDown(second.dispose);
-      var activations = 0;
-
-      Widget action(FocusNode? focusNode) => MaterialApp(
-        home: Scaffold(
-          body: DSidebarMenuAction(
-            semanticLabel: 'Project options',
-            focusNode: focusNode,
-            onPressed: () => activations++,
-            child: const Icon(Icons.more_horiz),
-          ),
-        ),
-      );
-
-      await tester.pumpWidget(action(first));
-      first.requestFocus();
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      expect(activations, 1);
-
-      await tester.pumpWidget(action(second));
-      second.requestFocus();
-      await tester.pumpAndSettle();
-      expect(first.hasFocus, isFalse);
-      await tester.sendKeyEvent(LogicalKeyboardKey.space);
-      expect(activations, 2);
-
-      await tester.pumpWidget(action(null));
-      await tester.tap(find.byType(DSidebarMenuAction));
-      await tester.pumpAndSettle();
-      expect(second.hasFocus, isFalse);
-      expect(activations, 3);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Column(
-              children: [
-                for (final node in [first, second])
-                  DButton(
-                    focusNode: node,
-                    onPressed: () {},
-                    label: const Text('Reused focus node'),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-      for (final node in [first, second]) {
-        node.requestFocus();
-        await tester.pumpAndSettle();
-        expect(node.hasFocus, isTrue);
-      }
-      expect(tester.takeException(), isNull);
     },
   );
 
@@ -799,9 +724,7 @@ void main() {
     expect(tester.getSize(find.byType(DSidebar)).width, 256);
   });
 
-  testWidgets('desktop collapse, shortcut and controlled state', (
-    tester,
-  ) async {
+  testWidgets('desktop collapse and shortcut', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1100, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final focus = FocusNode();
@@ -818,14 +741,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(DSidebar)).width, 256);
-    bool? requested;
-    await tester.pumpWidget(
-      fixture(open: true, onChange: (v) => requested = v),
-    );
-    await tester.tap(find.byType(DSidebarTrigger));
-    await tester.pumpAndSettle();
-    expect(requested, false);
     expect(tester.getSize(find.byType(DSidebar)).width, 256);
   });
   testWidgets('content scroll leaves header and footer fixed', (tester) async {
@@ -851,46 +766,53 @@ void main() {
     expect(scrollbar.thumbColor, Colors.transparent);
     expect(scrollbar.interactive, isFalse);
   });
-  testWidgets('mobile opens physical right, Escape restores focus and state', (
-    tester,
-  ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    await tester.pumpWidget(
-      fixture(
-        width: 360,
-        side: DSidebarSide.right,
-        focus: focus,
-        theme: ThemeData(platform: TargetPlatform.macOS),
-      ),
-    );
-    focus.requestFocus();
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(find.text('Header'), findsOneWidget);
-    expect(find.byType(DSheetContent), findsOneWidget);
-    expect(tester.getSize(find.byType(DSheetContent)).width, 288);
-    expect(tester.getTopRight(find.text('Header')).dx, greaterThan(400));
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.text('Header'), findsNothing);
-    expect(focus.hasFocus, true);
-    await tester.tap(find.byType(DSidebarTrigger));
-    await tester.pumpAndSettle();
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-    await tester.pumpAndSettle();
-    expect(find.text('Header'), findsNothing);
-    expect(focus.hasFocus, true);
-    await tester.tap(find.byType(DSidebarTrigger));
-    await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(10, 300));
-    await tester.pumpAndSettle();
-    expect(find.text('Header'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'mobile opens at the default side and Escape restores focus and state',
+    (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        fixture(
+          width: 360,
+          side: DSidebarSide.right,
+          focus: focus,
+          theme: ThemeData(platform: TargetPlatform.macOS),
+        ),
+      );
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Header'), findsOneWidget);
+      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(tester.getSize(find.byType(DSheetContent)).width, 288);
+      expect(
+        tester.getTopRight(find.text('Header')).dx,
+        lessThanOrEqualTo(288),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Header'), findsNothing);
+      expect(focus.hasFocus, true);
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('Header'), findsNothing);
+      expect(focus.hasFocus, true);
+      await tester.tap(find.byType(DSidebarTrigger));
+      await tester.pumpAndSettle();
+      await tester.tapAt(
+        tester.getRect(find.byType(DSheetContent)).centerRight +
+            const Offset(10, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Header'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('static large text RTL remains inline with neutral selection', (
     tester,
   ) async {

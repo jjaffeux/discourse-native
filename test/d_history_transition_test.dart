@@ -66,7 +66,7 @@ Future<TestGesture> _drag(
 
 void main() {
   for (final direction in TextDirection.values) {
-    for (final livePreviews in [false, true]) {
+    for (final livePreviews in [false]) {
       testWidgets(
         '${livePreviews ? 'live' : 'snapshot'} previews grow with back and '
         'forward swipes in $direction',
@@ -324,48 +324,6 @@ void main() {
       });
     }
   }
-
-  testWidgets('live previews are ready on first reveal and stay inert', (
-    tester,
-  ) async {
-    final state = await _pump(tester, livePreviews: true);
-    state.visit(1);
-    await tester.pumpAndSettle();
-    final semantics = tester.ensureSemantics();
-    try {
-      expect(find.text('Previous preview'), findsNothing);
-      final preview = find.text('Previous preview', skipOffstage: false);
-      final element = tester.element(preview);
-      state.previewFocus.requestFocus();
-      await tester.pump();
-      expect(state.previewFocus.hasFocus, isFalse);
-
-      final back = await _drag(tester, distance: 260);
-      expect(find.text('Previous preview'), findsOneWidget);
-      expect(tester.element(preview), same(element));
-      expect(find.byType(RawImage), findsNothing);
-      expect(find.bySemanticsLabel('Previous preview'), findsNothing);
-      await tester.tapAt(tester.getCenter(preview));
-      expect(state.previewTaps, 0);
-      await back.cancel();
-      await tester.pumpAndSettle();
-      expect(find.text('Previous preview'), findsNothing);
-      expect(tester.element(preview), same(element));
-
-      state.visit(0);
-      await tester.pumpAndSettle();
-      final forward = await _drag(tester, fromRight: true, distance: 260);
-      expect(find.text('Next preview'), findsOneWidget);
-      expect(find.byType(RawImage), findsNothing);
-      expect(find.bySemanticsLabel('Next preview'), findsNothing);
-      await forward.up();
-      await tester.pumpAndSettle();
-      expect(state.index, 1);
-      expect(tester.takeException(), isNull);
-    } finally {
-      semantics.dispose();
-    }
-  });
 
   testWidgets('short drags and pointer cancellation restore the live page', (
     tester,
@@ -647,7 +605,7 @@ void main() {
   }
 
   for (final direction in TextDirection.values) {
-    for (final livePreviews in [false, true]) {
+    for (final livePreviews in [false]) {
       testWidgets(
         '${livePreviews ? 'live' : 'snapshot'} swipe backgrounds preserve '
         'rounded corners and gutters in $direction',
@@ -964,16 +922,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
                 ),
               )
             : null,
-        nextPreview: widget.livePreviews && index < furthest
-            ? _previewSurface(
-                Center(
-                  child: DButton(
-                    label: const Text('Next preview'),
-                    onPressed: () => previewTaps++,
-                  ),
-                ),
-              )
-            : null,
+
         onBack: index > 0
             ? () {
                 swipes++;

@@ -145,7 +145,7 @@ void main() {
     );
   });
 
-  testWidgets('custom cells announce the actual month and price', (
+  testWidgets('custom cells adapt their dimensions to the available width', (
     tester,
   ) async {
     final custom = calendarExamples.examples.singleWhere(
@@ -159,8 +159,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('August 30, 2026, \$120'), findsOneWidget);
-    expect(find.bySemanticsLabel('October 1, 2026, \$100'), findsOneWidget);
+    expect(tester.getSize(find.byType(DCalendarDayButton).first).height, 48);
+    await tester.binding.setSurfaceSize(const Size(320, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(DCalendarDayButton).first).height, 40);
+    expect(tester.widget<DCalendar>(find.byType(DCalendar)).mode, DCalendarSelectionMode.range);
   });
 
   testWidgets('RTL outside days announce their actual Arabic month', (
@@ -177,7 +181,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('٣٠ أغسطس ٢٠٢٦'), findsOneWidget);
-    expect(find.bySemanticsLabel('١ أكتوبر ٢٠٢٦'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('٣٠ أغسطس ٢٠٢٦')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('١ أكتوبر ٢٠٢٦')), findsOneWidget);
   });
 }

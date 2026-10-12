@@ -143,7 +143,7 @@ void main() {
       TextDirection.rtl,
     );
     expect(find.text('التعليقات'), findsOneWidget);
-    expect(find.text('شاركنا أفكارك حول خدمتنا.'), findsOneWidget);
+    expect(find.text('تعليقاتك تساعدنا على التحسين...'), findsOneWidget);
   });
 
   testWidgets('Form example validates saves and resets local state', (

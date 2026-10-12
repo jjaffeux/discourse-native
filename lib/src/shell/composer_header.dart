@@ -85,7 +85,7 @@ class ComposerHeader extends StatelessWidget {
       ComposerMode.tagsEdit => context.l10n.editTags,
       ComposerMode.topicEdit => context.l10n.editTopic,
       ComposerMode.postEdit => context.l10n.editPost(
-        (target.editingPostNumber).toString(),
+        target.editingPostNumber.toString(),
       ),
       ComposerMode.plugin => target.topicTitle,
       ComposerMode.reply =>
@@ -229,7 +229,8 @@ class ComposerHeader extends StatelessWidget {
           );
 
     if (minimized) {
-      return SizedBox.expand(
+      return SizedBox(
+        width: double.infinity,
         key: const ValueKey('composer-header'),
         child: heading,
       );
@@ -309,7 +310,7 @@ class ComposerHeader extends StatelessWidget {
                 key: const ValueKey('composer-minimize-header'),
                 tooltip: context.l10n.minimizeComposer,
                 onPressed: onMinimize,
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 size: DButtonSize.toolbar,
                 icon: const DIcon(DIcons.chevronDown),
               ),
@@ -323,9 +324,9 @@ class ComposerHeader extends StatelessWidget {
       if (!atDestination && !target.createsTopic && target.topicId > 0)
         DButton.iconOnly(
           key: const ValueKey('composer-return-to-topic'),
-          tooltip: context.l10n.returnTo((target.topicTitle).toString()),
+          tooltip: context.l10n.returnTo(target.topicTitle.toString()),
           icon: const DIcon(DIcons.arrowLeft),
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           onPressed: () => ShellScope.read(context).openTopicPost(
             siteUrl: target.siteUrl,
             topicId: target.topicId,
@@ -364,7 +365,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: onRestore,
           icon: const DIcon(DIcons.expand),
           tooltip: context.l10n.restoreComposer,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.toolbar,
         )
       else if (onMinimize case final minimize?)
@@ -373,7 +374,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: minimize,
           icon: ComposerPlacementIcon(placement: placement, minimized: true),
           tooltip: context.l10n.minimizeComposer,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.toolbar,
         ),
       if (!minimized)
@@ -382,7 +383,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: onClose,
           icon: const DIcon(DIcons.xmark),
           tooltip: closeTooltip,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.toolbar,
         ),
     ];
@@ -403,7 +404,7 @@ class ComposerHeader extends StatelessWidget {
                       Expanded(
                         child: minimized
                             ? heading
-                            : composer.canSaveDraft
+                            : composer.canSaveDraft && ShellScope.read(context).liveComposers.contains(composer)
                             ? ComposerDraftTabs(composer: composer)
                             : Align(
                                 alignment: AlignmentDirectional.centerStart,
@@ -490,7 +491,9 @@ class _DraftSaveFailure extends StatelessWidget {
               builder: (context, constraints) => Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  DIcon(DIcons.triangleExclamation, size: 14, color: color),
+                  Flexible(
+                    child: DIcon(DIcons.triangleExclamation, size: 14, color: color),
+                  ),
                   if (showLabel && constraints.maxWidth >= 40) ...[
                     const SizedBox(width: 6),
                     Flexible(

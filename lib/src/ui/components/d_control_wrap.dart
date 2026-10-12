@@ -17,7 +17,6 @@ class DControlWrap extends MultiChildRenderObjectWidget {
     this.runSpacing = DSpacing.sm,
     this.wrap = true,
     this.direction = Axis.horizontal,
-    this.alignment = WrapAlignment.start,
   }) : assert(spacing >= 0),
        assert(runSpacing >= 0);
 
@@ -25,7 +24,6 @@ class DControlWrap extends MultiChildRenderObjectWidget {
   final double runSpacing;
   final bool wrap;
   final Axis direction;
-  final WrapAlignment alignment;
 
   @override
   RenderObject createRenderObject(BuildContext context) => RenderDControlWrap(
@@ -34,7 +32,7 @@ class DControlWrap extends MultiChildRenderObjectWidget {
     runSpacing: runSpacing,
     textDirection: Directionality.of(context),
     direction: direction,
-    alignment: alignment,
+    alignment: WrapAlignment.start,
   );
 
   @override
@@ -48,7 +46,7 @@ class DControlWrap extends MultiChildRenderObjectWidget {
       ..textDirection = Directionality.of(context)
       ..wrap = wrap
       ..direction = direction
-      ..alignment = alignment;
+      ..alignment = WrapAlignment.start;
   }
 }
 

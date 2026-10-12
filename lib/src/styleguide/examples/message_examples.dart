@@ -20,19 +20,8 @@ final messageExamples = ComponentExamples(
       description:
           'The chat composition uses a corner menu, a separate reaction button, an inset source quote and metadata aligned with each sender.',
       states: const ['Incoming', 'Outgoing', 'Reply quote', 'Menu', 'React'],
-      code: '''DMessage(align: DMessageAlign.end, children: [
-  DMessageAvatar(child: DAvatar(...)),
-  DMessageContent(children: [
-    DMessageHeader(followMessageAlignment: true, children: [Text('you · 10:16 am')]),
-    DBubble(variant: DBubbleVariant.accent, align: DBubbleAlign.end, children: [
-      DBubbleContent(
-        trailingAction: DDropdownMenu(...),
-        quote: DBubbleQuote(author: Text('Olivia'), child: Text('Where should this live?'), onPressed: jump),
-        child: Text('Let’s put it in the docs.'),
-      ),
-    ]),
-  ]),
-])''',
+      code:
+          "DMessage( children: [\n  DMessageAvatar(child: DAvatar(...)),\n  DMessageContent(children: [\n    DMessageHeader(followMessageAlignment: true, children: [Text('you · 10:16 am')]),\n    DBubble(variant: DBubbleVariant.primary,  children: [\n      DBubbleContent(\n        trailingAction: DDropdownMenu(...),\n        quote: DBubbleQuote(author: Text('Olivia'), child: Text('Where should this live?'), onPressed: jump),\n        child: Text('Let’s put it in the docs.'),\n      ),\n    ]),\n  ]),\n])",
       builder: (_) => const _QuotedConversationExample(),
     ),
     StyleguideExample(
@@ -78,18 +67,8 @@ final messageExamples = ComponentExamples(
       description:
           'The frozen conversation composition with sender/receiver alignment, delivery metadata, a same-sender bubble group, reactions, and typing status.',
       states: const ['Start', 'End', 'Footer', 'Group', 'Status'],
-      code: '''DMessage(
-  align: DMessageAlign.end,
-  children: [
-    DMessageAvatar(child: DAvatar(...)),
-    DMessageContent(children: [
-      DBubble(align: DBubbleAlign.end, children: [
-        DBubbleContent(child: Text('Deploying to prod real quick.')),
-      ]),
-      DMessageFooter(children: [Text('Delivered')]),
-    ]),
-  ],
-)''',
+      code:
+          "DMessage(\n  \n  children: [\n    DMessageAvatar(child: DAvatar(...)),\n    DMessageContent(children: [\n      DBubble( children: [\n        DBubbleContent(child: Text('Deploying to prod real quick.')),\n      ]),\n      DMessageFooter(children: [Text('Delivered')]),\n    ]),\n  ],\n)",
       builder: (_) => const _OverviewExample(),
     ),
     StyleguideExample(
@@ -169,14 +148,8 @@ final messageExamples = ComponentExamples(
       description:
           'Toggle pending, failed, deleted and complete states. Only changing status nodes are live regions; ordinary message content stays presentational.',
       states: const ['Pending', 'Failed', 'Deleted', 'Marker live status'],
-      code: '''DMarker(
-  liveRegion: true,
-  child: DMarkerContent(child: Text('Checking the logs...')),
-)
-DMessageStatus(
-  state: DMessageDeliveryState.deleted,
-  liveRegion: true,
-)''',
+      code:
+          "DMarker(\n  liveRegion: true,\n  child: DMarkerContent(child: Text('Checking the logs...')),\n)\nDMessageStatus(\n  state: DMessageDeliveryState.deleted,\n  \n)",
       builder: (_) => const _StatusExample(),
     ),
   ],
@@ -208,7 +181,6 @@ class _OverviewExample extends StatelessWidget {
   Widget build(BuildContext context) => const _Conversation(
     children: [
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageAvatar(
             child: _Avatar(label: 'ME', name: 'You'),
@@ -216,7 +188,6 @@ class _OverviewExample extends StatelessWidget {
           DMessageContent(
             children: [
               DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(child: Text('Deploying to prod real quick.')),
                 ],
@@ -243,7 +214,6 @@ class _OverviewExample extends StatelessWidget {
         ],
       ),
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageAvatar(
             child: _Avatar(label: 'ME', name: 'You'),
@@ -251,17 +221,13 @@ class _OverviewExample extends StatelessWidget {
           DMessageContent(
             children: [
               DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(child: Text("It's a one-line change.")),
                 ],
               ),
               DMessageFooter(
                 children: [
-                  DMessageStatus(
-                    state: DMessageDeliveryState.delivered,
-                    liveRegion: false,
-                  ),
+                  DMessageStatus(state: DMessageDeliveryState.delivered),
                 ],
               ),
             ],
@@ -339,7 +305,6 @@ class _AvatarExample extends StatelessWidget {
         ],
       ),
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageAvatar(
             child: _Avatar(label: 'ME', name: 'You'),
@@ -347,7 +312,6 @@ class _AvatarExample extends StatelessWidget {
           DMessageContent(
             children: [
               DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(child: Text('Can you share the exact error?')),
                 ],
@@ -468,12 +432,10 @@ class _MetadataExample extends StatelessWidget {
         ],
       ),
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageContent(
             children: [
               DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(
                     child: Text(
@@ -564,12 +526,10 @@ class _ActionsExampleState extends State<_ActionsExample> {
         ],
       ),
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageContent(
             children: [
               const DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(
                     child: Text('Okay, drop me a link. Taking a look...'),
@@ -627,7 +587,6 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
     gap: 32,
     children: [
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageContent(
             children: [
@@ -654,7 +613,6 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                 ],
               ),
               const DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(
                     child: Text(
@@ -682,7 +640,6 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                 ],
               ),
               DAttachment(
-                semanticLabel: 'sales-dashboard.pdf, PDF, 2.4 MB',
                 children: [
                   const DAttachmentMedia(
                     child: Icon(Icons.description_outlined),
@@ -711,12 +668,10 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
         ],
       ),
       const DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageContent(
             children: [
               DBubble(
-                align: DBubbleAlign.end,
                 children: [DBubbleContent(child: Text('Thanks. Looks good.'))],
               ),
             ],
@@ -744,12 +699,10 @@ class _StatusExampleState extends State<_StatusExample> {
   Widget build(BuildContext context) => _Conversation(
     children: [
       DMessage(
-        align: DMessageAlign.end,
         children: [
           DMessageContent(
             children: [
               const DBubble(
-                align: DBubbleAlign.end,
                 children: [
                   DBubbleContent(child: Text('Publish the release notes.')),
                 ],
@@ -771,10 +724,7 @@ class _StatusExampleState extends State<_StatusExample> {
               ),
               DMessageFooter(
                 children: [
-                  DMessageStatus(
-                    state: DMessageDeliveryState.deleted,
-                    liveRegion: false,
-                  ),
+                  DMessageStatus(state: DMessageDeliveryState.deleted),
                 ],
               ),
             ],
@@ -855,7 +805,6 @@ class _QuotedConversationExampleState
         ],
       ),
       DMessage(
-        align: DMessageAlign.end,
         children: [
           const DMessageAvatar(
             child: DAvatar(child: DAvatarFallback(child: Text('Y'))),
@@ -869,8 +818,8 @@ class _QuotedConversationExampleState
                 children: [Text('you · 10:16 am')],
               ),
               DBubble(
-                variant: DBubbleVariant.accent,
-                align: DBubbleAlign.end,
+                variant: DBubbleVariant.primary,
+
                 maximumWidthFactor: 1,
                 children: [
                   Row(
@@ -881,7 +830,7 @@ class _QuotedConversationExampleState
                         icon: const Icon(Icons.add_reaction_outlined),
                         tooltip: 'React to message',
                         size: DButtonSize.small,
-                        variant: DButtonVariant.transparentBackground,
+                        variant: DButtonVariant.ghost,
                         onPressed: () => show('Reaction added'),
                       ),
                       Flexible(
@@ -904,7 +853,7 @@ class _QuotedConversationExampleState
                                 icon: const Icon(Icons.keyboard_arrow_down),
                                 tooltip: 'Message options',
                                 size: DButtonSize.small,
-                                variant: DButtonVariant.transparentBackground,
+                                variant: DButtonVariant.ghost,
                                 focusNode: state.focusNode,
                                 hasPopup: true,
                                 expanded: state.open,

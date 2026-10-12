@@ -117,16 +117,7 @@ class _ForumSearchState extends State<ForumSearch> {
       GlobalSearchCondition(filterId: 'order', value: [order]),
   ];
 
-  bool get _filtersStartPage => false;
-
-  String get _query => _filtersStartPage
-      ? _search.startPageQueryFor(
-          _search.siteUrl!,
-          _shell!.activeTabId ?? 'start',
-        )
-      : _open
-      ? _global.query
-      : _closedExpression.query;
+  String get _query => (_open ? _global.query : _closedExpression.query);
 
   void _closeSearch() {
     if (widget.fullScreen) {
@@ -210,7 +201,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _syncSite();
     _retireClosedDraftIfScopeChanged();
     _syncText();
-    if (_filtersStartPage && _surfaceOpen) _search.closePanel();
+
     setState(() {});
   }
 
@@ -266,10 +257,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _requestFocus() {
     if (!mounted) return;
-    if (_filtersStartPage) {
-      _focus.requestFocus();
-      return;
-    }
+
     _search.activateField(_field);
     _openSearch();
     _focus.requestFocus();
@@ -277,10 +265,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _requestShortcutFocus(SearchFocusMode mode) {
     if (!mounted) return;
-    if (_filtersStartPage) {
-      _focus.requestFocus();
-      return;
-    }
+
     _search.activateField(_field);
     _openSearch(mode: mode);
     _focus.requestFocus();
@@ -437,13 +422,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _setQuery(String value) {
     _panelKey.currentState?.resetSelection();
-    if (_filtersStartPage) {
-      _search.setStartPageQuery(
-        _search.siteUrl!,
-        _shell!.activeTabId ?? 'start',
-        value,
-      );
-    } else {
+    {
       _global.setQuery(value);
     }
   }
@@ -453,13 +432,7 @@ class _ForumSearchState extends State<ForumSearch> {
       return KeyEventResult.ignored;
     }
     if (!_focus.hasFocus) return KeyEventResult.ignored;
-    if (_filtersStartPage) {
-      if (event.logicalKey == LogicalKeyboardKey.escape) {
-        _clear();
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
-    }
+
     if (!_open) return KeyEventResult.ignored;
     final composing = _text.value.composing;
     if (composing.isValid && !composing.isCollapsed) {
@@ -685,7 +658,7 @@ class _ForumSearchState extends State<ForumSearch> {
               _setQuery(value);
             },
             onSubmitted: (_) {
-              if (!_filtersStartPage) _apply();
+              _apply();
             },
           ),
           if (width >= 140)
@@ -961,7 +934,9 @@ class _ForumSearchState extends State<ForumSearch> {
         children: [
           // Count capsules need their own width. Keep the search editor and
           // its keyboard shortcut available when title-bar space is tight.
-          if (!widget.dense || constraints.maxWidth >= 180) ...[
+          if (!widget.dense ||
+              constraints.maxWidth >=
+                  180 * MediaQuery.textScalerOf(context).scale(14) / 14) ...[
             const ContentNavigationControls(),
             const SizedBox(width: 4),
           ],

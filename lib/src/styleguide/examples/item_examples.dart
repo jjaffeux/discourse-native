@@ -15,7 +15,7 @@ final itemExamples = ComponentExamples(
       'Reference and native review complete. Item is '
       'passive unless onPressed is supplied. Link navigation remains caller-owned. '
       'Use Field for editable inputs. Default and sm share padding; sm changes '
-      'image and group sizing. Native large text reflows and removes clamps. '
+      'media and group sizing. Native large text reflows and removes clamps. '
       'At narrow widths content and actions stack. fitContent sizes an item to '
       'its content under loose constraints, retaining its visible hit and drag bounds. '
       'All artwork is bundled from '
@@ -79,9 +79,9 @@ final itemExamples = ComponentExamples(
           'Hover and select rows with a faint neutral fill and broader corners. '
           'Keyboard focus remains visible without an accent selection border.',
       code:
-          "DItem(selected: selected, selectionStyle: DItemSelectionStyle.neutral, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
+          "DItem(selected: selected, selectionStyle: DItemSelectionStyle.tinted, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [DItemTitle(child: Text('Topic'))])])",
       builder: (_) =>
-          const _SelectionExample(style: DItemSelectionStyle.neutral),
+          const _SelectionExample(style: DItemSelectionStyle.tinted),
     ),
     StyleguideExample(
       title: 'Menu selection',
@@ -391,19 +391,11 @@ const _codes = {
     DItemDescription(child: Text('New login detected from unknown device.'))]),
   DItemActions(children: [DButton(variant: DButtonVariant.outline, size: DButtonSize.small, onPressed: review, label: Text('Review'))]),
 ])""",
-  'Avatar': """DItem(variant: DItemVariant.outline, children: [
-  DItemMedia(variant: DItemMediaVariant.avatar, child: DAvatar(
-    size: DAvatarSize.lg, image: DAvatarImage(image: AssetImage(
-      'packages/discourse_native/src/styleguide/assets/item/evilrabbit.png')),
-    fallback: DAvatarFallback(child: Text('ER')))),
-  DItemContent(children: [DItemTitle(child: Text('Evil Rabbit')),
-    DItemDescription(child: Text('Last seen 5 months ago'))]),
-  DItemActions(children: [DButton.iconOnly(variant: DButtonVariant.outline, size: DButtonSize.small,
-    borderRadius: BorderRadius.circular(9999), tooltip: 'Invite', icon: plusIcon, onPressed: invite)]),
-])""",
+  'Avatar':
+      "DItem(variant: DItemVariant.outline, children: [\n  DItemMedia(variant: DItemMediaVariant.avatar, child: DAvatar(\n    size: DAvatarSize.lg, \n    fallback: DAvatarFallback(child: Text('ER')))),\n  DItemContent(children: [DItemTitle(child: Text('Evil Rabbit')),\n    DItemDescription(child: Text('Last seen 5 months ago'))]),\n  DItemActions(children: [DButton.iconOnly(variant: DButtonVariant.outline, size: DButtonSize.small,\n    borderRadius: BorderRadius.circular(9999), tooltip: 'Invite', icon: plusIcon, onPressed: invite)]),\n])",
   'Image': """DItemGroup(children: songs.map((song) => DItem(
   variant: DItemVariant.outline, link: true, onPressed: () => play(song),
-  children: [DItemMedia(variant: DItemMediaVariant.image, child: song.artwork),
+  children: [DItemMedia(variant: DItemMediaVariant.standard, child: song.artwork),
     DItemContent(children: [DItemTitle(child: Text(song.title)),
       DItemDescription(child: Text(song.artist))]),
     DItemContent(children: [DItemDescription(child: Text(song.duration))]),
@@ -425,20 +417,8 @@ const _codes = {
     DItemDescription(child: Text('Learn how to get started with our components.'))]),
   DItemActions(children: [chevronRightIcon]),
 ])""",
-  'Dropdown': """DDropdownMenu(
-  content: DDropdownMenuContent(width: 192, align: DPopoverAlign.end,
-    children: [DDropdownMenuGroup(children: [
-  DDropdownMenuItem(onPressed: selectPerson, child:
-    DItem(size: DItemSize.xs, padding: EdgeInsets.all(8), children: [
-      DItemMedia(child: avatar26),
-      DItemContent(spacing: 0, children: [DItemTitle(child: Text('alex')),
-        DItemDescription(height: 1, child: Text('alex@example.com'))]),
-    ])),
-  )])]),
-  child: DDropdownMenuTrigger(builder: (context, state) => DButton(
-    variant: DButtonVariant.outline, hasPopup: true, expanded: state.open,
-    focusNode: state.focusNode, label: Text('Select'),
-    onPressed: state.toggle)))""",
+  'Dropdown':
+      "DDropdownMenu(\n  content: DDropdownMenuContent(width: 192, align: DPopoverAlign.end,\n    children: [DDropdownMenuGroup(children: [\n  DDropdownMenuItem(onPressed: selectPerson, child:\n    DItem(size: DItemSize.xs, padding: EdgeInsets.all(8), children: [\n      DItemMedia(child: avatar26),\n      DItemContent(spacing: 0, children: [DItemTitle(child: Text('alex')),\n        DItemDescription( child: Text('alex@example.com'))]),\n    ])),\n  )])]),\n  child: DDropdownMenuTrigger(builder: (context, state) => DButton(\n    variant: DButtonVariant.outline, hasPopup: true, expanded: state.open,\n    focusNode: state.focusNode, label: Text('Select'),\n    onPressed: state.toggle)))",
   'RTL': """DDirection(textDirection: TextDirection.rtl, child: DItem(
   variant: DItemVariant.outline, children: [DItemContent(children: [
     DItemTitle(child: Text('عنصر أساسي')),
@@ -487,9 +467,7 @@ class _ItemExampleState extends State<_ItemExample> {
   );
   Widget _avatar(String name, {double dimension = 32}) => DAvatar(
     dimension: dimension,
-    image: name == 'alex'
-        ? null
-        : DAvatarImage(image: AssetImage('$_assets$name.png')),
+
     fallback: DAvatarFallback(child: Text(name.substring(0, 1).toUpperCase())),
   );
   DItemContent _content(String title, [String? description]) => DItemContent(
@@ -666,7 +644,7 @@ class _ItemExampleState extends State<_ItemExample> {
               onPressed: () => _notice('Playing ${song.$1}'),
               children: [
                 DItemMedia(
-                  variant: DItemMediaVariant.image,
+                  variant: DItemMediaVariant.standard,
                   child: ColorFiltered(
                     colorFilter: const ColorFilter.matrix([
                       .2126,
@@ -834,7 +812,6 @@ class _ItemExampleState extends State<_ItemExample> {
                           children: [
                             DItemTitle(child: Text(person)),
                             DItemDescription(
-                              height: 1,
                               child: Text('$person@example.com'),
                             ),
                           ],

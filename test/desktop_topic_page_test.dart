@@ -48,7 +48,7 @@ void main() {
         of: find.byKey(const ValueKey('desktop-panel-main')),
         matching: find.byKey(const ValueKey('forum-tabs-bar')),
       );
-      final options = find.byKey(const ValueKey('minimize-panel-main'));
+      final options = find.byKey(const ValueKey('panel-split-view-main'));
       final title = find.byKey(const ValueKey('topic-list-title'));
       final filters = find.byKey(const ValueKey('topic-list-feed-row'));
       final separator = find.byKey(
@@ -83,7 +83,7 @@ void main() {
       expect(tester.getCenter(filterAction).dy, tester.getCenter(title).dy);
       expect(
         tester.widget<DButton>(filterAction).variant,
-        DButtonVariant.transparentBackground,
+        DButtonVariant.secondary,
       );
 
       _openTopicTab(h.shell, h.topics.first);
@@ -92,7 +92,7 @@ void main() {
         of: find.byKey(const ValueKey('desktop-panel-main')),
         matching: tabs,
       );
-      final minimize = find.byKey(const ValueKey('minimize-panel-main'));
+      final minimize = find.byKey(const ValueKey('panel-split-view-main'));
       expect(tester.getCenter(listTabs).dy, tester.getCenter(options).dy);
       expect(tester.getCenter(listTabs).dy, tester.getCenter(minimize).dy);
       expect(tester.getRect(minimize).left, tester.getRect(options).left);
@@ -120,7 +120,7 @@ void main() {
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
       for (final panel in ForumPanel.values) {
         expect(
-          find.byKey(ValueKey('minimize-panel-${panel.name}')),
+          find.byKey(ValueKey('panel-split-view-${panel.name}')),
           findsOneWidget,
         );
       }
@@ -206,10 +206,10 @@ void main() {
 
       _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
-      expect(previous, findsOneWidget);
-      expect(next, findsOneWidget);
+      expect(previous, findsNothing);
+      expect(next, findsNothing);
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
-      expect(find.byType(DCardFooter), findsNWidgets(2));
+      expect(find.byType(DCardFooter), findsNothing);
       expect(
         find.byKey(const ValueKey('compact-topic-list-header')),
         findsNothing,
@@ -217,7 +217,7 @@ void main() {
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
-      await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
+      await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-card-1')), findsNothing);
       expect(
@@ -227,7 +227,9 @@ void main() {
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
-      await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       h.shell.selectTab(h.shell.selectedTabIn(ForumPanel.secondary)!.id);
@@ -250,13 +252,13 @@ void main() {
       try {
         await const TopicPresentationStore().write(TopicPresentation.merged);
         final h = await _setup(tester, size: const Size(1280, 860));
-        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp(r'navigation')), findsOneWidget);
         _openTopicTab(h.shell, h.topics.first);
         await tester.pumpAndSettle();
-        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp(r'navigation')), findsOneWidget);
         h.shell.openReply();
         await tester.pumpAndSettle();
-        expect(find.bySemanticsLabel('Forum navigation'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp(r'navigation')), findsOneWidget);
         expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
         expect(tester.takeException(), isNull);
       } finally {
@@ -405,10 +407,10 @@ void main() {
     final editorState = tester.state(find.byType(ComposerEditor));
     final readingPost = h.shell.topicScrollPostNumber(h.topics.first.id);
     for (final action in [
-      'minimize-panel-main',
-      'panel-rail-restore',
-      'minimize-panel-main',
-      'panel-rail-restore',
+      'panel-split-view-main',
+      'panel-split-view-secondary',
+      'panel-split-view-main',
+      'panel-split-view-secondary',
     ]) {
       await tester.tap(find.byKey(ValueKey(action)));
       await tester.pumpAndSettle();
@@ -523,14 +525,13 @@ void main() {
       lessThan(tester.getRect(readerPanel).left),
     );
     final split = tester.getRect(readerPanel);
-    await tester.tap(find.byKey(const ValueKey('minimize-panel-main')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
     await tester.pumpAndSettle();
-    final rail = tester.getRect(find.byKey(const ValueKey('panel-rail-main')));
-    expect(rail.right, lessThan(tester.getRect(readerPanel).left));
+    expect(listPanel.hitTestable(), findsNothing);
     expect(tester.getRect(readerPanel).right, split.right);
     expect(tester.getRect(readerPanel).width, greaterThan(split.width));
     expect(tester.state(_reader), same(readerState));
-    await tester.tap(find.byKey(const ValueKey('panel-rail-restore')));
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
     await tester.pumpAndSettle();
     expect(tester.getRect(readerPanel), split);
     expect(tester.state(_reader), same(readerState));
@@ -725,8 +726,8 @@ void main() {
       expect(Navigator.of(tester.element(_reader)).canPop(), isFalse);
       final previous = find.byKey(const ValueKey('inbox-previous-topic'));
       final next = find.byKey(const ValueKey('inbox-next-topic'));
-      expect(tester.getCenter(previous).dy, tester.getCenter(next).dy);
-      expect(tester.widget<DButton>(previous).onPressed, isNull);
+      expect(previous, findsNothing);
+      expect(next, findsNothing);
       for (final tab in h.shell.currentWorkspace!.tabsIn(
         ForumPanel.secondary,
       )) {
@@ -910,16 +911,8 @@ void main() {
       final titlebar = tester.getRect(find.byType(ShellTitleBar));
       h.shell.openReply();
       await tester.pumpAndSettle();
-      if (dock == 'right') {
-        await tester.tap(find.byTooltip('Dock side'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Dock bottom'));
-        await tester.pumpAndSettle();
-      }
-      await tester.tap(find.byTooltip('Dock side'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Dock $dock'));
-      await tester.pumpAndSettle();
+      if (dock == 'right') await _placeComposer(tester, 'Dock bottom');
+      await _placeComposer(tester, 'Dock $dock');
       expect(tester.getRect(find.byType(InstanceRail)), rail);
       expect(tester.getRect(find.byType(InstanceSidebar)), sidebar);
       expect(tester.getRect(find.byType(ShellTitleBar)), titlebar);
@@ -942,22 +935,20 @@ void main() {
       final composer = h.shell.visibleComposer!;
       composer.text.text = 'A full-screen draft';
       await composer.flushDraft();
-      await tester.tap(find.byTooltip('Full screen'));
-      await tester.pumpAndSettle();
+      await _placeComposer(tester, 'Full screen');
       expect(tester.getRect(find.byType(ComposerPanel)), workspace);
-      expect(find.byTooltip('Dock side').hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('composer-position')).hitTestable(),
+        findsOneWidget,
+      );
       expect(composer.raw, 'A full-screen draft');
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
-      await tester.tap(find.byTooltip('Dock side'));
-      await tester.pumpAndSettle();
+      await _placeComposer(tester, 'Dock right');
       final restored = tester.getRect(find.byType(ComposerPanel));
       expect(restored.right, workspace.right);
       expect(restored.width, lessThan(workspace.width));
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
-      await tester.tap(find.byTooltip('Dock side'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Dock bottom'));
-      await tester.pumpAndSettle();
+      await _placeComposer(tester, 'Dock bottom');
       expect(
         tester.getRect(find.byType(ComposerPanel)).bottom,
         workspace.bottom,
@@ -981,23 +972,14 @@ void main() {
         await tester.pumpAndSettle();
         h.shell.openReply();
         await tester.pumpAndSettle();
-        if (dock == 'right') {
-          await tester.tap(find.byTooltip('Dock side'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Dock bottom'));
-          await tester.pumpAndSettle();
-        }
-        await tester.tap(find.byTooltip('Dock side'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Dock $dock'));
-        await tester.pumpAndSettle();
+        if (dock == 'right') await _placeComposer(tester, 'Dock bottom');
+        await _placeComposer(tester, 'Dock $dock');
         final docked = tester.getRect(find.byType(ComposerPanel));
         final editor = tester.state(find.byType(ComposerEditor));
         final composer = h.shell.visibleComposer!;
         composer.text.text = 'Keep this draft';
         await composer.flushDraft();
-        await tester.tap(find.byTooltip('Full screen'));
-        await tester.pumpAndSettle();
+        await _placeComposer(tester, 'Full screen');
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(h.shell.visibleComposer, same(composer));
@@ -1217,5 +1199,20 @@ void _openTopicTab(ShellController shell, Topic topic) {
     title: topic.title,
     panel: ForumPanel.secondary,
   );
-  shell.selectTab(shell.tabsForCurrentForum.last.id);
+  shell.selectTab(
+    shell.tabsForCurrentForum
+        .firstWhere(
+          (tab) =>
+              tab.panel == ForumPanel.secondary &&
+              tab.currentContent.topicId == topic.id,
+        )
+        .id,
+  );
+}
+
+Future<void> _placeComposer(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('composer-position')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip(label));
+  await tester.pumpAndSettle();
 }

@@ -814,7 +814,7 @@ void main() {
       expect(copied, ['[chat channel="Chat"]\nSelected\n[/chat]']);
       expect(find.text('Messages copied!'), findsOne);
 
-      await tester.pump(const Duration(seconds: 5));
+      await tester.tap(find.bySemanticsLabel('Close notification'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('chat-cancel-selection')));
       await tester.pump();
@@ -3286,8 +3286,7 @@ final class _TestView extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: theme ?? AppTheme.light,
-        builder: (context, child) =>
-            DToaster(position: DToastPosition.topEnd, child: child!),
+        builder: (context, child) => DToaster(child: child!),
         home: Scaffold(
           body: TickerMode(
             enabled: tickerEnabled,
@@ -3326,8 +3325,7 @@ final class _TestStreamView extends StatelessWidget {
       chatPluginId,
       MaterialApp(
         theme: theme ?? AppTheme.light,
-        builder: (context, child) =>
-            DToaster(position: DToastPosition.topEnd, child: child!),
+        builder: (context, child) => DToaster(child: child!),
         home: Scaffold(
           body: ChatMessageStream(
             siteUrl: 'https://one.example',

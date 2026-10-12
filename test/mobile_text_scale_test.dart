@@ -70,9 +70,17 @@ void main() {
                   DSelect<String>(
                     value: 'latest',
                     isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 'latest', child: Text('Latest')),
-                      DropdownMenuItem(value: 'new', child: Text('New')),
+                    entries: const [
+                      DSelectItem(
+                        value: 'latest',
+                        textValue: 'latest',
+                        child: Text('Latest'),
+                      ),
+                      DSelectItem(
+                        value: 'new',
+                        textValue: 'new',
+                        child: Text('New'),
+                      ),
                     ],
                     onChanged: (_) {},
                   ),

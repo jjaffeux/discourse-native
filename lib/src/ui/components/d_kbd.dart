@@ -22,7 +22,6 @@ class DKbd extends StatelessWidget {
     super.key,
     this.semanticLabel,
     this.highlighted = false,
-    this.style,
   }) : child = null;
 
   const DKbd.child({
@@ -30,7 +29,6 @@ class DKbd extends StatelessWidget {
     required Widget this.child,
     required String this.semanticLabel,
     this.highlighted = false,
-    this.style,
   }) : label = null;
 
   final String? label;
@@ -39,9 +37,6 @@ class DKbd extends StatelessWidget {
 
   /// Optional presentation feedback. This never dispatches a shortcut.
   final bool highlighted;
-
-  /// Optional explicit text customization, merged after the reference metrics.
-  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +58,7 @@ class DKbd extends StatelessWidget {
               ? TextDecoration.underline
               : TextDecoration.none,
         )
-        .merge(style);
+        .merge(null);
     final duration = DMotion.duration(context, DMotion.exit);
     return SelectionContainer.disabled(
       child: IgnorePointer(
@@ -162,15 +157,15 @@ class DKbdGroup extends StatelessWidget {
     super.key,
     required this.children,
     this.spacing = DSpacing.xs,
-    this.runSpacing = DSpacing.xs,
+
     this.textDirection,
     this.semanticLabel,
   }) : assert(spacing >= 0),
-       assert(runSpacing >= 0);
+       assert(DSpacing.xs >= 0);
 
   final List<Widget> children;
   final double spacing;
-  final double runSpacing;
+
   final TextDirection? textDirection;
   final String? semanticLabel;
 
@@ -183,7 +178,7 @@ class DKbdGroup extends StatelessWidget {
       textDirection: textDirection ?? Directionality.of(context),
       child: Wrap(
         spacing: spacing,
-        runSpacing: runSpacing,
+        runSpacing: DSpacing.xs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: children,
       ),
@@ -256,9 +251,6 @@ class DShortcutKeycaps extends StatefulWidget {
     required this.shortcut,
     this.listenToKeyboard = true,
     this.compact = false,
-    this.platform,
-    this.textDirection,
-    this.semanticLabel,
   });
 
   final DShortcut shortcut;
@@ -267,9 +259,6 @@ class DShortcutKeycaps extends StatefulWidget {
   /// One static outlined 11px badge per chord, as used by title-bar search.
   /// Compact hints never listen to the keyboard.
   final bool compact;
-  final TargetPlatform? platform;
-  final TextDirection? textDirection;
-  final String? semanticLabel;
 
   @override
   State<DShortcutKeycaps> createState() => _ShortcutKeycapsState();
@@ -396,16 +385,16 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
   Widget build(BuildContext context) {
     if (DControlStyle.isTouch(context)) return const SizedBox.shrink();
     final shortcut = widget.shortcut;
-    final platform = widget.platform ?? Theme.of(context).platform;
+    final platform = (Theme.of(context).platform);
     _renderedFeedback = _feedback(_completedSteps);
     if (widget.compact) {
       final tokens = DTokens.of(context);
       return IgnorePointer(
         child: Semantics(
-          label: widget.semanticLabel ?? shortcut.semanticLabel(platform),
+          label: (shortcut.semanticLabel(platform)),
           excludeSemantics: true,
           child: Wrap(
-            textDirection: widget.textDirection,
+            textDirection: null,
             spacing: 8,
             children: [
               for (var step = 0; step < shortcut.length; step++)
@@ -448,8 +437,8 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
       );
     }
     return DKbdGroup(
-      textDirection: widget.textDirection,
-      semanticLabel: widget.semanticLabel ?? shortcut.semanticLabel(platform),
+      textDirection: null,
+      semanticLabel: (shortcut.semanticLabel(platform)),
       spacing: DSpacing.sm,
       children: [
         for (var step = 0; step < shortcut.length; step++) ...[

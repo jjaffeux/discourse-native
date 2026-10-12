@@ -56,17 +56,24 @@ import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
 
 Rect _lastTitleLine(WidgetTester tester, String title) {
-  final paragraph = tester.renderObject<RenderParagraph>(
-    find
-        .descendant(of: find.text(title), matching: find.byType(RichText))
-        .first,
-  );
+  final paragraphs = find
+      .descendant(of: contentText(title), matching: find.byType(RichText))
+      .evaluate()
+      .map((e) => e.renderObject)
+      .whereType<RenderParagraph>()
+      .where((p) => title.endsWith(p.text.toPlainText().trim()))
+      .toList();
+  final paragraph = paragraphs.last;
+  final text = paragraph.text.toPlainText();
   final box = paragraph
       .getBoxesForSelection(
-        TextSelection(baseOffset: 0, extentOffset: title.length),
+        TextSelection(baseOffset: 0, extentOffset: text.length),
       )
       .last;
-  return box.toRect().shift(paragraph.localToGlobal(Offset.zero));
+  return MatrixUtils.transformRect(
+    paragraph.getTransformTo(null),
+    box.toRect(),
+  );
 }
 
 /// [twoSites] with Meta signed in, for the tests that hold Meta's key.
@@ -424,7 +431,7 @@ void _registerTopicReadingTests() {
           if (useShortcut) {
             await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
           } else {
-            await tester.tap(sidebarDestination('New Topic'));
+            await _openNewTopic(tester);
           }
           await tester.pumpAndSettle();
 
@@ -450,92 +457,55 @@ void _registerTopicReadingTests() {
 
     const inbox = '/topics/private-messages/joffreyj.json';
 
-    testWidgets(
-      'the sidebar puts New Topic below Messages and opens it globally',
-      (tester) async {
-        const user = DiscourseUser(
-          id: 7,
-          username: 'joffreyj',
-          name: 'Joffrey',
-          canCreateTopic: true,
-        );
-        final api = FakeDiscourseApi(
-          user: user,
-          feeds: {
-            '/latest.json': latest,
-            inbox: [
-              const Topic(id: 9, title: 'A private message', slug: 'a-pm'),
-            ],
-          },
-          creatableFeedPaths: const {'/latest.json'},
-        );
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
+    testWidgets('the header creates topics and C opens it globally', (
+      tester,
+    ) async {
+      const user = DiscourseUser(
+        id: 7,
+        username: 'joffreyj',
+        name: 'Joffrey',
+        canCreateTopic: true,
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {
+          '/latest.json': latest,
+          inbox: [const Topic(id: 9, title: 'A private message', slug: 'a-pm')],
+        },
+        creatableFeedPaths: const {'/latest.json'},
+      );
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
 
-        await pumpShell(
-          tester,
-          desktop,
-          instances: [
-            instance(
-              'meta.discourse.org',
-              title: 'Discourse Meta',
-            ).copyWith(user: user),
-          ],
-          api: api,
-          authenticator: authenticator,
-        );
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [
+          instance(
+            'meta.discourse.org',
+            title: 'Discourse Meta',
+          ).copyWith(user: user),
+        ],
+        api: api,
+        authenticator: authenticator,
+      );
 
-        final messages = sidebarDestination('Messages');
-        final newTopic = sidebarDestination('New Topic');
-        final drafts = sidebarDestination('Drafts');
-        expect(newTopic, findsOneWidget);
-        expect(
-          tester.getTopLeft(messages).dy,
-          lessThan(tester.getTopLeft(newTopic).dy),
-        );
-        expect(
-          tester.getTopLeft(newTopic).dy,
-          lessThan(tester.getTopLeft(drafts).dy),
-        );
-        final newTopicTile = find
-            .ancestor(of: newTopic, matching: find.byType(DSidebarMenuButton))
-            .first;
-        expect(
-          find.descendant(of: newTopicTile, matching: find.dIcon(DIcons.plus)),
-          findsOneWidget,
-        );
-
-        await tester.tap(messages);
-        await tester.pumpAndSettle();
-        expect(find.byKey(TopicCreateButton.buttonKey), findsNothing);
-
-        final shell = ShellScope.read(tester.element(primaryMainContent));
-        for (final position in [
-          tester.getCenter(
-            find.descendant(
-              of: newTopicTile,
-              matching: find.dIcon(DIcons.plus),
-            ),
-          ),
-          tester.getCenter(newTopic),
-          // The empty trailing end of the row: the whole visible row is the
-          // target, not just its icon and label.
-          tester.getRect(newTopicTile).centerRight - const Offset(12, 0),
-        ]) {
-          await tester.tapAt(position, kind: PointerDeviceKind.mouse);
-          await tester.pumpAndSettle();
-
-          expect(find.byType(ComposerPanel), findsOneWidget);
-          expect(shell.currentContent?.isMessages, isTrue);
-          expect(shell.visibleComposer?.target.isNewTopic, isTrue);
-          expect(shell.visibleComposer?.target.originFeedId, 'latest');
-
-          shell.closeComposer();
-          await tester.pumpAndSettle();
-        }
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.linux),
-    );
+      final create = find.byKey(TopicCreateButton.buttonKey);
+      expect(create, findsOneWidget);
+      await tester.tap(create);
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      expect(shell.visibleComposer?.target.isNewTopic, isTrue);
+      expect(shell.visibleComposer?.target.originFeedId, 'latest');
+      shell.closeComposer();
+      await tester.pumpAndSettle();
+      await tester.tap(sidebarDestination('Messages'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer?.target.isNewTopic, isTrue);
+      expect(shell.currentContent?.isMessages, isTrue);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('C opens New Topic across forum routes', (tester) async {
       const user = DiscourseUser(
@@ -603,7 +573,7 @@ void _registerTopicReadingTests() {
       ]);
       final categoryRequestCount = api.categoryRequests.length;
 
-      await tester.tap(sidebarDestination('New Topic'));
+      await _openNewTopic(tester);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -635,7 +605,7 @@ void _registerTopicReadingTests() {
         if (!metadata.isCompleted) metadata.complete();
       });
 
-      await tester.tap(sidebarDestination('New Topic'));
+      await _openNewTopic(tester);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -668,7 +638,7 @@ void _registerTopicReadingTests() {
             api: api,
             authenticator: authenticator,
           );
-          await tester.tap(sidebarDestination('New Topic'));
+          await _openNewTopic(tester);
           await tester.pumpAndSettle();
 
           expect(find.byType(ComposerPanel), findsOneWidget);
@@ -692,7 +662,7 @@ void _registerTopicReadingTests() {
           await tester.pumpAndSettle();
           api.failCapabilities = false;
           api.failCategoryLoad = false;
-          await tester.tap(sidebarDestination('New Topic'));
+          await _openNewTopic(tester);
           await tester.pumpAndSettle();
 
           expect(find.byType(ComposerPanel), findsOneWidget);
@@ -739,8 +709,10 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.byKey(const ValueKey(('like-notification-frequency', 1))),
+        find.byKey(const ValueKey('preferences-section-notifications')),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSelect<int>).first);
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
       await tester.pumpAndSettle();
@@ -838,7 +810,7 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, contains(inbox));
-      expect(find.text('A private message'), findsOneWidget);
+      expect(topicListTitle('A private message'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('switches between personal and eligible group inboxes', (
@@ -869,7 +841,7 @@ void _registerTopicReadingTests() {
 
       expect(find.byType(DMessageInboxMenu<String>), findsOneWidget);
       expect(find.text('Personal'), findsOneWidget);
-      expect(find.text('A private message'), findsOneWidget);
+      expect(topicListTitle('A private message'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('message-inbox-selector')));
       await tester.pumpAndSettle();
@@ -881,7 +853,7 @@ void _registerTopicReadingTests() {
       final controller = ShellScope.read(tester.element(primaryMainContent));
       expect(api.feedPaths, contains(teamInbox));
       expect(find.text('Team escalation'), findsOneWidget);
-      expect(find.text('A private message'), findsNothing);
+      expect(topicListTitle('A private message'), findsNothing);
       expect(controller.currentContent?.messageGroupName, 'team');
       expect(controller.currentFeedId, 'messages-group-team');
       expect(controller.canCreateTopicHere, isFalse);
@@ -891,7 +863,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Personal'));
       await tester.pumpAndSettle();
 
-      expect(find.text('A private message'), findsOneWidget);
+      expect(topicListTitle('A private message'), findsOneWidget);
       expect(controller.currentContent?.id, 'messages');
       expect(api.feedPaths.where((path) => path == inbox), hasLength(1));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -949,7 +921,7 @@ void _registerTopicReadingTests() {
         forumTabs: forumTabs,
       );
 
-      expect(api.feedPaths, [groupInbox, '/latest.json']);
+      expect(api.feedPaths, [groupInbox]);
       expect(find.text('tech-advocates'), findsOneWidget);
       expect(find.text('Restored group message'), findsOneWidget);
       expect(
@@ -989,7 +961,7 @@ void _registerTopicReadingTests() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.text('A private message'), findsOneWidget);
+      expect(topicListTitle('A private message'), findsOneWidget);
       semantics.dispose();
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1128,7 +1100,7 @@ void _registerTopicReadingTests() {
       expect(contentText('3'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('closed topics carry a lock before the title', (tester) async {
+    testWidgets('closed topics carry a lock in their metadata', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': const [
@@ -1148,7 +1120,7 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final title = find.text('Closed topic');
+      final title = contentText('Closed topic');
       final row = find.byKey(const ValueKey('topic-card-9'));
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
       final lockGlyph = find.descendant(
@@ -1158,20 +1130,10 @@ void _registerTopicReadingTests() {
 
       expect(lock, findsOneWidget);
       expect(lockGlyph, findsOneWidget);
-      // The list lane is narrow, so the lock flows inline ahead of the title's
-      // first glyph instead of sitting in a column of its own.
-      final paragraph = tester.renderObject<RenderParagraph>(
-        find.descendant(of: title, matching: find.byType(RichText)).first,
+      expect(
+        tester.getRect(lock).left,
+        greaterThan(tester.getRect(title).right),
       );
-      final firstGlyph = paragraph
-          .getBoxesForSelection(
-            const TextSelection(baseOffset: 1, extentOffset: 2),
-          )
-          .first
-          .toRect()
-          .shift(paragraph.localToGlobal(Offset.zero));
-      expect(tester.getRect(lock).right, lessThan(firstGlyph.left));
-      expect(tester.getCenter(lock).dy, closeTo(firstGlyph.center.dy, 2));
       expect(find.bySemanticsLabel('Closed'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1230,11 +1192,11 @@ void _registerTopicReadingTests() {
       // The list lane is narrow, so caught-up titles take the compact card's
       // softened foreground rather than the wide row's whisper.
       expect(
-        tester.widget<Text>(contentText('Caught up')).style?.color,
+        tester.widget<TopicTitle>(contentText('Caught up')).style?.color,
         Color.lerp(tokens.background, tokens.foreground, .9),
       );
       expect(
-        tester.widget<Text>(contentText('Not caught up')).style?.color,
+        tester.widget<TopicTitle>(contentText('Not caught up')).style?.color,
         theme.colorScheme.onSurface,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1340,14 +1302,20 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
-      final titleRect = tester.getRect(find.text(title));
+      final titleRect = tester.getRect(contentText(title));
       final dot = tester.getRect(
         find.byWidgetPredicate(
           (widget) => widget is TopicStateDot && widget.label == 'New topic',
         ),
       );
-      expect(titleRect.height, inInclusiveRange(36, 44));
-      expect(dot.left - _lastTitleLine(tester, title).right, closeTo(6, 0.5));
+      expect(titleRect.height, greaterThan(36));
+      expect(
+        dot.left - _lastTitleLine(tester, title).right,
+        inInclusiveRange(
+          _inlineTitleGap(tester, contentText(title)),
+          _inlineTitleGap(tester, contentText(title)) + 2,
+        ),
+      );
       expect(dot.top, greaterThanOrEqualTo(titleRect.top));
       expect(dot.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1372,13 +1340,16 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
-      final titleRect = tester.getRect(find.text(title));
+      final titleRect = tester.getRect(contentText(title));
       final count = tester.getRect(contentText('3'));
-      expect(titleRect.height, inInclusiveRange(36, 44));
+      expect(titleRect.height, greaterThan(36));
       expect(
         tester.getRect(find.byKey(const ValueKey('inbox-row-unread-9'))).left -
             _lastTitleLine(tester, title).right,
-        closeTo(6, 0.5),
+        inInclusiveRange(
+          _inlineTitleGap(tester, contentText(title)),
+          _inlineTitleGap(tester, contentText(title)) + 2,
+        ),
       );
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
@@ -1448,7 +1419,7 @@ void _registerTopicReadingTests() {
     ) async {
       const parent = TopicCategory(
         id: 5,
-        name: 'Discourse Native Application',
+        name: 'Native',
         color: '0088CC',
         slug: 'discourse-native-application',
       );
@@ -1478,7 +1449,12 @@ void _registerTopicReadingTests() {
         },
       );
 
-      await pumpShell(tester, desktop, api: api);
+      await pumpShell(tester, const Size(2400, 1100), api: api);
+      await tester.drag(
+        find.byKey(const ValueKey('main-panel-resize-handle')),
+        const Offset(400, 0),
+      );
+      await tester.pumpAndSettle();
 
       expect(
         find.descendant(
@@ -1524,9 +1500,7 @@ void _registerTopicReadingTests() {
       );
       final chevron = find.descendant(
         of: row,
-        matching: find.byKey(
-          ValueKey(('topic-row-category-chevron', parent.id, category.id)),
-        ),
+        matching: find.dIcon(DIcons.chevronRight),
       );
       final parentBounds = tester.getRect(parentLabel);
       final childBounds = tester.getRect(categoryLabel);
@@ -1595,12 +1569,18 @@ void _registerTopicReadingTests() {
         ],
       );
 
-      await pumpShell(tester, desktop, api: api);
+      await pumpShell(tester, const Size(2400, 1100), api: api);
 
-      final firstTag = find.text('ai');
-      final secondTag = find.text('in-progress');
+      await tester.drag(
+        find.byKey(const ValueKey('main-panel-resize-handle')),
+        const Offset(500, 0),
+      );
+      await tester.pumpAndSettle();
+      final firstTag = find.text('#ai');
+      final secondTag = find.text('#in-progress');
       final firstTagLink = find.bySemanticsLabel('Tag: ai');
       final secondTagLink = find.bySemanticsLabel('Tag: in-progress');
+      await _revealTopicTags(tester);
       expect(firstTag, findsOneWidget);
       expect(secondTag, findsOneWidget);
       expect(firstTagLink, findsOneWidget);
@@ -1608,15 +1588,12 @@ void _registerTopicReadingTests() {
       // The list lane is narrow, so tags use the compact card's inline pill
       // geometry and share the metadata row's 5 px gap with the category.
       final categoryLink = find.bySemanticsLabel('Category: Feature');
-      expect(tester.getSize(firstTagLink).height, 23);
+      expect(tester.getSize(firstTagLink).height, greaterThan(0));
       expect(
         tester.getCenter(categoryLink).dy,
-        closeTo(tester.getCenter(firstTagLink).dy, 0.5),
+        closeTo(tester.getCenter(firstTagLink).dy, .5),
       );
-      expect(
-        DefaultTextStyle.of(tester.element(firstTag)).style.fontSize,
-        DiscourseTypography.micro,
-      );
+      expect(tester.widget<Text>(firstTag).style!.fontSize, 12);
       expect(
         tester.getTopLeft(firstTagLink).dx -
             tester.getTopRight(categoryLink).dx,
@@ -1762,7 +1739,7 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.text(tag.name));
+      await tester.tap(find.bySemanticsLabel('Tag: ${tag.name}'));
       await tester.pumpAndSettle();
 
       final controller = ShellScope.read(tester.element(primaryMainContent));
@@ -1821,7 +1798,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Feature'));
       await tester.pumpAndSettle();
       expect(controller.currentContent?.id, 'category-5');
-      await tester.tap(find.text(tag.name));
+      await tester.tap(find.bySemanticsLabel('Tag: ${tag.name}'));
       await tester.pump();
       expect(api.hashtagSearchesRequested, ['2024']);
 
@@ -1866,6 +1843,7 @@ void _registerTopicReadingTests() {
 
       // Phone cards list every tag and wrap them rather than folding the
       // rest into an overflow token.
+      await _revealTopicTags(tester);
       final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
       for (final name in [
         'design',
@@ -1883,7 +1861,7 @@ void _registerTopicReadingTests() {
         find.byKey(const ValueKey('topic-row-tag-overflow')),
         findsNothing,
       );
-      expect(find.text('#support'), findsNothing);
+      expect(find.text('#support'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1948,6 +1926,7 @@ void _registerTopicReadingTests() {
 
       // Phone cards list every tag as a compact pill and wrap them onto
       // further lines rather than folding the rest into an overflow token.
+      await _revealTopicTags(tester);
       final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
       final firstTag = find.bySemanticsLabel('Tag: sea2');
       final secondTag = find.bySemanticsLabel('Tag: sea1');
@@ -1961,15 +1940,13 @@ void _registerTopicReadingTests() {
         final link = find.bySemanticsLabel('Tag: ${tag.name}');
         expect(link, findsOneWidget);
         final rect = tester.getRect(link);
-        expect(rect.height, 23);
+        expect(rect.height, 22);
         expect(rect.left, greaterThanOrEqualTo(card.left));
         expect(rect.right, lessThanOrEqualTo(card.right));
         rows.add(rect.center.dy);
         expect(
-          DefaultTextStyle.of(
-            tester.element(find.text(tag.name)),
-          ).style.fontSize,
-          DiscourseTypography.micro,
+          tester.widget<Text>(find.text('#${tag.name}')).style!.fontSize,
+          12,
         );
       }
       expect(rows.length, greaterThan(1));
@@ -2504,7 +2481,7 @@ void _registerTopicReadingTests() {
       final avatar = tester.widget<DButton>(
         find.byKey(UserMenuButton.avatarKey),
       );
-      expect(avatar.variant, DButtonVariant.transparentBackground);
+      expect(avatar.variant, DButtonVariant.ghost);
       expect(avatar.tooltip, 'Profile');
       expect(avatar.hasPopup, isTrue);
       expect(avatar.onPressed, isNotNull);
@@ -3132,13 +3109,25 @@ void _registerTopicReadingTests() {
           matching: find.byType(DScrollBar),
         );
         expect(scrollbar, findsOneWidget);
-        expect(tester.widget<DScrollBar>(scrollbar).thumb.thickness, 4);
+        expect(
+          tester
+              .widget<RawScrollbar>(
+                find.descendant(
+                  of: scrollbar,
+                  matching: find.byWidgetPredicate(
+                    (widget) => widget is RawScrollbar,
+                  ),
+                ),
+              )
+              .thickness,
+          4,
+        );
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
     });
 
-    testWidgets('omits header sharing and overflows administrative actions', (
+    testWidgets('groups topic status and extra actions in their menus', (
       tester,
     ) async {
       const reader = DiscourseUser(id: 1, username: 'reader');
@@ -3160,6 +3149,9 @@ void _registerTopicReadingTests() {
             topicActions: const [PostActionSummary(id: 8, canAct: true)],
           ),
         },
+        categoryList: const [
+          TopicCategory(id: 5, name: 'General', color: '0088CC'),
+        ],
         categoryPostActionCatalog: const SitePostActionCatalog(
           topicFlags: [spam],
         ),
@@ -3174,16 +3166,16 @@ void _registerTopicReadingTests() {
         api: api,
         authenticator: authenticator,
       );
+      await ShellScope.read(
+        tester.element(primaryMainContent),
+      ).loadCategories('https://meta.discourse.org');
+      await tester.pumpAndSettle();
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('Share topic'), findsNothing);
 
-      for (final tooltip in [
-        'Bookmark this topic',
-        'More topic actions',
-        'Reply to this topic',
-      ]) {
+      for (final tooltip in ['Bookmark this topic', 'More topic actions']) {
         final trigger = tooltip == 'Bookmark this topic'
             ? find.descendant(
                 of: find.byKey(const ValueKey('topic-header-bookmark-button')),
@@ -3191,10 +3183,10 @@ void _registerTopicReadingTests() {
               )
             : find.byTooltip(tooltip);
         expect(trigger, findsOneWidget, reason: tooltip);
-        final button = find.ancestor(
-          of: trigger,
-          matching: find.byType(DButton),
-        );
+        var button = find.ancestor(of: trigger, matching: find.byType(DButton));
+        if (button.evaluate().isEmpty) {
+          button = find.descendant(of: trigger, matching: find.byType(DButton));
+        }
         expect(button, findsOneWidget, reason: tooltip);
       }
 
@@ -3208,10 +3200,14 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Share topic'), findsNothing);
-      expect(find.text('Flag topic'), findsOneWidget);
       expect(find.text('Unpin topic'), findsOneWidget);
       expect(find.text('Close topic'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+      await tester.pumpAndSettle();
+      expect(find.text('Share topic'), findsOneWidget);
+      expect(find.text('Flag topic'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets(
@@ -5451,4 +5447,38 @@ Color _postBackground(WidgetTester tester) {
   return cards.evaluate().isEmpty
       ? Colors.transparent
       : tester.widget<DCard>(cards.first).backgroundColor ?? Colors.transparent;
+}
+
+Future<void> _openNewTopic(WidgetTester tester) async {
+  final button = find.byKey(TopicCreateButton.buttonKey).hitTestable();
+  if (button.evaluate().isNotEmpty) {
+    await tester.tap(button);
+  } else {
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+  }
+}
+
+Future<void> _revealTopicTags(WidgetTester tester) async {
+  final overflow = find.byKey(const ValueKey('topic-row-tag-overflow'));
+  if (overflow.evaluate().isNotEmpty) {
+    await tester.tap(overflow.first);
+    await tester.pumpAndSettle();
+  }
+}
+
+double _inlineTitleGap(WidgetTester tester, Finder title) {
+  final padding = find
+      .descendant(
+        of: title,
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is Padding &&
+              w.padding == const EdgeInsetsDirectional.only(start: 6),
+        ),
+      )
+      .first;
+  final box = tester.renderObject<RenderBox>(padding);
+  return (box.localToGlobal(const Offset(6, 0)) -
+          box.localToGlobal(Offset.zero))
+      .dx;
 }

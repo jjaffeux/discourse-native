@@ -85,7 +85,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Canada'));
+    await tester.tap(find.text('Select country'));
     await tester.pumpAndSettle();
     expect(find.byType(DComboboxInput<String>), findsOneWidget);
     expect(tester.testTextInput.isVisible, isTrue);
@@ -108,7 +108,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Canada'));
+    await tester.tap(find.text('Select country'));
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

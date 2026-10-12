@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import '../foundation/tokens.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
-enum DSliderVariant { standard, filled, ramp }
+enum DSliderVariant { standard, ramp }
 
 enum DSliderRampPattern { none, checkerboard, wave }
 
@@ -57,14 +57,10 @@ class DSlider extends StatelessWidget {
     this.max = 100,
     this.step = 1,
     this.largeStep,
-    this.onChangeStart,
-    this.onChangeEnd,
-    this.onChangeCancel,
-    this.orientation = Axis.horizontal,
+
     this.variant = DSliderVariant.standard,
     this.ramp = const DSliderRamp(),
-    this.focusNode,
-    this.autofocus = false,
+
     this.semanticLabel,
     this.semanticFormatterCallback,
     this.secondaryTrackValue,
@@ -78,19 +74,10 @@ class DSlider extends StatelessWidget {
   /// Absolute Page/Shift+arrow increment; defaults to 10 units.
   final double? largeStep;
   final ValueChanged<double>? onChanged;
-  final ValueChanged<double>? onChangeStart;
 
-  /// Called after the next parent frame with the accepted controlled value.
-  /// Rejected proposals therefore commit the unchanged value. Configuration
-  /// changes or removal cancel pending commits. This is a native interaction
-  /// completion hook, unlike Base UI onValueCommitted (accepted changes only).
-  final ValueChanged<double>? onChangeEnd;
-  final VoidCallback? onChangeCancel;
-  final Axis orientation;
   final DSliderVariant variant;
   final DSliderRamp ramp;
-  final FocusNode? focusNode;
-  final bool autofocus;
+
   final String? semanticLabel;
   final String Function(double)? semanticFormatterCallback;
 
@@ -105,18 +92,14 @@ class DSlider extends StatelessWidget {
     step: step,
     largeStep: largeStep,
     onChanged: onChanged == null ? null : (values) => onChanged!(values.single),
-    onChangeStart: onChangeStart == null
-        ? null
-        : (values) => onChangeStart!(values.single),
-    onChangeEnd: onChangeEnd == null
-        ? null
-        : (values) => onChangeEnd!(values.single),
-    onChangeCancel: onChangeCancel,
-    orientation: orientation,
+    onChangeStart: null,
+    onChangeEnd: null,
+    onChangeCancel: null,
+    orientation: Axis.horizontal,
     variant: variant,
     ramp: ramp,
-    focusNodes: focusNode == null ? null : [focusNode!],
-    autofocus: autofocus,
+    focusNodes: null,
+    autofocus: false,
     semanticLabels: [semanticLabel ?? context.l10n.value],
     semanticFormatter: semanticFormatterCallback == null
         ? null
@@ -529,7 +512,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
     final tokens = DTokens.of(context);
     final crossExtent = switch (widget.variant) {
       DSliderVariant.standard => 12.0,
-      DSliderVariant.filled => 40.0,
+
       DSliderVariant.ramp => 26.0,
     };
     return Semantics(
@@ -606,9 +589,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                     )
                                   : _SliderTrack(
                                       vertical: _vertical,
-                                      filled:
-                                          widget.variant ==
-                                          DSliderVariant.filled,
+
                                       start: _values.length == 1
                                           ? (_reverse ? extent : 0)
                                           : _position(_values.first, extent),
@@ -697,9 +678,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       active: _active == i,
                                       enabled: _enabled,
                                       vertical: _vertical,
-                                      filled:
-                                          widget.variant ==
-                                          DSliderVariant.filled,
+
                                       ramp:
                                           widget.variant == DSliderVariant.ramp,
                                       offset:
@@ -740,7 +719,7 @@ class _SliderThumb extends StatefulWidget {
     required this.enabled,
     required this.vertical,
     required this.offset,
-    required this.filled,
+
     required this.ramp,
   });
   final FocusNode node;
@@ -749,7 +728,7 @@ class _SliderThumb extends StatefulWidget {
   final bool enabled;
   final bool vertical;
   final double offset;
-  final bool filled;
+
   final bool ramp;
   @override
   State<_SliderThumb> createState() => _SliderThumbState();
@@ -773,19 +752,9 @@ class _SliderThumbState extends State<_SliderThumb> {
                   (widget.node.hasFocus &&
                       FocusManager.instance.highlightMode ==
                           FocusHighlightMode.traditional));
-          final width = widget.ramp
-              ? 18.0
-              : widget.filled
-              ? (widget.vertical ? 24.0 : 6.0)
-              : 12.0;
-          final height = widget.ramp
-              ? 18.0
-              : widget.filled
-              ? (widget.vertical ? 6.0 : 24.0)
-              : 12.0;
-          final offset = widget.filled
-              ? widget.offset.clamp(5.0, widget.crossExtent - 5)
-              : widget.offset;
+          final width = widget.ramp ? 18.0 : (12.0);
+          final height = widget.ramp ? 18.0 : (12.0);
+          final offset = widget.offset;
           return Stack(
             clipBehavior: Clip.none,
             children: [
@@ -961,9 +930,8 @@ class _SliderTrack extends CustomPainter {
     required this.buffered,
     required this.muted,
     required this.primary,
-    required this.filled,
   });
-  final bool filled;
+
   final bool vertical;
   final double start, end, origin;
   final double? buffered;
@@ -971,7 +939,7 @@ class _SliderTrack extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final crossExtent = vertical ? size.width : size.height;
-    final breadth = filled ? 40.0 : 4.0;
+    const breadth = (4.0);
     final inset = (crossExtent - breadth) / 2;
     final rect = vertical
         ? Rect.fromLTWH(inset, 0, breadth, size.height)
@@ -1007,8 +975,7 @@ class _SliderTrack extends CustomPainter {
 
   @override
   bool shouldRepaint(_SliderTrack oldDelegate) =>
-      filled != oldDelegate.filled ||
-      vertical != oldDelegate.vertical ||
+      (vertical != oldDelegate.vertical) ||
       start != oldDelegate.start ||
       end != oldDelegate.end ||
       origin != oldDelegate.origin ||

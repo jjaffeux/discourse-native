@@ -16,7 +16,6 @@ import 'd_scroll_area.dart';
 import 'd_separator.dart';
 import 'd_sheet.dart';
 import 'd_skeleton.dart';
-import 'd_tooltip.dart';
 
 part 'd_sidebar_transfer.dart';
 
@@ -66,13 +65,9 @@ Color _sidebarGuideColor(BuildContext context) {
 
 enum DSidebarSide { left, right }
 
-enum DSidebarVariant { sidebar, floating, inset }
-
 enum DSidebarCollapsible { offcanvas, icon, none }
 
 typedef DSidebarMenuButtonSize = DControlSize;
-
-enum DSidebarMenuButtonVariant { normal, outline }
 
 /// State and shortcuts for a bounded sidebar composition. Persistence belongs
 /// to the caller through [open] and [onOpenChange], not to a browser cookie.
@@ -80,15 +75,15 @@ class DSidebarProvider extends StatefulWidget {
   const DSidebarProvider({
     super.key,
     required this.child,
-    this.defaultOpen = true,
+
     this.open,
-    this.onOpenChange,
+
     this.mobileBreakpoint = 768,
   }) : assert(mobileBreakpoint >= 0);
   final Widget child;
-  final bool defaultOpen;
+
   final bool? open;
-  final ValueChanged<bool>? onOpenChange;
+
   final double mobileBreakpoint;
 
   static DSidebarProviderState of(BuildContext context) =>
@@ -99,7 +94,7 @@ class DSidebarProvider extends StatefulWidget {
 }
 
 class DSidebarProviderState extends State<DSidebarProvider> {
-  late bool _open = widget.defaultOpen;
+  late bool _open = true;
   bool _mobileOpen = false;
   bool _mobile = false;
   FocusNode? _mobileInitialFocusNode;
@@ -108,7 +103,6 @@ class DSidebarProviderState extends State<DSidebarProvider> {
   bool get isMobile => _mobile;
   void setOpen(bool value) {
     if (widget.open == null) setState(() => _open = value);
-    widget.onOpenChange?.call(value);
   }
 
   void setOpenMobile(bool value, {FocusNode? initialFocusNode}) {
@@ -165,12 +159,12 @@ class _ProviderScope extends InheritedWidget {
 class _PanelScope extends InheritedWidget {
   const _PanelScope({
     required this.icon,
-    required this.side,
+
     required this.background,
     required super.child,
   });
   final bool icon;
-  final DSidebarSide side;
+
   final Color background;
   static bool iconOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_PanelScope>()?.icon ?? false;
@@ -178,7 +172,7 @@ class _PanelScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<_PanelScope>()?.background;
   @override
   bool updateShouldNotify(_PanelScope old) =>
-      icon != old.icon || side != old.side || background != old.background;
+      (icon != old.icon) || background != old.background;
 }
 
 /// A sidebar with fixed header/footer and a bounded content slot. Place it in
@@ -189,23 +183,17 @@ class DSidebar extends StatefulWidget {
     required this.child,
     this.header,
     this.footer,
-    this.rail,
+
     this.width = 256,
-    this.mobileWidth = 288,
-    this.iconWidth = 48,
-    this.side = DSidebarSide.left,
-    this.variant = DSidebarVariant.sidebar,
+
     this.collapsible = DSidebarCollapsible.offcanvas,
     this.backgroundColor,
     this._semanticLabel,
-  }) : assert(width > 0),
-       assert(mobileWidth > 0),
-       assert(iconWidth > 0);
+  }) : assert(width > 0);
   final Widget child;
-  final Widget? header, footer, rail;
-  final double width, mobileWidth, iconWidth;
-  final DSidebarSide side;
-  final DSidebarVariant variant;
+  final Widget? header, footer;
+  final double width;
+
   final DSidebarCollapsible collapsible;
   final Color? backgroundColor;
   final String? _semanticLabel;
@@ -256,19 +244,17 @@ class _DSidebarState extends State<DSidebar> {
 
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
-    final floating = widget.variant == DSidebarVariant.floating && !mobile;
+
     final background =
         widget.backgroundColor ??
-        (DMaterialTheme.glassOf(context) &&
-                !mobile &&
-                widget.variant == DSidebarVariant.sidebar
+        ((DMaterialTheme.glassOf(context) && !mobile)
             ? Colors.transparent
             : t.muted);
     return Material(
       type: MaterialType.transparency,
       child: _PanelScope(
         icon: icon,
-        side: widget.side,
+
         background: background,
         child: Semantics(
           container: !mobile,
@@ -276,25 +262,10 @@ class _DSidebarState extends State<DSidebar> {
           child: Container(
             decoration: BoxDecoration(
               color: background,
-              borderRadius: floating
-                  ? BorderRadius.circular(DRadius.panel)
-                  : null,
-              boxShadow: floating
-                  ? [
-                      BoxShadow(
-                        color: t.foreground.withValues(alpha: .05),
-                        blurRadius: 3,
-                        offset: const Offset(0, 1),
-                      ),
-                    ]
-                  : null,
+              borderRadius: null,
+              boxShadow: null,
             ),
-            foregroundDecoration: floating
-                ? BoxDecoration(
-                    border: Border.all(color: t.border),
-                    borderRadius: BorderRadius.circular(DRadius.panel),
-                  )
-                : null,
+            foregroundDecoration: null,
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 color: t.foreground,
@@ -311,14 +282,6 @@ class _DSidebarState extends State<DSidebar> {
                       if (widget.footer != null) widget.footer!,
                     ],
                   ),
-                  if (!mobile && widget.rail != null)
-                    Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: widget.side == DSidebarSide.right ? 0 : null,
-                      right: widget.side == DSidebarSide.left ? 0 : null,
-                      child: widget.rail!,
-                    ),
                 ],
               ),
             ),
@@ -347,11 +310,9 @@ class _DSidebarState extends State<DSidebar> {
           builder: (context, open) => const SizedBox.shrink(),
         ),
         content: DSheetContent(
-          side: widget.side == DSidebarSide.left
-              ? DSheetSide.left
-              : DSheetSide.right,
-          sidePanelMaxWidth: widget.mobileWidth,
-          sidePanelWidth: widget.mobileWidth,
+          side: DSheetSide.left,
+          sidePanelMaxWidth: 288.0,
+          sidePanelWidth: 288.0,
           scrollWholeSheet: false,
           showCloseButton: false,
           semanticLabel: widget.semanticLabel,
@@ -378,11 +339,11 @@ class _DSidebarState extends State<DSidebar> {
         !static &&
         !p.open &&
         widget.collapsible == DSidebarCollapsible.offcanvas;
-    final padded = !static && widget.variant != DSidebarVariant.sidebar;
+
     final width = hidden
         ? 0.0
         : icon
-        ? widget.iconWidth + (padded ? 16 : 0)
+        ? 48.0 + 0
         : widget.width;
     return AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 200)),
@@ -390,21 +351,15 @@ class _DSidebarState extends State<DSidebar> {
       width: width,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        border: !padded && !static
+        border: (!static)
             ? Border(
-                left: widget.side == DSidebarSide.right
-                    ? BorderSide(color: DTokens.of(context).border)
-                    : BorderSide.none,
-                right: widget.side == DSidebarSide.left
-                    ? BorderSide(color: DTokens.of(context).border)
-                    : BorderSide.none,
+                left: BorderSide.none,
+                right: (BorderSide(color: DTokens.of(context).border)),
               )
             : null,
       ),
       child: OverflowBox(
-        alignment: widget.side == DSidebarSide.left
-            ? Alignment.centerLeft
-            : Alignment.centerRight,
+        alignment: Alignment.centerLeft,
         minWidth: hidden ? widget.width : width,
         maxWidth: hidden ? widget.width : width,
         child: ExcludeFocus(
@@ -412,7 +367,7 @@ class _DSidebarState extends State<DSidebar> {
           child: ExcludeSemantics(
             excluding: hidden,
             child: Padding(
-              padding: EdgeInsets.all(padded ? 8 : 0),
+              padding: const EdgeInsets.all(0),
               child: _panel(context, icon),
             ),
           ),
@@ -423,15 +378,12 @@ class _DSidebarState extends State<DSidebar> {
 }
 
 class DSidebarHeader extends StatelessWidget {
-  const DSidebarHeader({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(8),
-  });
+  const DSidebarHeader({super.key, required this.child});
   final Widget child;
-  final EdgeInsetsGeometry padding;
+
   @override
-  Widget build(BuildContext context) => Padding(padding: padding, child: child);
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.all(8), child: child);
 }
 
 class DSidebarFooter extends DSidebarHeader {
@@ -440,28 +392,22 @@ class DSidebarFooter extends DSidebarHeader {
 
 /// A scrollable sidebar body with hidden scrollbar artwork and drag targets.
 class DSidebarContent extends StatelessWidget {
-  const DSidebarContent({super.key, required this.children, this.controller})
-    : _slivers = false;
+  const DSidebarContent({super.key, required this.children}) : _slivers = false;
 
   /// One viewport for lazy groups and menus. Slivers share this controller;
   /// they must not introduce their own scroll views.
-  const DSidebarContent.slivers({
-    super.key,
-    required List<Widget> slivers,
-    this.controller,
-  }) : children = slivers,
-       _slivers = true;
+  const DSidebarContent.slivers({super.key, required List<Widget> slivers})
+    : children = slivers,
+      _slivers = true;
 
   final List<Widget> children;
   final bool _slivers;
 
-  /// Borrowed; the caller disposes it.
-  final ScrollController? controller;
   @override
   Widget build(BuildContext context) => _slivers
-      ? _SidebarSliverContent(controller: controller, slivers: children)
+      ? _SidebarSliverContent(slivers: children)
       : DScrollArea(
-          controller: controller,
+          controller: null,
           showScrollbar: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -471,9 +417,8 @@ class DSidebarContent extends StatelessWidget {
 }
 
 class _SidebarSliverContent extends StatefulWidget {
-  const _SidebarSliverContent({required this.slivers, this.controller});
+  const _SidebarSliverContent({required this.slivers});
   final List<Widget> slivers;
-  final ScrollController? controller;
 
   @override
   State<_SidebarSliverContent> createState() => _SidebarSliverContentState();
@@ -490,7 +435,7 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller ?? _ownedController;
+    final controller = (_ownedController);
     return DScrollBar(
       controller: controller,
       showScrollbar: false,
@@ -503,8 +448,7 @@ class DSidebarGroup extends StatelessWidget {
   const DSidebarGroup({
     super.key,
     required this.child,
-    this.label,
-    this.action,
+
     this.padding = const EdgeInsets.all(8),
   }) : _sliver = false;
 
@@ -512,42 +456,28 @@ class DSidebarGroup extends StatelessWidget {
   const DSidebarGroup.sliver({
     super.key,
     required Widget sliver,
-    this.label,
-    this.action,
+
     this.padding = const EdgeInsets.all(8),
   }) : child = sliver,
        _sliver = true;
 
   final Widget child;
-  final Widget? label, action;
+
   final EdgeInsetsGeometry padding;
   final bool _sliver;
   @override
   Widget build(BuildContext context) {
-    final header = label != null && !_PanelScope.iconOf(context)
-        ? Row(
-            children: [
-              Expanded(child: label!),
-              ?action,
-            ],
-          )
-        : null;
     if (_sliver) {
       return SliverPadding(
         padding: padding,
-        sliver: SliverMainAxisGroup(
-          slivers: [
-            if (header != null) SliverToBoxAdapter(child: header),
-            child,
-          ],
-        ),
+        sliver: SliverMainAxisGroup(slivers: [child]),
       );
     }
     return Padding(
       padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [?header, child],
+        children: [child],
       ),
     );
   }
@@ -809,10 +739,9 @@ class DSidebarMenuItem extends StatefulWidget {
     required this.child,
     this.action,
     this.badge,
-    this.submenu,
   });
   final Widget child;
-  final Widget? action, badge, submenu;
+  final Widget? action, badge;
   @override
   State<DSidebarMenuItem> createState() => _DSidebarMenuItemState();
 }
@@ -855,7 +784,6 @@ class _DSidebarMenuItemState extends State<DSidebarMenuItem> {
                 child: widget.child,
               ),
             ),
-            if (!icon && widget.submenu != null) widget.submenu!,
           ],
         ),
       ),
@@ -1120,11 +1048,10 @@ class DSidebarMenuButton extends StatefulWidget {
     this.iconSize = 16,
     this.isActive = false,
     this.size = DSidebarMenuButtonSize.regular,
-    this.variant = DSidebarMenuButtonVariant.normal,
-    this.tooltip,
+
     this.semanticLabel,
     this.focusNode,
-    this.autofocus = false,
+
     this.expanded,
   }) : _groupLabel = false,
        assert(iconSize > 0);
@@ -1139,10 +1066,9 @@ class DSidebarMenuButton extends StatefulWidget {
        iconSize = 16,
        isActive = false,
        size = DSidebarMenuButtonSize.regular,
-       variant = DSidebarMenuButtonVariant.normal,
-       tooltip = null,
+
        focusNode = null,
-       autofocus = false,
+
        expanded = null;
 
   final bool _groupLabel;
@@ -1150,11 +1076,11 @@ class DSidebarMenuButton extends StatefulWidget {
   final Widget? icon;
   final double iconSize;
   final VoidCallback? onPressed;
-  final bool isActive, autofocus;
+  final bool isActive;
   final bool? expanded;
   final DSidebarMenuButtonSize size;
-  final DSidebarMenuButtonVariant variant;
-  final String? tooltip, semanticLabel;
+
+  final String? semanticLabel;
 
   /// Borrowed; never disposed by this widget.
   final FocusNode? focusNode;
@@ -1250,14 +1176,14 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
       enabled: enabled,
       selected: widget.isActive,
       expanded: widget.expanded,
-      label: widget.semanticLabel ?? (iconOnly ? widget.tooltip : null),
+      label: widget.semanticLabel ?? (iconOnly ? null : null),
       child: MouseRegion(
         onEnter: (_) => _setHover(enabled),
         onExit: (_) => _setHover(false),
         child: FocusableActionDetector(
           enabled: enabled,
           focusNode: _focusNode,
-          autofocus: widget.autofocus,
+          autofocus: false,
           onFocusChange: _handleFocusChange,
           onShowFocusHighlight: _handleFocusHighlight,
           mouseCursor: enabled
@@ -1282,11 +1208,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
               opacity: enabled ? 1 : .5,
               child: DMaterialSurface(
                 radius: BorderRadius.circular(t.radius * .8),
-                color: active
-                    ? t.hover
-                    : widget.variant == DSidebarMenuButtonVariant.outline
-                    ? t.background
-                    : Colors.transparent,
+                color: active ? t.hover : Colors.transparent,
                 child: Container(
                   constraints: BoxConstraints(minHeight: minHeight),
                   padding: EdgeInsetsDirectional.only(
@@ -1308,11 +1230,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                   decoration: BoxDecoration(
                     color: DMaterialSurface.fill(
                       context,
-                      active
-                          ? t.hover
-                          : widget.variant == DSidebarMenuButtonVariant.outline
-                          ? t.background
-                          : Colors.transparent,
+                      active ? t.hover : Colors.transparent,
                     ),
                     borderRadius: BorderRadius.circular(t.radius * .8),
                   ),
@@ -1320,8 +1238,6 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                     borderRadius: BorderRadius.circular(t.radius * .8),
                     border: focus
                         ? Border.all(color: t.focusRing, width: 2)
-                        : widget.variant == DSidebarMenuButtonVariant.outline
-                        ? Border.all(color: t.border)
                         : null,
                   ),
                   child: _SidebarTrailingInset(
@@ -1363,10 +1279,9 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                                   child: widget.icon,
                                 ),
                               ),
-                            if (iconOnly &&
+                            if ((iconOnly &&
                                 widget.icon != null &&
-                                widget.semanticLabel == null &&
-                                widget.tooltip == null)
+                                widget.semanticLabel == null))
                               SizedBox.shrink(
                                 child: Opacity(
                                   opacity: 0,
@@ -1386,9 +1301,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                             if (iconOnly && widget.icon == null)
                               Expanded(
                                 child: ExcludeSemantics(
-                                  excluding:
-                                      widget.semanticLabel != null ||
-                                      widget.tooltip != null,
+                                  excluding: (widget.semanticLabel != null),
                                   child: widget.child,
                                 ),
                               ),
@@ -1404,13 +1317,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
         ),
       ),
     );
-    if (iconOnly && widget.tooltip != null) {
-      result = DTooltip(
-        message: widget.tooltip!,
-        side: DTooltipSide.inlineEnd,
-        child: result,
-      );
-    }
+
     return result;
   }
 }
@@ -1421,22 +1328,10 @@ class DSidebarMenuAction extends StatefulWidget {
     required this.child,
     required this.semanticLabel,
     this.onPressed,
-    this.showOnHover = false,
-    this.focusNode,
-    this.expanded,
   });
   final Widget child;
   final String semanticLabel;
   final VoidCallback? onPressed;
-  final bool showOnHover;
-
-  /// Borrowed; never disposed by this widget. Pass a composed menu trigger's node
-  /// so keyboard activation and focus restoration use the same action.
-  final FocusNode? focusNode;
-
-  /// Whether the associated content is expanded. An open action remains visible
-  /// even when [showOnHover] is true and focus has moved into its popup.
-  final bool? expanded;
 
   @override
   State<DSidebarMenuAction> createState() => _DSidebarMenuActionState();
@@ -1447,7 +1342,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
   // Retain pointer-acquired focus without painting keyboard-only artwork.
   bool _pointerFocused = false;
   final _ownedFocus = FocusNode();
-  FocusNode get _focusNode => widget.focusNode ?? _ownedFocus;
+  FocusNode get _focusNode => (_ownedFocus);
   void _activate() {
     _focusNode.requestFocus();
     widget.onPressed?.call();
@@ -1489,13 +1384,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
   @override
   Widget build(BuildContext context) {
     if (_PanelScope.iconOf(context)) return const SizedBox.shrink();
-    final reveal =
-        !widget.showOnHover ||
-        widget.expanded == true ||
-        (_ItemScope.of(context)?.reveal ?? false) ||
-        focus ||
-        hover ||
-        MediaQuery.sizeOf(context).width < 768;
+
     final t = DTokens.of(context);
     return FocusableActionDetector(
       focusNode: _focusNode,
@@ -1515,7 +1404,7 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
       child: Semantics(
         button: true,
         enabled: widget.onPressed != null,
-        expanded: widget.expanded,
+        expanded: null,
         label: widget.semanticLabel,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -1528,13 +1417,13 @@ class _DSidebarMenuActionState extends State<DSidebarMenuAction> {
                 }),
           onTapCancel: _handlePointerCancel,
           child: Opacity(
-            opacity: reveal ? (widget.onPressed != null ? 1 : .5) : 0,
+            opacity: ((widget.onPressed != null ? 1 : .5)),
             child: Container(
               width: 20,
               height: 20,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: hover || widget.expanded == true ? t.hover : null,
+                color: (hover) ? t.hover : null,
                 borderRadius: BorderRadius.circular(t.radius * .8),
               ),
               foregroundDecoration: focus

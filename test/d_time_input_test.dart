@@ -139,17 +139,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('disabled mobile time input does not open wheels', (
-    tester,
-  ) async {
-    await pump(tester, const DTimeInput(mobilePicker: true, enabled: false));
-    final input = tester.widget<DInput>(find.byType(DInput));
-    input.focusNode!.requestFocus();
-    await tester.pumpAndSettle();
-    expect(find.byType(CupertinoTimerPicker), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('mobile picker option retains desktop keyboard editing', (
     tester,
   ) async {

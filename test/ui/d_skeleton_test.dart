@@ -85,10 +85,7 @@ void main() {
                   semanticsLabel: 'Loading inline item',
                   child: DSkeleton(width: 120, height: 20),
                 ),
-                SizedBox(
-                  width: 32,
-                  child: DSkeleton(width: 120, height: 20, animate: false),
-                ),
+                SizedBox(width: 32, child: DSkeleton(width: 120, height: 20)),
               ],
             ),
           ),
@@ -171,106 +168,6 @@ void main() {
     }
   });
 
-  testWidgets('live motion settings stop frames and resume both pulse owners', (
-    tester,
-  ) async {
-    final settings = ValueNotifier((
-      animate: true,
-      reduced: false,
-      ticker: true,
-    ));
-    addTearDown(settings.dispose);
-    await tester.pumpWidget(
-      _app(
-        ValueListenableBuilder(
-          valueListenable: settings,
-          builder: (context, value, _) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(disableAnimations: value.reduced),
-            child: TickerMode(
-              enabled: value.ticker,
-              child: Column(
-                children: [
-                  DSkeleton(
-                    key: const ValueKey('standalone'),
-                    width: 100,
-                    height: 20,
-                    animate: value.animate,
-                  ),
-                  DSkeletonRegion(
-                    semanticsLabel: 'Loading group',
-                    animate: value.animate,
-                    child: const DSkeleton(
-                      key: ValueKey('grouped'),
-                      width: 100,
-                      height: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    for (final paused in [
-      (animate: true, reduced: true, ticker: true),
-      (animate: true, reduced: false, ticker: false),
-      (animate: false, reduced: false, ticker: true),
-    ]) {
-      settings.value = paused;
-      await tester.pumpAndSettle();
-      expect(tester.binding.hasScheduledFrame, isFalse);
-      expect(_fade(tester, 'grouped').opacity.value, 1);
-      if (paused.animate) expect(_fade(tester, 'standalone').opacity.value, 1);
-      await tester.pump(const Duration(seconds: 2));
-      expect(tester.binding.hasScheduledFrame, isFalse);
-      settings.value = (animate: true, reduced: false, ticker: true);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(_fade(tester, 'standalone').opacity.value, lessThan(1));
-      expect(_fade(tester, 'grouped').opacity.value, lessThan(1));
-    }
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    expect(tester.binding.transientCallbackCount, 0);
-  });
-
-  testWidgets('a static shape opts out of its region pulse', (tester) async {
-    await tester.pumpWidget(
-      _app(
-        const DSkeletonRegion(
-          semanticsLabel: 'Loading partly animated preview',
-          child: Row(
-            children: [
-              DSkeleton(key: ValueKey('animated'), width: 100, height: 20),
-              DSkeleton(
-                key: ValueKey('static'),
-                width: 100,
-                height: 20,
-                animate: false,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('static')),
-        matching: find.byType(FadeTransition),
-      ),
-      findsNothing,
-    );
-    await tester.pump(DMotion.pulse);
-    expect(_fade(tester, 'animated').opacity.value, closeTo(0.5, 0.001));
-    expect(
-      _decoration(tester, 'static').color,
-      _decoration(tester, 'animated').color,
-    );
-  });
-
   testWidgets('a region fill reaches every shape that sets none of its own', (
     tester,
   ) async {
@@ -293,12 +190,7 @@ void main() {
                   height: 20,
                   color: own,
                 ),
-                DSkeleton(
-                  key: ValueKey('static'),
-                  width: 100,
-                  height: 20,
-                  animate: false,
-                ),
+                DSkeleton(key: ValueKey('static'), width: 100, height: 20),
                 DSkeletonRegion(
                   semanticsLabel: 'Loading nested preview',
                   child: DSkeleton(

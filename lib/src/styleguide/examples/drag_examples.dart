@@ -140,7 +140,7 @@ class _DragExampleState extends State<_DragExample> {
               if (widget.compact)
                 DButton.iconOnly(
                   density: DButtonDensity.composerBlock,
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   backgroundColor: const Color(0x00000000),
                   icon: const DIcon(DIcons.plus),
                   tooltip: 'Add block',

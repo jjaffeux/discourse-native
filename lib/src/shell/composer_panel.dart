@@ -93,9 +93,8 @@ ComposerImagePicker _sitePhotoLibrary(
   return () => pick(optimization: optimization, limit: limit);
 }
 
-DButtonVariant _composerToolbarVariant(BuildContext context) => context.isTouch
-    ? DButtonVariant.inline
-    : DButtonVariant.transparentBackground;
+DButtonVariant _composerToolbarVariant(BuildContext context) =>
+    context.isTouch ? DButtonVariant.inline : DButtonVariant.ghost;
 
 Color? _composerToolForeground(BuildContext context) {
   if (context.isTouch) return null;
@@ -595,7 +594,7 @@ class ComposerPanel extends StatelessWidget {
                                                             .replyToUsername !=
                                                         null =>
                                                   context.l10n.replyTo(
-                                                    (target.replyToUsername)
+                                                    target.replyToUsername
                                                         .toString(),
                                                   ),
                                                 _ => context.l10n.writeAReply,

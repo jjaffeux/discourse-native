@@ -289,7 +289,9 @@ class _InputFormExampleState extends State<InputFormExample> {
   final _form = GlobalKey<FormState>();
   final _nameField = GlobalKey<FormFieldState<String>>();
   final _emailField = GlobalKey<FormFieldState<String>>();
-  String _name = '', _email = '', _result = '';
+  String _result = '';
+  String get _name => _nameField.currentState?.value ?? '';
+  String get _email => _emailField.currentState?.value ?? '';
   @override
   Widget build(BuildContext context) => Form(
     key: _form,
@@ -306,7 +308,6 @@ class _InputFormExampleState extends State<InputFormExample> {
                 hintText: 'Jordan Lee',
                 textInputAction: TextInputAction.next,
                 validator: (v) => v!.trim().isEmpty ? 'Enter your name.' : null,
-                onSaved: (v) => _name = v!,
               ),
               DInput(
                 key: _emailField,
@@ -317,7 +318,6 @@ class _InputFormExampleState extends State<InputFormExample> {
                 autocorrect: false,
                 validator: (v) =>
                     v!.contains('@') ? null : 'Enter a valid email.',
-                onSaved: (v) => _email = v!,
               ),
             ];
             return constraints.maxWidth < 480
@@ -345,11 +345,7 @@ class _InputFormExampleState extends State<InputFormExample> {
           hintText: '+1 (555) 123-4567',
         ),
         const SizedBox(height: 20),
-        DInput(
-          labelText: 'Address',
-          autofillHints: const [AutofillHints.fullStreetAddress],
-          hintText: '123 Main St',
-        ),
+        DInput(labelText: 'Address', hintText: '123 Main St'),
         const SizedBox(height: 20),
         Wrap(
           spacing: 8,
@@ -404,7 +400,6 @@ class _EditingExampleState extends State<_EditingExample> {
         obscureText: _hidden,
         autocorrect: false,
         enableSuggestions: false,
-        autofillHints: const [AutofillHints.password],
       ),
       const SizedBox(height: 8),
       DButton(
@@ -476,21 +471,8 @@ class _SearchExampleState extends State<_SearchExample> {
   );
 }
 
-const _formCode = '''// Inside a State with a GlobalKey<FormState> formKey.
-Form(key: formKey, child: Column(children: [
-  DInput(labelText: 'Name *',
-            isRequired: true, textInputAction: TextInputAction.next,
-    validator: (value) => value!.trim().isEmpty ? 'Enter your name.' : null,
-    onSaved: (value) => name = value!),
-  DInput(labelText: 'Email *',
-            isRequired: true, keyboardType: TextInputType.emailAddress,
-    validator: (value) => value!.contains('@') ? null : 'Enter a valid email.',
-    onSaved: (value) => email = value!),
-  DButton(label: const Text('Submit'), onPressed: () {
-    if (formKey.currentState!.validate()) formKey.currentState!.save();
-  }),
-  DButton(label: const Text('Reset'), onPressed: () => formKey.currentState!.reset()),
-]))''';
+const _formCode =
+    "// Inside a State with a GlobalKey<FormState> formKey.\nForm(key: formKey, child: Column(children: [\n  DInput(labelText: 'Name *',\n            isRequired: true, textInputAction: TextInputAction.next,\n    validator: (value) => value!.trim().isEmpty ? 'Enter your name.' : null,\n    ),\n  DInput(labelText: 'Email *',\n            isRequired: true, keyboardType: TextInputType.emailAddress,\n    validator: (value) => value!.contains('@') ? null : 'Enter a valid email.',\n    ),\n  DButton(label: const Text('Submit'), onPressed: () {\n    if (formKey.currentState!.validate()) formKey.currentState!.save();\n  }),\n  DButton(label: const Text('Reset'), onPressed: () => formKey.currentState!.reset()),\n]))";
 const _editingCode = '''// Dispose the controller in State.dispose.
 DInput(controller: passwordController, labelText: 'Password',
   obscureText: hidden, autocorrect: false, enableSuggestions: false);

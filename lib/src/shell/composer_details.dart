@@ -498,7 +498,7 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
             ? context.l10n.collapseDetails
             : context.l10n.expandDetails,
         expanded: _open,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         label: DIcon(
           _open
               ? DIcons.chevronDown

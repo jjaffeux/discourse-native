@@ -27,7 +27,7 @@ void main() {
                   body: Center(
                     child: DButton.iconOnly(
                       density: DButtonDensity.avatar,
-                      variant: DButtonVariant.transparentBackground,
+                      variant: DButtonVariant.ghost,
                       tooltip: 'Profile',
                       icon: const DAvatar(
                         border: false,
@@ -150,7 +150,7 @@ void main() {
           body: Center(
             child: DButton.iconOnly(
               density: DButtonDensity.chatMessageAction,
-              variant: DButtonVariant.transparentBackground,
+              variant: DButtonVariant.ghost,
               icon: const Icon(Icons.add_reaction),
               tooltip: 'Add reaction',
               onPressed: () {},
@@ -221,99 +221,6 @@ void main() {
     expect(tester.getSize(button).height, greaterThan(50));
   });
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
-    for (final iconOnly in [true, false]) {
-      testWidgets(
-        'compact toolbar uses its visible bounds ($platform, icon: $iconOnly)',
-        (tester) async {
-          final semantics = tester.ensureSemantics();
-          try {
-            var presses = 0;
-            Future<void> pump({
-              double scale = 1,
-              bool loading = false,
-              bool disabled = false,
-            }) => tester.pumpWidget(
-              MaterialApp(
-                theme: AppTheme.dark.copyWith(platform: platform),
-                home: MediaQuery(
-                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                  child: Scaffold(
-                    body: Center(
-                      child: iconOnly
-                          ? DButton.iconOnly(
-                              icon: const Icon(Icons.bookmark),
-                              tooltip: 'Bookmark',
-                              density: DButtonDensity.compactToolbar,
-                              variant: DButtonVariant.outline,
-                              loading: loading,
-                              onPressed: disabled ? null : () => presses++,
-                            )
-                          : DButton(
-                              icon: const Icon(Icons.bookmark),
-                              label: const Text('Bookmark'),
-                              density: DButtonDensity.compactToolbar,
-                              variant: DButtonVariant.outline,
-                              loading: loading,
-                              onPressed: disabled ? null : () => presses++,
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-            await pump();
-            final button = find.byType(DButton);
-            final surface = find.byWidgetPredicate(
-              (widget) =>
-                  widget is AnimatedContainer &&
-                  widget.decoration is DButtonDecoration,
-            );
-            final target = tester.getRect(button);
-            expect(target, tester.getRect(surface));
-            expect(tester.getSize(surface).height, 24);
-            if (iconOnly) expect(tester.getSize(surface).width, 32);
-            expect(
-              tester.getSize(find.byIcon(Icons.bookmark)),
-              const Size(14, 14),
-            );
-            expect(tester.getSemantics(button).rect.size, target.size);
-            final edge = target.topLeft + const Offset(2, 2);
-            expect(tester.getRect(surface).contains(edge), isTrue);
-            await tester.tapAt(edge);
-            await tester.pump();
-            expect(presses, 1);
-            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-            await tester.pump();
-            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-            await tester.pump();
-            expect(presses, 2);
-            await pump(scale: 2);
-            expect(tester.getSize(surface).height, greaterThan(24));
-            expect(tester.getSize(button), tester.getSize(surface));
-            expect(tester.takeException(), isNull);
-            await pump(disabled: true);
-            await tester.tap(button);
-            await tester.pump();
-            expect(presses, 2);
-            await pump(loading: true);
-            await tester.tap(button);
-            await tester.pump();
-            expect(presses, 2);
-            expect(find.byType(DSpinner), findsOneWidget);
-            expect(tester.getSize(surface).height, 24);
-          } finally {
-            semantics.dispose();
-          }
-        },
-      );
-    }
-  }
-
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
       'composer density preserves icons and limits only desktop width $platform',
@@ -373,13 +280,13 @@ void main() {
                   update = setState;
                   return Center(
                     child: DButton.iconOnly(
-                      density: DButtonDensity.mobileNavigation,
+                      density: DButtonDensity.standard,
                       shape: selected
                           ? DButtonShape.rounded
                           : DButtonShape.pill,
                       borderRadius: selected ? BorderRadius.circular(14) : null,
                       variant: DButtonVariant.ghost,
-                      animationDuration: const Duration(milliseconds: 240),
+
                       icon: const Icon(Icons.forum),
                       tooltip: 'Topics',
                       onPressed: () {},
@@ -469,59 +376,6 @@ void main() {
     await tester.tap(find.byType(DButton));
     expect(presses, 1);
   });
-
-  for (final platform in [
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-    TargetPlatform.macOS,
-  ]) {
-    testWidgets('mobile navigation geometry and activation on $platform', (
-      tester,
-    ) async {
-      var presses = 0;
-      Future<void> pump(double scale) => tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark.copyWith(platform: platform),
-          home: MediaQuery(
-            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-            child: Scaffold(
-              body: Center(
-                child: DButton.iconOnly(
-                  density: DButtonDensity.mobileNavigation,
-                  icon: const Icon(Icons.forum),
-                  tooltip: 'Topics',
-                  onPressed: () => presses++,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await pump(1);
-      final surface = find.byWidgetPredicate(
-        (widget) =>
-            widget is AnimatedContainer &&
-            widget.decoration is DButtonDecoration,
-      );
-      expect(tester.getSize(surface), const Size(44, 44));
-      expect(tester.getSize(find.byIcon(Icons.forum)), const Size(18, 18));
-      expect(tester.getSize(find.byType(DButton)), const Size(44, 44));
-      // The inside edge of the painted surface activates the button.
-      await tester.tapAt(
-        tester.getTopLeft(find.byType(DButton)) + const Offset(1, 24),
-      );
-      await tester.pump();
-      expect(presses, 1);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(presses, 2);
-      await pump(3);
-      expect(tester.getSize(surface).height, greaterThan(44));
-      expect(tester.takeException(), isNull);
-    });
-  }
 
   for (final direction in TextDirection.values) {
     testWidgets('inline actions align with surrounding text in $direction', (
@@ -785,7 +639,7 @@ void main() {
                 child: DButton.iconOnly(
                   tooltip: 'Action',
                   onPressed: _noop,
-                  variant: DButtonVariant.flat,
+                  variant: DButtonVariant.ghost,
                   size: size,
                   icon: const Icon(Icons.add),
                 ),
@@ -801,7 +655,7 @@ void main() {
         );
         final style = tester.widget<FilledButton>(rendered).style!;
         final shape = style.shape!.resolve({WidgetState.hovered});
-        final targetDimension = DButton.iconOnlyDimensionFor(size);
+        final targetDimension = DControlStyle.height(size);
 
         expect(tester.getSize(rendered), Size.square(targetDimension));
         expect(surface, findsOneWidget);
@@ -839,7 +693,7 @@ void main() {
             child: DButton.iconOnly(
               tooltip: 'Action',
               onPressed: () => presses++,
-              variant: DButtonVariant.flat,
+              variant: DButtonVariant.ghost,
               icon: const Icon(Icons.add),
             ),
           ),
@@ -939,7 +793,7 @@ void main() {
             child: DButton.iconOnly(
               tooltip: 'Action',
               onPressed: _noop,
-              variant: DButtonVariant.flat,
+              variant: DButtonVariant.ghost,
               interactiveBackgroundColor: Colors.transparent,
               focusNode: focus,
               icon: const Icon(Icons.add),
@@ -1024,7 +878,11 @@ void main() {
       'Reply to this topic',
     );
 
-    tester.state<DTooltipState>(tooltip).ensureTooltipVisible();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(tooltip));
+    await tester.pump(DTooltip.defaultHoverDelay);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 
@@ -1083,7 +941,11 @@ void main() {
     );
 
     final tooltip = find.byType(DTooltip);
-    tester.state<DTooltipState>(tooltip).ensureTooltipVisible();
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(tooltip));
+    await tester.pump(DTooltip.defaultHoverDelay);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 

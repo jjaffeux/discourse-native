@@ -460,8 +460,8 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
                                           value: section.id,
                                           semanticLabel: section.badge > 0
                                               ? context.l10n.unreadUsermenu(
-                                                  (section.label).toString(),
-                                                  (section.badge).toString(),
+                                                  section.label.toString(),
+                                                  section.badge.toString(),
                                                 )
                                               : section.label,
                                           child: ExcludeSemantics(
@@ -692,8 +692,8 @@ class _SectionTab extends StatelessWidget {
       value: section.id,
       semanticLabel: section.badge > 0
           ? context.l10n.unreadUsermenu(
-              (section.label).toString(),
-              (section.badge).toString(),
+              section.label.toString(),
+              section.badge.toString(),
             )
           : section.label,
       child: ExcludeSemantics(
@@ -1411,7 +1411,7 @@ class _RowTile extends StatelessWidget {
       child: DButton(
         key: rowKey,
         onPressed: onTap,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         alignment: AlignmentDirectional.centerStart,
         foregroundColor: destructive
             ? theme.colorScheme.error

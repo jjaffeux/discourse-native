@@ -73,7 +73,7 @@ void main() {
     await tester.sendEventToBinding(
       const PointerScrollEvent(
         position: Offset(400, 400),
-        scrollDelta: Offset(0, 8),
+        scrollDelta: Offset(0, 160),
       ),
     );
     await tester.pumpAndSettle();
@@ -269,64 +269,6 @@ void main() {
     }
   });
 
-  testWidgets(
-    'default thumbs follow live theme changes and honor custom colors',
-    (tester) async {
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      final colors = <Color>[];
-      for (final brightness in Brightness.values) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(brightness: brightness),
-            home: SizedBox(
-              height: 180,
-              child: DScrollBar(
-                controller: controller,
-                child: ListView(
-                  controller: controller,
-                  children: const [SizedBox(height: 2000)],
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        colors.add(
-          tester
-              .widget<RawScrollbar>(
-                find.byWidgetPredicate((widget) => widget is RawScrollbar),
-              )
-              .thumbColor!,
-        );
-        controller.jumpTo(100);
-      }
-      expect(colors[0], isNot(colors[1]));
-      expect(controller.offset, 100);
-      await tester.pumpWidget(
-        host(
-          DScrollBar(
-            controller: controller,
-            thumb: const DScrollThumb(color: Colors.red),
-            child: ListView(
-              controller: controller,
-              children: const [SizedBox(height: 2000)],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<RawScrollbar>(
-              find.byWidgetPredicate((widget) => widget is RawScrollbar),
-            )
-            .thumbColor,
-        Colors.red,
-      );
-    },
-  );
-
   testWidgets('thumbs contrast with changing surfaces and keep a 2px inset', (
     tester,
   ) async {
@@ -439,183 +381,7 @@ void main() {
       controller.addListener(() {});
     },
   );
-  testWidgets(
-    'hidden scrollbars paint no thumb or corner after wheel and hover and cannot be dragged',
-    (tester) async {
-      final vertical = ScrollController();
-      final horizontal = ScrollController();
-      addTearDown(vertical.dispose);
-      addTearDown(horizontal.dispose);
-      final boundaryKey = GlobalKey();
-      await tester.pumpWidget(
-        host(
-          RepaintBoundary(
-            key: boundaryKey,
-            child: ColoredBox(
-              color: const Color(0xff204060),
-              child: DScrollArea(
-                showScrollbar: false,
-                axes: DScrollAxes.both,
-                controller: vertical,
-                horizontalController: horizontal,
-                corner: const ColoredBox(color: Colors.red),
-                child: const SizedBox(width: 1000, height: 1000),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final rect = tester.getRect(find.byType(DScrollArea));
-      for (final delta in [const Offset(0, 30), const Offset(30, 0)]) {
-        await tester.sendEventToBinding(
-          PointerScrollEvent(position: rect.center, scrollDelta: delta),
-        );
-        await tester.pump();
-      }
-      expect(vertical.offset, greaterThan(0));
-      expect(horizontal.offset, greaterThan(0));
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset(rect.right - 3, rect.top + 10));
-      await mouse.moveTo(Offset(rect.right - 3, rect.top + 15));
-      await tester.pump(const Duration(milliseconds: 200));
 
-      final colors = await tester.runAsync(() async {
-        final image =
-            await (boundaryKey.currentContext!.findRenderObject()!
-                    as RenderRepaintBoundary)
-                .toImage();
-        final bytes = (await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!;
-        final colors = <int>{
-          for (var offset = 0; offset < bytes.lengthInBytes; offset += 4)
-            bytes.getUint32(offset),
-        };
-        image.dispose();
-        return colors;
-      });
-      expect(colors, {0x204060ff});
-
-      final offset = vertical.offset;
-      await mouse.down(Offset(rect.right - 3, rect.top + 10));
-      await mouse.moveBy(const Offset(0, 60));
-      await mouse.up();
-      await mouse.removePointer();
-      await tester.pumpAndSettle();
-      expect(vertical.offset, offset);
-    },
-  );
-  testWidgets(
-    'combined overflow keeps one position per axis and responds to resize',
-    (tester) async {
-      final vertical = ScrollController();
-      final horizontal = ScrollController();
-      addTearDown(vertical.dispose);
-      addTearDown(horizontal.dispose);
-      Widget area(double size) => DScrollArea(
-        axes: DScrollAxes.both,
-        controller: vertical,
-        horizontalController: horizontal,
-        child: SizedBox(width: size, height: size),
-      );
-      await tester.pumpWidget(host(area(1000)));
-      expect(vertical.positions.length, 1);
-      expect(horizontal.positions.length, 1);
-      expect(horizontal.position.maxScrollExtent, 800);
-      vertical.jumpTo(400);
-      horizontal.jumpTo(400);
-      await tester.pumpWidget(host(area(100)));
-      await tester.pumpAndSettle();
-      expect(vertical.offset, 0);
-      expect(horizontal.offset, 0);
-      expect(tester.takeException(), isNull);
-    },
-  );
-  testWidgets(
-    'combined viewport keeps full width while padding and physics apply to both axes',
-    (tester) async {
-      const physics = BouncingScrollPhysics();
-      final vertical = ScrollController();
-      final horizontalController = ScrollController();
-      addTearDown(vertical.dispose);
-      addTearDown(horizontalController.dispose);
-      await tester.pumpWidget(
-        host(
-          DScrollArea(
-            axes: DScrollAxes.both,
-            controller: vertical,
-            horizontalController: horizontalController,
-            padding: const EdgeInsets.all(10),
-            physics: physics,
-            child: const SizedBox(width: 1000, height: 1000),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(vertical.position.maxScrollExtent, 840);
-      expect(horizontalController.position.maxScrollExtent, 820);
-      final area = tester.getRect(find.byType(DScrollArea));
-      final viewports = tester
-          .widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView))
-          .toList();
-      expect(viewports, hasLength(2));
-      for (final viewport in viewports) {
-        expect(viewport.physics, same(physics));
-      }
-      final horizontal = viewports.singleWhere(
-        (viewport) => viewport.scrollDirection == Axis.horizontal,
-      );
-      final horizontalRect = tester.getRect(find.byWidget(horizontal));
-      expect(horizontalRect.left, area.left);
-      expect(horizontalRect.right, area.right);
-    },
-  );
-  testWidgets('mouse thumb dragging and wheel events reach the intended axis', (
-    tester,
-  ) async {
-    final vertical = ScrollController();
-    final horizontal = ScrollController();
-    addTearDown(vertical.dispose);
-    addTearDown(horizontal.dispose);
-    await tester.pumpWidget(
-      host(
-        DScrollArea(
-          axes: DScrollAxes.both,
-          controller: vertical,
-          horizontalController: horizontal,
-          child: const SizedBox(width: 1000, height: 1000),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final rect = tester.getRect(find.byType(DScrollArea));
-    await tester.dragFrom(
-      Offset(rect.right - 4, rect.top + 10),
-      const Offset(0, 60),
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pumpAndSettle();
-    expect(vertical.offset, greaterThan(0));
-    expect(horizontal.offset, 0);
-    await tester.dragFrom(
-      Offset(rect.left + 10, rect.bottom - 4),
-      const Offset(60, 0),
-      kind: PointerDeviceKind.mouse,
-    );
-    await tester.pumpAndSettle();
-    expect(horizontal.offset, greaterThan(0));
-    final before = vertical.offset;
-    await tester.sendEventToBinding(
-      PointerScrollEvent(
-        position: rect.center,
-        scrollDelta: const Offset(0, 30),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(vertical.offset, greaterThan(before));
-  });
   testWidgets(
     'controller replacement detaches borrowed resources and RTL starts at the right edge',
     (tester) async {
@@ -859,10 +625,7 @@ void main() {
                   child: SizedBox(
                     width: 100,
                     height: 100,
-                    child: DScrollArea(
-                      borderRadius: BorderRadius.zero,
-                      child: SizedBox(height: 500),
-                    ),
+                    child: DScrollArea(child: SizedBox(height: 500)),
                   ),
                 ),
               ),
@@ -930,7 +693,6 @@ void main() {
                   width: 100,
                   height: 100,
                   child: DScrollArea(
-                    borderRadius: BorderRadius.zero,
                     child: SizedBox(
                       height: 500,
                       child: Align(

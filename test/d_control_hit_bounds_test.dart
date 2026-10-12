@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final controls = <String, Widget Function(VoidCallback)>{
     'Button': (activate) => DButton.iconOnly(
-      density: DButtonDensity.compactToolbar,
+      density: DButtonDensity.standard,
       tooltip: 'Button',
       icon: const Icon(Icons.add),
       onPressed: activate,

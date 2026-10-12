@@ -578,7 +578,7 @@ class _ChatNewDirectMessageDialogState
 
   Widget _closeButton() => DButton.iconOnly(
     icon: const DIcon(DIcons.xmark),
-    variant: DButtonVariant.transparentBackground,
+    variant: DButtonVariant.ghost,
     onPressed: widget.dialog.close,
     tooltip: appL10n.close,
     semanticLabel: appL10n.closeStartChatting,

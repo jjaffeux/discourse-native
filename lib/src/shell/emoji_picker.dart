@@ -69,7 +69,7 @@ Future<String?> showEmojiPicker({
                     key: const ValueKey('emoji-picker-close'),
                     icon: const DIcon(DIcons.xmark),
                     tooltip: appL10n.close,
-                    variant: DButtonVariant.transparentBackground,
+                    variant: DButtonVariant.ghost,
                     onPressed: sheet.close,
                   ),
                 ],
@@ -1140,7 +1140,7 @@ class _EmojiCell extends StatelessWidget {
           final focused = Focus.of(context).hasFocus;
           return Semantics(
             button: true,
-            label: context.l10n.insertEmojipicker((choice.code).toString()),
+            label: context.l10n.insertEmojipicker(choice.code.toString()),
             child: DTooltip(
               message: ':${choice.code}:',
               child: InkWell(

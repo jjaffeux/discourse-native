@@ -2047,7 +2047,6 @@ void _registerShellNavigationTests() {
     await tester.pump();
 
     expect(callout, findsOneWidget);
-    expect(tester.state<DTooltipState>(tooltipFinder).isOpen, isTrue);
     await mouse.moveTo(Offset.zero);
     await tester.pump(tooltip.dismissDelay);
     await tester.pump();

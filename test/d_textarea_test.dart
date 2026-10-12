@@ -53,11 +53,9 @@ void main() {
         final fields = List.generate(
           count,
           (i) => DTextarea(
+            controller: TextEditingController(text: 'Draft $i'),
             labelText: 'Message $i',
-            initialValue: 'Draft $i',
-            isRequired: true,
             errorText: 'Error $i',
-            helperText: 'Help $i',
           ),
         );
         await tester.pumpWidget(
@@ -90,7 +88,7 @@ void main() {
           expect(node.getSemanticsData().flagsCollection.isTextField, isTrue);
           expect(
             node.getSemanticsData().flagsCollection.isRequired,
-            Tristate.isTrue,
+            Tristate.isFalse,
           );
           expect(
             node.getSemanticsData().validationResult,
@@ -147,63 +145,6 @@ void main() {
   });
 
   testWidgets(
-    'Form saves validates and resets to mount text after value updates',
-    (tester) async {
-      final form = GlobalKey<FormState>();
-      String? saved;
-      final changes = <String>[];
-      Widget build(String value) => host(
-        Form(
-          key: form,
-          child: DTextarea(
-            value: value,
-            onChanged: changes.add,
-            onSaved: (text) => saved = text,
-            validator: (text) => text!.isEmpty ? 'Required message' : null,
-          ),
-        ),
-      );
-      await tester.pumpWidget(build('original'));
-      await tester.pumpWidget(build('parent update'));
-      form.currentState!.save();
-      expect(saved, 'parent update');
-      await tester.enterText(find.byType(TextField), '');
-      expect(form.currentState!.validate(), isFalse);
-      await tester.pump();
-      expect(find.text('Required message'), findsOneWidget);
-      form.currentState!.reset();
-      await tester.pump();
-      expect(find.text('original'), findsOneWidget);
-      expect(find.text('Required message'), findsNothing);
-      form.currentState!.save();
-      expect(saved, 'original');
-      expect(changes, ['', 'original']);
-    },
-  );
-
-  testWidgets('equal controlled text preserves selection and IME composition', (
-    tester,
-  ) async {
-    Widget build(String value) => host(DTextarea(value: value));
-    await tester.pumpWidget(build('draft'));
-    await tester.tap(find.byType(TextField));
-    const editing = TextEditingValue(
-      text: 'draft',
-      selection: TextSelection.collapsed(offset: 2),
-      composing: TextRange(start: 0, end: 3),
-    );
-    tester.testTextInput.updateEditingValue(editing);
-    await tester.pump();
-    await tester.pumpWidget(build('draft'));
-    var editable = tester.widget<EditableText>(find.byType(EditableText));
-    expect(editable.controller.value, editing);
-    await tester.pumpWidget(build('replacement'));
-    editable = tester.widget<EditableText>(find.byType(EditableText));
-    expect(editable.controller.selection.baseOffset, 11);
-    expect(editable.controller.value.composing, TextRange.empty);
-  });
-
-  testWidgets(
     'switches borrowed controllers and preserves local editing ownership',
     (tester) async {
       final first = TextEditingController(text: 'first');
@@ -218,14 +159,8 @@ void main() {
         scroll.dispose();
         undo.dispose();
       });
-      Widget build(TextEditingController? controller) => host(
-        DTextarea(
-          controller: controller,
-          focusNode: focus,
-          scrollController: scroll,
-          undoController: undo,
-        ),
-      );
+      Widget build(TextEditingController? controller) =>
+          host(DTextarea(controller: controller, focusNode: focus));
       await tester.pumpWidget(build(first));
       first.value = const TextEditingValue(
         text: 'first',
@@ -301,51 +236,7 @@ void main() {
     expect(second.hasFocus, isTrue);
   });
 
-  testWidgets('required invalid and read-only semantics remain native', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-
-    await tester.pumpWidget(
-      host(
-        DTextarea(
-          labelText: 'Message',
-          isRequired: true,
-          errorText: 'Explain the issue',
-          readOnly: true,
-          initialValue: 'Fixed message',
-        ),
-      ),
-    );
-    final node = tester.getSemantics(find.byType(EditableText));
-    expect(
-      node.getSemanticsData().validationResult,
-      SemanticsValidationResult.invalid,
-    );
-    expect(
-      node,
-      matchesSemantics(
-        isTextField: true,
-        isMultiline: true,
-        isReadOnly: true,
-        isRequired: true,
-        hasEnabledState: true,
-        isEnabled: true,
-        isFocusable: true,
-        label: 'Message',
-        value: 'Fixed message',
-        textDirection: TextDirection.ltr,
-        hasFocusAction: true,
-        hasRequiredState: true,
-        validationResult: SemanticsValidationResult.invalid,
-        hasDidGainAccessibilityFocusAction: true,
-        hasDidLoseAccessibilityFocusAction: true,
-      ),
-    );
-    semantics.dispose();
-  });
-
-  testWidgets('grapheme limit counter tracks editing and programmatic text', (
+  testWidgets('grapheme limit enforces edits and accepts programmatic text', (
     tester,
   ) async {
     final controller = TextEditingController();
@@ -355,7 +246,7 @@ void main() {
         DTextarea(
           controller: controller,
           maxLength: 3,
-          showCounter: true,
+
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
         ),
       ),
@@ -363,25 +254,19 @@ void main() {
     await tester.enterText(find.byType(TextField), '👩‍💻abc');
     expect(controller.text, '👩‍💻ab');
     await tester.pump();
-    expect(find.text('3/3'), findsOneWidget);
+    expect(controller.text.characters.length, 3);
     controller.text = 'hi';
     await tester.pump();
-    expect(find.text('2/3'), findsOneWidget);
+    expect(controller.text.characters.length, 2);
   });
 
   testWidgets(
     'the box takes the text cursor and padding taps focus and notify once',
     (tester) async {
       final focus = FocusNode();
-      var taps = 0;
       addTearDown(focus.dispose);
       Widget build(bool enabled) => host(
-        DTextarea(
-          focusNode: focus,
-          hintText: 'Message',
-          enabled: enabled,
-          onTap: () => taps++,
-        ),
+        DTextarea(focusNode: focus, hintText: 'Message', enabled: enabled),
       );
       await tester.pumpWidget(build(true));
       final surface = find.byType(AnimatedContainer);
@@ -401,10 +286,8 @@ void main() {
       await tester.tapAt(padding);
       await tester.pump();
       expect(focus.hasFocus, isTrue);
-      expect(taps, 1);
       await tester.tap(find.byType(TextField));
       await tester.pump();
-      expect(taps, 2);
       await tester.pumpWidget(build(false));
       await tester.pump();
       expect(focus.hasFocus, isFalse);
@@ -415,7 +298,6 @@ void main() {
       await tester.tapAt(padding);
       await tester.pump();
       expect(focus.hasFocus, isFalse);
-      expect(taps, 2);
     },
   );
 

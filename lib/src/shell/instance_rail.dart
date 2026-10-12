@@ -78,7 +78,7 @@ class InstanceRail extends StatelessWidget {
                             : sidebarExpanded
                             ? context.l10n.collapseSidebar
                             : context.l10n.expandSidebar,
-                        variant: DButtonVariant.transparentBackground,
+                        variant: DButtonVariant.ghost,
                         backgroundColor: Colors.transparent,
                         interactiveBackgroundColor: Colors.transparent,
                         foregroundColor: sidebarExpanded

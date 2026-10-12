@@ -159,7 +159,7 @@ void main() {
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         await mouse.moveTo(tester.getCenter(pill));
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 650));
         await tester.pumpAndSettle();
         expect(preview.isOpen, isTrue);
         for (var step = 0; step < 4; step++) {

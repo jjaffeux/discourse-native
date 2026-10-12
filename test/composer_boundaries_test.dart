@@ -48,7 +48,7 @@ void main() {
           ComposerPlacement.right,
           ComposerPlacement.bottom,
         ]) {
-          await tester.tap(find.byTooltip('Dock side'));
+          await tester.tap(find.byKey(const ValueKey('composer-position')));
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('Dock ${placement.name}'));
           await tester.pumpAndSettle();

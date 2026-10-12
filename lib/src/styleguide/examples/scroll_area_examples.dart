@@ -166,7 +166,6 @@ class _Tags extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
-            borderRadius: BorderRadius.circular(tokens.radius * .8),
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
               style: TextStyle(
@@ -221,7 +220,6 @@ class _Artworks extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(1),
           child: DScrollArea(
-            borderRadius: BorderRadius.circular(tokens.radius * .8),
             axes: DScrollAxes.horizontal,
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -332,203 +330,14 @@ class _LazyCompositionState extends State<_LazyComposition> {
   );
 }
 
-const _tagsCode = r'''import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/material.dart';
-
-class ScrollAreaTags extends StatelessWidget {
-  const ScrollAreaTags({this.rtl = false});
-  final bool rtl;
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return SizedBox(
-      width: 192,
-      height: 288,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(tokens.radius * .8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(1),
-          child: DScrollArea(
-            borderRadius: BorderRadius.circular(tokens.radius * .8),
-            padding: const EdgeInsets.all(16),
-            child: DefaultTextStyle(
-              style: TextStyle(
-                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                fontFamilyFallback: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.fontFamilyFallback,
-                fontSize: DiscourseTypography.sm,
-                height: 20 / 14,
-                color: tokens.foreground,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    rtl ? 'العلامات' : 'Tags',
-                    style: const TextStyle(
-                      height: 1,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  for (var i = 50; i > 0; i--) ...[
-                    Text('v1.2.0-beta.$i'),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: DSeparator(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}''';
+const _tagsCode =
+    "import 'package:discourse_native/discourse_ui.dart';\nimport 'package:flutter/material.dart';\n\nclass ScrollAreaTags extends StatelessWidget {\n  const ScrollAreaTags({this.rtl = false});\n  final bool rtl;\n  @override\n  Widget build(BuildContext context) {\n    final tokens = DTokens.of(context);\n    return SizedBox(\n      width: 192,\n      height: 288,\n      child: DecoratedBox(\n        decoration: BoxDecoration(\n          border: Border.all(color: tokens.border),\n          borderRadius: BorderRadius.circular(tokens.radius * .8),\n        ),\n        child: Padding(\n          padding: const EdgeInsets.all(1),\n          child: DScrollArea(\n            \n            padding: const EdgeInsets.all(16),\n            child: DefaultTextStyle(\n              style: TextStyle(\n                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,\n                fontFamilyFallback: Theme.of(\n                  context,\n                ).textTheme.bodyMedium?.fontFamilyFallback,\n                fontSize: DiscourseTypography.sm,\n                height: 20 / 14,\n                color: tokens.foreground,\n              ),\n              child: Column(\n                crossAxisAlignment: CrossAxisAlignment.stretch,\n                children: [\n                  Text(\n                    rtl ? 'العلامات' : 'Tags',\n                    style: const TextStyle(\n                      height: 1,\n                      fontWeight: FontWeight.w500,\n                    ),\n                  ),\n                  const SizedBox(height: 16),\n                  for (var i = 50; i > 0; i--) ...[\n                    Text('v1.2.0-beta.\$i'),\n                    const Padding(\n                      padding: EdgeInsets.symmetric(vertical: 8),\n                      child: DSeparator(),\n                    ),\n                  ],\n                ],\n              ),\n            ),\n          ),\n        ),\n      ),\n    );\n  }\n}";
 
 const _rtlCode =
-    r'''// Mount ScrollAreaTags(rtl: true) inside Directionality(textDirection: TextDirection.rtl).
-import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/material.dart';
+    "// Mount ScrollAreaTags(rtl: true) inside Directionality(textDirection: TextDirection.rtl).\nimport 'package:discourse_native/discourse_ui.dart';\nimport 'package:flutter/material.dart';\n\nclass ScrollAreaTags extends StatelessWidget {\n  const ScrollAreaTags({this.rtl = false});\n  final bool rtl;\n  @override\n  Widget build(BuildContext context) {\n    final tokens = DTokens.of(context);\n    return SizedBox(\n      width: 192,\n      height: 288,\n      child: DecoratedBox(\n        decoration: BoxDecoration(\n          border: Border.all(color: tokens.border),\n          borderRadius: BorderRadius.circular(tokens.radius * .8),\n        ),\n        child: Padding(\n          padding: const EdgeInsets.all(1),\n          child: DScrollArea(\n            \n            padding: const EdgeInsets.all(16),\n            child: DefaultTextStyle(\n              style: TextStyle(\n                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,\n                fontFamilyFallback: Theme.of(\n                  context,\n                ).textTheme.bodyMedium?.fontFamilyFallback,\n                fontSize: DiscourseTypography.sm,\n                height: 20 / 14,\n                color: tokens.foreground,\n              ),\n              child: Column(\n                crossAxisAlignment: CrossAxisAlignment.stretch,\n                children: [\n                  Text(\n                    rtl ? 'العلامات' : 'Tags',\n                    style: const TextStyle(\n                      height: 1,\n                      fontWeight: FontWeight.w500,\n                    ),\n                  ),\n                  const SizedBox(height: 16),\n                  for (var i = 50; i > 0; i--) ...[\n                    Text('v1.2.0-beta.\$i'),\n                    const Padding(\n                      padding: EdgeInsets.symmetric(vertical: 8),\n                      child: DSeparator(),\n                    ),\n                  ],\n                ],\n              ),\n            ),\n          ),\n        ),\n      ),\n    );\n  }\n}";
 
-class ScrollAreaTags extends StatelessWidget {
-  const ScrollAreaTags({this.rtl = false});
-  final bool rtl;
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return SizedBox(
-      width: 192,
-      height: 288,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(tokens.radius * .8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(1),
-          child: DScrollArea(
-            borderRadius: BorderRadius.circular(tokens.radius * .8),
-            padding: const EdgeInsets.all(16),
-            child: DefaultTextStyle(
-              style: TextStyle(
-                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                fontFamilyFallback: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.fontFamilyFallback,
-                fontSize: DiscourseTypography.sm,
-                height: 20 / 14,
-                color: tokens.foreground,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    rtl ? 'العلامات' : 'Tags',
-                    style: const TextStyle(
-                      height: 1,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  for (var i = 50; i > 0; i--) ...[
-                    Text('v1.2.0-beta.$i'),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: DSeparator(),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}''';
-
-const _artworkCode = r'''import 'package:discourse_native/discourse_ui.dart';
-import 'package:flutter/material.dart';
-
-class ScrollAreaArtworks extends StatelessWidget {
-  const ScrollAreaArtworks();
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return SizedBox(
-      width: 384,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: tokens.border),
-          borderRadius: BorderRadius.circular(tokens.radius * .8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(1),
-          child: DScrollArea(
-            borderRadius: BorderRadius.circular(tokens.radius * .8),
-            axes: DScrollAxes.horizontal,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final entry in const [
-                  ('ornella', 'Ornella Binni'),
-                  ('tom', 'Tom Byrom'),
-                  ('vladimir', 'Vladimir Malyavko'),
-                ]) ...[
-                  if (entry.$1 != 'ornella') const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(tokens.radius * .8),
-                        child: Image.asset(
-                          'packages/discourse_native/src/styleguide/assets/scroll_area/${entry.$1}.jpg',
-                          width: 150,
-                          height: 200,
-                          fit: BoxFit.cover,
-                          semanticLabel: 'Photo by ${entry.$2}',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text.rich(
-                        TextSpan(
-                          text: 'Photo by ',
-                          children: [
-                            TextSpan(
-                              text: entry.$2,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: tokens.foreground,
-                              ),
-                            ),
-                          ],
-                        ),
-                        style: TextStyle(
-                          fontSize: DiscourseTypography.xs,
-                          height: 16 / 12,
-                          color: tokens.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}''';
+const _artworkCode =
+    "import 'package:discourse_native/discourse_ui.dart';\nimport 'package:flutter/material.dart';\n\nclass ScrollAreaArtworks extends StatelessWidget {\n  const ScrollAreaArtworks();\n  @override\n  Widget build(BuildContext context) {\n    final tokens = DTokens.of(context);\n    return SizedBox(\n      width: 384,\n      child: DecoratedBox(\n        decoration: BoxDecoration(\n          border: Border.all(color: tokens.border),\n          borderRadius: BorderRadius.circular(tokens.radius * .8),\n        ),\n        child: Padding(\n          padding: const EdgeInsets.all(1),\n          child: DScrollArea(\n            \n            axes: DScrollAxes.horizontal,\n            padding: const EdgeInsets.all(16),\n            child: Row(\n              crossAxisAlignment: CrossAxisAlignment.start,\n              children: [\n                for (final entry in const [\n                  ('ornella', 'Ornella Binni'),\n                  ('tom', 'Tom Byrom'),\n                  ('vladimir', 'Vladimir Malyavko'),\n                ]) ...[\n                  if (entry.\$1 != 'ornella') const SizedBox(width: 16),\n                  Column(\n                    crossAxisAlignment: CrossAxisAlignment.start,\n                    mainAxisSize: MainAxisSize.min,\n                    children: [\n                      ClipRRect(\n                        borderRadius: BorderRadius.circular(tokens.radius * .8),\n                        child: Image.asset(\n                          'packages/discourse_native/src/styleguide/assets/scroll_area/\${entry.\$1}.jpg',\n                          width: 150,\n                          height: 200,\n                          fit: BoxFit.cover,\n                          semanticLabel: 'Photo by \${entry.\$2}',\n                        ),\n                      ),\n                      const SizedBox(height: 8),\n                      Text.rich(\n                        TextSpan(\n                          text: 'Photo by ',\n                          children: [\n                            TextSpan(\n                              text: entry.\$2,\n                              style: TextStyle(\n                                fontWeight: FontWeight.w600,\n                                color: tokens.foreground,\n                              ),\n                            ),\n                          ],\n                        ),\n                        style: TextStyle(\n                          fontSize: DiscourseTypography.xs,\n                          height: 16 / 12,\n                          color: tokens.mutedForeground,\n                        ),\n                      ),\n                    ],\n                  ),\n                ],\n              ],\n            ),\n          ),\n        ),\n      ),\n    );\n  }\n}";
 
 const _lazyCode = r'''import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';

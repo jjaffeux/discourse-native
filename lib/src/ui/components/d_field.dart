@@ -10,8 +10,6 @@ import 'd_typography.dart';
 /// Layout only: the enclosed native control or FormField owns its value.
 enum DFieldOrientation { vertical, horizontal, responsive }
 
-enum DFieldLegendVariant { legend, label }
-
 /// Choice groups use the reference's tighter checkbox/radio spacing.
 enum DFieldGroupVariant { standard, choice }
 
@@ -33,17 +31,10 @@ TextStyle _textStyle(
 /// Disabled groups prevent pointer/focus interaction; callers should also pass
 /// the enabled state to controls so their own disabled visuals stay accurate.
 class DFieldSet extends StatelessWidget {
-  const DFieldSet({
-    super.key,
-    required this.children,
-    this.enabled = true,
-    this.semanticLabel,
-    this.spacing,
-  });
+  const DFieldSet({super.key, required this.children, this.semanticLabel});
   final List<Widget> children;
-  final bool enabled;
+
   final String? semanticLabel;
-  final double? spacing;
 
   @override
   Widget build(BuildContext context) {
@@ -57,16 +48,15 @@ class DFieldSet extends StatelessWidget {
                   legendChild.data ??
                   legendChild.textSpan?.toPlainText()
             : null);
-    final active = enabled && (inherited?.enabled ?? true);
+    final active = ((inherited?.enabled ?? true));
     final gap =
-        spacing ??
-        (children.any(
-              (child) =>
-                  child is DFieldGroup &&
-                  child.variant == DFieldGroupVariant.choice,
-            )
-            ? 12.0
-            : 16.0);
+        ((children.any(
+          (child) =>
+              child is DFieldGroup &&
+              child.variant == DFieldGroupVariant.choice,
+        )
+        ? 12.0
+        : 16.0));
     return _FieldScope(
       enabled: active,
       invalid: false,
@@ -88,13 +78,8 @@ class DFieldSet extends StatelessWidget {
 }
 
 class DFieldLegend extends StatelessWidget {
-  const DFieldLegend({
-    super.key,
-    required this.child,
-    this.variant = DFieldLegendVariant.legend,
-  });
+  const DFieldLegend({super.key, required this.child});
   final Widget child;
-  final DFieldLegendVariant variant;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -102,11 +87,9 @@ class DFieldLegend extends StatelessWidget {
     child: DefaultTextStyle(
       style: _textStyle(
         context,
-        size: variant == DFieldLegendVariant.legend
-            ? DiscourseTypography.base
-            : DiscourseTypography.sm,
+        size: DiscourseTypography.base,
         weight: FontWeight.w500,
-        height: variant == DFieldLegendVariant.legend ? 1.5 : 20 / 14,
+        height: (1.5),
       ),
       child: child,
     ),
@@ -235,18 +218,7 @@ class DField extends StatelessWidget {
           Flexible(
             flex: horizontal && _expands(children[i]) ? 1 : 0,
             fit: FlexFit.loose,
-            child: Padding(
-              padding: EdgeInsets.only(
-                top:
-                    horizontal &&
-                        hasContent &&
-                        children[i] is DFieldControl &&
-                        (children[i] as DFieldControl).alignIndicatorToContent
-                    ? 1
-                    : 0,
-              ),
-              child: children[i],
-            ),
+            child: children[i],
           ),
         ],
       ],
@@ -287,7 +259,6 @@ class DFieldControl extends StatelessWidget {
     this.errors = const [],
     this.required = false,
     this.expand = true,
-    this.alignIndicatorToContent = false,
   });
   final String label;
   final String? description;
@@ -295,9 +266,6 @@ class DFieldControl extends StatelessWidget {
   final bool required;
   final bool expand;
 
-  /// Checkbox/radio indicators sit 1px below adjacent FieldContent's top.
-  /// Switches and text editors normally leave this false.
-  final bool alignIndicatorToContent;
   final Widget child;
 
   @override
@@ -336,9 +304,8 @@ class DFieldLabel extends StatefulWidget {
     required this.child,
     this.focusNode,
     this.onPressed,
-    this.enabled = true,
+
     this.excludeSemantics = false,
-    this.style,
   }) : choice = false,
        selected = false;
   const DFieldLabel.choice({
@@ -347,16 +314,15 @@ class DFieldLabel extends StatefulWidget {
     required this.selected,
     required this.onPressed,
     this.focusNode,
-    this.enabled = true,
+
     this.excludeSemantics = false,
-    this.style,
   }) : choice = true;
   final Widget child;
   final FocusNode? focusNode;
   final VoidCallback? onPressed;
-  final bool enabled;
+
   final bool excludeSemantics;
-  final TextStyle? style;
+
   final bool choice;
   final bool selected;
 
@@ -387,7 +353,7 @@ class _DFieldLabelState extends State<DFieldLabel> {
   @override
   Widget build(BuildContext context) {
     final scope = _FieldScope.maybeOf(context);
-    final enabled = widget.enabled && (scope?.enabled ?? true);
+    final enabled = ((scope?.enabled ?? true));
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final focusVisible =
@@ -401,7 +367,7 @@ class _DFieldLabelState extends State<DFieldLabel> {
       style: TextStyle(
         height: 1.375,
         color: scope?.invalid == true ? tokens.destructive : tokens.foreground,
-      ).merge(widget.style),
+      ).merge(null),
       child: ExcludeSemantics(
         excluding: widget.excludeSemantics,
         child: widget.child,
@@ -478,13 +444,8 @@ class _DFieldLabelState extends State<DFieldLabel> {
 
 /// Label typography without label activation (e.g. a slider range or card).
 class DFieldTitle extends StatelessWidget {
-  const DFieldTitle({
-    super.key,
-    required this.child,
-    this.excludeSemantics = false,
-  });
+  const DFieldTitle({super.key, required this.child});
   final Widget child;
-  final bool excludeSemantics;
 
   @override
   Widget build(BuildContext context) {
@@ -492,7 +453,7 @@ class DFieldTitle extends StatelessWidget {
     return Opacity(
       opacity: scope?.enabled == false ? 0.5 : 1,
       child: ExcludeSemantics(
-        excluding: excludeSemantics,
+        excluding: false,
         child: DefaultTextStyle(
           style: _textStyle(
             context,
@@ -526,37 +487,16 @@ class DFieldDescription extends StatelessWidget {
 /// Decorative line with optional readable content. FieldGroup accounts for the
 /// source's -8px vertical margins. Text grows beyond 20px when necessary.
 class DFieldSeparator extends StatelessWidget {
-  const DFieldSeparator({super.key, this.child});
-  final Widget? child;
+  const DFieldSeparator({super.key});
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: const BoxConstraints(minHeight: 20),
-    child: Stack(
+    child: const Stack(
       alignment: Alignment.center,
       children: [
-        const Positioned(left: 0, right: 0, child: DSeparator()),
-        if (child != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: DTokens.of(context).background),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: DefaultTextStyle(
-                  style: _textStyle(
-                    context,
-                    height: 20 / 14,
-                    color: DTokens.of(context).mutedForeground,
-                  ),
-                  textAlign: TextAlign.center,
-                  child: child!,
-                ),
-              ),
-            ),
-          )
-        else
-          const SizedBox(width: double.infinity, height: 20),
+        Positioned(left: 0, right: 0, child: DSeparator()),
+        SizedBox(width: double.infinity, height: 20),
       ],
     ),
   );
@@ -648,8 +588,7 @@ double _gap(List<Widget> children, int index, double spacing) {
   var gap = spacing;
   if (previous is DFieldLegend) gap += 6;
   if (current is DFieldDescription) {
-    if (previous is DFieldLegend &&
-        previous.variant == DFieldLegendVariant.legend) {
+    if ((previous is DFieldLegend)) {
       gap -= 6;
     } else if (index == children.length - 2) {
       gap -= 4;

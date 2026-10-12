@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/control_style.dart';
@@ -23,7 +24,7 @@ enum DPopoverCollision { flip, shift, none }
 enum DPopoverInteraction { mouse, touch, pen, keyboard, imperative }
 
 /// Tailwind shadow recipes used by shadcn floating surfaces.
-enum DPopoverShadow { none, medium, large }
+enum DPopoverShadow { none, large }
 
 enum DPopoverChangeReason {
   triggerPress,
@@ -105,8 +106,6 @@ class DPopoverController extends ChangeNotifier {
     DPopoverInteraction.imperative,
   );
 
-  void toggle() => isOpen ? close() : open();
-
   void _attach(_DPopoverState owner) {
     if (_disposed) return;
     _owner?._setOpen(false, immediate: true, restoreFocus: false);
@@ -153,7 +152,6 @@ class DPopover extends StatefulWidget {
     this.transitionDuration = const Duration(milliseconds: 100),
     this.reverseTransitionDuration = const Duration(milliseconds: 100),
     this.transitionCurve = Curves.easeOut,
-    this.reverseTransitionCurve = Curves.easeIn,
   });
 
   final Widget child;
@@ -185,7 +183,6 @@ class DPopover extends StatefulWidget {
   final Duration transitionDuration;
   final Duration reverseTransitionDuration;
   final Curve transitionCurve;
-  final Curve reverseTransitionCurve;
 
   @override
   State<DPopover> createState() => _DPopoverState();
@@ -220,7 +217,7 @@ class _DPopoverState extends State<DPopover>
   late final _curve = CurvedAnimation(
     parent: _animation,
     curve: widget.transitionCurve,
-    reverseCurve: widget.reverseTransitionCurve,
+    reverseCurve: Curves.easeIn,
   );
   BuildContext? _triggerContext;
   BuildContext? _anchorContext;
@@ -288,7 +285,7 @@ class _DPopoverState extends State<DPopover>
       ..reverseDuration = widget.reverseTransitionDuration;
     _curve
       ..curve = widget.transitionCurve
-      ..reverseCurve = widget.reverseTransitionCurve;
+      ..reverseCurve = Curves.easeIn;
     _scheduleSync();
   }
 
@@ -308,7 +305,7 @@ class _DPopoverState extends State<DPopover>
       _initialized = true;
       if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
         _animation.value = _open ? 1 : 0;
-        if (!_open && _portal.isShowing) _portal.hide();
+        if (!_open && _portal.isShowing) _hidePortal();
       }
     });
   }
@@ -342,7 +339,7 @@ class _DPopoverState extends State<DPopover>
       // its screen is hidden instead of waiting for a muted animation ticker.
       if (!value && immediate && _portal.isShowing) {
         _animation.value = 0;
-        if (_portal.isShowing) _portal.hide();
+        if (_portal.isShowing) _hidePortal();
       }
       return;
     }
@@ -370,7 +367,7 @@ class _DPopoverState extends State<DPopover>
       _DPopoverLayers.deactivate(this);
       if (noMotion) {
         _animation.value = 0;
-        if (_portal.isShowing) _portal.hide();
+        if (_portal.isShowing) _hidePortal();
       } else {
         _animation.reverse();
       }
@@ -410,10 +407,20 @@ class _DPopoverState extends State<DPopover>
     }
   }
 
+  void _hidePortal() {
+    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_open && _portal.isShowing) _portal.hide();
+      });
+    } else if (_portal.isShowing) {
+      _portal.hide();
+    }
+  }
+
   void _animationStatus(AnimationStatus status) {
     if (!mounted || _sheet) return;
     if (status == AnimationStatus.dismissed) {
-      if (_portal.isShowing) _portal.hide();
+      if (_portal.isShowing) _hidePortal();
       widget.onOpenChangeComplete?.call(false);
     } else if (status == AnimationStatus.completed) {
       widget.onOpenChangeComplete?.call(true);

@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget host(
@@ -377,63 +376,11 @@ void main() {
     expect(focus.hasFocus, isFalse);
   });
 
-  testWidgets(
-    'joined input action preserves independent semantics and actions',
-    (tester) async {
-      final handle = tester.ensureSemantics();
-      var submitted = '';
-      await tester.pumpWidget(
-        host(
-          StatefulBuilder(
-            builder: (context, setState) => Column(
-              children: [
-                DInputGroup(
-                  semanticLabel: 'Search group',
-                  children: [
-                    DInputGroupInput(
-                      hintText: 'Type to search...',
-                      semanticLabel: 'Search query',
-                      onChanged: (value) => submitted = value,
-                    ),
-                    DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      child: DInputGroupButton(
-                        label: const Text('Search'),
-                        semanticLabel: 'Search',
-                        onPressed: () =>
-                            setState(() => submitted = 'searched $submitted'),
-                      ),
-                    ),
-                  ],
-                ),
-                Text(submitted),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      await tester.enterText(find.byType(TextField), 'widgets');
-      await tester.tap(find.text('Search'));
-      await tester.pump();
-
-      expect(find.text('searched widgets'), findsOneWidget);
-      final editor = tester.getSemantics(find.byType(EditableText));
-      expect(editor.label, startsWith('Search query'));
-      expect(editor.getSemanticsData().flagsCollection.isTextField, isTrue);
-      final button = tester.getSemantics(find.byType(DButton));
-      expect(button.getSemanticsData().flagsCollection.isButton, isTrue);
-      expect(button.label, contains('Search'));
-      handle.dispose();
-    },
-  );
-
   testWidgets('form reset and validation stay owned by grouped control', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
     final form = GlobalKey<FormState>();
-    String? saved;
     await tester.pumpWidget(
       host(
         Form(
@@ -441,12 +388,10 @@ void main() {
           child: DInputGroup(
             invalid: true,
             children: [
-              DInputGroupInput(
+              DInput(
                 initialValue: 'initial',
                 semanticLabel: 'Username',
-                isRequired: true,
-                validator: (value) => value!.trim().isEmpty ? 'Required' : null,
-                onSaved: (value) => saved = value,
+                validator: (value) => value!.isEmpty ? 'Required' : null,
               ),
               const DInputGroupAddon(
                 alignment: DInputGroupAddonAlignment.inlineEnd,
@@ -474,8 +419,6 @@ void main() {
     );
     await tester.enterText(find.byType(TextField), 'jane');
     expect(form.currentState!.validate(), isTrue);
-    form.currentState!.save();
-    expect(saved, 'jane');
     form.currentState!.reset();
     await tester.pump();
     expect(
@@ -533,11 +476,7 @@ void main() {
             DInputGroup(
               invalid: true,
               children: [
-                DInputGroupInput(
-                  semanticLabel: 'بحث',
-                  isRequired: true,
-                  invalid: true,
-                ),
+                DInputGroupInput(semanticLabel: 'بحث', invalid: true),
                 const DInputGroupAddon(child: Text('١٢ نتيجة')),
               ],
             ),
@@ -626,74 +565,5 @@ void main() {
       addonPadding(const ValueKey('block-end')),
       const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 8),
     );
-  });
-
-  testWidgets('keycap addons use the reduced inset and rounded keycaps', (
-    tester,
-  ) async {
-    final tokens = AppTheme.light.extension<DTokens>()!.copyWith(radius: 4);
-    await tester.pumpWidget(
-      host(
-        theme: AppTheme.light.copyWith(extensions: [tokens]),
-        DInputGroup(
-          children: [
-            DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
-            const DInputGroupAddon(
-              key: ValueKey('direct'),
-              alignment: DInputGroupAddonAlignment.inlineEnd,
-              children: [DKbd('⌘'), DKbd('K')],
-            ),
-            const DInputGroupAddon(
-              key: ValueKey('grouped'),
-              child: DShortcutKeycaps(
-                platform: TargetPlatform.linux,
-                listenToKeyboard: false,
-                shortcut: DShortcut(
-                  SingleActivator(LogicalKeyboardKey.keyK, control: true),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    EdgeInsetsGeometry addonPadding(Key key) => tester
-        .widget<Padding>(
-          find
-              .descendant(of: find.byKey(key), matching: find.byType(Padding))
-              .first,
-        )
-        .padding;
-    BorderRadiusGeometry? keycapRadius(Finder keycap) =>
-        (tester
-                    .widget<AnimatedContainer>(
-                      find.descendant(
-                        of: keycap,
-                        matching: find.byType(AnimatedContainer),
-                      ),
-                    )
-                    .decoration!
-                as BoxDecoration)
-            .borderRadius;
-    expect(
-      addonPadding(const ValueKey('direct')),
-      const EdgeInsetsDirectional.only(end: 5.6, top: 0, bottom: 0),
-    );
-    expect(
-      addonPadding(const ValueKey('grouped')),
-      const EdgeInsetsDirectional.only(start: 5.6, top: 0, bottom: 0),
-    );
-    final command = find.widgetWithText(DKbd, '⌘');
-    final directK = find.descendant(
-      of: find.byKey(const ValueKey('direct')),
-      matching: find.widgetWithText(DKbd, 'K'),
-    );
-    expect(keycapRadius(command), BorderRadius.circular(2.4));
-    expect(keycapRadius(directK), BorderRadius.circular(2.4));
-    expect(
-      keycapRadius(find.widgetWithText(DKbd, 'Ctrl')),
-      BorderRadius.circular(2.4),
-    );
-    expect(tester.getTopLeft(directK).dx - tester.getTopRight(command).dx, 8);
   });
 }

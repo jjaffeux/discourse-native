@@ -334,7 +334,7 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
                   tooltip: context.l10n.removeQuote,
                   semanticLabel: context.l10n.removeQuote,
                   size: DButtonSize.tabAction,
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   icon: const DIcon(DIcons.xmark),
                   onPressed: widget.onRemove,
                 ),

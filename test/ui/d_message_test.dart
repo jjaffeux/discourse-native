@@ -54,7 +54,7 @@ void main() {
     bool footer = false,
   }) => DMessage(
     key: const ValueKey('message'),
-    align: align,
+
     children: [
       const DMessageAvatar(
         child: SizedBox.square(key: ValueKey('avatar'), dimension: 32),
@@ -146,85 +146,11 @@ void main() {
           avatar.bottom,
       32,
     );
-
-    await tester.pumpWidget(
-      host(message(align: DMessageAlign.end, footer: true)),
-    );
-    avatar = tester.getRect(find.byKey(const ValueKey('avatar')));
-    surface = tester.getRect(find.byKey(const ValueKey('surface')));
-    expect(avatar.right, 400);
-    expect(avatar.left - surface.right, 8);
-    expect(
-      tester.getRect(find.byKey(const ValueKey('message'))).bottom -
-          avatar.bottom,
-      32,
-    );
   });
 
   testWidgets('logical alignment reverses under RTL', (tester) async {
     await tester.pumpWidget(host(message(), direction: TextDirection.rtl));
     expect(tester.getRect(find.byKey(const ValueKey('avatar'))).right, 400);
-
-    await tester.pumpWidget(
-      host(message(align: DMessageAlign.end), direction: TextDirection.rtl),
-    );
-    expect(tester.getRect(find.byKey(const ValueKey('avatar'))).left, 0);
-  });
-
-  testWidgets('separate footer leaves the avatar anchored to the bubble', (
-    tester,
-  ) async {
-    for (final align in DMessageAlign.values) {
-      for (final direction in TextDirection.values) {
-        await tester.pumpWidget(
-          host(
-            DMessage(
-              align: align,
-              footer: const SizedBox(height: 80, child: Text('Thread preview')),
-              children: [
-                const DMessageAvatar(
-                  child: SizedBox.square(
-                    key: ValueKey('avatar'),
-                    dimension: 32,
-                  ),
-                ),
-                DMessageContent(
-                  flushMetadata: true,
-                  children: [
-                    const DMessageHeader(
-                      followMessageAlignment: true,
-                      children: [Text('Sender and time')],
-                    ),
-                    DBubble(
-                      align: align == DMessageAlign.end
-                          ? DBubbleAlign.end
-                          : DBubbleAlign.start,
-                      children: const [
-                        DBubbleContent(
-                          key: ValueKey('surface'),
-                          child: Text('Message'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            direction: direction,
-          ),
-        );
-        final avatar = tester.getRect(find.byKey(const ValueKey('avatar')));
-        final bubble = tester.getRect(find.byKey(const ValueKey('surface')));
-        final header = tester.getRect(find.text('Sender and time'));
-        expect(avatar.bottom, bubble.bottom);
-        final rightAligned =
-            (align == DMessageAlign.end) == (direction == TextDirection.ltr);
-        expect(
-          rightAligned ? header.right : header.left,
-          rightAligned ? bubble.right : bubble.left,
-        );
-      }
-    }
   });
 
   testWidgets('preserves direct-child order and intrinsic auxiliary width', (
@@ -314,54 +240,6 @@ void main() {
     expect(metadata.text.style?.fontFamily, 'second-metadata');
   });
 
-  testWidgets('metadata follows message side and ghost removes its inset', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const Column(
-          children: [
-            DMessage(
-              align: DMessageAlign.end,
-              children: [
-                DMessageContent(
-                  children: [
-                    DMessageHeader(children: [Text('Olivia')]),
-                    SizedBox(width: 80, height: 10),
-                    DMessageFooter(children: [Text('Read')]),
-                  ],
-                ),
-              ],
-            ),
-            DMessage(
-              children: [
-                DMessageContent(
-                  children: [
-                    DMessageHeader(
-                      children: [
-                        SizedBox(key: ValueKey('flush'), width: 10, height: 10),
-                      ],
-                    ),
-                    DBubble(
-                      variant: DBubbleVariant.ghost,
-                      children: [DBubbleContent(child: Text('Ghost'))],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-
-    final header = tester.getRect(find.text('Olivia'));
-    final footer = tester.getRect(find.text('Read'));
-    expect(header.left, 12);
-    expect(footer.right, 388);
-    expect(tester.getRect(find.byKey(const ValueKey('flush'))).left, 0);
-  });
-
   testWidgets('header default keeps the reference zero child gap', (
     tester,
   ) async {
@@ -404,12 +282,10 @@ void main() {
     await tester.pumpWidget(
       host(
         DMessage(
-          align: DMessageAlign.end,
           children: [
             DMessageContent(
               children: [
                 const DBubble(
-                  align: DBubbleAlign.end,
                   children: [DBubbleContent(child: Text('Taking a look'))],
                 ),
                 DMessageFooter(
@@ -455,7 +331,6 @@ void main() {
       host(
         const SingleChildScrollView(
           child: DMessage(
-            align: DMessageAlign.end,
             children: [
               DMessageAvatar(),
               DMessageContent(
@@ -464,7 +339,6 @@ void main() {
                     children: [Text('A sender with a long display name')],
                   ),
                   DBubble(
-                    align: DBubbleAlign.end,
                     children: [
                       DBubbleContent(
                         child: Text(

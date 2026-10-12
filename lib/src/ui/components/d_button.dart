@@ -14,9 +14,7 @@ import 'd_kbd.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
-/// The reference variants, [transparentBackground] and [inline] are the
-/// application styling contract.
-/// Legacy names remain source-compatible aliases for external plugin callers.
+/// Native button styles used by the application.
 enum DButtonVariant {
   outline,
 
@@ -27,22 +25,12 @@ enum DButtonVariant {
   ghost,
 
   /// Clear at rest, with a subdued foreground and a neutral interaction fill.
-  transparentBackground,
 
   /// Transparent text action with no horizontal inset, for inline metadata.
   /// Retains the shared control height, keyboard focus and touch target.
   inline,
   destructive,
-  standard,
   primary,
-  danger,
-  success,
-  flat,
-  flatClose,
-  transparent,
-  transparentPrimary,
-  transparentDanger,
-  transparentSuccess,
   link,
 
   /// A compact resume card with an accent icon tile, title, description and
@@ -75,7 +63,6 @@ enum DButtonDensity {
   /// Hierarchical back link: 13px medium text, an 11px chevron and no insets.
   /// Pair with [DButtonVariant.inline]; the hit area follows the label.
   backLink,
-  mobileNavigation,
 
   /// A 46px labelled mobile dock item with a 20px icon and one button target.
   /// The caller supplies the icon capsule and label within the Native kit.
@@ -85,10 +72,6 @@ enum DButtonDensity {
   /// matching the dock's artwork. Icon-only, its square bounds keep the pill
   /// circular, with the hit area matching the visible surface.
   mobileDockAction,
-
-  /// Short toolbar surfaces: 24px high, 32px wide for icon-only actions,
-  /// with 14px icons and matching hit areas on every platform.
-  compactToolbar,
 
   /// Inset window actions: 32 by 28px, 15px icons and a flat hover tint.
   /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
@@ -117,25 +100,6 @@ class DButtonStateStyle {
   final Color backgroundColor;
   final Color iconColor;
   final BorderSide border;
-
-  static DButtonStateStyle lerp(
-    DButtonStateStyle first,
-    DButtonStateStyle second,
-    double t,
-  ) => DButtonStateStyle(
-    foregroundColor: Color.lerp(
-      first.foregroundColor,
-      second.foregroundColor,
-      t,
-    )!,
-    backgroundColor: Color.lerp(
-      first.backgroundColor,
-      second.backgroundColor,
-      t,
-    )!,
-    iconColor: Color.lerp(first.iconColor, second.iconColor, t)!,
-    border: BorderSide.lerp(first.border, second.border, t),
-  );
 }
 
 @immutable
@@ -154,207 +118,43 @@ class DButtonVariantStyle {
 
   /// Surface of an open popup trigger. Defaults to [enabled].
   final DButtonStateStyle expanded;
-
-  static DButtonVariantStyle lerp(
-    DButtonVariantStyle first,
-    DButtonVariantStyle second,
-    double t,
-  ) => DButtonVariantStyle(
-    enabled: DButtonStateStyle.lerp(first.enabled, second.enabled, t),
-    interactive: DButtonStateStyle.lerp(
-      first.interactive,
-      second.interactive,
-      t,
-    ),
-    focused: DButtonStateStyle.lerp(first.focused, second.focused, t),
-    expanded: DButtonStateStyle.lerp(first.expanded, second.expanded, t),
-  );
 }
 
-/// Compatibility data for existing theme and plugin APIs. Button appearance
-/// resolves through DTokens; only disabledOpacity affects the renderer.
+/// Shared button geometry and disabled opacity.
 @immutable
 class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
   const DiscourseButtonTheme({
     required this.borderRadius,
-    required this.standard,
-    required this.primary,
-    required this.danger,
-    required this.success,
-    required this.flat,
-    required this.flatClose,
-    required this.transparent,
-    required this.transparentPrimary,
-    required this.transparentDanger,
-    required this.transparentSuccess,
-    required this.link,
     this.disabledOpacity = 0.6,
   });
-
   final double borderRadius;
   final double disabledOpacity;
-  final DButtonVariantStyle standard;
-  final DButtonVariantStyle primary;
-  final DButtonVariantStyle danger;
-  final DButtonVariantStyle success;
-  final DButtonVariantStyle flat;
-  final DButtonVariantStyle flatClose;
-  final DButtonVariantStyle transparent;
-  final DButtonVariantStyle transparentPrimary;
-  final DButtonVariantStyle transparentDanger;
-  final DButtonVariantStyle transparentSuccess;
-  final DButtonVariantStyle link;
-
-  factory DiscourseButtonTheme.fromColors(
-    ColorScheme colors, {
-    required double borderRadius,
-    required Color hover,
-    required Color success,
-  }) {
-    const none = BorderSide.none;
-
-    DButtonStateStyle state({
-      required Color foreground,
-      required Color background,
-      Color? icon,
-      BorderSide border = none,
-    }) => DButtonStateStyle(
-      foregroundColor: foreground,
-      backgroundColor: background,
-      iconColor: icon ?? foreground,
-      border: border,
-    );
-
-    DButtonVariantStyle filled({
-      required Color background,
-      required Color foreground,
-      Color? interactiveBackground,
-    }) => DButtonVariantStyle(
-      enabled: state(foreground: foreground, background: background),
-      interactive: state(
-        foreground: foreground,
-        background: interactiveBackground ?? background.withValues(alpha: 0.8),
-      ),
-    );
-
-    DButtonVariantStyle transparent(Color foreground) => DButtonVariantStyle(
-      enabled: state(foreground: foreground, background: Colors.transparent),
-      interactive: state(foreground: foreground, background: hover),
-    );
-
-    final standard = DButtonVariantStyle(
-      enabled: state(
-        foreground: colors.onSurface,
-        background: colors.surfaceContainerHigh,
-        border: BorderSide(color: colors.outlineVariant),
-      ),
-      interactive: state(
-        foreground: colors.onSurface,
-        background: hover,
-        border: BorderSide(color: colors.outline),
-      ),
-    );
-    final flat = transparent(colors.onSurfaceVariant);
-
-    return DiscourseButtonTheme(
-      borderRadius: borderRadius,
-      standard: standard,
-      primary: filled(background: colors.primary, foreground: colors.onPrimary),
-      danger: filled(background: colors.error, foreground: colors.onError),
-      success: filled(background: success, foreground: colors.surface),
-      flat: flat,
-      flatClose: flat,
-      transparent: DButtonVariantStyle(
-        enabled: state(
-          foreground: colors.onSurface,
-          icon: colors.onSurfaceVariant,
-          background: Colors.transparent,
-        ),
-        interactive: state(
-          foreground: colors.primary,
-          background: Colors.transparent,
-        ),
-      ),
-      transparentPrimary: transparent(colors.primary),
-      transparentDanger: transparent(colors.error),
-      transparentSuccess: transparent(success),
-      link: transparent(colors.primary),
-    );
-  }
-
   @override
   DiscourseButtonTheme copyWith({
     double? borderRadius,
     double? disabledOpacity,
-    DButtonVariantStyle? standard,
-    DButtonVariantStyle? primary,
-    DButtonVariantStyle? danger,
-    DButtonVariantStyle? success,
-    DButtonVariantStyle? flat,
-    DButtonVariantStyle? flatClose,
-    DButtonVariantStyle? transparent,
-    DButtonVariantStyle? transparentPrimary,
-    DButtonVariantStyle? transparentDanger,
-    DButtonVariantStyle? transparentSuccess,
-    DButtonVariantStyle? link,
   }) => DiscourseButtonTheme(
     borderRadius: borderRadius ?? this.borderRadius,
     disabledOpacity: disabledOpacity ?? this.disabledOpacity,
-    standard: standard ?? this.standard,
-    primary: primary ?? this.primary,
-    danger: danger ?? this.danger,
-    success: success ?? this.success,
-    flat: flat ?? this.flat,
-    flatClose: flatClose ?? this.flatClose,
-    transparent: transparent ?? this.transparent,
-    transparentPrimary: transparentPrimary ?? this.transparentPrimary,
-    transparentDanger: transparentDanger ?? this.transparentDanger,
-    transparentSuccess: transparentSuccess ?? this.transparentSuccess,
-    link: link ?? this.link,
   );
-
   @override
-  DiscourseButtonTheme lerp(covariant DiscourseButtonTheme? other, double t) {
-    if (other == null) return this;
-    return DiscourseButtonTheme(
-      borderRadius: lerpDouble(borderRadius, other.borderRadius, t)!,
-      disabledOpacity: lerpDouble(disabledOpacity, other.disabledOpacity, t)!,
-      standard: DButtonVariantStyle.lerp(standard, other.standard, t),
-      primary: DButtonVariantStyle.lerp(primary, other.primary, t),
-      danger: DButtonVariantStyle.lerp(danger, other.danger, t),
-      success: DButtonVariantStyle.lerp(success, other.success, t),
-      flat: DButtonVariantStyle.lerp(flat, other.flat, t),
-      flatClose: DButtonVariantStyle.lerp(flatClose, other.flatClose, t),
-      transparent: DButtonVariantStyle.lerp(transparent, other.transparent, t),
-      transparentPrimary: DButtonVariantStyle.lerp(
-        transparentPrimary,
-        other.transparentPrimary,
-        t,
-      ),
-      transparentDanger: DButtonVariantStyle.lerp(
-        transparentDanger,
-        other.transparentDanger,
-        t,
-      ),
-      transparentSuccess: DButtonVariantStyle.lerp(
-        transparentSuccess,
-        other.transparentSuccess,
-        t,
-      ),
-      link: DButtonVariantStyle.lerp(link, other.link, t),
-    );
-  }
+  DiscourseButtonTheme lerp(covariant DiscourseButtonTheme? other, double t) =>
+      other == null
+      ? this
+      : DiscourseButtonTheme(
+          borderRadius: lerpDouble(borderRadius, other.borderRadius, t)!,
+          disabledOpacity: lerpDouble(
+            disabledOpacity,
+            other.disabledOpacity,
+            t,
+          )!,
+        );
 }
 
 extension DiscourseButtonThemeAccess on ThemeData {
   DiscourseButtonTheme get discourseButtons =>
       extension<DiscourseButtonTheme>() ??
-      DiscourseButtonTheme.fromColors(
-        colorScheme,
-        borderRadius: DRadius.control,
-        hover: colorScheme.surfaceContainerHigh,
-        success: const Color(0xFF009900),
-      );
+      const DiscourseButtonTheme(borderRadius: DRadius.control);
 }
 
 /// A compact Native button with application-owned activation and busy state.
@@ -395,7 +195,7 @@ class DButton extends StatelessWidget {
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
-    this.animationDuration,
+
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -421,7 +221,7 @@ class DButton extends StatelessWidget {
     this.autofocus = false,
     this.alignment = Alignment.center,
     this.shape = DButtonShape.rounded,
-    this.animationDuration,
+
     this.borderRadius,
     this.backgroundColor,
     this.foregroundColor,
@@ -505,9 +305,6 @@ class DButton extends StatelessWidget {
   /// Primary actions default to a pill; other buttons use the control radius.
   final DButtonShape shape;
 
-  /// Overrides the button's state and shape transition duration.
-  /// Reduced motion still applies changes immediately.
-  final Duration? animationDuration;
   final BorderRadiusGeometry? borderRadius;
 
   /// Overrides the variant's fill in every state, including expanded and
@@ -530,12 +327,6 @@ class DButton extends StatelessWidget {
 
   static double fontSizeFor(DButtonSize size) => DControlStyle.fontSize(size);
 
-  static double visualDimensionFor(DButtonSize size) =>
-      DControlStyle.height(size);
-
-  static double iconOnlyDimensionFor(DButtonSize size) =>
-      DControlStyle.height(size);
-
   /// Two text lines and visible insets, growing with the user's text size.
   static double resumeHeight(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -552,19 +343,6 @@ class DButton extends StatelessWidget {
     );
     return DControlStyle.isTouch(context) ? height : height * 20 / 34;
   }
-
-  DButtonVariant get _visualVariant => switch (variant) {
-    DButtonVariant.standard => DButtonVariant.outline,
-    DButtonVariant.danger ||
-    DButtonVariant.transparentDanger => DButtonVariant.destructive,
-    DButtonVariant.success ||
-    DButtonVariant.transparentSuccess ||
-    DButtonVariant.transparentPrimary => DButtonVariant.primary,
-    DButtonVariant.flat ||
-    DButtonVariant.flatClose ||
-    DButtonVariant.transparent => DButtonVariant.ghost,
-    _ => variant,
-  };
 
   DButtonVariantStyle _referenceStyle(DTokens tokens, bool dark) {
     final buttons = tokens.buttonTheme;
@@ -613,7 +391,7 @@ class DButton extends StatelessWidget {
         buttons.outline.hoverBorder,
       ),
     );
-    return switch (_visualVariant) {
+    return switch (variant) {
       DButtonVariant.resume => pair(
         buttons.outline.background,
         buttons.outline.background,
@@ -640,8 +418,7 @@ class DButton extends StatelessWidget {
         ),
         focused: state(Colors.transparent, tokens.foreground, tokens.border),
       ),
-      DButtonVariant.ghost ||
-      DButtonVariant.transparentBackground => DButtonVariantStyle(
+      DButtonVariant.ghost => DButtonVariantStyle(
         enabled: state(Colors.transparent, subduedForeground),
         interactive: state(buttons.accent.hover, tokens.foreground),
         focused: state(Colors.transparent, tokens.foreground),
@@ -663,7 +440,6 @@ class DButton extends StatelessWidget {
         Colors.transparent,
         tokens.primary,
       ),
-      _ => throw StateError('Unresolved legacy button variant: $variant'),
     };
   }
 
@@ -681,10 +457,10 @@ class DButton extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final chrome = density == DButtonDensity.chrome;
     final variantStyle = _referenceStyle(tokens, dark);
-    final mobileNavigation = density == DButtonDensity.mobileNavigation;
+
     final mobileDock = density == DButtonDensity.mobileDock;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
-    final compactToolbar = density == DButtonDensity.compactToolbar;
+
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
     final inlineMetadata = density == DButtonDensity.inlineMetadata;
@@ -699,15 +475,9 @@ class DButton extends StatelessWidget {
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
     final effectiveSize = backLink
         ? DButtonSize.toolbar
-        : compactToolbar
-        ? DButtonSize.small
-        : avatar ||
-              mobileNavigation ||
-              mobileDock ||
-              mobileDockAction ||
-              composerBlock
-        ? DButtonSize.regular
-        : size;
+        : ((avatar) || mobileDock || mobileDockAction || composerBlock
+              ? DButtonSize.regular
+              : size);
     final fontSize = inlineMetadata
         ? 12.0
         : dashedTile
@@ -720,23 +490,19 @@ class DButton extends StatelessWidget {
         ? 11.0
         : mobileDock || mobileDockAction
         ? 20.0 + MediaQuery.textScalerOf(context).scale(11) - 11
-        : mobileNavigation
-        ? 18.0
-        : chatMessageAction
-        ? 16.0
-        : compactToolbar
-        ? 14.0
-        : DControlStyle.iconDimension(effectiveSize, context: context);
+        : (chatMessageAction
+              ? 16.0
+              : (DControlStyle.iconDimension(effectiveSize, context: context)));
     final gap = dashedTile ? 12.0 : DControlStyle.contentGap(effectiveSize);
     final standardDimension =
         DControlStyle.scaledHeight(
           effectiveSize,
           MediaQuery.textScalerOf(context),
-          context: compactToolbar ? null : context,
+          context: (context),
         ).clamp(
           mobileDock
               ? 46.0
-              : mobileNavigation || mobileDockAction
+              : (mobileDockAction)
               ? 44.0
               : 0.0,
           double.infinity,
@@ -795,7 +561,7 @@ class DButton extends StatelessWidget {
         ? visualDimension + 4
         : composerBlock
         ? composerBlockWidth(context)
-        : compactToolbar || effectiveSize == DControlSize.chip
+        : (effectiveSize == DControlSize.chip)
         ? visualDimension + 8
         : visualDimension;
     final surfaceHeight = visualDimension;
@@ -818,10 +584,9 @@ class DButton extends StatelessWidget {
     }
     final effectiveAnimationDuration = DMotion.duration(
       context,
-      animationDuration ?? DControlStyle.duration,
+      DControlStyle.duration,
     );
-    final destructiveRing =
-        invalid || _visualVariant == DButtonVariant.destructive;
+    final destructiveRing = invalid || variant == DButtonVariant.destructive;
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
 
     DButtonStateStyle withBackground(
@@ -869,8 +634,8 @@ class DButton extends StatelessWidget {
       }
       if (states.contains(WidgetState.disabled)) {
         final base = withBackground(variantStyle.enabled);
-        return _visualVariant == DButtonVariant.primary ||
-                _visualVariant == DButtonVariant.destructive ||
+        return variant == DButtonVariant.primary ||
+                variant == DButtonVariant.destructive ||
                 foregroundColor != null
             ? base
             : DButtonStateStyle(
@@ -883,8 +648,7 @@ class DButton extends StatelessWidget {
       final interactive =
           states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.pressed);
-      if (expanded &&
-          (!interactive || _visualVariant == DButtonVariant.secondary)) {
+      if (expanded && (!interactive || variant == DButtonVariant.secondary)) {
         return withBackground(variantStyle.expanded);
       }
       if (interactive) {
@@ -955,7 +719,7 @@ class DButton extends StatelessWidget {
                     fontSize,
           fontWeight: mobileDock || backLink
               ? FontWeight.w500
-              : _visualVariant == DButtonVariant.primary || dashedTile
+              : variant == DButtonVariant.primary || dashedTile
               ? FontWeight.w600
               : FontWeight.w400,
           letterSpacing: 0,
@@ -1040,8 +804,8 @@ class DButton extends StatelessWidget {
                   radius: radius,
                   color: state.backgroundColor,
                   accented:
-                      _visualVariant == DButtonVariant.primary ||
-                      _visualVariant == DButtonVariant.destructive,
+                      variant == DButtonVariant.primary ||
+                      variant == DButtonVariant.destructive,
                   child: surface,
                 ),
         );
@@ -1121,8 +885,7 @@ class DButton extends StatelessWidget {
     if (avatar && _iconOnly) {
       child = SizedBox.expand(child: child);
     }
-    if (mobileNavigation ||
-        mobileDock ||
+    if ((mobileDock) ||
         mobileDockAction ||
         DControlStyle.isApplicationSize(effectiveSize)) {
       child = DIconGlyphTheme(

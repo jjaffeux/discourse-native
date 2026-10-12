@@ -37,7 +37,7 @@ class DHistoryTransition extends StatefulWidget {
     this.previousEntry,
     this.nextEntry,
     this.previousPreview,
-    this.nextPreview,
+
     this.onBack,
     this.onForward,
     this.tabIndex,
@@ -66,12 +66,6 @@ class DHistoryTransition extends StatefulWidget {
   /// Do not supply a second renderer for a history page; its snapshot is used
   /// automatically. A [GlobalKey] can preserve it when it becomes [child].
   final Widget? previousPreview;
-
-  /// A live next navigation surface, kept ready before the first swipe.
-  ///
-  /// Like [previousPreview], this remains inert and mounted offstage until a
-  /// swipe reveals it. Use a snapshot for history pages with a live renderer.
-  final Widget? nextPreview;
 
   /// The selected tab's visual order. A changed index slides and fades pages in
   /// that direction, mirrored in RTL, even when [history] resets for a new tab.
@@ -536,10 +530,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       ),
                     ),
                   ),
-                  if (widget.nextPreview case final live?)
-                    previewLayer(live, back: false)
-                  else if (active && !_back)
-                    previewLayer(preview, back: false),
+                  if (active && !_back) previewLayer(preview, back: false),
                 ],
               );
             },

@@ -24,7 +24,6 @@ Future<void> _pump(
   bool sortable = true,
   TextDirection direction = TextDirection.ltr,
   DDataTableVariant variant = DDataTableVariant.softHeader,
-  EdgeInsetsGeometry? padding,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -46,7 +45,7 @@ Future<void> _pump(
                   DDataTableColumn(
                     id: 'name',
                     label: 'Name',
-                    padding: padding,
+
                     resizable: true,
                     width: const FixedColumnWidth(250),
                     compare: sortable ? (a, b) => a.compareTo(b) : null,
@@ -191,19 +190,6 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-
-  testWidgets('explicit column padding is respected by the soft variant', (
-    tester,
-  ) async {
-    await _pump(tester, padding: EdgeInsets.zero);
-    final cell = find.ancestor(
-      of: find.text('Zara'),
-      matching: find.byType(DTableCell),
-    );
-    expect(tester.widget<DTableCell>(cell).padding, EdgeInsets.zero);
-    expect(tester.getSize(cell).height, 21);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('passive reusable headers share the soft typography', (
     tester,

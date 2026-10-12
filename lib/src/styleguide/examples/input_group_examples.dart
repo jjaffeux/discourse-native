@@ -73,14 +73,7 @@ final inputGroupExamples = ComponentExamples(
       builder: (_) => DInputGroup(
         viewportHeight: 104,
         children: [
-          DInputGroupTextarea(
-            maxLines: null,
-            initialValue: List.generate(
-              12,
-              (i) => 'Message line ${i + 1}',
-            ).join('\n'),
-            hintText: 'Write a message...',
-          ),
+          DInputGroupTextarea(maxLines: null, hintText: 'Write a message...'),
           const DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.blockStart,
             child: Text('Message details'),
@@ -214,15 +207,8 @@ final inputGroupExamples = ComponentExamples(
       description:
           'A block-end addon can hold counters and buttons below a multiline editor.',
       states: const ['Textarea', 'Counter', 'Block end', 'Submit'],
-      code: '''DInputGroup(children: [
-  DInputGroupTextarea(controller: controller, maxLength: 280,
-    hintText: 'Write a message...', semanticLabel: 'Message'),
-  DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd, child:
-    Row(children: [
-      Expanded(child: Text('\${controller.text.length}/280')),
-      DInputGroupButton(label: Text('Post'), onPressed: post),
-    ])),
-])''',
+      code:
+          "DInputGroup(children: [\n  DInputGroupTextarea(controller: controller, \n    hintText: 'Write a message...', semanticLabel: 'Message'),\n  DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd, child:\n    Row(children: [\n      Expanded(child: Text('\${controller.text.length}/280')),\n      DInputGroupButton(label: Text('Post'), onPressed: post),\n    ])),\n])",
       builder: (_) => const _TextareaFooterExample(),
     ),
     StyleguideExample(
@@ -247,18 +233,8 @@ final inputGroupExamples = ComponentExamples(
       description:
           'Field owns the external label, description and error while the grouped editor retains Form, focus, save and reset ownership.',
       states: const ['Field', 'Form', 'Invalid', 'Reset', 'Read-only'],
-      code: '''Form(key: form, child: DField(invalid: invalid, children: [
-  DFieldLabel(focusNode: focusNode, excludeSemantics: true,
-    child: Text('Username')),
-  DInputGroup(invalid: invalid, children: [
-    DInputGroupInput(focusNode: focusNode, initialValue: 'alex',
-      semanticLabel: 'Username', validator: validate, onSaved: save),
-    DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
-      child: DInputGroupText(Text('@company.com'))),
-  ]),
-  DFieldDescription(child: Text('Choose your workspace username.')),
-  if (invalid) DFieldError(errors: ['Required']),
-]))''',
+      code:
+          "Form(key: form, child: DField(invalid: invalid, children: [\n  DFieldLabel(focusNode: focusNode, excludeSemantics: true,\n    child: Text('Username')),\n  DInputGroup(invalid: invalid, children: [\n    DInputGroupInput(focusNode: focusNode, \n      semanticLabel: 'Username',  ),\n    DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,\n      child: DInputGroupText(Text('@company.com'))),\n  ]),\n  DFieldDescription(child: Text('Choose your workspace username.')),\n  if (invalid) DFieldError(errors: ['Required']),\n]))",
       builder: (_) => const _FormExample(),
     ),
     StyleguideExample(
@@ -458,7 +434,6 @@ class _InputGroupButtonActionsExampleState
             child: DInputGroupButton(
               label: const Text('Search'),
               onPressed: _busy ? null : _search,
-              loading: _busy,
             ),
           ),
         ],
@@ -546,7 +521,7 @@ class _KbdSpinnerExample extends StatelessWidget {
                   child: DInputGroupButton(
                     label: const Text('Search in'),
                     icon: const Icon(Icons.arrow_drop_down, size: 16),
-                    iconPosition: DButtonIconPosition.end,
+
                     hasPopup: true,
                     focusNode: menu.focusNode,
                     onPressed: menu.toggle,
@@ -560,11 +535,7 @@ class _KbdSpinnerExample extends StatelessWidget {
       const SizedBox(height: DSpacing.md),
       DInputGroup(
         children: [
-          DInputGroupInput(
-            enabled: false,
-            initialValue: 'Saving changes...',
-            semanticLabel: 'Saving changes',
-          ),
+          DInputGroupInput(enabled: false, semanticLabel: 'Saving changes'),
           const DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: DSpinner(size: 16, semanticLabel: null),
@@ -625,8 +596,6 @@ class _TextareaFooterExampleState extends State<_TextareaFooterExample> {
             controller: _controller,
             hintText: 'Write a message...',
             semanticLabel: 'Message',
-            maxLength: 280,
-            inputFormatters: [LengthLimitingTextInputFormatter(280)],
           ),
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.blockEnd,
@@ -716,6 +685,7 @@ class _FormExampleState extends State<_FormExample> {
   final _focus = FocusNode();
   bool _invalid = false;
   String _status = 'Not saved';
+  String _username = '';
 
   @override
   void dispose() {
@@ -740,15 +710,7 @@ class _FormExampleState extends State<_FormExample> {
             DInputGroup(
               invalid: _invalid,
               children: [
-                DInputGroupInput(
-                  focusNode: _focus,
-                  initialValue: 'alex',
-                  semanticLabel: 'Username',
-                  isRequired: true,
-                  validator: (value) =>
-                      value!.trim().isEmpty ? 'Required' : null,
-                  onSaved: (value) => _status = 'Saved $value',
-                ),
+                DInput(focusNode: _focus, semanticLabel: 'Username', validator: (value) => (value ?? '').trim().isEmpty ? 'Required' : null, onChanged: (value) => _username = value),
                 const DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.inlineEnd,
                   child: DInputGroupText(Text('@company.com')),
@@ -771,7 +733,7 @@ class _FormExampleState extends State<_FormExample> {
             label: const Text('Save'),
             onPressed: () => setState(() {
               _invalid = !_form.currentState!.validate();
-              if (!_invalid) _form.currentState!.save();
+              if (!_invalid) _status = 'Saved locally: $_username';
             }),
           ),
           DButton(

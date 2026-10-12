@@ -156,20 +156,8 @@ final pageSurfaceExamples = ComponentExamples(
         'Keyboard',
         'RTL',
       ],
-      code: '''DPageSurface(
-  hideHeaderOnScroll: true,
-  revealHeaderAtEnd: true,
-  scrollBody: true,
-  identity: selectedPage,
-  limitContentSize: limited,
-  tabs: tabs,
-  header: header,
-  headerControls: controls,
-  footer: footer,
-  child: DPageReadingLaneBox(
-    child: Column(children: rows),
-  ),
-)''',
+      code:
+          "DPageSurface(\n  hideHeaderOnScroll: true,\n  revealHeaderAtEnd: true,\n  \n  identity: selectedPage,\n  limitContentSize: limited,\n  tabs: tabs,\n  header: header,\n  headerControls: controls,\n  footer: footer,\n  child: DPageReadingLaneBox(\n    child: Column(children: rows),\n  ),\n)",
       builder: (_) => const SizedBox(height: 460, child: _PageExample()),
     ),
   ],
@@ -189,7 +177,7 @@ class _PageExampleState extends State<_PageExample> {
   Widget build(BuildContext context) => DPageSurface(
     hideHeaderOnScroll: true,
     revealHeaderAtEnd: true,
-    scrollBody: true,
+
     identity: _page,
     limitContentSize: _limited,
     tabs: DTabs<String>.controlled(
@@ -235,21 +223,23 @@ class _PageExampleState extends State<_PageExample> {
         child: const Text('Limit content width'),
       ),
     ),
-    child: DPageReadingLaneBox(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
-        child: Column(
-          key: ValueKey(_page),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var index = 0; index < 100; index++) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
-                child: Text('$_page · ${index + 1}'),
-              ),
-              const DSeparator(),
+    child: SingleChildScrollView(
+      child: DPageReadingLaneBox(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
+          child: Column(
+            key: ValueKey(_page),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < 100; index++) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
+                  child: Text('$_page · ${index + 1}'),
+                ),
+                const DSeparator(),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     ),

@@ -148,12 +148,8 @@ final comboboxExamples = ComponentExamples(
       title: 'Clear Button',
       description:
           'A clear action replaces the trigger whenever the field has a value.',
-      code: '''DCombobox<String>(
-  initialValue: 'next',
-  options: frameworks,
-  anchor: const DComboboxInput<String>(showClear: true),
-  content: content,
-)''',
+      code:
+          "DCombobox<String>(\n  \n  options: frameworks,\n  anchor: const DComboboxInput<String>(),\n  content: content,\n)",
       builder: (_) => const _BasicCombobox(clear: true, initialValue: 'next'),
     ),
     StyleguideExample(
@@ -168,11 +164,8 @@ final comboboxExamples = ComponentExamples(
       description:
           'Invalid is communicated semantically and with an exterior destructive ring.',
       states: const ['Invalid', 'Focus ring'],
-      code: '''DCombobox<String>(
-  options: frameworks,
-  anchor: const DComboboxInput<String>(invalid: true),
-  content: content,
-)''',
+      code:
+          "DCombobox<String>(\n  options: frameworks,\n  anchor: const DComboboxInput<String>(),\n  content: content,\n)",
       builder: (_) => const _BasicCombobox(invalid: true),
     ),
     StyleguideExample(
@@ -210,17 +203,8 @@ final comboboxExamples = ComponentExamples(
       title: 'Input Group',
       description:
           'A globe addon shares the compact input surface and the popup aligns past it.',
-      code: '''DComboboxInput<String>(
-  addons: const [
-    DInputGroupAddon(child: DIcon(DIcons.globe, size: 16)),
-  ],
-  placeholder: 'Select a timezone',
-)
-
-DComboboxContent<String>(
-  width: 240,
-  alignOffset: -28,
-)''',
+      code:
+          "DComboboxInput<String>(\n  addons: const [\n    DInputGroupAddon(child: DIcon(DIcons.globe, size: 16)),\n  ],\n  placeholder: 'Select a timezone',\n)\n\nDComboboxContent<String>(\n  width: 240,\n  \n)",
       builder: (_) => const _GroupsCombobox(inputGroup: true),
     ),
     StyleguideExample(
@@ -304,18 +288,8 @@ const _basicCode = '''DCombobox<String>(
   ]),
 )''';
 
-const _multipleCode = '''DCombobox<String>.multiple(
-  initialValue: const ['next'],
-  autoHighlight: true,
-  options: frameworks,
-  anchor: const DComboboxChips<String>(
-    input: DComboboxChipsInput<String>(placeholder: 'Add framework'),
-  ),
-  content: const DComboboxContent(children: [
-    DComboboxEmpty<String>(child: Text('No items found.')),
-    DComboboxList<String>(),
-  ]),
-)''';
+const _multipleCode =
+    "DCombobox<String>.multiple(\n  \n  autoHighlight: true,\n  options: frameworks,\n  anchor: const DComboboxChips<String>(\n    input: DComboboxChipsInput<String>(placeholder: 'Add framework'),\n  ),\n  content: const DComboboxContent(children: [\n    DComboboxEmpty<String>(child: Text('No items found.')),\n    DComboboxList<String>(),\n  ]),\n)";
 
 const _groupsCode = '''DCombobox<String>(
   options: const [],
@@ -343,34 +317,11 @@ const _customCode = '''DCombobox<String>(
   ]),
 )''';
 
-const _popupCode = '''DCombobox<String>(
-  initialValue: 'ca',
-  options: countries,
-  anchor: DComboboxTrigger<String>(builder: (context, trigger) => DButton(
-    label: DComboboxValue<String>(placeholder: 'Select country'),
-    variant: DButtonVariant.outline,
-    focusNode: trigger.focusNode,
-    onPressed: trigger.toggle,
-  )),
-  content: const DComboboxContent(children: [
-    Padding(padding: EdgeInsets.all(4), child:
-      DComboboxInput<String>(registerAsAnchor: false, showTrigger: false)),
-    DComboboxEmpty<String>(child: Text('No items found.')),
-    DComboboxList<String>(),
-  ]),
-)''';
+const _popupCode =
+    "DCombobox<String>(\n  \n  options: countries,\n  anchor: DComboboxTrigger<String>(builder: (context, trigger) => DButton(\n    label: DComboboxValue<String>(placeholder: 'Select country'),\n    variant: DButtonVariant.outline,\n    focusNode: trigger.focusNode,\n    onPressed: trigger.toggle,\n  )),\n  content: const DComboboxContent(children: [\n    Padding(padding: EdgeInsets.all(4), child:\n      DComboboxInput<String>(registerAsAnchor: false, showTrigger: false)),\n    DComboboxEmpty<String>(child: Text('No items found.')),\n    DComboboxList<String>(),\n  ]),\n)";
 
-const _rtlCode = '''Directionality(
-  textDirection: TextDirection.rtl,
-  child: DCombobox<String>.multiple(
-    initialValue: const ['technology'],
-    options: categories,
-    anchor: const DComboboxChips<String>(
-      input: DComboboxChipsInput<String>(placeholder: 'أضف فئات'),
-    ),
-    content: const DComboboxContent(children: [DComboboxList<String>()]),
-  ),
-)''';
+const _rtlCode =
+    "Directionality(\n  textDirection: TextDirection.rtl,\n  child: DCombobox<String>.multiple(\n    \n    options: categories,\n    anchor: const DComboboxChips<String>(\n      input: DComboboxChipsInput<String>(placeholder: 'أضف فئات'),\n    ),\n    content: const DComboboxContent(children: [DComboboxList<String>()]),\n  ),\n)";
 
 class _BasicCombobox extends StatelessWidget {
   const _BasicCombobox({
@@ -386,15 +337,10 @@ class _BasicCombobox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DCombobox<String>(
-    initialValue: initialValue,
     options: _frameworks,
     enabled: enabled,
     autoHighlight: autoHighlight,
-    anchor: DComboboxInput<String>(
-      placeholder: 'Select a framework',
-      showClear: clear,
-      invalid: invalid,
-    ),
+    anchor: const DComboboxInput<String>(placeholder: 'Select a framework'),
     content: const DComboboxContent(
       children: [
         DComboboxEmpty<String>(child: Text('No items found.')),
@@ -409,7 +355,6 @@ class _MultipleCombobox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DCombobox<String>.multiple(
-    initialValue: const ['next'],
     options: _frameworks,
     autoHighlight: true,
     anchor: const DComboboxChips<String>(
@@ -440,7 +385,7 @@ class _GroupsCombobox extends StatelessWidget {
     ),
     content: DComboboxContent(
       width: inputGroup ? 240 : 280,
-      alignOffset: inputGroup ? -28 : 0,
+
       children: const [
         DComboboxEmpty<String>(child: Text('No timezones found.')),
         DComboboxList<String>(),
@@ -487,7 +432,6 @@ class _PopupCombobox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DCombobox<String>(
-    initialValue: 'ca',
     options: _countries,
     anchor: DComboboxTrigger<String>(
       builder: (context, trigger) => DButton(
@@ -537,7 +481,6 @@ class _RtlCombobox extends StatelessWidget {
         const Text('الفئات'),
         const SizedBox(height: 8),
         DCombobox<String>.multiple(
-          initialValue: const ['technology'],
           options: categories,
           autoHighlight: true,
           anchor: const DComboboxChips<String>(

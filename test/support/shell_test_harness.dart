@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -173,18 +174,28 @@ Finder sidebarDestination(String label) => find.byElementPredicate((element) {
 
 Finder contentText(String label) => find.byElementPredicate((element) {
   final widget = element.widget;
-  if (widget is! Text || widget.data != label) return false;
+  if (!(widget is TopicTitle && widget.title == label) &&
+      !(widget is Text && widget.data == label)) {
+    return false;
+  }
 
   var inMainContent = false;
+  var insideTopicTitle = false;
   var inForumTabs = false;
   var inStartPage = false;
   element.visitAncestorElements((ancestor) {
     inMainContent |= ancestor.widget is MainContent;
+    insideTopicTitle |=
+        ancestor.widget is TopicTitle &&
+        (ancestor.widget as TopicTitle).title == label;
     inForumTabs |= ancestor.widget is ForumTabsBar;
     inStartPage |= ancestor.widget is NewTabPage;
     return true;
   });
-  return inMainContent && !inForumTabs && !inStartPage;
+  return inMainContent &&
+      !inForumTabs &&
+      !inStartPage &&
+      !(widget is Text && insideTopicTitle);
 }, description: 'content text labelled "$label"');
 
 Future<TestGesture> hoverPost(
@@ -250,5 +261,9 @@ Finder get primaryMainContent => find.byElementPredicate(
   description: 'primary forum content',
 );
 
-Finder topicListTitle(String title) =>
-    find.descendant(of: find.byType(TopicListView), matching: find.text(title));
+Finder topicListTitle(String title) => find.descendant(
+  of: find.byType(TopicListView),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is TopicTitle && widget.title == title,
+  ),
+);

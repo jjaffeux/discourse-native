@@ -18,13 +18,8 @@ enum DMessageAvatarAlignment { bottom, top }
 enum DMessageDeliveryState { pending, delivered, read, failed, deleted }
 
 class _DMessageScope extends InheritedWidget {
-  const _DMessageScope({
-    required this.align,
-    required this.hasFooter,
-    required super.child,
-  });
+  const _DMessageScope({required this.hasFooter, required super.child});
 
-  final DMessageAlign align;
   final bool hasFooter;
 
   static _DMessageScope of(BuildContext context) {
@@ -35,7 +30,7 @@ class _DMessageScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DMessageScope oldWidget) =>
-      align != oldWidget.align || hasFooter != oldWidget.hasFooter;
+      (hasFooter != oldWidget.hasFooter);
 }
 
 /// A presentational conversation row.
@@ -49,20 +44,17 @@ class DMessage extends StatelessWidget {
   const DMessage({
     super.key,
     required this.children,
-    this.align = DMessageAlign.start,
+
     this.avatarAlignment = DMessageAvatarAlignment.bottom,
     this.spacing = DSpacing.sm,
-    this.semanticLabel,
-    this.liveRegion = false,
+
     this.footer,
   });
 
   final List<Widget> children;
-  final DMessageAlign align;
+
   final DMessageAvatarAlignment avatarAlignment;
   final double spacing;
-  final String? semanticLabel;
-  final bool liveRegion;
 
   /// Content below the avatar/body row, such as reactions or a thread link.
   /// It shares message alignment without changing the avatar's bottom anchor.
@@ -78,9 +70,7 @@ class DMessage extends StatelessWidget {
       for (final child in children)
         if (child is DMessageContent) Expanded(child: child) else child,
     ];
-    final laidOutChildren = align == DMessageAlign.end
-        ? rowChildren.reversed.toList()
-        : rowChildren;
+    final laidOutChildren = (rowChildren);
 
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
       fontSize: DiscourseTypography.sm,
@@ -105,16 +95,8 @@ class DMessage extends StatelessWidget {
         ],
       ),
     );
-    if (semanticLabel != null || liveRegion) {
-      row = Semantics(
-        container: true,
-        explicitChildNodes: true,
-        label: semanticLabel,
-        liveRegion: liveRegion,
-        child: row,
-      );
-    }
-    return _DMessageScope(align: align, hasFooter: hasFooter, child: row);
+
+    return _DMessageScope(hasFooter: hasFooter, child: row);
   }
 }
 
@@ -179,14 +161,13 @@ class DMessageAvatar extends StatelessWidget {
   const DMessageAvatar({
     super.key,
     this.child,
-    this.footerOffset = 32,
+
     this.shiftForFooter = true,
     this.minimumExtent = 32,
-  }) : assert(footerOffset >= 0),
-       assert(minimumExtent >= 0);
+  }) : assert(minimumExtent >= 0);
 
   final Widget? child;
-  final double footerOffset;
+
   final bool shiftForFooter;
   final double minimumExtent;
 
@@ -194,7 +175,7 @@ class DMessageAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = _DMessageScope.of(context);
     return Transform.translate(
-      offset: Offset(0, scope.hasFooter && shiftForFooter ? -footerOffset : 0),
+      offset: Offset(0, scope.hasFooter && shiftForFooter ? -32 : 0),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           minWidth: minimumExtent,
@@ -248,11 +229,8 @@ class DMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scope = _DMessageScope.of(context);
     final flush = flushMetadata ?? _containsGhostBubble;
-    final surfaceAlignment = scope.align == DMessageAlign.start
-        ? AlignmentDirectional.centerStart
-        : AlignmentDirectional.centerEnd;
+    const surfaceAlignment = AlignmentDirectional.centerStart;
 
     return _DMessageContentScope(
       flushMetadata: flush,
@@ -303,59 +281,39 @@ class DMessageHeader extends StatelessWidget {
     super.key,
     required this.children,
     this.spacing = 0,
-    this.runSpacing = DSpacing.xs,
-    this.semanticLabel,
+
     this.followMessageAlignment = false,
   });
 
   final List<Widget> children;
   final double spacing;
-  final double runSpacing;
-  final String? semanticLabel;
+
   final bool followMessageAlignment;
 
   @override
   Widget build(BuildContext context) => _DMessageMetadata(
-    alignment:
-        followMessageAlignment &&
-            _DMessageScope.of(context).align == DMessageAlign.end
-        ? WrapAlignment.end
-        : WrapAlignment.start,
-    semanticLabel: semanticLabel,
+    alignment: WrapAlignment.start,
+
     spacing: spacing,
-    runSpacing: runSpacing,
+    runSpacing: DSpacing.xs,
     children: children,
   );
 }
 
 /// Status, timestamp, or independently focusable actions below a message.
 class DMessageFooter extends StatelessWidget {
-  const DMessageFooter({
-    super.key,
-    required this.children,
-    this.spacing = 0,
-    this.runSpacing = DSpacing.xs,
-    this.semanticLabel,
-    this.liveRegion = false,
-  });
+  const DMessageFooter({super.key, required this.children, this.spacing = 0});
 
   final List<Widget> children;
   final double spacing;
-  final double runSpacing;
-  final String? semanticLabel;
-  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) {
-    final align = _DMessageScope.of(context).align;
     return _DMessageMetadata(
-      alignment: align == DMessageAlign.start
-          ? WrapAlignment.start
-          : WrapAlignment.end,
-      semanticLabel: semanticLabel,
-      liveRegion: liveRegion,
+      alignment: WrapAlignment.start,
+
       spacing: spacing,
-      runSpacing: runSpacing,
+      runSpacing: DSpacing.xs,
       children: children,
     );
   }
@@ -367,16 +325,12 @@ class _DMessageMetadata extends StatelessWidget {
     required this.children,
     required this.spacing,
     required this.runSpacing,
-    this.semanticLabel,
-    this.liveRegion = false,
   });
 
   final WrapAlignment alignment;
   final List<Widget> children;
   final double spacing;
   final double runSpacing;
-  final String? semanticLabel;
-  final bool liveRegion;
 
   @override
   Widget build(BuildContext context) {
@@ -390,10 +344,10 @@ class _DMessageMetadata extends StatelessWidget {
       color: tokens.mutedForeground,
     );
     return Semantics(
-      container: semanticLabel != null || liveRegion,
+      container: false,
       explicitChildNodes: true,
-      label: semanticLabel,
-      liveRegion: liveRegion,
+      label: null,
+      liveRegion: false,
       child: Padding(
         padding: flush
             ? EdgeInsets.zero
@@ -418,16 +372,10 @@ class _DMessageMetadata extends StatelessWidget {
 
 /// A generic, localizable delivery-state label for use in a message footer.
 class DMessageStatus extends StatelessWidget {
-  const DMessageStatus({
-    super.key,
-    required this.state,
-    this.label,
-    this.liveRegion = true,
-  });
+  const DMessageStatus({super.key, required this.state, this.label});
 
   final DMessageDeliveryState state;
   final String? label;
-  final bool liveRegion;
 
   String get _defaultLabel => switch (state) {
     DMessageDeliveryState.pending => appL10n.sending,
@@ -443,7 +391,7 @@ class DMessageStatus extends StatelessWidget {
     final tokens = DTokens.of(context);
     return Semantics(
       label: value,
-      liveRegion: liveRegion,
+      liveRegion: true,
       excludeSemantics: true,
       child: Text(
         value,

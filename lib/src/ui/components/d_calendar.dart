@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kalender/kalender.dart' as kalender;
-import 'package:kalender/kalender_extensions.dart' as kalender_ext;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../theme/d_icon.dart';
@@ -54,13 +53,6 @@ class DCalendarDate implements Comparable<DCalendarDate> {
     final lastDay = DateTime.utc(first.year, first.month + 1, 0).day;
     return DCalendarDate(first.year, first.month, math.min(day, lastDay));
   }
-
-  tz.TZDateTime atTime(
-    tz.Location location, {
-    int hour = 0,
-    int minute = 0,
-    int second = 0,
-  }) => tz.TZDateTime(location, year, month, day, hour, minute, second);
 
   DateTime get dateTimeUtc => _value;
 
@@ -170,29 +162,21 @@ typedef DCalendarMonthStringBuilder =
 
 @immutable
 class DCalendarLabels {
-  const DCalendarLabels({
-    this._calendar,
-    this._previousMonth,
-    this._nextMonth,
-    this._chooseMonth,
-    this._chooseYear,
-    this._week,
-    this._booked,
-  });
-  final String? _calendar;
-  String get calendar => _calendar ?? appL10n.calendar;
-  final String? _previousMonth;
-  String get previousMonth => _previousMonth ?? appL10n.previousMonth;
-  final String? _nextMonth;
-  String get nextMonth => _nextMonth ?? appL10n.nextMonth;
-  final String? _chooseMonth;
-  String get chooseMonth => _chooseMonth ?? appL10n.chooseMonth;
-  final String? _chooseYear;
-  String get chooseYear => _chooseYear ?? appL10n.chooseYear;
-  final String? _week;
-  String get week => _week ?? appL10n.week;
-  final String? _booked;
-  String get booked => _booked ?? appL10n.booked;
+  const DCalendarLabels();
+
+  String get calendar => appL10n.calendar;
+
+  String get previousMonth => appL10n.previousMonth;
+
+  String get nextMonth => appL10n.nextMonth;
+
+  String get chooseMonth => appL10n.chooseMonth;
+
+  String get chooseYear => appL10n.chooseYear;
+
+  String get week => appL10n.week;
+
+  String get booked => appL10n.booked;
 }
 
 @immutable
@@ -246,29 +230,8 @@ class DCalendarController extends ChangeNotifier {
   DCalendarDate? get displayedMonth => _displayedMonth;
   DCalendarDate? get focusedDate => _focusedDate;
 
-  void setSelection(DCalendarSelection selection) {
-    _selection = selection;
-    notifyListeners();
-  }
-
   void showMonth(DCalendarDate month) {
     _displayedMonth = DCalendarDate(month.year, month.month, 1);
-    notifyListeners();
-  }
-
-  void focusDate(DCalendarDate date) {
-    _focusedDate = date;
-    notifyListeners();
-  }
-
-  /// Clears the current selection while preserving its selection mode.
-  void clear() {
-    _selection = switch (_selection) {
-      DCalendarSingleSelection() => const DCalendarSingleSelection(null),
-      DCalendarMultipleSelection() => DCalendarMultipleSelection(const []),
-      DCalendarRangeSelection() => const DCalendarRangeSelection(null),
-      null => null,
-    };
     notifyListeners();
   }
 
@@ -390,44 +353,29 @@ class DCalendar extends StatefulWidget {
     super.key,
     this.mode = DCalendarSelectionMode.single,
     this.selection,
-    this.initialSelection,
+
     this.onSelectionChanged,
-    this.displayedMonth,
+
     this.initialDisplayedMonth,
-    this.onDisplayedMonthChanged,
+
     this.controller,
-    this.focusNode,
-    this.autofocus = false,
+
     this.locale,
-    this.location,
+
     this.labels = const DCalendarLabels(),
     this.captionLayout = DCalendarCaptionLayout.label,
     this.numberOfMonths = 1,
-    this.showOutsideDays = true,
-    this.fixedWeeks = false,
-    this.showWeekNumbers = false,
-    this.firstWeekday = DateTime.sunday,
-    this.cellSize = 28,
+
     this.responsiveCellSize,
     this.startMonth,
     this.endMonth,
     this.disabled,
-    this.hidden,
-    this.booked,
+
     this.minRangeDays,
     this.maxRangeDays,
     this.excludeDisabledInRange = false,
-    this.dayBuilder,
-    this.weekNumberBuilder,
-    this.dayNumberBuilder,
-    this.weekdayLabelBuilder,
-    this.monthLabelBuilder,
-    this.yearLabelBuilder,
-    this.dateSemanticLabelBuilder,
+
     this.today,
-    this.bordered = false,
-    this.padding = const EdgeInsets.all(8),
-    this.semanticLabel,
   }) : assert(
          selection == null ||
              (mode == DCalendarSelectionMode.single &&
@@ -438,20 +386,12 @@ class DCalendar extends StatefulWidget {
                  selection is DCalendarRangeSelection),
          'selection must match mode',
        ),
-       assert(
-         initialSelection == null ||
-             (mode == DCalendarSelectionMode.single &&
-                 initialSelection is DCalendarSingleSelection) ||
-             (mode == DCalendarSelectionMode.multiple &&
-                 initialSelection is DCalendarMultipleSelection) ||
-             (mode == DCalendarSelectionMode.range &&
-                 initialSelection is DCalendarRangeSelection),
-         'initialSelection must match mode',
-       ),
+
        assert(numberOfMonths > 0),
-       assert(cellSize >= 24),
+
        assert(
-         firstWeekday >= DateTime.monday && firstWeekday <= DateTime.sunday,
+         DateTime.sunday >= DateTime.monday &&
+             DateTime.sunday <= DateTime.sunday,
        ),
        assert(minRangeDays == null || minRangeDays > 0),
        assert(maxRangeDays == null || maxRangeDays > 0),
@@ -463,44 +403,29 @@ class DCalendar extends StatefulWidget {
 
   final DCalendarSelectionMode mode;
   final DCalendarSelection? selection;
-  final DCalendarSelection? initialSelection;
+
   final DCalendarSelectionChanged? onSelectionChanged;
-  final DCalendarDate? displayedMonth;
+
   final DCalendarDate? initialDisplayedMonth;
-  final ValueChanged<DCalendarDate>? onDisplayedMonthChanged;
+
   final DCalendarController? controller;
-  final FocusNode? focusNode;
-  final bool autofocus;
+
   final Locale? locale;
-  final tz.Location? location;
+
   final DCalendarLabels labels;
   final DCalendarCaptionLayout captionLayout;
   final int numberOfMonths;
-  final bool showOutsideDays;
-  final bool fixedWeeks;
-  final bool showWeekNumbers;
-  final int firstWeekday;
-  final double cellSize;
+
   final double Function(double availableWidth)? responsiveCellSize;
   final DCalendarDate? startMonth;
   final DCalendarDate? endMonth;
   final DCalendarPredicate? disabled;
-  final DCalendarPredicate? hidden;
-  final DCalendarPredicate? booked;
+
   final int? minRangeDays;
   final int? maxRangeDays;
   final bool excludeDisabledInRange;
-  final DCalendarDayBuilder? dayBuilder;
-  final int Function(DCalendarDate weekStart)? weekNumberBuilder;
-  final DCalendarDateStringBuilder? dayNumberBuilder;
-  final DCalendarDateStringBuilder? weekdayLabelBuilder;
-  final DCalendarMonthStringBuilder? monthLabelBuilder;
-  final DCalendarDateStringBuilder? yearLabelBuilder;
-  final DCalendarDateStringBuilder? dateSemanticLabelBuilder;
+
   final DCalendarDate? today;
-  final bool bordered;
-  final EdgeInsetsGeometry padding;
-  final String? semanticLabel;
 
   @override
   State<DCalendar> createState() => _DCalendarState();
@@ -538,14 +463,9 @@ class _DCalendarState extends State<DCalendar> {
   void initState() {
     super.initState();
     _attachController(widget.controller);
-    _attachFocus(widget.focusNode);
-    _selection =
-        widget.selection ??
-        widget.initialSelection ??
-        _controller.selection ??
-        _emptySelection;
+    _attachFocus(null);
+    _selection = widget.selection ?? _controller.selection ?? _emptySelection;
     final anchor =
-        widget.displayedMonth ??
         widget.initialDisplayedMonth ??
         _controller.displayedMonth ??
         _selectionAnchor(_selection!) ??
@@ -562,7 +482,7 @@ class _DCalendarState extends State<DCalendar> {
       displayedMonth: _month,
       focusedDate: _focusedDate,
     );
-    if (_focusedDate != null && (requestedFocus != null || widget.autofocus)) {
+    if (_focusedDate != null && ((requestedFocus != null))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _moveFocus(_focusedDate!);
       });
@@ -585,7 +505,7 @@ class _DCalendarState extends State<DCalendar> {
       _pageControllers.add(
         kalender.KalenderController(
           viewConfiguration: _pageConfiguration(_pageControllers.length),
-          location: widget.location,
+          location: null,
         ),
       );
       _eventsControllers.add(kalender.DefaultEventsController());
@@ -606,17 +526,14 @@ class _DCalendarState extends State<DCalendar> {
       if (widget.selection == null && _controller.selection != null) {
         _selection = _controller.selection;
       }
-      if (widget.displayedMonth == null && _controller.displayedMonth != null) {
+      if ((_controller.displayedMonth != null)) {
         _setMonth(_controller.displayedMonth!, notify: false);
       }
       if (_controller.focusedDate != null) {
         _focusedDate = _controller.focusedDate;
       }
     }
-    if (oldWidget.focusNode != widget.focusNode) {
-      if (_ownsRootFocus) _rootFocus.dispose();
-      _attachFocus(widget.focusNode);
-    }
+
     if (oldWidget.numberOfMonths != widget.numberOfMonths) _ensurePages();
     if (oldWidget.mode != widget.mode && widget.selection == null) {
       _selection = _emptySelection;
@@ -626,19 +543,12 @@ class _DCalendarState extends State<DCalendar> {
       _selection = widget.selection;
       _controller._sync(selection: widget.selection);
     }
-    if (widget.displayedMonth != null &&
-        widget.displayedMonth != oldWidget.displayedMonth) {
-      _setMonth(widget.displayedMonth!, notify: false);
-    }
-    if (oldWidget.firstWeekday != widget.firstWeekday ||
-        oldWidget.showWeekNumbers != widget.showWeekNumbers ||
-        oldWidget.fixedWeeks != widget.fixedWeeks ||
-        oldWidget.startMonth != widget.startMonth ||
-        oldWidget.endMonth != widget.endMonth ||
-        oldWidget.location != widget.location) {
+
+    if (((oldWidget.startMonth != widget.startMonth) ||
+        oldWidget.endMonth != widget.endMonth)) {
       for (var pane = 0; pane < _pageControllers.length; pane++) {
         _pageControllers[pane]
-          ..location = widget.location
+          ..location = null
           ..viewConfiguration = _pageConfiguration(pane);
       }
     }
@@ -700,9 +610,7 @@ class _DCalendarState extends State<DCalendar> {
 
   DCalendarDate get _todayDate {
     if (widget.today case final today?) return today;
-    final now = widget.location == null
-        ? DateTime.now()
-        : tz.TZDateTime.now(widget.location!);
+    final now = (DateTime.now());
     return DCalendarDate.fromDateTime(now);
   }
 
@@ -729,31 +637,22 @@ class _DCalendarState extends State<DCalendar> {
 
   bool _isDisabled(DCalendarDate date) =>
       _outsideBounds(date) || (widget.disabled?.call(date) ?? false);
-  bool _isHidden(DCalendarDate date) => widget.hidden?.call(date) ?? false;
+  bool _isHidden(DCalendarDate date) => false;
 
   void _setMonth(DCalendarDate value, {bool notify = true}) {
     final next = DCalendarDate(value.year, value.month, 1);
     if (!_canShow(next)) return;
     final changed = next != _month;
-    final adoptsMonth = widget.displayedMonth == null || !notify;
-    if (widget.displayedMonth == null) {
+
+    {
       setState(() => _month = next);
-    } else if (!notify) {
-      // A controlled value is only adopted when its owner rebuilds. Keeping the
-      // internal month in sync here also updates captions and navigation bounds,
-      // not only the underlying Kalender page.
-      _month = next;
     }
-    if (adoptsMonth &&
-        (_focusedDate == null || !_isFocusableAndVisible(_focusedDate!))) {
+    if (((_focusedDate == null || !_isFocusableAndVisible(_focusedDate!)))) {
       _focusedDate = _focusableDateForMonth(next, _focusedDate?.day);
     }
-    _controller._sync(
-      displayedMonth: next,
-      focusedDate: adoptsMonth ? _focusedDate : null,
-    );
+    _controller._sync(displayedMonth: next, focusedDate: (_focusedDate));
     _syncPages(next);
-    if (changed && notify) widget.onDisplayedMonthChanged?.call(next);
+    if (changed && notify) {}
   }
 
   DCalendarDate? _focusableDateForMonth(
@@ -938,12 +837,10 @@ class _DCalendarState extends State<DCalendar> {
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       target = shift ? current.addMonths(-12) : current.addDays(-7);
     } else if (event.logicalKey == LogicalKeyboardKey.home) {
-      target = current.addDays(
-        -((current.weekday - widget.firstWeekday + 7) % 7),
-      );
+      target = current.addDays(-((current.weekday - DateTime.sunday + 7) % 7));
     } else if (event.logicalKey == LogicalKeyboardKey.end) {
       target = current.addDays(
-        6 - ((current.weekday - widget.firstWeekday + 7) % 7),
+        6 - ((current.weekday - DateTime.sunday + 7) % 7),
       );
     } else if (event.logicalKey == LogicalKeyboardKey.pageUp ||
         event.logicalKey == LogicalKeyboardKey.pageDown) {
@@ -966,7 +863,7 @@ class _DCalendarState extends State<DCalendar> {
     final tokens = DTokens.of(context);
     return Semantics(
       container: true,
-      label: widget.semanticLabel ?? widget.labels.calendar,
+      label: (widget.labels.calendar),
       child: Focus(
         focusNode: _rootFocus,
         skipTraversal: true,
@@ -982,7 +879,7 @@ class _DCalendarState extends State<DCalendar> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final cell = _effectiveCellSize(context, constraints.maxWidth);
-            final monthWidth = cell * (7 + (widget.showWeekNumbers ? 1 : 0));
+            final monthWidth = cell * (7 + 0);
             final horizontal =
                 widget.numberOfMonths > 1 &&
                 constraints.maxWidth >=
@@ -1009,12 +906,10 @@ class _DCalendarState extends State<DCalendar> {
                 decoration: BoxDecoration(
                   color: tokens.background,
                   borderRadius: BorderRadius.circular(tokens.radius * .8),
-                  border: widget.bordered
-                      ? Border.all(color: tokens.border)
-                      : null,
+                  border: null,
                 ),
                 child: Padding(
-                  padding: widget.padding,
+                  padding: const EdgeInsets.all(8),
                   child: Stack(
                     children: [
                       content,
@@ -1040,7 +935,7 @@ class _DCalendarState extends State<DCalendar> {
   }
 
   double _effectiveCellSize(BuildContext context, double width) {
-    var value = widget.responsiveCellSize?.call(width) ?? widget.cellSize;
+    var value = widget.responsiveCellSize?.call(width) ?? 28;
     value = math.max(
       value,
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) + 12,
@@ -1073,19 +968,18 @@ class _DCalendarState extends State<DCalendar> {
       kalender.MonthViewConfiguration(
         name: 'DCalendar-$pane',
         initialDateTime: _externalDate(_month.addMonths(pane)),
-        firstDayOfWeek: widget.firstWeekday,
-        showWeekNumbers: widget.showWeekNumbers,
+        firstDayOfWeek: DateTime.sunday,
+        showWeekNumbers: false,
         pageIndexCalculator: _DMonthIndexCalculator(
           start: _displayRange.start,
           end: _displayRange.end,
-          firstDayOfWeek: widget.firstWeekday,
-          fixedWeeks: widget.fixedWeeks,
+          firstDayOfWeek: DateTime.sunday,
         ),
       );
 
   Widget _monthPane(int pane, double cell, double width) {
     final month = _month.addMonths(pane);
-    final rows = widget.fixedWeeks ? 6 : _rowsInMonth(month);
+    final rows = (_rowsInMonth(month));
     final laneHeight = cell + 8;
     return SizedBox(
       width: width,
@@ -1136,12 +1030,11 @@ class _DCalendarState extends State<DCalendar> {
     ).addMonths(1).dateTimeUtc,
   );
 
-  DateTime _externalDate(DCalendarDate date) => widget.location == null
-      ? DateTime(date.year, date.month, date.day, 12)
-      : date.atTime(widget.location!, hour: 12);
+  DateTime _externalDate(DCalendarDate date) =>
+      (DateTime(date.year, date.month, date.day, 12));
 
   int _rowsInMonth(DCalendarDate month) {
-    final leading = (month.weekday - widget.firstWeekday + 7) % 7;
+    final leading = (month.weekday - DateTime.sunday + 7) % 7;
     final days = DateTime.utc(month.year, month.month + 1, 0).day;
     return ((leading + days) / 7).ceil();
   }
@@ -1182,11 +1075,7 @@ class _DCalendarState extends State<DCalendar> {
             _dayBackground(context, month, details, cell),
         weekNumberWidth: (_) => cell,
         weekNumberBuilder: (context, range) {
-          final number =
-              widget.weekNumberBuilder?.call(
-                DCalendarDate.fromDateTime(range.start),
-              ) ??
-              _isoWeek(DCalendarDate.fromDateTime(range.start));
+          final number = (_isoWeek(DCalendarDate.fromDateTime(range.start)));
           return Semantics(
             container: true,
             label: '${widget.labels.week} $number',
@@ -1211,10 +1100,6 @@ class _DCalendarState extends State<DCalendar> {
   );
 
   String _weekdayLabel(BuildContext context, DateTime date) {
-    final calendarDate = DCalendarDate.fromDateTime(date);
-    if (widget.weekdayLabelBuilder case final builder?) {
-      return builder(context, calendarDate);
-    }
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
     return DateFormat.E(locale).format(date).characters.take(2).toString();
@@ -1232,8 +1117,7 @@ class _DCalendarState extends State<DCalendar> {
     );
     if (widget.captionLayout == DCalendarCaptionLayout.label) {
       return Text(
-        widget.monthLabelBuilder?.call(context, month, false) ??
-            DateFormat.yMMMM(locale).format(month.dateTimeUtc),
+        (DateFormat.yMMMM(locale).format(month.dateTimeUtc)),
         style: style,
       );
     }
@@ -1249,22 +1133,11 @@ class _DCalendarState extends State<DCalendar> {
               for (var value = 1; value <= 12; value++)
                 DSelectOption<int>(
                   value: value,
-                  label:
-                      widget.monthLabelBuilder?.call(
-                        context,
-                        DCalendarDate(month.year, value, 1),
-                        true,
-                      ) ??
-                      DateFormat.MMM(locale).format(DateTime.utc(2024, value)),
+                  label: (DateFormat.MMM(
+                    locale,
+                  ).format(DateTime.utc(2024, value))),
                   child: Text(
-                    widget.monthLabelBuilder?.call(
-                          context,
-                          DCalendarDate(month.year, value, 1),
-                          true,
-                        ) ??
-                        DateFormat.MMM(
-                          locale,
-                        ).format(DateTime.utc(2024, value)),
+                    (DateFormat.MMM(locale).format(DateTime.utc(2024, value))),
                   ),
                 ),
             ],
@@ -1282,19 +1155,8 @@ class _DCalendarState extends State<DCalendar> {
               for (var year = startYear; year <= endYear; year++)
                 DSelectOption<int>(
                   value: year,
-                  label:
-                      widget.yearLabelBuilder?.call(
-                        context,
-                        DCalendarDate(year, 1, 1),
-                      ) ??
-                      '$year',
-                  child: Text(
-                    widget.yearLabelBuilder?.call(
-                          context,
-                          DCalendarDate(year, 1, 1),
-                        ) ??
-                        '$year',
-                  ),
+                  label: ('$year'),
+                  child: Text(('$year')),
                 ),
             ],
             value: month.year,
@@ -1324,7 +1186,7 @@ class _DCalendarState extends State<DCalendar> {
       date,
       widget.today == null ? packageDetails.isToday : date == widget.today,
     );
-    if (details.hidden || (details.outside && !widget.showOutsideDays)) {
+    if (details.hidden) {
       return const SizedBox.shrink();
     }
     final tokens = DTokens.of(context);
@@ -1377,7 +1239,7 @@ class _DCalendarState extends State<DCalendar> {
   ) {
     final date = DCalendarDate.fromDateTime(rawDate);
     final details = _details(month, date, date == _todayDate);
-    if (details.hidden || (details.outside && !widget.showOutsideDays)) {
+    if (details.hidden) {
       return SizedBox(height: cell);
     }
     final key = '$pane:$date';
@@ -1400,9 +1262,7 @@ class _DCalendarState extends State<DCalendar> {
     }
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
-    final defaultChild = Text(
-      widget.dayNumberBuilder?.call(context, date) ?? '${date.day}',
-    );
+    final defaultChild = Text(('${date.day}'));
     return Align(
       alignment: Alignment.topCenter,
       child: SizedBox(
@@ -1410,9 +1270,7 @@ class _DCalendarState extends State<DCalendar> {
         child: DCalendarDayButton(
           details: details,
           focusNode: focusNode,
-          semanticLabel:
-              widget.dateSemanticLabelBuilder?.call(context, date) ??
-              DateFormat.yMMMMEEEEd(locale).format(rawDate),
+          semanticLabel: (DateFormat.yMMMMEEEEd(locale).format(rawDate)),
           bookedLabel: widget.labels.booked,
           onPressed: details.disabled
               ? null
@@ -1422,9 +1280,7 @@ class _DCalendarState extends State<DCalendar> {
             _controller._sync(focusedDate: date);
           },
           onKeyEvent: (event) => _onDayKey(date, event),
-          child:
-              widget.dayBuilder?.call(context, details, defaultChild) ??
-              defaultChild,
+          child: (defaultChild),
         ),
       ),
     );
@@ -1445,7 +1301,7 @@ class _DCalendarState extends State<DCalendar> {
       today: isToday,
       disabled: _isDisabled(date),
       hidden: _isHidden(date),
-      booked: widget.booked?.call(date) ?? false,
+      booked: false,
       selected: _isSelected(date),
       rangeStart: range?.from == date,
       rangeMiddle:
@@ -1690,39 +1546,16 @@ class _DMonthIndexCalculator extends kalender.MonthIndexCalculator {
     required super.start,
     required super.end,
     required super.firstDayOfWeek,
-    required this.fixedWeeks,
   });
-  final bool fixedWeeks;
-
-  @override
-  kalender_ext.FloatingDateTimeRange rangeFromIndex(
-    int index,
-    tz.Location? location,
-  ) {
-    if (!fixedWeeks) return super.rangeFromIndex(index, location);
-    final month = monthStartFromIndex(index, location);
-    var start = month.startOfWeek(firstDayOfWeek: firstDayOfWeek);
-    if (start.isAfter(month)) start = start.subtract(const Duration(days: 7));
-    return kalender_ext.FloatingDateTimeRange(
-      start: start,
-      end: start.add(const Duration(days: 42)),
-    );
-  }
 
   @override
   bool operator ==(Object other) =>
-      other is _DMonthIndexCalculator &&
+      (other is _DMonthIndexCalculator &&
       other.start == start &&
       other.end == end &&
-      other.firstDayOfWeek == firstDayOfWeek &&
-      other.fixedWeeks == fixedWeeks;
+      other.firstDayOfWeek == firstDayOfWeek);
 
   @override
-  int get hashCode => Object.hash(
-    _DMonthIndexCalculator,
-    start,
-    end,
-    firstDayOfWeek,
-    fixedWeeks,
-  );
+  int get hashCode =>
+      Object.hash(_DMonthIndexCalculator, start, end, firstDayOfWeek, false);
 }

@@ -635,7 +635,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           icon: const DIcon(DIcons.farFaceSmile),
           size: DButtonSize.regular,
           density: DButtonDensity.chatMessageAction,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           interactiveBackgroundColor: Colors.transparent,
           onPressed: !enabled || _reactionPickerOpening
               ? null
@@ -667,7 +667,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       icon: const DIcon(DIcons.reply),
       size: DButtonSize.regular,
       density: DButtonDensity.chatMessageAction,
-      variant: DButtonVariant.transparentBackground,
+      variant: DButtonVariant.ghost,
       interactiveBackgroundColor: Colors.transparent,
       onPressed: _reply,
     ),
@@ -742,7 +742,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           alignment: AlignmentDirectional.centerStart,
           variant: destructive
               ? DButtonVariant.destructive
-              : DButtonVariant.transparentBackground,
+              : DButtonVariant.ghost,
           onPressed: busy ? null : select,
           label: Text(label),
         );
@@ -924,7 +924,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                 tooltip: appL10n.moreMessageActions,
                 icon: const DIcon(DIcons.chevronDown),
                 size: DButtonSize.small,
-                variant: DButtonVariant.transparentBackground,
+                variant: DButtonVariant.ghost,
                 focusNode: state.focusNode,
                 hasPopup: true,
                 expanded: state.open,
@@ -1221,7 +1221,7 @@ class _Tile extends StatelessWidget {
               tooltip: label,
               size: size,
               density: density,
-              variant: DButtonVariant.transparentBackground,
+              variant: DButtonVariant.ghost,
               onPressed: null,
             ),
           )
@@ -1310,7 +1310,7 @@ class _Tile extends StatelessWidget {
                 label: message.sendError == null || message.sendError!.isEmpty
                     ? null
                     : context.l10n.failedToSendChatmessagetile(
-                        (message.sendError).toString(),
+                        message.sendError.toString(),
                       ),
               ),
             if (message.delivery == ChatMessageDelivery.failed &&
@@ -1322,7 +1322,7 @@ class _Tile extends StatelessWidget {
                     controller.canSendMessageTo(siteUrl, target),
                 builder: (context, canSend, _) => DButton(
                   size: DButtonSize.small,
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   label: Text(
                     message.retryWaiting
                         ? context.l10n.retryAfterCooldown
@@ -1552,8 +1552,8 @@ class _ReplyIndicator extends StatelessWidget {
     key: ChatMessageTile.replyIndicatorKey(reply.id),
     semanticLabel: context.l10n.jumpToMessageFrom(
       (reply.flair == null).toString(),
-      (reply.username).toString(),
-      (reply.excerpt).toString(),
+      reply.username.toString(),
+      reply.excerpt.toString(),
       ((!(reply.flair == null)) ? (reply.flair!.label) : '').toString(),
     ),
     onPressed: onJump,

@@ -445,23 +445,19 @@ class DChartBar extends StatelessWidget {
     required this.fraction,
     this.color,
     this.backgroundColor,
-    this.height = 7,
-    this.radius = 4,
   }) : assert(fraction > -double.infinity && fraction < double.infinity),
-       assert(height > 0 && height < double.infinity),
-       assert(radius >= 0 && radius < double.infinity);
+       assert((7 < double.infinity)),
+       assert((4 < double.infinity));
   final double fraction;
   final Color? color;
   final Color? backgroundColor;
-  final double height;
-  final double radius;
 
   @override
   Widget build(BuildContext context) => Container(
-    height: height,
+    height: 7,
     decoration: BoxDecoration(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(4),
     ),
     clipBehavior: Clip.antiAlias,
     alignment: AlignmentDirectional.centerStart,

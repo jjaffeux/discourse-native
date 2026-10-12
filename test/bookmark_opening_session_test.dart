@@ -15,6 +15,7 @@ import 'package:discourse_native/src/plugins/chat/chat_bookmark_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/shell/bookmark_reminder_picker.dart';
 import 'package:discourse_native/src/shell/bookmark_ui.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -22,6 +23,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,7 +47,7 @@ void main() {
       addTearDown(fixture.shell.dispose);
       await fixture.mount(tester);
       await fixture.open(tester);
-      await tester.tap(find.text('Edit bookmark').last);
+      await tester.tap(find.text('More options').last);
       await tester.pumpAndSettle();
       expect(find.text('Times use Europe/Paris.'), findsOneWidget);
       await fixture.replaceAccount(tester);
@@ -63,7 +65,7 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
       await fixture.open(tester);
-      await tester.tap(find.text('Edit bookmark').last);
+      await tester.tap(find.text('More options').last);
       await tester.pumpAndSettle();
       expect(find.text('Times use America/New_York.'), findsOneWidget);
       await _save(tester);
@@ -93,7 +95,7 @@ void main() {
       expect(fixture.api.writes, isEmpty);
       expect(fixture.currentBookmark?.id, 181);
 
-      await tester.tap(find.byTooltip('Close'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await fixture.open(tester);
       await tester.tap(find.text('Delete bookmark'));
@@ -119,7 +121,7 @@ void main() {
         final reads = fixture.auth.reads;
         await tester.tap(find.text('Clear reminder'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Edit bookmark').last);
+        await tester.tap(find.text('More options').last);
         await tester.pumpAndSettle();
         expect(find.byType(DInput), findsNothing);
         expect(fixture.auth.reads, reads);
@@ -137,7 +139,7 @@ void main() {
         fixture.shell.selectInstance(1);
         await tester.pumpAndSettle();
         expect(fixture.shell.currentInstance?.url, _otherSite);
-        await tester.tap(find.text('Edit bookmark').last);
+        await tester.tap(find.text('More options').last);
         await tester.pumpAndSettle();
         await _save(tester);
         expect(fixture.api.writes.single, (
@@ -247,16 +249,16 @@ void main() {
       addTearDown(fixture.shell.dispose);
       await fixture.mount(tester);
       await fixture.open(tester);
-      await tester.tap(find.text('Edit bookmark').last);
+      await tester.tap(find.text('More options').last);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Custom date and time'));
-      await tester.tap(find.text('Custom date and time'));
+      await tester.ensureVisible(find.byKey(const ValueKey('bookmark-custom-reminder')));
+      await tester.tap(find.byKey(const ValueKey('bookmark-custom-reminder')));
       await tester.pumpAndSettle();
-      expect(find.byType(DatePickerDialog), findsOneWidget);
+      expect(find.byType(BookmarkReminderDatePicker), findsOneWidget);
       await fixture.replaceAccount(tester);
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.byKey(const ValueKey('bookmark-picker-apply')));
       await tester.pumpAndSettle();
-      expect(find.byType(TimePickerDialog), findsNothing);
+      expect(find.byType(BookmarkReminderTimePicker), findsNothing);
       expect(find.text('Times use Europe/Paris.'), findsOneWidget);
       expect(fixture.api.writes, isEmpty);
     },
@@ -548,7 +550,7 @@ class _Fixture {
                     topic: shell.store.read<TopicDetail>(_site, 7)!,
                     busy: false,
                   ),
-                  _Target.chat => FilledButton(
+                  _Target.chat => DButton(
                     onPressed: () => unawaited(
                       showChatMessageBookmarkMenu(
                         context: context,
@@ -561,7 +563,7 @@ class _Fixture {
                         cooked: '<p>Chat body</p>',
                       ),
                     ),
-                    child: const Text('Chat bookmark'),
+                    label: const Text('Chat bookmark'),
                   ),
                 },
               ),
@@ -586,7 +588,7 @@ class _Fixture {
     await tester.tap(switch (target) {
       _Target.post => find.widgetWithText(
         DDropdownMenuItem,
-        currentBookmark == null ? 'Bookmark' : 'Edit bookmark',
+        currentBookmark == null ? 'Bookmark' : 'Bookmarked',
       ),
       _Target.topic => find.byKey(const ValueKey('topic-bookmark-button')),
       _Target.chat => find.text('Chat bookmark'),

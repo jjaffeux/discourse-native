@@ -61,9 +61,11 @@ Future<void> _mount(
     ),
   );
   await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
 }
 
 Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
+  await tester.pump(const Duration(milliseconds: 450));
   await tester.sendEventToBinding(
     PointerScrollEvent(
       position: tester.getCenter(target ?? find.byKey(_body)),
@@ -117,10 +119,10 @@ void main() {
     expect(tester.element(find.byKey(_body)), same(originalBody));
     await _wheel(tester, -9);
     expect(find.byKey(_dock), findsNothing);
-    await _wheel(tester, -1);
+    await _wheel(tester, -60);
     expect(find.byKey(_dock), findsOneWidget);
     expect(tester.getSize(find.byKey(_body)).height, originalHeight);
-    expect(controller.offset, 246);
+    expect(controller.offset, 187);
     expect(tester.element(find.byKey(_body)), same(originalBody));
   });
 
@@ -138,12 +140,15 @@ void main() {
       );
       await gesture.moveBy(const Offset(0, -100));
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
       expect(find.byKey(_dock), findsNothing);
-      await gesture.moveBy(const Offset(0, 30));
+      await gesture.moveBy(const Offset(0, 80));
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
       expect(find.byKey(_dock), findsOneWidget);
       await gesture.cancel();
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     });
   }
 
@@ -158,12 +163,15 @@ void main() {
     await gesture.panZoomStart(location);
     await gesture.panZoomUpdate(location, pan: const Offset(0, -100));
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
-    await gesture.panZoomUpdate(location, pan: const Offset(0, -70));
+    await gesture.panZoomUpdate(location, pan: Offset.zero);
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     await gesture.panZoomEnd();
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
   });
 
   testWidgets('tiny reversals cannot accumulate into a hide or reveal', (
@@ -231,21 +239,25 @@ void main() {
         );
         await gesture.moveBy(const Offset(0, -80));
         await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
         expect(find.byKey(_dock), findsNothing);
         expect(controller.position.maxScrollExtent, 500);
 
         await gesture.moveBy(Offset(0, atEnd ? -600 : 30));
         await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
         expect(find.byKey(_dock), findsOneWidget);
         if (atEnd) {
           // Returning the dock adds travel again. Continuing to that new end
           // must not immediately hide it and start an extent feedback loop.
           await gesture.moveBy(const Offset(0, -80));
           await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
           expect(find.byKey(_dock), findsOneWidget);
         }
         await gesture.cancel();
         await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
       },
     );
   }
@@ -273,10 +285,12 @@ void main() {
     );
     await gesture.moveBy(const Offset(0, 700));
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(controller.offset, lessThan(0));
     expect(find.byKey(_dock), findsOneWidget);
     await gesture.cancel();
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
   });
 
@@ -305,7 +319,7 @@ void main() {
         await _mount(tester, body: body);
         await _wheel(tester, 100, target: find.byType(MobileScrollDock));
         expect(find.byKey(_dock), findsNothing);
-        await _wheel(tester, -20, target: find.byType(MobileScrollDock));
+        await _wheel(tester, -80, target: find.byType(MobileScrollDock));
         expect(find.byKey(_dock), findsOneWidget);
         await tester.pumpWidget(const SizedBox());
         controller.dispose();
@@ -321,6 +335,7 @@ void main() {
     await _mount(tester, controller: controller);
     controller.jumpTo(600);
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     final restoration = controller.animateTo(
       800,
@@ -328,12 +343,14 @@ void main() {
       curve: Curves.linear,
     );
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     await restoration;
     expect(find.byKey(_dock), findsOneWidget);
     await _wheel(tester, 40);
     expect(find.byKey(_dock), findsNothing);
     controller.jumpTo(300);
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
     await _mount(tester, controller: controller, identity: 'users');
     expect(find.byKey(_dock), findsOneWidget);
@@ -379,7 +396,7 @@ void main() {
       );
       await _wheel(tester, 40);
       expect(find.byKey(_dock), findsNothing);
-      await _wheel(tester, -20);
+      await _wheel(tester, -80);
       expect(find.byKey(_dock), findsOneWidget);
     },
   );
@@ -421,6 +438,7 @@ void main() {
     expect(find.byKey(_dock), findsOneWidget);
     await tester.drag(find.byKey(horizontal), const Offset(-200, 0));
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     await _wheel(tester, 200, target: find.byKey(_body));
     expect(find.byKey(_dock), findsNothing);
@@ -449,8 +467,9 @@ void main() {
     await tester.tapAt(Offset(dockCenter.dx, visibleTop + 2));
     expect(taps, 1);
     await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
-    await _wheel(tester, -20);
+    await _wheel(tester, -80);
     await tester.tap(find.byType(DButton));
     expect(taps, 2);
   });

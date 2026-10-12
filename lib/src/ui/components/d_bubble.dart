@@ -1,27 +1,20 @@
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
-import 'd_spinner.dart';
 
 enum DBubbleVariant {
   /// A pill with a continuous outlined caret pointing to its author's avatar.
   status,
   primary,
 
-  /// Muted accent fill with the conversation's 12px corners and 13.5px text.
-  accent,
-
   /// Raised neutral fill with the same geometry as [accent].
   neutral,
-  secondary,
+
   muted,
-  tinted,
-  outline,
+
   ghost,
-  destructive,
 }
 
 enum DBubbleAlign { start, end }
@@ -35,13 +28,13 @@ enum DBubbleContentAction { button, link }
 class _DBubbleScope extends InheritedWidget {
   const _DBubbleScope({
     required this.variant,
-    required this.align,
+
     required super.child,
     this.quote = false,
   });
 
   final DBubbleVariant variant;
-  final DBubbleAlign align;
+
   final bool quote;
 
   static _DBubbleScope of(BuildContext context) {
@@ -52,9 +45,7 @@ class _DBubbleScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DBubbleScope oldWidget) =>
-      variant != oldWidget.variant ||
-      align != oldWidget.align ||
-      quote != oldWidget.quote;
+      (variant != oldWidget.variant) || quote != oldWidget.quote;
 }
 
 /// A content-sized conversational surface aligned within its available row.
@@ -67,13 +58,12 @@ class DBubble extends StatelessWidget {
     super.key,
     required this.children,
     this.variant = DBubbleVariant.primary,
-    this.align = DBubbleAlign.start,
+
     this.maximumWidthFactor = .8,
   }) : assert(maximumWidthFactor > 0 && maximumWidthFactor <= 1);
 
   final List<Widget> children;
   final DBubbleVariant variant;
-  final DBubbleAlign align;
 
   /// The non-ghost width limit relative to the available conversation width.
   final double maximumWidthFactor;
@@ -97,10 +87,7 @@ class DBubble extends StatelessWidget {
       final maxWidth = variant == DBubbleVariant.ghost
           ? finiteWidth
           : finiteWidth * maximumWidthFactor;
-      final alignment = switch (align) {
-        DBubbleAlign.start => AlignmentDirectional.centerStart,
-        DBubbleAlign.end => AlignmentDirectional.centerEnd,
-      };
+      const alignment = AlignmentDirectional.centerStart;
 
       return Align(
         alignment: alignment,
@@ -108,15 +95,13 @@ class DBubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: maxWidth),
           child: _DBubbleScope(
             variant: variant,
-            align: align,
+
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: align == DBubbleAlign.start
-                      ? CrossAxisAlignment.start
-                      : CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   spacing: DSpacing.xs,
                   children: content,
                 ),
@@ -187,24 +172,15 @@ class DBubbleContent extends StatefulWidget {
     super.key,
     required this.child,
     this.compact = false,
-    this.borderRadius,
+
     this.trailingAction,
     this.quote,
     this.action,
     this.onPressed,
-    this.disabled = false,
-    this.busy = false,
-    this._busyLabel,
-    this.selected = false,
-    this.invalid = false,
-    this.errorLabel,
+
     this.semanticLabel,
-    this.semanticHint,
-    this.focusNode,
-    this.autofocus = false,
   }) : assert(action != null || onPressed == null),
-       assert(!busy || action != null),
-       assert(!selected || action != null),
+
        assert(action == null || (trailingAction == null && quote == null));
 
   final Widget child;
@@ -221,22 +197,10 @@ class DBubbleContent extends StatefulWidget {
   /// Horizontal padding remains 12px; ghost bubbles remain unpadded.
   final bool compact;
 
-  /// Overrides the surface corners. Directional radii follow the text direction.
-  /// Defaults to the variant's usual shape.
-  final BorderRadiusGeometry? borderRadius;
   final DBubbleContentAction? action;
   final VoidCallback? onPressed;
-  final bool disabled;
-  final bool busy;
-  final String? _busyLabel;
-  String get busyLabel => _busyLabel ?? appL10n.working;
-  final bool selected;
-  final bool invalid;
-  final String? errorLabel;
+
   final String? semanticLabel;
-  final String? semanticHint;
-  final FocusNode? focusNode;
-  final bool autofocus;
 
   @override
   State<DBubbleContent> createState() => _DBubbleContentState();
@@ -249,23 +213,13 @@ class _DBubbleContentState extends State<DBubbleContent> {
   bool _focused = false;
 
   FocusNode get _focus =>
-      widget.focusNode ??
-      (_ownedFocus ??= FocusNode(debugLabel: 'DBubbleContent action'));
+      ((_ownedFocus ??= FocusNode(debugLabel: 'DBubbleContent action')));
 
-  bool get _enabled =>
-      widget.action != null &&
-      widget.onPressed != null &&
-      !widget.disabled &&
-      !widget.busy;
+  bool get _enabled => ((widget.action != null && widget.onPressed != null));
 
   @override
   void didUpdateWidget(DBubbleContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusNode != widget.focusNode &&
-        oldWidget.focusNode == null) {
-      _ownedFocus?.dispose();
-      _ownedFocus = null;
-    }
   }
 
   @override
@@ -281,7 +235,6 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final active = interactive && (_hovered || _pressed);
     Color mix(Color base, Color foreground, double amount) =>
         Color.lerp(base, foreground, amount)!;
-    final secondary = mix(tokens.muted, tokens.foreground, .01);
 
     var style = switch (scope.variant) {
       DBubbleVariant.status => _ContentStyle(
@@ -298,13 +251,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         foreground: tokens.foreground,
         border: mix(tokens.background, tokens.foreground, .12),
       ),
-      DBubbleVariant.accent => _ContentStyle(
-        background: active
-            ? tokens.buttonTheme.primary.hover
-            : tokens.buttonTheme.primary.background,
-        foreground: tokens.buttonTheme.primary.foreground,
-        border: Colors.transparent,
-      ),
+
       DBubbleVariant.primary => _ContentStyle(
         background: active
             ? tokens.primary.withValues(alpha: tokens.primary.a * .8)
@@ -312,11 +259,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         foreground: tokens.primaryForeground,
         border: Colors.transparent,
       ),
-      DBubbleVariant.secondary => _ContentStyle(
-        background: active ? mix(secondary, tokens.foreground, .05) : secondary,
-        foreground: tokens.foreground,
-        border: Colors.transparent,
-      ),
+
       DBubbleVariant.muted => _ContentStyle(
         background: active
             ? mix(tokens.muted, tokens.foreground, .05)
@@ -324,40 +267,12 @@ class _DBubbleContentState extends State<DBubbleContent> {
         foreground: tokens.foreground,
         border: Colors.transparent,
       ),
-      DBubbleVariant.tinted => _ContentStyle(
-        background: mix(
-          tokens.background,
-          tokens.primary,
-          active ? (dark ? .30 : .18) : (dark ? .24 : .12),
-        ),
-        foreground: tokens.foreground,
-        border: Colors.transparent,
-      ),
-      DBubbleVariant.outline => _ContentStyle(
-        background: active
-            ? (dark
-                  ? tokens.colors.outlineVariant.withValues(
-                      alpha: tokens.colors.outlineVariant.a * .3,
-                    )
-                  : tokens.muted)
-            : tokens.background,
-        foreground: tokens.foreground,
-        border: tokens.border,
-      ),
+
       DBubbleVariant.ghost => _ContentStyle(
         background: active
             ? tokens.muted.withValues(alpha: tokens.muted.a * (dark ? .5 : 1))
             : Colors.transparent,
         foreground: tokens.foreground,
-        border: Colors.transparent,
-      ),
-      DBubbleVariant.destructive => _ContentStyle(
-        background: tokens.destructive.withValues(
-          alpha:
-              tokens.destructive.a *
-              (active ? (dark ? .3 : .2) : (dark ? .2 : .1)),
-        ),
-        foreground: tokens.destructive,
         border: Colors.transparent,
       ),
     };
@@ -372,13 +287,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
         border: tokens.primary,
       );
     }
-    if (widget.invalid) {
-      style = _ContentStyle(
-        background: style.background,
-        foreground: style.foreground,
-        border: tokens.destructive,
-      );
-    }
+
     return style;
   }
 
@@ -386,20 +295,11 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final scope = _DBubbleScope.of(context);
     final style = _style(context, interactive);
     final ghost = scope.variant == DBubbleVariant.ghost;
-    final conversation =
-        scope.quote ||
-        scope.variant == DBubbleVariant.accent ||
-        scope.variant == DBubbleVariant.neutral;
-    final radius =
-        widget.borderRadius?.resolve(Directionality.of(context)) ??
-        (ghost ? BorderRadius.zero : BorderRadius.circular(DRadius.bubble));
-    final status = widget.busy
-        ? DSpinner(size: 14, semanticLabel: null, color: style.foreground)
-        : widget.invalid
-        ? Icon(Icons.error_outline, size: 14, color: style.foreground)
-        : widget.selected
-        ? Icon(Icons.check, size: 14, color: style.foreground)
-        : null;
+    final conversation = scope.quote || scope.variant == DBubbleVariant.neutral;
+    final radius = ((ghost
+        ? BorderRadius.zero
+        : BorderRadius.circular(DRadius.bubble)));
+    const Widget? status = null;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: style.foreground,
       fontSize: conversation
@@ -536,25 +436,22 @@ class _DBubbleContentState extends State<DBubbleContent> {
         const SingleActivator(LogicalKeyboardKey.space):
             const DoNothingIntent(),
     };
-    final semanticValue = [
-      if (widget.busy) widget.busyLabel,
-      if (widget.invalid && widget.errorLabel != null) widget.errorLabel!,
-    ].join('. ');
+    const semanticValue = '';
 
     return Semantics(
       container: true,
       button: widget.action == DBubbleContentAction.button,
       link: widget.action == DBubbleContentAction.link,
       enabled: _enabled,
-      selected: widget.selected,
+      selected: false,
       label: widget.semanticLabel,
-      hint: widget.semanticHint,
+      hint: null,
       value: semanticValue.isEmpty ? null : semanticValue,
-      liveRegion: widget.busy || widget.invalid,
+      liveRegion: false,
       onTap: _enabled ? _activate : null,
       child: FocusableActionDetector(
         focusNode: _focus,
-        autofocus: widget.autofocus,
+        autofocus: false,
         enabled: true,
         mouseCursor: _enabled
             ? SystemMouseCursors.click
@@ -588,9 +485,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
                 color: tokens.focusRing,
                 radius: scope.variant == DBubbleVariant.ghost
                     ? 0
-                    : scope.quote ||
-                          scope.variant == DBubbleVariant.accent ||
-                          scope.variant == DBubbleVariant.neutral
+                    : scope.quote || scope.variant == DBubbleVariant.neutral
                     ? 12
                     : tokens.radius * 1.4,
               ),
@@ -598,7 +493,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
                 child: ExcludeSemantics(
                   excluding: widget.semanticLabel != null,
                   child: Opacity(
-                    opacity: _enabled || widget.busy ? 1 : .5,
+                    opacity: (_enabled) ? 1 : .5,
                     child: _surface(context, interactive: true),
                   ),
                 ),
@@ -631,7 +526,7 @@ class DBubbleQuote extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _DBubbleScope(
     variant: DBubbleVariant.muted,
-    align: DBubbleAlign.start,
+
     quote: true,
     child: DBubbleContent(
       action: onPressed == null ? null : DBubbleContentAction.link,

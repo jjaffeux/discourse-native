@@ -109,7 +109,7 @@ class _ComposerDraftTabsState extends State<ComposerDraftTabs> {
                   focusNode: trigger.focusNode,
                   size: DControlSize.toolbar,
                   shape: DButtonShape.pill,
-                  variant: DButtonVariant.transparentBackground,
+                  variant: DButtonVariant.ghost,
                   onPressed: trigger.toggle,
                 ),
               ),

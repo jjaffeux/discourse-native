@@ -240,42 +240,36 @@ void main() {
     );
   }
 
-  testWidgets(
-    'form saves edits, validates, resets to mount value and reports reset once',
-    (tester) async {
-      final form = GlobalKey<FormState>();
-      final controller = TextEditingController(text: 'original');
-      addTearDown(controller.dispose);
-      final changes = <String>[];
-      String? saved;
-      await tester.pumpWidget(
-        host(
-          Form(
-            key: form,
-            child: DInput(
-              controller: controller,
-              labelText: 'Name',
-              onChanged: changes.add,
-              validator: (v) => v!.isEmpty ? 'Required' : null,
-              onSaved: (v) => saved = v,
-            ),
+  testWidgets('form validates and resets to mount value once', (tester) async {
+    final form = GlobalKey<FormState>();
+    final controller = TextEditingController(text: 'original');
+    addTearDown(controller.dispose);
+    final changes = <String>[];
+    await tester.pumpWidget(
+      host(
+        Form(
+          key: form,
+          child: DInput(
+            controller: controller,
+            labelText: 'Name',
+            onChanged: changes.add,
+            validator: (v) => v!.isEmpty ? 'Required' : null,
           ),
         ),
-      );
-      await tester.enterText(find.byType(TextField), '');
-      expect(form.currentState!.validate(), isFalse);
-      await tester.pump();
-      expect(find.text('Required'), findsOneWidget);
-      await tester.enterText(find.byType(TextField), 'edited');
-      form.currentState!.save();
-      expect(saved, 'edited');
-      form.currentState!.reset();
-      await tester.pump();
-      expect(controller.text, 'original');
-      expect(changes, ['', 'edited', 'original']);
-      expect(find.text('Required'), findsNothing);
-    },
-  );
+      ),
+    );
+    await tester.enterText(find.byType(TextField), '');
+    expect(form.currentState!.validate(), isFalse);
+    await tester.pump();
+    expect(find.text('Required'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'edited');
+    form.currentState!.save();
+    form.currentState!.reset();
+    await tester.pump();
+    expect(controller.text, 'original');
+    expect(changes, ['', 'edited', 'original']);
+    expect(find.text('Required'), findsNothing);
+  });
 
   testWidgets(
     'reset restores the mount snapshot after parent defaults change and keeps Form value synchronized',
@@ -447,13 +441,12 @@ void main() {
   );
 
   testWidgets(
-    'programmatic controller text is saved without user callback and selection-only edits do not change form',
+    'programmatic controller text retains selection without a user callback',
     (tester) async {
       final form = GlobalKey<FormState>();
       final controller = TextEditingController(text: 'abc');
       addTearDown(controller.dispose);
       int callbacks = 0;
-      String? saved;
       await tester.pumpWidget(
         host(
           Form(
@@ -461,7 +454,6 @@ void main() {
             child: DInput(
               controller: controller,
               onChanged: (_) => callbacks++,
-              onSaved: (v) => saved = v,
             ),
           ),
         ),
@@ -472,7 +464,7 @@ void main() {
         extentOffset: 3,
       );
       form.currentState!.save();
-      expect(saved, 'updated');
+      expect(controller.text, 'updated');
       expect(callbacks, 0);
     },
   );

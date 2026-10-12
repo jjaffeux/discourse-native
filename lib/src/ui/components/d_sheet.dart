@@ -54,46 +54,30 @@ class DSheet<T> extends StatelessWidget {
     required this.content,
     this.controller,
     this.open,
-    this.initiallyOpen = false,
+
     this.onOpenChanged,
     this.onOpenChangeComplete,
-    this.useRootNavigator = false,
-    this.modal = true,
-    this.dismissOnBarrier = true,
-    this.dismissOnEscape = true,
-    this.dismissOnSwipe = true,
+
     this._barrierLabel,
-    this.routeSettings,
+
     this.initialFocusNode,
     this.finalFocusNode,
     this.restoreFocus = true,
-  }) : assert(open == null || !initiallyOpen);
+  });
 
   final DSheetTrigger trigger;
   final DSheetContent content;
   final DSheetController<T>? controller;
   final bool? open;
-  final bool initiallyOpen;
+
   final ValueChanged<DSheetChangeDetails<T>>? onOpenChanged;
 
   /// Called when the opening or closing transition finishes.
   final ValueChanged<bool>? onOpenChangeComplete;
-  final bool useRootNavigator;
 
-  /// Allows interaction with the exposed background without dismissing the
-  /// sheet when false. Modal sheets retain their dimmed, blurred backdrop.
-  final bool modal;
-  final bool dismissOnBarrier;
-  final bool dismissOnEscape;
-
-  /// Allows mobile touch drags down from a bottom sheet's header and continued
-  /// scrolling beyond the top content edge to pull the sheet down. Uses the
-  /// same close request as [DSheetClose].
-  /// Releasing before 30% of the distance to the viewport bottom restores it.
-  final bool dismissOnSwipe;
   final String? _barrierLabel;
   String get barrierLabel => _barrierLabel ?? appL10n.dismissSheet;
-  final RouteSettings? routeSettings;
+
   final FocusNode? initialFocusNode;
   final FocusNode? finalFocusNode;
 
@@ -104,15 +88,15 @@ class DSheet<T> extends StatelessWidget {
   Widget build(BuildContext context) => DDialog<T>(
     controller: controller,
     open: open,
-    initiallyOpen: initiallyOpen,
+    initiallyOpen: false,
     onOpenChanged: onOpenChanged,
     onOpenChangeComplete: onOpenChangeComplete,
-    useRootNavigator: useRootNavigator,
-    modal: modal,
-    dismissOnBarrier: dismissOnBarrier,
-    dismissOnEscape: dismissOnEscape,
+    useRootNavigator: false,
+    modal: true,
+    dismissOnBarrier: true,
+    dismissOnEscape: true,
     barrierLabel: barrierLabel,
-    routeSettings: routeSettings,
+    routeSettings: null,
     initialFocusNode: initialFocusNode,
     finalFocusNode: finalFocusNode,
     restoreFocus: restoreFocus,
@@ -125,10 +109,10 @@ class DSheet<T> extends StatelessWidget {
       content.sidePanelMaxWidth,
       content.sidePanelWidth,
       content.inset,
-      content.animateSize,
+      false,
       content.fillAvailableHeight,
       content.extendBehindKeyboard,
-      dismissOnSwipe,
+      true,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -139,21 +123,17 @@ class DSheet<T> extends StatelessWidget {
 ///
 /// Mount in a full viewport outside a resizing [Scaffold]. The host owns back
 /// handling and excludes the covered content from focus and semantics. Hide
-/// [DSheetContent.showCloseButton] or supply [DSheetContent.closeButton] with
+/// [DSheetContent.showCloseButton] or compose a close action with
 /// the host's close action; route-owned [DSheetClose] is unavailable here.
 class DSheetViewport extends StatelessWidget {
   const DSheetViewport({
     super.key,
     required this.content,
-    this.onDismiss,
+
     this.onSwipeDismissRequested,
   });
 
   final DSheetContent content;
-
-  /// Enables mobile bottom-sheet swipes and requests removal after the exit
-  /// animation. If the host keeps the sheet mounted, it returns to its position.
-  final VoidCallback? onDismiss;
 
   /// Intercepts a swipe as soon as it reaches the dismissal threshold.
   ///
@@ -164,7 +144,7 @@ class DSheetViewport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    assert(!content.showCloseButton || content.closeButton != null);
+    assert((!content.showCloseButton));
     return FocusScope(
       child: _sheetPresentation(
         context,
@@ -179,12 +159,12 @@ class DSheetViewport extends StatelessWidget {
         content.sidePanelMaxWidth,
         content.sidePanelWidth,
         content.inset,
-        content.animateSize,
+        false,
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
-        onDismiss != null || onSwipeDismissRequested != null,
+        (onSwipeDismissRequested != null),
         retainKeyboardInsets: true,
-        onRetainedDismiss: onDismiss,
+        onRetainedDismiss: null,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
       ),
     );
@@ -1052,26 +1032,19 @@ class DSheetContent extends StatelessWidget {
     required this.children,
     this.side = DSheetSide.right,
     this.showCloseButton = true,
-    this.closeButton,
-    this._closeSemanticLabel,
+
     this.semanticLabel,
     this.backgroundColor,
     this.sidePanelMaxWidth = 384,
     this.sidePanelWidth,
     this.inset = false,
-    this.animateSize = false,
-    this.sideAccessory,
-    this.sideAccessoryWidth = 52,
+
     this.scrollWholeSheet,
     this.topBottomMaxHeightFactor,
     this.fillAvailableHeight = false,
     this.extendBehindKeyboard = false,
-  }) : assert(sideAccessoryWidth > 0),
-       assert(!extendBehindKeyboard || fillAvailableHeight),
-       assert(
-         sideAccessory == null ||
-             (side != DSheetSide.top && side != DSheetSide.bottom),
-       ),
+  }) : assert(!extendBehindKeyboard || fillAvailableHeight),
+
        assert(sidePanelMaxWidth > 0),
        assert(sidePanelWidth == null || sidePanelWidth > 0),
        assert(
@@ -1082,9 +1055,8 @@ class DSheetContent extends StatelessWidget {
   final List<Widget> children;
   final DSheetSide side;
   final bool showCloseButton;
-  final Widget? closeButton;
-  final String? _closeSemanticLabel;
-  String get closeSemanticLabel => _closeSemanticLabel ?? appL10n.close;
+
+  String get closeSemanticLabel => appL10n.close;
   final String? semanticLabel;
 
   /// The surface fill override.
@@ -1105,20 +1077,6 @@ class DSheetContent extends StatelessWidget {
   /// the surface so its content does not repeat that padding. The default
   /// retains the reference's fixed-edge presentation.
   final bool inset;
-
-  /// Animates changes to the sheet's bounds without replacing its contents.
-  /// Reduced-motion preferences always make these changes immediate.
-  final bool animateSize;
-
-  /// Optional controls beside the surface, on the inward-facing edge.
-  ///
-  /// Supported on side sheets only. The gutter is inside the panel width and
-  /// shares its route, focus scope and motion, but stays outside its decoration.
-  final Widget? sideAccessory;
-
-  /// Space reserved for [sideAccessory], including its horizontal breathing room.
-  /// Both this gutter and the surface must fit inside [sidePanelWidth].
-  final double sideAccessoryWidth;
 
   /// Overrides automatic whole-surface scrolling at large text sizes.
   ///
@@ -1271,18 +1229,16 @@ class DSheetContent extends StatelessWidget {
                     Positioned(
                       top: DSpacing.md,
                       right: DSpacing.md,
-                      child:
-                          closeButton ??
-                          DSheetClose<void>(
-                            builder: (context, close) => DButton.iconOnly(
-                              onPressed: close,
-                              size: DButtonSize.small,
-                              variant: DButtonVariant.ghost,
-                              icon: const _DSheetCloseIcon(),
-                              tooltip: closeSemanticLabel,
-                              semanticLabel: closeSemanticLabel,
-                            ),
-                          ),
+                      child: (DSheetClose<void>(
+                        builder: (context, close) => DButton.iconOnly(
+                          onPressed: close,
+                          size: DButtonSize.small,
+                          variant: DButtonVariant.ghost,
+                          icon: const _DSheetCloseIcon(),
+                          tooltip: closeSemanticLabel,
+                          semanticLabel: closeSemanticLabel,
+                        ),
+                      )),
                     ),
                 ],
               ),
@@ -1300,22 +1256,7 @@ class DSheetContent extends StatelessWidget {
         child: surface,
       );
     }
-    if (sideAccessory case final accessory?) {
-      final gutter = SizedBox(
-        width: sideAccessoryWidth,
-        child: Center(child: accessory),
-      );
-      surface = Row(
-        textDirection: TextDirection.ltr,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (resolved == DSheetSide.right || resolved == DSheetSide.center)
-            gutter,
-          Expanded(key: const ValueKey('sheet-surface'), child: surface),
-          if (resolved == DSheetSide.left) gutter,
-        ],
-      );
-    }
+
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -1395,17 +1336,17 @@ class DSheetBody extends StatelessWidget {
   const DSheetBody({
     super.key,
     required this.child,
-    this.controller,
+
     this.padding = const EdgeInsets.symmetric(horizontal: DSpacing.lg),
   });
 
   final Widget child;
-  final ScrollController? controller;
+
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    controller: controller,
+    controller: null,
     primary: false,
     padding: padding,
     child: child,
@@ -1437,14 +1378,13 @@ typedef DSheetCloseBuilder =
     Widget Function(BuildContext context, VoidCallback close);
 
 class DSheetClose<T> extends StatelessWidget {
-  const DSheetClose({super.key, required this.builder, this.result});
+  const DSheetClose({super.key, required this.builder});
 
   final DSheetCloseBuilder builder;
-  final T? result;
 
   @override
   Widget build(BuildContext context) =>
-      DDialogClose<T>(result: result, builder: builder);
+      DDialogClose<T>(result: null, builder: builder);
 }
 
 class _DSheetCloseIcon extends StatelessWidget {
@@ -1493,47 +1433,40 @@ Future<T?> showDSheet<T>({
   required BuildContext context,
   required DSheetContentBuilder<T> builder,
   DSheetSide side = DSheetSide.right,
-  double sidePanelMaxWidth = 384,
-  double? sidePanelWidth,
+
   bool inset = false,
-  bool animateSize = false,
+
   bool fillAvailableHeight = false,
-  bool extendBehindKeyboard = false,
+
   bool useRootNavigator = false,
-  bool modal = true,
-  bool dismissOnBarrier = true,
-  bool dismissOnEscape = true,
-  bool dismissOnSwipe = true,
+
   String? barrierLabel,
-  RouteSettings? routeSettings,
+
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
 }) {
-  assert(sidePanelMaxWidth > 0);
-  assert(sidePanelWidth == null || sidePanelWidth > 0);
-  assert(!extendBehindKeyboard || fillAvailableHeight);
   return showDDialog<T>(
     context: context,
     builder: builder,
     useRootNavigator: useRootNavigator,
-    modal: modal,
-    dismissOnBarrier: dismissOnBarrier,
-    dismissOnEscape: dismissOnEscape,
+    modal: true,
+    dismissOnBarrier: true,
+    dismissOnEscape: true,
     barrierLabel: barrierLabel ?? appL10n.dismissSheet,
-    routeSettings: routeSettings,
+    routeSettings: null,
     initialFocusNode: initialFocusNode,
     finalFocusNode: finalFocusNode,
     presentationBuilder: (context, presentation) => _sheetPresentation(
       context,
       presentation,
       side,
-      sidePanelMaxWidth,
-      sidePanelWidth,
+      384,
+      null,
       inset,
-      animateSize,
+      false,
       fillAvailableHeight,
-      extendBehindKeyboard,
-      dismissOnSwipe,
+      false,
+      true,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

@@ -19,7 +19,7 @@ class DScrollBar extends StatelessWidget {
     this.axis = Axis.vertical,
     this.showScrollbar = true,
     this.thumbVisibility = true,
-    this.thumb = const DScrollThumb(),
+
     this.backgroundColor,
     this.cornerExtent = 0,
     this.notificationDepth = 0,
@@ -38,7 +38,6 @@ class DScrollBar extends StatelessWidget {
   /// Keeps a shown thumb visible at rest. False enables native fading;
   /// use [showScrollbar] to hide it even during scrolling and hover.
   final bool thumbVisibility;
-  final DScrollThumb thumb;
 
   /// Painted container surface. Defaults to the current theme background.
   final Color? backgroundColor;
@@ -62,20 +61,19 @@ class DScrollBar extends StatelessWidget {
       controller: controller,
       thumbVisibility: showScrollbar && thumbVisibility,
       interactive: showScrollbar,
-      thickness: thumb.thickness,
+      thickness: DScrollThumb.defaultThickness,
       crossAxisMargin: DScrollThumb.containerInset,
       mainAxisMargin: DScrollThumb.containerInset,
       padding: axis == Axis.vertical
           ? EdgeInsets.only(bottom: cornerExtent)
           : EdgeInsetsDirectional.only(end: cornerExtent),
-      radius: thumb.radius,
-      minThumbLength: thumb.minLength,
+      radius: const Radius.circular(999),
+      minThumbLength: 16,
       thumbColor: showScrollbar
-          ? thumb.color ??
-                DScrollThumb.colorOn(
-                  backgroundColor ?? DTokens.of(context).background,
-                  foreground: DTokens.of(context).foreground,
-                )
+          ? (DScrollThumb.colorOn(
+              backgroundColor ?? DTokens.of(context).background,
+              foreground: DTokens.of(context).foreground,
+            ))
           : Colors.transparent,
       fadeDuration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
@@ -97,12 +95,7 @@ class DScrollBar extends StatelessWidget {
 /// sole gesture and paint owner. Null color adapts to the container surface.
 @immutable
 class DScrollThumb {
-  const DScrollThumb({
-    this.color,
-    this.thickness = defaultThickness,
-    this.minLength = 16,
-    this.radius = const Radius.circular(999),
-  });
+  const DScrollThumb();
 
   /// Shared width in logical pixels for UI kit and native app scrollbars.
   static const double defaultThickness = 4;
@@ -131,11 +124,6 @@ class DScrollThumb {
     }
     return target;
   }
-
-  final Color? color;
-  final double thickness;
-  final double minLength;
-  final Radius radius;
 }
 
 /// The native single-axis viewport used by DScrollArea. Its controller is
@@ -167,14 +155,11 @@ class DScrollViewport extends StatelessWidget {
 /// The 10px intersection of two overflowing scrollbars. Transparent by
 /// default, as in base-nova; a caller can color it to match an opaque surface.
 class DScrollCorner extends StatelessWidget {
-  const DScrollCorner({super.key, this.color});
-  final Color? color;
+  const DScrollCorner({super.key});
+
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 10,
-    height: 10,
-    child: color == null ? null : ColoredBox(color: color!),
-  );
+  Widget build(BuildContext context) =>
+      const SizedBox(width: 10, height: 10, child: null);
 }
 
 /// Native scrolling with base-nova scrollbar artwork. Constrain the enabled
@@ -186,29 +171,21 @@ class DScrollArea extends StatefulWidget {
     required this.child,
     this.axes = DScrollAxes.vertical,
     this.controller,
-    this.horizontalController,
+
     this.padding = EdgeInsets.zero,
     this.showScrollbar = true,
     this.thumbVisibility = true,
-    this.borderRadius,
+
     this.backgroundColor,
-    this.corner = const DScrollCorner(),
+
     this.physics,
-  }) : assert(horizontalController == null || axes == DScrollAxes.both),
-       assert(
-         controller == null ||
-             horizontalController == null ||
-             !identical(controller, horizontalController),
-       );
+  });
 
   final Widget child;
   final DScrollAxes axes;
 
   /// Vertical controller, or the sole controller for horizontal-only areas.
   final ScrollController? controller;
-
-  /// Horizontal controller when [axes] is [DScrollAxes.both].
-  final ScrollController? horizontalController;
 
   /// Insets the scrollable content on every enabled axis.
   final EdgeInsetsGeometry padding;
@@ -219,11 +196,10 @@ class DScrollArea extends StatefulWidget {
 
   /// Keeps shown thumbs visible at rest; false enables native fading.
   final bool thumbVisibility;
-  final BorderRadius? borderRadius;
 
   /// Painted container surface used to choose contrasting scrollbar thumbs.
   final Color? backgroundColor;
-  final Widget corner;
+
   final ScrollPhysics? physics;
 
   @override
@@ -260,7 +236,7 @@ class _DScrollAreaState extends State<DScrollArea> {
       _metricsScheduled = false;
       if (!mounted) return;
       final vertical = widget.controller ?? _owned;
-      final horizontal = widget.horizontalController ?? _ownedHorizontal;
+      final horizontal = (_ownedHorizontal);
       bool overflows(ScrollController controller) =>
           controller.hasClients &&
           controller.positions.length == 1 &&
@@ -299,7 +275,7 @@ class _DScrollAreaState extends State<DScrollArea> {
     final both = widget.axes == DScrollAxes.both;
     final showCorner = widget.showScrollbar && _hasCorner;
     final primary = widget.controller ?? _owned;
-    final horizontal = widget.horizontalController ?? _ownedHorizontal;
+    final horizontal = (_ownedHorizontal);
     Widget content = widget.child;
     if (both) {
       content = Padding(padding: widget.padding, child: content);
@@ -354,12 +330,12 @@ class _DScrollAreaState extends State<DScrollArea> {
         children: [
           content,
           if (showCorner)
-            PositionedDirectional(
+            const PositionedDirectional(
               bottom: 0,
               end: 0,
               width: 10,
               height: 10,
-              child: IgnorePointer(child: widget.corner),
+              child: IgnorePointer(child: DScrollCorner()),
             ),
         ],
       );
@@ -440,16 +416,13 @@ class _DScrollAreaState extends State<DScrollArea> {
         child: CustomPaint(
           foregroundPainter: _focusVisible
               ? _ScrollFocusRing(
-                  radius: widget.borderRadius ?? tokens.borderRadius,
+                  radius: tokens.borderRadius,
                   color: tokens.focusRing.withValues(
                     alpha: tokens.focusRing.a * .5,
                   ),
                 )
               : null,
-          child: ClipRRect(
-            borderRadius: widget.borderRadius ?? tokens.borderRadius,
-            child: content,
-          ),
+          child: ClipRRect(borderRadius: tokens.borderRadius, child: content),
         ),
       ),
     );

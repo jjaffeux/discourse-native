@@ -207,12 +207,12 @@ $_poll
 ''', registry: installed.registry),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Spoiler'), findsNWidgets(2));
+      expect(find.byType(DSpoiler), findsNWidgets(2));
       expect(
         find.textContaining('spoiler body', findRichText: true),
         findsNothing,
       );
-      await tester.tap(find.text('Spoiler').first);
+      await tester.tap(find.byType(DSpoiler).first);
       await tester.pumpAndSettle();
       expect(
         find.text('Event spoiler body', findRichText: true),
@@ -230,7 +230,7 @@ $_poll
         isTrue,
       );
       expect(find.byType(PostEventCard), findsNothing);
-      await tester.tap(find.text('Spoiler').last);
+      await tester.tap(find.byType(DSpoiler).last);
       await tester.pumpAndSettle();
       expect(
         find.text('Calendar spoiler body', findRichText: true),

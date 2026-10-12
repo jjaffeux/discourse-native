@@ -152,7 +152,7 @@ void main() {
       final calendarFinder = find.byType(DCalendar);
       final calendar = tester.widget<DCalendar>(calendarFinder);
       final bounds = tester.getRect(calendarFinder);
-      final padding = calendar.padding.resolve(TextDirection.ltr);
+      const padding = EdgeInsets.all(8);
       final firstWeek = find.descendant(
         of: calendarFinder,
         matching: find.byType(DCalendarDayButton),

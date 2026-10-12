@@ -365,6 +365,7 @@ class _FormPopover extends StatefulWidget {
 class _FormPopoverState extends State<_FormPopover> {
   final _form = GlobalKey<FormState>();
   String _saved = 'Not saved';
+  String _width = '100%';
 
   @override
   Widget build(BuildContext context) => DPopover(
@@ -389,10 +390,10 @@ class _FormPopoverState extends State<_FormPopover> {
             ),
             DInput(
               initialValue: '100%',
+              onChanged: (value) => _width = value,
               labelText: 'Width',
               validator: (value) =>
                   value?.trim().isEmpty == true ? 'Enter a width' : null,
-              onSaved: (value) => _saved = 'Saved width: $value',
             ),
             DInput(initialValue: '25px', labelText: 'Height'),
             Text(_saved),
@@ -406,7 +407,7 @@ class _FormPopoverState extends State<_FormPopover> {
                   onPressed: () {
                     if (_form.currentState!.validate()) {
                       _form.currentState!.save();
-                      setState(() {});
+                      setState(() => _saved = 'Saved width: $_width');
                     }
                   },
                 ),

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -26,12 +25,11 @@ enum DDatePickerCloseBehavior { never, onSelection }
 
 @immutable
 class DDatePickerLabels {
-  const DDatePickerLabels({this._placeholder, this._calendar});
+  const DDatePickerLabels();
 
-  final String? _placeholder;
-  String get placeholder => _placeholder ?? appL10n.pickADate;
-  final String? _calendar;
-  String get calendar => _calendar ?? appL10n.selectDate;
+  String get placeholder => appL10n.pickADate;
+
+  String get calendar => appL10n.selectDate;
 }
 
 /// A typed shadcn Date Picker composition built from Button, Popover and the
@@ -44,7 +42,7 @@ class DDatePickerLabels {
 class DDatePicker extends StatefulWidget {
   const DDatePicker({
     super.key,
-    this.initialValue,
+
     this.onChanged,
     this.label,
     this.description,
@@ -56,9 +54,7 @@ class DDatePicker extends StatefulWidget {
     this.width = 212,
     this.showChevron = true,
     this.closeBehavior = DDatePickerCloseBehavior.never,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
+
     this.popoverController,
     this.calendarController,
     this.focusNode,
@@ -89,9 +85,7 @@ class DDatePicker extends StatefulWidget {
     this.width = 212,
     this.showChevron = true,
     this.closeBehavior = DDatePickerCloseBehavior.never,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
+
     this.popoverController,
     this.calendarController,
     this.focusNode,
@@ -105,11 +99,10 @@ class DDatePicker extends StatefulWidget {
     this.today,
     this.semanticLabel,
     this.dateCodec = const DIntlDateTextCodec(),
-  }) : _controlled = true,
-       initialValue = null;
+  }) : _controlled = true;
 
   final DCalendarDate? value;
-  final DCalendarDate? initialValue;
+
   final ValueChanged<DCalendarDate?>? onChanged;
   final String? label;
   final String? description;
@@ -121,9 +114,7 @@ class DDatePicker extends StatefulWidget {
   final double width;
   final bool showChevron;
   final DDatePickerCloseBehavior closeBehavior;
-  final bool? open;
-  final bool defaultOpen;
-  final DPopoverOpenChange? onOpenChange;
+
   final DPopoverController? popoverController;
   final DCalendarController? calendarController;
   final FocusNode? focusNode;
@@ -144,7 +135,7 @@ class DDatePicker extends StatefulWidget {
 }
 
 class _DDatePickerState extends State<DDatePicker> {
-  late DCalendarDate? _value = widget.initialValue;
+  DCalendarDate? _value;
   late final DPopoverController _ownedPopover = DPopoverController();
   late final FocusNode _ownedFocus = FocusNode(
     debugLabel: 'DDatePicker trigger',
@@ -172,9 +163,9 @@ class _DDatePickerState extends State<DDatePicker> {
     final calendarGeometry = _calendarGeometry(context);
     final picker = DPopover(
       controller: _popover,
-      open: widget.enabled ? widget.open : false,
-      defaultOpen: widget.enabled && widget.defaultOpen,
-      onOpenChange: widget.onOpenChange,
+      open: widget.enabled ? null : false,
+      defaultOpen: false,
+      onOpenChange: null,
       content: DPopoverContent(
         width: calendarGeometry.popoverWidth,
         padding: EdgeInsets.zero,
@@ -727,34 +718,18 @@ class DDatePickerInput extends StatefulWidget {
     this.initialValue,
     this.onChanged,
     this.controller,
-    this.focusNode,
-    this.popoverController,
-    this.calendarController,
+
     this.label,
-    this.description,
-    this.errorText,
-    this._placeholder,
-    this.labels = const DDatePickerLabels(),
-    this.calendarLabels = const DCalendarLabels(),
-    this.semanticLabel,
-    this.enabled = true,
+
     this.width = 288,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
-    this.locale,
+
     this.dateCodec = const DIntlDateTextCodec(),
-    this.naturalDateParser,
-    this.referenceDate,
+
     this.startMonth,
     this.endMonth,
     this.disabled,
     this.today,
-  }) : assert(
-         naturalDateParser == null || referenceDate != null,
-         'Natural-language parsing requires an explicit referenceDate.',
-       ),
-       _controlled = false,
+  }) : _controlled = false,
        value = null;
 
   const DDatePickerInput.controlled({
@@ -762,56 +737,32 @@ class DDatePickerInput extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.controller,
-    this.focusNode,
-    this.popoverController,
-    this.calendarController,
+
     this.label,
-    this.description,
-    this.errorText,
-    this._placeholder,
-    this.labels = const DDatePickerLabels(),
-    this.calendarLabels = const DCalendarLabels(),
-    this.semanticLabel,
-    this.enabled = true,
+
     this.width = 288,
-    this.open,
-    this.defaultOpen = false,
-    this.onOpenChange,
-    this.locale,
+
     this.dateCodec = const DIntlDateTextCodec(),
-    this.naturalDateParser,
-    this.referenceDate,
+
     this.startMonth,
     this.endMonth,
     this.disabled,
     this.today,
-  }) : assert(
-         naturalDateParser == null || referenceDate != null,
-         'Natural-language parsing requires an explicit referenceDate.',
-       ),
-       _controlled = true,
+  }) : _controlled = true,
        initialValue = null;
 
   final DCalendarDate? value, initialValue;
   final ValueChanged<DCalendarDate?>? onChanged;
   final TextEditingController? controller;
-  final FocusNode? focusNode;
-  final DPopoverController? popoverController;
-  final DCalendarController? calendarController;
-  final String? label, description, errorText, semanticLabel;
-  final String? _placeholder;
-  String get placeholder => _placeholder ?? appL10n.june012025;
-  final DDatePickerLabels labels;
-  final DCalendarLabels calendarLabels;
-  final bool enabled;
+
+  final String? label;
+
+  String get placeholder => appL10n.june012025;
+
   final double width;
-  final bool? open;
-  final bool defaultOpen;
-  final DPopoverOpenChange? onOpenChange;
-  final Locale? locale;
+
   final DDateTextCodec dateCodec;
-  final DNaturalDateParser? naturalDateParser;
-  final DateTime? referenceDate;
+
   final DCalendarDate? startMonth, endMonth, today;
   final DCalendarPredicate? disabled;
   final bool _controlled;
@@ -829,10 +780,9 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
   bool _invalidText = false;
 
   TextEditingController get _text => widget.controller ?? _ownedController!;
-  FocusNode get _focus => widget.focusNode ?? _ownedFocus!;
-  DPopoverController get _popover => widget.popoverController ?? _ownedPopover!;
-  DCalendarController get _calendar =>
-      widget.calendarController ?? _ownedCalendar!;
+  FocusNode get _focus => (_ownedFocus!);
+  DPopoverController get _popover => (_ownedPopover!);
+  DCalendarController get _calendar => (_ownedCalendar!);
   DCalendarDate? get _effectiveValue =>
       widget._controlled ? widget.value : _value;
 
@@ -841,11 +791,11 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
     super.initState();
     _value = widget.initialValue;
     if (widget.controller == null) _ownedController = TextEditingController();
-    if (widget.focusNode == null) {
+    {
       _ownedFocus = FocusNode(debugLabel: 'DDatePickerInput editor');
     }
-    if (widget.popoverController == null) _ownedPopover = DPopoverController();
-    if (widget.calendarController == null) {
+    _ownedPopover = DPopoverController();
+    {
       _ownedCalendar = DCalendarController();
     }
   }
@@ -876,29 +826,7 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
         );
       }
     }
-    if (oldWidget.focusNode != widget.focusNode) {
-      final previousOwned = _ownedFocus;
-      _ownedFocus = widget.focusNode == null
-          ? FocusNode(debugLabel: 'DDatePickerInput editor')
-          : null;
-      if (previousOwned != null) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => previousOwned.dispose(),
-        );
-      }
-    }
-    if (oldWidget.popoverController != widget.popoverController) {
-      _ownedPopover?.dispose();
-      _ownedPopover = widget.popoverController == null
-          ? DPopoverController()
-          : null;
-    }
-    if (oldWidget.calendarController != widget.calendarController) {
-      _ownedCalendar?.dispose();
-      _ownedCalendar = widget.calendarController == null
-          ? DCalendarController()
-          : null;
-    }
+
     if (oldWidget.value != widget.value && widget._controlled) {
       final next = widget.value;
       if (next == null) {
@@ -919,19 +847,13 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
   }
 
   void _syncText(DCalendarDate value) {
-    final locale = widget.locale ?? Localizations.localeOf(context);
+    final locale = (Localizations.localeOf(context));
     _replaceText(widget.dateCodec.format(value.dateTimeUtc, locale));
   }
 
   DCalendarDate? _parse(String raw) {
-    final locale = widget.locale ?? Localizations.localeOf(context);
-    final parsed =
-        widget.naturalDateParser?.tryParse(
-          raw,
-          reference: widget.referenceDate!,
-          locale: locale,
-        ) ??
-        widget.dateCodec.tryParse(raw, locale);
+    final locale = (Localizations.localeOf(context));
+    final parsed = (widget.dateCodec.tryParse(raw, locale));
     return parsed == null ? null : DCalendarDate.fromDateTime(parsed);
   }
 
@@ -989,21 +911,21 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
   @override
   Widget build(BuildContext context) {
     final value = _effectiveValue;
-    final locale = widget.locale ?? Localizations.localeOf(context);
+    final locale = (Localizations.localeOf(context));
     final geometry = _calendarGeometry(context);
-    final invalid = _invalidText || widget.errorText != null;
+    final invalid = (_invalidText);
     final picker = DPopover(
       controller: _popover,
-      open: widget.enabled ? widget.open : false,
-      defaultOpen: widget.enabled && widget.defaultOpen,
-      onOpenChange: widget.onOpenChange,
+      open: null,
+      defaultOpen: false,
+      onOpenChange: null,
       content: DPopoverContent(
         width: geometry.popoverWidth,
         padding: EdgeInsets.zero,
         align: DPopoverAlign.end,
         alignOffset: -8,
         sideOffset: 10,
-        semanticLabel: widget.calendarLabels.calendar,
+        semanticLabel: const DCalendarLabels().calendar,
         child: _calendarViewport(
           geometry,
           DCalendar(
@@ -1012,7 +934,7 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
             onSelectionChanged: _selected,
             controller: _calendar,
             locale: locale,
-            labels: widget.calendarLabels,
+            labels: const DCalendarLabels(),
             initialDisplayedMonth: value,
             startMonth: widget.startMonth,
             endMonth: widget.endMonth,
@@ -1027,32 +949,31 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
           onKeyEvent: _key,
           child: DInputGroup(
             invalid: invalid,
-            enabled: widget.enabled,
-            semanticLabel: widget.semanticLabel ?? widget.label,
+            enabled: true,
+            semanticLabel: widget.label,
             children: [
               DInputGroupInput(
                 controller: _text,
                 focusNode: _focus,
-                semanticLabel:
-                    widget.semanticLabel ?? widget.label ?? context.l10n.date,
+                semanticLabel: widget.label ?? context.l10n.date,
                 hintText: widget.placeholder,
                 invalid: invalid,
-                enabled: widget.enabled,
+                enabled: true,
                 onChanged: _typed,
               ),
               DInputGroupAddon(
                 alignment: DInputGroupAddonAlignment.inlineEnd,
                 child: Semantics(
                   button: true,
-                  enabled: widget.enabled,
+                  enabled: true,
                   expanded: trigger.open,
-                  label: widget.labels.calendar,
-                  onTap: widget.enabled ? trigger.toggle : null,
+                  label: const DDatePickerLabels().calendar,
+                  onTap: trigger.toggle,
                   child: ExcludeSemantics(
                     child: DInputGroupButton.icon(
                       icon: const DIcon(_calendarIcon, size: 16),
-                      tooltip: widget.labels.calendar,
-                      onPressed: widget.enabled ? trigger.toggle : null,
+                      tooltip: const DDatePickerLabels().calendar,
+                      onPressed: trigger.toggle,
                     ),
                   ),
                 ),
@@ -1066,24 +987,23 @@ class _DDatePickerInputState extends State<DDatePickerInput> {
       return SizedBox(width: widget.width, child: picker);
     }
     final errors = <String?>[
-      widget.errorText,
+      null,
       if (_invalidText) context.l10n.enterAValidDate,
     ];
     return SizedBox(
       width: widget.width,
       child: DField(
-        enabled: widget.enabled,
+        enabled: true,
         invalid: invalid,
         children: [
           DFieldLabel(focusNode: _focus, child: Text(widget.label!)),
           DFieldControl(
             label: widget.label!,
-            description: widget.description,
+            description: null,
             errors: errors,
             child: picker,
           ),
-          if (widget.description != null)
-            DFieldDescription(child: Text(widget.description!)),
+
           if (invalid) DFieldError(errors: errors),
         ],
       ),
@@ -1108,7 +1028,7 @@ class DTimeInput extends StatefulWidget {
     this.onChanged,
     this.onValidityChanged,
     this.label,
-    this.enabled = true,
+
     this.includeSeconds = true,
     this.mobilePicker = false,
     this.width = 112,
@@ -1120,7 +1040,7 @@ class DTimeInput extends StatefulWidget {
   /// Invalid text keeps the last value and does not invoke [onChanged].
   final ValueChanged<bool>? onValidityChanged;
   final String? label;
-  final bool enabled, includeSeconds;
+  final bool includeSeconds;
 
   /// Opens time wheels in a Native sheet on touch platforms. Desktop retains
   /// keyboard editing. Changes are published only when the user applies them.
@@ -1148,7 +1068,7 @@ class _DTimeInputState extends State<DTimeInput> {
   }
 
   Future<void> _pickTime() async {
-    if (_picking || !widget.enabled) return;
+    if ((_picking)) return;
     _picking = true;
     final initial = DTimeValue.tryParse(_controller.text);
     var draft = Duration(
@@ -1210,7 +1130,7 @@ class _DTimeInputState extends State<DTimeInput> {
           ],
         ),
       );
-      if (!mounted || !widget.enabled || picked == null) return;
+      if ((!mounted) || picked == null) return;
       final value = DTimeValue(
         hour: picked.inHours,
         minute: picked.inMinutes % 60,
@@ -1245,7 +1165,7 @@ class _DTimeInputState extends State<DTimeInput> {
       keyboardType: TextInputType.datetime,
       invalid: _invalid,
       errorText: _invalid ? context.l10n.enterAValidTime : null,
-      enabled: widget.enabled,
+      enabled: true,
       readOnly: _usesPicker,
       showCursor: _usesPicker ? false : null,
       onTap: _usesPicker ? _pickTime : null,
@@ -1325,12 +1245,12 @@ abstract interface class DDateTextCodec {
 class DIntlDateTextCodec implements DDateTextCodec {
   const DIntlDateTextCodec({
     this.formatPattern = 'MMMM dd, y',
-    this.additionalParsePatterns = const <String>[],
+
     this.useLocaleDateOrder = true,
   });
 
   final String formatPattern;
-  final List<String> additionalParsePatterns;
+
   final bool useLocaleDateOrder;
 
   @override
@@ -1356,8 +1276,7 @@ class DIntlDateTextCodec implements DDateTextCodec {
       DateFormat(formatPattern, localeName),
       DateFormat.yMd(localeName),
       DateFormat('MMM dd, y', localeName),
-      for (final pattern in additionalParsePatterns)
-        DateFormat(pattern, localeName),
+      for (final pattern in const <String>[]) DateFormat(pattern, localeName),
     ];
     for (final format in formats) {
       try {
@@ -1502,8 +1421,6 @@ class DTimeValue {
   final int hour;
   final int minute;
   final int second;
-
-  TimeOfDay get timeOfDay => TimeOfDay(hour: hour, minute: minute);
 
   String format({bool includeSeconds = true}) {
     String two(int value) => value.toString().padLeft(2, '0');

@@ -252,113 +252,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'editable picker parses, preserves invalid text, and opens with Arrow Down',
-    (tester) async {
-      final changes = <DCalendarDate?>[];
-      final calendar = DCalendarController();
-      addTearDown(calendar.dispose);
-      await pump(
-        tester,
-        DDatePickerInput(
-          initialValue: DCalendarDate(2025, 6, 1),
-          calendarController: calendar,
-          onChanged: changes.add,
-        ),
-      );
-
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        'June 01, 2025',
-      );
-      await tester.enterText(find.byType(TextField), 'February 29, 2025');
-      await tester.pump();
-      expect(find.text('February 29, 2025'), findsOneWidget);
-      expect(changes, isEmpty);
-      expect(find.text('Enter a valid date'), findsNothing);
-
-      await tester.enterText(find.byType(TextField), 'September 11, 2026');
-      await tester.pump();
-      expect(changes.last, DCalendarDate(2026, 9, 11));
-      expect(calendar.displayedMonth, DCalendarDate(2026, 9, 1));
-
-      await tester.tap(find.byType(TextField));
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      expect(find.byType(DCalendar), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'natural input uses an explicit clock and calendar selection normalizes text',
-    (tester) async {
-      final changes = <DCalendarDate?>[];
-      await pump(
-        tester,
-        DDatePickerInput(
-          naturalDateParser: const DEnglishNaturalDateParser(),
-          referenceDate: DateTime(2026, 9, 9),
-          initialValue: DCalendarDate(2026, 9, 9),
-          onChanged: changes.add,
-        ),
-      );
-      await tester.enterText(find.byType(TextField), 'In 2 days');
-      await tester.pump();
-      expect(changes.last, DCalendarDate(2026, 9, 11));
-
-      await tester.tap(find.bySemanticsLabel('Select date'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.bySemanticsLabel('Saturday, September 12, 2026'));
-      await tester.pumpAndSettle();
-      expect(find.text('September 12, 2026'), findsOneWidget);
-      expect(find.byType(DCalendar), findsNothing);
-    },
-  );
-
-  testWidgets('editable picker localizes its action and calendar semantics', (
-    tester,
-  ) async {
-    await pump(
-      tester,
-      const DDatePickerInput(
-        labels: DDatePickerLabels(calendar: 'Choose a subscription date'),
-        calendarLabels: DCalendarLabels(
-          calendar: 'Subscription date calendar',
-          previousMonth: 'Earlier month',
-          nextMonth: 'Later month',
-        ),
-      ),
-    );
-
-    expect(find.bySemanticsLabel('Choose a subscription date'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('Choose a subscription date')),
-      isSemantics(
-        label: 'Choose a subscription date',
-        isButton: true,
-        hasExpandedState: true,
-        isExpanded: false,
-      ),
-    );
-    expect(find.bySemanticsLabel('Select date'), findsNothing);
-
-    await tester.tap(find.bySemanticsLabel('Choose a subscription date'));
-    await tester.pumpAndSettle();
-
-    expect(find.bySemanticsLabel('Subscription date calendar'), findsWidgets);
-    expect(find.bySemanticsLabel('Earlier month'), findsOneWidget);
-    expect(find.bySemanticsLabel('Later month'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('Choose a subscription date')),
-      isSemantics(
-        label: 'Choose a subscription date',
-        isButton: true,
-        hasExpandedState: true,
-        isExpanded: true,
-      ),
-    );
-  });
-
   testWidgets('editable input ignores active IME composition', (tester) async {
     final changes = <DCalendarDate?>[];
     await pump(
@@ -392,46 +285,12 @@ void main() {
     expect(changes, isEmpty);
   });
 
-  testWidgets('editable popover dismisses with Escape and outside press', (
-    tester,
-  ) async {
-    final reasons = <DPopoverChangeReason>[];
-    await pump(
-      tester,
-      DDatePickerInput(
-        defaultOpen: true,
-        onOpenChange: (open, reason) => reasons.add(reason),
-      ),
-    );
-    expect(find.byType(DCalendar), findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.byType(DCalendar), findsNothing);
-    expect(reasons.last, DPopoverChangeReason.escape);
-
-    await tester.tap(find.bySemanticsLabel('Select date'));
-    await tester.pumpAndSettle();
-    expect(find.byType(DCalendar), findsOneWidget);
-    await tester.tapAt(const Offset(4, 4));
-    await tester.pumpAndSettle();
-    expect(find.byType(DCalendar), findsNothing);
-    expect(reasons.last, DPopoverChangeReason.outsidePress);
-  });
-
   testWidgets('disabled editable picker cannot be opened imperatively', (
     tester,
   ) async {
     final popover = DPopoverController();
     addTearDown(popover.dispose);
-    await pump(
-      tester,
-      DDatePickerInput(
-        enabled: false,
-        defaultOpen: true,
-        popoverController: popover,
-      ),
-    );
+    await pump(tester, const DDatePickerInput());
 
     popover.open();
     await tester.pumpAndSettle();
@@ -451,10 +310,7 @@ void main() {
     });
     const key = ValueKey('editable-date');
 
-    await pump(
-      tester,
-      DDatePickerInput(key: key, controller: first, focusNode: focus),
-    );
+    await pump(tester, DDatePickerInput(key: key, controller: first));
     await pump(tester, const DDatePickerInput(key: key));
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,

@@ -11,44 +11,34 @@ import 'd_label.dart';
 /// The caller owns asynchronous work and can use ValueListenableBuilder for
 /// controller composition. This is not an editable field or a keyboard stop.
 ///
-/// [label] and [valueLabel] share a wrapping header with a 12px gap to [track].
-/// Set [child] to replace that layout with arbitrary composition of the public
-/// parts. Supply [semanticsLabel] when the visible label is absent. A numeric
-/// accessible percentage is updated without repeatedly interrupting speech.
+/// Supply [semanticsLabel] to name the operation. The numeric accessible
+/// percentage updates without repeatedly interrupting speech. Use [track] to
+/// compose the existing progress parts when visible labels are needed.
 class DProgress extends StatelessWidget {
   const DProgress({
     super.key,
     this.value,
-    this.min = 0,
+
     this.max = 100,
-    this.label,
-    this.valueLabel,
+
     this.track = const DProgressTrack(),
-    this.child,
+
     this.semanticsLabel,
-    this.semanticsValue,
-  }) : assert(min > double.negativeInfinity && min < double.infinity),
-       assert(max > min && max < double.infinity);
+  }) : assert(max > 0 && max < double.infinity);
 
   final double? value;
-  final double min;
-  final double max;
-  final Widget? label;
-  final Widget? valueLabel;
-  final Widget track;
-  final Widget? child;
-  final String? semanticsLabel;
 
-  /// Optional numeric percentage override, matching Flutter range semantics.
-  final String? semanticsValue;
+  final double max;
+
+  final Widget track;
+
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
     final fraction = value == null || !value!.isFinite
         ? null
-        : ((max - min).isFinite
-              ? (value!.clamp(min, max) - min) / (max - min)
-              : (value!.clamp(min, max) / 2 - min / 2) / (max / 2 - min / 2));
+        : value!.clamp(0, max) / max;
     return _ProgressScope(
       fraction: fraction,
       child: Semantics(
@@ -57,38 +47,10 @@ class DProgress extends StatelessWidget {
             ? SemanticsRole.loadingSpinner
             : SemanticsRole.progressBar,
         label: semanticsLabel,
-        value: fraction == null
-            ? null
-            : semanticsValue ?? '${(fraction * 100).round()}',
+        value: fraction == null ? null : ('${(fraction * 100).round()}'),
         minValue: fraction == null ? null : '0',
         maxValue: fraction == null ? null : '100',
-        child:
-            child ??
-            (label == null && valueLabel == null
-                ? track
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (label != null || valueLabel != null) ...[
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            // Intrinsic wrapping keeps both labels visible at large text
-                            // sizes without changing their element identity on resize.
-                            return Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [?label, ?valueLabel],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      track,
-                    ],
-                  )),
+        child: (((track))),
       ),
     );
   }
@@ -111,27 +73,19 @@ class _ProgressScope extends InheritedWidget {
 /// Rounded muted track. Thin application loading strips can override [height].
 /// Give progress finite horizontal constraints (or an explicit [width]).
 class DProgressTrack extends StatelessWidget {
-  const DProgressTrack({
-    super.key,
-    this.height = 4,
-    this.width,
-    this.color,
-    this.child = const DProgressIndicator(),
-  }) : assert(height >= 0 && height < double.infinity),
-       assert(width == null || (width >= 0 && width < double.infinity));
+  const DProgressTrack({super.key, this.height = 4})
+    : assert(height >= 0 && height < double.infinity);
   final double height;
-  final double? width;
-  final Color? color;
-  final Widget child;
+
   @override
   Widget build(BuildContext context) => SizedBox(
     height: height,
-    width: width,
+    width: null,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(height / 2),
       child: ColoredBox(
-        color: color ?? DTokens.of(context).muted,
-        child: child,
+        color: (DTokens.of(context).muted),
+        child: const DProgressIndicator(),
       ),
     ),
   );
@@ -142,8 +96,8 @@ class DProgressTrack extends StatelessWidget {
 /// This native adaptation makes existing asynchronous loading strips visible;
 /// upstream's unstyled null-value indicator has no intrinsic width.
 class DProgressIndicator extends StatefulWidget {
-  const DProgressIndicator({super.key, this.color});
-  final Color? color;
+  const DProgressIndicator({super.key});
+
   @override
   State<DProgressIndicator> createState() => _DProgressIndicatorState();
 }
@@ -177,7 +131,7 @@ class _DProgressIndicatorState extends State<DProgressIndicator>
   Widget build(BuildContext context) {
     final fraction = _ProgressScope.of(context).fraction;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    final fill = ColoredBox(color: widget.color ?? DTokens.of(context).primary);
+    final fill = ColoredBox(color: (DTokens.of(context).primary));
     if (fraction == null) {
       return AnimatedBuilder(
         animation: _animation,

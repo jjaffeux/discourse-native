@@ -357,12 +357,12 @@ class DInputGroupAddon extends StatelessWidget {
   const DInputGroupAddon({
     super.key,
     Widget? child,
-    List<Widget>? children,
+
     this.alignment = DInputGroupAddonAlignment.inlineStart,
-  }) : assert(child != null || children != null),
-       assert(child == null || children == null),
+  }) : assert((child != null)),
+
        child = child,
-       children = children ?? const [];
+       children = (const []);
 
   final List<Widget> children;
   final Widget? child;
@@ -484,13 +484,12 @@ class DInputGroupButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
-    this.iconPosition = DButtonIconPosition.start,
-    this.variant = DButtonVariant.ghost,
+
     this.size = DInputGroupButtonSize.small,
-    this.semanticLabel,
+
     this.tooltip,
     this.focusNode,
-    this.loading = false,
+
     this.hasPopup = false,
   }) : _iconOnly = false;
 
@@ -499,27 +498,26 @@ class DInputGroupButton extends StatelessWidget {
     required Widget this.icon,
     required String this.tooltip,
     required this.onPressed,
-    this.variant = DButtonVariant.ghost,
+
     this.size = DInputGroupButtonSize.small,
-    this.semanticLabel,
+
     this.focusNode,
-    this.loading = false,
+
     this.hasPopup = false,
   }) : label = const SizedBox.shrink(),
-       iconPosition = DButtonIconPosition.start,
+
        _iconOnly = true;
 
   final bool _iconOnly;
   final Widget label;
   final VoidCallback? onPressed;
   final Widget? icon;
-  final DButtonIconPosition iconPosition;
-  final DButtonVariant variant;
+
   final DInputGroupButtonSize size;
-  final String? semanticLabel;
+
   final String? tooltip;
   final FocusNode? focusNode;
-  final bool loading;
+
   final bool hasPopup;
 
   @override
@@ -533,7 +531,7 @@ class DInputGroupButton extends StatelessWidget {
         icon: icon!,
         tooltip: tooltip!,
         onPressed: onPressed,
-        variant: search ? DButtonVariant.ghost : variant,
+        variant: search ? DButtonVariant.ghost : DButtonVariant.ghost,
         density: search ? DButtonDensity.searchClear : DButtonDensity.standard,
         foregroundColor: search
             ? Color.lerp(
@@ -543,10 +541,10 @@ class DInputGroupButton extends StatelessWidget {
               )
             : null,
         size: size,
-        semanticLabel: semanticLabel,
+        semanticLabel: null,
         focusNode: focusNode,
         borderRadius: BorderRadius.circular(radius),
-        loading: loading,
+        loading: false,
         hasPopup: hasPopup,
       );
     }
@@ -554,14 +552,14 @@ class DInputGroupButton extends StatelessWidget {
       label: label,
       onPressed: onPressed,
       icon: icon,
-      iconPosition: iconPosition,
-      variant: variant,
+      iconPosition: DButtonIconPosition.start,
+      variant: DButtonVariant.ghost,
       size: size,
-      semanticLabel: semanticLabel,
+      semanticLabel: null,
       tooltip: tooltip,
       focusNode: focusNode,
       borderRadius: BorderRadius.circular(radius),
-      loading: loading,
+      loading: false,
       hasPopup: hasPopup,
     );
   }
@@ -572,46 +570,27 @@ class DInputGroupInput extends DInput {
   DInputGroupInput({
     super.key,
     super.controller,
-    super.value,
-    super.initialValue,
+
     super.focusNode,
-    super.labelText,
+
     super.semanticLabel,
     super.hintText,
-    super.helperText,
-    super.errorText,
+
     super.invalid,
-    super.isRequired,
-    super.prefix,
-    super.suffix,
+
     super.onChanged,
     super.onSubmitted,
-    super.onEditingComplete,
+
     super.onTap,
-    super.onTapOutside,
-    super.keyboardType,
+
     super.textInputAction,
-    super.textCapitalization,
+
     super.autofocus,
-    super.readOnly,
-    super.obscureText,
-    super.obscuringCharacter,
+
     super.autocorrect,
     super.enableSuggestions,
-    super.enableInteractiveSelection,
-    super.inputFormatters,
-    super.autofillHints,
-    super.maxLength,
-    super.maxLengthEnforcement,
-    super.textAlign,
-    super.textDirection,
-    super.undoController,
-    super.contextMenuBuilder,
+
     super.enabled,
-    super.onSaved,
-    super.onReset,
-    super.validator,
-    super.autovalidateMode,
   });
 }
 
@@ -620,47 +599,21 @@ class DInputGroupTextarea extends DTextarea {
   DInputGroupTextarea({
     super.key,
     super.controller,
-    super.value,
-    super.initialValue,
+
     super.focusNode,
-    super.labelText,
+
     super.semanticLabel,
     super.hintText,
-    super.helperText,
-    super.errorText,
-    super.invalid,
-    super.isRequired,
+
     super.onChanged,
-    super.onSubmitted,
-    super.onEditingComplete,
-    super.onTap,
-    super.onTapOutside,
-    super.keyboardType,
-    super.textInputAction,
-    super.textCapitalization,
-    super.autofocus,
-    super.readOnly,
+
     super.autocorrect,
     super.enableSuggestions,
-    super.enableInteractiveSelection,
-    super.inputFormatters,
-    super.autofillHints,
+
     super.minLines,
     super.maxLines,
-    super.scrollController,
-    super.scrollPhysics,
-    super.showCounter,
-    super.maxLength,
-    super.maxLengthEnforcement,
-    super.textAlign,
-    super.textDirection,
-    super.undoController,
-    super.contextMenuBuilder,
+
     super.enabled,
-    super.onSaved,
-    super.onReset,
-    super.validator,
-    super.autovalidateMode,
   });
 }
 

@@ -8,7 +8,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
-import 'package:flutter/semantics.dart' show SemanticsValidationResult;
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -48,62 +48,6 @@ void main() {
     ),
   );
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
-    testWidgets('reaction density balances content on $platform', (
-      tester,
-    ) async {
-      var changes = 0;
-      var inspections = 0;
-      await mount(
-        tester,
-        DToggle(
-          density: DToggleDensity.reaction,
-          variant: DToggleVariant.outline,
-          icon: const Icon(Icons.favorite),
-          onPressedChanged: (_) => changes++,
-          onLongPress: () => inspections++,
-          child: const Text('123'),
-        ),
-        theme: AppTheme.light.copyWith(platform: platform),
-      );
-      final artwork = find.descendant(
-        of: find.byType(DToggle),
-        matching: find.byType(AnimatedContainer),
-      );
-      expect(tester.getSize(artwork).height, 28);
-      final icon = tester.element(find.byIcon(Icons.favorite));
-      expect(IconTheme.of(icon).size, 18);
-      expect(
-        DefaultTextStyle.of(tester.element(find.text('123'))).style.fontSize,
-        12,
-      );
-      final bounds = tester.getRect(artwork);
-      final iconBounds = tester.getRect(find.byIcon(Icons.favorite));
-      final labelBounds = tester.getRect(find.text('123'));
-      // The outline adds one pixel outside the eight-pixel content inset.
-      expect(iconBounds.left - bounds.left, 9);
-      expect(bounds.right - labelBounds.right, closeTo(9, .01));
-      if (platform != TargetPlatform.macOS) {
-        final gesture = find.descendant(
-          of: find.byType(DToggle),
-          matching: find.byType(GestureDetector),
-        );
-        expect(tester.getRect(gesture), bounds);
-      }
-      await tester.tap(find.text('123'));
-      await tester.pump();
-      expect(changes, 1);
-      await tester.longPress(find.text('123'));
-      await tester.pump();
-      expect(inspections, 1);
-      expect(changes, 1);
-    });
-  }
-
   testWidgets('chat reaction density matches the mockup pill', (tester) async {
     await mount(
       tester,
@@ -139,7 +83,7 @@ void main() {
           await mount(
             tester,
             DToggle(
-              density: DToggleDensity.reaction,
+              density: DToggleDensity.standard,
               variant: DToggleVariant.outline,
               iconPosition: position,
               icon: const Icon(Icons.favorite),
@@ -222,7 +166,7 @@ void main() {
     await mount(
       tester,
       const DToggle(
-        density: DToggleDensity.reaction,
+        density: DToggleDensity.standard,
         icon: Icon(Icons.favorite),
         child: Text('12345'),
       ),
@@ -242,47 +186,6 @@ void main() {
       isTrue,
     );
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('uncontrolled state toggles by pointer keyboard and semantics', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    final changes = <bool>[];
-    await mount(
-      tester,
-      DToggle(
-        initialPressed: true,
-        onPressedChanged: changes.add,
-        focusNode: focus,
-        semanticLabel: 'Bold',
-        child: const Text('Bold'),
-      ),
-    );
-
-    await tester.tap(find.byType(DToggle));
-    await tester.pumpAndSettle();
-    expect(focus.hasFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    final node = tester.getSemantics(controlSemantics());
-    node.owner!.performAction(node.id, SemanticsAction.tap);
-    await tester.pumpAndSettle();
-
-    expect(changes, [false, true, false, true]);
-    expect(
-      tester
-          .getSemantics(controlSemantics())
-          .getSemanticsData()
-          .flagsCollection
-          .isToggled,
-      Tristate.isTrue,
-    );
-    semantics.dispose();
   });
 
   testWidgets('controlled state waits for parent and disabled blocks edits', (
@@ -507,127 +410,6 @@ void main() {
     }
   });
 
-  testWidgets('selected hover press focus and invalid map to live tokens', (
-    tester,
-  ) async {
-    final strategy = FocusManager.instance.highlightStrategy;
-    FocusManager.instance.highlightStrategy =
-        FocusHighlightStrategy.alwaysTraditional;
-    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    final tokens = DTokens.fromTheme(AppTheme.light).copyWith(
-      muted: const Color(0xff123456),
-      border: const Color(0xff654321),
-      colors: AppTheme.light.colorScheme.copyWith(
-        primary: const Color(0xff246813),
-        error: const Color(0xffaa0011),
-      ),
-    );
-    final theme = AppTheme.light.copyWith(extensions: [tokens]);
-
-    await mount(
-      tester,
-      DToggle(
-        pressed: false,
-        onPressedChanged: (_) {},
-        focusNode: focus,
-        variant: DToggleVariant.outline,
-        child: const Text('Format'),
-      ),
-      theme: theme,
-    );
-    AnimatedContainer artwork() => tester.widget(
-      find.descendant(
-        of: find.byType(DToggle),
-        matching: find.byType(AnimatedContainer),
-      ),
-    );
-    BoxDecoration decoration() => artwork().decoration! as BoxDecoration;
-    DControlDecoration foreground() =>
-        artwork().foregroundDecoration! as DControlDecoration;
-    expect(decoration().border!.top.color, tokens.buttonTheme.outline.border);
-    expect(decoration().color, tokens.buttonTheme.outline.background);
-    expect(decoration().border!.top.width, 1);
-    expect(
-      decoration().borderRadius,
-      BorderRadius.circular(tokens.buttonTheme.radius),
-    );
-    expect(
-      tester
-          .widget<RichText>(
-            find.descendant(
-              of: find.byType(DToggle),
-              matching: find.byType(RichText),
-            ),
-          )
-          .text
-          .style!
-          .color,
-      tokens.buttonTheme.outline.foreground,
-    );
-
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.byType(DToggle)));
-    await tester.pumpAndSettle();
-    expect(decoration().color, tokens.buttonTheme.outline.hover);
-    expect(
-      decoration().border!.top.color,
-      tokens.buttonTheme.outline.hoverBorder,
-    );
-    await mouse.moveTo(const Offset(1, 1));
-    await tester.pumpAndSettle();
-
-    focus.requestFocus();
-    await tester.pumpAndSettle();
-    expect(decoration().border!.top.color, tokens.buttonTheme.outline.border);
-    expect(foreground().ringWidth, 1);
-    expect(foreground().ringColor, tokens.focusRing);
-
-    await mount(
-      tester,
-      const DToggle.iconOnly(
-        key: ValueKey('selected-outline-toggle'),
-        pressed: true,
-        variant: DToggleVariant.outline,
-        semanticLabel: 'Reaction',
-        icon: Icon(Icons.favorite_border),
-      ),
-      theme: theme,
-    );
-    expect(decoration().color, tokens.buttonTheme.outline.hover);
-    expect(
-      decoration().border!.top.color,
-      tokens.buttonTheme.outline.hoverBorder,
-    );
-    expect(
-      IconTheme.of(tester.element(find.byIcon(Icons.favorite_border))).color,
-      tokens.buttonTheme.outline.foreground,
-    );
-
-    await mount(
-      tester,
-      const DToggle(
-        key: ValueKey('invalid-toggle'),
-        initialPressed: true,
-        invalid: true,
-        child: Text('Invalid'),
-      ),
-      theme: theme,
-    );
-    expect(decoration().color, DControlStyle.rowHover(tokens));
-    expect(decoration().border!.top.color, const Color(0xffaa0011));
-    expect(
-      tester
-          .getSemantics(controlSemantics())
-          .getSemanticsData()
-          .validationResult,
-      SemanticsValidationResult.invalid,
-    );
-  });
-
   testWidgets('mouse hover survives the application focus-outline policy', (
     tester,
   ) async {
@@ -849,90 +631,6 @@ void main() {
     await mount(tester, const DToggle(child: Text('Plain')));
     expect(artwork().padding, const EdgeInsets.symmetric(horizontal: 10));
   });
-
-  testWidgets(
-    'theme direction scale and reduced motion rebuild without reset',
-    (tester) async {
-      var dark = false;
-      var rtl = false;
-      var reduced = false;
-      late StateSetter update;
-      await tester.pumpWidget(
-        StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return MaterialApp(
-              theme: dark ? AppTheme.dark : AppTheme.light,
-              home: MediaQuery(
-                data: MediaQueryData(
-                  textScaler: const TextScaler.linear(2),
-                  disableAnimations: reduced,
-                ),
-                child: Directionality(
-                  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-                  child: const Scaffold(
-                    body: SizedBox(
-                      width: 112,
-                      child: DToggle(
-                        initialPressed: true,
-                        icon: Icon(
-                          Icons.bookmark_border,
-                          key: ValueKey('icon'),
-                        ),
-                        child: Text(
-                          'A very long bookmark label',
-                          key: ValueKey('label'),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(
-        tester
-            .getSemantics(controlSemantics())
-            .getSemanticsData()
-            .flagsCollection
-            .isToggled,
-        Tristate.isTrue,
-      );
-      final ltrIcon = tester.getCenter(find.byKey(const ValueKey('icon'))).dx;
-      final ltrLabel = tester.getCenter(find.byKey(const ValueKey('label'))).dx;
-      expect(ltrIcon, lessThan(ltrLabel));
-
-      update(() {
-        dark = true;
-        rtl = true;
-        reduced = true;
-      });
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(
-        tester.getCenter(find.byKey(const ValueKey('icon'))).dx,
-        greaterThan(tester.getCenter(find.byKey(const ValueKey('label'))).dx),
-      );
-      expect(
-        tester
-            .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-            .duration,
-        Duration.zero,
-      );
-      expect(
-        tester
-            .getSemantics(controlSemantics())
-            .getSemanticsData()
-            .flagsCollection
-            .isToggled,
-        Tristate.isTrue,
-      );
-    },
-  );
 
   test('Toggle registers every frozen documented example', () {
     expect(componentExamples['toggle'], same(toggleExamples));

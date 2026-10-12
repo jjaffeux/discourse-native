@@ -26,8 +26,6 @@ class DToggleGroupController<T extends Object> extends ChangeNotifier {
     _values = next;
     notifyListeners();
   }
-
-  void clear() => setValues(const []);
 }
 
 /// Presentation and behavior for one [DToggleGroup] item.
@@ -37,17 +35,11 @@ class DToggleGroupItem<T extends Object> {
     required this.value,
     required this.child,
     this.semanticLabel,
-    this.semanticHint,
+
     this.tooltip,
     this.icon,
     this.selectedIcon,
-    this.iconPosition = DToggleIconPosition.start,
-    this.enabled = true,
-    this.invalid = false,
-    this.variant,
-    this.size,
-    this.focusNode,
-    this.autofocus = false,
+
     this.visualStyle,
   }) : _iconOnly = false;
 
@@ -55,36 +47,23 @@ class DToggleGroupItem<T extends Object> {
     required this.value,
     required this.icon,
     required this.semanticLabel,
-    this.semanticHint,
+
     this.tooltip,
     this.selectedIcon,
-    this.enabled = true,
-    this.invalid = false,
-    this.variant,
-    this.size,
-    this.focusNode,
-    this.autofocus = false,
+
     this.visualStyle,
   }) : child = const SizedBox.shrink(),
-       iconPosition = DToggleIconPosition.start,
+
        _iconOnly = true;
 
   final T value;
   final Widget child;
   final String? semanticLabel;
-  final String? semanticHint;
+
   final String? tooltip;
   final Widget? icon;
   final Widget? selectedIcon;
-  final DToggleIconPosition iconPosition;
-  final bool enabled;
-  final bool invalid;
-  final DToggleVariant? variant;
-  final DToggleSize? size;
 
-  /// Borrowed from the caller and never disposed by the group.
-  final FocusNode? focusNode;
-  final bool autofocus;
   final DToggleVisualStyle? visualStyle;
   final bool _iconOnly;
 }
@@ -101,15 +80,13 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     super.key,
     required this.items,
     this.values,
-    this.initialValues = const [],
+
     this.controller,
     this.onChanged,
     this.onItemActivated,
     this.multiple = false,
     this.allowEmptySelection = true,
-    this.enabled = true,
-    this.orientation = Axis.horizontal,
-    this.loopFocus = true,
+
     this.variant = DToggleVariant.standard,
     this.size = DToggleSize.regular,
     this.density = DToggleDensity.standard,
@@ -122,8 +99,7 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   }) : assert(values == null || controller == null),
        assert(spacing >= 0),
        assert(
-         density != DToggleDensity.compactInset ||
-             (inset && orientation == Axis.horizontal && !expanded),
+         density != DToggleDensity.compactInset || ((inset) && !expanded),
          'Compact inset groups require two horizontal icon choices.',
        );
 
@@ -139,9 +115,6 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   /// Parent-owned controlled selection. Values preserve item declaration order.
   final List<T>? values;
 
-  /// Initial selection for internally owned state.
-  final List<T> initialValues;
-
   /// Borrowed mutable selection; cannot be combined with [values].
   final DToggleGroupController<T>? controller;
   final ValueChanged<List<T>>? onChanged;
@@ -153,9 +126,7 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
 
   /// Base UI permits deselecting the last item. Set false for required choices.
   final bool allowEmptySelection;
-  final bool enabled;
-  final Axis orientation;
-  final bool loopFocus;
+
   final DToggleVariant variant;
   final DToggleSize size;
   final DToggleDensity density;
@@ -176,7 +147,7 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
 }
 
 class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
-  late List<T> _localValues = List.unmodifiable(widget.initialValues);
+  late List<T> _localValues = List.unmodifiable(const <Never>[]);
   final Map<T, FocusNode> _ownedFocusNodes = {};
   final Map<FocusNode, bool> _borrowedSkipTraversal = {};
   int _rovingIndex = 0;
@@ -205,7 +176,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       widget.values ?? widget.controller?.values ?? _localValues;
 
   bool get _groupInteractive =>
-      widget.enabled && (widget.values == null || widget.onChanged != null);
+      ((widget.values == null || widget.onChanged != null));
 
   @override
   void initState() {
@@ -261,35 +232,15 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   }
 
   void _reconcileFocusNodes() {
-    final currentBorrowed = {
-      for (final item in widget.items)
-        if (item.focusNode != null) item.focusNode!,
-    };
-    final removedBorrowed = _borrowedSkipTraversal.keys
-        .where((node) => !currentBorrowed.contains(node))
-        .toList();
-    for (final node in removedBorrowed) {
-      node.skipTraversal = _borrowedSkipTraversal.remove(node)!;
-    }
-    final borrowed = {
-      for (final item in widget.items)
-        if (item.focusNode != null) item.value,
-    };
     final values = widget.items.map((item) => item.value).toSet();
     final removed = _ownedFocusNodes.keys
-        .where((value) => !values.contains(value) || borrowed.contains(value))
+        .where((value) => !values.contains(value))
         .toList();
     for (final value in removed) {
       _ownedFocusNodes.remove(value)?.dispose();
     }
     for (final item in widget.items) {
-      if (item.focusNode case final borrowed?) {
-        _borrowedSkipTraversal.putIfAbsent(
-          borrowed,
-          () => borrowed.skipTraversal,
-        );
-      }
-      if (item.focusNode == null) {
+      {
         _ownedFocusNodes.putIfAbsent(
           item.value,
           () => FocusNode(debugLabel: 'Toggle Group ${item.value}'),
@@ -299,21 +250,18 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   }
 
   FocusNode _focusFor(DToggleGroupItem<T> item) =>
-      item.focusNode ?? _ownedFocusNodes[item.value]!;
+      (_ownedFocusNodes[item.value]!);
 
   bool _isFocusableIndex(int index) =>
-      index >= 0 &&
-      index < widget.items.length &&
-      _groupInteractive &&
-      widget.items[index].enabled;
+      (index >= 0 && index < widget.items.length && _groupInteractive);
 
   int _preferredRovingIndex() {
     final selected = _currentValues.toSet();
     final selectedIndex = widget.items.indexWhere(
-      (item) => item.enabled && selected.contains(item.value),
+      (item) => (selected.contains(item.value)),
     );
     if (selectedIndex >= 0) return selectedIndex;
-    final enabledIndex = widget.items.indexWhere((item) => item.enabled);
+    final enabledIndex = widget.items.indexWhere((item) => true);
     return enabledIndex < 0 ? 0 : enabledIndex;
   }
 
@@ -361,13 +309,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       return KeyEventResult.ignored;
     }
     final direction = Directionality.of(context);
-    final forwardKey = switch (widget.orientation) {
+    final forwardKey = switch (Axis.horizontal) {
       Axis.vertical => LogicalKeyboardKey.arrowDown,
       Axis.horizontal when direction == TextDirection.rtl =>
         LogicalKeyboardKey.arrowLeft,
       Axis.horizontal => LogicalKeyboardKey.arrowRight,
     };
-    final backwardKey = switch (widget.orientation) {
+    final backwardKey = switch (Axis.horizontal) {
       Axis.vertical => LogicalKeyboardKey.arrowUp,
       Axis.horizontal when direction == TextDirection.rtl =>
         LogicalKeyboardKey.arrowRight,
@@ -402,9 +350,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     var index = focused >= 0 ? focused : _rovingIndex;
     for (var count = 0; count < widget.items.length; count++) {
       final next = index + delta;
-      if (!widget.loopFocus && (next < 0 || next >= widget.items.length)) {
-        return KeyEventResult.handled;
-      }
+
       index = next % widget.items.length;
       if (index < 0) index += widget.items.length;
       if (_isFocusableIndex(index)) {
@@ -446,7 +392,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final renderObject = itemContext?.findRenderObject();
       final scrollable = itemContext == null
           ? null
-          : Scrollable.maybeOf(itemContext, axis: widget.orientation);
+          : Scrollable.maybeOf(itemContext, axis: Axis.horizontal);
       if (renderObject == null ||
           !renderObject.attached ||
           scrollable == null) {
@@ -479,9 +425,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     );
     assert(
       !widget.slidingIndicator ||
-          (widget.inset &&
-              !widget.multiple &&
-              widget.orientation == Axis.horizontal &&
+          ((widget.inset && !widget.multiple) &&
               widget.items.every((item) => item._iconOnly)),
       'Sliding indicators require single-selection horizontal inset icon choices.',
     );
@@ -498,19 +442,18 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
       final variant =
-          (widget.slidingIndicator ? DToggleVariant.inline : item.variant) ??
+          (widget.slidingIndicator ? DToggleVariant.inline : null) ??
           (widget.inset &&
                   (widget.density == DToggleDensity.standard || compactInset) &&
                   widget.variant == DToggleVariant.standard
               ? DToggleVariant.segmented
               : widget.variant);
-      final size = item.size ?? widget.size;
+      final size = widget.size;
       final baseStyle = item.visualStyle;
       final groupRadius = BorderRadius.circular(DRadius.control);
       final joinedRadius = !connected
           ? baseStyle?.borderRadius
-          : widget.orientation == Axis.horizontal
-          ? BorderRadiusDirectional.only(
+          : (BorderRadiusDirectional.only(
               topStart: index == 0 ? groupRadius.topLeft : Radius.zero,
               bottomStart: index == 0 ? groupRadius.bottomLeft : Radius.zero,
               topEnd: index == widget.items.length - 1
@@ -519,18 +462,12 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               bottomEnd: index == widget.items.length - 1
                   ? groupRadius.bottomRight
                   : Radius.zero,
-            )
-          : BorderRadius.vertical(
-              top: index == 0 ? groupRadius.topLeft : Radius.zero,
-              bottom: index == widget.items.length - 1
-                  ? groupRadius.bottomLeft
-                  : Radius.zero,
-            );
+            ));
       final edges = connected && variant == DToggleVariant.outline
           ? DToggleBorderEdges(
-              top: widget.orientation == Axis.horizontal || index == 0,
+              top: true,
               bottom: true,
-              start: widget.orientation == Axis.vertical || index == 0,
+              start: (index == 0),
               end: true,
             )
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
@@ -541,7 +478,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         borderEdges: edges,
         expandArtwork: widget.expanded,
       );
-      final itemEnabled = _groupInteractive && item.enabled;
+      final itemEnabled = (_groupInteractive);
       _focusFor(item).skipTraversal = index != _rovingIndex;
       Widget toggle = item._iconOnly
           ? DToggle.iconOnly(
@@ -549,18 +486,18 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               icon: item.icon!,
               selectedIcon: item.selectedIcon,
               semanticLabel: item.semanticLabel!,
-              semanticHint: item.semanticHint,
+              semanticHint: null,
               pressed: selected.contains(item.value),
               onPressedChanged: itemEnabled
                   ? (_) => _toggleItem(item.value)
                   : null,
               enabled: itemEnabled,
-              invalid: item.invalid,
+              invalid: false,
               variant: variant,
               size: size,
               density: widget.density,
               focusNode: _focusFor(item),
-              autofocus: item.autofocus,
+              autofocus: false,
               onFocusChanged: (focused) =>
                   _handleItemFocusChanged(index, focused),
               visualStyle: style,
@@ -569,20 +506,20 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               key: ValueKey(('toggle-group-item', item.value)),
               icon: item.icon,
               selectedIcon: item.selectedIcon,
-              iconPosition: item.iconPosition,
+              iconPosition: DToggleIconPosition.start,
               semanticLabel: item.semanticLabel,
-              semanticHint: item.semanticHint,
+              semanticHint: null,
               pressed: selected.contains(item.value),
               onPressedChanged: itemEnabled
                   ? (_) => _toggleItem(item.value)
                   : null,
               enabled: itemEnabled,
-              invalid: item.invalid,
+              invalid: false,
               variant: variant,
               size: size,
               density: widget.density,
               focusNode: _focusFor(item),
-              autofocus: item.autofocus,
+              autofocus: false,
               onFocusChanged: (focused) =>
                   _handleItemFocusChanged(index, focused),
               visualStyle: style,
@@ -599,21 +536,14 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       }
       children.add(widget.expanded ? Expanded(child: toggle) : toggle);
       if (index != widget.items.length - 1 && gap > 0) {
-        children.add(
-          SizedBox(
-            width: widget.orientation == Axis.horizontal ? gap : 0,
-            height: widget.orientation == Axis.vertical ? gap : 0,
-          ),
-        );
+        children.add(SizedBox(width: (gap), height: 0));
       }
     }
 
     Widget group = _FocusOrderedFlex(
-      direction: widget.orientation,
+      direction: Axis.horizontal,
       mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
-      crossAxisAlignment: widget.orientation == Axis.vertical
-          ? CrossAxisAlignment.stretch
-          : CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       focusedChildIndex: connected ? _rovingIndex : null,
       children: children,
     );
@@ -649,7 +579,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     }
     if (widget.scrollable && !widget.expanded) {
       group = SingleChildScrollView(
-        scrollDirection: widget.orientation,
+        scrollDirection: Axis.horizontal,
         child: group,
       );
     }
@@ -690,7 +620,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      enabled: widget.enabled,
+      enabled: true,
       label: widget.semanticLabel,
       child: Focus(
         canRequestFocus: false,

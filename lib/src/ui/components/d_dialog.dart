@@ -43,56 +43,19 @@ class DDialogController<T> extends ChangeNotifier {
   DDialogController({bool initiallyOpen = false}) : _open = initiallyOpen;
 
   bool _open;
-  bool _busy = false;
+
   bool _disposed = false;
-  int _openSession = 0;
+
   Object? _attachment;
   void Function()? _requestOpen;
   void Function(T? result, DDialogChangeReason reason)? _requestClose;
-  Future<T?>? _submission;
 
   bool get isOpen => _open;
-  bool get isBusy => _busy;
 
   void open() => _requestOpen?.call();
 
   void close([T? result]) =>
       _requestClose?.call(result, DDialogChangeReason.programmatic);
-
-  Future<T?> submit(Future<T> Function() operation) {
-    final current = _submission;
-    if (current != null) return current;
-    final attachment = _attachment;
-    final openSession = _openSession;
-    final completer = Completer<T?>();
-    _submission = completer.future;
-    _busy = true;
-    notifyListeners();
-    Future<T>.sync(operation)
-        .then(
-          (result) {
-            if (!_disposed &&
-                _attachment == attachment &&
-                _open &&
-                _openSession == openSession) {
-              close(result);
-            }
-            completer.complete(result);
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            completer.completeError(error, stackTrace);
-          },
-        )
-        .whenComplete(() {
-          if (_submission == completer.future) {
-            _submission = null;
-            _busy = false;
-            if (!_disposed) notifyListeners();
-          }
-        })
-        .ignore();
-    return completer.future;
-  }
 
   void _attach(
     Object attachment,
@@ -114,7 +77,7 @@ class DDialogController<T> extends ChangeNotifier {
   void _setOpen(bool value) {
     if (_open == value) return;
     _open = value;
-    if (value) _openSession++;
+
     if (!_disposed) notifyListeners();
   }
 
@@ -894,15 +857,11 @@ class DDialogFooter extends StatelessWidget {
   const DDialogFooter({
     super.key,
     required this.children,
-    this.showCloseButton = false,
-    this._closeLabel,
+
     this.wideAlignment = WrapAlignment.end,
   });
 
   final List<Widget> children;
-  final bool showCloseButton;
-  final String? _closeLabel;
-  String get closeLabel => _closeLabel ?? appL10n.close;
 
   /// Horizontal action alignment at the 640px responsive breakpoint.
   ///
@@ -913,17 +872,7 @@ class DDialogFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 640;
-    final parts = <Widget>[
-      ...children,
-      if (showCloseButton)
-        DDialogClose<void>(
-          builder: (context, close) => DButton(
-            onPressed: close,
-            variant: DButtonVariant.outline,
-            label: Text(closeLabel),
-          ),
-        ),
-    ];
+    final parts = <Widget>[...children];
     return DecoratedBox(
       decoration: BoxDecoration(
         color: tokens.muted.withValues(alpha: tokens.muted.a * .5),
@@ -962,19 +911,17 @@ class DDialogScrollArea extends StatelessWidget {
     super.key,
     required this.child,
     this.maxHeightFactor = .5,
-    this.controller,
   }) : assert(maxHeightFactor > 0 && maxHeightFactor <= 1);
 
   final Widget child;
   final double maxHeightFactor;
-  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: BoxConstraints(
       maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
     ),
-    child: SingleChildScrollView(controller: controller, child: child),
+    child: SingleChildScrollView(controller: null, child: child),
   );
 }
 

@@ -39,7 +39,7 @@ final bubbleExamples = ComponentExamples(
           'Neutral and accent variants use 12px corners, 8px vertical padding and 13.5px conversation text.',
       states: const ['Neutral', 'Accent'],
       code:
-          '''DBubble(variant: DBubbleVariant.accent, children: [DBubbleContent(child: Text('A message'))])''',
+          '''DBubble(variant: DBubbleVariant.primary, children: [DBubbleContent(child: Text('A message'))])''',
       builder: (_) => const DBubbleGroup(
         children: [
           DBubble(
@@ -47,8 +47,8 @@ final bubbleExamples = ComponentExamples(
             children: [DBubbleContent(child: Text('An incoming message'))],
           ),
           DBubble(
-            variant: DBubbleVariant.accent,
-            align: DBubbleAlign.end,
+            variant: DBubbleVariant.primary,
+
             children: [DBubbleContent(child: Text('An outgoing message'))],
           ),
         ],
@@ -73,15 +73,8 @@ final bubbleExamples = ComponentExamples(
       description:
           'The frozen conversation demo combines end-aligned primary bubbles, a muted group and descriptive reactions.',
       states: const ['Primary', 'Muted', 'Group', 'Reactions'],
-      code: '''DBubble(
-  align: DBubbleAlign.end,
-  children: const [DBubbleContent(child: Text("Hey there! what's up?"))],
-)
-DBubbleGroup(children: [
-  DBubble(variant: DBubbleVariant.muted, children: const [
-    DBubbleContent(child: Text('Hey! Want to see chat bubbles?')),
-  ]),
-])''',
+      code:
+          "DBubble(\n  \n  children: const [DBubbleContent(child: Text(\"Hey there! what's up?\"))],\n)\nDBubbleGroup(children: [\n  DBubble(variant: DBubbleVariant.muted, children: const [\n    DBubbleContent(child: Text('Hey! Want to see chat bubbles?')),\n  ]),\n])",
       builder: (_) => const _ConversationDemo(),
     ),
     StyleguideExample(
@@ -99,10 +92,8 @@ DBubbleGroup(children: [
         'Ghost',
         'Destructive',
       ],
-      code: '''DBubble(variant: DBubbleVariant.tinted, align: DBubbleAlign.end,
-  children: const [DBubbleContent(child: Text('A soft primary tint.'))])
-DBubble(variant: DBubbleVariant.ghost,
-  children: const [DBubbleContent(child: Text('Unframed rich content.'))])''',
+      code:
+          "DBubble(variant: DBubbleVariant.primary, \n  children: const [DBubbleContent(child: Text('A soft primary tint.'))])\nDBubble(variant: DBubbleVariant.ghost,\n  children: const [DBubbleContent(child: Text('Unframed rich content.'))])",
       builder: (_) => const _VariantsDemo(),
     ),
     StyleguideExample(
@@ -110,12 +101,8 @@ DBubble(variant: DBubbleVariant.ghost,
       description:
           'Logical start/end mirrors in RTL. Consecutive messages retain the compact 8px group gap.',
       states: const ['Start', 'End', 'RTL', 'Grouped'],
-      code: '''DBubbleGroup(children: const [
-  DBubble(align: DBubbleAlign.end,
-    children: [DBubbleContent(child: Text('You tell me!'))]),
-  DBubble(align: DBubbleAlign.end,
-    children: [DBubbleContent(child: Text('Find the bug and fix it.'))]),
-])''',
+      code:
+          "DBubbleGroup(children: const [\n  DBubble(\n    children: [DBubbleContent(child: Text('You tell me!'))]),\n  DBubble(\n    children: [DBubbleContent(child: Text('Find the bug and fix it.'))]),\n])",
       builder: (_) => const _AlignmentDemo(),
     ),
     StyleguideExample(
@@ -133,13 +120,8 @@ DBubble(variant: DBubbleVariant.ghost,
         'Busy',
         'Error',
       ],
-      code: '''DBubble(variant: DBubbleVariant.tinted, align: DBubbleAlign.end,
-  children: [DBubbleContent(
-    action: DBubbleContentAction.button,
-    onPressed: forgotPassword,
-    child: const Text('I forgot my password'),
-  )],
-)''',
+      code:
+          "DBubble(variant: DBubbleVariant.primary, \n  children: [DBubbleContent(\n    action: DBubbleContentAction.button,\n    onPressed: forgotPassword,\n    child: const Text('I forgot my password'),\n  )],\n)",
       builder: (_) => const _ActionsDemo(),
     ),
     StyleguideExample(
@@ -218,14 +200,7 @@ DBubbleReactions(interactive: true, children: [
           'Long rich content wraps at 80% on a narrow row; ghost content uses the full row. Preview at 200% and RTL.',
       states: const ['Long content', '80% width', 'Ghost', '200% text', 'RTL'],
       code:
-          '''Directionality(textDirection: TextDirection.rtl, child: Column(children: [
-  DBubble(align: DBubbleAlign.end, children: const [
-    DBubbleContent(child: Text('رسالة طويلة تلتف داخل المساحة المتاحة.')),
-  ]),
-  DBubble(variant: DBubbleVariant.ghost, children: const [
-    DBubbleContent(child: SelectableText('Rich assistant response')),
-  ]),
-]))''',
+          "Directionality(textDirection: TextDirection.rtl, child: Column(children: [\n  DBubble( children: const [\n    DBubbleContent(child: Text('رسالة طويلة تلتف داخل المساحة المتاحة.')),\n  ]),\n  DBubble(variant: DBubbleVariant.ghost, children: const [\n    DBubbleContent(child: SelectableText('Rich assistant response')),\n  ]),\n]))",
       builder: (_) => const _EdgesDemo(),
     ),
   ],
@@ -255,7 +230,6 @@ class _ConversationDemo extends StatelessWidget {
       spacing: 32,
       children: [
         DBubble(
-          align: DBubbleAlign.end,
           children: [DBubbleContent(child: Text("Hey there! what's up?"))],
         ),
         DBubbleGroup(
@@ -283,7 +257,6 @@ class _ConversationDemo extends StatelessWidget {
           ],
         ),
         DBubble(
-          align: DBubbleAlign.end,
           children: [
             DBubbleContent(child: Text('Sure. Hit me with your best demo.')),
           ],
@@ -321,7 +294,7 @@ class _VariantsDemo extends StatelessWidget {
         'This is the default primary bubble.',
       ),
       (
-        DBubbleVariant.secondary,
+        DBubbleVariant.primary,
         DBubbleAlign.end,
         'This is the secondary variant.',
       ),
@@ -331,17 +304,17 @@ class _VariantsDemo extends StatelessWidget {
         'This muted bubble has lower emphasis.',
       ),
       (
-        DBubbleVariant.tinted,
+        DBubbleVariant.primary,
         DBubbleAlign.end,
         'This tint is softly derived from primary.',
       ),
       (
-        DBubbleVariant.outline,
+        DBubbleVariant.primary,
         DBubbleAlign.start,
         'A bordered bubble for rich content.',
       ),
       (
-        DBubbleVariant.destructive,
+        DBubbleVariant.primary,
         DBubbleAlign.end,
         'Error: the command could not be run.',
       ),
@@ -354,7 +327,7 @@ class _VariantsDemo extends StatelessWidget {
           for (final example in examples)
             DBubble(
               variant: example.$1,
-              align: example.$2,
+
               children: [DBubbleContent(child: Text(example.$3))],
             ),
           const DBubble(
@@ -400,12 +373,8 @@ class _AlignmentDemo extends StatelessWidget {
         ),
         DBubbleGroup(
           children: [
+            DBubble(children: [DBubbleContent(child: Text('You tell me!'))]),
             DBubble(
-              align: DBubbleAlign.end,
-              children: [DBubbleContent(child: Text('You tell me!'))],
-            ),
-            DBubble(
-              align: DBubbleAlign.end,
               children: [
                 DBubbleContent(
                   child: Text('It worked yesterday. You broke it!'),
@@ -413,7 +382,6 @@ class _AlignmentDemo extends StatelessWidget {
               ],
             ),
             DBubble(
-              align: DBubbleAlign.end,
               children: [
                 DBubbleContent(child: Text('Find the bug and fix it.')),
                 DBubbleReactions(
@@ -428,8 +396,7 @@ class _AlignmentDemo extends StatelessWidget {
         Directionality(
           textDirection: TextDirection.rtl,
           child: DBubble(
-            align: DBubbleAlign.end,
-            variant: DBubbleVariant.tinted,
+            variant: DBubbleVariant.primary,
             children: [
               DBubbleContent(
                 child: Text('تنعكس محاذاة النهاية مع اتجاه القراءة.'),
@@ -475,8 +442,8 @@ class _ActionsDemoState extends State<_ActionsDemo> {
               'Something else. Talk to a human.',
             ])
               DBubble(
-                variant: DBubbleVariant.tinted,
-                align: DBubbleAlign.end,
+                variant: DBubbleVariant.primary,
+
                 children: [
                   DBubbleContent(
                     action: DBubbleContentAction.button,
@@ -486,13 +453,13 @@ class _ActionsDemoState extends State<_ActionsDemo> {
                 ],
               ),
             DBubble(
-              variant: DBubbleVariant.outline,
-              align: DBubbleAlign.end,
+              variant: DBubbleVariant.primary,
+
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.link,
                   onPressed: () => choose(context, 'Help center link'),
-                  semanticHint: 'Opens local example content',
+
                   child: const Text('Open the help center'),
                 ),
               ],
@@ -502,11 +469,11 @@ class _ActionsDemoState extends State<_ActionsDemo> {
         DBubbleGroup(
           children: [
             DBubble(
-              variant: DBubbleVariant.secondary,
+              variant: DBubbleVariant.primary,
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.button,
-                  selected: true,
+
                   onPressed: () => choose(context, 'Selected response'),
                   semanticLabel: 'Selected response',
                   child: const Text('Selected response'),
@@ -518,7 +485,7 @@ class _ActionsDemoState extends State<_ActionsDemo> {
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.button,
-                  disabled: true,
+
                   onPressed: _noop,
                   semanticLabel: 'Disabled response',
                   child: Text('Disabled response'),
@@ -526,12 +493,11 @@ class _ActionsDemoState extends State<_ActionsDemo> {
               ],
             ),
             const DBubble(
-              variant: DBubbleVariant.tinted,
+              variant: DBubbleVariant.primary,
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.button,
-                  busy: true,
-                  busyLabel: 'Sending response',
+
                   onPressed: _noop,
                   semanticLabel: 'Send response',
                   child: Text('Sending response'),
@@ -539,12 +505,11 @@ class _ActionsDemoState extends State<_ActionsDemo> {
               ],
             ),
             DBubble(
-              variant: DBubbleVariant.destructive,
+              variant: DBubbleVariant.primary,
               children: [
                 DBubbleContent(
                   action: DBubbleContentAction.button,
-                  invalid: true,
-                  errorLabel: 'Response failed',
+
                   onPressed: () => choose(context, 'Retry failed response'),
                   semanticLabel: 'Retry failed response',
                   child: const Text('Response failed. Retry.'),
@@ -607,7 +572,7 @@ class _ReactionDemoState extends State<_ReactionDemo> {
       children: [
         const DBubble(
           variant: DBubbleVariant.muted,
-          align: DBubbleAlign.end,
+
           children: [
             DBubbleContent(
               child: Text("I don't need tests, I know my code works."),
@@ -621,7 +586,7 @@ class _ReactionDemoState extends State<_ReactionDemo> {
         ),
         const DBubble(
           variant: DBubbleVariant.primary,
-          align: DBubbleAlign.end,
+
           children: [
             DBubbleContent(child: Text('Tests passed on the first try.')),
             DBubbleReactions(
@@ -633,7 +598,7 @@ class _ReactionDemoState extends State<_ReactionDemo> {
           ],
         ),
         DBubble(
-          variant: failed ? DBubbleVariant.destructive : DBubbleVariant.muted,
+          variant: failed ? DBubbleVariant.primary : DBubbleVariant.muted,
           children: [
             DBubbleContent(
               child: Text(
@@ -716,7 +681,7 @@ class _CollapsibleDemoState extends State<_CollapsibleDemo> {
         onOpenChange: (value) => setState(() => open = value),
         child: DBubble(
           variant: DBubbleVariant.muted,
-          align: DBubbleAlign.end,
+
           children: [
             DBubbleContent(
               child: Column(
@@ -771,13 +736,12 @@ class _TooltipDemo extends StatelessWidget {
       spacing: 16,
       children: [
         const DBubble(
-          variant: DBubbleVariant.secondary,
+          variant: DBubbleVariant.primary,
           children: [
             DBubbleContent(child: Text('Did you remove the stale route?')),
           ],
         ),
         DBubble(
-          align: DBubbleAlign.end,
           children: [
             const DBubbleContent(
               child: Text('Yes, removed it from the registry.'),
@@ -814,11 +778,10 @@ class _PopoverDemo extends StatelessWidget {
       spacing: 16,
       children: [
         const DBubble(
-          align: DBubbleAlign.end,
           children: [DBubbleContent(child: Text('Run the build script.'))],
         ),
         DBubble(
-          variant: DBubbleVariant.destructive,
+          variant: DBubbleVariant.primary,
           children: [
             const DBubbleContent(child: Text('Failed to run the command.')),
             DBubbleReactions(
@@ -875,8 +838,7 @@ class _EdgesDemo extends StatelessWidget {
         spacing: 28,
         children: [
           DBubble(
-            align: DBubbleAlign.end,
-            variant: DBubbleVariant.tinted,
+            variant: DBubbleVariant.primary,
             children: [
               DBubbleContent(
                 child: Text(

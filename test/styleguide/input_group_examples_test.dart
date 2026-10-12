@@ -75,7 +75,7 @@ void main() {
 
     await tester.tap(find.text('Show loading'));
     await tester.pump();
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(tester.widget<DInputGroupButton>(find.widgetWithText(DInputGroupButton, 'Search')).onPressed, isNull);
     await tester.enterText(find.byType(TextField).first, 'still editable');
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,
@@ -104,7 +104,7 @@ void main() {
         isTrue,
       );
 
-      await tester.enterText(find.byType(DInputGroupInput), '');
+      await tester.enterText(find.byType(DInput), '');
       await tester.tap(find.text('Save'));
       await tester.pump();
 

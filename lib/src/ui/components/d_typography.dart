@@ -49,7 +49,7 @@ class DText extends StatelessWidget {
     this.variant = DTextVariant.paragraph,
     this.style,
     this.textAlign = TextAlign.start,
-    this.softWrap = true,
+
     this.maxLines,
     this.overflow,
     this.semanticsLabel,
@@ -64,7 +64,7 @@ class DText extends StatelessWidget {
     this.variant = DTextVariant.paragraph,
     this.style,
     this.textAlign = TextAlign.start,
-    this.softWrap = true,
+
     this.maxLines,
     this.overflow,
     this.semanticsLabel,
@@ -79,7 +79,7 @@ class DText extends StatelessWidget {
     : textSpan = null,
       variant = DTextVariant.inlineCode,
       textAlign = TextAlign.start,
-      softWrap = true,
+
       maxLines = null,
       overflow = null,
       semanticsLabel = null,
@@ -92,7 +92,7 @@ class DText extends StatelessWidget {
   /// Merged after the reference style for an intentional caller customization.
   final TextStyle? style;
   final TextAlign textAlign;
-  final bool softWrap;
+
   final int? maxLines;
   final TextOverflow? overflow;
   final String? semanticsLabel;
@@ -315,7 +315,7 @@ class DText extends StatelessWidget {
             data!,
             style: resolvedStyle,
             textAlign: textAlign,
-            softWrap: softWrap,
+            softWrap: true,
             maxLines: maxLines,
             overflow: overflow,
             semanticsLabel: semanticsLabel,
@@ -324,17 +324,14 @@ class DText extends StatelessWidget {
             textSpan!,
             style: resolvedStyle,
             textAlign: textAlign,
-            softWrap: softWrap,
+            softWrap: true,
             maxLines: maxLines,
             overflow: overflow,
             semanticsLabel: semanticsLabel,
           );
 
     final tokens = DTokens.of(context);
-    if (variant == DTextVariant.h1 &&
-        data != null &&
-        softWrap &&
-        maxLines == null) {
+    if ((variant == DTextVariant.h1 && data != null) && maxLines == null) {
       result = _balanceHeading(context, resolvedStyle, result);
     }
     if (variant == DTextVariant.h2) {

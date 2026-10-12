@@ -84,10 +84,7 @@ void main() {
             ),
           );
           expect(bounds, tester.getRect(surface));
-          expect(
-            tester.widget<DButton>(button).variant,
-            DButtonVariant.transparentBackground,
-          );
+          expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
           expect(
             find.bySemanticsLabel(
               RegExp(

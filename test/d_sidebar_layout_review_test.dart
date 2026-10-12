@@ -122,64 +122,6 @@ void main() {
     }
   });
 
-  for (final direction in TextDirection.values) {
-    testWidgets(
-      'submenu labels do not inherit parent badge width in $direction',
-      (tester) async {
-        var count = '1';
-        late StateSetter update;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.macOS),
-            home: Scaffold(
-              body: Directionality(
-                textDirection: direction,
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 260,
-                    child: StatefulBuilder(
-                      builder: (context, setState) {
-                        update = setState;
-                        return DSidebarMenuItem(
-                          badge: DSidebarMenuBadge(child: Text(count)),
-                          submenu: DSidebarMenuSub(
-                            children: [
-                              DSidebarMenuSubButton(
-                                onPressed: () {},
-                                child: const Text(
-                                  'A long nested destination label',
-                                ),
-                              ),
-                            ],
-                          ),
-                          child: DSidebarMenuButton(
-                            onPressed: () {},
-                            child: const Text('Projects'),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        final before = tester.getRect(
-          find.text('A long nested destination label'),
-        );
-        update(() => count = '123456');
-        await tester.pump();
-        expect(
-          tester.getRect(find.text('A long nested destination label')),
-          before,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
   for (final submenu in [false, true]) {
     testWidgets('lazy row focus follows its stable key (submenu=$submenu)', (
       tester,

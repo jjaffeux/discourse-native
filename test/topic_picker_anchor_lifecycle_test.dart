@@ -522,9 +522,9 @@ void main() {
     expect(find.text('Support / Phones'), findsOneWidget);
     expect(
       tester
-          .widget<DCombobox<int>>(find.byType(DCombobox<int>))
-          .controller!
-          .value,
+          .state<FormFieldState<List<int>>>(find.byType(DCombobox<int>))
+          .value!
+          .singleOrNull,
       3,
     );
     expect(find.text('Remove subcategory'), findsOneWidget);

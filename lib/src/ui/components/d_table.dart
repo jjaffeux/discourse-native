@@ -186,9 +186,7 @@ class _DTableState extends State<DTable> {
                       child: singleRow
                           ? rows[r].cells[c]
                           : MouseRegion(
-                              onEnter: rows[r].highlightOnHover
-                                  ? (_) => _hovered.value = r
-                                  : null,
+                              onEnter: ((_) => _hovered.value = r),
                               onExit: (_) {
                                 if (_hovered.value == r) {
                                   _hovered.value = null;
@@ -217,9 +215,7 @@ class _DTableState extends State<DTable> {
                                                 widget.headerBackgroundColor !=
                                                     null
                                           ? widget.headerBackgroundColor
-                                          : ((rows[r].highlightOnHover &&
-                                                    hovered == r) ||
-                                                rows[r].expanded ||
+                                          : ((((hovered == r))) ||
                                                 r >= footerStart)
                                           ? tokens.muted.withValues(
                                               alpha: tokens.muted.a * .5,
@@ -237,7 +233,7 @@ class _DTableState extends State<DTable> {
           if (singleRow) {
             final row = rows.single;
             content = MouseRegion(
-              onEnter: row.highlightOnHover ? (_) => _hovered.value = 0 : null,
+              onEnter: ((_) => _hovered.value = 0),
               onExit: (_) => _hovered.value = null,
               child: ValueListenableBuilder<int?>(
                 valueListenable: _hovered,
@@ -259,9 +255,7 @@ class _DTableState extends State<DTable> {
                       ? tokens.muted
                       : headerCount > 0 && widget.headerBackgroundColor != null
                       ? widget.headerBackgroundColor
-                      : (row.highlightOnHover && hovered != null) ||
-                            row.expanded ||
-                            footerStart == 0
+                      : (((hovered != null))) || footerStart == 0
                       ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
                       : tokens.muted.withValues(alpha: 0),
                   child: child,
@@ -437,23 +431,10 @@ class DTableFooter {
 /// cells to activate actions or change selection. No extra row tab stop is added.
 @immutable
 class DTableRow {
-  const DTableRow({
-    this.key,
-    required this.cells,
-    this.selected = false,
-    this.expanded = false,
-    this.highlightOnHover = true,
-  });
+  const DTableRow({this.key, required this.cells, this.selected = false});
   final LocalKey? key;
   final List<DTableCell> cells;
   final bool selected;
-
-  /// Matches the reference highlight while a caller-owned menu is expanded.
-  final bool expanded;
-
-  /// Disable when a containing interactive component owns the row highlight.
-  /// Controlled selection and expanded state remain independent.
-  final bool highlightOnHover;
 }
 
 /// A vertically centered cell. Text remains on one line by default; set
@@ -535,11 +516,10 @@ class DTableHead extends DTableCell {
   const DTableHead({
     super.key,
     required super.child,
-    super.columnSpan,
+
     super.alignment,
     super.padding = const EdgeInsets.symmetric(horizontal: 8),
-    super.softWrap,
-    super.textStyle,
+
     super.onTap,
     super.mouseCursor,
     super.contextMenu,

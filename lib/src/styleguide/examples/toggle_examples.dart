@@ -24,9 +24,9 @@ final toggleExamples = ComponentExamples(
       description:
           'Compact emoji and count with a matching hit area on mobile.',
       code:
-          "DToggle(density: DToggleDensity.reaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
+          "DToggle(density: DToggleDensity.standard, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
       builder: (_) => const DToggle(
-        density: DToggleDensity.reaction,
+        density: DToggleDensity.standard,
         variant: DToggleVariant.outline,
         semanticLabel: '1 heart reaction',
         icon: Icon(Icons.favorite),
@@ -131,7 +131,7 @@ final toggleExamples = ComponentExamples(
           'Small, default and large preserve the measured base-nova bounds.',
       states: const ['Small 24px', 'Default 28px', 'Large 32px'],
       code:
-          "DToggle(initialPressed: true, size: DToggleSize.small, variant: DToggleVariant.outline, child: const Text('Small'))",
+          "DToggle( size: DToggleSize.small, variant: DToggleVariant.outline, child: const Text('Small'))",
       builder: (_) => const _SizeDemo(),
     ),
     StyleguideExample(
@@ -139,15 +139,13 @@ final toggleExamples = ComponentExamples(
       description:
           'Both variants retain pressed semantics while blocking every activation path.',
       states: const ['Disabled', 'Default', 'Outline', 'Pressed'],
-      code:
-          "DToggle(initialPressed: true, enabled: false, child: const Text('Disabled'))",
+      code: "DToggle( enabled: false, child: const Text('Disabled'))",
       builder: (_) => const Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
           DToggle(enabled: false, child: Text('Disabled')),
           DToggle(
-            initialPressed: true,
             enabled: false,
             variant: DToggleVariant.outline,
             child: Text('Disabled'),
@@ -170,7 +168,7 @@ final toggleExamples = ComponentExamples(
           'The Arabic bookmark composition uses logical icon placement and spacing.',
       states: const ['RTL', 'Arabic', 'Outline', 'Small'],
       code:
-          "Directionality(textDirection: TextDirection.rtl, child: DToggle(initialPressed: true, variant: DToggleVariant.outline, size: DToggleSize.small, icon: const ToggleReferenceIcon(ToggleReferenceIcon.bookmark), child: const Text('إشارة مرجعية'))) ",
+          "Directionality(textDirection: TextDirection.rtl, child: DToggle( variant: DToggleVariant.outline, size: DToggleSize.small, icon: const ToggleReferenceIcon(ToggleReferenceIcon.bookmark), child: const Text('إشارة مرجعية'))) ",
       builder: (_) => const Directionality(
         textDirection: TextDirection.rtl,
         child: _BookmarkDemo(arabic: true),
@@ -188,9 +186,7 @@ final toggleExamples = ComponentExamples(
         'External update',
       ],
       code:
-          '''DToggle(pressed: controlled, onPressedChanged: setControlled, child: const Text('Controlled'));
-DToggle(initialPressed: true, onPressedChanged: observe, child: const Text('Uncontrolled'));
-DToggle.iconOnly(semanticLabel: 'Toggle bold', icon: const ToggleReferenceIcon(ToggleReferenceIcon.bold));''',
+          "DToggle(pressed: controlled, onPressedChanged: setControlled, child: const Text('Controlled'));\nDToggle( onPressedChanged: observe, child: const Text('Uncontrolled'));\nDToggle.iconOnly(semanticLabel: 'Toggle bold', icon: const ToggleReferenceIcon(ToggleReferenceIcon.bold));",
       builder: (_) => const _OwnershipDemo(),
     ),
   ],
@@ -288,18 +284,12 @@ class _SizeDemo extends StatelessWidget {
     runSpacing: 8,
     children: [
       DToggle(
-        initialPressed: true,
         size: DToggleSize.small,
         variant: DToggleVariant.outline,
         child: Text('Small'),
       ),
+      DToggle(variant: DToggleVariant.outline, child: Text('Default')),
       DToggle(
-        initialPressed: true,
-        variant: DToggleVariant.outline,
-        child: Text('Default'),
-      ),
-      DToggle(
-        initialPressed: true,
         size: DToggleSize.large,
         variant: DToggleVariant.outline,
         child: Text('Large'),
@@ -335,7 +325,6 @@ class _OwnershipDemoState extends State<_OwnershipDemo> {
             child: const Text('Controlled'),
           ),
           DToggle(
-            initialPressed: true,
             onPressedChanged: (_) => setState(() {
               _changes++;
               _observed = 'Uncontrolled changes: $_changes';
@@ -348,11 +337,7 @@ class _OwnershipDemoState extends State<_OwnershipDemo> {
             icon: ToggleReferenceIcon(ToggleReferenceIcon.bold),
             variant: DToggleVariant.outline,
           ),
-          const DToggle(
-            initialPressed: true,
-            invalid: true,
-            child: Text('Invalid'),
-          ),
+          const DToggle(invalid: true, child: Text('Invalid')),
           DButton(
             size: DButtonSize.small,
             variant: DButtonVariant.secondary,

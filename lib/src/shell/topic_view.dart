@@ -4792,11 +4792,11 @@ class _StoredPostState extends State<_StoredPost> {
                 ),
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
-                  color: highlighted && isSmallAction
+                  color: highlighted
                       ? primary.withValues(alpha: 0.10)
                       : Colors.transparent,
                   border: Border.all(
-                    color: highlighted && isSmallAction
+                    color: highlighted
                         ? primary.withValues(alpha: 0.28)
                         : Colors.transparent,
                   ),

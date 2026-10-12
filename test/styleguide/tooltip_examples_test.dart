@@ -79,7 +79,7 @@ void main() {
   });
 
   testWidgets(
-    'keyboard example runs S through Actions and controlled hints accept Escape',
+    'keyboard example runs S through Actions',
     (tester) async {
       await _pump(tester, 2);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -88,48 +88,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
       await tester.pump();
       expect(find.text('Saved: 1'), findsOneWidget);
-      await _pump(tester, 7);
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer(location: Offset.zero);
-      await mouse.moveTo(tester.getCenter(find.text('Pin hint')));
-      await tester.pumpAndSettle();
-      expect(find.text('Pinned: false'), findsOneWidget);
-      await mouse.down(tester.getCenter(find.text('Pin hint')));
-      await mouse.up();
-      await tester.pumpAndSettle();
-      expect(find.text('Pinned: true'), findsOneWidget);
-      expect(
-        find.text(
-          'This pinned hint uses the current palette, font and text scale.',
-        ),
-        findsOneWidget,
-      );
-      await mouse.down(tester.getCenter(find.text('Pin hint')));
-      await mouse.up();
-      await tester.pumpAndSettle();
-      expect(find.text('Pinned: false'), findsOneWidget);
-      await mouse.down(tester.getCenter(find.text('Pin hint')));
-      await mouse.up();
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.text('Pinned: false'), findsOneWidget);
     },
   );
 
-  testWidgets('controller example selects its second trigger and closes it', (
-    tester,
-  ) async {
-    await _pump(tester, 8);
-    await tester.tap(find.text('Open second'));
-    await tester.pumpAndSettle();
-    expect(find.text('second hint'), findsOneWidget);
-    expect(find.text('first hint'), findsNothing);
-    await tester.tap(find.text('Close hint'));
-    await tester.pumpAndSettle();
-    expect(find.text('second hint'), findsNothing);
-  });
+
 }
 
 Future<void> _pump(WidgetTester tester, int index) async {

@@ -15,16 +15,13 @@ class DGradientBlur extends StatelessWidget {
   const DGradientBlur({
     super.key,
     this.edge = DGradientBlurEdge.top,
-    this.sigma = 12,
+
     this.fullStrengthExtent = 0,
-  }) : assert(sigma >= 0 && sigma < double.infinity),
+  }) : assert((12 < double.infinity)),
        assert(fullStrengthExtent >= 0 && fullStrengthExtent < double.infinity);
 
   /// The edge from which the full-strength region extends.
   final DGradientBlurEdge edge;
-
-  /// The combined Gaussian blur sigma at the strongest edge.
-  final double sigma;
 
   /// The distance from [edge] that stays fully blurred, in logical pixels.
   ///
@@ -36,14 +33,13 @@ class DGradientBlur extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (sigma == 0) return const SizedBox.expand();
     final alignment = edge == DGradientBlurEdge.top
         ? Alignment.topCenter
         : Alignment.bottomCenter;
     // Gaussian variances add: weights of 1 and 4 sum to 17 in variance.
     // Two passes bound the backdrop work per frame while retaining a light
     // blur across the fade and a stronger blur nearest the edge.
-    final unit = sigma / math.sqrt(17);
+    final unit = 12 / math.sqrt(17);
     return IgnorePointer(
       child: ExcludeSemantics(
         child: LayoutBuilder(

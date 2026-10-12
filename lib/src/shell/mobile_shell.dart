@@ -270,9 +270,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 key: const ValueKey('mobile-header'),
                 padding: const EdgeInsets.all(DSpacing.xs),
                 child: Builder(
-                  builder: (context) => Row(
-                    spacing: DSpacing.controlGap,
-                    children: [
+                  builder: (context) {
+                    final navigation = <Widget>[
                       DButton.iconOnly(
                         key: const ValueKey('mobile-menu-button'),
                         icon: const Icon(Icons.menu, size: 20),
@@ -298,23 +297,47 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                       ),
                       const ForumSearch(fullScreen: true),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...registry.shellHeaderActions(
-                            context,
-                            surface: PluginHeaderSurface.content,
-                            compact: true,
-                            ringColor: ForumWindowBackground.chromeColor(
-                              context,
-                              Theme.of(context).shell.sidebar,
-                            ),
-                          ),
-                          const UserMenuButton(compact: true),
-                        ],
+                    ];
+                    final actions = <Widget>[
+                      ...registry.shellHeaderActions(
+                        context,
+                        surface: PluginHeaderSurface.content,
+                        compact: true,
+                        ringColor: ForumWindowBackground.chromeColor(
+                          context,
+                          Theme.of(context).shell.sidebar,
+                        ),
                       ),
-                    ],
-                  ),
+                      const UserMenuButton(compact: true),
+                    ];
+                    final largeText =
+                        MediaQuery.textScalerOf(context).scale(12) > 18;
+                    if (largeText) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            spacing: DSpacing.controlGap,
+                            children: navigation,
+                          ),
+                          const SizedBox(height: DSpacing.controlGap),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            runSpacing: DSpacing.controlGap,
+                            children: actions,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      spacing: DSpacing.controlGap,
+                      children: [
+                        ...navigation,
+                        Row(mainAxisSize: MainAxisSize.min, children: actions),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

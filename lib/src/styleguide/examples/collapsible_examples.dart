@@ -546,9 +546,7 @@ class _BasicState extends State<_Basic> {
             child: Builder(
               builder: (context) => DecoratedBox(
                 decoration: BoxDecoration(
-                  color: DCollapsible.isOpenOf(context)
-                      ? DTokens.of(context).muted
-                      : null,
+                  color: DTokens.of(context).muted,
                   borderRadius: BorderRadius.circular(
                     DTokens.of(context).radius * 0.8,
                   ),

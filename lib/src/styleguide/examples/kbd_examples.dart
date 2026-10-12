@@ -186,7 +186,6 @@ final kbdExamples = ComponentExamples(
             ],
           ),
           DShortcutKeycaps(
-            platform: TargetPlatform.linux,
             listenToKeyboard: false,
             shortcut: DShortcut(
               SingleActivator(
@@ -222,10 +221,9 @@ class _PlatformHints extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             DText(platform.name, variant: DTextVariant.small),
-            DShortcutKeycaps(
-              platform: platform,
+            const DShortcutKeycaps(
               listenToKeyboard: false,
-              shortcut: const DShortcut(
+              shortcut: DShortcut(
                 SingleActivator(
                   LogicalKeyboardKey.arrowLeft,
                   control: true,
@@ -244,7 +242,6 @@ class _PlatformHints extends StatelessWidget {
         children: [
           DText('named keys', variant: DTextVariant.small),
           DShortcutKeycaps(
-            platform: TargetPlatform.linux,
             listenToKeyboard: false,
             shortcut: DShortcut.sequence(
               SingleActivator(LogicalKeyboardKey.pageDown, control: true),
@@ -359,7 +356,7 @@ class _KbdTooltipSampleState extends State<KbdTooltipSample> {
                 ),
                 DTooltip(
                   message: 'Print Document, Control + P',
-                  containsKeycaps: true,
+
                   content: const Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -434,7 +431,7 @@ class _KbdInputSampleState extends State<KbdInputSample> {
                     if (!DControlStyle.isTouch(context))
                       DInputGroupAddon(
                         alignment: DInputGroupAddonAlignment.inlineEnd,
-                        children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
+                        child: DShortcutKeycaps(shortcut: DShortcut(shortcut)),
                       ),
                   ],
                 ),
@@ -478,28 +475,8 @@ const _groupsCode = '''const DProse(children: [
   )),
 ])''';
 
-const _platformCode = '''DProse(children: [
-  for (final platform in const [TargetPlatform.macOS, TargetPlatform.iOS, TargetPlatform.linux])
-    Wrap(spacing: DSpacing.sm, runSpacing: DSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        DText(platform.name, variant: DTextVariant.small),
-        DShortcutKeycaps(platform: platform, listenToKeyboard: false,
-          shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.arrowLeft,
-            control: true, alt: true, shift: true, meta: true))),
-      ],
-    ),
-  const Wrap(spacing: DSpacing.sm, runSpacing: DSpacing.sm,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      DText('named keys', variant: DTextVariant.small),
-      DShortcutKeycaps(platform: TargetPlatform.linux, listenToKeyboard: false,
-        shortcut: DShortcut.sequence(
-          SingleActivator(LogicalKeyboardKey.pageDown, control: true),
-          [SingleActivator(LogicalKeyboardKey.home)])),
-    ],
-  ),
-])''';
+const _platformCode =
+    "DProse(children: [\n  for (final platform in const [TargetPlatform.macOS, TargetPlatform.iOS, TargetPlatform.linux])\n    Wrap(spacing: DSpacing.sm, runSpacing: DSpacing.sm,\n      crossAxisAlignment: WrapCrossAlignment.center,\n      children: [\n        DText(platform.name, variant: DTextVariant.small),\n        DShortcutKeycaps( listenToKeyboard: false,\n          shortcut: const DShortcut(SingleActivator(LogicalKeyboardKey.arrowLeft,\n            control: true, alt: true, shift: true, meta: true))),\n      ],\n    ),\n  const Wrap(spacing: DSpacing.sm, runSpacing: DSpacing.sm,\n    crossAxisAlignment: WrapCrossAlignment.center,\n    children: [\n      DText('named keys', variant: DTextVariant.small),\n      DShortcutKeycaps( listenToKeyboard: false,\n        shortcut: DShortcut.sequence(\n          SingleActivator(LogicalKeyboardKey.pageDown, control: true),\n          [SingleActivator(LogicalKeyboardKey.home)])),\n    ],\n  ),\n])";
 
 const _rtlCode = '''const DDirection(textDirection: TextDirection.rtl,
   child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -515,14 +492,8 @@ const _rtlCode = '''const DDirection(textDirection: TextDirection.rtl,
   ]),
 )''';
 
-const _narrowCode = '''const DProse(children: [
-  DKbdGroup(children: [DKbd('Control + Backspace'), DKbd('Page Down'),
-    DKbd('KeyboardLanguageSwitch')]),
-  DShortcutKeycaps(platform: TargetPlatform.linux, listenToKeyboard: false,
-    shortcut: DShortcut(SingleActivator(LogicalKeyboardKey.delete,
-      control: true, alt: true, shift: true, meta: true))),
-  DKbdGroup(children: []),
-])''';
+const _narrowCode =
+    "const DProse(children: [\n  DKbdGroup(children: [DKbd('Control + Backspace'), DKbd('Page Down'),\n    DKbd('KeyboardLanguageSwitch')]),\n  DShortcutKeycaps( listenToKeyboard: false,\n    shortcut: DShortcut(SingleActivator(LogicalKeyboardKey.delete,\n      control: true, alt: true, shift: true, meta: true))),\n  DKbdGroup(children: []),\n])";
 
 // The three stateful usage snippets contain the complete samples below.
 const _buttonCode = r'''class KbdActionSample extends StatefulWidget {
@@ -581,127 +552,8 @@ class _KbdActionSampleState extends State<KbdActionSample> {
   }
 }''';
 
-const _tooltipCode = r'''class KbdTooltipSample extends StatefulWidget {
-  const KbdTooltipSample({super.key});
+const _tooltipCode =
+    "class KbdTooltipSample extends StatefulWidget {\n  const KbdTooltipSample({super.key});\n\n  @override\n  State<KbdTooltipSample> createState() => _KbdTooltipSampleState();\n}\n\nclass _KbdTooltipSampleState extends State<KbdTooltipSample> {\n  static const save = SingleActivator(LogicalKeyboardKey.keyS);\n  static const print = SingleActivator(LogicalKeyboardKey.keyP, control: true);\n  String _status = 'No action yet.';\n\n  void _save() => setState(() => _status = 'Saved changes.');\n\n  void _print() => setState(() => _status = 'Printed document.');\n\n  @override\n  Widget build(BuildContext context) => CallbackShortcuts(\n    bindings: {save: _save, print: _print},\n    child: Focus(\n      autofocus: true,\n      child: DProse(\n        children: [\n          // The reference group never wraps; narrow previews scroll it.\n          SingleChildScrollView(\n            scrollDirection: Axis.horizontal,\n            child: DButtonGroup(\n              semanticLabel: 'Document actions',\n              children: [\n                DButton(\n                  variant: DButtonVariant.outline,\n                  label: const Text('Save'),\n                  tooltip: 'Save Changes',\n                  shortcut: const DShortcut(save),\n                  onPressed: _save,\n                ),\n                DTooltip(\n                  message: 'Print Document, Control + P',\n                  \n                  content: const Wrap(\n                    spacing: 6,\n                    runSpacing: 6,\n                    crossAxisAlignment: WrapCrossAlignment.center,\n                    children: [\n                      Text('Print Document'),\n                      DKbdGroup(children: [DKbd('Ctrl'), DKbd('P')]),\n                    ],\n                  ),\n                  child: DButton(\n                    variant: DButtonVariant.outline,\n                    label: const Text('Print'),\n                    onPressed: _print,\n                  ),\n                ),\n              ],\n            ),\n          ),\n          Semantics(liveRegion: true, child: DText(_status)),\n        ],\n      ),\n    ),\n  );\n}";
 
-  @override
-  State<KbdTooltipSample> createState() => _KbdTooltipSampleState();
-}
-
-class _KbdTooltipSampleState extends State<KbdTooltipSample> {
-  static const save = SingleActivator(LogicalKeyboardKey.keyS);
-  static const print = SingleActivator(LogicalKeyboardKey.keyP, control: true);
-  String _status = 'No action yet.';
-
-  void _save() => setState(() => _status = 'Saved changes.');
-
-  void _print() => setState(() => _status = 'Printed document.');
-
-  @override
-  Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {save: _save, print: _print},
-    child: Focus(
-      autofocus: true,
-      child: DProse(
-        children: [
-          // The reference group never wraps; narrow previews scroll it.
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DButtonGroup(
-              semanticLabel: 'Document actions',
-              children: [
-                DButton(
-                  variant: DButtonVariant.outline,
-                  label: const Text('Save'),
-                  tooltip: 'Save Changes',
-                  shortcut: const DShortcut(save),
-                  onPressed: _save,
-                ),
-                DTooltip(
-                  message: 'Print Document, Control + P',
-                  containsKeycaps: true,
-                  content: const Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text('Print Document'),
-                      DKbdGroup(children: [DKbd('Ctrl'), DKbd('P')]),
-                    ],
-                  ),
-                  child: DButton(
-                    variant: DButtonVariant.outline,
-                    label: const Text('Print'),
-                    onPressed: _print,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Semantics(liveRegion: true, child: DText(_status)),
-        ],
-      ),
-    ),
-  );
-}''';
-
-const _inputCode = r'''class KbdInputSample extends StatefulWidget {
-  const KbdInputSample({super.key});
-
-  @override
-  State<KbdInputSample> createState() => _KbdInputSampleState();
-}
-
-class _KbdInputSampleState extends State<KbdInputSample> {
-  final _focus = FocusNode();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final platform = Theme.of(context).platform;
-    final apple = platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
-    final shortcut = SingleActivator(
-      LogicalKeyboardKey.keyK,
-      meta: apple,
-      control: !apple,
-    );
-    return CallbackShortcuts(
-      bindings: {shortcut: _focus.requestFocus},
-      child: Focus(
-        autofocus: true,
-        child: DProse(
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 320),
-                child: DInputGroup(
-                  children: [
-                    DInputGroupInput(
-                      hintText: 'Search...',
-                      semanticLabel: 'Search',
-                      focusNode: _focus,
-                      onChanged: (value) => setState(() => _query = value),
-                    ),
-                    const DInputGroupAddon(child: Icon(Icons.search)),
-                    if (!DControlStyle.isTouch(context)) DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      children: [DKbd(apple ? '⌘' : 'Ctrl'), const DKbd('K')],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            DText(_query.isEmpty ? 'No query yet.' : 'Query: $_query'),
-          ],
-        ),
-      ),
-    );
-  }
-}''';
+const _inputCode =
+    "class KbdInputSample extends StatefulWidget {\n  const KbdInputSample({super.key});\n\n  @override\n  State<KbdInputSample> createState() => _KbdInputSampleState();\n}\n\nclass _KbdInputSampleState extends State<KbdInputSample> {\n  final _focus = FocusNode();\n  String _query = '';\n\n  @override\n  void dispose() {\n    _focus.dispose();\n    super.dispose();\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    final platform = Theme.of(context).platform;\n    final apple = platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;\n    final shortcut = SingleActivator(\n      LogicalKeyboardKey.keyK,\n      meta: apple,\n      control: !apple,\n    );\n    return CallbackShortcuts(\n      bindings: {shortcut: _focus.requestFocus},\n      child: Focus(\n        autofocus: true,\n        child: DProse(\n          children: [\n            Align(\n              alignment: AlignmentDirectional.centerStart,\n              child: ConstrainedBox(\n                constraints: const BoxConstraints(maxWidth: 320),\n                child: DInputGroup(\n                  children: [\n                    DInputGroupInput(\n                      hintText: 'Search...',\n                      semanticLabel: 'Search',\n                      focusNode: _focus,\n                      onChanged: (value) => setState(() => _query = value),\n                    ),\n                    const DInputGroupAddon(child: Icon(Icons.search)),\n                    if (!DControlStyle.isTouch(context)) DInputGroupAddon(\n                      alignment: DInputGroupAddonAlignment.inlineEnd,\n                      \n                    ),\n                  ],\n                ),\n              ),\n            ),\n            DText(_query.isEmpty ? 'No query yet.' : 'Query: \$_query'),\n          ],\n        ),\n      ),\n    );\n  }\n}";

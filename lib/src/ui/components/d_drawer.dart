@@ -106,59 +106,21 @@ class DDrawerController<T> extends ChangeNotifier {
        _snapPoint = initialSnapPoint;
 
   bool _open;
-  bool _busy = false;
+
   bool _disposed = false;
   DDrawerSnapPoint? _snapPoint;
   Object? _attachment;
   void Function(DDrawerChangeReason)? _requestOpen;
   void Function(T?, DDrawerChangeReason)? _requestClose;
   DDrawerSwipeDirection? _dismissDirection;
-  Future<T?>? _submission;
-  int _openSession = 0;
 
   bool get isOpen => _open;
-  bool get isBusy => _busy;
+
   DDrawerSnapPoint? get snapPoint => _snapPoint;
-  bool get isAttached => _attachment != null;
 
   void open() => _requestOpen?.call(DDrawerChangeReason.programmatic);
   void close([T? result]) =>
       _requestClose?.call(result, DDrawerChangeReason.programmatic);
-
-  Future<T?> submit(Future<T> Function() operation) {
-    final current = _submission;
-    if (current != null) return current;
-    final attachment = _attachment;
-    final session = _openSession;
-    final completer = Completer<T?>();
-    _submission = completer.future;
-    _busy = true;
-    notifyListeners();
-    Future<T>.sync(operation)
-        .then(
-          (result) {
-            if (!_disposed &&
-                _attachment == attachment &&
-                _open &&
-                _openSession == session) {
-              close(result);
-            }
-            completer.complete(result);
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            completer.completeError(error, stackTrace);
-          },
-        )
-        .whenComplete(() {
-          if (_submission == completer.future) {
-            _submission = null;
-            _busy = false;
-            if (!_disposed) notifyListeners();
-          }
-        })
-        .ignore();
-    return completer.future;
-  }
 
   void _attach(
     Object attachment,
@@ -183,7 +145,7 @@ class DDrawerController<T> extends ChangeNotifier {
   void _setOpen(bool value) {
     if (_open == value) return;
     _open = value;
-    if (value) _openSession++;
+
     if (!_disposed) notifyListeners();
   }
 
@@ -1619,26 +1581,16 @@ class DDrawerContent extends StatelessWidget {
   const DDrawerContent({
     super.key,
     required this.children,
-    this.width,
+
     this.height,
-    this.maxWidth,
-    this.maxHeight,
-    this.inset = 0,
-    this.bleedBackground,
+
     this.semanticLabel,
-  }) : assert(width == null || width > 0),
-       assert(height == null || height > 0),
-       assert(maxWidth == null || maxWidth > 0),
-       assert(maxHeight == null || maxHeight > 0),
-       assert(inset >= 0);
+  }) : assert(height == null || height > 0);
 
   final List<Widget> children;
-  final double? width;
+
   final double? height;
-  final double? maxWidth;
-  final double? maxHeight;
-  final double inset;
-  final Color? bleedBackground;
+
   final String? semanticLabel;
 
   @override
@@ -1654,7 +1606,7 @@ class DDrawerContent extends StatelessWidget {
     final defaultWidth = wide ? 384.0 : viewportSize.width * .75;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final availableHeight = math
-        .max(0.0, viewportSize.height - keyboardInset - inset * 2)
+        .max(0.0, viewportSize.height - keyboardInset - 0 * 2)
         .toDouble();
     final defaultMaxHeight = math.max(0.0, availableHeight - 96).toDouble();
     final accessibleHeight = height == null
@@ -1671,17 +1623,15 @@ class DDrawerContent extends StatelessWidget {
         : accessibleHeight;
     final constraints = vertical
         ? BoxConstraints(
-            minWidth: math.max(0.0, viewportSize.width - inset * 2).toDouble(),
-            maxWidth: math.max(0.0, viewportSize.width - inset * 2).toDouble(),
-            maxHeight:
-                maxHeight ??
-                (scope.hasSnapPoints || height != null
-                    ? availableHeight
-                    : defaultMaxHeight),
+            minWidth: math.max(0.0, viewportSize.width - 0 * 2).toDouble(),
+            maxWidth: math.max(0.0, viewportSize.width - 0 * 2).toDouble(),
+            maxHeight: ((scope.hasSnapPoints || height != null
+                ? availableHeight
+                : defaultMaxHeight)),
           )
         : BoxConstraints(
-            minWidth: width ?? defaultWidth,
-            maxWidth: maxWidth ?? width ?? defaultWidth,
+            minWidth: (defaultWidth),
+            maxWidth: (defaultWidth),
             minHeight: availableHeight,
             maxHeight: availableHeight,
           );
@@ -1712,7 +1662,7 @@ class DDrawerContent extends StatelessWidget {
       ),
       _ => null,
     };
-    final bleed = bleedBackground ?? tokens.surface;
+    final bleed = tokens.surface;
     final nestedOpacity = scope.nestedDepth > 0 && !scope.swiping ? 0.0 : 1.0;
     final drawerContent = Flexible(
       fit: scope.hasSnapPoints || !vertical || height != null
@@ -1794,11 +1744,11 @@ class DDrawerContent extends StatelessWidget {
       explicitChildNodes: true,
       label: semanticLabel,
       child: Padding(
-        padding: EdgeInsets.all(inset),
+        padding: const EdgeInsets.all(0),
         child: ConstrainedBox(
           constraints: constraints,
           child: SizedBox(
-            width: vertical ? double.infinity : width ?? defaultWidth,
+            width: vertical ? double.infinity : (defaultWidth),
             height: resolvedHeight,
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -1974,21 +1924,16 @@ class DDrawerClose<T> extends StatelessWidget {
 
 /// A flex-sized scroll region that hands dismiss-facing overscroll to Drawer.
 class DDrawerScrollArea extends StatelessWidget {
-  const DDrawerScrollArea({
-    super.key,
-    required this.child,
-    this.controller,
-    this.padding,
-  });
+  const DDrawerScrollArea({super.key, required this.child, this.padding});
 
   final Widget child;
-  final ScrollController? controller;
+
   final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) => Flexible(
     child: SingleChildScrollView(
-      controller: controller,
+      controller: null,
       padding: padding,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -2008,25 +1953,20 @@ class DDrawerScrollArea extends StatelessWidget {
 Future<T?> showDDrawer<T>({
   required BuildContext context,
   required DDrawerContentBuilder<T> builder,
-  DDrawerSwipeDirection swipeDirection = DDrawerSwipeDirection.down,
-  DDrawerModalMode modalMode = DDrawerModalMode.modal,
-  List<DDrawerSnapPoint> snapPoints = const [],
-  DDrawerSnapPoint? initialSnapPoint,
+
   bool showSwipeHandle = false,
-  bool disablePointerDismissal = false,
-  bool dismissOnEscape = true,
+
   bool Function()? canDismiss,
-  bool useRootNavigator = false,
+
   String? barrierLabel,
-  RouteSettings? routeSettings,
+
   FocusNode? initialFocusNode,
-  FocusNode? finalFocusNode,
+
   bool requestInitialFocus = true,
-  bool restoreFocus = true,
 }) async {
   final controller = DDrawerController<T>(
     initiallyOpen: true,
-    initialSnapPoint: initialSnapPoint ?? snapPoints.firstOrNull,
+    initialSnapPoint: (const <DDrawerSnapPoint>[].firstOrNull),
   );
   final environment = ValueNotifier<DOverlayEnvironment?>(
     DOverlayEnvironment.capture(context),
@@ -2037,15 +1977,15 @@ Future<T?> showDDrawer<T>({
         builder: (drawerContext) => builder(drawerContext, controller),
       ),
       barrierLabel: barrierLabel ?? appL10n.dismissDrawer,
-      disablePointerDismissal: disablePointerDismissal,
-      dismissOnEscape: dismissOnEscape,
+      disablePointerDismissal: false,
+      dismissOnEscape: true,
       initialFocusNode: initialFocusNode,
       requestInitialFocus: requestInitialFocus,
-      modalMode: modalMode,
-      snapPoints: List.unmodifiable(snapPoints),
+      modalMode: DDrawerModalMode.modal,
+      snapPoints: List.unmodifiable(const []),
       snapPoint: controller.snapPoint,
       snapToSequentialPoints: false,
-      swipeDirection: swipeDirection,
+      swipeDirection: DDrawerSwipeDirection.down,
       showSwipeHandle: showSwipeHandle,
     ),
   );
@@ -2066,15 +2006,15 @@ Future<T?> showDDrawer<T>({
     configuration.value = _DDrawerConfiguration<T>(
       content: configuration.value!.content,
       barrierLabel: barrierLabel ?? appL10n.dismissDrawer,
-      disablePointerDismissal: disablePointerDismissal,
-      dismissOnEscape: dismissOnEscape,
+      disablePointerDismissal: false,
+      dismissOnEscape: true,
       initialFocusNode: initialFocusNode,
       requestInitialFocus: requestInitialFocus,
-      modalMode: modalMode,
-      snapPoints: List.unmodifiable(snapPoints),
+      modalMode: DDrawerModalMode.modal,
+      snapPoints: List.unmodifiable(const []),
       snapPoint: point,
       snapToSequentialPoints: false,
-      swipeDirection: swipeDirection,
+      swipeDirection: DDrawerSwipeDirection.down,
       showSwipeHandle: showSwipeHandle,
     );
     return true;
@@ -2088,10 +2028,10 @@ Future<T?> showDDrawer<T>({
   }
 
   route = _DDrawerRoute<T>(
-    settings: routeSettings,
+    settings: null,
     environment: environment,
     configuration: configuration,
-    modalMode: modalMode,
+    modalMode: DDrawerModalMode.modal,
     onDismissRequested: (_) => requestClose(null),
     onCloseRequested: requestClose,
     onSnapRequested: updateSnap,
@@ -2111,21 +2051,18 @@ Future<T?> showDDrawer<T>({
     route,
     (_) {},
     (result, _) => requestClose(result),
-    swipeDirection,
+    DDrawerSwipeDirection.down,
   );
   try {
-    return await Navigator.of(
-      context,
-      rootNavigator: useRootNavigator,
-    ).push<T>(route);
+    return await Navigator.of(context, rootNavigator: false).push<T>(route);
   } finally {
     watchingEnvironment = false;
     controller._detach(route);
     controller.dispose();
     environment.dispose();
     configuration.dispose();
-    if (restoreFocus && route.wasCurrentWhenAuthorized) {
-      final target = finalFocusNode ?? previousFocus;
+    if (route.wasCurrentWhenAuthorized) {
+      final target = (previousFocus);
       if (target?.canRequestFocus ?? false) target!.requestFocus();
     }
   }

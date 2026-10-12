@@ -40,10 +40,9 @@ class DCheckbox extends StatefulWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
-    this.showFocusRing = true,
-    this.onShowFocusHighlight,
+
     this.contentPadding = EdgeInsets.zero,
-    this.alignment = AlignmentDirectional.center,
+
     this.inline = false,
     this.inlineTextStyle,
   }) : _controlled = true,
@@ -51,7 +50,7 @@ class DCheckbox extends StatefulWidget {
 
   const DCheckbox.defaultValue({
     super.key,
-    bool? defaultValue = false,
+
     this.onChanged,
     this.tristate = false,
     this.enabled = true,
@@ -64,15 +63,13 @@ class DCheckbox extends StatefulWidget {
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
-    this.showFocusRing = true,
-    this.onShowFocusHighlight,
+
     this.contentPadding = EdgeInsets.zero,
-    this.alignment = AlignmentDirectional.center,
+
     this.inline = false,
     this.inlineTextStyle,
-  }) : value = defaultValue,
-       _controlled = false,
-       assert(tristate || defaultValue != null);
+  }) : value = false,
+       _controlled = false;
 
   final bool? value;
   final ValueChanged<bool?>? onChanged;
@@ -90,14 +87,7 @@ class DCheckbox extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
 
-  /// Disable only when an enclosing choice surface draws the focus ring.
-  final bool showFocusRing;
-  final ValueChanged<bool>? onShowFocusHighlight;
   final EdgeInsetsGeometry contentPadding;
-
-  /// Positions the control within any extra space assigned by its parent.
-  /// That surrounding space is not interactive.
-  final AlignmentGeometry alignment;
 
   /// Adds a non-interactive 8px gap before adjacent editable text.
   /// Ignored when [title] is set.
@@ -169,14 +159,14 @@ class _DCheckboxState extends State<DCheckbox> {
         ? (dark
               ? tokens.destructive.withValues(alpha: tokens.destructive.a * .5)
               : tokens.destructive)
-        : _focusVisible && widget.showFocusRing
+        : (_focusVisible)
         ? tokens.focusRing
         : tokens.colors.outlineVariant;
     final ring = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .4 : .2),
           )
-        : _focusVisible && widget.showFocusRing
+        : (_focusVisible)
         ? tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5)
         : null;
     final artwork = AnimatedContainer(
@@ -273,7 +263,6 @@ class _DCheckboxState extends State<DCheckbox> {
           : SystemMouseCursors.forbidden,
       onShowFocusHighlight: (value) {
         setState(() => _focusVisible = value);
-        widget.onShowFocusHighlight?.call(value);
       },
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
@@ -345,7 +334,7 @@ class _DCheckboxState extends State<DCheckbox> {
     return Padding(
       padding: padding,
       child: Align(
-        alignment: widget.alignment,
+        alignment: AlignmentDirectional.center,
         widthFactor: 1,
         heightFactor: 1,
         child: content,

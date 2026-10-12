@@ -18,7 +18,7 @@ class DMobileDockItem extends StatelessWidget {
     required this.onPressed,
     this.badge,
     this.selected = false,
-    this.semanticLabel,
+
     this.focusNode,
     this.expanded = false,
     this.hasPopup = false,
@@ -28,7 +28,7 @@ class DMobileDockItem extends StatelessWidget {
   final String label;
   final Widget? badge;
   final bool selected;
-  final String? semanticLabel;
+
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
   final bool expanded;
@@ -47,10 +47,10 @@ class DMobileDockItem extends StatelessWidget {
       selected: selected,
       child: DButton(
         density: DButtonDensity.mobileDock,
-        variant: DButtonVariant.transparentBackground,
+        variant: DButtonVariant.ghost,
         shape: DButtonShape.pill,
         tooltip: label,
-        semanticLabel: semanticLabel,
+        semanticLabel: null,
         focusNode: focusNode,
         expanded: expanded,
         hasPopup: hasPopup,

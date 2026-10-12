@@ -36,38 +36,8 @@ final skeletonExamples = ComponentExamples(
         'Static',
         'Pulse',
       ],
-      code: '''DSkeletonRegion(
-  semanticsLabel: 'Loading profile',
-  child: SizedBox(width: 314, child: Row(children: [
-    const DSkeleton.circle(diameter: 48),
-    const SizedBox(width: 16),
-    Expanded(child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-      const DSkeleton(width: 250, height: 16),
-      const SizedBox(height: 8),
-      const DSkeleton(width: 200, height: 16),
-    ])),
-  ])),
-)
-DSkeleton(width: 100, height: 20,
-  borderRadius: BorderRadius.circular(999))
-DSkeleton(width: 160, height: 32) // Medium radius: site base × 0.8.
-DSkeleton.circle(diameter: 48)
-DSkeleton(
-  width: 160,
-  height: 32,
-  borderRadius: BorderRadius.circular(999),
-  animate: false,
-)
-DSkeletonRegion(
-  semanticsLabel: 'Loading preview',
-  child: Row(children: [
-    const Expanded(child: DSkeleton(height: 16)),
-    const SizedBox(width: DSpacing.sm),
-    const DSkeleton(width: 48, height: 16, animate: false),
-  ]),
-)''',
+      code:
+          "DSkeletonRegion(\n  semanticsLabel: 'Loading profile',\n  child: SizedBox(width: 314, child: Row(children: [\n    const DSkeleton.circle(diameter: 48),\n    const SizedBox(width: 16),\n    Expanded(child: Column(\n      crossAxisAlignment: CrossAxisAlignment.start,\n      children: [\n      const DSkeleton(width: 250, height: 16),\n      const SizedBox(height: 8),\n      const DSkeleton(width: 200, height: 16),\n    ])),\n  ])),\n)\nDSkeleton(width: 100, height: 20,\n  borderRadius: BorderRadius.circular(999))\nDSkeleton(width: 160, height: 32) // Medium radius: site base × 0.8.\nDSkeleton.circle(diameter: 48)\nDSkeleton(\n  width: 160,\n  height: 32,\n  borderRadius: BorderRadius.circular(999),\n  \n)\nDSkeletonRegion(\n  semanticsLabel: 'Loading preview',\n  child: Row(children: [\n    const Expanded(child: DSkeleton(height: 16)),\n    const SizedBox(width: DSpacing.sm),\n    const DSkeleton(width: 48, height: 16, ),\n  ]),\n)",
       builder: (_) => const _GeometryPreview(),
     ),
     StyleguideExample(
@@ -307,7 +277,6 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
   double _width = 160;
   double _height = 32;
   double? _radius;
-  bool _animate = true;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -348,11 +317,6 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
               selected: _shape == shape,
               onSelected: (_) => setState(() => _shape = shape),
             ),
-          FilterChip(
-            label: const Text('Pulse'),
-            selected: _animate,
-            onSelected: (value) => setState(() => _animate = value),
-          ),
         ],
       ),
       if (_shape != 'Circle') ...[
@@ -400,7 +364,7 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
       Text(
         MediaQuery.disableAnimationsOf(context)
             ? 'Reduced motion: static at full opacity'
-            : (_animate ? 'Pulse enabled' : 'Pulse paused at full opacity'),
+            : 'Pulse follows motion settings',
       ),
       const SizedBox(height: DSpacing.md),
       Semantics(
@@ -409,13 +373,12 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
             ? DSkeleton.circle(
                 key: const ValueKey('skeleton-geometry-shape'),
                 diameter: _height,
-                animate: _animate,
               )
             : DSkeleton(
                 key: const ValueKey('skeleton-geometry-shape'),
                 width: _width,
                 height: _height,
-                animate: _animate,
+
                 borderRadius: _shape == 'Pill'
                     ? BorderRadius.circular(999)
                     : (_radius == null
@@ -426,25 +389,25 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
       const SizedBox(height: DSpacing.xl),
       const Text('Shared pulse with a static companion'),
       const SizedBox(height: DSpacing.sm),
-      DSkeletonRegion(
+      const DSkeletonRegion(
         semanticsLabel: 'Loading preview',
-        animate: _animate,
-        child: const Row(
+
+        child: Row(
           children: [
             Expanded(child: DSkeleton(height: 16)),
             SizedBox(width: DSpacing.sm),
-            DSkeleton(width: 48, height: 16, animate: false),
+            DSkeleton(width: 48, height: 16),
           ],
         ),
       ),
       const SizedBox(height: DSpacing.lg),
       const Text('Directional corner override'),
       const SizedBox(height: DSpacing.sm),
-      DSkeleton(
+      const DSkeleton(
         width: 160,
         height: 32,
-        animate: _animate,
-        borderRadius: const BorderRadiusDirectional.only(
+
+        borderRadius: BorderRadiusDirectional.only(
           topStart: Radius.circular(20),
           bottomEnd: Radius.circular(20),
         ),

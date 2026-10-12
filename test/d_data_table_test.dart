@@ -17,7 +17,7 @@ List<DDataTableColumn<_Payment>> _columns() => [
     id: 'email',
     label: 'Email',
     compare: (first, second) => first.email.compareTo(second.email),
-    filterText: (row) => row.email,
+
     headerBuilder: (context, header) => DDataTableColumnHeader(
       title: header.column.label,
       sortDirection: header.sortDirection,
@@ -32,9 +32,9 @@ List<DDataTableColumn<_Payment>> _columns() => [
     id: 'amount',
     label: 'Amount',
     compare: (first, second) => first.amount.compareTo(second.amount),
-    filterText: (row) => '${row.amount}',
+
     alignment: AlignmentDirectional.centerEnd,
-    headerAlignment: AlignmentDirectional.centerEnd,
+
     cellBuilder: (context, cell) => Text('\$${cell.row.amount}.00'),
   ),
 ];
@@ -265,169 +265,6 @@ void main() {
     expect(controller.value.page, 1);
   });
 
-  testWidgets('local filter sort page and stable selection compose', (
-    tester,
-  ) async {
-    final controller = DDataTableController(
-      initialState: DDataTableState(pageSize: 2),
-    );
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      DDataTable<_Payment>(
-        data: _payments,
-        columns: _columns(),
-        rowId: (row) => row.id,
-        controller: controller,
-        selectable: true,
-        selectRowLabel: (row) => 'Select ${row.email}',
-      ),
-    );
-
-    expect(find.text('zara@example.com'), findsOneWidget);
-    expect(find.text('abe@example.com'), findsOneWidget);
-    expect(find.text('mina@example.com'), findsNothing);
-    await tester.tap(find.bySemanticsLabel('Select abe@example.com'));
-    await tester.pump();
-    expect(controller.value.selectedRowIds, {'b'});
-    expect(
-      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
-      isNull,
-    );
-
-    controller.setSort('email', DDataTableSortDirection.ascending);
-    await tester.pump();
-    expect(find.text('abe@example.com'), findsOneWidget);
-    expect(find.text('mina@example.com'), findsOneWidget);
-    expect(find.text('zara@example.com'), findsNothing);
-    expect(controller.value.selectedRowIds, {'b'});
-
-    controller.setFilter('email', 'zara');
-    await tester.pump();
-    expect(find.text('zara@example.com'), findsOneWidget);
-    expect(find.text('abe@example.com'), findsNothing);
-    expect(controller.value.selectedRowIds, {'b'});
-
-    controller.setFilter('email', 'missing');
-    await tester.pump();
-    expect(find.text('No results.'), findsOneWidget);
-    expect(tester.getSize(find.text('No results.')).height, greaterThan(0));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('page selection exposes none, all, mixed, then none', (
-    tester,
-  ) async {
-    final controller = DDataTableController();
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      DDataTable<_Payment>(
-        data: _payments,
-        columns: _columns(),
-        rowId: (row) => row.id,
-        controller: controller,
-        selectable: true,
-        selectRowLabel: (row) => 'Select ${row.email}',
-      ),
-    );
-
-    DCheckbox header() =>
-        tester.widget<DCheckbox>(find.byType(DCheckbox).first);
-    expect(header().value, isFalse);
-
-    await tester.tap(find.bySemanticsLabel('Select all rows on this page'));
-    await tester.pump();
-    expect(controller.value.selectedRowIds, {'a', 'b', 'c'});
-    expect(header().value, isTrue);
-
-    await tester.tap(find.bySemanticsLabel('Select abe@example.com'));
-    await tester.pump();
-    expect(controller.value.selectedRowIds, {'a', 'c'});
-    expect(header().value, isNull);
-
-    await tester.tap(find.bySemanticsLabel('Select zara@example.com'));
-    await tester.pump();
-    await tester.tap(find.bySemanticsLabel('Select mina@example.com'));
-    await tester.pump();
-    expect(controller.value.selectedRowIds, isEmpty);
-    expect(header().value, isFalse);
-  });
-
-  testWidgets('selection header exposes column and select-all semantics', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final controller = DDataTableController();
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      DDataTable<_Payment>(
-        data: _payments,
-        columns: _columns(),
-        rowId: (row) => row.id,
-        controller: controller,
-        selectable: true,
-        selectionColumnLabel: 'Payment selection',
-        selectAllLabel: 'Select every payment on this page',
-      ),
-    );
-
-    expect(find.bySemanticsLabel('Payment selection'), findsOneWidget);
-    final selectAll = find.bySemanticsLabel(
-      'Select every payment on this page',
-    );
-    expect(selectAll, findsOneWidget);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pump();
-    expect(controller.value.selectedRowIds, {'a', 'b', 'c'});
-    semantics.dispose();
-  });
-
-  testWidgets('selection is keyed by IDs across row replacement and pruned', (
-    tester,
-  ) async {
-    final controller = DDataTableController(
-      initialState: DDataTableState(selectedRowIds: const {'b'}),
-    );
-    addTearDown(controller.dispose);
-    var rows = List<_Payment>.of(_payments);
-    late StateSetter rebuild;
-    await _pump(
-      tester,
-      StatefulBuilder(
-        builder: (context, setState) {
-          rebuild = setState;
-          return DDataTable<_Payment>(
-            data: rows,
-            columns: _columns(),
-            rowId: (row) => row.id,
-            controller: controller,
-            selectable: true,
-          );
-        },
-      ),
-    );
-    var selected = tester.widget<DCheckbox>(find.byType(DCheckbox).at(2));
-    expect(selected.value, isTrue);
-
-    rebuild(() => rows = [rows[1], rows[0]]);
-    await tester.pump();
-    selected = tester.widget<DCheckbox>(find.byType(DCheckbox).at(1));
-    expect(selected.value, isTrue);
-
-    rebuild(() => rows = [rows[1]]);
-    await tester.pump();
-    await tester.pump();
-    expect(controller.value.selectedRowIds, isEmpty);
-    expect(
-      tester.widget<DCheckbox>(find.byType(DCheckbox).first).value,
-      isFalse,
-    );
-  });
-
   testWidgets('manual mode reports state without reprocessing server page', (
     tester,
   ) async {
@@ -449,7 +286,7 @@ void main() {
           rowId: (row) => row.id,
           operationMode: DDataTableOperationMode.manual,
           rowCount: 5,
-          pageCount: 5,
+
           state: state,
           onStateChanged: (next) => setState(() => state = next),
         ),
@@ -464,57 +301,6 @@ void main() {
     expect(state.page, 1);
     expect(state.sort?.direction, DDataTableSortDirection.descending);
     expect(find.text('zara@example.com'), findsOneWidget);
-  });
-
-  testWidgets('footer receives exact local and manual pagination metrics', (
-    tester,
-  ) async {
-    final controller = DDataTableController(
-      initialState: DDataTableState(
-        selectedRowIds: const {'a', 'c'},
-        pageSize: 2,
-      ),
-    );
-    addTearDown(controller.dispose);
-    DDataTableMetrics? metrics;
-    await _pump(
-      tester,
-      DDataTable<_Payment>(
-        data: _payments,
-        columns: _columns(),
-        rowId: (row) => row.id,
-        controller: controller,
-        footerBuilder: (context, value) {
-          metrics = value;
-          return Text('Page ${value.state.page} of ${value.pageCount}');
-        },
-      ),
-    );
-    expect(find.text('Page 1 of 2'), findsOneWidget);
-    expect(metrics?.filteredRowCount, 3);
-    expect(metrics?.selectedFilteredRowCount, 2);
-
-    await _pump(
-      tester,
-      DDataTable<_Payment>(
-        data: [_payments.last],
-        columns: _columns(),
-        rowId: (row) => row.id,
-        operationMode: DDataTableOperationMode.manual,
-        rowCount: 21,
-        pageCount: 3,
-        selectedFilteredRowCount: 7,
-        state: DDataTableState(page: 2, pageSize: 10),
-        onStateChanged: (_) {},
-        footerBuilder: (context, value) {
-          metrics = value;
-          return Text('Page ${value.state.page} of ${value.pageCount}');
-        },
-      ),
-    );
-    expect(find.text('Page 2 of 3'), findsOneWidget);
-    expect(metrics?.filteredRowCount, 21);
-    expect(metrics?.selectedFilteredRowCount, 7);
   });
 
   testWidgets('column menu toggles repeatedly and all-hidden stays valid', (
@@ -613,7 +399,6 @@ void main() {
             data: _payments,
             columns: _columns(),
             rowId: (row) => row.id,
-            minimumWidth: 520,
           ),
         ),
       ),

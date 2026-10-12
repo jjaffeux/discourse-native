@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;
+import 'package:flutter/widgets.dart' show ValueKey;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -58,7 +59,7 @@ void main() {
 
         shell.openTopic(_topic);
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Reply to this topic'));
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
 
         expect(find.byType(ComposerPanel), findsOneWidget);

@@ -744,9 +744,6 @@ class _VoiceFixtureState extends State<_VoiceFixture> {
                     DInputGroupAddon(
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       child: DInputGroupButton.icon(
-                        variant: _voice
-                            ? DButtonVariant.secondary
-                            : DButtonVariant.ghost,
                         icon: const Icon(Icons.graphic_eq),
                         tooltip: _voice
                             ? 'Disable voice mode'

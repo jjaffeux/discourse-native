@@ -17,7 +17,7 @@ class DContentDrag<T extends Object> extends StatelessWidget {
     required this.data,
     required this.feedback,
     required this.child,
-    this.enabled = true,
+
     this.onDragStarted,
     this.onDragEnd,
   });
@@ -25,14 +25,14 @@ class DContentDrag<T extends Object> extends StatelessWidget {
   final T data;
   final Widget feedback;
   final Widget child;
-  final bool enabled;
+
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnd;
 
   @override
   Widget build(BuildContext context) => _ContentDraggable<T>(
     data: data,
-    maxSimultaneousDrags: enabled ? 1 : 0,
+    maxSimultaneousDrags: 1,
     dragAnchorStrategy: pointerDragAnchorStrategy,
     onDragStarted: onDragStarted,
     // These callbacks also run when a successful drop unmounts the source.
@@ -50,10 +50,7 @@ class DContentDrag<T extends Object> extends StatelessWidget {
       cursor: SystemMouseCursors.grabbing,
       child: Opacity(opacity: 0.35, child: child),
     ),
-    child: MouseRegion(
-      cursor: enabled ? SystemMouseCursors.grab : MouseCursor.defer,
-      child: child,
-    ),
+    child: MouseRegion(cursor: SystemMouseCursors.grab, child: child),
   );
 }
 
@@ -190,9 +187,9 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
       tooltip: widget.label,
       density: widget.density,
       semanticLabel: context.l10n.dragToMoveOrActivateForActions(
-        (widget.label).toString(),
+        widget.label.toString(),
       ),
-      variant: DButtonVariant.transparentBackground,
+      variant: DButtonVariant.ghost,
       // The source highlight owns the shared backdrop, including on hover.
       backgroundColor: Colors.transparent,
       focusNode: widget.focusNode,

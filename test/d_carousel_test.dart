@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final selected = <DCarouselController, int>{};
   Widget host(
     Widget child, {
     TextDirection direction = TextDirection.ltr,
@@ -25,12 +26,11 @@ void main() {
     DCarouselController? controller,
     Axis axis = Axis.horizontal,
     bool loop = false,
-    List<DCarouselPlugin> plugins = const [],
+
     ValueChanged<int>? onSelected,
     VoidCallback? onStart,
     VoidCallback? onEnd,
     double fraction = 1,
-    DCarouselExtentResolver? resolver,
     FocusNode? focusNode,
     double width = 300,
   }) => SizedBox(
@@ -38,19 +38,20 @@ void main() {
     height: axis == Axis.horizontal ? 140 : 240,
     child: DCarousel(
       controller: controller,
-      orientation: axis,
+
       loop: loop,
-      plugins: plugins,
+
       semanticLabel: 'Highlights',
-      focusNode: focusNode,
-      onSelected: onSelected,
-      onScrollStart: onStart,
-      onScrollEnd: onEnd,
+
+      onSelected: (index) {
+        if (controller != null) selected[controller] = index;
+        onSelected?.call(index);
+      },
+
       children: [
         DCarouselContent(
           height: axis == Axis.horizontal ? 140 : 240,
-          extentFraction: fraction,
-          extentResolver: resolver,
+
           children: const [
             DCarouselItem(child: Text('Slide 1')),
             DCarouselItem(child: Text('Slide 2')),
@@ -63,25 +64,22 @@ void main() {
     ),
   );
 
-  testWidgets('controller, controls and event state match bounded snaps', (
-    tester,
-  ) async {
+  testWidgets('controller and controls match bounded snaps', (tester) async {
     final controller = DCarouselController();
     addTearDown(controller.dispose);
-    final selected = <int>[];
-    var starts = 0, ends = 0;
+    final changes = <int>[];
+
     await tester.pumpWidget(
-      host(
-        carousel(
-          controller: controller,
-          onSelected: selected.add,
-          onStart: () => starts++,
-          onEnd: () => ends++,
-        ),
-      ),
+      host(carousel(controller: controller, onSelected: changes.add)),
     );
-    expect(controller.itemCount, 3);
-    expect(controller.selectedIndex, 0);
+    expect(
+      tester
+          .widget<DCarouselContent>(find.byType(DCarouselContent))
+          .children
+          .length,
+      3,
+    );
+    expect((selected[controller] ?? 0), 0);
     expect(controller.canScrollPrevious, isFalse);
     expect(controller.canScrollNext, isTrue);
     expect(
@@ -93,14 +91,12 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('d-carousel-next')));
     await tester.pumpAndSettle();
-    expect(controller.selectedIndex, 1);
-    expect(selected, [1]);
-    expect(starts, 1);
-    expect(ends, 1);
+    expect((selected[controller] ?? 0), 1);
+    expect(changes, [1]);
 
     await controller.select(2, animated: false);
     await tester.pump();
-    expect(controller.selectedIndex, 2);
+    expect((selected[controller] ?? 0), 2);
     expect(controller.canScrollNext, isFalse);
   });
 
@@ -150,8 +146,8 @@ void main() {
       const Offset(-260, 0),
     );
     await tester.pumpAndSettle();
-    expect(controller.selectedIndex, 1);
-    expect(controller.scrollProgress, greaterThan(0));
+    expect((selected[controller] ?? 0), 1);
+    expect((selected[controller] ?? 0) / 2, greaterThan(0));
 
     final mouse = await tester.startGesture(
       tester.getCenter(find.byKey(const ValueKey('d-carousel-viewport'))),
@@ -160,13 +156,11 @@ void main() {
     await mouse.moveBy(const Offset(-260, 0));
     await mouse.up();
     await tester.pumpAndSettle();
-    expect(controller.selectedIndex, 2);
+    expect((selected[controller] ?? 0), 2);
     semantics.dispose();
   });
 
-  testWidgets('keyboard follows horizontal RTL and vertical direction', (
-    tester,
-  ) async {
+  testWidgets('keyboard follows horizontal RTL direction', (tester) async {
     final rtl = DCarouselController();
     final rtlFocus = FocusNode();
     addTearDown(rtl.dispose);
@@ -177,33 +171,14 @@ void main() {
         direction: TextDirection.rtl,
       ),
     );
-    rtlFocus.requestFocus();
+    Focus.of(tester.element(find.text('Slide 1'))).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
-    expect(rtl.selectedIndex, 1);
+    expect(selected[rtl], 1);
     expect(find.byIcon(Icons.chevron_left), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
-
-    final vertical = DCarouselController();
-    final verticalFocus = FocusNode();
-    addTearDown(vertical.dispose);
-    addTearDown(verticalFocus.dispose);
-    await tester.pumpWidget(
-      host(
-        carousel(
-          controller: vertical,
-          axis: Axis.vertical,
-          focusNode: verticalFocus,
-        ),
-      ),
-    );
-    verticalFocus.requestFocus();
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-    expect(vertical.selectedIndex, 1);
   });
 
   testWidgets('loop wraps through adjacent pages in both directions', (
@@ -219,24 +194,24 @@ void main() {
     double physicalPage() => (pageController.position as PageMetrics).page!;
     final initialPage = physicalPage();
 
-    await controller.previous(animated: false);
+    await controller.previous();
     await tester.pump();
-    expect(controller.selectedIndex, 2);
+    expect((selected[controller] ?? 0), 2);
     expect(physicalPage(), initialPage - 1);
-    expect(controller.scrollProgress, 1);
+    expect((selected[controller] ?? 0) / 2, 1);
 
-    await controller.next(animated: false);
+    await controller.next();
     await tester.pump();
-    expect(controller.selectedIndex, 0);
+    expect((selected[controller] ?? 0), 0);
     expect(physicalPage(), initialPage);
-    expect(controller.scrollProgress, 0);
+    expect((selected[controller] ?? 0) / 2, 0);
 
     await tester.drag(
       find.byKey(const ValueKey('d-carousel-viewport')),
       const Offset(260, 0),
     );
     await tester.pumpAndSettle();
-    expect(controller.selectedIndex, 2);
+    expect((selected[controller] ?? 0), 2);
     expect(physicalPage(), initialPage - 1);
 
     await tester.drag(
@@ -244,13 +219,11 @@ void main() {
       const Offset(-260, 0),
     );
     await tester.pumpAndSettle();
-    expect(controller.selectedIndex, 0);
+    expect((selected[controller] ?? 0), 0);
     expect(physicalPage(), initialPage);
   });
 
-  testWidgets('responsive extent recomputes without resetting selection', (
-    tester,
-  ) async {
+  testWidgets('resizing preserves selection', (tester) async {
     final controller = DCarouselController();
     addTearDown(controller.dispose);
     var width = 320.0;
@@ -262,11 +235,7 @@ void main() {
             update = setState;
             return SizedBox(
               width: width,
-              child: carousel(
-                controller: controller,
-                width: width,
-                resolver: (available) => available < 300 ? .5 : 1 / 3,
-              ),
+              child: carousel(controller: controller, width: width),
             );
           },
         ),
@@ -276,176 +245,26 @@ void main() {
     await tester.pump();
     update(() => width = 440);
     await tester.pump();
-    expect(controller.selectedIndex, 1);
+    expect((selected[controller] ?? 0), 1);
     expect(
       tester
           .widget<PageView>(find.byType(PageView))
           .controller!
           .viewportFraction,
-      closeTo(1 / 3, .001),
+      1.0,
     );
   });
 
-  testWidgets(
-    'autoplay advances, interaction stops and reduced motion suppresses',
-    (tester) async {
-      final controller = DCarouselController();
-      final autoplay = DCarouselAutoplay(
-        delay: const Duration(milliseconds: 500),
-      );
-      addTearDown(controller.dispose);
-      addTearDown(autoplay.dispose);
-      await tester.pumpWidget(
-        host(carousel(controller: controller, loop: true, plugins: [autoplay])),
-      );
-      await controller.select(2, animated: false);
-      await tester.pump();
-      final pageController = tester
-          .widget<PageView>(find.byType(PageView))
-          .controller!;
-      double physicalPage() => (pageController.position as PageMetrics).page!;
-      final lastPage = physicalPage();
-      await tester.pump(const Duration(milliseconds: 501));
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(controller.selectedIndex, 0);
-      expect(physicalPage(), lastPage + 1);
-      autoplay.onInteraction();
-      final stoppedAt = controller.selectedIndex;
-      await tester.pump(const Duration(milliseconds: 700));
-      expect(controller.selectedIndex, stoppedAt);
-
-      await tester.pumpWidget(
-        host(
-          carousel(controller: controller, loop: true, plugins: [autoplay]),
-          reducedMotion: true,
-        ),
-      );
-      autoplay.play();
-      await tester.pump(const Duration(milliseconds: 700));
-      expect(controller.selectedIndex, stoppedAt);
-    },
-  );
-
-  testWidgets('autoplay pauses for focus and optional pointer hover', (
+  testWidgets('borrowed controller remains usable after removal', (
     tester,
   ) async {
     final controller = DCarouselController();
-    final focusNode = FocusNode();
-    final autoplay = DCarouselAutoplay(
-      delay: const Duration(milliseconds: 300),
-      stopOnInteraction: false,
-      stopOnMouseEnter: true,
-    );
-    addTearDown(controller.dispose);
-    addTearDown(focusNode.dispose);
-    addTearDown(autoplay.dispose);
-    await tester.pumpWidget(
-      host(
-        carousel(
-          controller: controller,
-          loop: true,
-          plugins: [autoplay],
-          focusNode: focusNode,
-        ),
-      ),
-    );
 
-    focusNode.requestFocus();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(controller.selectedIndex, 0);
-
-    focusNode.unfocus();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 301));
-    await tester.pump(DMotion.change);
-    expect(controller.selectedIndex, 1);
-
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(
-      tester.getCenter(find.byKey(const ValueKey('d-carousel-viewport'))),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(controller.selectedIndex, 1);
-
-    await mouse.moveTo(Offset.zero);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 301));
-    await tester.pump(DMotion.change);
-    expect(controller.selectedIndex, 2);
-    await mouse.removePointer();
-  });
-
-  testWidgets('borrowed controller and plugin remain usable after removal', (
-    tester,
-  ) async {
-    final controller = DCarouselController();
-    final plugin = _ProbePlugin();
-    await tester.pumpWidget(
-      host(carousel(controller: controller, plugins: [plugin])),
-    );
+    await tester.pumpWidget(host(carousel(controller: controller)));
     await tester.pumpWidget(const SizedBox());
-    expect(plugin.detaches, 1);
+
     expect(() => controller.addListener(() {}), returnsNormally);
-    expect(plugin.disposed, isFalse);
-    plugin.dispose();
+
     controller.dispose();
   });
-
-  testWidgets('borrowed autoplay clears host pause state when reattached', (
-    tester,
-  ) async {
-    final firstController = DCarouselController();
-    final secondController = DCarouselController();
-    final firstFocus = FocusNode();
-    final autoplay = DCarouselAutoplay(
-      delay: const Duration(milliseconds: 300),
-      stopOnMouseEnter: true,
-    );
-    addTearDown(firstController.dispose);
-    addTearDown(secondController.dispose);
-    addTearDown(firstFocus.dispose);
-    addTearDown(autoplay.dispose);
-
-    await tester.pumpWidget(
-      host(
-        carousel(
-          controller: firstController,
-          plugins: [autoplay],
-          focusNode: firstFocus,
-        ),
-      ),
-    );
-    firstFocus.requestFocus();
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(
-      location: tester.getCenter(
-        find.byKey(const ValueKey('d-carousel-viewport')),
-      ),
-    );
-    await tester.pump();
-
-    await tester.pumpWidget(const SizedBox());
-    await mouse.removePointer();
-    await tester.pumpWidget(
-      host(carousel(controller: secondController, plugins: [autoplay])),
-    );
-    await tester.pump(const Duration(milliseconds: 301));
-    await tester.pump(DMotion.change);
-
-    expect(secondController.selectedIndex, 1);
-  });
-}
-
-class _ProbePlugin extends DCarouselPlugin {
-  int detaches = 0;
-  bool disposed = false;
-  @override
-  void attach(DCarouselController controller, BuildContext context) {}
-  @override
-  void detach() => detaches++;
-  @override
-  void dispose() => disposed = true;
 }

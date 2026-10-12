@@ -438,7 +438,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
             ),
             DButton(
               key: const ValueKey('composer-cancel-discard'),
-              variant: DButtonVariant.transparentBackground,
+              variant: DButtonVariant.ghost,
               onPressed: busy ? null : _closeDialog,
               label: Text(context.l10n.cancel),
             ),

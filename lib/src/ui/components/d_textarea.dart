@@ -31,86 +31,59 @@ class DTextarea extends FormField<String> {
   DTextarea({
     super.key,
     this.controller,
-    this.value,
-    String? initialValue,
+
     this.focusNode,
     this.labelText,
     this.semanticLabel,
     this.hintText,
-    this.helperText,
+
     this.errorText,
-    this.invalid = false,
-    this.isRequired = false,
+
     this.onChanged,
-    this.onSubmitted,
-    this.onEditingComplete,
-    this.onTap,
-    this.onTapOutside,
+
     this.keyboardType = TextInputType.multiline,
-    this.textInputAction = TextInputAction.newline,
+
     this.textCapitalization = TextCapitalization.none,
     this.autofocus = false,
-    this.readOnly = false,
+
     this.autocorrect = true,
     this.enableSuggestions = true,
-    this.enableInteractiveSelection = true,
-    this.inputFormatters,
-    this.autofillHints,
+
     this.minLines = 1,
     this.maxLines,
-    this.scrollController,
-    this.scrollPhysics,
-    this.showCounter = false,
+
     this.maxLength,
     this.maxLengthEnforcement,
-    this.textAlign = TextAlign.start,
-    this.textDirection,
-    this.undoController,
-    this.contextMenuBuilder = _contextMenu,
+
     super.enabled = true,
-    super.onSaved,
-    super.onReset,
+
     super.validator,
-    super.autovalidateMode,
-  }) : assert(controller == null || (initialValue == null && value == null)),
-       assert(initialValue == null || value == null),
-       assert(maxLength == null || maxLength > 0),
+  }) : assert(maxLength == null || maxLength > 0),
        assert(minLines > 0),
        assert(maxLines == null || maxLines >= minLines),
        super(
-         initialValue: controller?.text ?? value ?? initialValue ?? '',
+         initialValue: ((controller?.text)) ?? '',
          builder: (state) => (state as _DTextareaState)._build(),
        );
 
   final TextEditingController? controller;
-  final String? value;
-  final FocusNode? focusNode;
-  final String? labelText, semanticLabel, hintText, helperText, errorText;
-  final bool invalid;
 
-  /// Exposes required semantics; the caller supplies the validation rule.
-  final bool isRequired;
-  final ValueChanged<String>? onChanged, onSubmitted;
-  final VoidCallback? onEditingComplete, onTap;
-  final TapRegionCallback? onTapOutside;
+  final FocusNode? focusNode;
+  final String? labelText, semanticLabel, hintText, errorText;
+
+  final ValueChanged<String>? onChanged;
+
   final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
+
   final TextCapitalization textCapitalization;
-  final bool autofocus, readOnly;
+  final bool autofocus;
   final int minLines;
   final int? maxLines;
-  final ScrollController? scrollController;
-  final ScrollPhysics? scrollPhysics;
-  final bool showCounter;
-  final bool autocorrect, enableSuggestions, enableInteractiveSelection;
-  final List<TextInputFormatter>? inputFormatters;
-  final Iterable<String>? autofillHints;
+
+  final bool autocorrect, enableSuggestions;
+
   final int? maxLength;
   final MaxLengthEnforcement? maxLengthEnforcement;
-  final TextAlign textAlign;
-  final TextDirection? textDirection;
-  final UndoHistoryController? undoController;
-  final EditableTextContextMenuBuilder? contextMenuBuilder;
 
   static Widget _contextMenu(BuildContext context, EditableTextState state) {
     if (SystemContextMenu.isSupportedByField(state)) {
@@ -152,7 +125,6 @@ class _DTextareaState extends FormFieldState<String> {
 
   void _tapSurface() {
     _focus.requestFocus();
-    input.onTap?.call();
   }
 
   @override
@@ -188,10 +160,7 @@ class _DTextareaState extends FormFieldState<String> {
       _controller.addListener(_changed);
       setValue(_controller.text);
     }
-    if (input.value != null && input.value != _controller.text) {
-      _replace(input.value!);
-      setValue(input.value);
-    }
+
     if (oldWidget.focusNode != input.focusNode) {
       _group?.remove(oldWidget.focusNode ?? _ownedFocus!);
       (oldWidget.focusNode ?? _ownedFocus!).removeListener(_focusChanged);
@@ -240,7 +209,7 @@ class _DTextareaState extends FormFieldState<String> {
   Widget _build() {
     final t = DTokens.of(context);
     final error = input.errorText ?? errorText;
-    final isInvalid = input.invalid || error != null;
+    final isInvalid = (error != null);
     final touch = switch (Theme.of(context).platform) {
       TargetPlatform.iOS || TargetPlatform.android => true,
       _ => false,
@@ -259,7 +228,7 @@ class _DTextareaState extends FormFieldState<String> {
     final editor = Semantics(
       container: true,
       label: input.semanticLabel ?? input.labelText,
-      isRequired: input.isRequired,
+      isRequired: false,
       validationResult: isInvalid
           ? SemanticsValidationResult.invalid
           : SemanticsValidationResult.none,
@@ -267,7 +236,7 @@ class _DTextareaState extends FormFieldState<String> {
         controller: _controller,
         focusNode: _focus,
         enabled: enabled,
-        readOnly: input.readOnly,
+        readOnly: false,
         autofocus: input.autofocus,
         style: style,
         decoration: InputDecoration(
@@ -287,29 +256,29 @@ class _DTextareaState extends FormFieldState<String> {
         ),
         cursorColor: t.foreground,
         keyboardType: input.keyboardType,
-        textInputAction: input.textInputAction,
+        textInputAction: TextInputAction.newline,
         textCapitalization: input.textCapitalization,
         minLines: input.minLines,
         maxLines: input.maxLines,
-        scrollController: input.scrollController,
-        scrollPhysics: input.scrollPhysics,
+        scrollController: null,
+        scrollPhysics: null,
         textAlignVertical: TextAlignVertical.top,
         autocorrect: input.autocorrect,
         enableSuggestions: input.enableSuggestions,
-        enableInteractiveSelection: input.enableInteractiveSelection,
-        inputFormatters: input.inputFormatters,
-        autofillHints: input.autofillHints,
+        enableInteractiveSelection: true,
+        inputFormatters: null,
+        autofillHints: null,
         maxLength: input.maxLength,
         maxLengthEnforcement: input.maxLengthEnforcement,
-        textAlign: input.textAlign,
-        textDirection: input.textDirection,
-        undoController: input.undoController,
-        contextMenuBuilder: input.contextMenuBuilder,
+        textAlign: TextAlign.start,
+        textDirection: null,
+        undoController: null,
+        contextMenuBuilder: DTextarea._contextMenu,
         onChanged: input.onChanged,
-        onSubmitted: input.onSubmitted,
-        onEditingComplete: input.onEditingComplete,
-        onTap: input.onTap,
-        onTapOutside: input.onTapOutside,
+        onSubmitted: null,
+        onEditingComplete: null,
+        onTap: null,
+        onTapOutside: null,
       ),
     );
     if (group != null) {
@@ -343,26 +312,17 @@ class _DTextareaState extends FormFieldState<String> {
           onTap: _tapSurface,
           child: editor,
         ),
-        if (input.showCounter && input.maxLength != null) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: Text(
-              '${_controller.text.characters.length}/${input.maxLength}',
-              style: style.copyWith(color: t.mutedForeground),
-            ),
-          ),
-        ],
-        if (error != null || input.helperText != null) ...[
+
+        if ((error != null)) ...[
           const SizedBox(height: 8),
           Semantics(
-            liveRegion: error != null,
+            liveRegion: true,
             child: Text(
-              error ?? input.helperText!,
+              error,
               style: style.copyWith(
                 fontSize: DiscourseTypography.sm,
                 height: 1.5,
-                color: error == null ? t.mutedForeground : t.destructive,
+                color: t.destructive,
               ),
             ),
           ),

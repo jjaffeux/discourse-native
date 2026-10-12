@@ -53,9 +53,9 @@ class DColorPickerPresets extends StatelessWidget {
     required this.onChanged,
     this.selected,
     this.recentColors = const [],
-    this._recentLabel,
+
     this.onReset,
-    this._resetLabel,
+
     this.appearance = DColorPresetAppearance.text,
   });
 
@@ -64,11 +64,11 @@ class DColorPickerPresets extends StatelessWidget {
   final ValueChanged<DColorPreset>? onChanged;
   final DColorPreset? selected;
   final List<DColorPreset> recentColors;
-  final String? _recentLabel;
-  String get recentLabel => _recentLabel ?? appL10n.recentlyUsed;
+
+  String get recentLabel => appL10n.recentlyUsed;
   final VoidCallback? onReset;
-  final String? _resetLabel;
-  String get resetLabel => _resetLabel ?? appL10n.messageDefault;
+
+  String get resetLabel => appL10n.messageDefault;
   final DColorPresetAppearance appearance;
 
   Widget _swatch(BuildContext context, DColorPreset? preset) {
@@ -305,7 +305,7 @@ class _DColorPickerState extends State<DColorPicker> {
           hasPopup: true,
           expanded: state.open,
           semanticLabel: widget.semanticLabel,
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.small,
           onPressed: widget.onChanged == null ? null : state.toggle,
           icon: SizedBox.square(

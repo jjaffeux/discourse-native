@@ -696,7 +696,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                         key: widget.clearKey,
                         tooltip: context.l10n.clearAllFilters,
                         icon: const DIcon(DIcons.xmark),
-                        variant: DButtonVariant.transparentBackground,
+                        variant: DButtonVariant.ghost,
                         size: DButtonSize.small,
                         onPressed: widget.enabled
                             ? () => unawaited(
@@ -886,7 +886,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
             icon: const DIcon(DIcons.xmark),
             tooltip: context.l10n.removeTopicfilterinput(label),
             size: DButtonSize.small,
-            variant: DButtonVariant.transparentBackground,
+            variant: DButtonVariant.ghost,
             onPressed: enabled ? onDeleted : null,
           ),
         ],

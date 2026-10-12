@@ -56,82 +56,6 @@ Future<void> _pump(
 );
 
 void main() {
-  testWidgets(
-    'group preserves child sizes and propagates an explicit override',
-    (tester) async {
-      Widget group({DAvatarSize? size}) => DAvatarGroup(
-        size: size,
-        children: const [
-          DAvatar(
-            key: ValueKey('small'),
-            size: DAvatarSize.sm,
-            fallback: DAvatarFallback(child: Text('CN')),
-            badge: DAvatarBadge(icon: AvatarExamplePlusIcon()),
-          ),
-          DAvatar(
-            key: ValueKey('large'),
-            size: DAvatarSize.lg,
-            dimension: 44,
-            fallback: DAvatarFallback(child: Text('ER')),
-          ),
-          DAvatarGroupCount(child: Text('+3')),
-        ],
-      );
-      await _pump(tester, group());
-      expect(
-        tester.getSize(find.byKey(const ValueKey('small'))),
-        const Size.square(24),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('large'))),
-        const Size.square(44),
-      );
-      expect(
-        tester.getSize(find.byType(DAvatarGroupCount)),
-        const Size.square(24),
-      );
-      expect(tester.getSize(find.byType(DAvatarBadge)), const Size.square(8));
-      expect(
-        tester
-            .renderObject<RenderParagraph>(find.text('CN'))
-            .text
-            .style!
-            .fontSize,
-        12,
-      );
-      expect(
-        tester
-            .renderObject<RenderParagraph>(find.text('+3'))
-            .text
-            .style!
-            .fontSize,
-        14,
-      );
-      await _pump(tester, group(size: DAvatarSize.lg));
-      expect(
-        tester.getSize(find.byKey(const ValueKey('small'))),
-        const Size.square(40),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('large'))),
-        const Size.square(44),
-      );
-      expect(
-        tester.getSize(find.byType(DAvatarGroupCount)),
-        const Size.square(40),
-      );
-      expect(tester.getSize(find.byType(DAvatarBadge)), const Size.square(12));
-      expect(
-        tester
-            .renderObject<RenderParagraph>(find.text('CN'))
-            .text
-            .style!
-            .fontSize,
-        14,
-      );
-      expect(find.byType(AvatarExamplePlusIcon), findsOneWidget);
-    },
-  );
   testWidgets('standalone count has intrinsic reference bounds in a row', (
     tester,
   ) async {
@@ -230,8 +154,8 @@ void main() {
     final statuses = <DAvatarImageStatus>[];
     Widget avatar(ImageProvider provider) => DAvatar(
       semanticLabel: 'Chris',
-      image: DAvatarImage(image: provider, onStatusChanged: statuses.add),
       fallback: const DAvatarFallback(child: Text('CN')),
+      child: DAvatarImage(image: provider, onStatusChanged: statuses.add),
     );
     await _pump(tester, avatar(old));
     expect(find.text('CN'), findsOneWidget);
@@ -250,38 +174,15 @@ void main() {
     expect(find.bySemanticsLabel('Chris'), findsOneWidget);
     semantics.dispose();
   });
-  testWidgets('decode errors show delayed fallback and report status safely', (
-    tester,
-  ) async {
-    final provider = _DelayedImage();
-    final statuses = <DAvatarImageStatus>[];
-    await _pump(
-      tester,
-      DAvatar(
-        image: DAvatarImage(image: provider, onStatusChanged: statuses.add),
-        fallback: const DAvatarFallback(
-          delay: Duration(milliseconds: 200),
-          child: Text('CN'),
-        ),
-      ),
-    );
-    expect(find.text('CN'), findsNothing);
-    provider.completer.completeError(StateError('invalid image'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('CN'), findsOneWidget);
-    expect(statuses, [DAvatarImageStatus.loading, DAvatarImageStatus.error]);
-    await _pump(tester, const SizedBox.shrink());
-    expect(tester.takeException(), isNull);
-  });
+
   testWidgets('real local raster replaces fallback without network', (
     tester,
   ) async {
     await _pump(
       tester,
       DAvatar(
-        image: DAvatarImage(image: avatarExampleImage),
         fallback: const DAvatarFallback(child: Text('CN')),
+        child: DAvatarImage(image: avatarExampleImage),
       ),
     );
     await tester.runAsync(() async {
@@ -294,22 +195,7 @@ void main() {
     expect(find.text('CN'), findsNothing);
     expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
   });
-  testWidgets('decorative identity is silent but status retains its name', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    await _pump(
-      tester,
-      const DAvatar(
-        decorative: true,
-        fallback: DAvatarFallback(child: Text('CN')),
-        badge: DAvatarBadge(semanticLabel: 'Online'),
-      ),
-    );
-    expect(find.bySemanticsLabel('CN'), findsNothing);
-    expect(find.bySemanticsLabel('Online'), findsOneWidget);
-    semantics.dispose();
-  });
+
   for (final direction in TextDirection.values) {
     testWidgets('group geometry and narrow wrapping in ${direction.name}', (
       tester,
@@ -373,63 +259,4 @@ void main() {
       expect(tester.getSize(find.byType(DAvatar)), const Size.square(28));
     },
   );
-  testWidgets('badges keep reference sizes and stay visible in RTL groups', (
-    tester,
-  ) async {
-    for (final size in DAvatarSize.values) {
-      await _pump(
-        tester,
-        DAvatar(
-          size: size,
-          fallback: const DAvatarFallback(child: Text('CN')),
-          badge: const DAvatarBadge(icon: AvatarExamplePlusIcon()),
-        ),
-        direction: TextDirection.rtl,
-      );
-      expect(
-        tester.getSize(find.byType(DAvatarBadge)),
-        Size.square(switch (size) {
-          DAvatarSize.sm => 8,
-          DAvatarSize.standard => 10,
-          DAvatarSize.lg => 12,
-        }),
-      );
-      expect(
-        find.byType(AvatarExamplePlusIcon),
-        size == DAvatarSize.sm ? findsNothing : findsOneWidget,
-      );
-      expect(
-        tester.getBottomRight(find.byType(DAvatarBadge)),
-        tester.getBottomRight(find.byType(DAvatar)),
-      );
-    }
-
-    await _pump(
-      tester,
-      const DAvatarGroup(
-        children: [
-          DAvatar(
-            key: ValueKey('badged-avatar'),
-            fallback: DAvatarFallback(child: Text('ن')),
-            badge: DAvatarBadge(semanticLabel: 'متصل'),
-          ),
-          DAvatar(
-            key: ValueKey('next-avatar'),
-            fallback: DAvatarFallback(child: Text('ل')),
-          ),
-        ],
-      ),
-      direction: TextDirection.rtl,
-    );
-
-    final badge = tester.getRect(find.byType(DAvatarBadge));
-    final badgedAvatar = tester.getRect(
-      find.byKey(const ValueKey('badged-avatar')),
-    );
-    final nextAvatar = tester.getRect(
-      find.byKey(const ValueKey('next-avatar')),
-    );
-    expect(badge.bottomRight, badgedAvatar.bottomRight);
-    expect(badge.left, greaterThan(nextAvatar.right));
-  });
 }

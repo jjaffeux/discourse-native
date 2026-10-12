@@ -24,7 +24,6 @@ class DSpinner extends StatelessWidget {
     this.strokeWidth = 2,
     this._semanticLabel = defaultLocalizedLabel,
     this.animating = true,
-    this.child,
   }) : assert(size > 0 && size < double.infinity),
        assert(strokeWidth > 0 && strokeWidth < double.infinity);
 
@@ -52,10 +51,6 @@ class DSpinner extends StatelessWidget {
   /// Remove the spinner when the operation has completed.
   final bool animating;
 
-  /// Optional artwork, fitted into [size] and rotated clockwise once a second.
-  /// The inherited icon size is [size]. Rotation is independent of direction.
-  final Widget? child;
-
   @override
   Widget build(BuildContext context) {
     final color =
@@ -68,17 +63,15 @@ class DSpinner extends StatelessWidget {
     // Preserve its view box and path verbatim; attribution: licenses/lucide.txt.
     final artwork = _SpinnerArtwork(
       animating: animate,
-      child:
-          child ??
-          SvgPicture.string(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-            'fill="none" stroke="currentColor" stroke-width="$strokeWidth" '
-            'stroke-linecap="round" stroke-linejoin="round">'
-            '<path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
-            width: size,
-            height: size,
-            theme: SvgTheme(currentColor: color),
-          ),
+      child: (SvgPicture.string(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="$strokeWidth" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+        width: size,
+        height: size,
+        theme: SvgTheme(currentColor: color),
+      )),
     );
 
     final indicator = ExcludeSemantics(

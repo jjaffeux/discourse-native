@@ -68,7 +68,7 @@ class _ReactionPickerButtonState extends State<ReactionPickerButton> {
           key: const ValueKey('reaction-picker-surface'),
           tooltip: context.l10n.addReaction,
           icon: const DIcon(DIcons.farFaceSmile),
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           size: DButtonSize.post,
           onPressed: widget.enabled && !_opening
               ? () => _open(buttonContext)
@@ -141,7 +141,7 @@ class _ReactionPillState extends State<ReactionPill> {
     _load();
     final title = widget.count == 1
         ? appL10n.message1Reaction
-        : appL10n.reactionsReactionpresentation((widget.count).toString());
+        : appL10n.reactionsReactionpresentation(widget.count.toString());
     await showDSheet<void>(
       context: context,
       side: DSheetSide.bottom,
@@ -185,11 +185,11 @@ class _ReactionPillState extends State<ReactionPill> {
   Widget build(BuildContext context) {
     final label = widget.count == 1
         ? context.l10n.message1ReactionReactionpresentation(
-            (widget.reaction).toString(),
+            widget.reaction.toString(),
           )
         : context.l10n.reactionsReactionpresentationValue(
-            (widget.count).toString(),
-            (widget.reaction).toString(),
+            widget.count.toString(),
+            widget.reaction.toString(),
           );
     return DHoverCard(
       controller: _panel,

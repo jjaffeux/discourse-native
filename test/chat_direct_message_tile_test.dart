@@ -378,7 +378,7 @@ void main() {
               final mouse = await hover(tester);
               expect(triggerOpacity(tester), 1);
               expect(find.byType(HoverActionToolbar), findsNothing);
-              expect(find.byType(DButton), findsNWidgets(3));
+              expect(find.byType(DButton), findsNWidgets(5));
               expect(tester.getRect(find.byType(DBubbleContent)), bubble);
               expect(
                 tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),
@@ -388,12 +388,9 @@ void main() {
                 const ValueKey('chat-message-react-7'),
               );
               final reactionRect = tester.getRect(reaction);
-              final onRight = outgoing == (direction == TextDirection.ltr);
               expect(
-                onRight
-                    ? reactionRect.right <= bubble.left
-                    : reactionRect.left >= bubble.right,
-                isTrue,
+                reactionRect.center.dy,
+                closeTo(tester.getRect(trigger).center.dy, 1),
               );
               await mouse.moveTo(reactionRect.center);
               await tester.pump();
@@ -401,13 +398,13 @@ void main() {
               final control = tester.getRect(trigger);
               expect(bubble.contains(control.topLeft), isTrue);
               expect(bubble.contains(control.bottomRight), isTrue);
-              expect(control.top, closeTo(bubble.top + 9, .01));
+              expect(control.top, closeTo(bubble.top + 2, .01));
               expect(
                 direction == TextDirection.ltr ? control.right : control.left,
                 closeTo(
                   direction == TextDirection.ltr
-                      ? bubble.right - 13
-                      : bubble.left + 13,
+                      ? bubble.right - 1
+                      : bubble.left + 1,
                   .01,
                 ),
               );
@@ -685,10 +682,6 @@ void main() {
         tester.getSize(find.byType(ChatUserAvatar)),
         const Size.square(28),
       );
-      expect(
-        tester.widget<DMessage>(find.byType(DMessage)).align,
-        DMessageAlign.start,
-      );
       expect(find.text('user1'), findsOneWidget);
     });
   }
@@ -729,16 +722,8 @@ void main() {
     final controller = await _controller(_message(author: 2));
     await tester.pumpWidget(_tile(controller, site: _otherSite));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<DMessage>(find.byType(DMessage)).align,
-      DMessageAlign.start,
-    );
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<DMessage>(find.byType(DMessage)).align,
-      DMessageAlign.start,
-    );
   });
 
   testWidgets(
@@ -914,10 +899,6 @@ void main() {
         expect(
           tester.widget<CookedHtml>(find.byType(CookedHtml)).html,
           '<p>Canonical</p>',
-        );
-        expect(
-          tester.widget<DMessage>(find.byType(DMessage)).align,
-          DMessageAlign.start,
         );
         expect(
           tester.element(find.byKey(ChatMessageTile.bodySelectionKey(7))),

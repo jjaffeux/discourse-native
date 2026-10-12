@@ -316,89 +316,6 @@ void main() {
     );
   }
 
-  testWidgets('disabled pointer highlighting preserves one keyboard row', (
-    tester,
-  ) async {
-    await _mount(
-      tester,
-      DSelect<String>.controlled(
-        value: 'apple',
-        semanticLabel: 'Fruit',
-        highlightItemOnHover: false,
-        entries: const [
-          DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-          DSelectOption(
-            value: 'banana',
-            label: 'Banana',
-            child: Text('Banana'),
-          ),
-        ],
-        onChanged: _noopString,
-      ),
-    );
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer();
-    await mouse.moveTo(tester.getCenter(find.text('Banana')));
-    await tester.pumpAndSettle();
-
-    expect(_rowBackground(tester, 'apple').a, greaterThan(0));
-    expect(_rowBackground(tester, 'banana').a, 0);
-  });
-
-  testWidgets(
-    'closed trigger typeahead commits enabled matches without opening',
-    (tester) async {
-      String? value;
-      DSelectChangeReason? reason;
-      await _mount(
-        tester,
-        StatefulBuilder(
-          builder: (context, setState) => DSelect<String>.controlled(
-            value: value,
-            semanticLabel: 'Fruit',
-            entries: const [
-              DSelectOption(
-                value: 'apricot',
-                label: 'Apricot',
-                enabled: false,
-                child: Text('Apricot'),
-              ),
-              DSelectOption(
-                value: 'apple',
-                label: 'Apple',
-                child: Text('Apple'),
-              ),
-              DSelectOption(
-                value: 'avocado',
-                label: 'Avocado',
-                child: Text('Avocado'),
-              ),
-            ],
-            onChanged: (next) => setState(() => value = next),
-            onChangedWithReason: (next, nextReason) => reason = nextReason,
-          ),
-        ),
-      );
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-      await tester.pump();
-      expect(value, 'apple');
-      expect(find.byType(DPopoverContent), findsNothing);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
-      await tester.pump();
-      expect(value, 'avocado');
-      expect(reason, DSelectChangeReason.keyboard);
-      expect(find.byType(DPopoverContent), findsNothing);
-    },
-  );
-
   testWidgets('trigger arrow keys open at the first and last enabled item', (
     tester,
   ) async {
@@ -451,52 +368,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(value, 'grapes');
-  });
-
-  testWidgets('native control characters reach ancestor shortcuts', (
-    tester,
-  ) async {
-    final handled = <LogicalKeyboardKey>[];
-    final changes = <String?>[];
-    final controls = {
-      LogicalKeyboardKey.escape: '\x1b',
-      LogicalKeyboardKey.backspace: '\x08',
-      LogicalKeyboardKey.delete: '\x7f',
-    };
-    await _mount(
-      tester,
-      CallbackShortcuts(
-        bindings: {
-          for (final key in controls.keys)
-            SingleActivator(key): () => handled.add(key),
-        },
-        child: DSelect<String>(
-          autofocus: true,
-          initialValue: 'apple',
-          entries: const [
-            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-            DSelectOption(
-              value: 'banana',
-              label: 'Banana',
-              child: Text('Banana'),
-            ),
-          ],
-          onChanged: changes.add,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    for (final entry in controls.entries) {
-      await tester.sendKeyEvent(entry.key, character: entry.value);
-    }
-    expect(handled, controls.keys.toList());
-    expect(changes, isEmpty);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
-    await tester.pumpAndSettle();
-    expect(changes, ['banana']);
-    expect(find.byType(DPopoverContent), findsNothing);
   });
 
   testWidgets('space remains part of an active popup typeahead query', (
@@ -863,53 +734,6 @@ void main() {
     expect(find.text('Dart (+1 more)'), findsOneWidget);
   });
 
-  testWidgets('external controlled opening enables and focuses popup options', (
-    tester,
-  ) async {
-    var open = false;
-    String? value = 'apple';
-    late StateSetter update;
-    await _mount(
-      tester,
-      StatefulBuilder(
-        builder: (context, setState) {
-          update = setState;
-          return DSelect<String>.controlled(
-            open: open,
-            value: value,
-            semanticLabel: 'Fruit',
-            entries: const [
-              DSelectOption(
-                value: 'apple',
-                label: 'Apple',
-                child: Text('Apple'),
-              ),
-              DSelectOption(
-                value: 'banana',
-                label: 'Banana',
-                child: Text('Banana'),
-              ),
-            ],
-            onChanged: (next) => setState(() => value = next),
-          );
-        },
-      ),
-    );
-
-    update(() => open = true);
-    await tester.pumpAndSettle();
-    expect(
-      FocusManager.instance.primaryFocus?.debugLabel,
-      startsWith('DSelect option '),
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.home);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-
-    expect(value, 'banana');
-  });
-
   testWidgets(
     'disabled selected option falls back to an enabled focus target',
     (tester) async {
@@ -1230,8 +1054,7 @@ void main() {
         tester,
         DSelect<String>(
           focusNode: focus,
-          popoverController: popover,
-          scrollController: scroll,
+
           entries: const [
             DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
           ],

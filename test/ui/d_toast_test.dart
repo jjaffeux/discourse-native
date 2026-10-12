@@ -85,8 +85,7 @@ void main() {
   testWidgets('renders types, action, close, and live theme changes', (
     tester,
   ) async {
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
     var dark = false;
     var actions = 0;
     late StateSetter setHostState;
@@ -99,23 +98,24 @@ void main() {
             theme: ThemeData.light(),
             darkTheme: ThemeData.dark(),
             themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-            home: DToaster(
-              controller: controller,
+            home: _TestToaster(
+              onReady: (value) => controller = value,
               child: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => DToast.show(
-                    context,
-                    'Event created.',
-                    title: 'Success',
-                    type: DToastType.success,
-                    duration: null,
-                    action: DToastAction(
-                      label: 'Undo',
-                      dismissOnPressed: true,
-                      onPressed: () => actions++,
+                builder: (context) => DButton(
+                  onPressed: () => controller.add(
+                    DToastOptions(
+                      title: 'Success',
+                      description: 'Event created.',
+                      type: DToastType.success,
+                      duration: null,
+                      action: DToastAction(
+                        label: 'Undo',
+                        onPressed: () => actions++,
+                        dismissOnPressed: true,
+                      ),
                     ),
                   ),
-                  child: const Text('Show'),
+                  label: const Text('Show'),
                 ),
               ),
             ),
@@ -156,7 +156,9 @@ void main() {
       DefaultTextStyle.of(customContext).style.color,
       DTokens.of(customContext).foreground,
     );
-    controller.closeAll();
+    for (final toast in controller.toasts.toList()) {
+      controller.close(toast.id);
+    }
     await tester.pump();
 
     controller.add(
@@ -186,8 +188,7 @@ void main() {
         null,
       ),
     );
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -195,7 +196,10 @@ void main() {
           data: MediaQuery.of(context).copyWith(supportsAnnounce: true),
           child: child!,
         ),
-        home: DToaster(controller: controller, child: const SizedBox.expand()),
+        home: _TestToaster(
+          onReady: (value) => controller = value,
+          child: const SizedBox.expand(),
+        ),
       ),
     );
     controller.add(
@@ -228,12 +232,11 @@ void main() {
   testWidgets('F6 focuses the viewport, Escape dismisses, and hover pauses', (
     tester,
   ) async {
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
     await tester.pumpWidget(
       MaterialApp(
-        home: DToaster(
-          controller: controller,
+        home: _TestToaster(
+          onReady: (value) => controller = value,
           child: const Focus(autofocus: true, child: Text('Content')),
         ),
       ),
@@ -270,12 +273,11 @@ void main() {
     tester,
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
     await tester.pumpWidget(
       MaterialApp(
-        home: DToaster(
-          controller: controller,
+        home: _TestToaster(
+          onReady: (value) => controller = value,
           child: const Focus(autofocus: true, child: Text('Content')),
         ),
       ),
@@ -301,16 +303,18 @@ void main() {
     tester,
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
     await tester.pumpWidget(
       MaterialApp(
-        home: DToaster(controller: controller, child: const Text('Content')),
+        home: _TestToaster(
+          onReady: (value) => controller = value,
+          child: const Text('Content'),
+        ),
       ),
     );
     controller.add(const DToastOptions(description: 'Hovered', duration: null));
     await tester.pump();
-    final close = tester.getCenter(find.byTooltip('Close toast'));
+    final close = tester.getCenter(find.bySemanticsLabel('Close notification'));
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: close);
     await tester.pump();
@@ -334,11 +338,13 @@ void main() {
     tester,
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
     await tester.pumpWidget(
       MaterialApp(
-        home: DToaster(controller: controller, child: const Text('Content')),
+        home: _TestToaster(
+          onReady: (value) => controller = value,
+          child: const Text('Content'),
+        ),
       ),
     );
     const timed = DToastOptions(
@@ -351,9 +357,10 @@ void main() {
     await gesture.addPointer(location: tester.getCenter(find.text('Timed')));
     await tester.pump();
 
-    controller
-      ..closeAll()
-      ..add(timed);
+    for (final toast in controller.toasts.toList()) {
+      controller.close(toast.id);
+    }
+    controller.add(timed);
     await tester.pump();
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('Timed'), findsOneWidget);
@@ -372,14 +379,14 @@ void main() {
       MaterialApp(
         home: DToaster(
           child: Builder(
-            builder: (context) => TextButton(
+            builder: (context) => DButton(
               onPressed: () => DToast.of(context).promise(
                 future.future,
                 loading: const DToastOptions(description: 'Loading'),
                 success: (value) => DToastOptions(description: value),
                 error: (error) => DToastOptions(description: '$error'),
               ),
-              child: const Text('Run'),
+              label: const Text('Run'),
             ),
           ),
         ),
@@ -400,8 +407,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 300);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final controller = DToastController();
-    addTearDown(controller.dispose);
+    late DToastController controller;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -411,7 +417,10 @@ void main() {
           ).copyWith(textScaler: const TextScaler.linear(2)),
           child: child!,
         ),
-        home: DToaster(controller: controller, child: const SizedBox.expand()),
+        home: _TestToaster(
+          onReady: (value) => controller = value,
+          child: const SizedBox.expand(),
+        ),
       ),
     );
     for (var index = 1; index <= 3; index++) {
@@ -428,4 +437,19 @@ void main() {
     expect(find.textContaining('Notice 3'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _TestToaster extends StatelessWidget {
+  const _TestToaster({required this.onReady, required this.child});
+  final ValueChanged<DToastController> onReady;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => DToaster(
+    child: Builder(
+      builder: (context) {
+        onReady(DToast.of(context));
+        return child;
+      },
+    ),
+  );
 }

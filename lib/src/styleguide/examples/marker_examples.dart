@@ -44,12 +44,11 @@ const DMarker(
       builder: (_) => const _MarkerStatus(),
     ),
     StyleguideExample(
-      title: 'Separators, borders and stacked icons',
-      description:
-          'Reference dates, elapsed work, bordered notes and a vertically stacked icon.',
+      title: 'Separators and stacked icons',
+      description: 'Dates, elapsed work, notes and stacked icons.',
       code: '''const DMarker(variant: DMarkerVariant.separator,
   child: DMarkerContent(child: Text('Today')))
-const DMarker(variant: DMarkerVariant.border,
+const DMarker(variant: DMarkerVariant.inline,
   child: DMarkerContent(child: Text('Opened implementation notes')))
 const DMarker(axis: Axis.vertical,
   icon: DMarkerIcon(child: Icon(Icons.check)),
@@ -66,17 +65,17 @@ const DMarker(axis: Axis.vertical,
             child: DMarkerContent(child: Text('Worked for 42s')),
           ),
           DMarker(
-            variant: DMarkerVariant.border,
+            variant: DMarkerVariant.inline,
             icon: DMarkerIcon(child: _Artwork.branch()),
             child: DMarkerContent(child: Text('Switched to release-candidate')),
           ),
           DMarker(
-            variant: DMarkerVariant.border,
+            variant: DMarkerVariant.inline,
             icon: DMarkerIcon(child: _Artwork.search()),
             child: DMarkerContent(child: Text('Reviewed 8 related files')),
           ),
           DMarker(
-            variant: DMarkerVariant.border,
+            variant: DMarkerVariant.inline,
             child: DMarkerContent(child: Text('Opened implementation notes')),
           ),
           DMarker(
@@ -91,12 +90,8 @@ const DMarker(axis: Axis.vertical,
       title: 'Links and buttons',
       description:
           'Tab then Return or Space activates each enabled marker. The link opens a local detail panel; Revert updates local state.',
-      code: '''DMarker(action: DMarkerAction.link, onPressed: openDetails,
-  child: const DMarkerContent(child: Text('View the pull request')))
-DMarker(action: DMarkerAction.button, onPressed: revert,
-  child: const DMarkerContent(child: Text('Revert this change')))
-const DMarker(action: DMarkerAction.button,
-  child: DMarkerContent(child: Text('Revert unavailable')))''',
+      code:
+          "DMarker( \n  child: const DMarkerContent(child: Text('View the pull request')))\nDMarker( \n  child: const DMarkerContent(child: Text('Revert this change')))\nconst DMarker(\n  child: DMarkerContent(child: Text('Revert unavailable')))",
       builder: (_) => const _MarkerActions(),
     ),
   ],
@@ -176,27 +171,22 @@ class _MarkerActionsState extends State<_MarkerActions> {
   Widget build(BuildContext context) => Column(
     spacing: 24,
     children: [
-      DMarker(
-        action: DMarkerAction.link,
-        onPressed: () => setState(() => details = !details),
+      DButton(
+        variant: DButtonVariant.inline,
         icon: const DMarkerIcon(child: _Artwork.branch()),
-        child: const DMarkerContent(child: Text('View the pull request')),
+        label: const Text('View the pull request'),
+        onPressed: () => setState(() => details = !details),
       ),
       if (details)
         const Text(
           'Pull request #42: Update the conversation notes. All checks passed.',
         ),
-      DMarker(
-        action: DMarkerAction.button,
+      DButton(
+        variant: DButtonVariant.inline,
+        label: Text(reverted ? 'Restore this change' : 'Revert this change'),
         onPressed: () => setState(() => reverted = !reverted),
-        child: DMarkerContent(
-          child: Text(reverted ? 'Restore this change' : 'Revert this change'),
-        ),
       ),
-      const DMarker(
-        action: DMarkerAction.button,
-        child: DMarkerContent(child: Text('Revert unavailable')),
-      ),
+      const DMarker(child: DMarkerContent(child: Text('Revert unavailable'))),
       Text(reverted ? 'Change reverted' : 'Change applied'),
     ],
   );

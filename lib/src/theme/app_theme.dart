@@ -836,12 +836,7 @@ abstract final class AppTheme {
         code,
         discourse,
         DiscourseAvatarTheme(borderRadius: avatarBorderRadius),
-        DiscourseButtonTheme.fromColors(
-          resolvedColorScheme,
-          borderRadius: DRadius.control,
-          hover: shell.hover,
-          success: discourse.success,
-        ),
+        const DiscourseButtonTheme(borderRadius: DRadius.control),
       ],
       dividerTheme: DividerThemeData(
         color: shell.divider,

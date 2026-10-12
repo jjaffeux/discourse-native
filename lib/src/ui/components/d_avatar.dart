@@ -27,10 +27,10 @@ class DAvatar extends StatelessWidget {
     super.key,
     this.size = DAvatarSize.standard,
     this.dimension,
-    this.image,
+
     this.fallback = const DAvatarFallback(child: SizedBox.shrink()),
     this.child,
-    this.badge,
+
     this.border = true,
     this.ring = false,
     this.ringStyle = DAvatarRingStyle.inset,
@@ -40,7 +40,7 @@ class DAvatar extends StatelessWidget {
     this.decorative = false,
     this.borderRadius,
   }) : assert(dimension == null || dimension > 0),
-       assert(image == null || child == null),
+
        _intrinsic = false;
 
   /// Presents already-sized content, including application image adapters.
@@ -48,7 +48,7 @@ class DAvatar extends StatelessWidget {
   const DAvatar.frame({
     super.key,
     required this.child,
-    this.badge,
+
     this.border = true,
     this.ring = false,
     this.ringStyle = DAvatarRingStyle.inset,
@@ -59,16 +59,15 @@ class DAvatar extends StatelessWidget {
     this.borderRadius,
   }) : size = DAvatarSize.standard,
        dimension = null,
-       image = null,
+
        fallback = const SizedBox.shrink(),
        _intrinsic = true;
 
   final DAvatarSize size;
   final double? dimension;
-  final DAvatarImage? image;
+
   final Widget fallback;
   final Widget? child;
-  final Widget? badge;
 
   /// Paints the subtle image outline. Disable for borderless forum artwork.
   /// The online [ring], when enabled, takes precedence over this outline.
@@ -101,7 +100,7 @@ class DAvatar extends StatelessWidget {
     final tokens = DTokens.of(context);
     Widget picture = ClipRRect(
       borderRadius: radius,
-      child: child ?? image ?? fallback,
+      child: (child) ?? fallback,
     );
     if (ring && ringStyle == DAvatarRingStyle.outside) {
       picture = DecoratedBox(
@@ -161,10 +160,7 @@ class DAvatar extends StatelessWidget {
           child: Stack(
             fit: _intrinsic ? StackFit.loose : StackFit.expand,
             clipBehavior: Clip.none,
-            children: [
-              picture,
-              if (badge != null) Positioned(right: 0, bottom: 0, child: badge!),
-            ],
+            children: [picture],
           ),
         ),
       ),
@@ -347,12 +343,12 @@ class DAvatarFallback extends StatefulWidget {
   const DAvatarFallback({
     super.key,
     required this.child,
-    this.delay = Duration.zero,
+
     this.backgroundColor,
     this.foregroundColor,
   });
   final Widget child;
-  final Duration delay;
+
   final Color? backgroundColor;
   final Color? foregroundColor;
   @override
@@ -364,9 +360,9 @@ class _DAvatarFallbackState extends State<DAvatarFallback> {
   bool _visible = false;
   void _start() {
     _timer?.cancel();
-    _visible = widget.delay <= Duration.zero;
+    _visible = Duration.zero <= Duration.zero;
     if (!_visible) {
-      _timer = Timer(widget.delay, () {
+      _timer = Timer(Duration.zero, () {
         if (mounted) setState(() => _visible = true);
       });
     }
@@ -381,7 +377,6 @@ class _DAvatarFallbackState extends State<DAvatarFallback> {
   @override
   void didUpdateWidget(DAvatarFallback oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.delay != widget.delay) _start();
   }
 
   @override
@@ -619,17 +614,17 @@ class _AvatarGroupScope extends InheritedWidget {
 /// Additional identities or a decorative group icon. Give icon-only counts a
 /// semantic label; use a separate action owner if the count opens a list.
 class DAvatarGroupCount extends StatelessWidget {
-  const DAvatarGroupCount({super.key, required this.child, this.semanticLabel});
+  const DAvatarGroupCount({super.key, required this.child});
   final Widget child;
-  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     final size =
         _AvatarGroupScope.of(context)?.countSize ?? DAvatarSize.standard;
     final tokens = DTokens.of(context);
     return Semantics(
-      label: semanticLabel,
-      excludeSemantics: semanticLabel != null,
+      label: null,
+      excludeSemantics: false,
       child: SelectionContainer.disabled(
         child: Container(
           width: _scaledExtent(context, size),

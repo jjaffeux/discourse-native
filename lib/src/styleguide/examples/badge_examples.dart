@@ -130,14 +130,8 @@ DBadge(
         'Complete',
         'Reduced motion',
       ],
-      code: r'''DBadge(
-  variant: DBadgeVariant.destructive,
-  leading: busy ? const DSpinner(size: 12, semanticLabel: null) : null,
-  semanticValue: busy ? 'Loading' : null,
-  liveRegion: true,
-  child: Text(busy ? 'Deleting' : 'Deleted'),
-)
-// Use trailing for inline-end placement. The caller owns busy and completion.''',
+      code:
+          "DBadge(\n  variant: DBadgeVariant.destructive,\n  leading: busy ? const DSpinner(size: 12, semanticLabel: null) : null,\n  \n  \n  child: Text(busy ? 'Deleting' : 'Deleted'),\n)\n// Use trailing for inline-end placement. The caller owns busy and completion.",
       builder: (_) => const _BadgeLoading(),
     ),
     StyleguideExample(
@@ -153,18 +147,8 @@ DBadge(
         'Disabled',
         'Invalid',
       ],
-      code: r'''DBadge.link(
-  onPressed: () => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => const DetailPage()),
-  ),
-  trailing: externalLinkIcon,
-  child: const Text('Open Link'),
-)
-DBadge.action(
-  onPressed: enabled ? () => setState(() => count++) : null,
-  child: Text('Count $count'),
-)
-const DBadge(invalid: true, child: Text('Invalid status'))''',
+      code:
+          "DBadge.link(\n  onPressed: () => Navigator.of(context).push<void>(\n    MaterialPageRoute(builder: (_) => const DetailPage()),\n  ),\n  trailing: externalLinkIcon,\n  child: const Text('Open Link'),\n)\nDBadge.action(\n  onPressed: enabled ? () => setState(() => count++) : null,\n  child: Text('Count \$count'),\n)\nconst DBadge( child: Text('Invalid status'))",
       builder: (_) => const _BadgeActions(),
     ),
     StyleguideExample(
@@ -379,13 +363,13 @@ DBadge(
       description:
           'Inline tag links and unread counts follow the topic mockup geometry. Tags retain their own focus, semantics and activation within the row.',
       code:
-          "DBadge.link(size: DBadgeSize.tag, variant: DBadgeVariant.outline, onPressed: openTag, child: Text('design'))",
+          "DBadge.link(size: DBadgeSize.compact, variant: DBadgeVariant.outline, onPressed: openTag, child: Text('design'))",
       builder: (_) => Wrap(
         spacing: 5,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           DBadge.link(
-            size: DBadgeSize.tag,
+            size: DBadgeSize.compact,
             variant: DBadgeVariant.outline,
             onPressed: () {},
             child: const Text('design'),
@@ -431,8 +415,7 @@ class _BadgeLoadingState extends State<_BadgeLoading> {
               trailing: _busy && variant == DBadgeVariant.secondary
                   ? const DSpinner(size: 12, semanticLabel: null)
                   : null,
-              semanticValue: _busy ? 'Loading' : null,
-              liveRegion: true,
+
               child: Text(switch ((variant, _busy)) {
                 (DBadgeVariant.primary, true) => 'Deleting',
                 (DBadgeVariant.primary, false) => 'Deleted',
@@ -507,7 +490,7 @@ class _BadgeActionsState extends State<_BadgeActions> {
             child: Text('Count $_count'),
           ),
           const DBadge.action(onPressed: null, child: Text('Unavailable')),
-          const DBadge(invalid: true, child: Text('Invalid status')),
+          const DBadge(child: Text('Invalid status')),
         ],
       ),
       const SizedBox(height: 16),

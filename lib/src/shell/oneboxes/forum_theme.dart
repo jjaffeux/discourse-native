@@ -268,7 +268,7 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                         DButton(
                           size: DButtonSize.post,
                           label: Text(context.l10n.undo),
-                          variant: DButtonVariant.transparentBackground,
+                          variant: DButtonVariant.ghost,
                           onPressed: _busy
                               ? null
                               : () => _use(settings, site, undo: true),

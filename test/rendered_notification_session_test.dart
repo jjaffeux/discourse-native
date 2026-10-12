@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
+import 'package:discourse_native/src/shell/desktop_header_menu.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -192,9 +193,10 @@ void main() {
             await tester.tap(tab);
             await tester.pumpAndSettle();
             final row = find.byKey(const ValueKey('notification-row-31'));
-            expect(tester.widget(row), isA<DItem>());
+            expect(tester.widget(row), isA<DesktopHeaderMenuRow>());
+            final interaction = find.descendant(of: row, matching: find.byType(DItem));
             final source = tester.element(row);
-            final sourceState = tester.state(row);
+            final sourceState = tester.state(interaction);
             final shell = ShellScope.read(tester.element(menu));
             final lease = shell.lifecycle.capture(_site);
             TestGesture? gesture;
@@ -231,9 +233,9 @@ void main() {
               await tester.pumpAndSettle();
               if (retired) {
                 expect(sourceState.mounted, isFalse);
-                expect(tester.state(row), isNot(same(sourceState)));
+                expect(interaction, findsNothing);
               } else {
-                expect(tester.state(row), same(sourceState));
+                expect(tester.state(interaction), same(sourceState));
               }
             }
             final destination = shell.currentContent;
@@ -259,7 +261,14 @@ void main() {
               expect(_read(shell, section), isFalse);
               expect(shell.currentContent, same(destination));
               expect(shell.tabsForCurrentForum, hasLength(tabCount));
-              expect(find.byType(UserMenuPanel), findsOneWidget);
+              expect(find.byType(UserMenuPanel), findsNothing);
+              await tester.tap(find.byKey(UserMenuButton.bellKey));
+              await tester.pumpAndSettle();
+              final replacementTab = find.descendant(of: find.byType(UserMenuPanel), matching: find.text(section)).last;
+              await tester.ensureVisible(replacementTab);
+              await tester.pumpAndSettle();
+              await tester.tap(replacementTab);
+              await tester.pumpAndSettle();
               await activate();
               await tester.pumpAndSettle();
             }

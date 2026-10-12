@@ -131,7 +131,7 @@ final cardExamples = ComponentExamples(
                         DButton.iconOnly(
                           tooltip: label,
                           icon: Icon(icon),
-                          variant: DButtonVariant.transparentBackground,
+                          variant: DButtonVariant.ghost,
                           density: DButtonDensity.chrome,
                           onPressed: () =>
                               setState(() => lastAction = '$label selected'),
@@ -219,16 +219,8 @@ final cardExamples = ComponentExamples(
       title: 'Edge-to-edge terms',
       description:
           'Scrollable terms (192px maximum), edge-to-edge content and no gap above the footer.',
-      code: """DCard(children: [
-  DCardHeader(title: DCardTitle(child: Text('Terms of Service')),
-    description: DCardDescription(child: Text('Review the terms before accepting the agreement.'))),
-  DCardContent(edgeToEdge: true, joinNext: true, child: termsScrollView),
-], footer: DCardFooter(child: Wrap(spacing: 8, children: [
-  DButton(onPressed: decline, variant: DButtonVariant.outline,
-    label: Text('Decline')),
-  DButton(onPressed: accept, variant: DButtonVariant.primary,
-    label: Text('Accept')),
-])))""",
+      code:
+          "DCard(children: [\n  DCardHeader(title: DCardTitle(child: Text('Terms of Service')),\n    description: DCardDescription(child: Text('Review the terms before accepting the agreement.'))),\n  DCardContent( joinNext: true, child: termsScrollView),\n], footer: DCardFooter(child: Wrap(spacing: 8, children: [\n  DButton(onPressed: decline, variant: DButtonVariant.outline,\n    label: Text('Decline')),\n  DButton(onPressed: accept, variant: DButtonVariant.primary,\n    label: Text('Accept')),\n])))",
       builder: (_) => const _Terms(),
     ),
     StyleguideExample(
@@ -267,59 +259,15 @@ final cardExamples = ComponentExamples(
           'Select loaded, disabled, selected, busy, error or empty. '
           'Card stays passive; child controls and explicit status text carry state. '
           'Bordered header and footer-free composition are also shown.',
-      code: """DCard(children: [
-  DCardHeader(border: true, title: DCardTitle(child: Text('Community digest'))),
-  DCardContent(child: Text(status)),
-  DCardContent(child: DButton(onPressed: enabled ? activate : null,
-    label: Text('Open digest'))),
-])""",
+      code:
+          "DCard(children: [\n  DCardHeader( title: DCardTitle(child: Text('Community digest'))),\n  DCardContent(child: Text(status)),\n  DCardContent(child: DButton(onPressed: enabled ? activate : null,\n    label: Text('Open digest'))),\n])",
       builder: (_) => const _States(),
     ),
   ],
 );
 
-const _loginCode = """DCard(spacing: spacing, children: [
-  DCardHeader(
-    title: DCardTitle(child: Text('Login to your account')),
-    description: DCardDescription(child: Text('Enter your email below to login to your account')),
-    action: DCardAction(child: DButton(onPressed: signUp,
-      variant: DButtonVariant.link, label: Text('Sign Up'))),
-  ),
-  DCardContent(child: Form(key: formKey, child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    DField(children: [
-      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
-        style: TextStyle(height: 1),
-        child: Text('Email')),
-      DFieldControl(label: 'Email', required: true, child: DInput(
-        focusNode: emailFocus, keyboardType: TextInputType.emailAddress,
-        textInputAction: TextInputAction.next,
-        onSubmitted: (_) => passwordFocus.requestFocus(),
-        hintText: 'm@example.com', isRequired: true, validator: validateEmail)),
-    ]),
-    SizedBox(height: 24),
-    DField(children: [
-      Wrap(alignment: WrapAlignment.spaceBetween, children: [
-        DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,
-          style: TextStyle(height: 1),
-          child: Text('Password')),
-        // Inline text bounds, no padding; DButton retains native activation.
-        recoveryLink,
-      ]),
-      DFieldControl(label: 'Password', required: true, child: DInput(
-        focusNode: passwordFocus, obscureText: true, isRequired: true,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => submit(),
-        validator: validatePassword)),
-    ]),
-  ]))),
-], footer: DCardFooter(child: Column(
-  crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-  DButton(onPressed: submit, variant: DButtonVariant.primary, label: Text('Login')),
-  SizedBox(height: 8),
-  DButton(onPressed: google, variant: DButtonVariant.outline,
-    label: Text('Login with Google')),
-])))""";
+const _loginCode =
+    "DCard(spacing: spacing, children: [\n  DCardHeader(\n    title: DCardTitle(child: Text('Login to your account')),\n    description: DCardDescription(child: Text('Enter your email below to login to your account')),\n    action: DCardAction(child: DButton(onPressed: signUp,\n      variant: DButtonVariant.link, label: Text('Sign Up'))),\n  ),\n  DCardContent(child: Form(key: formKey, child: Column(\n    crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n    DField(children: [\n      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,\n        \n        child: Text('Email')),\n      DFieldControl(label: 'Email', required: true, child: DInput(\n        focusNode: emailFocus, keyboardType: TextInputType.emailAddress,\n        textInputAction: TextInputAction.next,\n        onSubmitted: (_) => passwordFocus.requestFocus(),\n        hintText: 'm@example.com', isRequired: true, validator: validateEmail)),\n    ]),\n    SizedBox(height: 24),\n    DField(children: [\n      Wrap(alignment: WrapAlignment.spaceBetween, children: [\n        DFieldLabel(focusNode: passwordFocus, excludeSemantics: true,\n          \n          child: Text('Password')),\n        // Inline text bounds, no padding; DButton retains native activation.\n        recoveryLink,\n      ]),\n      DFieldControl(label: 'Password', required: true, child: DInput(\n        focusNode: passwordFocus, obscureText: true, isRequired: true,\n        textInputAction: TextInputAction.done,\n        onSubmitted: (_) => submit(),\n        validator: validatePassword)),\n    ]),\n  ]))),\n], footer: DCardFooter(child: Column(\n  crossAxisAlignment: CrossAxisAlignment.stretch, children: [\n  DButton(onPressed: submit, variant: DButtonVariant.primary, label: Text('Login')),\n  SizedBox(height: 8),\n  DButton(onPressed: google, variant: DButtonVariant.outline,\n    label: Text('Login with Google')),\n])))";
 
 const _spacingCode = """DToggleGroup<double>(
   values: [spacing],
@@ -477,7 +425,7 @@ class _LoginState extends State<_Login> {
                           DFieldLabel(
                             focusNode: _emailFocus,
                             excludeSemantics: true,
-                            style: const TextStyle(height: 1),
+
                             child: Text(ar ? 'البريد الإلكتروني' : 'Email'),
                           ),
                           DFieldControl(
@@ -509,7 +457,7 @@ class _LoginState extends State<_Login> {
                               DFieldLabel(
                                 focusNode: _passwordFocus,
                                 excludeSemantics: true,
-                                style: const TextStyle(height: 1),
+
                                 child: Text(ar ? 'كلمة المرور' : 'Password'),
                               ),
                               _RecoveryLink(
@@ -711,7 +659,6 @@ class _TermsState extends State<_Terms> {
               ),
             ),
             DCardContent(
-              edgeToEdge: true,
               joinNext: true,
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 192),
@@ -876,7 +823,6 @@ class _StatesState extends State<_States> {
           child: DCard(
             children: [
               const DCardHeader(
-                border: true,
                 title: DCardTitle(child: Text('Community digest')),
               ),
               DCardContent(

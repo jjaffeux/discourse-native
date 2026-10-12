@@ -3,7 +3,6 @@ import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/styleguide/examples/marker_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> pump(
@@ -36,8 +35,8 @@ Future<void> pump(
 );
 
 void main() {
-  testWidgets('inline and border preserve source geometry', (tester) async {
-    for (final variant in [DMarkerVariant.inline, DMarkerVariant.border]) {
+  testWidgets('inline preserves source geometry', (tester) async {
+    for (final variant in [DMarkerVariant.inline]) {
       await pump(
         tester,
         DMarker(
@@ -46,10 +45,7 @@ void main() {
           child: const DMarkerContent(child: Text('Complete')),
         ),
       );
-      expect(
-        tester.getSize(find.byType(DMarker)).height,
-        variant == DMarkerVariant.border ? 29 : 20,
-      );
+      expect(tester.getSize(find.byType(DMarker)).height, 20);
       expect(tester.getSize(find.byType(DMarkerIcon)), const Size(16, 16));
       expect(
         tester.getTopLeft(find.text('Complete')).dx -
@@ -116,60 +112,6 @@ void main() {
           .isLiveRegion,
       isFalse,
     );
-    handle.dispose();
-  });
-
-  testWidgets('button keyboard and pointer actions disable and borrow focus', (
-    tester,
-  ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    var calls = 0;
-    Widget marker(bool enabled) => DMarker(
-      action: DMarkerAction.button,
-      focusNode: focus,
-      onPressed: enabled ? () => calls++ : null,
-      child: const DMarkerContent(child: Text('Revert')),
-    );
-    await pump(tester, marker(true));
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pump();
-    expect(focus.hasFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.tap(find.text('Revert'));
-    expect(calls, 3);
-    await pump(tester, marker(false));
-    await tester.tap(find.text('Revert'));
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    expect(calls, 3);
-    await pump(tester, const Text('Removed'));
-    focus.requestFocus();
-  });
-
-  testWidgets('link semantics and touch bounds remain distinct from desktop', (
-    tester,
-  ) async {
-    final handle = tester.ensureSemantics();
-
-    final child = DMarker(
-      action: DMarkerAction.link,
-      onPressed: () {},
-      child: const DMarkerContent(child: Text('Details')),
-    );
-    await pump(tester, child, platform: TargetPlatform.iOS);
-    expect(tester.getSize(find.byType(DMarker)).height, 20);
-    expect(
-      tester
-          .getSemantics(find.byType(DMarker))
-          .getSemanticsData()
-          .flagsCollection
-          .isLink,
-      isTrue,
-    );
-    await pump(tester, child);
-    await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(DMarker)).height, 20);
     handle.dispose();
   });
 
@@ -253,7 +195,7 @@ void main() {
     'live theme changes foreground and border without replacing content',
     (tester) async {
       const child = DMarker(
-        variant: DMarkerVariant.border,
+        variant: DMarkerVariant.inline,
         child: DMarkerContent(child: Text('Note')),
       );
       await pump(tester, child);
@@ -265,21 +207,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(textColor(), isNot(light));
       expect(tester.state(find.byType(DMarkerContent)), same(state));
-      final context = tester.element(find.byType(DMarker));
-      final boxes = tester.widgetList<Container>(
-        find.descendant(
-          of: find.byType(DMarker),
-          matching: find.byType(Container),
-        ),
-      );
-      final border =
-          boxes
-                  .map((box) => box.decoration)
-                  .whereType<BoxDecoration>()
-                  .single
-                  .border!
-              as Border;
-      expect(border.bottom.color, DTokens.of(context).border);
     },
   );
 

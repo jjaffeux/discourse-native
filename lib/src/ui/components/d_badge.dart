@@ -15,10 +15,6 @@ enum DBadgeSize {
   regular,
   compact,
 
-  /// Inline taxonomy: 11px labels with 2px/9px insets. Link targets follow
-  /// the pill instead of reserving a separate control row on touch screens.
-  tag,
-
   /// Inline topic counts: 11px bold labels with 1px/6px insets.
   unread,
 
@@ -59,16 +55,10 @@ class DBadge extends StatefulWidget {
     this.foregroundColor,
     this.borderColor,
     this.semanticLabel,
-    this.semanticValue,
-    this.liveRegion = false,
-    this.invalid = false,
   }) : _interaction = _BadgeInteraction.none,
        _overlay = false,
        ringColor = null,
-       onPressed = null,
-       focusNode = null,
-       autofocus = false,
-       url = null;
+       onPressed = null;
 
   /// A non-interactive count pill for overlaying small icons. Uses 10/12px
   /// tabular type, a 14px minimum diameter, 3px horizontal insets and an outer
@@ -82,8 +72,6 @@ class DBadge extends StatefulWidget {
     this.foregroundColor,
     this.ringColor,
     this.semanticLabel,
-    this.semanticValue,
-    this.liveRegion = false,
   }) : _interaction = _BadgeInteraction.none,
        _overlay = true,
        variant = DBadgeVariant.primary,
@@ -91,11 +79,8 @@ class DBadge extends StatefulWidget {
        leading = null,
        trailing = null,
        borderColor = null,
-       invalid = false,
-       onPressed = null,
-       focusNode = null,
-       autofocus = false,
-       url = null;
+
+       onPressed = null;
 
   const DBadge.action({
     super.key,
@@ -109,15 +94,9 @@ class DBadge extends StatefulWidget {
     this.foregroundColor,
     this.borderColor,
     this.semanticLabel,
-    this.semanticValue,
-    this.liveRegion = false,
-    this.invalid = false,
-    this.focusNode,
-    this.autofocus = false,
   }) : _interaction = _BadgeInteraction.action,
        _overlay = false,
-       ringColor = null,
-       url = null;
+       ringColor = null;
 
   /// A native link. [onPressed] opens the caller-owned route or URL. [url]
   /// exposes an optional destination to accessibility; it does not launch it.
@@ -125,7 +104,7 @@ class DBadge extends StatefulWidget {
     super.key,
     required this.child,
     required this.onPressed,
-    this.url,
+
     this.variant = DBadgeVariant.primary,
     this.size = DBadgeSize.regular,
     this.leading,
@@ -134,11 +113,6 @@ class DBadge extends StatefulWidget {
     this.foregroundColor,
     this.borderColor,
     this.semanticLabel,
-    this.semanticValue,
-    this.liveRegion = false,
-    this.invalid = false,
-    this.focusNode,
-    this.autofocus = false,
   }) : _interaction = _BadgeInteraction.link,
        _overlay = false,
        ringColor = null;
@@ -155,13 +129,9 @@ class DBadge extends StatefulWidget {
   /// Surrounding surface for [DBadge.overlay]; defaults to the theme background.
   final Color? ringColor;
   final String? semanticLabel;
-  final String? semanticValue;
-  final bool liveRegion;
-  final bool invalid;
+
   final VoidCallback? onPressed;
-  final FocusNode? focusNode;
-  final bool autofocus;
-  final Uri? url;
+
   final _BadgeInteraction _interaction;
   final bool _overlay;
 
@@ -171,7 +141,7 @@ class DBadge extends StatefulWidget {
 
 class _DBadgeState extends State<DBadge> {
   final FocusNode _ownedFocusNode = FocusNode(debugLabel: 'DBadge');
-  FocusNode get _focusNode => widget.focusNode ?? _ownedFocusNode;
+  FocusNode get _focusNode => (_ownedFocusNode);
 
   @override
   void dispose() {
@@ -207,7 +177,7 @@ class _DBadgeState extends State<DBadge> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final compact = widget.size == DBadgeSize.compact;
-    final tag = widget.size == DBadgeSize.tag;
+
     final unread = widget.size == DBadgeSize.unread;
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
@@ -215,7 +185,7 @@ class _DBadgeState extends State<DBadge> {
         ? DControlStyle.fontSize(DControlSize.filter, context: context)
         : overlay
         ? 10.0
-        : tag || unread
+        : (unread)
         ? DiscourseTypography.micro
         : DiscourseTypography.xs;
     final lineHeight = control
@@ -259,18 +229,15 @@ class _DBadgeState extends State<DBadge> {
     };
     final foreground = widget.foregroundColor ?? baseForeground;
     final focus = _focused && _enabled;
-    final destructiveRing =
-        widget.invalid || widget.variant == DBadgeVariant.destructive;
+    final destructiveRing = (widget.variant == DBadgeVariant.destructive);
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
     final radius = BorderRadius.circular(unread ? 10 : DRadius.pill);
-    final border = widget.invalid
-        ? tokens.destructive
-        : focus
+    final border = (focus
         ? tokens.focusRing
         : widget.borderColor ??
               (widget.variant == DBadgeVariant.outline
                   ? tokens.border
-                  : Colors.transparent);
+                  : Colors.transparent));
     Widget visual = _BadgeHoverTransition(
       hovered: _hovered,
       builder: (hoverChanged) => AnimatedContainer(
@@ -289,7 +256,7 @@ class _DBadgeState extends State<DBadge> {
                 )
               : overlay
               ? 14
-              : (tag || unread ? 0 : (compact ? 16 : 20)),
+              : ((unread) ? 0 : (compact ? 16 : 20)),
         ),
         decoration: BoxDecoration(
           color: widget.backgroundColor ?? baseBackground,
@@ -308,24 +275,22 @@ class _DBadgeState extends State<DBadge> {
         // Compact counts keep 12px type with 14px leading inside a 1px border.
         padding: overlay
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
-            : tag
-            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
-            : unread
-            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
-            : EdgeInsetsDirectional.fromSTEB(
-                control
-                    ? 11
-                    : compact
-                    ? 4
-                    : (widget.leading == null ? 8 : 6),
-                compact ? 0 : 1,
-                control
-                    ? 11
-                    : compact
-                    ? 4
-                    : (widget.trailing == null ? 8 : 6),
-                compact ? 0 : 1,
-              ),
+            : (unread
+                  ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
+                  : EdgeInsetsDirectional.fromSTEB(
+                      control
+                          ? 11
+                          : compact
+                          ? 4
+                          : (widget.leading == null ? 8 : 6),
+                      compact ? 0 : 1,
+                      control
+                          ? 11
+                          : compact
+                          ? 4
+                          : (widget.trailing == null ? 8 : 6),
+                      compact ? 0 : 1,
+                    )),
         child: IconTheme.merge(
           data: IconThemeData(size: artworkSize, color: foreground),
           child: DefaultTextStyle(
@@ -337,11 +302,7 @@ class _DBadgeState extends State<DBadge> {
                       ? FontWeight.w600
                       : unread
                       ? FontWeight.w700
-                      : tag
-                      ? FontWeight.w400
-                      : control
-                      ? FontWeight.w400
-                      : FontWeight.w500,
+                      : (control ? FontWeight.w400 : FontWeight.w500),
                   fontFeatures: overlay
                       ? const [FontFeature.tabularFigures()]
                       : null,
@@ -383,14 +344,12 @@ class _DBadgeState extends State<DBadge> {
       container: _interactive,
       button: widget._interaction == _BadgeInteraction.action,
       link: widget._interaction == _BadgeInteraction.link,
-      linkUrl: widget.url,
+      linkUrl: null,
       enabled: _interactive ? _enabled : null,
       label: widget.semanticLabel,
-      value: widget.semanticValue,
-      liveRegion: widget.liveRegion,
-      validationResult: widget.invalid
-          ? SemanticsValidationResult.invalid
-          : SemanticsValidationResult.none,
+      value: null,
+      liveRegion: false,
+      validationResult: SemanticsValidationResult.none,
       excludeSemantics: widget.semanticLabel != null,
       onTap: _interactive && _enabled ? _activate : null,
       child: overlay ? IgnorePointer(child: visual) : visual,
@@ -408,7 +367,7 @@ class _DBadgeState extends State<DBadge> {
       onExit: (_) => setState(() => _hovered = false),
       child: FocusableActionDetector(
         focusNode: _focusNode,
-        autofocus: widget.autofocus,
+        autofocus: false,
         enabled: _enabled,
         mouseCursor: _enabled
             ? SystemMouseCursors.click

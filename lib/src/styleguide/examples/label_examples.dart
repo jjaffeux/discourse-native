@@ -90,58 +90,8 @@ DCheckbox(
           'Submit a valid address, then reset. Form and DInput own validation, '
           'save/reset and editing; DLabel remains presentational.',
       states: const ['Field composition', 'Required', 'Error', 'Save', 'Reset'],
-      code: '''// Inside a State:
-final formKey = GlobalKey<FormState>();
-final emailFocus = FocusNode();
-bool updates = false;
-String? savedEmail;
-
-@override
-void dispose() {
-  emailFocus.dispose();
-  super.dispose();
-}
-
-Form(
-  key: formKey,
-  child: Column(children: [
-    DField(children: [
-      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,
-        child: const Text('Your email address')),
-      const DFieldDescription(
-        child: Text('Required. Used only in this local example.')),
-      DFieldControl(label: 'Your email address',
-        description: 'Required. Used only in this local example.',
-        required: true,
-        child: DInput(focusNode: emailFocus,
-          keyboardType: TextInputType.emailAddress, isRequired: true,
-        validator: (value) => (value ?? '').contains('@')
-            ? null : 'Enter an email address containing @.',
-        onSaved: (value) => savedEmail = value?.trim(),
-      )),
-    ]),
-    DCheckbox(
-      value: updates,
-      onChanged: (value) => setState(() => updates = value ?? false),
-      title: const DLabel(child: Text('Send me product updates')),
-    ),
-    DButton(
-      label: const Text('Submit example'),
-      onPressed: () {
-        if (formKey.currentState!.validate()) {
-          setState(() => formKey.currentState!.save());
-        }
-      },
-    ),
-    DButton(
-      label: const Text('Reset form'),
-      onPressed: () {
-        formKey.currentState!.reset();
-        setState(() { updates = false; savedEmail = null; });
-      },
-    ),
-  ]),
-)''',
+      code:
+          "// Inside a State:\nfinal formKey = GlobalKey<FormState>();\nfinal emailFocus = FocusNode();\nbool updates = false;\nString? savedEmail;\n\n@override\nvoid dispose() {\n  emailFocus.dispose();\n  super.dispose();\n}\n\nForm(\n  key: formKey,\n  child: Column(children: [\n    DField(children: [\n      DFieldLabel(focusNode: emailFocus, excludeSemantics: true,\n        child: const Text('Your email address')),\n      const DFieldDescription(\n        child: Text('Required. Used only in this local example.')),\n      DFieldControl(label: 'Your email address',\n        description: 'Required. Used only in this local example.',\n        required: true,\n        child: DInput(focusNode: emailFocus,\n          keyboardType: TextInputType.emailAddress, isRequired: true,\n        validator: (value) => (value ?? '').contains('@')\n            ? null : 'Enter an email address containing @.',\n        \n      )),\n    ]),\n    DCheckbox(\n      value: updates,\n      onChanged: (value) => setState(() => updates = value ?? false),\n      title: const DLabel(child: Text('Send me product updates')),\n    ),\n    DButton(\n      label: const Text('Submit example'),\n      onPressed: () {\n        if (formKey.currentState!.validate()) {\n          setState(() => formKey.currentState!.save());\n        }\n      },\n    ),\n    DButton(\n      label: const Text('Reset form'),\n      onPressed: () {\n        formKey.currentState!.reset();\n        setState(() { updates = false; savedEmail = null; });\n      },\n    ),\n  ]),\n)",
       builder: (_) => const _FormPreview(),
     ),
     StyleguideExample(
@@ -316,6 +266,7 @@ class _FormPreviewState extends State<_FormPreview> {
   final _emailFocus = FocusNode();
   bool _updates = false;
   String? _savedEmail;
+  String _email = '';
 
   @override
   void dispose() {
@@ -351,8 +302,10 @@ class _FormPreviewState extends State<_FormPreview> {
                 validator: (value) => (value ?? '').contains('@')
                     ? null
                     : 'Enter an email address containing @.',
-                onChanged: (_) => setState(() => _savedEmail = null),
-                onSaved: (value) => _savedEmail = value?.trim(),
+                onChanged: (value) => setState(() {
+                  _email = value;
+                  _savedEmail = null;
+                }),
               ),
             ),
           ],
@@ -375,7 +328,7 @@ class _FormPreviewState extends State<_FormPreview> {
               label: const Text('Submit example'),
               onPressed: () {
                 if (_formKey.currentState!.validate()) {
-                  setState(() => _formKey.currentState!.save());
+                  setState(() => _savedEmail = _email);
                 }
               },
             ),

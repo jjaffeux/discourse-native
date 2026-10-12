@@ -603,7 +603,7 @@ void main() {
       ]);
     });
 
-    testWidgets('tabs between the reply and view sorting actions', (
+    testWidgets('tabs between the reply, like, and view sorting actions', (
       tester,
     ) async {
       final presentation = _FakeAssignedGroupPresentation(
@@ -616,13 +616,17 @@ void main() {
 
       final replies = find.byKey(const ValueKey('topic-sort-posts'));
       final views = find.byKey(const ValueKey('topic-sort-views'));
-      final focus = Focus.of(
-        tester.element(
-          find.descendant(of: replies, matching: find.text('2 replies')).first,
-        ),
+      final focusWidget = tester.widget<Focus>(
+        find.descendant(of: replies, matching: find.byType(Focus)).first,
       );
+      final focus = Focus.of(tester.element(find.byWidget(focusWidget.child)));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       focus.requestFocus();
       await tester.pump();
+      expect(focus.hasPrimaryFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_primaryFocusIsWithin(find.byKey(const ValueKey('topic-sort-likes'))), isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       expect(_primaryFocusIsWithin(views), isTrue);
@@ -648,7 +652,7 @@ void main() {
         findsNothing,
       );
       expect(find.byType(TopicListRow), findsOneWidget);
-      expect(find.text('91 views'), findsOneWidget);
+      expect(find.text('91'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);
       await tester.tap(find.text(_topic.title));
       await tester.scrollUntilVisible(

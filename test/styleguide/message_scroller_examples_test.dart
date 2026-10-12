@@ -128,30 +128,20 @@ void main() {
     await tester.pumpAndSettle();
 
     final card = tester.widget<DCard>(find.byType(DCard));
-    final header = tester.widget<DCardHeader>(find.byType(DCardHeader));
+
     final content = tester.widget<DCardContent>(find.byType(DCardContent));
-    final footer = tester.widget<DCardFooter>(find.byType(DCardFooter));
+
     final reset = tester.widget<DButton>(
       find.byWidgetPredicate(
         (widget) => widget is DButton && widget.tooltip == 'Reset conversation',
       ),
     );
-    final addFiles = tester.widget<DInputGroupButton>(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is DInputGroupButton && widget.tooltip == 'Add files',
-      ),
-    );
+
     final helper = find.text('Demo is read only. Press send to send messages.');
 
     expect(card.spacing, DSpacing.xl);
-    expect(header.border, isTrue);
-    expect(content.edgeToEdge, isTrue);
     expect(content.joinNext, isTrue);
-    expect(footer.border, isFalse);
-    expect(footer.muted, isFalse);
     expect(reset.onPressed, isNotNull);
-    expect(addFiles.variant, DButtonVariant.outline);
     expect(
       find.ancestor(of: helper, matching: find.byType(DCard)),
       findsNothing,

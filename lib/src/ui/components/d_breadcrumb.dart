@@ -373,9 +373,7 @@ class DBreadcrumbPage extends StatelessWidget {
 
 /// A decorative logical separator between breadcrumb items.
 class DBreadcrumbSeparator extends StatelessWidget {
-  const DBreadcrumbSeparator({super.key, this.child});
-
-  final Widget? child;
+  const DBreadcrumbSeparator({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -386,12 +384,10 @@ class DBreadcrumbSeparator extends StatelessWidget {
         child: Center(
           child: IconTheme.merge(
             data: IconThemeData(color: color, size: 14),
-            child:
-                child ??
-                Transform.flip(
-                  flipX: Directionality.of(context) == TextDirection.rtl,
-                  child: const DIcon(DIcons.chevronRight, size: 14),
-                ),
+            child: (Transform.flip(
+              flipX: Directionality.of(context) == TextDirection.rtl,
+              child: const DIcon(DIcons.chevronRight, size: 14),
+            )),
           ),
         ),
       ),

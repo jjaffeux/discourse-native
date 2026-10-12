@@ -1426,95 +1426,89 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-      'places Create and Discard on the left and tools on the right',
-      (tester) async {
-        final composer = ComposerController(
-          _newTopicTarget,
-          imageUploader:
-              (file, {required onProgress, required abortTrigger}) async =>
-                  throw StateError('The picker is not invoked by this test.'),
-        );
-        final shell = await _shell();
-        addTearDown(composer.dispose);
-        addTearDown(shell.dispose);
-        await _pumpPanel(
-          tester,
-          shell,
-          composer,
-          placement: ComposerPlacement.bottom,
-        );
-        await tester.pump();
+    testWidgets('footer actions precede the toolbar', (tester) async {
+      final composer = ComposerController(
+        _newTopicTarget,
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                throw StateError('The picker is not invoked by this test.'),
+      );
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(
+        tester,
+        shell,
+        composer,
+        placement: ComposerPlacement.bottom,
+      );
+      await tester.pump();
 
-        final panel = tester.getRect(find.byType(ComposerPanel));
-        final toolbar = tester.getRect(
-          find.byKey(const ValueKey('composer-toolbar-scroll')),
-        );
+      final panel = tester.getRect(find.byType(ComposerPanel));
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('composer-toolbar-scroll')),
+      );
 
-        final submit = tester.getRect(
-          find.byKey(const ValueKey('composer-submit')),
-        );
-        final cancel = tester.getRect(
-          find.byKey(const ValueKey('composer-cancel')),
-        );
-        final footer = tester.getRect(
-          find.byKey(const ValueKey('composer-footer')),
-        );
-        expect(submit.height, closeTo(34, 1));
-        expect(cancel.height, closeTo(34, 1));
-        expect(footer.bottom - submit.bottom, closeTo(10, 1));
-        expect(submit.left, closeTo(panel.left + 16, 1));
-        expect(cancel.left, closeTo(submit.right + 8, 1));
-        expect(cancel.center.dy, closeTo(submit.center.dy, 1));
-        expect(toolbar.right, closeTo(panel.right - 16, 1));
-        expect(toolbar.left, greaterThan(cancel.right));
+      final submit = tester.getRect(
+        find.byKey(const ValueKey('composer-submit')),
+      );
+      final cancel = tester.getRect(
+        find.byKey(const ValueKey('composer-cancel')),
+      );
+      final footer = tester.getRect(
+        find.byKey(const ValueKey('composer-footer')),
+      );
+      expect(submit.height, closeTo(34, 1));
+      expect(cancel.height, closeTo(34, 1));
+      expect(footer.bottom - submit.bottom, closeTo(10, 1));
+      expect(submit.left, closeTo(panel.left + 14, 1));
+      expect(cancel.left, greaterThan(submit.right));
+      expect(cancel.center.dy, closeTo(submit.center.dy, 1));
+      expect(toolbar.right, closeTo(panel.right - 14, 1));
+      expect(toolbar.left, greaterThan(cancel.right));
 
-        final submitButton = tester.widget<DButton>(
-          find.byKey(const ValueKey('composer-submit')),
-        );
-        final cancelButton = tester.widget<DButton>(
-          find.byKey(const ValueKey('composer-cancel')),
-        );
-        expect(submitButton.variant, DButtonVariant.primary);
-        expect(submitButton.size, DButtonSize.action);
-        expect(cancelButton.variant, DButtonVariant.destructive);
-        expect(cancelButton.shape, DButtonShape.pill);
-        expect(cancelButton.size, DButtonSize.action);
-        final tokens = DTokens.of(
-          tester.element(find.byKey(const ValueKey('composer-footer'))),
-        );
-        expect(
-          cancelButton.backgroundColor,
-          Color.lerp(tokens.background, tokens.destructive, .25),
-        );
-        expect(
-          cancelButton.foregroundColor,
-          Color.lerp(tokens.foreground, tokens.destructive, .5),
-        );
+      final submitButton = tester.widget<DButton>(
+        find.byKey(const ValueKey('composer-submit')),
+      );
+      final cancelButton = tester.widget<DButton>(
+        find.byKey(const ValueKey('composer-cancel')),
+      );
+      expect(submitButton.variant, DButtonVariant.primary);
+      expect(submitButton.size, DButtonSize.action);
+      expect(cancelButton.variant, DButtonVariant.destructive);
+      expect(cancelButton.shape, DButtonShape.pill);
+      expect(cancelButton.size, DButtonSize.action);
+      final tokens = DTokens.of(
+        tester.element(find.byKey(const ValueKey('composer-footer'))),
+      );
+      expect(
+        cancelButton.backgroundColor,
+        Color.lerp(tokens.background, tokens.destructive, .25),
+      );
+      expect(
+        cancelButton.foregroundColor,
+        Color.lerp(tokens.foreground, tokens.destructive, .5),
+      );
 
-        final bold = find.byKey(const ValueKey('composer-format-bold'));
-        final italic = find.byKey(const ValueKey('composer-format-italic'));
-        expect(
-          tester.widget<DButton>(bold).variant,
-          DButtonVariant.transparentBackground,
-        );
-        expect(
-          tester.widget<DButton>(bold).foregroundColor,
-          Color.lerp(tokens.background, tokens.foreground, .5),
-        );
-        expect(
-          tester.getRect(italic).left - tester.getRect(bold).right,
-          closeTo(2, 1),
-        );
-        expect(
-          tester
-              .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
-              .variant,
-          DButtonVariant.transparentBackground,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      final bold = find.byKey(const ValueKey('composer-format-bold'));
+      final italic = find.byKey(const ValueKey('composer-format-italic'));
+      expect(tester.widget<DButton>(bold).variant, DButtonVariant.ghost);
+      expect(
+        tester.widget<DButton>(bold).foregroundColor,
+        Color.lerp(tokens.background, tokens.foreground, .5),
+      );
+      expect(
+        tester.getRect(italic).left - tester.getRect(bold).right,
+        closeTo(2, 1),
+      );
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('composer-upload')))
+            .variant,
+        DButtonVariant.ghost,
+      );
+      expect(tester.takeException(), isNull);
+    });
 
     for (final scale in [1.0, 2.0, 3.0]) {
       testWidgets(

@@ -209,7 +209,7 @@ void main() {
           tester
               .widget<DButton>(find.byKey(const ValueKey('emoji-picker-close')))
               .variant,
-          DButtonVariant.transparentBackground,
+          DButtonVariant.ghost,
         );
 
         expect(

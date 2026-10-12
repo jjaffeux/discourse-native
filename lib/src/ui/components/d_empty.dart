@@ -10,52 +10,38 @@ import '../foundation/tokens.dart';
 /// in Center/SingleChildScrollView to allow large text to grow. Children keep
 /// their native focus and Form ownership.
 class DEmpty extends StatelessWidget {
-  const DEmpty({
-    super.key,
-    required this.children,
-    EdgeInsetsGeometry? padding,
-    this.spacing = 24,
-    this.outlined = false,
-    this.backgroundColor,
-    this.gradient,
-  }) : padding = padding ?? const EdgeInsets.all(24),
-       _usesDefaultPadding = padding == null,
-       assert(spacing >= 0);
+  const DEmpty({super.key, required this.children, EdgeInsetsGeometry? padding})
+    : padding = padding ?? const EdgeInsets.all(24),
+      _usesDefaultPadding = padding == null;
 
   final List<Widget> children;
   final EdgeInsetsGeometry padding;
-  final double spacing;
-  final bool outlined;
-  final Color? backgroundColor;
-  final Gradient? gradient;
+
   final bool _usesDefaultPadding;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
     const radius = DRadius.panel;
     final resolvedPadding =
         _usesDefaultPadding && MediaQuery.sizeOf(context).width >= 768
         ? const EdgeInsets.all(48)
         : padding;
     return CustomPaint(
-      foregroundPainter: outlined
-          ? _DashedOutline(color: tokens.border, radius: radius)
-          : null,
+      foregroundPainter: null,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: backgroundColor,
-          gradient: gradient,
+          color: null,
+          gradient: null,
           borderRadius: BorderRadius.circular(radius),
         ),
         child: Padding(
-          padding: resolvedPadding.add(EdgeInsets.all(outlined ? 1 : 0)),
+          padding: resolvedPadding.add(const EdgeInsets.all(0)),
           child: SizedBox(
             width: double.infinity,
             child: DefaultTextStyle.merge(
               textAlign: TextAlign.center,
               style: _textStyle(context),
-              child: _Stack(spacing: spacing, children: children),
+              child: _Stack(spacing: 24, children: children),
             ),
           ),
         ),
@@ -117,22 +103,16 @@ class DEmptyMedia extends StatelessWidget {
 /// The reference title is a div; opt into heading semantics when appropriate
 /// for the surrounding page. Native text scaling and wrapping remain enabled.
 class DEmptyTitle extends StatelessWidget {
-  const DEmptyTitle(
-    String this.text, {
-    super.key,
-    this.headingLevel,
-    this.style,
-  }) : child = null;
+  const DEmptyTitle(String this.text, {super.key, this.headingLevel})
+    : child = null;
   const DEmptyTitle.child({
     super.key,
     required Widget this.child,
     this.headingLevel,
-    this.style,
   }) : text = null;
   final String? text;
   final Widget? child;
   final int? headingLevel;
-  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +125,7 @@ class DEmptyTitle extends StatelessWidget {
           letterSpacing:
               DiscourseTypography.lg * DiscourseTypography.trackingTight,
         )
-        .merge(style);
+        .merge(null);
     return Semantics(
       headingLevel: headingLevel,
       child: child == null
@@ -223,34 +203,4 @@ class _Stack extends StatelessWidget {
       ],
     ],
   );
-}
-
-class _DashedOutline extends CustomPainter {
-  const _DashedOutline({required this.color, required this.radius});
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          (Offset.zero & size).deflate(0.5),
-          Radius.circular(radius),
-        ),
-      );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (final metric in path.computeMetrics()) {
-      for (double offset = 0; offset < metric.length; offset += 6) {
-        canvas.drawPath(metric.extractPath(offset, offset + 3), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedOutline oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
 }

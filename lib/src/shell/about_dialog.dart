@@ -108,7 +108,7 @@ class _NativeAboutDialogState extends State<NativeAboutDialog>
       Center(
         child: DButton(
           key: const ValueKey('about-replay-mark'),
-          variant: DButtonVariant.transparentBackground,
+          variant: DButtonVariant.ghost,
           tooltip: context.l10n.aboutReplayMark,
           semanticLabel: context.l10n.aboutReplayMark,
           onPressed: _artwork == null ? null : _replay,

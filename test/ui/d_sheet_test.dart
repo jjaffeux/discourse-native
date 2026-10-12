@@ -47,8 +47,7 @@ Widget _sheet<T>({
   controller: controller,
   open: open,
   onOpenChanged: onOpenChanged,
-  dismissOnBarrier: dismissOnBarrier,
-  dismissOnEscape: dismissOnEscape,
+
   initialFocusNode: initialFocusNode,
   finalFocusNode: finalFocusNode,
   trigger: DSheetTrigger(
@@ -75,7 +74,6 @@ Widget _sheet<T>({
       DSheetFooter(
         children: [
           DSheetClose<T>(
-            result: null,
             builder: (context, close) => DButton(
               onPressed: close,
               variant: DButtonVariant.outline,
@@ -235,16 +233,15 @@ void main() {
               ? visible
                     ? DSheetViewport(
                         onSwipeDismissRequested: dismissOnSwipe
-                            ? onSwipeDismissRequested
-                            : null,
-                        onDismiss: dismissOnSwipe
                             ? () {
-                                onRetainedDismiss?.call();
+                                onSwipeDismissRequested?.call();
+
                                 if (!controlled) {
                                   setState(() => visible = false);
                                 }
                               }
                             : null,
+
                         content: content(),
                       )
                     : const SizedBox.shrink()
@@ -256,14 +253,14 @@ void main() {
                       context: context,
                       side: side,
                       fillAvailableHeight: true,
-                      dismissOnSwipe: dismissOnSwipe,
+
                       builder: (_, _) => content(),
                     ),
                   ),
                 )
               : DSheet<void>(
                   open: controlled ? true : null,
-                  dismissOnSwipe: dismissOnSwipe,
+
                   onOpenChanged: onOpenChanged,
                   trigger: DSheetTrigger(
                     builder: (_, open) =>
@@ -406,8 +403,6 @@ void main() {
       (4000.0, 'header'),
       (1800.0, 'scroll'),
       (1800.0, 'helper'),
-      (400.0, 'retained header'),
-      (1800.0, 'retained scroll'),
     ]) {
       testWidgets('swipe exit retains $speed px/s from $origin on $platform', (
         tester,
@@ -719,7 +714,7 @@ void main() {
           retained: true,
           controlled: true,
           disableAnimations: reducedMotion,
-          onRetainedDismiss: () => requests++,
+          onSwipeDismissRequested: () => requests++,
         );
         final title = find.text('Swipe sheet');
         final sheet = find.byType(DSheetContent);
@@ -845,7 +840,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final scenario in ['disabled', 'desktop', 'side', 'mouse']) {
+  for (final scenario in ['desktop', 'side', 'mouse']) {
     testWidgets('$scenario does not swipe-dismiss', (tester) async {
       final scroll = ScrollController();
       addTearDown(scroll.dispose);
@@ -882,7 +877,7 @@ void main() {
     });
   }
 
-  for (final imperative in [false, true]) {
+  for (final imperative in [false]) {
     testWidgets(
       'under-keyboard ${imperative ? 'helper' : 'sheet'} retains its full height and live insets',
       (tester) async {
@@ -928,7 +923,7 @@ void main() {
                               context: context,
                               side: DSheetSide.bottom,
                               fillAvailableHeight: true,
-                              extendBehindKeyboard: true,
+
                               initialFocusNode: focus,
                               builder: (_, _) => content(),
                             ),
@@ -1047,442 +1042,6 @@ void main() {
       );
     }
   }
-
-  for (final side in [DSheetSide.left, DSheetSide.right]) {
-    for (final direction in TextDirection.values) {
-      testWidgets(
-        'side accessory belongs to sheet focus and physical edge ($side, $direction)',
-        (tester) async {
-          var clicks = 0;
-          final focus = FocusNode();
-          addTearDown(focus.dispose);
-          await tester.pumpWidget(
-            _host(
-              direction: direction,
-              DSheet<void>(
-                initialFocusNode: focus,
-                trigger: DSheetTrigger(
-                  builder: (context, open) =>
-                      DButton(label: const Text('Open'), onPressed: open),
-                ),
-                content: DSheetContent(
-                  key: const ValueKey('accessory-sheet'),
-                  side: side,
-                  inset: true,
-                  sidePanelWidth: 700,
-                  sidePanelMaxWidth: 700,
-                  sideAccessory: DButton(
-                    key: const ValueKey('accessory'),
-                    focusNode: focus,
-                    label: const Text('Go'),
-                    onPressed: () => clicks++,
-                  ),
-                  children: const [
-                    Expanded(child: SizedBox(key: ValueKey('surface'))),
-                  ],
-                ),
-              ),
-            ),
-          );
-          await tester.tap(find.text('Open'));
-          await tester.pumpAndSettle();
-          final sheet = tester.getRect(
-            find.byKey(const ValueKey('accessory-sheet')),
-          );
-          final surface = tester.getRect(find.byKey(const ValueKey('surface')));
-          final accessory = find.byKey(const ValueKey('accessory'));
-          final button = tester.getRect(accessory);
-          expect(sheet.width - surface.width, 52);
-          expect(button.center.dy, sheet.center.dy);
-          expect(
-            button.center.dx,
-            side == DSheetSide.right ? sheet.left + 26 : sheet.right - 26,
-          );
-          expect(focus.hasFocus, isTrue);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
-          expect(clicks, 1);
-          await tester.tap(accessory);
-          await tester.pumpAndSettle();
-          expect(clicks, 2);
-          expect(find.byKey(const ValueKey('accessory-sheet')), findsOneWidget);
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-          expect(find.byKey(const ValueKey('accessory-sheet')), findsNothing);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
-  }
-
-  for (final imperative in [false, true]) {
-    testWidgets(
-      'non-modal ${imperative ? 'helper' : 'sheet'} allows background clicks, input and scrolling',
-      (tester) async {
-        final controller = DSheetController<String>();
-        final backgroundFocus = FocusNode();
-        final triggerFocus = FocusNode();
-        final scroll = ScrollController();
-        addTearDown(controller.dispose);
-        addTearDown(backgroundFocus.dispose);
-        addTearDown(triggerFocus.dispose);
-        addTearDown(scroll.dispose);
-        var clicks = 0;
-        String? result;
-        VoidCallback? closeSheet;
-        DSheetContent content() => DSheetContent(
-          children: [
-            const DSheetHeader(
-              children: [DSheetTitle(child: Text('Non-modal sheet'))],
-            ),
-            DSheetBody(child: DInput(semanticLabel: 'Sheet input')),
-            DSheetFooter(
-              children: [
-                DSheetClose<String>(
-                  result: 'done',
-                  builder: (_, close) =>
-                      DButton(onPressed: close, label: const Text('Done')),
-                ),
-              ],
-            ),
-          ],
-        );
-        Widget background(BuildContext context, VoidCallback open) => Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 300,
-            child: Column(
-              children: [
-                DButton(
-                  focusNode: triggerFocus,
-                  onPressed: open,
-                  label: const Text('Open'),
-                ),
-                DButton(
-                  onPressed: () => clicks++,
-                  label: const Text('Background action'),
-                ),
-                DInput(
-                  focusNode: backgroundFocus,
-                  semanticLabel: 'Background input',
-                ),
-                Expanded(
-                  child: ListView(
-                    controller: scroll,
-                    children: List.generate(
-                      50,
-                      (i) => SizedBox(height: 50, child: Text('Row $i')),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-        await tester.pumpWidget(
-          _host(
-            imperative
-                ? Builder(
-                    builder: (context) => background(context, () async {
-                      result = await showDSheet<String>(
-                        context: context,
-                        modal: false,
-                        builder: (_, helperController) {
-                          closeSheet = () => helperController.close('done');
-                          return content();
-                        },
-                      );
-                    }),
-                  )
-                : DSheet<String>(
-                    controller: controller,
-                    modal: false,
-                    onOpenChanged: (details) => result = details.result,
-                    trigger: DSheetTrigger(builder: background),
-                    content: content(),
-                  ),
-          ),
-        );
-        triggerFocus.requestFocus();
-        await tester.pump();
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        expect(find.byType(BackdropFilter), findsNothing);
-        expect(find.byType(ModalBarrier).hitTestable(), findsNothing);
-        final sheetEditor = find.descendant(
-          of: find.byType(DSheetContent),
-          matching: find.byType(EditableText),
-        );
-        await tester.enterText(sheetEditor, 'Retained draft');
-        await tester.tap(find.text('Background action'));
-        await tester.pumpAndSettle();
-        expect(clicks, 1);
-        expect(find.byType(DSheetContent), findsOneWidget);
-        final backgroundEditor = find.byWidgetPredicate(
-          (w) => w is EditableText && w.focusNode == backgroundFocus,
-        );
-        await tester.tap(backgroundEditor);
-        await tester.pumpAndSettle();
-        expect(backgroundFocus.hasFocus, isTrue);
-        await tester.enterText(backgroundEditor, 'Background still editable');
-        await tester.drag(find.byType(ListView), const Offset(0, -200));
-        await tester.pumpAndSettle();
-        expect(scroll.offset, greaterThan(0));
-        expect(find.text('Retained draft'), findsOneWidget);
-
-        // Closing from application state must preserve background focus.
-        if (imperative) {
-          closeSheet!();
-        } else {
-          controller.close('done');
-        }
-        await tester.pumpAndSettle();
-        expect(result, 'done');
-        expect(find.byType(DSheetContent), findsNothing);
-        expect(backgroundFocus.hasFocus, isTrue);
-
-        triggerFocus.requestFocus();
-        await tester.pump();
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Done'));
-        await tester.pumpAndSettle();
-        expect(triggerFocus.hasFocus, isTrue);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  testWidgets(
-    'modal dialogs above non-modal sheets still block the background',
-    (tester) async {
-      var clicks = 0;
-      await tester.pumpWidget(
-        _host(
-          DSheet<void>(
-            modal: false,
-            initiallyOpen: true,
-            trigger: DSheetTrigger(
-              builder: (_, _) => Align(
-                alignment: Alignment.topLeft,
-                child: DButton(
-                  onPressed: () => clicks++,
-                  label: const Text('Background action'),
-                ),
-              ),
-            ),
-            content: DSheetContent(
-              children: [
-                DSheetHeader(
-                  children: [
-                    DDialog<void>(
-                      dismissOnBarrier: false,
-                      trigger: DDialogTrigger(
-                        builder: (_, open) => DButton(
-                          onPressed: open,
-                          label: const Text('Open dialog'),
-                        ),
-                      ),
-                      content: const DDialogContent(
-                        children: [DDialogTitle(child: Text('Modal dialog'))],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Open dialog'));
-      await tester.pumpAndSettle();
-      await tester.tapAt(tester.getCenter(find.text('Background action')));
-      await tester.pumpAndSettle();
-      expect(clicks, 0);
-      expect(find.byType(BackdropFilter), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.text('Modal dialog'), findsNothing);
-      expect(find.byType(DSheetContent), findsOneWidget);
-      await tester.tap(find.text('Background action'));
-      await tester.pumpAndSettle();
-      expect(clicks, 1);
-      await tester.tap(find.text('Open dialog'));
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'modality changes update an open sheet without losing its input',
-    (tester) async {
-      final modal = ValueNotifier(true);
-      addTearDown(modal.dispose);
-      var clicks = 0;
-      await tester.pumpWidget(
-        _host(
-          ValueListenableBuilder<bool>(
-            valueListenable: modal,
-            builder: (_, value, _) => DSheet<void>(
-              modal: value,
-              initiallyOpen: true,
-              dismissOnBarrier: false,
-              trigger: DSheetTrigger(
-                builder: (_, _) => Align(
-                  alignment: Alignment.topLeft,
-                  child: DButton(
-                    onPressed: () => clicks++,
-                    label: const Text('Background action'),
-                  ),
-                ),
-              ),
-              content: DSheetContent(children: [DSheetBody(child: DInput())]),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(EditableText), 'Retained draft');
-      final editor = tester.state(find.byType(EditableText));
-      final point = tester.getCenter(find.text('Background action'));
-      for (final value in [true, false, true]) {
-        modal.value = value;
-        await tester.pumpAndSettle();
-        final previousClicks = clicks;
-        await tester.tapAt(point);
-        await tester.pumpAndSettle();
-        expect(clicks, value ? previousClicks : previousClicks + 1);
-        expect(
-          find.byType(BackdropFilter),
-          value ? findsOneWidget : findsNothing,
-        );
-        expect(tester.state(find.byType(EditableText)), same(editor));
-        expect(find.text('Retained draft'), findsOneWidget);
-      }
-    },
-  );
-
-  for (final reducedMotion in [false, true]) {
-    testWidgets(
-      'inset sheet animates width and retains its editor (reduced motion: $reducedMotion)',
-      (tester) async {
-        tester.view.physicalSize = const Size(900, 700);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final width = ValueNotifier<double>(400);
-        addTearDown(width.dispose);
-        await tester.pumpWidget(
-          _host(
-            ValueListenableBuilder<double>(
-              valueListenable: width,
-              builder: (context, value, _) => DSheet<void>(
-                initiallyOpen: true,
-                trigger: DSheetTrigger(
-                  builder: (_, _) => const SizedBox.shrink(),
-                ),
-                content: DSheetContent(
-                  key: const ValueKey('inset-sheet'),
-                  inset: true,
-                  animateSize: true,
-                  sidePanelWidth: value,
-                  sidePanelMaxWidth: 900,
-                  children: [
-                    DSheetHeader(
-                      children: [DInput(semanticLabel: 'Retained input')],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            size: const Size(900, 700),
-            disableAnimations: reducedMotion,
-          ),
-        );
-        await tester.pumpAndSettle();
-        final sheet = find.byKey(const ValueKey('inset-sheet'));
-        final original = tester.getRect(sheet);
-        expect(original, const Rect.fromLTWH(488, 12, 400, 676));
-        await tester.enterText(
-          find.byType(EditableText),
-          'Retained through resizing',
-        );
-        final editor = tester.state(find.byType(EditableText));
-        width.value = 700;
-        await tester.pump();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 80));
-        final intermediate = tester.getSize(sheet).width;
-        if (reducedMotion) {
-          expect(intermediate, 700);
-        } else {
-          expect(intermediate, greaterThan(400));
-          expect(intermediate, lessThan(700));
-        }
-        await tester.pumpAndSettle();
-        expect(tester.getRect(sheet), const Rect.fromLTWH(188, 12, 700, 676));
-        expect(tester.state(find.byType(EditableText)), same(editor));
-        expect(find.text('Retained through resizing'), findsOneWidget);
-        width.value = 1200;
-        await tester.pumpAndSettle();
-        expect(tester.getRect(sheet), const Rect.fromLTWH(12, 12, 876, 676));
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  testWidgets('uncontrolled trigger and typed close restore focus', (
-    tester,
-  ) async {
-    final triggerFocus = FocusNode();
-    addTearDown(triggerFocus.dispose);
-    final changes = <DSheetChangeDetails<String>>[];
-    await tester.pumpWidget(
-      _host(
-        DSheet<String>(
-          onOpenChanged: changes.add,
-          trigger: DSheetTrigger(
-            builder: (context, open) => DButton(
-              focusNode: triggerFocus,
-              onPressed: open,
-              label: const Text('Open'),
-            ),
-          ),
-          content: DSheetContent(
-            semanticLabel: 'Typed sheet',
-            children: [
-              const DSheetHeader(
-                children: [DSheetTitle(child: Text('Typed sheet'))],
-              ),
-              DSheetFooter(
-                children: [
-                  DSheetClose<String>(
-                    result: 'chosen',
-                    builder: (context, close) =>
-                        DButton(onPressed: close, label: const Text('Choose')),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    triggerFocus.requestFocus();
-    await tester.pump();
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(changes.single.reason, DSheetChangeReason.trigger);
-    await tester.tap(find.text('Choose'));
-    await tester.pumpAndSettle();
-    expect(changes.last.result, 'chosen');
-    expect(changes.last.reason, DSheetChangeReason.close);
-    expect(triggerFocus.hasFocus, isTrue);
-  });
 
   testWidgets('trigger builder does not rerun for ancestor keyboard insets', (
     tester,
@@ -1776,27 +1335,6 @@ void main() {
     expect(style.fontWeight, FontWeight.w500);
   });
 
-  testWidgets('no close button and disabled dismissal remain open', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        _sheet<void>(
-          showCloseButton: false,
-          dismissOnBarrier: false,
-          dismissOnEscape: false,
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Close'), findsNothing);
-    await tester.tapAt(const Offset(8, 300));
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.text('Example sheet'), findsOneWidget);
-  });
-
   testWidgets('barrier and Escape report Sheet dismissal reasons', (
     tester,
   ) async {
@@ -1814,94 +1352,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(changes.last.reason, DSheetChangeReason.escape);
   });
-
-  testWidgets('controller coalesces submit and closes its open session', (
-    tester,
-  ) async {
-    final controller = DSheetController<String>();
-    addTearDown(controller.dispose);
-    final gate = Completer<String>();
-    await tester.pumpWidget(_host(_sheet<String>(controller: controller)));
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    final first = controller.submit(() => gate.future);
-    final second = controller.submit(() async => 'wrong');
-    expect(identical(first, second), isTrue);
-    gate.complete('saved');
-    await first;
-    await tester.pumpAndSettle();
-    expect(find.text('Example sheet'), findsNothing);
-  });
-
-  for (final pageBackground in [false, true]) {
-    testWidgets(
-      'live theme and direction update an open sheet (page background: $pageBackground)',
-      (tester) async {
-        var dark = false;
-        var direction = TextDirection.ltr;
-        late StateSetter update;
-        await tester.pumpWidget(
-          StatefulBuilder(
-            builder: (context, setState) {
-              update = setState;
-              final scheme = ColorScheme.fromSeed(
-                seedColor: dark ? Colors.purple : Colors.orange,
-                brightness: dark ? Brightness.dark : Brightness.light,
-              );
-              return _host(
-                Builder(
-                  builder: (context) => _sheet<void>(
-                    side: DSheetSide.end,
-                    backgroundColor: pageBackground
-                        ? DTokens.of(context).background
-                        : null,
-                  ),
-                ),
-                direction: direction,
-                theme: ThemeData(colorScheme: scheme),
-              );
-            },
-          ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        final before = tester.widget<Material>(
-          find
-              .descendant(
-                of: find.byType(DSheetContent),
-                matching: find.byType(Material),
-              )
-              .first,
-        );
-        expect(tester.getRect(find.byType(DSheetContent)).right, 800);
-        var tokens = DTokens.of(tester.element(find.byType(DSheetContent)));
-        expect(
-          before.color,
-          pageBackground ? tokens.background : tokens.surface,
-        );
-        update(() {
-          dark = true;
-          direction = TextDirection.rtl;
-        });
-        await tester.pumpAndSettle();
-        final after = tester.widget<Material>(
-          find
-              .descendant(
-                of: find.byType(DSheetContent),
-                matching: find.byType(Material),
-              )
-              .first,
-        );
-        expect(after.color, isNot(before.color));
-        tokens = DTokens.of(tester.element(find.byType(DSheetContent)));
-        expect(
-          after.color,
-          pageBackground ? tokens.background : tokens.surface,
-        );
-        expect(tester.getRect(find.byType(DSheetContent)).left, 0);
-      },
-    );
-  }
 
   testWidgets('narrow 200 percent text and keyboard insets remain bounded', (
     tester,
@@ -1966,59 +1416,5 @@ void main() {
       findsOneWidget,
     );
     expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
-  });
-
-  testWidgets('showDSheet uses nearest Navigator and returns typed result', (
-    tester,
-  ) async {
-    String? result;
-    await tester.pumpWidget(
-      _host(
-        Navigator(
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (nestedContext) => Builder(
-              builder: (context) => DButton(
-                onPressed: () async {
-                  result = await showDSheet<String>(
-                    context: context,
-                    sidePanelWidth: 288,
-                    inset: true,
-                    builder: (context, controller) => DSheetContent(
-                      children: [
-                        DSheetClose<String>(
-                          result: 'result',
-                          builder: (context, close) => DButton(
-                            onPressed: close,
-                            label: const Text('Return'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                label: const Text('Helper'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Helper'));
-    await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(DSheetContent)).width, 288);
-    expect(tester.getTopLeft(find.byType(DSheetContent)).dy, DSpacing.md);
-    final surface = tester.widget<Material>(
-      find
-          .descendant(
-            of: find.byType(DSheetContent),
-            matching: find.byType(Material),
-          )
-          .first,
-    );
-    expect(surface.borderRadius, isNot(BorderRadius.zero));
-    expect(surface.clipBehavior, Clip.antiAlias);
-    await tester.tap(find.text('Return'));
-    await tester.pumpAndSettle();
-    expect(result, 'result');
   });
 }

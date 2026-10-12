@@ -23,9 +23,8 @@ final checkboxExamples = ComponentExamples(
       description:
           'Standard 16px and large 24px checkboxes. Mobile todos use the large size; inline spacing stays outside the hit area.',
       states: const ['Standard', 'Large', 'Unchecked', 'Checked', 'Mixed'],
-      code: '''DCheckbox.defaultValue(size: DCheckboxSize.large)
-DCheckbox.defaultValue(size: DCheckboxSize.large, defaultValue: true)
-DCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, defaultValue: null)''',
+      code:
+          "DCheckbox.defaultValue(size: DCheckboxSize.large)\nDCheckbox.defaultValue(size: DCheckboxSize.large, )\nDCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, )",
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,11 +36,13 @@ DCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, defaultValue: 
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (final value in <bool?>[false, true, null])
-                    DCheckbox.defaultValue(
+                    DCheckbox(
+                      value: value,
+                      onChanged: (_) {},
                       size: size,
                       inline: true,
                       tristate: true,
-                      defaultValue: value,
+
                       semanticLabel: '${size.name} checkbox',
                     ),
                   Text(size == DCheckboxSize.large ? '24px' : '16px'),
@@ -57,13 +58,7 @@ DCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, defaultValue: 
           'Click the label or press Space while focused. Each checkbox keeps its own local state.',
       states: const ['Default', 'Checked', 'Description', 'Disabled'],
       code:
-          '''DCheckbox.defaultValue(title: DLabel(child: Text('Accept terms and conditions')))
-DCheckbox.defaultValue(
-  defaultValue: true,
-  title: Text('Accept terms and conditions'),
-  subtitle: Text('By clicking this checkbox, you agree to the terms.'),
-)
-DCheckbox.defaultValue(enabled: false, title: Text('Enable notifications'))''',
+          "DCheckbox.defaultValue(title: DLabel(child: Text('Accept terms and conditions')))\nDCheckbox.defaultValue(\n  \n  title: Text('Accept terms and conditions'),\n  subtitle: Text('By clicking this checkbox, you agree to the terms.'),\n)\nDCheckbox.defaultValue(enabled: false, title: Text('Enable notifications'))",
       builder: (_) => const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -72,7 +67,6 @@ DCheckbox.defaultValue(enabled: false, title: Text('Enable notifications'))''',
           ),
           SizedBox(height: 20),
           DCheckbox.defaultValue(
-            defaultValue: true,
             title: Text('Accept terms and conditions'),
             subtitle: Text(
               'By clicking this checkbox, you agree to the terms.',
@@ -101,15 +95,13 @@ DCheckbox.defaultValue(enabled: false, title: Text('Enable notifications'))''',
         'Invalid',
         'Focus',
       ],
-      code: '''DCheckbox.defaultValue(tristate: true, defaultValue: null,
-  semanticLabel: 'Mixed selection')
-DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
+      code:
+          "DCheckbox.defaultValue(tristate: true, \n  semanticLabel: 'Mixed selection')\nDCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))",
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final value in <bool?>[false, true, null])
             DCheckbox.defaultValue(
-              defaultValue: value,
               tristate: true,
               title: Text(
                 value == null
@@ -121,13 +113,11 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
             ),
           for (final value in <bool?>[false, true, null])
             DCheckbox.defaultValue(
-              defaultValue: value,
               tristate: true,
               enabled: false,
               title: Text('Disabled ${value ?? 'mixed'}'),
             ),
           const DCheckbox.defaultValue(
-            defaultValue: true,
             readOnly: true,
             title: Text('Read only selection'),
           ),
@@ -136,7 +126,6 @@ DCheckbox.defaultValue(invalid: true, title: Text('Accept terms'))''',
             title: Text('Accept terms and conditions'),
           ),
           const DCheckbox.defaultValue(
-            defaultValue: true,
             invalid: true,
             title: Text('Checked invalid'),
           ),
@@ -179,11 +168,8 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title: 'Group',
       description: 'Choose which local devices appear on the desktop.',
       states: const ['Group', 'Independent choices'],
-      code: '''Column(children: [
-  DLabel(child: Text('Show these items on the desktop:')),
-  DCheckbox.defaultValue(defaultValue: true, title: Text('Hard disks')),
-  DCheckbox.defaultValue(title: Text('Connected servers')),
-])''',
+      code:
+          "Column(children: [\n  DLabel(child: Text('Show these items on the desktop:')),\n  DCheckbox.defaultValue( title: Text('Hard disks')),\n  DCheckbox.defaultValue(title: Text('Connected servers')),\n])",
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +196,6 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ].indexed) ...[
             if (index > 0) const SizedBox(height: 12),
             DCheckbox.defaultValue(
-              defaultValue: index < 2,
               title: DLabel(
                 style: const TextStyle(
                   height: 1.375,
@@ -287,10 +272,7 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(height: 12),
           Directionality(
             textDirection: TextDirection.rtl,
-            child: DCheckbox.defaultValue(
-              defaultValue: true,
-              title: Text('תנאים והגבלות'),
-            ),
+            child: DCheckbox.defaultValue(title: Text('תנאים והגבלות')),
           ),
         ],
       ),
@@ -299,13 +281,10 @@ Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title: 'Start-aligned marker',
       description:
           'Align an unlabelled marker with surrounding content while keeping its full click target.',
-      code:
-          'DCheckbox.defaultValue(alignment: AlignmentDirectional.centerStart)',
+      code: "DCheckbox.defaultValue()",
       builder: (_) => const Align(
         alignment: AlignmentDirectional.centerStart,
-        child: DCheckbox.defaultValue(
-          alignment: AlignmentDirectional.centerStart,
-        ),
+        child: DCheckbox.defaultValue(),
       ),
     ),
     StyleguideExample(
@@ -532,8 +511,7 @@ class _NotificationCardState extends State<_NotificationCard> {
         ),
         child: DCheckbox(
           value: checked,
-          showFocusRing: false,
-          onShowFocusHighlight: (value) => setState(() => focusVisible = value),
+
           onChanged: (value) => setState(() => checked = value == true),
           contentPadding: const EdgeInsets.all(10),
           title: const DLabel(

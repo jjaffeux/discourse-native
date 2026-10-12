@@ -38,9 +38,9 @@ Future<void> _mount(
             _PageKind.scrollBody => DPageSurface(
               framed: false,
               hideHeaderOnScroll: true,
-              scrollBody: true,
+
               header: header,
-              child: content,
+              child: SingleChildScrollView(reverse: reverse, child: content),
             ),
             _PageKind.slivers => DPageSurface.scrollable(
               framed: false,
@@ -78,7 +78,7 @@ void main() {
       for (final ratio in [1.99, 2.0, 2.01]) {
         testWidgets('$kind toggles only at two viewports '
             '(ratio: $ratio, reverse: $reverse)', (tester) async {
-          final viewport = kind == _PageKind.column ? 520.0 : 600.0;
+          final viewport = kind == _PageKind.slivers ? 600.0 : 520.0;
           await _mount(
             tester,
             kind: kind,

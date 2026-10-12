@@ -15,14 +15,7 @@ enum DToggleVariant { standard, outline, segmented, inline }
 /// Application artwork presets use matching hit areas.
 /// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
 /// [chrome] provides 18px icons in a 32px window control.
-enum DToggleDensity {
-  standard,
-  reaction,
-  chatReaction,
-  tile,
-  compactInset,
-  chrome,
-}
+enum DToggleDensity { standard, chatReaction, tile, compactInset, chrome }
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -85,7 +78,7 @@ class DToggle extends StatefulWidget {
     this.interactiveIcon,
     this.iconPosition = DToggleIconPosition.start,
     this.pressed,
-    this.initialPressed = false,
+
     this.onPressedChanged,
     this.onLongPress,
     this.enabled = true,
@@ -110,7 +103,7 @@ class DToggle extends StatefulWidget {
     this.interactiveIcon,
     required this.semanticLabel,
     this.pressed,
-    this.initialPressed = false,
+
     this.onPressedChanged,
     this.onLongPress,
     this.enabled = true,
@@ -142,7 +135,7 @@ class DToggle extends StatefulWidget {
 
   /// Non-null values are parent-owned. Null uses [initialPressed].
   final bool? pressed;
-  final bool initialPressed;
+
   final ValueChanged<bool>? onPressedChanged;
 
   /// A secondary action that does not change the pressed value.
@@ -177,9 +170,6 @@ class DToggle extends StatefulWidget {
 
   static double visualDimensionFor(DToggleSize size) =>
       DControlStyle.height(size);
-  static double iconDimensionFor(DToggleSize size) =>
-      DControlStyle.iconDimension(size);
-  static double fontSizeFor(DToggleSize size) => DControlStyle.fontSize(size);
 
   static EdgeInsetsGeometry _paddingFor(
     DToggleSize size, {
@@ -210,7 +200,7 @@ class DToggle extends StatefulWidget {
 }
 
 class _DToggleState extends State<DToggle> {
-  late bool _pressed = widget.initialPressed;
+  late bool _pressed = false;
   bool _focusVisible = false;
   bool _hovered = false;
   bool _pointerPressed = false;
@@ -258,7 +248,7 @@ class _DToggleState extends State<DToggle> {
     final segmented = widget.variant == DToggleVariant.segmented;
     final inline = widget.variant == DToggleVariant.inline;
     final outline = tokens.buttonTheme.outline;
-    final reaction = widget.density == DToggleDensity.reaction;
+
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     final tile = widget.density == DToggleDensity.tile;
     final compactInset = widget.density == DToggleDensity.compactInset;
@@ -292,9 +282,7 @@ class _DToggleState extends State<DToggle> {
         ? 54.0
         : chatReaction
         ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
-        : reaction
-        ? (scaler.scale(12) * (16 / 12) + 10).clamp(28.0, double.infinity)
-        : DControlStyle.scaledHeight(widget.size, scaler, context: context);
+        : (DControlStyle.scaledHeight(widget.size, scaler, context: context));
     final visualWidth = compactInset ? 30.0 : visualDimension;
     final iconDimension = chrome
         ? 18.0
@@ -302,25 +290,19 @@ class _DToggleState extends State<DToggle> {
         ? 20.0
         : chatReaction
         ? 12.0
-        : reaction
-        ? 18.0
-        : compactInset
-        ? 12.0
-        : DControlStyle.iconDimension(widget.size, context: context);
+        : (compactInset
+              ? 12.0
+              : DControlStyle.iconDimension(widget.size, context: context));
     final fontSize = tile
         ? 11.5
         : chatReaction
         ? 12.0
-        : reaction
-        ? 12.0
-        : DControlStyle.fontSize(widget.size, context: context);
+        : (DControlStyle.fontSize(widget.size, context: context));
     final lineHeight = tile
         ? 17.0
         : chatReaction
         ? 18.0
-        : reaction
-        ? 16.0
-        : DControlStyle.lineHeight(widget.size, context: context);
+        : (DControlStyle.lineHeight(widget.size, context: context));
     final activeSurface = _current || interacting;
     final borderColor = widget.invalid
         ? tokens.destructive.withValues(
@@ -479,13 +461,11 @@ class _DToggleState extends State<DToggle> {
             ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
             : chatReaction
             ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
-            : reaction
-            ? const EdgeInsets.symmetric(horizontal: 8)
-            : DToggle._paddingFor(
+            : (DToggle._paddingFor(
                 widget.size,
                 hasIcon: effectiveIcon != null,
                 iconPosition: widget.iconPosition,
-              )),
+              ))),
         decoration: BoxDecoration(
           color: DMaterialSurface.fill(context, surfaceColor),
           borderRadius: radius,

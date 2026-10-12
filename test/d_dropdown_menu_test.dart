@@ -102,7 +102,7 @@ void main() {
                 ),
                 child: DDropdownMenuTrigger.button(
                   label: const Text('Open'),
-                  variant: variant,
+
                   focusNode: focus,
                 ),
               ),

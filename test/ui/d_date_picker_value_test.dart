@@ -119,15 +119,6 @@ void main() {
     });
   });
 
-  test('natural picker configuration requires an explicit clock', () {
-    expect(
-      () => DDatePickerInput(
-        naturalDateParser: const DEnglishNaturalDateParser(),
-      ),
-      throwsAssertionError,
-    );
-  });
-
   group('DTimeValue', () {
     test('parses seconds exactly and rejects normalized or partial times', () {
       expect(
@@ -146,7 +137,6 @@ void main() {
       const value = DTimeValue(hour: 3, minute: 4, second: 5);
       expect(value.format(), '03:04:05');
       expect(value.format(includeSeconds: false), '03:04');
-      expect(value.timeOfDay, const TimeOfDay(hour: 3, minute: 4));
     });
   });
 }

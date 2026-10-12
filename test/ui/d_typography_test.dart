@@ -554,64 +554,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'wrapping and explicit truncation preserve the complete semantic text',
-    (tester) async {
-      const long = 'LongUnbrokenCommunityConfigurationIdentifier0123456789';
-      await _pump(
-        tester,
-        const DProse(
-          children: [
-            DText(long, variant: DTextVariant.inlineCode),
-            DText(
-              'tiny',
-              variant: DTextVariant.inlineCode,
-              textAlign: TextAlign.end,
-            ),
-            DText(
-              'A deliberately long preview which must be truncated.',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            DText('No wrap', softWrap: false, textAlign: TextAlign.end),
-            DText(''),
-          ],
-        ),
-        width: 200,
-        scaler: const TextScaler.linear(2),
-      );
-      final codeBox = tester.getRect(
-        find.descendant(
-          of: find.widgetWithText(DText, 'tiny'),
-          matching: find.byType(DecoratedBox),
-        ),
-      );
-      expect(codeBox.width, lessThan(200));
-      expect(
-        codeBox.right,
-        tester.getRect(find.widgetWithText(DText, 'tiny')).right,
-      );
-      final code = _paragraph(tester, long);
-      expect(
-        code.size.height,
-        greaterThan(
-          code.textScaler.scale(code.text.style!.fontSize!) *
-              code.text.style!.height!,
-        ),
-      );
-      expect(code.didExceedMaxLines, isFalse);
-      final truncated = _paragraph(
-        tester,
-        'A deliberately long preview which must be truncated.',
-      );
-      expect(truncated.didExceedMaxLines, isTrue);
-      expect(truncated.overflow, TextOverflow.ellipsis);
-      expect(_paragraph(tester, 'No wrap').softWrap, isFalse);
-      expect(_paragraph(tester, 'No wrap').textAlign, TextAlign.end);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
   for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
     testWidgets(
       'native selection copies rich code and lists on ${platform.name}',

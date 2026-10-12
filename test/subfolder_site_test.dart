@@ -158,6 +158,7 @@ void main() {
       ShellGroupPagesPort(shell).openGroup((
         siteUrl: _siteUrl,
         accountIdentity: shell.currentAccountIdentity!,
+        sessionIdentity: shell.lifecycle.capture(_siteUrl).session,
         tabId: shell.activeTabId,
       ), 'staff');
 
@@ -188,6 +189,7 @@ void main() {
       ShellGroupPagesPort(shell).openMembershipRequest((
         siteUrl: _siteUrl,
         accountIdentity: shell.currentAccountIdentity!,
+        sessionIdentity: shell.lifecycle.capture(_siteUrl).session,
         tabId: shell.activeTabId,
       ), '/forum/t/membership-request/42');
 
@@ -559,6 +561,7 @@ Future<_NotificationMenu> _pumpNotificationMenu(
   await tester.pumpAndSettle();
   final shell = ShellScope.read(tester.element(find.byType(UserMenuPanel)));
   Future<void> tap(String key) async {
+    await tester.ensureVisible(find.byKey(ValueKey(key)));
     await tester.tap(find.byKey(ValueKey(key)));
     await tester.pumpAndSettle();
   }
