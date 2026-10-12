@@ -316,13 +316,19 @@ Future<_HistoryFixture> _mount(WidgetTester tester) async {
               height: 100,
               child: ValueListenableBuilder<_PostTarget?>(
                 valueListenable: fixture.target,
-                builder: (context, target, child) => target == null
-                    ? const SizedBox.shrink()
-                    : PostActions(
-                        siteUrl: target.siteUrl,
-                        post: target.post,
-                        child: const Center(child: Text('Post body')),
-                      ),
+                builder: (context, target, child) {
+                  // The reader rebuilds its row when the shell changes account
+                  // or route. Keep the fixture's actions current too, while the
+                  // open history route retains its original account lease.
+                  ShellScope.of(context);
+                  return target == null
+                      ? const SizedBox.shrink()
+                      : PostActions(
+                          siteUrl: target.siteUrl,
+                          post: target.post,
+                          child: const Center(child: Text('Post body')),
+                        );
+                },
               ),
             ),
           ),
