@@ -89,6 +89,9 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
             key: controlsKey,
             values: [value],
             onChanged: (values) => onChanged(values.single),
+            onItemActivated: (activated) {
+              if (activated == value) onChanged(activated);
+            },
             allowEmptySelection: false,
             scrollable: true,
             size: DToggleSize.small,

@@ -42,7 +42,11 @@ void main() {
     tester,
   ) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await _pumpUserMenu(tester, const PluginManifest([]));
+    await _pumpUserMenu(
+      tester,
+      const PluginManifest([]),
+      platform: TargetPlatform.iOS,
+    );
     await tester.pumpAndSettle();
 
     final upCue = find.byKey(_railUpCueKey);
@@ -116,13 +120,13 @@ void main() {
               data: const {'display_username': 'reader'},
             ),
         ],
+        platform: TargetPlatform.iOS,
       );
       await tester.pumpAndSettle();
 
       expect(find.byKey(_railUpCueKey), findsNothing);
       expect(find.byKey(_railDownCueKey), findsOneWidget);
       final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
-      expect(profile, findsNothing);
       expect(profile, findsNothing);
       final notificationScroll = find
           .ancestor(
@@ -138,13 +142,23 @@ void main() {
           .first;
 
       for (final scrollable in [notificationScroll, railScroll]) {
+        final otherScroll = scrollable == railScroll
+            ? notificationScroll
+            : railScroll;
+        final otherOffset = tester
+            .state<ScrollableState>(otherScroll)
+            .position
+            .pixels;
         await tester.drag(scrollable, const Offset(0, -900));
         await tester.pumpAndSettle();
         expect(
           tester.state<ScrollableState>(scrollable).position.pixels,
           greaterThan(0),
         );
-        expect(profile, findsNothing);
+        expect(
+          tester.state<ScrollableState>(otherScroll).position.pixels,
+          otherOffset,
+        );
         expect(profile, findsNothing);
         expect(
           find.byKey(_railUpCueKey),
@@ -187,15 +201,19 @@ void main() {
       expect(alphaTab, findsOneWidget);
       expect(betaTab, findsOneWidget);
       expect(
-        tester.getTopLeft(alphaTab).dy,
-        lessThan(tester.getTopLeft(betaTab).dy),
+        tester.getTopLeft(alphaTab).dx,
+        lessThan(tester.getTopLeft(betaTab).dx),
       );
 
+      await tester.ensureVisible(alphaTab);
+      await tester.pumpAndSettle();
       await tester.tap(alphaTab);
       await tester.pump();
       expect(find.byKey(_alphaBodyKey), findsOneWidget);
       expect(find.byKey(_betaBodyKey), findsNothing);
 
+      await tester.ensureVisible(betaTab);
+      await tester.pumpAndSettle();
       await tester.tap(betaTab);
       await tester.pump();
       expect(find.byKey(_alphaBodyKey), findsNothing);
@@ -218,6 +236,8 @@ void main() {
       onDismiss: () => dismissals += 1,
     );
 
+    await tester.ensureVisible(find.byKey(_alphaTabKey));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(_alphaTabKey));
     await tester.pump();
     expect(dismissals, 0);
@@ -245,6 +265,8 @@ void main() {
         host: host,
       );
 
+      await tester.ensureVisible(find.byKey(_alphaTabKey));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(_alphaTabKey));
       await tester.pump();
       await tester.tap(find.byKey(_alphaTabKey));
@@ -271,6 +293,7 @@ void main() {
         ),
       ]),
       onDismiss: () => dismissals += 1,
+      platform: TargetPlatform.iOS,
     );
     final tab = find.byKey(_alphaTabKey);
     await tester.ensureVisible(tab);
@@ -328,6 +351,7 @@ Future<ShellController> _pumpUserMenu(
   NotificationTotals totals = const NotificationTotals(),
   List<DiscourseNotification> notificationList = const [],
   String host = 'meta.example',
+  TargetPlatform platform = TargetPlatform.macOS,
 }) async {
   const user = DiscourseUser(
     id: 7,
@@ -361,7 +385,7 @@ Future<ShellController> _pumpUserMenu(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        theme: AppTheme.light.copyWith(platform: platform),
         home: Scaffold(
           body: Center(child: UserMenuPanel(onDismiss: onDismiss)),
         ),
