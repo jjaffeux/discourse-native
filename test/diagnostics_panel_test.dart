@@ -645,10 +645,21 @@ void main() {
         final detail = find.byKey(
           const ValueKey('diagnostic-detail-request-42'),
         );
-        await tester.drag(detail, const Offset(0, -600));
+        final detailScrollable = find
+            .descendant(of: detail, matching: find.byType(Scrollable))
+            .first;
+        await tester.scrollUntilVisible(
+          find.text('Response Headers'),
+          150,
+          scrollable: detailScrollable,
+        );
         await tester.pumpAndSettle();
         expect(find.text('Response Headers'), findsOneWidget);
-        await tester.drag(detail, const Offset(0, -300));
+        await tester.scrollUntilVisible(
+          find.text('120000'),
+          150,
+          scrollable: detailScrollable,
+        );
         await tester.pumpAndSettle();
         expect(find.text('120000'), findsOneWidget);
 
