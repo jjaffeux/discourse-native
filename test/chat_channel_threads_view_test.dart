@@ -358,8 +358,17 @@ void main() {
           );
           final title = tester.getRect(find.text('Threads'));
           final channel = tester.getRect(find.text('Support'));
-          if (scale == 1) expect(header.height, shellHeaderHeight);
-          expect(title.height, greaterThanOrEqualTo(_titleLine(scale) - 1));
+          // The app raises the mobile baseline before accessibility scaling.
+          if (scale == 1) expect(header.height, greaterThan(shellHeaderHeight));
+          final textTheme = AppTheme.light.textTheme;
+          expect(
+            title.height,
+            greaterThanOrEqualTo(_mobileLine(textTheme.titleSmall!, scale) - 1),
+          );
+          expect(
+            channel.height,
+            greaterThanOrEqualTo(_mobileLine(textTheme.labelSmall!, scale) - 1),
+          );
           expect(title.bottom, channel.top);
           expect(title.top, greaterThan(header.top));
           expect(channel.bottom, lessThan(header.bottom));
@@ -562,8 +571,9 @@ final class _GatedThreadsApi extends FakeDiscourseApi {
   }
 }
 
-/// The title's whole line box at [scale], so a clipped title cannot pass.
-double _titleLine(double scale) {
-  final style = AppTheme.light.textTheme.titleSmall!;
-  return style.fontSize! * scale * style.height!;
-}
+/// The whole mobile line box at [scale], so clipped header text cannot pass.
+double _mobileLine(TextStyle style, double scale) =>
+    style.fontSize! *
+    (DiscourseTypography.mobileBase / DiscourseTypography.base) *
+    scale *
+    style.height!;

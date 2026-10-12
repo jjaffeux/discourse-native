@@ -595,54 +595,62 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 fromList: true,
                 leadingPadding: false,
               );
-        Widget heading(Widget? navigation) => Row(
-          key: const ValueKey('topic-list-heading'),
-          children: [
-            if (messages &&
-                layout.isCompact &&
-                (!controller.mobileNavigationEnabled ||
-                    controller.canPopContent))
-              DButton.iconOnly(
-                icon: const DIcon(DIcons.arrowLeft),
-                tooltip: context.l10n.back,
-                variant: DButtonVariant.ghost,
-                onPressed: () =>
-                    controller.handleBack(canReturnToSidebar: true),
-              ),
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    flex: 1,
-                    fit: navigation == null ? FlexFit.tight : FlexFit.loose,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: navigation == null ? double.infinity : 220,
+        Widget heading(Widget? navigation) => LayoutBuilder(
+          builder: (context, constraints) => Row(
+            key: const ValueKey('topic-list-heading'),
+            children: [
+              if (messages &&
+                  layout.isCompact &&
+                  (!controller.mobileNavigationEnabled ||
+                      controller.canPopContent))
+                DButton.iconOnly(
+                  icon: const DIcon(DIcons.arrowLeft),
+                  tooltip: context.l10n.back,
+                  variant: DButtonVariant.ghost,
+                  onPressed: () =>
+                      controller.handleBack(canReturnToSidebar: true),
+                ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      flex: 1,
+                      fit: navigation == null ? FlexFit.tight : FlexFit.loose,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: navigation == null ? double.infinity : 220,
+                        ),
+                        child: messages
+                            ? const MessageInboxTitle()
+                            : _TopicListHeadingTitle(
+                                siteUrl: state.siteUrl,
+                                categoryId: sourceRoute.categoryId,
+                                pageTitle: sourceRoute.title,
+                              ),
                       ),
-                      child: messages
-                          ? const MessageInboxTitle()
-                          : _TopicListHeadingTitle(
-                              siteUrl: state.siteUrl,
-                              categoryId: sourceRoute.categoryId,
-                              pageTitle: sourceRoute.title,
-                            ),
                     ),
-                  ),
-                  if (navigation != null) ...[
-                    const SizedBox(width: DSpacing.sm),
-                    Flexible(flex: 3, child: navigation),
+                    if (navigation != null) ...[
+                      const SizedBox(width: DSpacing.sm),
+                      Flexible(flex: 3, child: navigation),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            ...registry.contentHeaderActions(context, sourceRoute),
-            if (state.siteUrl != null && !messages)
-              TopicListFilterMenu(
-                key: ValueKey((state.siteUrl, sourceRoute.id)),
-                siteUrl: state.siteUrl!,
-                query: controller.topicListFilterEditorQuery(sourceRoute),
-              ),
-          ],
+              ...registry.contentHeaderActions(context, sourceRoute),
+              if (state.siteUrl != null && !messages)
+                // Reserve space for the title when the filter label grows.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth / 2,
+                  ),
+                  child: TopicListFilterMenu(
+                    key: ValueKey((state.siteUrl, sourceRoute.id)),
+                    siteUrl: state.siteUrl!,
+                    query: controller.topicListFilterEditorQuery(sourceRoute),
+                  ),
+                ),
+            ],
+          ),
         );
         // The heading follows the full width of the topic list.
         Widget buildHeading(BuildContext context, Widget? navigation) {
