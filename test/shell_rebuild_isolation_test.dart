@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -813,6 +814,10 @@ void main() {
   group('a chat message in a followed channel', () {
     const site = 'https://meta.discourse.org';
     final chatTab = find.byKey(const ValueKey('sidebar-panel-switch-chat'));
+    final chatIndicator = find.descendant(
+      of: chatTab,
+      matching: find.byKey(const ValueKey('chat-sidebar-unread-badge')),
+    );
     Finder inChatTab(String text) =>
         find.descendant(of: chatTab, matching: find.text(text));
     Finder row(int channelId) =>
@@ -919,18 +924,21 @@ void main() {
       return rebuilt;
     }
 
-    testWidgets('redraws the Chat tab badge but not the Forum sections', (
+    testWidgets('redraws the Chat tab unread dot but not the Forum sections', (
       tester,
     ) async {
       await pumpChatSidebar(tester);
       expect(find.byType(SidebarDestinationTile), findsWidgets);
-      expect(inChatTab('1'), findsNothing);
+      expect(chatIndicator, findsNothing);
       final rebuilt = recordRebuilds();
 
       message(3, 101, minute: 0);
       await tester.pump();
 
-      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        tester.widget<DNotificationDot>(chatIndicator).semanticLabel,
+        'Chat, unread messages',
+      );
       expect(
         rebuilt.elements.where(
           (element) => element.widget is SidebarDestinationTile,
@@ -954,7 +962,10 @@ void main() {
       message(3, 101, minute: 0);
       await tester.pump();
       expect(rebuilt.rows, {3});
-      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        tester.widget<DNotificationDot>(chatIndicator).semanticLabel,
+        'Chat, unread messages',
+      );
       expect(
         find.descendant(of: row(3), matching: find.text('1 message')),
         findsOneWidget,
@@ -964,6 +975,11 @@ void main() {
       deliver('/chat/2/new-mentions', {'channel_id': 2, 'message_id': 2}, 2);
       await tester.pump();
       expect(rebuilt.rows, {2});
+      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        tester.widget<DBadge>(chatIndicator).semanticLabel,
+        'Chat, 1 urgent message',
+      );
       expect(
         find.descendant(of: row(2), matching: find.text('1 new mention')),
         findsOneWidget,
@@ -973,7 +989,14 @@ void main() {
       message(1, 102, minute: 1);
       await tester.pump();
       expect(rebuilt.rows, {1});
-      expect(inChatTab('2'), findsOneWidget);
+      // Ordinary activity does not increase the urgent mention count.
+      expect(inChatTab('1'), findsOneWidget);
+      expect(
+        ShellScope.read(
+          tester.element(find.byType(InstanceSidebar)),
+        ).pluginSession.require(chatControllerService).unreadMessageCount(site),
+        2,
+      );
       final reordered = tops([1, 3, 2]);
       expect(reordered, orderedEquals([...reordered]..sort()));
       expect(tester.takeException(), isNull);
