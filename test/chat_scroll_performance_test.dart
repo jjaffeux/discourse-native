@@ -233,6 +233,7 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
   testWidgets('a live arrival keeps held rows and their HTML mounted', (
@@ -809,14 +810,14 @@ void main() {
       await _fillRetentionWindow(tester);
       final chat = controller.pluginSession.require(chatControllerService);
       expect(chat.currentUserFor(chatScrollSite)?.id, reader.id);
-      final held = [
-        for (final tile in tester.widgetList<ChatMessageTile>(
-          find.byType(ChatMessageTile, skipOffstage: false),
-        ))
-          tile.messageId,
-      ];
+      final tiles = find.byType(ChatMessageTile, skipOffstage: false);
+      Map<int, Element> heldTiles() => {
+        for (final element in tiles.evaluate())
+          (element.widget as ChatMessageTile).messageId: element,
+      };
+      final held = heldTiles();
       expect(held.length, greaterThanOrEqualTo(20));
-      final own = held.firstWhere(
+      final own = held.keys.firstWhere(
         (id) => chat.messageRef(chatScrollSite, id).value!.author.id == 1,
       );
       Finder reply(int id) => find.byKey(
@@ -838,10 +839,28 @@ void main() {
       };
       final opened = chat.channelRef(chatScrollSite, 9).value!;
 
-      for (final id in held) {
-        expect(reply(id), findsOneWidget);
-        expect(react(id), findsOneWidget);
+      void expectHeldActions({required bool writable}) {
+        final current = heldTiles();
+        // Permission changes resize the action slots and composer, so an edge
+        // row may leave the bounded cache. The rows that remain must update in
+        // place, including those outside the viewport.
+        final retained = current.keys.toSet().intersection(held.keys.toSet());
+        expect(retained.length, greaterThanOrEqualTo(20));
+        expect(retained, contains(own));
+        for (final id in retained) {
+          expect(current[id], same(held[id]));
+        }
+        for (final id in current.keys) {
+          expect(reply(id), writable ? findsOneWidget : findsNothing);
+          expect(react(id), writable ? findsOneWidget : findsNothing);
+          expect(
+            actionsOf(id),
+            writable ? contains('Reply') : isNot(contains('Reply')),
+          );
+        }
       }
+
+      expectHeldActions(writable: true);
       expect(actionsOf(own), isNot(contains('Delete')));
 
       controller.chatRecords.put(
@@ -866,11 +885,7 @@ void main() {
             .withRemoteStatus(ChatChannelStatus.readOnly),
       );
       await tester.pumpAndSettle();
-      for (final id in held) {
-        expect(reply(id), findsNothing);
-        expect(react(id), findsNothing);
-        expect(actionsOf(id), isNot(contains('Reply')));
-      }
+      expectHeldActions(writable: false);
       expect(actionsOf(own), isNot(contains('Delete')));
 
       controller.chatRecords.put(
@@ -881,10 +896,7 @@ void main() {
             .withRemoteStatus(ChatChannelStatus.open),
       );
       await tester.pumpAndSettle();
-      for (final id in held) {
-        expect(reply(id), findsOneWidget);
-        expect(react(id), findsOneWidget);
-      }
+      expectHeldActions(writable: true);
       expect(actionsOf(own), containsAll(['Reply', 'Delete']));
       expect(tester.takeException(), isNull);
     } finally {
