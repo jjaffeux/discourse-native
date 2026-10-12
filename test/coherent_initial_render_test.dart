@@ -79,11 +79,11 @@ void main() {
     expect(find.text(_topic.title), findsOneWidget);
     expect(find.text('Interface'), findsOneWidget);
     expect(find.text('Design'), findsOneWidget);
-    expect(find.text('smooth'), findsOneWidget);
-    final tagBounds = tester.getRect(find.text('smooth'));
+    expect(find.text('#smooth'), findsOneWidget);
+    final tagBounds = tester.getRect(find.text('#smooth'));
     final titleBounds = tester.getRect(find.text(_topic.title));
     await tester.pump(const Duration(milliseconds: 16));
-    expect(tester.getRect(find.text('smooth')), tagBounds);
+    expect(tester.getRect(find.text('#smooth')), tagBounds);
     expect(tester.getRect(find.text(_topic.title)), titleBounds);
     expect(tester.takeException(), isNull);
   });
@@ -172,7 +172,7 @@ void main() {
           .widget<DSidebar>(find.byType(DSidebar))
           .backgroundColor;
       final fill = skeletonFill(context, on: SkeletonSurface.panel);
-      expect(panel, DTokens.of(context).muted);
+      expect(panel, Colors.transparent);
       expect(fill, isNot(panel));
       expect(
         tester
@@ -184,9 +184,7 @@ void main() {
             )
             .map((box) => (box.decoration as BoxDecoration).color),
         everyElement(fill),
-        reason:
-            'The sidebar paints the kit skeleton fill itself, so its '
-            'placeholders take the panel fill.',
+        reason: 'Sidebar placeholders inherit the navigation skeleton fill.',
       );
 
       api.navigation.complete(
