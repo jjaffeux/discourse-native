@@ -220,6 +220,7 @@ void main() {
         expect(tester.getTopLeft(sidebar).dx, closeTo(1056, 0.001));
         expect(tester.getSize(list).width, 1056);
         expect(tester.getSize(post).width, closeTo(1056, 0.001));
+        expect(find.byKey(const ValueKey('topic-bottom-bar')), findsNothing);
 
         final scroll = topicPostList(tester).controller!;
         for (final alignment in [false, true]) {
@@ -233,20 +234,13 @@ void main() {
             tester.getSize(post).width,
             closeTo(alignment ? 825 : 1056, 0.001),
           );
-          final laneLeft = _laneLeft(1056, alignment);
-          final footer = tester.getRect(
-            find.byKey(const ValueKey('topic-bottom-bar')),
-          );
-          final reply = tester.getRect(
-            find.byKey(const ValueKey('topic-reply-button')),
-          );
+          // Desktop progress stays at the reader edge as the lane narrows.
+          final viewport = tester.getRect(list);
           final progress = tester.getRect(
             find.byKey(const ValueKey('topic-progress-button')),
           );
-          expect(footer.left, closeTo(laneLeft, 0.001));
-          expect(footer.width, closeTo(alignment ? 825 : 1056, 0.001));
-          expect(reply.left - footer.left, closeTo(8, 0.001));
-          expect(footer.right - progress.right, closeTo(8, 0.001));
+          expect(viewport.right - progress.right, closeTo(8, 0.001));
+          expect(viewport.bottom - progress.bottom, closeTo(8, 0.001));
           expect(topicPostList(tester).controller, same(scroll));
         }
 
