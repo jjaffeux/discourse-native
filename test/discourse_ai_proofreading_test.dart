@@ -1428,8 +1428,8 @@ void main() {
         const ValueKey('composer-toolbar-scroll'),
       );
       final toolbar = tester.getRect(toolbarFinder);
-      expect(tester.getRect(submit).left, closeTo(panel.left + 16, 1));
-      expect(toolbar.right, closeTo(panel.right - 16, 1));
+      expect(tester.getRect(submit).left, closeTo(panel.left + 14, 1));
+      expect(toolbar.right, closeTo(panel.right - 14, 1));
       expect(toolbar.center.dy, closeTo(tester.getCenter(submit).dy, 1));
       expect(
         toolbar.left,
