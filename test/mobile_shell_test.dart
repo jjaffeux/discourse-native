@@ -70,13 +70,15 @@ Future<void> _chatWheel(
   Finder messages,
   double delta,
 ) async {
+  // The shared chrome holds its fully shown/hidden state before a reversal.
+  await tester.pump(const Duration(milliseconds: 450));
   await tester.sendEventToBinding(
     PointerScrollEvent(
       position: tester.getCenter(messages),
       scrollDelta: Offset(0, delta),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(const Duration(milliseconds: 16));
 }
 
 Future<void> _tapDockTab(
@@ -452,10 +454,12 @@ void main() {
       expect(tester.getRect(panel).bottom, greaterThan(originalPanel.bottom));
       expect(tester.getRect(_header), originalHeader);
       expect(tester.element(list), same(page));
+      await tester.pump(const Duration(milliseconds: 450));
       await tester.drag(list, const Offset(0, 80));
       await tester.pumpAndSettle();
       expect(_bar.hitTestable(), findsOneWidget);
       expect(tester.getRect(panel), originalPanel);
+      await tester.pump(const Duration(milliseconds: 450));
       await tester.drag(list, const Offset(0, -160));
       await tester.pumpAndSettle();
       expect(_bar, findsNothing);
@@ -494,6 +498,7 @@ void main() {
       await tester.drag(list, const Offset(0, -240));
       await tester.pumpAndSettle();
       expect(_bar, findsNothing);
+      await tester.pump(const Duration(milliseconds: 450));
       await tester.drag(list, const Offset(0, 80));
       await tester.pumpAndSettle();
       expect(_bar.hitTestable(), findsOneWidget);
@@ -562,6 +567,10 @@ void main() {
         isEmpty,
       );
       await _chatWheel(tester, messages, -20);
+      expect(start.hitTestable(), findsNothing);
+      expect(send.hitTestable(), findsOneWidget);
+      // Reverse past the shared chrome's 40px slack.
+      await _chatWheel(tester, messages, -80);
       expect(start.hitTestable(), findsOneWidget);
       expect(
         find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
@@ -653,6 +662,9 @@ void main() {
           );
           expect(tester.element(messages), same(streamElement));
           await _chatWheel(tester, messages, -20);
+          expect(start.hitTestable(), findsNothing);
+          expect(title.hitTestable(), findsNothing);
+          await _chatWheel(tester, messages, -80);
           expect(start.hitTestable(), findsOneWidget);
           expect(title.hitTestable(), findsOneWidget);
           expect(tester.getRect(_bar), originalBar);
@@ -805,19 +817,36 @@ void main() {
     expect(positions, orderedEquals([...positions]..sort()));
     expect(find.text('4 messages'), findsOneWidget);
     expect(find.text('3 messages'), findsOneWidget);
-    expect(find.text('9 messages'), findsNothing);
-    expect(find.text('you: Will follow up in the morning.'), findsNWidgets(2));
+    // Muting does not override unread tracking supplied by the server.
+    expect(find.text('9 messages'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: row(1),
+        matching: find.text('you: Will follow up in the morning.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: row(5),
+        matching: find.text('Will follow up in the morning.'),
+      ),
+      findsOneWidget,
+    );
     await _selectChatActivity(tester, 'Unread');
     expect(row(2), findsOneWidget);
+    expect(row(3), findsOneWidget);
     expect(row(4), findsOneWidget);
-    for (final id in [1, 3, 5]) {
+    for (final id in [1, 5]) {
       expect(row(id), findsNothing);
     }
     await _selectChatKind(tester, 'Channels');
     expect(row(2), findsOneWidget);
+    expect(row(3), findsOneWidget);
     expect(row(4), findsNothing);
     await _selectChatKind(tester, 'Direct messages');
     expect(row(2), findsNothing);
+    expect(row(3), findsNothing);
     expect(row(4), findsOneWidget);
     FakeSiteTracker.built
         .singleWhere((tracker) => tracker.siteUrl == _site)
