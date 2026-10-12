@@ -130,6 +130,8 @@ void main() {
       final shell = await _pumpApp(tester, api: api);
       final composer = await _openReply(shell);
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('composer-position')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Full screen'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('composer-minimize')));
