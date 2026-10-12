@@ -290,9 +290,10 @@ class _TopicListNavigationControls extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // The mobile dock keeps a fixed geometry, so these page
-                  // actions live with the list rather than beside it.
-                  if (controller.mobileNavigationEnabled) ...[
+                  // Desktop panes and the mobile dock have no list footer,
+                  // so the dismissal action lives with their feed controls.
+                  if (controller.mobileNavigationEnabled ||
+                      !context.isTouch) ...[
                     const SizedBox(width: DSpacing.controlGap),
                     const DismissNewTopicsButton(compact: true),
                   ],
