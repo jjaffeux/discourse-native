@@ -681,12 +681,24 @@ void main() {
         final api = await _pumpShortBrowse(tester);
         final browse = tester.getRect(_browse);
         final loadMore = find.widgetWithText(DButton, 'Load more');
+        final lastChannel = _card(ChatChannelBrowsePage.pageSize);
 
+        // At enlarged text sizes a row can be taller than the viewport. Its
+        // title and actions must each be reachable without shrinking the row.
         for (final target in [
-          _card(ChatChannelBrowsePage.pageSize),
+          find.descendant(
+            of: lastChannel,
+            matching: find.text('Channel ${ChatChannelBrowsePage.pageSize}'),
+          ),
+          find.byKey(
+            const ValueKey('chat-join-${ChatChannelBrowsePage.pageSize}'),
+          ),
+          find.descendant(of: lastChannel, matching: find.byType(DButton)).last,
           loadMore,
         ]) {
           await tester.scrollUntilVisible(target, 100, scrollable: _scrollable);
+          await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+          await tester.pumpAndSettle();
           final rect = tester.getRect(target);
           expect(rect.top, greaterThanOrEqualTo(browse.top));
           expect(rect.bottom, lessThanOrEqualTo(browse.bottom));
@@ -709,23 +721,30 @@ void main() {
       (tester) async {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        await _pumpMobileBrowse(tester, const Size(320, 720));
+        // The full-height viewport must have room for fixed filters before
+        // the keyboard reduces it to the short, shared scrolling layout.
+        await _pumpMobileBrowse(tester, const Size(320, 960));
         final filter = tester.getRect(_filter);
         final list = tester.getRect(_list);
-        expect(list.bottom, tester.getRect(_browse).bottom);
+        expect(list.bottom, closeTo(tester.getRect(_browse).bottom, 0.01));
 
-        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 520);
         addTearDown(tester.view.resetViewInsets);
         await tester.pumpAndSettle();
+        expect(_list, findsNothing);
+        await tester.ensureVisible(_filter);
+        await tester.pumpAndSettle();
+        expect(_filter.hitTestable(), findsOneWidget);
+        final keyboardFilter = tester.getRect(_filter);
         await tester.drag(_filter, const Offset(0, -150));
         await tester.pumpAndSettle();
-        expect(tester.getRect(_filter).top, lessThan(filter.top));
+        expect(tester.getRect(_filter).top, lessThan(keyboardFilter.top));
 
         tester.view.resetViewInsets();
         await tester.pumpAndSettle();
 
-        expect(tester.getRect(_filter), filter);
-        expect(tester.getRect(_list), list);
+        expect(tester.getRect(_filter), rectMoreOrLessEquals(filter));
+        expect(tester.getRect(_list), rectMoreOrLessEquals(list));
         expect(tester.takeException(), isNull);
       },
     );
@@ -749,10 +768,13 @@ void main() {
             );
             expect(
               target.height,
-              DControlStyle.scaledHeight(
-                DControlSize.filter,
-                MediaQuery.textScalerOf(tester.element(select)),
-                context: tester.element(select),
+              closeTo(
+                DControlStyle.scaledHeight(
+                  DControlSize.filter,
+                  MediaQuery.textScalerOf(tester.element(select)),
+                  context: tester.element(select),
+                ),
+                0.01,
               ),
             );
             expect(
