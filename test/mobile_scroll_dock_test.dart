@@ -61,7 +61,7 @@ Future<void> _mount(
     ),
   );
   await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+  await tester.pump(const Duration(milliseconds: 450));
 }
 
 Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
@@ -163,33 +163,37 @@ void main() {
     await gesture.panZoomStart(location);
     await gesture.panZoomUpdate(location, pan: const Offset(0, -100));
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
     await gesture.panZoomUpdate(location, pan: Offset.zero);
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     await gesture.panZoomEnd();
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
   });
 
-  testWidgets('tiny reversals cannot accumulate into a hide or reveal', (
+  testWidgets('sub-threshold reversals cannot accumulate into a hide or reveal', (
     tester,
   ) async {
     final controller = ScrollController(initialScrollOffset: 200);
     addTearDown(controller.dispose);
     await _mount(tester, controller: controller);
+    final shownHeight = tester.getSize(find.byKey(_body)).height;
+    // The dock's 64px motion span settles a first nudge back to shown below 10%.
     for (var i = 0; i < 5; i++) {
-      await _wheel(tester, 8);
-      await _wheel(tester, -8);
+      await _wheel(tester, 5);
+      await _wheel(tester, -5);
       expect(find.byKey(_dock), findsOneWidget);
+      expect(tester.getSize(find.byKey(_body)).height, shownHeight);
     }
-    await _wheel(tester, 40);
+    await _wheel(tester, 80);
     for (var i = 0; i < 5; i++) {
-      await _wheel(tester, -8);
-      await _wheel(tester, 8);
+      await _wheel(tester, -5);
+      await _wheel(tester, 5);
       expect(find.byKey(_dock), findsNothing);
+      expect(tester.getSize(find.byKey(_body)).height, shownHeight + 60);
     }
   });
 
@@ -237,27 +241,37 @@ void main() {
         final gesture = await tester.startGesture(
           tester.getCenter(find.byKey(_body)),
         );
-        await gesture.moveBy(const Offset(0, -80));
+        await gesture.moveBy(const Offset(0, -200));
         await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+        await tester.pump(const Duration(milliseconds: 450));
         expect(find.byKey(_dock), findsNothing);
         expect(controller.position.maxScrollExtent, 500);
 
-        await gesture.moveBy(Offset(0, atEnd ? -600 : 30));
+        await gesture.moveBy(Offset(0, atEnd ? -600 : 80));
         await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+        await tester.pump(const Duration(milliseconds: 450));
         expect(find.byKey(_dock), findsOneWidget);
+        expect(controller.position.maxScrollExtent, 560);
+        if (!atEnd) {
+          expect(controller.offset, greaterThan(48));
+          // Still eligible to hide after revealing, even at the larger viewport.
+          await gesture.moveBy(const Offset(0, -80));
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 450));
+          expect(find.byKey(_dock), findsNothing);
+          expect(controller.position.maxScrollExtent, 500);
+        }
         if (atEnd) {
           // Returning the dock adds travel again. Continuing to that new end
           // must not immediately hide it and start an extent feedback loop.
           await gesture.moveBy(const Offset(0, -80));
           await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+          await tester.pump(const Duration(milliseconds: 450));
           expect(find.byKey(_dock), findsOneWidget);
         }
         await gesture.cancel();
         await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+        await tester.pump(const Duration(milliseconds: 450));
       },
     );
   }
@@ -285,12 +299,12 @@ void main() {
     );
     await gesture.moveBy(const Offset(0, 700));
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(controller.offset, lessThan(0));
     expect(find.byKey(_dock), findsOneWidget);
     await gesture.cancel();
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
   });
 
@@ -335,7 +349,7 @@ void main() {
     await _mount(tester, controller: controller);
     controller.jumpTo(600);
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     final restoration = controller.animateTo(
       800,
@@ -343,14 +357,14 @@ void main() {
       curve: Curves.linear,
     );
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     await restoration;
     expect(find.byKey(_dock), findsOneWidget);
     await _wheel(tester, 40);
     expect(find.byKey(_dock), findsNothing);
     controller.jumpTo(300);
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
     await _mount(tester, controller: controller, identity: 'users');
     expect(find.byKey(_dock), findsOneWidget);
@@ -438,7 +452,7 @@ void main() {
     expect(find.byKey(_dock), findsOneWidget);
     await tester.drag(find.byKey(horizontal), const Offset(-200, 0));
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsOneWidget);
     await _wheel(tester, 200, target: find.byKey(_body));
     expect(find.byKey(_dock), findsNothing);
@@ -460,21 +474,33 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    expect(find.byType(DButton).hitTestable(), findsOneWidget);
+    // Follow the smoothing long enough for the old center to leave the clip,
+    // while keeping a visible, interactive slice before the 120ms settle.
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.pump(const Duration(milliseconds: 40));
     expect(find.byType(DButton).hitTestable(), findsNothing);
+    final visibleTop = tester.getBottomLeft(find.byKey(_body)).dy;
+    expect(visibleTop, greaterThan(dockCenter.dy));
+    expect(
+      visibleTop,
+      lessThan(tester.getBottomRight(find.byType(MobileScrollDock)).dy),
+    );
     await tester.tapAt(dockCenter);
     expect(taps, 0);
-    final visibleTop = tester.getBottomLeft(find.byKey(_body)).dy;
     await tester.tapAt(Offset(dockCenter.dx, visibleTop + 2));
     expect(taps, 1);
     await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 450));
+    await tester.pump(const Duration(milliseconds: 450));
     expect(find.byKey(_dock), findsNothing);
     await _wheel(tester, -80);
     await tester.tap(find.byType(DButton));
     expect(taps, 2);
   });
 
-  testWidgets('reduced motion releases dock space immediately', (tester) async {
+  testWidgets('reduced motion releases proportional dock space immediately', (
+    tester,
+  ) async {
     final controller = ScrollController(initialScrollOffset: 200);
     addTearDown(controller.dispose);
     await _mount(tester, controller: controller, reducedMotion: true);
@@ -486,6 +512,12 @@ void main() {
       ),
     );
     await tester.pump();
+    final partialHeight = height + 60 * 40 / 64;
+    expect(find.byKey(_dock), findsOneWidget);
+    expect(tester.getSize(find.byKey(_body)).height, partialHeight);
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(tester.getSize(find.byKey(_body)).height, partialHeight);
+    await tester.pump(const Duration(milliseconds: 1));
     expect(find.byKey(_dock), findsNothing);
     expect(tester.getSize(find.byKey(_body)).height, height + 60);
   });
