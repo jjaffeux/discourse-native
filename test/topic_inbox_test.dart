@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -317,10 +318,12 @@ void main() {
     expect(tester.getTopLeft(reader).dy, readerTop);
     expect(tester.getTopLeft(find.byType(TopicListView)).dy, listTop);
     final hiddenReaderTop = tester.getTopLeft(reader).dy;
+    await tester.pump(const Duration(milliseconds: 400));
     await wheel(reader, -20);
     expect(tester.getTopLeft(reader).dy, hiddenReaderTop);
     expect(tester.getTopLeft(reader).dy, readerTop);
-    expect(title.hitTestable(), findsOneWidget);
+    // Small reversals stay inside the Native header's 40px direction slack.
+    expect(title.hitTestable(), findsNothing);
     await wheel(reader, -220);
     expect(title.hitTestable(), findsOneWidget);
     expect(tester.getTopLeft(reader).dy, readerTop);
@@ -363,7 +366,10 @@ void main() {
               widget is Container &&
               widget.decoration is BoxDecoration &&
               widget.constraints ==
-                  const BoxConstraints.tightFor(width: 4, height: 24),
+                  const BoxConstraints.tightFor(
+                    width: DResizableHandle.gripThickness,
+                    height: DResizableHandle.gripLength,
+                  ),
         ),
       ),
     );
@@ -462,13 +468,10 @@ void main() {
         expect(inHeader(find.byType(TopicStatusButtonPlaceholder)), findsOne);
         expect(find.byKey(const ValueKey('topic-reply-button')), findsNothing);
         expect(
-          tester
-              .widget<DButton>(
-                find.byKey(const ValueKey('topic-reply-placeholder')),
-              )
-              .onPressed,
-          isNull,
+          find.byKey(const ValueKey('topic-reply-placeholder')),
+          findsNothing,
         );
+        expect(footer, findsNothing);
         expect(find.byType(TopicBookmarkButtonPlaceholder), findsNothing);
         expect(find.byType(TopicNotificationLevelPlaceholder), findsNothing);
         expect(
@@ -485,11 +488,11 @@ void main() {
           find.byKey(const ValueKey('topic-header-activity-placeholder')),
           findsNothing,
         );
-        final actions = tester.getRect(footer);
+        final reader = find.byKey(const ValueKey('inbox-topic-reader-pane'));
+        final loadingReader = tester.getRect(reader);
 
         gate.complete();
-        await tester.pump();
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byType(CookedHtml), findsWidgets);
         expect(
@@ -514,14 +517,16 @@ void main() {
           findsNothing,
         );
         expect(separator, findsOneWidget);
-        expect(tester.getRect(footer), actions);
+        expect(footer, findsNothing);
+        expect(tester.getRect(reader), loadingReader);
+        _expectFloatingProgressFits(tester, 'loaded reader at $width');
         expect(inHeader(find.byType(TopicStatusButton)), findsOneWidget);
         expect(inHeader(find.byType(InlineTopicTitleEditor)), findsOneWidget);
         expect(
           inHeader(find.byKey(const Key('assign-topic-header'))),
           assignable ? findsOneWidget : findsNothing,
         );
-        expect(find.byKey(const ValueKey('topic-reply-button')), findsOne);
+        expect(find.byKey(const ValueKey('topic-reply-button')), findsNothing);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -2474,7 +2479,7 @@ void main() {
   );
 
   testWidgets(
-    'topic list and reader bottom bars align at every text scale',
+    'topic chrome fits at every text scale and touch bottom bars align',
     (tester) async {
       final setup = await _setup(tester, postCount: 40);
       setup.controller.openTopicFromList(setup.rows.first);
@@ -2485,6 +2490,22 @@ void main() {
           final reason = 'Width $width, text scale $scale';
           tester.platformDispatcher.textScaleFactorTestValue = scale;
           await tester.pumpAndSettle();
+          final touch = DControlStyle.isTouch(
+            tester.element(find.byType(TopicView)),
+          );
+          if (!touch) {
+            expect(
+              find.byKey(const ValueKey('topic-list-bottom-bar')),
+              findsNothing,
+            );
+            expect(
+              find.byKey(const ValueKey('topic-bottom-bar')),
+              findsNothing,
+            );
+            _expectFloatingProgressFits(tester, reason);
+            expect(tester.takeException(), isNull, reason: reason);
+            continue;
+          }
           final listBar = tester.getRect(
             find.byKey(
               const ValueKey('topic-list-bottom-bar'),
@@ -2500,13 +2521,10 @@ void main() {
           if (scale == 1 && width == 1100) {
             final reply = find.byKey(const ValueKey('topic-reply-button'));
             final controlHeight = tester.getSize(reply).height;
-            final touch =
-                Theme.of(tester.element(reply)).platform ==
-                TargetPlatform.android;
-            // Footer actions are 34px on desktop and 44px on touch inside 8px
-            // padding, and each answers exactly where it is painted.
-            expect(readerBar.height, touch ? 60 : 50);
-            expect(controlHeight, touch ? 44 : 34);
+            // Touch footer actions are 44px inside 8px padding, and each
+            // answers exactly where it is painted.
+            expect(readerBar.height, 60);
+            expect(controlHeight, 44);
             for (final key in [
               'topic-reply-button',
               'topic-progress-button',
@@ -2546,45 +2564,43 @@ void main() {
     }),
   );
 
-  testWidgets(
-    'reader footer keeps Reply clear of progress beside a docked composer',
-    (tester) async {
-      // A composer docked at its widest leaves the reader its minimum width,
-      // as an 800px window does beside the sidebar rail.
-      SharedPreferences.setMockInitialValues({
-        ComposerLayoutStore.storageKey: jsonEncode(
-          const ComposerLayoutPreference(sideWidth: 800).toJson(),
-        ),
-      });
-      final setup = await _setup(tester, composerDock: true, postCount: 40);
-      tester.view.physicalSize = const Size(800, 600);
-      setup.controller.openTopicFromList(setup.rows.first);
+  testWidgets('floating reader progress fits beside a docked composer', (
+    tester,
+  ) async {
+    // A composer docked at its widest leaves the reader its minimum width,
+    // as an 800px window does beside the sidebar rail.
+    SharedPreferences.setMockInitialValues({
+      ComposerLayoutStore.storageKey: jsonEncode(
+        const ComposerLayoutPreference(sideWidth: 800).toJson(),
+      ),
+    });
+    final setup = await _setup(tester, composerDock: true, postCount: 40);
+    tester.view.physicalSize = const Size(800, 600);
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    final progress = find.byKey(const ValueKey('topic-progress-button'));
+    final naturalProgress = tester.getSize(progress);
+    setup.controller.openReply();
+    await tester.pumpAndSettle();
+    final readerBar = tester.getRect(
+      find.byKey(const ValueKey('inbox-topic-reader-pane')),
+    );
+    expect(readerBar.width, ComposerPresentationController.readerMinimum);
+    expect(
+      tester.getRect(find.byType(ComposerPanel)).left,
+      greaterThan(readerBar.right),
+    );
+    // At the default text size the narrow reader costs progress nothing.
+    expect(tester.getSize(progress), naturalProgress);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    for (final scale in [1.5, 1.75, 2.0]) {
+      final reason = 'Text scale $scale';
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
       await tester.pumpAndSettle();
-      final progress = find.byKey(const ValueKey('topic-progress-button'));
-      final naturalProgress = tester.getSize(progress);
-      await tester.tap(find.byKey(const ValueKey('topic-reply-button')));
-      await tester.pumpAndSettle();
-      final readerBar = tester.getRect(
-        find.byKey(const ValueKey('topic-bottom-bar')),
-      );
-      expect(readerBar.width, ComposerPresentationController.readerMinimum);
-      expect(
-        tester.getRect(find.byType(ComposerPanel)).left,
-        greaterThan(readerBar.right),
-      );
-      // At the default text size the narrow reader costs progress nothing.
-      expect(tester.getSize(progress), naturalProgress);
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      for (final scale in [1.5, 1.75, 2.0]) {
-        final reason = 'Text scale $scale';
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        await tester.pumpAndSettle();
-        _expectReplyClearsProgress(tester, reason);
-        expect(tester.takeException(), isNull, reason: reason);
-      }
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+      _expectFloatingProgressFits(tester, reason);
+      expect(tester.takeException(), isNull, reason: reason);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('bookmark and notification controls appear only in the header', (
     tester,
@@ -2593,7 +2609,9 @@ void main() {
     setup.controller.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
     final footer = find.byKey(const ValueKey('topic-bottom-bar'));
-    final reply = find.byKey(const ValueKey('topic-reply-button'));
+    final reply = find.byKey(
+      const ValueKey(('post-footer-action', 2, 'Reply')),
+    );
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
     final notifications = find.byKey(
       const ValueKey('topic-header-notification-button'),
@@ -2601,20 +2619,20 @@ void main() {
     for (final width in [2000.0, 500.0]) {
       tester.view.physicalSize = Size(width, 800);
       await tester.pumpAndSettle();
-      expect(reply.hitTestable(), findsOneWidget);
+      expect(footer, findsNothing);
       expect(bookmark.hitTestable(), findsOneWidget);
       expect(notifications.hitTestable(), findsOneWidget);
-      expect(
-        find.descendant(of: footer, matching: find.byType(TopicBookmarkButton)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: footer,
-          matching: find.byType(TopicNotificationLevelButton),
-        ),
-        findsNothing,
-      );
+      final header = find.byType(TopicInboxHeader);
+      for (final controlType in [
+        TopicBookmarkButton,
+        TopicNotificationLevelButton,
+      ]) {
+        expect(find.byType(controlType), findsOneWidget);
+        expect(
+          find.descendant(of: header, matching: find.byType(controlType)),
+          findsOneWidget,
+        );
+      }
     }
     await tester.tap(notifications);
     await tester.pumpAndSettle();
@@ -2628,6 +2646,9 @@ void main() {
     expect(find.text('Bookmark topic'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(reply);
+    await tester.pumpAndSettle();
+    expect(reply.hitTestable(), findsOneWidget);
     await tester.tap(reply);
     await tester.pumpAndSettle();
     expect(setup.controller.visibleComposer?.target.topicId, 1);
@@ -2766,7 +2787,7 @@ void main() {
       expect(footer.contains(tester.getCenter(previous)), isTrue);
       expect(footer.contains(tester.getCenter(next)), isTrue);
     },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
   testWidgets(
@@ -3075,23 +3096,37 @@ void main() {
       shell.selectTopicListCategory(_child, keepTopicOpen: true);
       await tester.pumpAndSettle();
       expect(tester.widget<Text>(heading).data, _child.name);
+      await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+      await tester.pumpAndSettle();
       final pathsBeforeTags = [...setup.api.feedPaths];
-      for (final tag in ['community', 'mobile']) {
-        await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
-        await tester.pumpAndSettle();
+      for (final index in [0, 1]) {
         await tester.tap(
-          find.byKey(ValueKey(('topic-list-tag-filter-option', tag))),
+          find.byKey(ValueKey('topic-filter-suggestion-$index')),
         );
         await tester.pumpAndSettle();
       }
+      await tester.tap(find.byType(DSelect<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('include all'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(DButton, 'Done'));
+      await tester.pumpAndSettle();
+      expect(shell.topicListContent?.topicFilterQuery, isEmpty);
       expect(shell.topicListContent?.tagNames, ['community', 'mobile']);
-      expect(setup.api.feedPaths.length, pathsBeforeTags.length + 2);
+      expect(shell.topicListContent?.categoryId, 22);
+      final filtered = Uri.parse(setup.api.feedPaths.last);
+      expect(filtered.path, '/latest.json');
+      expect(filtered.queryParameters['category'], '22');
+      expect(filtered.queryParametersAll['tags[]'], ['community', 'mobile']);
+      expect(filtered.queryParameters['match_all_tags'], 'true');
+      expect(setup.api.feedPaths.length, pathsBeforeTags.length + 1);
       expect(tester.state(find.byType(TopicView)), same(readerState));
       await shell.selectTopicListMode(
         TopicListMode.topWeekly,
         keepTopicOpen: true,
       );
       await tester.pumpAndSettle();
+      expect(shell.topicListContent?.isAdvancedTopicFilter, isFalse);
       final uri = Uri.parse(setup.api.feedPaths.last);
       expect(uri.path, '/top.json');
       expect(uri.queryParameters['period'], 'weekly');
@@ -3108,7 +3143,7 @@ void main() {
         findsNothing,
       );
       expect(
-        find.byKey(const ValueKey('topic-list-subcategory-filter')),
+        find.byKey(const ValueKey('topic-list-category-filter')),
         findsOneWidget,
       );
 
@@ -3347,6 +3382,33 @@ void _expectReplyClearsProgress(WidgetTester tester, String reason) {
   expect(progress.right, lessThanOrEqualTo(bar.right), reason: reason);
 }
 
+void _expectFloatingProgressFits(WidgetTester tester, String reason) {
+  final reader = tester.getRect(
+    find.byKey(const ValueKey('inbox-topic-reader-pane')),
+  );
+  final progress = find.byKey(const ValueKey('topic-progress-button'));
+  final rect = tester.getRect(progress);
+  expect(progress.hitTestable(), findsOneWidget, reason: reason);
+  expect(rect.left, greaterThanOrEqualTo(reader.left), reason: reason);
+  expect(rect.right, lessThanOrEqualTo(reader.right), reason: reason);
+  expect(rect.bottom, lessThanOrEqualTo(reader.bottom), reason: reason);
+  expect(tester.widget<DButton>(progress).variant, DButtonVariant.outline);
+  expect(
+    rect,
+    tester.getRect(
+      find.descendant(
+        of: progress,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        ),
+      ),
+    ),
+    reason: reason,
+  );
+}
+
 Future<void> _scrollReaderToTop(WidgetTester tester) async {
   final shell = ShellScope.read(tester.element(find.byType(TopicView)));
   final jump = shell.jumpToCurrentTopicIndex(0);
@@ -3461,6 +3523,12 @@ _setup(
       SidebarTag(id: 2, name: 'mobile', slug: 'mobile'),
     ],
     composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
+    filterTagSearches: const {
+      '': [
+        TopicFilterLookupValue(name: 'community'),
+        TopicFilterLookupValue(name: 'mobile'),
+      ],
+    },
     topicTagSearches: const {
       '': TopicTagSearch(tags: [_tag]),
       'community': TopicTagSearch(tags: [_tag]),

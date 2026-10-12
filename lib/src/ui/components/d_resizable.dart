@@ -481,7 +481,7 @@ class _HandleBinding extends InheritedWidget {
 /// standalone mode shares all interaction/painting with grouped panels.
 /// [reverse] grows a trailing pane when moving toward the logical start.
 class DResizableHandle extends StatefulWidget {
-  /// A grip without a divider fills the workspace gutter along its full length.
+  /// Layout space reserved around a divider-free workspace grip.
   static const double workspaceGutterExtent = 12;
   static const double gripThickness = 4;
   static const double gripLength = 36;
@@ -743,11 +743,18 @@ class _DResizableHandleState extends State<DResizableHandle> {
       withHandle: widget.withHandle,
       dividerThickness: widget.dividerThickness,
     );
+    final gripOnly = widget.withHandle && widget.dividerThickness == 0;
     return Align(
       alignment: widget.dividerAlignment,
       child: SizedBox(
-        width: horizontal ? extent : null,
-        height: horizontal ? null : extent,
+        // A divider-free workspace handle is only the painted grip. The
+        // surrounding gutter remains layout space, without pointer targets.
+        width: horizontal
+            ? (gripOnly ? DResizableHandle.gripThickness : extent)
+            : (gripOnly ? DResizableHandle.gripLength : null),
+        height: horizontal
+            ? (gripOnly ? DResizableHandle.gripLength : null)
+            : (gripOnly ? DResizableHandle.gripThickness : extent),
         child: MouseRegion(
           onEnter: (_) => setState(() => _hovered = true),
           onExit: (_) => setState(() => _hovered = false),
