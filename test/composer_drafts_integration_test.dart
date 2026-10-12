@@ -50,9 +50,11 @@ Future<void> _requestDiscard(WidgetTester tester) async {
 }
 
 Future<void> _saveAndClose(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('composer-close')));
-  await tester.pumpAndSettle();
   final save = find.byKey(const ValueKey('composer-confirm-save'));
+  if (save.evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pumpAndSettle();
+  }
   if (save.evaluate().isNotEmpty) await tester.tap(save);
   await tester.pump();
 }
@@ -1014,9 +1016,14 @@ void _registerTopicReplyTests() {
       // There is no pointer to hover with, so the same action is reached by
       // holding a non-selectable part of the post. Holding its body selects
       // text and opens the quote toolbar instead.
-      expect(find.widgetWithText(ListTile, 'Reply'), findsOneWidget);
+      final reply = find.widgetWithText(DItem, 'Reply');
+      expect(reply, findsOneWidget);
+      expect(
+        find.ancestor(of: reply, matching: find.byType(DSheetContent)),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.widgetWithText(ListTile, 'Reply'));
+      await tester.tap(reply);
       await tester.pumpAndSettle();
 
       expect(find.byType(ComposerPanel), findsOneWidget);
@@ -1036,7 +1043,12 @@ void _registerTopicReplyTests() {
       await tester.enterText(_composerField, 'Not ready to send this yet');
       await tester.pumpAndSettle();
       expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
-      expect(find.byTooltip('Save and close'), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.byKey(const ValueKey('composer-close')))
+            .tooltip,
+        'Save and close',
+      );
 
       await _saveAndClose(tester);
       await tester.pumpAndSettle();
@@ -1370,6 +1382,22 @@ void _registerComposerAndDraftTests() {
       expect(field(tester).controller!.text, 'hey @sa');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+      expect(field(tester).controller!.text, 'hey @sa');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsNothing,
+      );
+      expect(field(tester).controller!.text, 'hey @sa');
+
+      await _saveAndClose(tester);
       await tester.pumpAndSettle();
       expect(_composerField, findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1805,7 +1833,7 @@ void _registerComposerAndDraftTests() {
     }
 
     testWidgets(
-      'reopening during a pending close keeps the replacement editor',
+      'reopening waits for a pending close and restores its saved draft',
       (tester) async {
         final gate = Completer<void>();
         addTearDown(() {
@@ -1820,22 +1848,41 @@ void _registerComposerAndDraftTests() {
         final shell = ShellScope.read(tester.element(primaryMainContent));
         final closing = shell.visibleComposer!;
         await tester.enterText(_composerField, 'The earlier reply');
-        await _saveAndClose(tester);
+        // Draft-tab close saves directly, so the reply action stays reachable
+        // while the retained editor finishes its background persistence.
+        await tester.tap(
+          find.byKey(ValueKey(('composer-draft-close', closing))),
+        );
         await tester.pump();
+
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+        await tester.pumpAndSettle();
+        expect(shell.visibleComposer, isNull);
+        expect(closing.closing, isTrue);
+        expect(closing.isDisposed, isFalse);
+        expect(closing.text.text, 'The earlier reply');
+        expect(find.byType(ComposerPanel, skipOffstage: false), findsOneWidget);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(closing.isDisposed, isTrue);
+        expect(find.byType(ComposerPanel, skipOffstage: false), findsNothing);
+        expect(api.draftsSaved.last['data'], contains('The earlier reply'));
 
         await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
         await tester.pumpAndSettle();
         final replacement = shell.visibleComposer!;
         expect(replacement, isNot(same(closing)));
+        expect(replacement.text.text, 'The earlier reply');
         await tester.enterText(_composerField, 'The replacement reply');
-        gate.complete();
-        await tester.pumpAndSettle();
+        await settleDraft(tester);
 
-        expect(closing.isDisposed, isTrue);
         expect(shell.visibleComposer, same(replacement));
         expect(replacement.text.text, 'The replacement reply');
         expect(replacement.isEditing, isTrue);
         expect(find.byType(ComposerPanel), findsOneWidget);
+        expect(api.draftsSaved.last['data'], contains('The replacement reply'));
+        expect(api.created, isEmpty);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
@@ -1873,6 +1920,18 @@ void _registerComposerAndDraftTests() {
       expect(
         find.text('This draft could not be saved yet. Please try again.'),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DButton>(
+              find.byKey(const ValueKey('composer-confirm-save')),
+            )
+            .onPressed,
+        isNotNull,
       );
 
       await _saveAndClose(tester);
