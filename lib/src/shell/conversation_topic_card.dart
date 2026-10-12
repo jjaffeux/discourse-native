@@ -166,7 +166,10 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                                 _TopicListTitle(row: row),
                               ),
                             ),
-                            _TopicCardStatus(topic: topic),
+                            _TopicCardStatus(
+                              topic: topic,
+                              titleStyle: row.titleStyle,
+                            ),
                           ],
                         ),
                       ),
@@ -232,18 +235,27 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
 }
 
 class _TopicCardStatus extends StatelessWidget {
-  const _TopicCardStatus({required this.topic});
+  const _TopicCardStatus({required this.topic, this.titleStyle});
   final Topic topic;
+  final TextStyle? titleStyle;
 
   @override
   Widget build(BuildContext context) {
+    final style = titleStyle ?? Theme.of(context).textTheme.titleSmall;
+    final lineHeight =
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(style?.fontSize ?? DiscourseTypography.rowTitle) *
+        (style?.height ?? DiscourseTypography.lineHeightRowTitle);
     final states = [
       if (topic.pinned) (DIcons.thumbtack, context.l10n.pinned),
       if (topic.closed) (DIcons.lock, context.l10n.closed),
       if (topic.bookmarked) (DIcons.bookmark, context.l10n.bookmarked),
     ];
     return Padding(
-      padding: const EdgeInsets.only(top: 3),
+      padding: EdgeInsets.only(
+        top: ((lineHeight - 11) / 2).clamp(0, double.infinity),
+      ),
       child: SizedBox(
         key: ValueKey('topic-card-status-${topic.id}'),
         width: 13,
