@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_bottom_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/gestures.dart';
@@ -170,10 +171,23 @@ void main() {
         highestPostNumber: 4,
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
-    await tester.pump();
+    // The preceding post parses on a real isolate. Settle the reader's entry
+    // without waiting on its loading animation before selecting that post.
+    for (
+      var i = 0;
+      i < 100 &&
+          (setup.shell.visibleTopicContext?.postIds.firstOrNull != 102 ||
+              setup.shell.visibleTopicContext?.postIds.lastOrNull != 104);
+      i++
+    ) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(setup.shell.visibleTopicContext?.postIds, [102, 103, 104]);
     final lastParagraph = renderedText('Paragraph 449.');
+    expect(lastParagraph, findsNothing);
+    expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+    await tester.pump();
+    expect(_selectedPosts(tester), [102]);
     for (var i = 0; i < 100 && lastParagraph.evaluate().isEmpty; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 10)),
@@ -308,15 +322,11 @@ void main() {
       'topic sequences work after closing the $menu filter and opening a topic page',
       (tester) async {
         final setup = await _setup(tester);
-        final filter = find.byKey(ValueKey('topic-list-$menu-filter'));
-        final trigger = find.descendant(
-          of: filter,
-          matching: find.byType(DButton),
-        );
+        final trigger = find.byKey(ValueKey('topic-list-$menu-filter'));
         await tester.tap(trigger);
         await tester.pumpAndSettle();
         final input = find.descendant(
-          of: find.byType(DComboboxContent),
+          of: find.byKey(const ValueKey('topic-filter-input')),
           matching: find.byType(EditableText),
         );
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
@@ -326,9 +336,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(setup.shell.currentContent?.isTopicList, isTrue);
         expect(_selectedPosts(tester), isEmpty);
+        // Escape first clears a filter clause; an empty editor dismisses it.
+        await tester.enterText(input, '');
+        await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
-        expect(find.byType(DComboboxContent), findsNothing);
+        expect(find.byType(DPopoverContent), findsNothing);
         expect(
           tester.widget<DButton>(trigger).focusNode!.hasPrimaryFocus,
           isTrue,
@@ -425,22 +438,14 @@ void main() {
 
   for (final next in [false, true]) {
     testWidgets(
-      '${next ? 'Next' : 'Previous'} button opens the first listed topic from an unlisted topic',
+      '${next ? 'Next' : 'Previous'} action opens the first listed topic from an unlisted topic',
       (tester) async {
         final setup = await _setup(tester);
         await _readBeside(tester, setup.shell, _unlistedTopic);
         _scrollable(tester, find.byType(TopicListView)).controller!.jumpTo(500);
         await tester.pumpAndSettle();
         final source = setup.shell.topicListContent;
-        final previousButton = find.byKey(
-          const ValueKey('inbox-previous-topic'),
-        );
-        final nextButton = find.byKey(const ValueKey('inbox-next-topic'));
-        expect(tester.widget<DButton>(previousButton).onPressed, isNotNull);
-        expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
-
-        await tester.tap(next ? nextButton : previousButton);
-        await tester.pumpAndSettle();
+        await _adjacentAction(tester, next: next);
 
         expect(setup.shell.currentContent?.topicId, 1);
         expect(setup.shell.currentContent?.postNumber, 2);
@@ -448,8 +453,10 @@ void main() {
         expect(setup.shell.contentStack, hasLength(2));
         _expectTopicVisible(tester, 1);
         expect(_selectedTopics(tester), [1]);
-        expect(tester.widget<DButton>(previousButton).onPressed, isNull);
-        expect(tester.widget<DButton>(nextButton).onPressed, isNotNull);
+        await _adjacentAction(tester, next: false, handled: false);
+        expect(setup.shell.currentContent?.topicId, 1);
+        await _adjacentAction(tester, next: true);
+        expect(setup.shell.currentContent?.topicId, 2);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -459,7 +466,7 @@ void main() {
   for (final keyboard in [false, true]) {
     for (final next in [false, true]) {
       testWidgets(
-        '${keyboard ? 'Shortcut' : 'Button'} scrolls to the ${next ? 'next' : 'previous'} topic outside the viewport',
+        '${keyboard ? 'Shortcut' : 'Action'} scrolls to the ${next ? 'next' : 'previous'} topic outside the viewport',
         (tester) async {
           final setup = await _setup(tester);
           await _readBeside(
@@ -474,10 +481,7 @@ void main() {
           if (keyboard) {
             await _openAdjacent(tester, next: next);
           } else {
-            await tester.tap(
-              find.byKey(ValueKey('inbox-${next ? 'next' : 'previous'}-topic')),
-            );
-            await tester.pumpAndSettle();
+            await _adjacentAction(tester, next: next);
           }
 
           final target = next ? 21 : 19;
@@ -505,7 +509,7 @@ void main() {
     await tester.pumpAndSettle();
     final offset = list.controller!.offset;
 
-    await _openBeside(tester, find.text('Keyboard topic 5'));
+    await _openBeside(tester, topicListTitle('Keyboard topic 5'));
 
     expect(setup.shell.currentContent?.topicId, 5);
     expect(list.controller!.offset, offset);
@@ -513,7 +517,7 @@ void main() {
     await _openAdjacent(tester, next: true);
     _expectTopicVisible(tester, 6);
     final keyboardOffset = list.controller!.offset;
-    await _openBeside(tester, find.text('Keyboard topic 7'));
+    await _openBeside(tester, topicListTitle('Keyboard topic 7'));
     expect(list.controller!.offset, keyboardOffset);
     await _openAdjacent(tester, next: false);
     _expectTopicVisible(tester, 6);
@@ -521,7 +525,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets(
-    'topic arrows and shortcuts follow empty and refreshed source lists',
+    'topic actions and shortcuts follow empty and refreshed source lists',
     (tester) async {
       final setup = await _setup(tester);
       final first = setup.api.feeds['/latest.json']!.first;
@@ -535,11 +539,8 @@ void main() {
       await setup.shell.loadFeed(setup.shell.currentFeedId!, force: true);
       await tester.pumpAndSettle();
       expect(setup.shell.currentFeed!.topicIds, isEmpty);
-      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
-        expect(
-          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
-          isNull,
-        );
+      for (final next in [false, true]) {
+        await _adjacentAction(tester, next: next, handled: false);
       }
 
       await _openAdjacent(tester, next: false);
@@ -552,20 +553,10 @@ void main() {
       await setup.shell.loadFeed(setup.shell.currentFeedId!, force: true);
       await tester.pumpAndSettle();
       expect(setup.shell.currentFeed!.topicIds, [1]);
-      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
-        expect(
-          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
-          isNotNull,
-        );
-      }
-      await tester.tap(find.byKey(const ValueKey('inbox-previous-topic')));
-      await tester.pumpAndSettle();
+      await _adjacentAction(tester, next: false);
       expect(setup.shell.currentContent?.topicId, 1);
-      for (final key in ['inbox-previous-topic', 'inbox-next-topic']) {
-        expect(
-          tester.widget<DButton>(find.byKey(ValueKey(key))).onPressed,
-          isNull,
-        );
+      for (final next in [false, true]) {
+        await _adjacentAction(tester, next: next, handled: false);
       }
       expect(tester.takeException(), isNull);
     },
@@ -1188,6 +1179,20 @@ Future<void> _openAdjacent(
   } else {
     await tester.pump();
   }
+}
+
+// Desktop readers retain adjacent-topic commands after removing their footer
+// buttons. Exercise the shared action separately from keyboard dispatch.
+Future<void> _adjacentAction(
+  WidgetTester tester, {
+  required bool next,
+  bool handled = true,
+}) async {
+  expect(
+    openAdjacentTopic(tester.element(find.byType(TopicView)), next: next),
+    handled,
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _moveTopic(
