@@ -45,9 +45,18 @@ void main() {
       api.dismissNewGate = gate;
       api.dismissedNewIds = [1, 2, 3];
       final button = find.byKey(const ValueKey('dismiss-new-topics'));
-      expect(button, findsOneWidget);
+      expect(button.hitTestable(), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: button,
+          matching: find.byKey(const ValueKey('topic-list-feed-row')),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(button);
       await tester.pump();
+      expect(tester.widget<DButton>(button).loading, isTrue);
+      expect(tester.widget<DButton>(button).onPressed, isNull);
       await shell.dismissNewTopics();
       expect(api.dismissNewCalls, hasLength(1));
       expect(
