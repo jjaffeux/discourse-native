@@ -120,17 +120,19 @@ void main() {
       );
       final notice = find.byType(ComposerTagRemovalNotice);
       final noticeBounds = tester.getRect(notice);
-      // The notice centres in the body; the desktop editor is offset by its
-      // left block gutter.
-      final body = tester.getRect(
-        find
-            .ancestor(
-              of: find.byType(ComposerEditor),
-              matching: find.byType(Stack),
-            )
-            .first,
+      // Find the shared body through the notice; the editor's nearest Stack
+      // belongs to its padded draft preview.
+      final body = find
+          .ancestor(of: notice, matching: find.byType(Stack))
+          .first;
+      expect(
+        find.descendant(of: body, matching: find.byType(ComposerEditor)),
+        findsOneWidget,
       );
-      expect(noticeBounds.center.dx, closeTo(body.center.dx, 1));
+      expect(
+        noticeBounds.center.dx,
+        closeTo(tester.getRect(body).center.dx, 1),
+      );
       expect(noticeBounds.bottom, lessThanOrEqualTo(editorBounds.bottom));
       expect(noticeBounds.top, greaterThan(editorBounds.top));
 
