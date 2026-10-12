@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
@@ -64,6 +65,66 @@ void main() {
     },
   );
 
+  testWidgets('arrow keys select a result before Enter opens its topic', (
+    tester,
+  ) async {
+    final shell = createGlobalSearchFixtureController();
+    addTearDown(shell.dispose);
+    await shell.load();
+    shell.pushContent(ContentRoute.topicList(TopicListMode.latest));
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: ForumSearch(showNavigationControls: false),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ForumSearch.inputKey));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(ForumSearch.inputKey),
+      'keyboard order:latest',
+    );
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+
+    final result = shell.globalSearch.results.first;
+    final row = find.byKey(ValueKey('global-search-result-${result.id}'));
+    expect(tester.widget<DItem>(row).selected, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DItem>(row).selected, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent!.isTopic, isTrue);
+    expect(shell.currentContent!.topicId, 1038);
+    expect(
+      shell.search
+          .wordsFor(
+            globalSearchFixtureSite,
+            shell.activeTabId,
+            shell.currentContent!.id,
+          )
+          .trim(),
+      'keyboard',
+    );
+    // This fixture has no topic reader to consume the pending post highlight.
+    await tester.pump(shell.topicLoadTimeout);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'nested categories use keyboard browsing and stable IDs without losing words',
     (tester) async {
@@ -93,6 +154,18 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(shell.globalSearch.query, 'keyboard category:');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('global-search-staged-2')),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('global-search-staged-2')),
+        findsNothing,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();

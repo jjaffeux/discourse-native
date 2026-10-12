@@ -95,13 +95,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       _backCategory();
       return true;
     }
-    final current = _selected == null && _actions.isNotEmpty
-        ? 0
-        : _actions.indexWhere((action) => action.id == _selected);
-    if (key == LogicalKeyboardKey.arrowRight &&
-        current >= 0 &&
-        _actions[current].into != null) {
-      _actions[current].into!();
+    // Unselected results must leave Enter available to apply the search.
+    final current = _actions.indexWhere((action) => action.id == _selected);
+    final into = current >= 0
+        ? _actions[current].into
+        : _actions.firstOrNull?.into;
+    if (key == LogicalKeyboardKey.arrowRight && into != null) {
+      into();
       return true;
     }
     if (key == LogicalKeyboardKey.arrowDown ||
