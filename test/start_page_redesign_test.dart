@@ -234,11 +234,11 @@ void main() {
         await tester.pumpAndSettle();
         final filter = _onPage(find.byKey(const ValueKey('topic-list-filter')));
         final tokens = DTokens.of(tester.element(filter));
+        final button = tester.widget<DButton>(filter);
         final surface = buttonSurface(tester, of: filter);
-        expect(
-          surface.color,
-          Color.lerp(tokens.background, tokens.foreground, .10),
-        );
+        expect(button.variant, DButtonVariant.secondary);
+        expect(button.backgroundColor, tokens.buttonTheme.outline.hover);
+        expect(surface.borderColor, tokens.buttonTheme.outline.border);
         expect(surface.strokeWidth, 1);
         expect(
           _onPage(find.byKey(const ValueKey('start-page-more'))),
@@ -553,24 +553,26 @@ void main() {
   }, platform: TargetPlatform.iOS);
 
   _test(
-    'chrome search filters cached titles, excerpts and tags with no network search',
+    'cached Start filtering matches titles, excerpts and tags with no network search',
     (tester) async {
       final api = _api();
       final shell = await _start(tester, desktop, api: api);
       final feedRequests = api.feedPaths.toList();
-      final input = find.byKey(ForumSearch.inputKey).first;
+      final pluginRequests = api.pluginReadPaths.toList();
+      final tab = shell.activeTabId!;
       for (final (query, title) in [
+        ('keyboard', 'A useful keyboard shortcut'),
         ('design', 'A quieter start page'),
         ('garden', 'Where shall we meet?'),
       ]) {
-        await tester.enterText(input, query);
+        shell.search.setStartPageQuery(_site, tab, query);
         await tester.pumpAndSettle();
         expect(_onPage(find.text(title)), findsOneWidget);
         expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
         expect(_section('Bookmarks'), findsNothing);
         expect(find.byKey(ForumSearch.panelKey), findsNothing);
       }
-      await tester.enterText(input, 'does not exist');
+      shell.search.setStartPageQuery(_site, tab, 'does not exist');
       await tester.pumpAndSettle();
       expect(
         _onPage(find.text('Nothing matches “does not exist”')),
@@ -580,7 +582,8 @@ void main() {
       expect(shell.globalSearch.query, isEmpty);
       expect(api.searchesRequested, isEmpty);
       expect(api.feedPaths, feedRequests);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      expect(api.pluginReadPaths, pluginRequests);
+      shell.search.setStartPageQuery(_site, tab, '');
       await tester.pumpAndSettle();
       expect(_section('Topics'), findsOneWidget);
       expect(
@@ -600,16 +603,19 @@ void main() {
         Bookmark(id: i, title: 'Saved topic $i', path: '/t/saved/$i'),
       const Bookmark(id: 99, title: 'Hidden bookmark', path: '/t/hidden/99'),
     ]);
-    await _start(tester, desktop, api: api);
+    final shell = await _start(tester, desktop, api: api);
     expect(_onPage(find.text('Hidden bookmark')), findsNothing);
-    await tester.enterText(
-      find.byKey(ForumSearch.inputKey).first,
+    final requests = api.pluginReadPaths.toList();
+    shell.search.setStartPageQuery(
+      _site,
+      shell.activeTabId!,
       'Hidden bookmark',
     );
     await tester.pumpAndSettle();
     expect(_onPage(find.text('Hidden bookmark')), findsOneWidget);
     expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
     expect(api.searchesRequested, isEmpty);
+    expect(api.pluginReadPaths, requests);
     expect(tester.takeException(), isNull);
   });
 
@@ -622,37 +628,61 @@ void main() {
         const Topic(id: 99, title: 'Another forum topic', slug: 'another'),
       ],
     );
-    await _start(tester, desktop, api: api);
+    final shell = await _start(tester, desktop, api: api);
     expect(_onPage(find.text('Another forum topic')), findsNothing);
     final requests = api.feedPaths.toList();
-    await tester.enterText(find.byKey(ForumSearch.inputKey).first, 'Another');
+    final pluginRequests = api.pluginReadPaths.toList();
+    shell.search.setStartPageQuery(_site, shell.activeTabId!, 'Another');
     await tester.pumpAndSettle();
     expect(_onPage(find.text('Another forum topic')), findsOneWidget);
     expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
     expect(api.feedPaths, requests);
     expect(api.searchesRequested, isEmpty);
+    expect(api.pluginReadPaths, pluginRequests);
     expect(tester.takeException(), isNull);
   });
 
   _test(
-    'search queries belong to their Start tab and global search stays available on other pages',
+    'cached Start queries stay tab-local while chrome search is global on every page',
     (tester) async {
-      final shell = await _start(tester, desktop);
+      final api = _api();
+      final shell = await _start(tester, desktop, api: api);
       final first = shell.activeTabId!;
       final input = find.byKey(ForumSearch.inputKey).first;
-      await tester.enterText(input, 'garden');
+      shell.search.setStartPageQuery(_site, first, 'garden');
       await tester.pumpAndSettle();
       shell.createTab();
       final second = shell.activeTabId!;
       await tester.pumpAndSettle();
       expect(shell.search.startPageQueryFor(_site, second), isEmpty);
       expect(_section('Bookmarks'), findsOneWidget);
-      await tester.enterText(input, 'design');
+      shell.search.setStartPageQuery(_site, second, 'design');
       await tester.pumpAndSettle();
       shell.selectTab(first);
       await tester.pumpAndSettle();
       expect(_onPage(find.text('Where shall we meet?')), findsOneWidget);
       expect(_onPage(find.text('A quieter start page')), findsNothing);
+      // Chrome search now opens the shared global surface on Start as well.
+      await tester.tap(input);
+      await tester.pumpAndSettle();
+      await tester.enterText(input, 'global query');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(shell.globalSearch.query, 'global query');
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.search.startPageQueryFor(_site, first), 'garden');
+      expect(_onPage(find.text('Where shall we meet?')), findsOneWidget);
+      expect(
+        api.pluginReadPaths.any((path) {
+          final uri = Uri.parse(path);
+          return uri.path == '/search/query.json' &&
+              uri.queryParameters['term'] == 'global query';
+        }),
+        isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
       shell.pushContent(
         ContentRoute.topic(
           topicId: 1,
@@ -661,14 +691,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(input);
+      await tester.pumpAndSettle();
       await tester.enterText(input, 'server query');
+      await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
       expect(shell.globalSearch.query, 'server query');
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsNothing);
       expect(shell.search.startPageQueryFor(_site, first), 'garden');
+      expect(shell.search.startPageQueryFor(_site, second), 'design');
       expect(tester.takeException(), isNull);
     },
   );
