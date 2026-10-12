@@ -60,7 +60,7 @@ void main() {
                 ValueKey(
                   target == 'post'
                       ? 'post-more-actions-1'
-                      : 'topic-status-button',
+                      : 'topic-more-actions',
                 ),
               ),
             )
@@ -294,7 +294,7 @@ Future<void> _openSheet(WidgetTester tester, String target) async {
       await pointer.removePointer();
     }
   } else {
-    await tester.tap(find.byTooltip('More topic actions'));
+    await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('topic-flag-button')));
   }
