@@ -235,7 +235,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
 
 /// The production timeline layout, also used by the offline visual fixture.
 /// Its owner handles navigation and error state; Native controls own artwork.
-class TopicProgressPanel extends StatelessWidget {
+class TopicProgressPanel extends StatefulWidget {
   const TopicProgressPanel({
     super.key,
     required this.position,
@@ -250,6 +250,22 @@ class TopicProgressPanel extends StatelessWidget {
   final String? error;
 
   @override
+  State<TopicProgressPanel> createState() => _TopicProgressPanelState();
+}
+
+class _TopicProgressPanelState extends State<TopicProgressPanel> {
+  late int _preview = widget.position;
+
+  @override
+  void didUpdateWidget(TopicProgressPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.position != widget.position ||
+        oldWidget.total != widget.total) {
+      _preview = widget.position;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
@@ -260,10 +276,10 @@ class TopicProgressPanel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 7),
           child: Text.rich(
             TextSpan(
-              text: context.l10n.postTopicprogress(position.toString()),
+              text: context.l10n.postTopicprogress(_preview.toString()),
               children: [
                 TextSpan(
-                  text: context.l10n.messageOf(total.toString()),
+                  text: context.l10n.messageOf(widget.total.toString()),
                   style: TextStyle(
                     color: Color.lerp(
                       DTokens.of(context).background,
@@ -289,13 +305,15 @@ class TopicProgressPanel extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
           child: TopicPositionSlider(
-            position: position,
-            total: total,
-            onChanged: onJump,
+            position: _preview,
+            total: widget.total,
+            onChanged: (value) => setState(() => _preview = value),
+            onChangeEnd: widget.onJump,
+            onChangeCancel: () => setState(() => _preview = widget.position),
           ),
         ),
         const SizedBox(height: 4),
-        if (error case final message?) ...[
+        if (widget.error case final message?) ...[
           Semantics(
             liveRegion: true,
             child: Text(
@@ -315,13 +333,19 @@ class TopicProgressPanel extends StatelessWidget {
               label: Text(context.l10n.firstPost),
               variant: DButtonVariant.ghost,
               density: DButtonDensity.timelineEnd,
-              onPressed: () => onJump(1),
+              onPressed: () {
+                setState(() => _preview = 1);
+                widget.onJump(1);
+              },
             ),
             DButton(
               label: Text(context.l10n.latestPost),
               variant: DButtonVariant.ghost,
               density: DButtonDensity.timelineEnd,
-              onPressed: () => onJump(total),
+              onPressed: () {
+                setState(() => _preview = widget.total);
+                widget.onJump(widget.total);
+              },
             ),
           ],
         ),
@@ -337,20 +361,30 @@ class TopicPositionSlider extends StatelessWidget {
     required this.position,
     required this.total,
     required this.onChanged,
+    this.onChangeEnd,
+    this.onChangeCancel,
   });
   final int position;
   final int total;
   final ValueChanged<int>? onChanged;
+  final ValueChanged<int>? onChangeEnd;
+  final VoidCallback? onChangeCancel;
   @override
-  Widget build(BuildContext context) => DSlider(
+  Widget build(BuildContext context) => DMultiSlider(
     key: const ValueKey('topic-progress-slider'),
     variant: DSliderVariant.timeline,
-    value: position.toDouble(),
+    values: [position.toDouble()],
     min: 1,
     max: total.toDouble(),
-    semanticLabel: context.l10n.post,
-    semanticFormatterCallback: (value) =>
+    semanticLabels: [context.l10n.post],
+    semanticFormatter: (value, _) =>
         context.l10n.postOf((value.round()).toString(), (total).toString()),
-    onChanged: onChanged == null ? null : (value) => onChanged!(value.round()),
+    onChanged: onChanged == null
+        ? null
+        : (values) => onChanged!(values.single.round()),
+    onChangeEnd: onChangeEnd == null
+        ? null
+        : (values) => onChangeEnd!(values.single.round()),
+    onChangeCancel: onChangeCancel,
   );
 }

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DButtonVariant, DButtonDensity, DPopoverContent, DSlider;
+    show DButton, DButtonVariant, DButtonDensity, DPopoverContent, DMultiSlider;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -94,6 +94,78 @@ void main() {
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     group(platform.name, () {
+      testWidgets('drag previews posts and fetches only the released target', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          user: _user,
+          postGate: gate,
+          postsById: const {200: _target},
+        );
+        final shell = await _loadShell(api, cacheTarget: false);
+        await _openProgress(tester, shell, platform);
+        final revision = shell.topicNavigationRevision;
+        final slider = tester.getRect(find.byType(DMultiSlider));
+        final gesture = await tester.startGesture(slider.center);
+        await tester.pump();
+        await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
+        await tester.pump();
+        expect(find.text('Post 3 of 3'), findsOneWidget);
+        expect(shell.currentContent?.postNumber, 1);
+        expect(shell.topicNavigationRevision, revision);
+        expect(api.postFetches, isEmpty);
+
+        await gesture.moveTo(slider.center);
+        await tester.pump();
+        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(api.postFetches, isEmpty);
+        await gesture.up();
+        await tester.pump();
+        expect(api.postFetches, [
+          [200],
+        ]);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.postNumber, _target.postNumber);
+        expect(find.byType(DPopoverContent), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('cancelled drag restores the preview without navigating', (
+        tester,
+      ) async {
+        final api = FakeDiscourseApi(user: _user);
+        final shell = await _loadShell(api);
+        await _openProgress(tester, shell, platform);
+        final revision = shell.topicNavigationRevision;
+        final slider = tester.getRect(find.byType(DMultiSlider));
+        final gesture = await tester.startGesture(slider.center);
+        await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
+        await tester.pump();
+        expect(find.text('Post 3 of 3'), findsOneWidget);
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(shell.currentContent?.postNumber, 1);
+        expect(shell.topicNavigationRevision, revision);
+        expect(api.postFetches, isEmpty);
+      });
+
+      testWidgets('keyboard steps still navigate immediately', (tester) async {
+        final shell = await _loadShell(FakeDiscourseApi(user: _user));
+        await _openProgress(tester, shell, platform);
+        await tester.tap(find.text('First post'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DMultiSlider));
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.postNumber, _target.postNumber);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.postNumber, 1);
+        expect(find.text('Post 1 of 3'), findsOneWidget);
+      });
+
       for (final change in [
         'site',
         'topic',
@@ -358,7 +430,7 @@ Future<void> _scrubToMiddle(WidgetTester tester) async {
   // does not emit onChanged. Returning to the middle also permits a retry.
   await tester.tap(find.text('First post'));
   await tester.pump();
-  await tester.tap(find.byType(DSlider));
+  await tester.tap(find.byType(DMultiSlider));
   await tester.pump();
 }
 
@@ -467,9 +539,8 @@ Future<NavigatorState> _openProgress(
       builder: (context, child) => RepaintBoundary(
         key: const ValueKey('timeline-capture'),
         child: MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
           child: Directionality(textDirection: direction, child: child!),
         ),
       ),

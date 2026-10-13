@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -71,8 +72,25 @@ void main() {
                 ),
               );
               final surface = buttonSurface(tester);
-              expect(surface.color.a, floating ? closeTo(.4, .001) : 0);
-              expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
+              final glass = material == DAppearanceMaterial.liquidGlass;
+              expect(
+                surface.color.a,
+                floating && !glass ? closeTo(.4, .001) : 0,
+              );
+              expect(
+                surface.borderColor.a,
+                floating && !glass ? greaterThan(0) : 0,
+              );
+              final raised = find.descendant(
+                of: button,
+                matching: find.byType(DMaterialSurface),
+              );
+              expect(raised, floating && glass ? findsOneWidget : findsNothing);
+              if (floating && glass) {
+                final materialSurface = tester.widget<DMaterialSurface>(raised);
+                expect(materialSurface.preserveColor, isTrue);
+                expect(materialSurface.color.a, closeTo(dark ? .42 : .5, .001));
+              }
               expect(
                 surface.borderRadius.topLeft.x,
                 floating || footer ? 999 : 7,
@@ -82,7 +100,7 @@ void main() {
                   of: button,
                   matching: find.byType(BackdropFilter),
                 ),
-                floating ? findsOneWidget : findsNothing,
+                floating && !glass ? findsOneWidget : findsNothing,
               );
               final artwork = find.descendant(
                 of: button,

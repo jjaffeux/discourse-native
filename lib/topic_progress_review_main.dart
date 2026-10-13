@@ -33,11 +33,15 @@ class _TimelineReview extends StatelessWidget {
         runSpacing: 24,
         children: [
           for (final dark in [false, true])
-            for (final floating in [true, false])
-              Theme(
-                data: dark ? AppTheme.dark : AppTheme.light,
-                child: _TimelineExample(floating: floating),
-              ),
+            for (final material in DAppearanceMaterial.values)
+              for (final floating in [true, false])
+                Theme(
+                  data: DMaterialTheme.apply(
+                    dark ? AppTheme.dark : AppTheme.light,
+                    material,
+                  ),
+                  child: _TimelineExample(floating: floating),
+                ),
         ],
       ),
     ),

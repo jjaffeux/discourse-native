@@ -3067,7 +3067,7 @@ void main() {
           expect(find.text('Post 5188 of 5188'), findsOneWidget);
           expect(
             tester
-                .widget<DSlider>(
+                .widget<DMultiSlider>(
                   find.byKey(const ValueKey('topic-progress-slider')),
                 )
                 .max,

@@ -71,7 +71,7 @@ enum DButtonDensity {
   standard,
 
   /// A translucent 26px pill with 11.5px text, 11px insets and a 3px
-  /// backdrop blur. Retains its artwork in both appearance materials.
+  /// backdrop blur. Liquid Glass uses the shared raised surface treatment.
   floatingCall,
 
   /// A clear 30px footer progress pill, with 12.5px text and 8px insets.
@@ -877,11 +877,17 @@ class DButton extends StatelessWidget {
           foregroundColor: foreground,
           iconColor: foreground,
           backgroundColor: floatingCall
-              ? _floatingCallFill(tokens)
+              ? glass
+                    ? Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .10,
+                      )!.withValues(alpha: dark ? .42 : .50)
+                    : _floatingCallFill(tokens)
               : timelineEnd && interactive
               ? tokens.buttonTheme.accent.hover
               : Colors.transparent,
-          border: floatingCall
+          border: floatingCall && !glass
               ? BorderSide(
                   color: Color.lerp(tokens.background, tokens.foreground, .22)!,
                 )
@@ -1121,7 +1127,7 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: expandedChrome || (postAction && glass)
+            color: expandedChrome || ((postAction || floatingCall) && glass)
                 ? Colors.transparent
                 : postAction ||
                       timeline ||
@@ -1156,22 +1162,29 @@ class DButton extends StatelessWidget {
                   child: surface,
                 )
               : floatingCall
-              ? Stack(
-                  fit: StackFit.passthrough,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: radius,
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    ),
-                    surface,
-                  ],
-                )
+              ? glass
+                    ? DMaterialSurface(
+                        radius: radius,
+                        color: state.backgroundColor,
+                        preserveColor: true,
+                        child: surface,
+                      )
+                    : Stack(
+                        fit: StackFit.passthrough,
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: radius,
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                                child: const SizedBox.expand(),
+                              ),
+                            ),
+                          ),
+                          surface,
+                        ],
+                      )
               : expandedChrome
               ? DMaterialSurface(
                   radius: radius,
