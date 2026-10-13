@@ -65,7 +65,7 @@ enum DButtonDensity {
   /// Geometry grows with text; popup, hover and focus use the chosen variant.
   header,
 
-  /// A 32px circular profile trigger with a 2px border against its avatar.
+  /// A 36px circular profile trigger with a 2px border against its avatar.
   /// Use an icon-only button with a borderless DAvatar. The image fills the
   /// interior; artwork and hit bounds grow with text.
   avatar,
@@ -524,6 +524,8 @@ class DButton extends StatelessWidget {
         ? 12.5
         : launcher
         ? 13.0
+        : chrome && !_iconOnly
+        ? 12.5
         : inlineMetadata
         ? 12.0
         : dashedTile
@@ -545,6 +547,8 @@ class DButton extends StatelessWidget {
         ? 8.0
         : dashedTile
         ? 12.0
+        : chrome
+        ? 8.0
         : DControlStyle.contentGap(effectiveSize);
     final standardDimension =
         DControlStyle.scaledHeight(
@@ -576,7 +580,7 @@ class DButton extends StatelessWidget {
         : searchClear
         ? MediaQuery.textScalerOf(context).scale(12)
         : avatar
-        ? 32.0 *
+        ? 36.0 *
               (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
                 1,
                 double.infinity,
@@ -741,6 +745,10 @@ class DButton extends StatelessWidget {
             ? const EdgeInsets.all(2)
             : _iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
+            : chrome
+            ? EdgeInsets.symmetric(
+                horizontal: variant == DButtonVariant.primary ? 11 : 10,
+              )
             : mobileDock || backLink || inlineMetadata
             ? EdgeInsets.zero
             : dashedTile
@@ -992,12 +1000,14 @@ class DButton extends StatelessWidget {
       child = SizedBox.expand(child: child);
     }
     if (header ||
+        chrome ||
         (mobileDock) ||
         mobileDockAction ||
         DControlStyle.isApplicationSize(effectiveSize)) {
       child = DIconGlyphTheme(
         scale: 1,
-        naturalWidth: header || DControlStyle.isApplicationSize(effectiveSize),
+        naturalWidth:
+            header || chrome || DControlStyle.isApplicationSize(effectiveSize),
         child: child,
       );
     }

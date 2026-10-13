@@ -34,7 +34,7 @@ final avatarExamples = ComponentExamples(
       'so initials remain readable. Fixed app dimensions remain caller-owned. '
       'Checker artwork is embedded local PNG data, identical in both app profiles. '
       'The Dropdown example composes the accepted DDropdownMenu and DButton '
-      'owners with the reference 32px circular ghost trigger and 128px menu. '
+      'owners with the reference 36px circular ghost trigger and 128px menu. '
       'Group actions also use DButton, with one focusable action per avatar. '
       'Their ghost/destructive props are not Avatar variants.',
   examples: [

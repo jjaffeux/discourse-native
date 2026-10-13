@@ -245,7 +245,7 @@ void main() {
           await tester.pumpAndSettle();
           final button = find.byType(DButton);
           final bounds = tester.getRect(button);
-          expect(bounds.size, Size.square(32 * scale));
+          expect(bounds.size, Size.square(36 * scale));
           expect(tester.getRect(find.byType(DAvatar)), bounds.deflate(2));
           expect(buttonSurface(tester).strokeWidth, 2);
           expect(

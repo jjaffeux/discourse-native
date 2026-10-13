@@ -41,7 +41,7 @@ class DCard extends ImplicitlyAnimatedWidget {
   final List<Widget> children;
   final DCardSize size;
 
-  /// Small capsules use the window chrome's 5px side and 4px vertical insets.
+  /// Small capsules use 4px insets, plus the side border when present.
   final DCardVariant variant;
   final double? spacing;
 
@@ -189,12 +189,12 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                   child: Padding(
                     padding: EdgeInsets.only(
                       left: compactCapsule
-                          ? DSpacing.xs + 1
+                          ? DSpacing.xs + (border ? 1 : 0)
                           : capsule
                           ? DSpacing.sm
                           : 0,
                       right: compactCapsule
-                          ? DSpacing.xs + 1
+                          ? DSpacing.xs + (border ? 1 : 0)
                           : capsule
                           ? DSpacing.sm
                           : 0,

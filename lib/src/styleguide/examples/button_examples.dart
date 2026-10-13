@@ -22,8 +22,8 @@ final buttonExamples = ComponentExamples(
       'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette. '
       'The header density uses 28px controls, 32px icon-only targets, 12.5px labels, '
-      '8px content gaps and 10px counted-button insets. Header shortcuts sit 4px apart on desktop. '
-      'The avatar density gives icon-only profile triggers a 32px circle with a '
+      '8px content gaps and 10px counted-button insets. Header shortcuts sit 6px apart on desktop. '
+      'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
     StyleguideExample(

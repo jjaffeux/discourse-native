@@ -44,7 +44,7 @@ class ContentNavigationControls extends StatelessWidget {
             child: DCard(
               variant: DCardVariant.capsule,
               size: DCardSize.small,
-              border: false,
+              borderColor: Colors.transparent,
               child: Semantics(
                 container: true,
                 explicitChildNodes: true,

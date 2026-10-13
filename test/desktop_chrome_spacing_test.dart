@@ -30,12 +30,12 @@ void main() {
           matching: find.byType(WorkspacePanel),
         );
         expect(panels, findsWidgets);
-        expect(titleBar.height, 53);
+        expect(titleBar.height, 49);
         expect(field.height, 36);
         expect(field.top - titleBar.top, 8.5);
-        expect(titleBar.bottom - field.bottom, 8.5);
+        expect(titleBar.bottom - field.bottom, 4.5);
         for (final panel in panels.evaluate()) {
-          expect(tester.getRect(find.byWidget(panel.widget)).top, 59);
+          expect(tester.getRect(find.byWidget(panel.widget)).top, 55);
         }
         if (find.byType(InstanceSidebar).evaluate().isNotEmpty) {
           expect(tester.getRect(find.byType(InstanceSidebar)).top, 0);
@@ -48,7 +48,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(InstanceSidebar), findsNothing);
         for (final panel in panels.evaluate()) {
-          expect(tester.getRect(find.byWidget(panel.widget)).top, 59);
+          expect(tester.getRect(find.byWidget(panel.widget)).top, 55);
         }
         final collapsedField = tester.getRect(find.byType(DInputGroup));
         await tester.tap(find.byKey(ForumSearch.inputKey));
@@ -81,9 +81,15 @@ void main() {
               )
               .first,
         );
-        expect(field.top - titleBar.top, closeTo(8.5, .01));
-        expect(titleBar.bottom - field.bottom, closeTo(8.5, .01));
-        expect(panel.top - field.bottom, closeTo(14.5, .01));
+        // The 36px profile grows with text, and the row reserves its full
+        // bounds plus the mockup's 8px top / 4px bottom padding.
+        final avatarHeight = 36 * scale;
+        expect(titleBar.height, avatarHeight + 12);
+        expect(
+          field.center.dy,
+          closeTo(titleBar.top + 8 + avatarHeight / 2, .01),
+        );
+        expect(panel.top - titleBar.bottom, 6);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),

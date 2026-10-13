@@ -10,7 +10,6 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -30,7 +29,7 @@ void main() {
     for (final chatEnabled in [false, true]) {
       for (final count in [0, 128]) {
         testWidgets(
-          'header uses standard gaps at $width, chat=$chatEnabled, count=$count',
+          'header matches mockup group gaps at $width, chat=$chatEnabled, count=$count',
           (tester) async {
             await _pump(
               tester,
@@ -56,11 +55,7 @@ void main() {
               expect(
                 current.left - previous.right,
                 closeTo(
-                  chatVisible &&
-                          index == 2 &&
-                          !tester.element(controls[index]).isTouch
-                      ? DSpacing.xs
-                      : DSpacing.controlGap,
+                  index == 1 || index == controls.length - 1 ? 11 : 6,
                   .01,
                 ),
                 reason: 'Gap before control $index',

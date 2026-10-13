@@ -19,6 +19,8 @@ import 'package:discourse_native/src/shell/desktop_header_menu.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +70,34 @@ void main() {
           dark: dark,
           scale: scale,
         );
+        final header = tester.getRect(find.byType(ShellTitleBar));
+        final search = tester.getRect(find.byType(DInputGroup));
+        final profile = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+        final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+        final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
+        final create = tester.getRect(find.byKey(TopicCreateButton.buttonKey));
+        final drafts = tester.getRect(
+          find.byKey(TopicCreateButton.draftsButtonKey),
+        );
+        expect(profile.size, Size.square(36 * scale));
+        expect(profile.right, header.right - 14);
+        expect(profile.left - bell.right, 11);
+        expect(bell.left - chat.right, 6);
+        expect(chat.left - drafts.right, 15);
+        expect(create.left - search.right, 14);
+        expect(create.height + 8, search.height);
+        expect(drafts.height + 8, search.height);
+        expect(profile.top, greaterThanOrEqualTo(header.top + 8));
+        expect(profile.bottom, lessThanOrEqualTo(header.bottom - 4));
+        if (scale == 1) {
+          expect(header.height, 49);
+          expect(search.height, 36);
+          expect(create.width, 36);
+          expect(drafts.width, 32);
+          expect(chat.height, 28);
+          expect(bell.height, 28);
+          expect(search.top - header.top, 8.5);
+        }
         await _capture(tester, 'shell-$width-$dark-$scale');
         await tester.tap(find.byKey(ChatHeaderButton.buttonKey));
         await tester.pumpAndSettle();

@@ -321,15 +321,15 @@ class MainFlutterWindow: NSWindow {
       let container = close.superview,
       let parent = container.superview
     else { return }
-    // Native controls share the Flutter chrome's 53pt row. Keep the title-bar
+    // Native controls share the Flutter chrome's 49pt row. Keep the title-bar
     // container at the window's top, including after live resizing.
     var frame = container.frame
-    frame.size.height = 53
+    frame.size.height = 49
     frame.origin.y = parent.bounds.height - frame.height
     container.frame = frame
     for (index, type) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
       guard let button = standardWindowButton(type) else { continue }
-      button.setFrameOrigin(NSPoint(x: 20 + CGFloat(index) * 20, y: (53 - button.frame.height) / 2))
+      button.setFrameOrigin(NSPoint(x: 20 + CGFloat(index) * 20, y: (49 - button.frame.height) / 2))
     }
   }
 

@@ -75,9 +75,72 @@ class _TopicCreateControl extends StatelessWidget {
         primaryAction ??
         TopicCreateAction(compact: compact, onPressed: onPressed);
     final instance = draftsInstance;
-    if (instance == null) return mainButton;
-
+    final header = primaryAction != null && !DControlStyle.isTouch(context);
     final tokens = DTokens.of(context);
+    Widget capsule(Widget child) => IntrinsicWidth(
+      child: DCard(
+        variant: DCardVariant.capsule,
+        size: DCardSize.small,
+        backgroundColor: tokens.buttonTheme.primary.background,
+        border: false,
+        child: child,
+      ),
+    );
+    if (instance == null) return header ? capsule(mainButton) : mainButton;
+
+    final drafts = DDropdownMenu(
+      key: ValueKey((
+        instance.url,
+        instance.user?.id,
+        controller.lifecycle.capture(instance.url).session,
+      )),
+      onOpenChange: (open, _) {
+        if (open) {
+          unawaited(controller.draftList.load(instance, refresh: true));
+        }
+      },
+      content: _draftsContent(context, instance),
+      child: DDropdownMenuTrigger(
+        builder: (context, state) => DButton.iconOnly(
+          key: TopicCreateButton.draftsButtonKey,
+          icon: DIcon(
+            header || primaryAction == null
+                ? DIcons.chevronDown
+                : DIcons.fileLines,
+            size: header ? 11 : null,
+          ),
+          tooltip: context.l10n.openTheLatestDraftsMenu,
+          semanticLabel: context.l10n.openTheLatestDraftsMenu,
+          onPressed: state.toggle,
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+          variant: DButtonVariant.primary,
+          shape: primaryAction == null
+              ? DButtonShape.rounded
+              : DButtonShape.pill,
+          size: header ? DButtonSize.chrome : DButtonSize.action,
+          density: header ? DButtonDensity.chrome : DButtonDensity.standard,
+        ),
+      ),
+    );
+    if (header) {
+      return capsule(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 2,
+          children: [
+            mainButton,
+            DSeparator(
+              orientation: Axis.vertical,
+              length: 16,
+              color: tokens.primaryForeground.withValues(alpha: .2),
+            ),
+            drafts,
+          ],
+        ),
+      );
+    }
     return IntrinsicWidth(
       child: DButtonGroup(
         mainAxisSize: MainAxisSize.max,
@@ -85,43 +148,7 @@ class _TopicCreateControl extends StatelessWidget {
         children: [
           DButtonGroupExpanded(child: mainButton),
           DButtonGroupSeparator(color: tokens.buttonTheme.primary.background),
-          DDropdownMenu(
-            key: ValueKey((
-              instance.url,
-              instance.user?.id,
-              controller.lifecycle.capture(instance.url).session,
-            )),
-            onOpenChange: (open, _) {
-              if (open) {
-                unawaited(controller.draftList.load(instance, refresh: true));
-              }
-            },
-            content: _draftsContent(context, instance),
-            child: DDropdownMenuTrigger(
-              builder: (context, state) {
-                final button = DButton.iconOnly(
-                  key: TopicCreateButton.draftsButtonKey,
-                  icon: DIcon(
-                    primaryAction == null
-                        ? DIcons.chevronDown
-                        : DIcons.fileLines,
-                  ),
-                  tooltip: context.l10n.openTheLatestDraftsMenu,
-                  semanticLabel: context.l10n.openTheLatestDraftsMenu,
-                  onPressed: state.toggle,
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                  variant: DButtonVariant.primary,
-                  shape: primaryAction == null
-                      ? DButtonShape.rounded
-                      : DButtonShape.pill,
-                  size: DButtonSize.action,
-                );
-                return button;
-              },
-            ),
-          ),
+          drafts,
         ],
       ),
     );

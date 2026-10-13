@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -40,7 +41,10 @@ class ShellTitleBar extends StatelessWidget {
   final DesktopPanelsLayout? panelsLayout;
 
   // Desktop mockup chrome row, including its vertical control insets.
-  static const double height = 53;
+  static const double height = 49;
+  static const double controlGap = 10;
+  static const double trailingInset = 14;
+  static const _rowPadding = EdgeInsets.only(top: 8, bottom: 4);
 
   // Every platform keeps account and search controls above the topic list.
   static bool get isSupported => true;
@@ -51,17 +55,7 @@ class ShellTitleBar extends StatelessWidget {
   static bool get columnsCarryUserMenu => !isSupported;
 
   static double heightFor(BuildContext context, double width) {
-    final searchSize = DControlStyle.isTouch(context)
-        ? DControlSize.large
-        : DControlSize.field;
-    final rowHeight =
-        height +
-        DControlStyle.scaledHeight(
-          searchSize,
-          MediaQuery.textScalerOf(context),
-          context: context,
-        ) -
-        DControlStyle.height(searchSize, context: context);
+    final rowHeight = _rowHeight(context);
     final stacked =
         width < 560 ||
         (width < 760 && MediaQuery.textScalerOf(context).scale(12) > 18);
@@ -70,6 +64,21 @@ class ShellTitleBar extends StatelessWidget {
 
   static int _actionRows(BuildContext context, double width) =>
       width < 440 && MediaQuery.textScalerOf(context).scale(12) > 18 ? 2 : 1;
+
+  static double _rowHeight(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final searchSize = DControlStyle.isTouch(context)
+        ? DControlSize.large
+        : DControlSize.field;
+    final searchHeight =
+        DControlStyle.scaledHeight(searchSize, scaler, context: context) +
+        (searchSize == DControlSize.field ? .5 : 0);
+    final avatarHeight = 36 * math.max(1, scaler.scale(14) / 14);
+    return math.max(
+      height,
+      math.max(searchHeight, avatarHeight) + _rowPadding.vertical,
+    );
+  }
 
   static void _toggleMaximized() {
     unawaited(_windowChannel.invokeMethod<void>('toggleMaximized'));
@@ -91,17 +100,7 @@ class ShellTitleBar extends StatelessWidget {
           final searchSize = DControlStyle.isTouch(context)
               ? DControlSize.large
               : DControlSize.field;
-          // Retain the mockup's clearance as the field grows with text.
-          final rowHeight =
-              height +
-              (showControls
-                  ? DControlStyle.scaledHeight(
-                          searchSize,
-                          MediaQuery.textScalerOf(context),
-                          context: context,
-                        ) -
-                        DControlStyle.height(searchSize, context: context)
-                  : 0);
+          final rowHeight = showControls ? _rowHeight(context) : height;
           // Large-text count capsules keep their full labels. At narrow desktop
           // widths, give account actions a second row below the window controls.
           final stacked =
@@ -115,18 +114,18 @@ class ShellTitleBar extends StatelessWidget {
           final actions = <Widget>[
             if (showControls) const _DesktopPrimaryAction(),
             if (showControls)
-              ...PluginScope.of(context).registry.shellHeaderActions(
-                context,
-                surface: PluginHeaderSurface.titleBar,
-                compact: stacked,
-                ringColor: surface,
-              ),
-            if (showControls)
               Padding(
-                padding: EdgeInsetsDirectional.only(
-                  end: stacked ? DSpacing.xs : DSpacing.sm,
+                padding: const EdgeInsetsDirectional.only(end: trailingInset),
+                child: UserMenuButton(
+                  ringColor: surface,
+                  leadingActions: PluginScope.of(context).registry
+                      .shellHeaderActions(
+                        context,
+                        surface: PluginHeaderSurface.titleBar,
+                        compact: stacked,
+                        ringColor: surface,
+                      ),
                 ),
-                child: UserMenuButton(ringColor: surface),
               ),
           ];
           return SizedBox(
@@ -157,16 +156,19 @@ class ShellTitleBar extends StatelessWidget {
                         children: [
                           SizedBox(
                             height: rowHeight,
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width:
-                                      leadingInset ??
-                                      (hasWindowChrome ? 94 : 8),
-                                ),
-                                search,
-                                const SizedBox(width: 8),
-                              ],
+                            child: Padding(
+                              padding: _rowPadding,
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width:
+                                        leadingInset ??
+                                        (hasWindowChrome ? 94 : 8),
+                                  ),
+                                  search,
+                                  const SizedBox(width: trailingInset),
+                                ],
+                              ),
                             ),
                           ),
                           SizedBox(
@@ -174,31 +176,37 @@ class ShellTitleBar extends StatelessWidget {
                                 rowHeight *
                                 _actionRows(context, constraints.maxWidth),
                             width: double.infinity,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Wrap(
-                                alignment: WrapAlignment.end,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                runSpacing: DSpacing.controlGap,
-                                children: actions,
+                            child: Padding(
+                              padding: _rowPadding,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Wrap(
+                                  alignment: WrapAlignment.end,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  runSpacing: controlGap,
+                                  children: actions,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       )
                     else
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: leadingInset ?? (hasWindowChrome ? 94 : 8),
-                          ),
-                          search,
-                          const SizedBox(width: DSpacing.controlGap),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions,
-                          ),
-                        ],
+                      Padding(
+                        padding: _rowPadding,
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: leadingInset ?? (hasWindowChrome ? 94 : 8),
+                            ),
+                            search,
+                            const SizedBox(width: controlGap),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: actions,
+                            ),
+                          ],
+                        ),
                       ),
                 ],
               ),
@@ -238,15 +246,34 @@ class _DesktopPrimaryAction extends StatelessWidget {
     Widget? action;
     if (route?.isTopic == true) {
       if (shell.canReplyHere) {
-        action = DButton.iconOnly(
+        action = DButton(
           key: const ValueKey('title-bar-reply'),
-          icon: const DIcon(DIcons.reply),
+          label: const DIcon(DIcons.reply, size: 14),
           tooltip: context.l10n.reply,
+          semanticLabel: context.l10n.reply,
           variant: DButtonVariant.primary,
           shape: DButtonShape.pill,
-          size: DButtonSize.action,
+          size: DControlStyle.isTouch(context)
+              ? DButtonSize.action
+              : DButtonSize.chrome,
+          density: DControlStyle.isTouch(context)
+              ? DButtonDensity.standard
+              : DButtonDensity.chrome,
           onPressed: shell.openReply,
         );
+        if (!DControlStyle.isTouch(context)) {
+          action = IntrinsicWidth(
+            child: DCard(
+              variant: DCardVariant.capsule,
+              size: DCardSize.small,
+              backgroundColor: DTokens.of(
+                context,
+              ).buttonTheme.primary.background,
+              border: false,
+              child: action,
+            ),
+          );
+        }
       }
     } else if (route?.isMessages == true) {
       if (shell.currentInstance?.isConnected == true &&
@@ -269,13 +296,19 @@ class _DesktopPrimaryAction extends StatelessWidget {
               : shell.openNewTopicFromSidebar(),
         ),
         alwaysShowDrafts: true,
-        primaryAction: DButton.iconOnly(
+        primaryAction: DButton(
           key: TopicCreateButton.buttonKey,
-          icon: const DIcon(DIcons.farPenToSquare),
+          label: const DIcon(DIcons.farPenToSquare, size: 14),
           tooltip: context.l10n.newTopic,
+          semanticLabel: context.l10n.newTopic,
           shape: DButtonShape.pill,
           variant: DButtonVariant.primary,
-          size: DButtonSize.action,
+          size: DControlStyle.isTouch(context)
+              ? DButtonSize.action
+              : DButtonSize.chrome,
+          density: DControlStyle.isTouch(context)
+              ? DButtonDensity.standard
+              : DButtonDensity.chrome,
           onPressed: () => unawaited(
             shell.canCreateTopicFromList
                 ? shell.openNewTopicFromList()
@@ -285,20 +318,24 @@ class _DesktopPrimaryAction extends StatelessWidget {
       );
     }
     final topic = shell.currentTopic;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: DSpacing.controlGap,
-      children: [
-        ?action,
-        if (route?.isTopic == true &&
-            topic?.privateMessage == true &&
-            shell.currentInstance?.user?.canSendPrivateMessages == true)
-          MessageArchiveButton(
-            siteUrl: shell.currentInstance!.url,
-            topic: topic!,
-          ),
-        if (action != null) const SizedBox(width: DSpacing.controlGap),
-      ],
+    return Padding(
+      padding: EdgeInsetsDirectional.only(
+        end: action == null ? 0 : ShellTitleBar.controlGap,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: ShellTitleBar.controlGap,
+        children: [
+          ?action,
+          if (route?.isTopic == true &&
+              topic?.privateMessage == true &&
+              shell.currentInstance?.user?.canSendPrivateMessages == true)
+            MessageArchiveButton(
+              siteUrl: shell.currentInstance!.url,
+              topic: topic!,
+            ),
+        ],
+      ),
     );
   }
 }

@@ -7,7 +7,7 @@ menu composition and split-control deltas from `6ba308a`, `05fe535`, `012ecab`,
 search, composer placement and material tokens.
 
 - Docked navigation runs from the window top. macOS traffic lights sit 20pt
-  from the leading edge and center on the 53pt chrome row. Navigation clears
+  from the leading edge and center on the 49pt chrome row. Navigation clears
   them, and the title bar starts above the document panels. The sidebar has no
   restored border. Collapsed navigation leaves the title bar its window width.
 - Every visible desktop panel ends its strip with an inline Native split toggle.
@@ -32,9 +32,20 @@ search, composer placement and material tokens.
   trailing corner. Existing topic/chat back-link clearance already uses the
   16pt inset below tabs, so those implementations are retained.
 
+Header sizing was rechecked against native-mockups `7c86328` and its live CSS
+layout on 2026-10-13. The row is 49pt; its 36pt search, creation capsule and
+profile are at 8.5pt from the top, with 4.5pt below. The profile has a 2pt border
+and 32pt image. Creation uses 28pt inner controls, 4pt capsule insets, 2pt gaps,
+and a 32pt drafts trigger. Separate groups have 10pt gaps and a 14pt trailing
+inset; chat and notifications retain the loose group's 6pt inner gap and 1pt
+side border clearance. The existing Native avatar and chrome presets own these
+bounds. At larger text sizes the row grows to fit the profile, and account
+controls wrap at narrow widths without expanding their hit targets.
+
 Validation: focused widget/unit files and targeted analysis; macOS debug build;
 native hide/restore inspection; real-font shell and menu renders at 1000/1440pt,
-light/dark, including 200% text. The narrow 200% large-count header failures at
-320pt desktop and 320/390pt mobile were reproduced on unchanged baseline with
-identical overflow measurements; they are excluded from the final focused run.
-The host's minimum desktop width is 380pt. No production fixture data is used.
+light/dark, including 200% text. Header size and gap assertions, profile pixels
+and hit bounds, keyboard/menu interactions, and large-count layouts at 320/390pt
+pass in their focused test files. A macOS Metal render confirms the production
+header composition. The host's minimum desktop width is 380pt. No production
+fixture data is used.

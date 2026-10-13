@@ -72,7 +72,7 @@ void main() {
               of: button,
               matching: find.byType(DAvatar),
             );
-            expect(bounds.size, Size.square(32 * scale));
+            expect(bounds.size, Size.square(36 * scale));
             expect(tester.getRect(avatar), bounds.deflate(2));
             expect(tester.getSemantics(button).rect.size, bounds.size);
 

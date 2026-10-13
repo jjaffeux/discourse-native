@@ -28,11 +28,19 @@ typedef _AccountAvatarSnapshot = ({
 });
 
 class UserMenuButton extends StatefulWidget {
-  const UserMenuButton({super.key, this.ringColor, this.compact = false});
+  const UserMenuButton({
+    super.key,
+    this.ringColor,
+    this.compact = false,
+    this.leadingActions,
+  });
 
   final Color? ringColor;
 
   final bool compact;
+
+  /// Header shortcuts share the notification group's inner spacing.
+  final List<Widget>? leadingActions;
 
   static const Key bellKey = ValueKey('user-menu-bell');
 
@@ -114,24 +122,38 @@ class _UserMenuButtonState extends State<UserMenuButton> {
           final connecting = account.connecting;
           final totals = controller.accountActivity.totalsFor(siteUrl);
           final unreadCount = totals?.coreBadge ?? 0;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: DSpacing.controlGap,
+          return Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: context.isTouch ? DSpacing.controlGap : 10,
+            runSpacing: 10,
             children: [
-              _AccountMenuPopover(
-                view: UserMenuView.notifications,
-                controller: _notifications,
-                onOpen: _profile.close,
-                connecting: connecting,
-                tooltip: context.l10n.notifications,
-                semanticLabel: unreadCount > 0
-                    ? context.l10n.notificationsUnread(unreadCount)
-                    : context.l10n.notifications,
-                notificationCount: unreadCount,
-                notificationColor: theme.discourse.notificationIndicator,
-                notificationSurface: widget.ringColor ?? theme.shell.content,
-                icon: DIcon(DIcons.bell, size: context.isTouch ? 20 : 17),
-                compact: widget.compact,
+              Padding(
+                padding: widget.leadingActions != null && !context.isTouch
+                    ? const EdgeInsets.symmetric(horizontal: 1, vertical: 4)
+                    : EdgeInsets.zero,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ...?widget.leadingActions,
+                    _AccountMenuPopover(
+                      view: UserMenuView.notifications,
+                      controller: _notifications,
+                      onOpen: _profile.close,
+                      connecting: connecting,
+                      tooltip: context.l10n.notifications,
+                      semanticLabel: unreadCount > 0
+                          ? context.l10n.notificationsUnread(unreadCount)
+                          : context.l10n.notifications,
+                      notificationCount: unreadCount,
+                      notificationColor: theme.discourse.notificationIndicator,
+                      notificationSurface:
+                          widget.ringColor ?? theme.shell.content,
+                      icon: DIcon(DIcons.bell, size: context.isTouch ? 20 : 17),
+                      compact: widget.compact,
+                    ),
+                  ],
+                ),
               ),
               _AccountMenuPopover(
                 view: UserMenuView.profile,
@@ -143,6 +165,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   (account.displayName ?? account.username).toString(),
                 ),
                 icon: Stack(
+                  fit: StackFit.expand,
                   clipBehavior: Clip.none,
                   children: [
                     UserMenuAvatar(

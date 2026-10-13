@@ -37,6 +37,20 @@ class MessageCreateButton extends StatelessWidget {
         controller.currentInstance?.user?.canSendPrivateMessages == true,
     builder: (context, permitted, _) {
       if (!permitted) return const SizedBox.shrink();
+      final header = pill && !dockAction && !DControlStyle.isTouch(context);
+      if (header && !showLabel) {
+        return DButton(
+          key: const ValueKey('new-message-button'),
+          label: const DIcon(DIcons.farPenToSquare, size: 14),
+          tooltip: context.l10n.newMessage,
+          semanticLabel: context.l10n.newMessage,
+          variant: DButtonVariant.primary,
+          shape: DButtonShape.pill,
+          size: DButtonSize.chrome,
+          density: DButtonDensity.chrome,
+          onPressed: () => _compose(context),
+        );
+      }
       final density = dockAction
           ? DButtonDensity.mobileDockAction
           : DButtonDensity.standard;
