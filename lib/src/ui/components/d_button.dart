@@ -60,6 +60,11 @@ enum DButtonShape { rounded, pill }
 enum DButtonDensity {
   standard,
 
+  /// Compact header shortcuts: 28px high, 32px icon-only targets, 12.5px
+  /// count labels, 8px content gaps and 10px horizontal label insets.
+  /// Geometry grows with text; popup, hover and focus use the chosen variant.
+  header,
+
   /// A 32px circular profile trigger with a 2px border against its avatar.
   /// Use an icon-only button with a borderless DAvatar. The image fills the
   /// interior; artwork and hit bounds grow with text.
@@ -491,6 +496,7 @@ class DButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final chrome = density == DButtonDensity.chrome;
+    final header = density == DButtonDensity.header;
     final variantStyle = _referenceStyle(tokens, dark);
 
     final mobileDock = density == DButtonDensity.mobileDock;
@@ -514,7 +520,9 @@ class DButton extends StatelessWidget {
         : ((avatar) || mobileDock || mobileDockAction || composerBlock
               ? DButtonSize.regular
               : size);
-    final fontSize = launcher
+    final fontSize = header
+        ? 12.5
+        : launcher
         ? 13.0
         : inlineMetadata
         ? 12.0
@@ -522,7 +530,9 @@ class DButton extends StatelessWidget {
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
     // Both dock densities scale artwork with the 11px destination labels.
-    final spacingUnit = chrome
+    final spacingUnit = header
+        ? 16.0
+        : chrome
         ? 15.0
         : backLink
         ? 11.0
@@ -531,7 +541,11 @@ class DButton extends StatelessWidget {
         : (chatMessageAction
               ? 16.0
               : (DControlStyle.iconDimension(effectiveSize, context: context)));
-    final gap = dashedTile ? 12.0 : DControlStyle.contentGap(effectiveSize);
+    final gap = header
+        ? 8.0
+        : dashedTile
+        ? 12.0
+        : DControlStyle.contentGap(effectiveSize);
     final standardDimension =
         DControlStyle.scaledHeight(
           effectiveSize,
@@ -545,7 +559,11 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = launcher
+    final visualDimension = header
+        ? 28 +
+              (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+                  1.5
+        : launcher
         ? launcherMinimumExtent(context)
         : resume
         ? resumeHeight(context)
@@ -597,7 +615,7 @@ class DButton extends StatelessWidget {
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
-    final surfaceWidth = chrome
+    final surfaceWidth = header || chrome
         ? visualDimension + 4
         : composerBlock
         ? composerBlockWidth(context)
@@ -713,7 +731,11 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (resume || launcher
+        (header
+            ? (_iconOnly
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 10, vertical: 1))
+            : resume || launcher
             ? const EdgeInsets.all(8)
             : avatar
             ? const EdgeInsets.all(2)
@@ -748,7 +770,7 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
-          height: inlineMetadata
+          height: header || inlineMetadata
               ? 1.5
               : mobileDock
               ? 13 / 11
@@ -757,7 +779,9 @@ class DButton extends StatelessWidget {
                     fontSize
               : DControlStyle.lineHeight(effectiveSize, context: context) /
                     fontSize,
-          fontWeight: mobileDock || backLink
+          fontWeight: header
+              ? FontWeight.w600
+              : mobileDock || backLink
               ? FontWeight.w500
               : variant == DButtonVariant.primary || dashedTile || launcher
               ? FontWeight.w600
@@ -967,12 +991,13 @@ class DButton extends StatelessWidget {
     if (avatar && _iconOnly) {
       child = SizedBox.expand(child: child);
     }
-    if ((mobileDock) ||
+    if (header ||
+        (mobileDock) ||
         mobileDockAction ||
         DControlStyle.isApplicationSize(effectiveSize)) {
       child = DIconGlyphTheme(
         scale: 1,
-        naturalWidth: DControlStyle.isApplicationSize(effectiveSize),
+        naturalWidth: header || DControlStyle.isApplicationSize(effectiveSize),
         child: child,
       );
     }

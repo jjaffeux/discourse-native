@@ -130,7 +130,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 notificationCount: unreadCount,
                 notificationColor: theme.discourse.notificationIndicator,
                 notificationSurface: widget.ringColor ?? theme.shell.content,
-                icon: const DIcon(DIcons.bell, size: 20),
+                icon: DIcon(DIcons.bell, size: context.isTouch ? 20 : 17),
                 compact: widget.compact,
               ),
               _AccountMenuPopover(
@@ -243,7 +243,11 @@ class _AccountMenuPopover extends StatelessWidget {
         variant: !isProfile && trigger.open
             ? DButtonVariant.primary
             : DButtonVariant.ghost,
-        density: isProfile ? DButtonDensity.avatar : DButtonDensity.standard,
+        density: isProfile
+            ? DButtonDensity.avatar
+            : context.isTouch
+            ? DButtonDensity.standard
+            : DButtonDensity.header,
         size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
         shape: DButtonShape.pill,
         backgroundColor: isProfile ? Colors.transparent : null,

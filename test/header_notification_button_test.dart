@@ -8,6 +8,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('large overlay counts keep the bell visible at 200% text', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: headerNotificationButton(
+                context,
+                key: const ValueKey('bell'),
+                countKey: const ValueKey('badge'),
+                icon: const DIcon(DIcons.bell, size: 17),
+                count: 128,
+                color: Theme.of(context).discourse.notificationIndicator,
+                surface: Theme.of(context).shell.content,
+                tooltip: 'Notifications',
+                semanticLabel: 'Notifications, 128 unread',
+                onPressed: () {},
+                overlayCount: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final glyph = tester.getRect(find.byType(DIcon));
+    final badge = tester.getRect(find.byKey(const ValueKey('badge')));
+    expect(badge.bottom - glyph.top, closeTo(6, .01));
+    expect(glyph.bottom - badge.bottom, greaterThan(10));
+    expect(find.text('99+'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final dark in [false, true]) {
     for (final expanded in [false, true]) {
       for (final overlay in [false, true]) {
@@ -32,7 +69,7 @@ void main() {
                             countKey: const ValueKey('count'),
                             icon: DIcon(
                               overlay ? DIcons.bell : DIcons.comment,
-                              size: 20,
+                              size: overlay ? 17 : 16,
                             ),
                             count: 3,
                             color: theme.discourse.success,
@@ -85,6 +122,26 @@ void main() {
                 find.descendant(of: button, matching: find.byType(DSeparator)),
                 overlay ? findsNothing : findsOneWidget,
               );
+              if (!overlay) {
+                final bounds = tester.getRect(button);
+                final glyph = tester.getRect(
+                  find.descendant(of: button, matching: find.byType(DIcon)),
+                );
+                final separator = tester.getRect(
+                  find.descendant(
+                    of: button,
+                    matching: find.byType(DSeparator),
+                  ),
+                );
+                final text = tester.getRect(count);
+                expect(bounds.height, 28);
+                expect(glyph.left - bounds.left, 10);
+                expect(separator.left - glyph.right, 8);
+                expect(text.left - separator.right, 8);
+                expect(bounds.right - text.right, 10);
+              } else {
+                expect(tester.getSize(button), const Size(32, 28));
+              }
               expect(
                 tester.getSemantics(button).label,
                 'Notifications, 3 unread',
@@ -139,7 +196,7 @@ void main() {
                                     countKey: ValueKey('count-$index'),
                                     icon: DIcon(
                                       index == 0 ? DIcons.comment : DIcons.bell,
-                                      size: 20,
+                                      size: index == 0 ? 16 : 17,
                                     ),
                                     count: 128,
                                     color: color,

@@ -110,7 +110,7 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
               countKey: urgentCount != null
                   ? ChatHeaderButton.urgentBadgeKey
                   : ChatHeaderButton.unreadDotKey,
-              icon: const DIcon(DIcons.comment, size: 20),
+              icon: DIcon(DIcons.comment, size: mobile ? 20 : 16),
               count: count,
               color: theme.discourse.success,
               surface: widget.ringColor ?? theme.shell.content,
@@ -131,7 +131,8 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
             expanded: expanded,
             variant: expanded ? DButtonVariant.primary : DButtonVariant.ghost,
             shape: DButtonShape.pill,
-            icon: const DIcon(DIcons.comment, size: 20),
+            density: mobile ? DButtonDensity.standard : DButtonDensity.header,
+            icon: DIcon(DIcons.comment, size: mobile ? 20 : 16),
           );
         }
 

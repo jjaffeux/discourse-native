@@ -3,6 +3,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/color_contrast.dart';
+import 'platform.dart';
 
 /// The header count control, composed from the existing Native button.
 /// Callers retain their notification policy, exact accessible count and popup.
@@ -49,16 +50,21 @@ DButton headerNotificationButton(
             icon,
             if (count > 0 && !expanded)
               PositionedDirectional(
-                top: -8,
+                // Anchor the badge's lower edge; its Native size can grow
+                // without covering more of the bell at larger text scales.
+                top: 6,
                 end: -3,
-                child: DBadge.overlay(
-                  key: countKey,
-                  backgroundColor: primary.background,
-                  foregroundColor: primary.foreground,
-                  ringColor: surface,
-                  child: Text(
-                    count > 99 ? '99+' : '$count',
-                    textDirection: TextDirection.ltr,
+                child: FractionalTranslation(
+                  translation: const Offset(0, -1),
+                  child: DBadge.overlay(
+                    key: countKey,
+                    backgroundColor: primary.background,
+                    foregroundColor: primary.foreground,
+                    ringColor: surface,
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      textDirection: TextDirection.ltr,
+                    ),
                   ),
                 ),
               ),
@@ -67,6 +73,9 @@ DButton headerNotificationButton(
       ),
       variant: variant,
       size: size,
+      density: context.isTouch
+          ? DButtonDensity.standard
+          : DButtonDensity.header,
       shape: DButtonShape.pill,
       tooltip: tooltip,
       semanticLabel: semanticLabel,
@@ -101,6 +110,7 @@ DButton headerNotificationButton(
     ),
     variant: variant,
     size: size,
+    density: context.isTouch ? DButtonDensity.standard : DButtonDensity.header,
     shape: DButtonShape.pill,
     foregroundColor: foreground,
     tooltip: tooltip,

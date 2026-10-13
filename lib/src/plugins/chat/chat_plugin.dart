@@ -843,7 +843,7 @@ class ChatPlugin
   }) => [
     ChatHeaderButton(
       ringColor: ringColor,
-      trailingSpacing: DSpacing.controlGap,
+      trailingSpacing: context.isTouch ? DSpacing.controlGap : DSpacing.xs,
     ),
   ];
 

@@ -21,6 +21,8 @@ final buttonExamples = ComponentExamples(
       'Buttons use the theme’s control radius and no shadows. General desktop controls use 24/34/40px surfaces; mobile uses 40/44/48px '
       'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette. '
+      'The header density uses 28px controls, 32px icon-only targets, 12.5px labels, '
+      '8px content gaps and 10px counted-button insets. Header shortcuts sit 4px apart on desktop. '
       'The avatar density gives icon-only profile triggers a 32px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
@@ -35,6 +37,27 @@ final buttonExamples = ComponentExamples(
         spacing: 12,
         children: [
           const MockupControlSizesExample(),
+          Row(
+            spacing: DSpacing.xs,
+            children: [
+              DButton(
+                density: DButtonDensity.header,
+                variant: DButtonVariant.ghost,
+                shape: DButtonShape.pill,
+                icon: const DIcon(DIcons.comment, size: 16),
+                label: const Text('49'),
+                onPressed: () {},
+              ),
+              DButton.iconOnly(
+                density: DButtonDensity.header,
+                variant: DButtonVariant.ghost,
+                shape: DButtonShape.pill,
+                icon: const DIcon(DIcons.bell, size: 17),
+                tooltip: 'Notifications',
+                onPressed: () {},
+              ),
+            ],
+          ),
           DButton(
             variant: DButtonVariant.inline,
             density: DButtonDensity.inlineMetadata,
@@ -1202,11 +1225,8 @@ class _ButtonRtl extends StatelessWidget {
   void _feedback(BuildContext context) => DToast.show(context, 'تم التفعيل');
 }
 
-void _buttonFeedback(BuildContext context) => DToast.show(
-  context,
-  'Button activated',
-
-);
+void _buttonFeedback(BuildContext context) =>
+    DToast.show(context, 'Button activated');
 
 class _MobileNavigationExample extends StatefulWidget {
   const _MobileNavigationExample();

@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -54,7 +55,14 @@ void main() {
               final current = tester.getRect(controls[index]);
               expect(
                 current.left - previous.right,
-                closeTo(DSpacing.controlGap, .01),
+                closeTo(
+                  chatVisible &&
+                          index == 2 &&
+                          !tester.element(controls[index]).isTouch
+                      ? DSpacing.xs
+                      : DSpacing.controlGap,
+                  .01,
+                ),
                 reason: 'Gap before control $index',
               );
             }
@@ -168,7 +176,7 @@ void main() {
       expect(control.variant, DButtonVariant.ghost);
       expect(control.backgroundColor, isNull);
       expect(control.foregroundColor, isNotNull);
-      expect(tester.getSize(button).height, 34);
+      expect(tester.getSize(button).height, 28);
       expect(tester.getSize(button).width, greaterThan(34));
       expect(
         tester.getSemantics(button),
