@@ -5,6 +5,40 @@ import XCTest
 @testable import Discourse
 
 class RunnerTests: XCTestCase {
+  func testFileDropViewPreservesFlutterCursorTargetsAndDropRegistration() {
+    let container = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+    let flutterContent = RecordingCursorView(frame: container.bounds)
+    flutterContent.autoresizingMask = [.width, .height]
+    let dropTarget = NSView(frame: container.bounds)
+    dropTarget.autoresizingMask = [.width, .height]
+    dropTarget.registerForDraggedTypes([.fileURL])
+    container.addSubview(flutterContent)
+    container.addSubview(dropTarget)
+    let headerPoint = NSPoint(x: 650, y: 580)
+    XCTAssertTrue(container.hitTest(headerPoint) === dropTarget)
+
+    routeDropTargetThroughFlutterContent(container)
+
+    XCTAssertTrue(container.hitTest(headerPoint) === flutterContent)
+    let cursorEvent = NSEvent.mouseEvent(
+      with: .mouseMoved, location: headerPoint, modifierFlags: [],
+      timestamp: 0, windowNumber: 0, context: nil,
+      eventNumber: 0, clickCount: 0, pressure: 0
+    )!
+    container.hitTest(headerPoint)?.cursorUpdate(with: cursorEvent)
+    XCTAssertEqual(flutterContent.cursorUpdateCount, 1)
+    XCTAssertTrue(flutterContent.superview === dropTarget)
+    XCTAssertTrue(flutterContent.nextResponder === dropTarget)
+    XCTAssertTrue(dropTarget.nextResponder === container)
+    XCTAssertEqual(dropTarget.registeredDraggedTypes, [.fileURL])
+    container.setFrameSize(NSSize(width: 1000, height: 700))
+    XCTAssertEqual(dropTarget.frame, container.bounds)
+    XCTAssertEqual(flutterContent.frame, dropTarget.bounds)
+    XCTAssertTrue(container.hitTest(NSPoint(x: 850, y: 680)) === flutterContent)
+    routeDropTargetThroughFlutterContent(container)
+    XCTAssertTrue(container.hitTest(NSPoint(x: 850, y: 680)) === flutterContent)
+  }
+
   func testFlutterScrollKeepsOwnershipWhenAnEmbedMovesUnderThePointer() {
     var routing = WebViewScrollRouting()
     XCTAssertFalse(routing.shouldForward(phase: .began, momentumPhase: [], overWebView: false))
@@ -123,6 +157,14 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual(launchScreen.logoView.frame.midY, launchScreen.bounds.midY)
     XCTAssertEqual(launchScreen.gradientLayer.frame, launchScreen.bounds)
     XCTAssertEqual(launchScreen.gradientLayer.colors?.count, 2)
+  }
+}
+
+private final class RecordingCursorView: NSView {
+  var cursorUpdateCount = 0
+
+  override func cursorUpdate(with event: NSEvent) {
+    cursorUpdateCount += 1
   }
 }
 

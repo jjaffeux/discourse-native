@@ -35,6 +35,39 @@ const _site = 'https://meta.discourse.org';
 const _captureKey = ValueKey('desktop-header-capture');
 
 void main() {
+  testWidgets('all desktop header actions show the hand cursor on hover', (
+    tester,
+  ) async {
+    await _pump(tester, width: 1000, dark: true, scale: 1);
+    final mouse = await tester.createGesture(
+      kind: ui.PointerDeviceKind.mouse,
+      pointer: 1,
+    );
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    for (final key in [
+      TopicCreateButton.buttonKey,
+      TopicCreateButton.draftsButtonKey,
+      ChatHeaderButton.buttonKey,
+      UserMenuButton.bellKey,
+      UserMenuButton.avatarKey,
+    ]) {
+      final rect = tester.getRect(find.byKey(key));
+      for (final point in [
+        rect.center,
+        Offset(rect.left + 2, rect.center.dy),
+        Offset(rect.right - 2, rect.center.dy),
+      ]) {
+        await mouse.moveTo(point);
+        await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.click,
+          reason: '$key at $point',
+        );
+      }
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(

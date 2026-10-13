@@ -66,6 +66,7 @@ class MainFlutterWindow: NSWindow {
     self.launchScreen = launchScreen
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    routeDropTargetThroughFlutterContent(flutterViewController.view)
     videoThumbnails.attach(to: flutterViewController.engine.binaryMessenger)
     pdfThumbnails.attach(to: flutterViewController.engine.binaryMessenger)
     MacOSPushNotifications.shared.attach(
@@ -448,6 +449,20 @@ final class LaunchScreenView: NSView {
 
 func disableContentViewWindowDragging(_ window: NSWindow) {
   window.isMovableByWindowBackground = false
+}
+
+// desktop_drop's full-window view must be an ancestor of the Flutter surface.
+// As an overlay it receives AppKit cursor updates instead of Flutter, restoring
+// the arrow after the framework has selected a button's pointing-hand cursor.
+// Keeping the registered drop view in the responder chain retains file drops.
+func routeDropTargetThroughFlutterContent(_ container: NSView) {
+  guard let dropTarget = container.subviews.first(where: {
+    $0.registeredDraggedTypes.contains(.fileURL)
+  }) else { return }
+  for content in container.subviews where content !== dropTarget {
+    content.removeFromSuperview()
+    dropTarget.addSubview(content)
+  }
 }
 
 func toggleWindowZoom(_ window: NSWindow) {
