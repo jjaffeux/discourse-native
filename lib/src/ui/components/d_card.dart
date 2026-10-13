@@ -159,6 +159,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
           radius: radius,
           color: surfaceColor,
           preserveColor: compactCapsule,
+          insetEdges: compactCapsule,
           child: DMaterialBatch(
             child: CustomPaint(
               foregroundPainter: border && dashedBorder

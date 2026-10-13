@@ -328,8 +328,13 @@ class _InsetEdges extends CustomPainter {
         ),
     );
     // inset 0 -1px 0 white: the light catches only the bottom of the well.
+    final bottom = Path.combine(
+      PathOperation.difference,
+      Path()..addRRect(shape),
+      Path()..addRRect(shape.shift(const Offset(0, -1))),
+    );
     canvas.drawPath(
-      outside(const Offset(0, -1)),
+      bottom,
       Paint()..color = Colors.white.withValues(alpha: dark ? .08 : .8),
     );
     canvas.restore();

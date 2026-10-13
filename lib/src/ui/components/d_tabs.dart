@@ -425,6 +425,7 @@ class DTabList<T> extends StatelessWidget {
                 child: DMaterialSurface(
                   depth: DSurfaceDepth.recessed,
                   preserveColor: true,
+                  insetEdges: true,
                   color: well,
                   radius: BorderRadius.circular(DRadius.pill),
                   child: DecoratedBox(
