@@ -387,13 +387,15 @@ void main() {
         tester.element(find.byType(MainContent).first),
       );
       shell.selectInstance(0);
-      shell.pushContent(ContentRoute.newTab());
       final closedId = shell.activeTabId!;
       shell.closeTab(closedId);
-      expect(
-        shell.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
-        contains(closedId),
-      );
+      shell.createTab(panel: ForumPanel.main);
+      final startId = shell.activeTabId!;
+      expect(shell.currentContent?.isNewTab, isTrue);
+      shell.closeTab(startId);
+      expect(shell.recentlyClosedTabsForCurrentForum.map((tab) => tab.id), [
+        closedId,
+      ]);
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
 
@@ -402,11 +404,16 @@ void main() {
         startPageItem(ValueKey('start-page-recent-closed-$closedId')),
         findsOneWidget,
       );
+      expect(
+        startPageItem(ValueKey('start-page-recent-closed-$startId')),
+        findsNothing,
+      );
       await tester.tap(
         startPageItem(ValueKey('start-page-recent-closed-$closedId')),
       );
       await tester.pumpAndSettle();
       expect(shell.activeTabId, closedId);
+      expect(shell.currentContent?.isNewTab, isFalse);
     } finally {
       debugDefaultTargetPlatformOverride = previousPlatform;
     }

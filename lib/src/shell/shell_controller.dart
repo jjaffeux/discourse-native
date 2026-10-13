@@ -17951,6 +17951,7 @@ class ShellController extends FrameSafeNotifier
     required ForumTab tab,
     required int index,
   }) {
+    if (tab.currentContent.isNewTab) return;
     _closedForumTabs.removeWhere(
       (closed) =>
           closed.siteUrl == siteUrl &&

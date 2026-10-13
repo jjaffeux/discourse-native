@@ -781,6 +781,35 @@ void main() {
         _expectNewTabRoot(controller);
       });
 
+      test('ignores a closed Start page even after visiting content', () {
+        controller.pushContent(_topic(101, 'Visited topic'));
+        controller.pushContent(ContentRoute.newTab());
+        final closedTabId = controller.activeTabId!;
+
+        controller.closeTab(closedTabId);
+
+        expect(controller.currentWorkspace?.tabById(closedTabId), isNull);
+        _expectNewTabRoot(controller);
+        expect(controller.recentlyClosedTabsForCurrentForum, isEmpty);
+        expect(controller.reopenClosedTab(closedTabId), isFalse);
+        expect(controller.reopenClosedTab(), isFalse);
+      });
+
+      test('closing Start pages preserves earlier closed content tabs', () {
+        final contentTab = controller.activeTab!;
+        controller.closeTab(contentTab.id);
+
+        for (var index = 0; index <= ForumWorkspace.maximumTabs; index++) {
+          _expectNewTabRoot(controller);
+          controller.closeTab(controller.activeTabId!);
+        }
+
+        expect(controller.recentlyClosedTabsForCurrentForum, [contentTab]);
+        expect(controller.reopenClosedTab(), isTrue);
+        expect(controller.activeTab, contentTab);
+        expect(controller.reopenClosedTab(), isFalse);
+      });
+
       test('closing the last tab in a panel opens a Start page there', () {
         controller.desktopTopicTabs = true;
         final mainId = controller.activeTabId!;
@@ -882,6 +911,9 @@ void main() {
         final secondTabId = controller.activeTabId!;
         controller.createTab();
         final thirdTabId = controller.activeTabId!;
+        controller.pushContent(_topic(303, 'Third tab topic'));
+        controller.createTab();
+        final startTabId = controller.activeTabId!;
 
         controller.closeOtherTabs(secondTabId);
 
@@ -889,12 +921,14 @@ void main() {
           controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
           [firstTabId, thirdTabId],
         );
+        expect(controller.reopenClosedTab(startTabId), isFalse);
         expect(controller.reopenClosedTab(thirdTabId), isTrue);
         expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
           secondTabId,
           thirdTabId,
         ]);
         expect(controller.activeTabId, thirdTabId);
+        expect(controller.currentContent?.topicId, 303);
         expect(
           controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
           [firstTabId],
