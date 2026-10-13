@@ -12,7 +12,7 @@ void main() {
   for (final dark in [false, true]) {
     for (final glass in [false, true]) {
       testWidgets(
-        'split view keeps neutral artwork and only hovers in glass (dark: $dark, glass: $glass)',
+        'split view shows a circular hover surface (dark: $dark, glass: $glass)',
         (tester) async {
           final strategy = FocusManager.instance.highlightStrategy;
           FocusManager.instance.highlightStrategy =
@@ -27,26 +27,30 @@ void main() {
                 ? DAppearanceMaterial.liquidGlass
                 : DAppearanceMaterial.standard,
           );
+          const boundaryKey = ValueKey('split-hover-pixels');
           await tester.pumpWidget(
             MaterialApp(
               theme: theme,
               home: Scaffold(
                 body: Center(
-                  child: DToggle.iconOnly(
-                    density: DToggleDensity.splitView,
-                    semanticLabel: 'Hide split view',
-                    pressed: true,
-                    focusNode: focus,
-                    onPressedChanged: (_) => activations++,
-                    icon: const DLayoutGlyph(
-                      mainVisible: true,
-                      secondaryVisible: true,
-                      changingPanel: 0,
-                    ),
-                    interactiveIcon: const DLayoutGlyph(
-                      mainVisible: false,
-                      secondaryVisible: true,
-                      changingPanel: 0,
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    child: DToggle.iconOnly(
+                      density: DToggleDensity.splitView,
+                      semanticLabel: 'Hide split view',
+                      pressed: true,
+                      focusNode: focus,
+                      onPressedChanged: (_) => activations++,
+                      icon: const DLayoutGlyph(
+                        mainVisible: true,
+                        secondaryVisible: true,
+                        changingPanel: 0,
+                      ),
+                      interactiveIcon: const DLayoutGlyph(
+                        mainVisible: false,
+                        secondaryVisible: true,
+                        changingPanel: 0,
+                      ),
                     ),
                   ),
                 ),
@@ -75,6 +79,23 @@ void main() {
           expect(ink(), neutral);
           expect(decoration().color, Colors.transparent);
           expect(decoration().borderRadius, BorderRadius.circular(999));
+          Future<List<int>> pixels() async => (await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(boundaryKey),
+            );
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            image.dispose();
+            return bytes!.buffer.asUint8List();
+          }))!;
+          // Outside the glyph, the control is bare until hovered. Its
+          // painted circular surface must also survive standard appearance.
+          final restingPixels = await pixels();
+          const sideAlpha = (18 * 36 + 3) * 4 + 3;
+          const cornerAlpha = (1 * 36 + 1) * 4 + 3;
+          expect(restingPixels[sideAlpha], 0);
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
           );
@@ -82,11 +103,14 @@ void main() {
           addTearDown(mouse.removePointer);
           await mouse.moveTo(bounds.center);
           await tester.pumpAndSettle();
+          final hoverPixels = await pixels();
+          expect(hoverPixels[sideAlpha], greaterThan(0));
+          expect(hoverPixels[cornerAlpha], 0);
           expect(ink(), neutral);
-          expect(decoration().color!.a, glass ? .28 : 0);
+          expect(decoration().color!.a, glass ? .28 : (dark ? .09 : .06));
           expect(
             (decoration().border! as Border).top.color.a,
-            glass ? (dark ? .14 : .75) : 0,
+            glass ? (dark ? .14 : .75) : .14,
           );
           expect(tester.getRect(toggle), bounds);
           expect(

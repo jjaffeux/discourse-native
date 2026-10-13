@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -89,6 +91,23 @@ void main() {
       expect(tester.widget<DLayoutGlyph>(splitIcon).mainVisible, isTrue);
       expect(tester.widget<DToggle>(split).density, DToggleDensity.splitView);
       expect(tester.widget<DToggle>(split).pressed, isTrue);
+      final splitArt = find.descendant(
+        of: split,
+        matching: find.byType(AnimatedContainer),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(split));
+      await tester.pumpAndSettle();
+      final hover =
+          tester.widget<AnimatedContainer>(splitArt).decoration!
+              as BoxDecoration;
+      expect(hover.color!.a, greaterThan(0));
+      expect((hover.border! as Border).top.color.a, greaterThan(0));
+      expect(hover.borderRadius, BorderRadius.circular(999));
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
       final splitWidth = tester.getSize(mainPanel).width;
       await tester.tap(split);
       await tester.pumpAndSettle();
