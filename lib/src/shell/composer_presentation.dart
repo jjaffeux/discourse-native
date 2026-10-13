@@ -440,7 +440,7 @@ class _ComposerPresentationScope extends InheritedWidget {
   bool updateShouldNotify(_ComposerPresentationScope oldWidget) => true;
 }
 
-/// Reserves space for the editor alongside the desktop workspace or mobile page.
+/// Docks desktop editors and floats minimized mobile editors over the reader.
 class ComposerDock extends StatefulWidget {
   const ComposerDock({
     super.key,
@@ -451,6 +451,13 @@ class ComposerDock extends StatefulWidget {
   final Widget child;
   final bool appWorkspace;
   final bool enabled;
+
+  /// Space for mobile chrome above a minimized composer that overlays the page.
+  static double bottomOverlayInsetOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_ComposerBottomOverlay>()
+          ?.inset ??
+      0;
 
   /// The edge of the app workspace whose border is owned by the resize handle.
   /// Null when there is no expanded app-level composer.
@@ -474,6 +481,14 @@ class _ComposerWorkspaceScope extends InheritedWidget {
   @override
   bool updateShouldNotify(_ComposerWorkspaceScope oldWidget) =>
       placement != oldWidget.placement;
+}
+
+class _ComposerBottomOverlay extends InheritedWidget {
+  const _ComposerBottomOverlay({required this.inset, required super.child});
+  final double inset;
+  @override
+  bool updateShouldNotify(_ComposerBottomOverlay oldWidget) =>
+      inset != oldWidget.inset;
 }
 
 class _ComposerDockState extends State<ComposerDock> {
@@ -640,23 +655,45 @@ class _ComposerDockState extends State<ComposerDock> {
           final width = mobile
               ? constraints.maxWidth - 12
               : math.min(constraints.maxWidth - 12, 460.0);
+          if (mobile) {
+            final bottom = MediaQuery.viewPaddingOf(context).bottom;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                _ComposerBottomOverlay(
+                  inset: height + 8,
+                  child: readerViewport(),
+                ),
+                PositionedDirectional(
+                  start: 6,
+                  end: 6,
+                  bottom: bottom,
+                  child: SizedBox(
+                    height: height,
+                    child: owner._surface(
+                      entry,
+                      placement: ComposerPlacement.fullScreen,
+                      mobile: true,
+                      size: Size(width, height),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
           final content = Column(
             children: [
               Expanded(child: readerViewport()),
               Padding(
-                padding: mobile
-                    ? const EdgeInsets.fromLTRB(6, 8, 6, 0)
-                    : const EdgeInsets.fromLTRB(6, 8, 6, 6),
+                padding: const EdgeInsets.fromLTRB(6, 8, 6, 6),
                 child: Center(
                   child: SizedBox(
                     width: width,
                     height: height,
                     child: owner._surface(
                       entry,
-                      placement: mobile
-                          ? ComposerPlacement.fullScreen
-                          : placement,
-                      mobile: mobile,
+                      placement: placement,
+                      mobile: false,
                       size: Size(width, height),
                     ),
                   ),
@@ -664,17 +701,7 @@ class _ComposerDockState extends State<ComposerDock> {
               ),
             ],
           );
-          // Consume the home-indicator inset once for both the resume strip
-          // and its reader's dock, including while the keyboard dismisses.
-          return mobile
-              ? SafeArea(
-                  top: false,
-                  left: false,
-                  right: false,
-                  maintainBottomViewPadding: true,
-                  child: content,
-                )
-              : content;
+          return content;
         }
         if (mobile || placement == ComposerPlacement.fullScreen) {
           return Stack(

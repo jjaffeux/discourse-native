@@ -1082,6 +1082,21 @@ void main() {
 
       final shell = await pumpMobileShellFixture(
         tester,
+        topics: const bool.fromEnvironment('captureMobileChrome')
+            ? [
+                const Topic(
+                  id: 7,
+                  title: 'A long community discussion',
+                  slug: 'shared',
+                ),
+                for (var id = 8; id < 30; id++)
+                  Topic(
+                    id: id,
+                    title: 'Community discussion $id',
+                    slug: 'discussion-$id',
+                  ),
+              ]
+            : null,
         topic: topicPayload(
           id: 7,
           title: 'A long community discussion',
@@ -1105,6 +1120,10 @@ void main() {
         ),
       );
       if (const bool.fromEnvironment('captureMobileChrome')) {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewPadding);
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
             font: ForumFont.lato,
@@ -1125,7 +1144,7 @@ void main() {
           );
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
           await File(
-            '/private/tmp/discourse-mobile-parity-$name.png',
+            '/private/tmp/discourse-mobile-parity-${Theme.of(tester.element(_header)).platform.name}-$name.png',
           ).writeAsBytes(bytes!.buffer.asUint8List());
           image.dispose();
           scene.dispose();
@@ -1133,6 +1152,19 @@ void main() {
       }
 
       await capture('root');
+      if (const bool.fromEnvironment('captureMobileChrome')) {
+        await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-close')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Minimize'));
+        await tester.pumpAndSettle();
+        await capture('root-minimized');
+        await tester.tap(find.byKey(const ValueKey('composer-restore')));
+        await tester.pumpAndSettle();
+        shell.closeComposer();
+        await tester.pumpAndSettle();
+      }
       final controls = tester.getRect(
         find.byKey(const ValueKey('topic-list-feed-row')),
       );
@@ -1163,6 +1195,12 @@ void main() {
           .descendant(of: reader, matching: find.byType(CustomScrollView))
           .first;
       await tester.drag(list, const Offset(0, -850));
+      if (const bool.fromEnvironment('captureMobileChrome')) {
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 33));
+          await capture('fold-${frame.toString().padLeft(2, '0')}');
+        }
+      }
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('topic-header-compact-layout')),
@@ -1176,6 +1214,12 @@ void main() {
       final offset = controller.offset;
       await capture('reader-folded');
       await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
+      if (const bool.fromEnvironment('captureMobileChrome')) {
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 33));
+          await capture('unfold-${frame.toString().padLeft(2, '0')}');
+        }
+      }
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('topic-header-compact-layout')),
@@ -1604,13 +1648,21 @@ void main() {
   _mobileTest('minimized composer and dock consume the bottom safe area once', (
     tester,
   ) async {
-    await pumpMobileShellFixture(tester);
+    await pumpMobileShellFixture(
+      tester,
+      topics: [
+        for (var id = 7; id < 30; id++)
+          Topic(id: id, title: 'Discussion $id', slug: 'discussion-$id'),
+      ],
+    );
     final bottom = 34.0 * tester.view.devicePixelRatio;
     tester.view.padding = FakeViewPadding(bottom: bottom);
     tester.view.viewPadding = FakeViewPadding(bottom: bottom);
     addTearDown(tester.view.resetPadding);
     addTearDown(tester.view.resetViewPadding);
     await tester.pumpAndSettle();
+    final listElement = tester.element(find.byType(TopicListView));
+    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('composer-close')));
@@ -1625,7 +1677,28 @@ void main() {
     );
     expect(tester.getRect(restore).left, closeTo(dock.left, .01));
     expect(tester.getRect(restore).right, closeTo(dock.right, .01));
+    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
+    expect(tester.element(find.byType(TopicListView)), same(listElement));
     expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
+    final list = find
+        .descendant(
+          of: find.byType(TopicListView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    expect(tester.getRect(list).bottom, phone.height);
+    await tester.drag(list, const Offset(0, -5000));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const ValueKey('topic-card-29'))).bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const ValueKey('mobile-dock-surface'))).top,
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey('topic-card-29')).hitTestable(),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

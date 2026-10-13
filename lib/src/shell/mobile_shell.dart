@@ -10,6 +10,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'composer_presentation.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
@@ -402,7 +403,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         6,
                         6,
                         6,
-                        6 + MediaQuery.paddingOf(context).bottom,
+                        6 +
+                            MediaQuery.paddingOf(context).bottom +
+                            ComposerDock.bottomOverlayInsetOf(context),
                       ),
                       child: LayoutBuilder(
                         builder: (context, constraints) => _buildBottomBar(

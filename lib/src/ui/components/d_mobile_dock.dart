@@ -2,11 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_mobile_dock_item.dart';
 
 /// A floating capsule whose destinations divide the space left by its action.
 /// Natural label and badge widths determine overflow before the row is painted.
@@ -34,8 +36,82 @@ class DMobileDock extends StatefulWidget {
   State<DMobileDock> createState() => _DMobileDockState();
 }
 
-class _DMobileDockState extends State<DMobileDock> {
+class _DMobileDockState extends State<DMobileDock>
+    with SingleTickerProviderStateMixin {
   int? _shown;
+  double _anchor = 20;
+  late final _ticker = createTicker(_step);
+  late double _phase;
+  double _velocity = 0;
+  Duration? _lastElapsed;
+  bool _spring = false;
+  final _motion = LiquidGlassMorphMotion.plain.copyWith(damping: 26);
+
+  @override
+  void initState() {
+    super.initState();
+    _phase = widget.collapsed ? 1 : 0;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _spring =
+        DMaterialTheme.glassOf(context) &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!_spring) {
+      _ticker.stop();
+      _phase = widget.collapsed ? 1 : 0;
+      _velocity = 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(DMobileDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.collapsed != widget.collapsed) {
+      if (_spring) {
+        if (!_ticker.isActive) {
+          _lastElapsed = null;
+          _ticker.start();
+        }
+      } else {
+        _phase = widget.collapsed ? 1 : 0;
+      }
+    }
+  }
+
+  void _step(Duration elapsed) {
+    final dt = _lastElapsed == null
+        ? 1 / 60.0
+        : (elapsed - _lastElapsed!).inMicroseconds / 1000000;
+    _lastElapsed = elapsed;
+    final target = widget.collapsed ? 1.0 : 0.0;
+    final (phase, velocity) = liquidGlassSpringStep(
+      x: _phase,
+      vel: _velocity,
+      target: target,
+      dt: dt.clamp(0, .064),
+      stiffness: _motion.stiffness,
+      damping: _motion.damping,
+    );
+    setState(() {
+      _phase = phase;
+      _velocity = velocity;
+      if ((_phase - target).abs() < .001 && _velocity.abs() < .01) {
+        _phase = target;
+        _velocity = 0;
+        _ticker.stop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
   bool get collapsed => widget.collapsed;
   bool get destinationsHidden => widget.destinationsHidden;
   List<Widget> get destinations => widget.destinations;
@@ -46,6 +122,12 @@ class _DMobileDockState extends State<DMobileDock> {
     if (!mounted) return;
     if (_shown != shown) setState(() => _shown = shown);
     widget.onOverflowChanged(shown);
+  }
+
+  void _anchorChanged(double anchor) {
+    if (mounted && (_anchor - anchor).abs() > .5) {
+      setState(() => _anchor = anchor);
+    }
   }
 
   Widget _destination(Widget child) => ExcludeSemantics(
@@ -65,24 +147,33 @@ class _DMobileDockState extends State<DMobileDock> {
         MediaQuery.textScalerOf(context).scale(11) - 11,
       );
       final round = 48 + growth;
-      final inset = collapsed ? 4.0 : 6.0;
+      final phase = _spring ? _phase.clamp(0.0, 1.0) : (collapsed ? 1.0 : 0.0);
+      final inset = 6 - 2 * phase;
+      final navOpacity = _spring
+          ? (1 - phase / .35).clamp(0.0, 1.0)
+          : (collapsed ? 0.0 : 1.0);
+      final revealOpacity = _spring
+          ? ((phase - .35) / .35).clamp(0.0, 1.0)
+          : (collapsed ? 1.0 : 0.0);
       final radius = BorderRadius.circular(999);
       final tokens = DTokens.of(context);
-      // This surface floats over reading content. Retain its tint instead of
-      // applying the faint transparency used for wells inside opaque panels.
-      final well = Color.lerp(
-        tokens.background,
-        tokens.foreground,
-        .12,
-      )!.withValues(alpha: DMaterialTheme.reducedOf(context) ? 1 : .94);
-      return Align(
+      final glass = DMaterialTheme.glassOf(context);
+      // Frost supplies readability in glass appearance while leaving enough
+      // of the live backdrop visible for refraction. Standard keeps its fill.
+      final well = Color.lerp(tokens.background, tokens.foreground, .12)!
+          .withValues(
+            alpha: DMaterialTheme.reducedOf(context) ? 1 : (glass ? .72 : .94),
+          );
+      final capsule = Align(
         alignment: AlignmentDirectional.bottomStart,
         heightFactor: 1,
         child: AnimatedContainer(
           key: const ValueKey('mobile-dock-surface'),
-          duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
+          duration: reduced || _spring
+              ? Duration.zero
+              : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
-          width: collapsed ? round : constraints.maxWidth,
+          width: constraints.maxWidth + (round - constraints.maxWidth) * phase,
           decoration: BoxDecoration(
             color: DMaterialSurface.fill(context, well),
             borderRadius: radius,
@@ -90,30 +181,30 @@ class _DMobileDockState extends State<DMobileDock> {
           child: DMaterialSurface(
             color: well,
             radius: radius,
-            depth: DSurfaceDepth.recessed,
+            depth: glass ? DSurfaceDepth.raised : DSurfaceDepth.recessed,
             preserveColor: true,
             // Paint the 62px capsule before insetting its 50px controls. The
             // surround remains visible in both standard and glass appearance.
             child: AnimatedPadding(
               padding: EdgeInsets.all(inset),
-              duration: reduced
+              duration: reduced || _spring
                   ? Duration.zero
                   : const Duration(milliseconds: 420),
               curve: const Cubic(.32, .72, 0, 1),
               child: ClipRRect(
                 borderRadius: radius,
                 child: SizedBox(
-                  height: collapsed ? round - 8 : 50 + growth,
+                  height: 50 + growth - 10 * phase,
                   child: Stack(
                     alignment: AlignmentDirectional.centerStart,
                     children: [
                       ExcludeSemantics(
-                        excluding: collapsed,
+                        excluding: collapsed || navOpacity < 1,
                         child: IgnorePointer(
-                          ignoring: collapsed,
+                          ignoring: collapsed || navOpacity < 1,
                           child: AnimatedOpacity(
-                            opacity: collapsed ? 0 : 1,
-                            duration: reduced
+                            opacity: navOpacity,
+                            duration: reduced || _spring
                                 ? Duration.zero
                                 : const Duration(milliseconds: 100),
                             child: OverflowBox(
@@ -123,6 +214,11 @@ class _DMobileDockState extends State<DMobileDock> {
                               child: _DockRow(
                                 direction: Directionality.of(context),
                                 onOverflowChanged: _overflow,
+                                selected: destinations.indexWhere(
+                                  (item) =>
+                                      item is DMobileDockItem && item.selected,
+                                ),
+                                onAnchorChanged: _anchorChanged,
                                 count: destinations.length,
                                 actionExtent: 50 + growth,
                                 children: [
@@ -148,11 +244,33 @@ class _DMobileDockState extends State<DMobileDock> {
                           ),
                         ),
                       ),
-                      if (collapsed)
-                        SizedBox(
-                          width: round - 8,
-                          height: round - 8,
-                          child: collapsedDestination,
+                      if (collapsed || revealOpacity > 0)
+                        ExcludeSemantics(
+                          excluding: !collapsed || revealOpacity < 1,
+                          child: IgnorePointer(
+                            ignoring: !collapsed || revealOpacity < 1,
+                            child: Opacity(
+                              opacity: revealOpacity,
+                              child: Transform.translate(
+                                offset: Offset(
+                                  _spring
+                                      ? (_anchor - (round - 8) / 2) *
+                                            (1 - phase) *
+                                            (Directionality.of(context) ==
+                                                    TextDirection.ltr
+                                                ? 1
+                                                : -1)
+                                      : 0,
+                                  0,
+                                ),
+                                child: SizedBox(
+                                  width: round - 8,
+                                  height: round - 8,
+                                  child: collapsedDestination,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -162,6 +280,17 @@ class _DMobileDockState extends State<DMobileDock> {
           ),
         ),
       );
+      // Reserve the open footer extent while only its artwork morphs. This
+      // keeps scroll clearance and anchors stable throughout a reversal.
+      return _spring
+          ? SizedBox(
+              height: 62 + growth,
+              child: Align(
+                alignment: AlignmentDirectional.bottomStart,
+                child: capsule,
+              ),
+            )
+          : capsule;
     },
   );
 }
@@ -172,18 +301,35 @@ class _DockRow extends MultiChildRenderObjectWidget {
     required this.actionExtent,
     required this.direction,
     required this.onOverflowChanged,
+    required this.selected,
+    required this.onAnchorChanged,
     required super.children,
   });
   final int count;
   final double actionExtent;
   final TextDirection direction;
   final ValueChanged<int> onOverflowChanged;
+  final int selected;
+  final ValueChanged<double> onAnchorChanged;
   @override
-  _RenderDockRow createRenderObject(BuildContext context) =>
-      _RenderDockRow(count, actionExtent, direction, onOverflowChanged);
+  _RenderDockRow createRenderObject(BuildContext context) => _RenderDockRow(
+    count,
+    actionExtent,
+    direction,
+    onOverflowChanged,
+    selected,
+    onAnchorChanged,
+  );
   @override
   void updateRenderObject(BuildContext context, _RenderDockRow renderObject) {
-    renderObject.update(count, actionExtent, direction, onOverflowChanged);
+    renderObject.update(
+      count,
+      actionExtent,
+      direction,
+      onOverflowChanged,
+      selected,
+      onAnchorChanged,
+    );
   }
 }
 
@@ -200,11 +346,16 @@ class _RenderDockRow extends RenderBox
     this.actionExtent,
     this.direction,
     this.onOverflowChanged,
+    this.selected,
+    this.onAnchorChanged,
   );
   int count;
   double actionExtent;
   TextDirection direction;
   ValueChanged<int> onOverflowChanged;
+  int selected;
+  ValueChanged<double> onAnchorChanged;
+  double? _reportedAnchor;
   int? _reported;
   int _shown = 0;
   void update(
@@ -212,11 +363,15 @@ class _RenderDockRow extends RenderBox
     double nextExtent,
     TextDirection nextDirection,
     ValueChanged<int> callback,
+    int nextSelected,
+    ValueChanged<double> anchorCallback,
   ) {
     count = nextCount;
     actionExtent = nextExtent;
     direction = nextDirection;
     onOverflowChanged = callback;
+    selected = nextSelected;
+    onAnchorChanged = anchorCallback;
     markNeedsLayout();
   }
 
@@ -267,6 +422,15 @@ class _RenderDockRow extends RenderBox
     final itemWidth = shown == 0
         ? 0.0
         : math.max(0.0, (navWidth - moreWidth) / shown);
+    final anchor = selected >= 0 && selected < shown
+        ? (selected + .5) * itemWidth
+        : shown * itemWidth + moreWidth / 2;
+    if (_reportedAnchor == null || (_reportedAnchor! - anchor).abs() > .5) {
+      _reportedAnchor = anchor;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (attached) onAnchorChanged(anchor);
+      });
+    }
     var x = 0.0;
     var height = 0.0;
     void place(RenderBox box, double slot, bool visible) {

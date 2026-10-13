@@ -340,6 +340,7 @@ class _MainContentBody extends StatelessWidget {
             : null,
         child: SafeArea(
           left: false,
+          bottom: !ShellScope.read(context).mobileNavigationEnabled,
           child: Column(
             children: [
               Expanded(
@@ -426,6 +427,7 @@ class _MainContentBody extends StatelessWidget {
           : null,
       child: SafeArea(
         left: false,
+        bottom: !ShellScope.read(context).mobileNavigationEnabled,
         child: DPageSurface(
           border: false,
           borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
