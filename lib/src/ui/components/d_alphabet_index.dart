@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../theme/d_icon.dart';
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_card.dart';
 
@@ -174,7 +175,7 @@ class _DAlphabetIndexState<T> extends State<DAlphabetIndex<T>> {
                                   : Text(
                                       widget.entries[i].label,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: DiscourseTypography.micro,
                                         fontWeight: FontWeight.w700,
                                         color:
                                             (_held == i ||
@@ -216,7 +217,7 @@ class _DAlphabetIndexState<T> extends State<DAlphabetIndex<T>> {
                                   : Text(
                                       widget.entries[held].label,
                                       style: TextStyle(
-                                        fontSize: 20,
+                                        fontSize: DiscourseTypography.magnifier,
                                         fontWeight: FontWeight.w800,
                                         color: tokens.primaryForeground,
                                       ),

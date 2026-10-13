@@ -420,7 +420,7 @@ void main() {
           await tester.pump();
           expect(actions, 1);
           if (mobile) {
-            expect(tester.getSize(find.byType(DDragHandle<int>)).height, 44);
+            expect(tester.getSize(find.byType(DDragHandle<int>)).height, 30);
           }
           final gesture = await tester.startGesture(
             tester.getCenter(find.byType(DDragHandle<int>)),

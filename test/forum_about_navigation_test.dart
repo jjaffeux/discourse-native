@@ -7,12 +7,15 @@ import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/forum_about_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -68,6 +71,10 @@ void main() {
         api: api,
         authenticator: auth,
         revealMobileNavigation: false,
+        pluginManifest: PluginManifest([
+          ...bundledWidgetTestManifest.modules,
+          voiceModule,
+        ]),
       );
       final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.openCorePageUrl('$siteUrl/about'), isTrue);

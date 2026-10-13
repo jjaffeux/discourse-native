@@ -73,20 +73,20 @@ void main() {
       );
     });
 
-    test('the Voice child package is only the native iOS bridge', () {
+    test('the Voice child package owns the native iOS and WebRTC bridge', () {
       const pubspecPath = '$_voicePackagePath/pubspec.yaml';
       final pubspec = File(pubspecPath).readAsStringSync();
       final dependencies = _mappingKeys(pubspec, 'dependencies');
 
-      expect(dependencies, {'flutter'});
+      expect(dependencies, {'flutter', 'flutter_webrtc'});
 
       final lock = File('$_voicePackagePath/pubspec.lock').readAsStringSync();
       expect(
         _mappingKeys(lock, 'packages').intersection(_voiceGraphPackages),
-        isEmpty,
+        {'flutter_webrtc'},
         reason:
-            'The native bridge must not depend back on the main package or '
-            'own the Dart media graph.',
+            'The native picture-in-picture adapter needs WebRTC, while '
+            'the application owns the LiveKit service graph.',
       );
     });
 
@@ -308,7 +308,15 @@ void main() {
         podspec,
         contains("'discourse_voice/Sources/discourse_voice/**/*'"),
       );
-      expect(podspec, contains("'AVFoundation', 'CallKit'"));
+      for (final framework in [
+        'AVFoundation',
+        'CallKit',
+        'AVKit',
+        'CoreImage',
+      ]) {
+        expect(podspec, contains("'$framework'"));
+      }
+      expect(podspec, contains("s.dependency 'flutter_webrtc'"));
 
       final swiftPackage = File(
         '$_voicePackagePath/ios/discourse_voice/Package.swift',

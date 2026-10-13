@@ -416,7 +416,7 @@ void main() {
       DIconSet.defaultSet,
     );
     expect(
-      () => SharedAppearance.fromJson(const {'version': 3}),
+      () => SharedAppearance.fromJson(const {'version': 4}),
       throwsFormatException,
     );
     // An older shared theme's own tint colour becomes the accent tint, which

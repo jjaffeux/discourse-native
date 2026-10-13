@@ -36,7 +36,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll = topicPostList(tester).controller!;
       final post = find.byKey(const ValueKey('topic-post-keyboard-102'));
-      Rect viewport() => tester.getRect(topicPostListFinder());
+      Rect viewport() => topicReadingViewportRect(tester);
       expect(tester.getSize(post).height, greaterThan(viewport().height * 2));
 
       var pages = 0;
@@ -131,7 +131,7 @@ void main() {
       await tester.pumpAndSettle();
       final postId = 100 + postNumber;
       final post = find.byKey(ValueKey('topic-post-keyboard-$postId'));
-      Rect viewport() => tester.getRect(topicPostListFinder());
+      Rect viewport() => topicReadingViewportRect(tester);
       var pages = 0;
       while (tester.getRect(post).bottom > viewport().bottom + 0.5) {
         expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);

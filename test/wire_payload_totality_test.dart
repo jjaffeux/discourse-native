@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discover_site.dart';
+import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -53,6 +54,8 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_conversations_data.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_conversations_service.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_data.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -67,6 +70,7 @@ import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_lin
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:discourse_native/src/plugins/voice/voice_agents.dart';
 import 'package:discourse_native/src/plugins/voice/voice_diagnostics_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
@@ -380,6 +384,10 @@ void _recordCorpusShapes(Object? value, Set<String> reached) {
 /// Site parsers that refuse a payload with a [FormatException] on purpose,
 /// and why their callers want the throw rather than a default.
 const _rejectsOnPurpose = {
+  'ForumAbout':
+      'The About endpoint requires an about object; its loader reports a failed response.',
+  'AiConversationPage':
+      'Conversation pages require a row list and metadata; their loader reports malformed responses.',
   'UserDirectoryColumn':
       'A column without a name has nothing to label or sort by; '
       'UserDirectoryMetadata.fromColumns drops that column and keeps the rest.',
@@ -464,6 +472,63 @@ void main() {
       // row is dropped without: [valid] on even runs, so the parse reaches
       // past it, and [loose] on odd runs, so the parser meets garbage there.
       Object? gate(Object? valid) => run.isEven ? valid : loose;
+
+      probe(
+        'ForumAbout',
+        () => ForumAbout.fromJson(
+          withFields({
+            'about': gate(
+              withFields({
+                'title': loose,
+                'stats': gate({'users_count': loose}),
+              }),
+            ),
+          }),
+        ),
+        (about) => about.title.isNotEmpty || about.stats.isNotEmpty,
+      );
+      probe(
+        'AiConversationPage',
+        () => AiConversationPage.fromJson(
+          withFields({
+            'conversations': gate([
+              withFields({'id': loose, 'title': loose}),
+            ]),
+            'meta': gate({'page': loose, 'has_more': loose}),
+          }),
+          7,
+        ),
+        (page) =>
+            page.conversations.isNotEmpty || page.page != 7 || page.hasMore,
+      );
+      probe(
+        'AiBotUser',
+        () => AiBotUser.fromWire(
+          withFields({
+            'ai_enabled_chat_bots': gate([
+              {'id': gate(1), 'username': loose, 'is_agent': loose},
+            ]),
+            'ai_enabled_agents': gate([
+              {'username': loose, 'allow_personal_messages': gate(true)},
+            ]),
+          }),
+        ),
+        (user) => user.hasPersonalMessageBot,
+      );
+      probe(
+        'SolvedPost',
+        () => SolvedPost.fromJson(
+          withFields({
+            'accepted_answer': loose,
+            'can_accept_answer': gate(true),
+            'can_unaccept_answer': loose,
+          }),
+        ),
+        (post) =>
+            post?.accepted == true ||
+            post?.canAccept == true ||
+            post?.canUnaccept == true,
+      );
 
       probe(
         'DiscourseBadge',
@@ -2299,6 +2364,8 @@ void main() {
       // This app's own storage, read back by codecs that answer null or a
       // default for a value they cannot read.
       'AggregateTabPreferences',
+      // Local scroll-header preferences, never a server payload.
+      'DHeaderTuning',
       'ForumTab',
       'ForumTabLocation',
       'ForumWorkspace',

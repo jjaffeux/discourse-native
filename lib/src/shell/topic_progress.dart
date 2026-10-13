@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import '../theme/discourse_typography.dart';
 
 import 'shell_controller.dart';
 
@@ -294,7 +295,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
             key: const ValueKey('topic-progress-selection'),
             style: TextStyle(
               color: DTokens.of(context).foreground,
-              fontSize: 12.5,
+              fontSize: DiscourseTypography.preview,
               height: 1.5,
               fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],

@@ -1636,14 +1636,17 @@ void main() {
         await wheel(200);
         expect(bar.hitTestable(), findsNothing);
         final hiddenBottom = tester.getBottomLeft(bar).dy;
-        await wheel(-20);
-        expect(tester.getBottomLeft(bar).dy, greaterThan(hiddenBottom + 20));
-        expect(bar.hitTestable(), findsOneWidget);
         final headerHeight = tester
             .getSize(find.byKey(const ValueKey('chat-channel-header')))
             .height;
+        // The channel identity is revealed before the pinned row below it.
+        await tester.pump(const Duration(milliseconds: 401));
+        await wheel(-headerHeight - 60);
+        expect(tester.getBottomLeft(bar).dy, greaterThan(hiddenBottom + 20));
+        expect(bar.hitTestable(), findsOneWidget);
         await wheel(-headerHeight - tester.getSize(bar).height);
         expect(bar.hitTestable(), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 401));
         await wheel(2000);
         expect(position.pixels, 0);
         expect(bar.hitTestable(), findsNothing);
@@ -3100,10 +3103,7 @@ void main() {
       expect(floatingSecond, findsOneWidget);
       expect(tester.getSize(floatingSecond).height, StreamDaySeparator.height);
       final floatingDecoration = buttonSurface(tester, of: floatingSecond);
-      expect(
-        floatingDecoration.color,
-        Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .10),
-      );
+      expect(floatingDecoration.color, theme.shell.content);
       expect(
         floatingDecoration.borderColor,
         Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .12),

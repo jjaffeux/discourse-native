@@ -419,7 +419,10 @@ void _expectRegularDButton(
   final size = tester.getSize(target);
   expect(button.size, DButtonSize.action);
   expect(button.variant, DButtonVariant.primary);
-  const dimension = DControlStyle.regularHeight;
+  final dimension = DControlStyle.height(
+    DControlSize.action,
+    context: tester.element(target),
+  );
   expect(size.height, dimension);
   if (iconOnly) {
     expect(size.width, dimension);

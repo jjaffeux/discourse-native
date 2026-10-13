@@ -1545,7 +1545,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
             text: TextSpan(
               text: value.isEmpty ? widget.placeholder : value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 12.5,
+                fontSize: DiscourseTypography.preview,
                 height: 1.5,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,

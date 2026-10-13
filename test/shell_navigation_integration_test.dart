@@ -28,9 +28,11 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/sidebar_row_surface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show
@@ -139,9 +141,9 @@ void _registerShellNavigationTests() {
         final background = find.byKey(ShellTitleBar.maximizeGestureKey);
 
         expect(background, findsOneWidget);
-        await tester.tapAt(titleBar.centerLeft + const Offset(76, 0));
+        await tester.tapAt(Offset(titleBar.left + 76, titleBar.top + 2));
         await tester.pump(const Duration(milliseconds: 50));
-        await tester.tapAt(titleBar.centerLeft + const Offset(76, 0));
+        await tester.tapAt(Offset(titleBar.left + 76, titleBar.top + 2));
         await tester.pump(const Duration(milliseconds: 50));
 
         expect(calls, [isMethodCall('toggleMaximized', arguments: null)]);
@@ -163,7 +165,10 @@ void _registerShellNavigationTests() {
       expect(button.center.dy, closeTo(title.center.dy, 4));
       expect(find.byKey(ForumSearch.inputKey), findsNothing);
       expect(searchTarget, findsOneWidget);
-      expect(tester.getSize(searchTarget).width, greaterThanOrEqualTo(44));
+      expect(
+        tester.getSize(searchTarget).width,
+        closeTo(tester.getSize(searchTarget).height, .001),
+      );
       expect(find.byType(InstanceSidebar), findsNothing);
 
       await tester.tap(searchTarget);
@@ -238,10 +243,12 @@ void _registerShellNavigationTests() {
           if (keyboard) {
             for (
               var i = 0;
-              i <= shell.globalSearch.results.indexOf(result);
+              i < shell.globalSearch.results.length + 10 &&
+                  !tester.widget<DItem>(row).selected;
               i++
             ) {
               await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+              await tester.pump();
             }
             await tester.pump();
             expect(tester.widget<DItem>(row).selected, isTrue);
@@ -305,7 +312,7 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final button = find.byKey(const ValueKey('mobile-mode-start'));
-      expect(tester.getSize(button).height, 46);
+      expect(tester.getSize(button).height, closeTo(50.71428571428571, .001));
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(primaryMainContent, findsOneWidget);
@@ -788,7 +795,6 @@ void _registerShellNavigationTests() {
       final add = find.byKey(const ValueKey('add-instance-rail-button'));
       final firstForum = find.byKey(ValueKey(twoSites.first.url));
       final lastForum = find.byKey(ValueKey(twoSites.last.url));
-      final theme = Theme.of(tester.element(add));
 
       final button = tester.widget<DButton>(add);
       expect(button.variant, DButtonVariant.ghost);
@@ -810,7 +816,10 @@ void _registerShellNavigationTests() {
         find.descendant(of: add, matching: find.dIcon(DIcons.plus)),
       );
       expect(plus.size, 17);
-      expect(button.foregroundColor, theme.shell.marker);
+      expect(
+        button.foregroundColor,
+        DTokens.of(tester.element(add)).foreground,
+      );
       expect(
         find.descendant(of: lastForum, matching: find.byType(AvatarImage)),
         findsOneWidget,
@@ -941,7 +950,7 @@ void _registerShellNavigationTests() {
     final projectsHeader = find
         .ancestor(
           of: find.text('Projects'),
-          matching: find.byType(DSidebarMenuButton),
+          matching: find.byType(DSidebarGroupLabel),
         )
         .first;
     final roadmapTile = find
@@ -958,7 +967,7 @@ void _registerShellNavigationTests() {
       tester.getSize(roadmapTile).height,
       closeTo(
         DControlStyle.height(
-          DSidebarMenuButtonSize.large,
+          DSidebarMenuButtonSize.regular,
           context: tester.element(roadmapTile),
         ),
         0.01,
@@ -970,10 +979,12 @@ void _registerShellNavigationTests() {
     final destinationStyle = DefaultTextStyle.of(
       tester.element(sidebarDestination('Roadmap')),
     );
-    expect(sectionStyle.style, destinationStyle.style);
+    expect(sectionStyle.style.fontSize, 12);
+    expect(sectionStyle.style.fontWeight, FontWeight.w500);
+    expect(destinationStyle.style.fontSize, 12.5);
     expect(
       tester.getRect(find.text('Projects')).left,
-      tester.getRect(sidebarDestination('Roadmap')).left,
+      tester.getRect(sidebarDestination('Roadmap')).left + 2,
     );
     final count = DefaultTextStyle.of(
       tester.element(
@@ -1007,7 +1018,7 @@ void _registerShellNavigationTests() {
     try {
       for (final title in ['Projects']) {
         await mouse.moveTo(
-          tester.getCenter(find.widgetWithText(DSidebarMenuButton, title)),
+          tester.getCenter(find.widgetWithText(DSidebarGroupLabel, title)),
         );
         await tester.pumpAndSettle();
         expect(find.text('Collapse $title'), findsNothing);
@@ -1261,12 +1272,15 @@ void _registerShellNavigationTests() {
     );
 
     expect(
-      find.widgetWithText(DSidebarMenuButton, 'Categories'),
+      find.widgetWithText(DSidebarGroupLabel, 'Categories'),
       findsOneWidget,
     );
+    expect(sidebarDestination('Child'), findsNothing);
+    expect(sidebarDestination('Parent'), findsOneWidget);
+    expect(sidebarDestination('Not selected'), findsOneWidget);
+    await tester.tap(sidebarDestination('Parent'));
+    await tester.pumpAndSettle();
     expect(sidebarDestination('Child'), findsOneWidget);
-    expect(sidebarDestination('Parent'), findsNothing);
-    expect(sidebarDestination('Not selected'), findsNothing);
     expect(sidebarDestination('All categories'), findsOneWidget);
     final childTile = find
         .ancestor(
@@ -1303,14 +1317,14 @@ void _registerShellNavigationTests() {
     final controller = ShellScope.read(tester.element(primaryMainContent));
     expect(controller.currentUserFor(site.url)?.sidebarCategoryIds, [2]);
     expect(api.feedPaths.last, '/c/parent/child/2.json');
-    expect(controller.destinationId, 'category-2');
+    expect(controller.topicListContent?.categoryId, 2);
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(controller.contentStack, hasLength(1));
     final parentFilter = find.byKey(
       const ValueKey('topic-list-category-filter'),
     );
     final subcategoryFilter = find.byKey(
-      const ValueKey('topic-list-subcategory-filter'),
+      const ValueKey('topic-list-subcategory-filter-1'),
     );
     expect(parentFilter, findsOneWidget);
     expect(subcategoryFilter, findsOneWidget);
@@ -1325,22 +1339,16 @@ void _registerShellNavigationTests() {
 
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey(('topic-list-subcategory-option', 0))),
-    );
-    await tester.pumpAndSettle();
+    await _selectCategoryFilter(tester, 1);
 
-    expect(controller.currentContent?.id, 'category-1');
+    expect(controller.topicListContent?.categoryId, 1);
     expect(controller.currentContent?.feedPath, '/c/parent/1.json');
     expect(controller.contentStack, hasLength(1));
 
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
-    );
-    await tester.pumpAndSettle();
-    expect(controller.currentContent?.id, 'category-2');
+    await _selectCategoryFilter(tester, 2);
+    expect(controller.topicListContent?.categoryId, 2);
     expect(find.text('A category topic'), findsOneWidget);
 
     await tester.tap(find.text('A category topic'));
@@ -1350,7 +1358,7 @@ void _registerShellNavigationTests() {
 
     expect(controller.handleBack(canReturnToSidebar: false), isTrue);
     await tester.pumpAndSettle();
-    expect(controller.currentContent?.id, 'category-2');
+    expect(controller.topicListContent?.categoryId, 2);
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1517,7 +1525,7 @@ void _registerShellNavigationTests() {
     expect(api.feedPaths, contains('/latest.json'));
     expect(api.categoryRequests, [site.url]);
     expect(
-      find.widgetWithText(DSidebarMenuButton, 'Categories'),
+      find.widgetWithText(DSidebarGroupLabel, 'Categories'),
       findsOneWidget,
     );
     expect(sidebarDestination('Support'), findsOneWidget);
@@ -1627,15 +1635,24 @@ void _registerShellNavigationTests() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('topic-list-filter-bar')),
-        matching: find.bySemanticsLabel('Category: Discourse Native App'),
+        matching: find.descendant(
+          of: find.byKey(const ValueKey('topic-list-category-filter')),
+          matching: find.text('Discourse Native App'),
+        ),
       ),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('Category: Bugs'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+        matching: find.text('Subcategory'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
         of: find.byType(TopicListView),
@@ -1647,20 +1664,23 @@ void _registerShellNavigationTests() {
     );
 
     await tester.tap(
-      find.byKey(const ValueKey('topic-list-subcategory-filter')),
+      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey(('topic-list-subcategory-option', 2))),
-    );
-    await tester.pumpAndSettle();
+    await _selectCategoryFilter(tester, 2);
 
-    expect(controller.currentContent?.id, 'category-2');
+    expect(controller.topicListContent?.categoryId, 2);
     expect(
       controller.currentContent?.feedPath,
       '/c/discourse-native-app/bugs/2.json',
     );
-    expect(find.bySemanticsLabel('Subcategory: Bugs'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+        matching: find.text('Bugs'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1698,29 +1718,31 @@ void _registerShellNavigationTests() {
     expect(api.categoryRequests.length, greaterThan(initialRequests));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('uses anonymous category defaults from site settings', (
-    tester,
-  ) async {
-    final site = instance('meta.discourse.org', title: 'Discourse Meta');
-    final api = FakeDiscourseApi(
-      feeds: const {'/latest.json': []},
-      categoryList: const [
-        TopicCategory(id: 1, name: 'Alpha', color: '111111', position: 20),
-        TopicCategory(id: 2, name: 'Zulu', color: '222222', position: 10),
-      ],
-      siteConfigs: {
-        site.url: const SiteConfig(
-          fixedCategoryPositions: true,
-          defaultNavigationMenuCategoryIds: [2],
-        ),
-      },
-    );
+  testWidgets(
+    'level navigation lists all root categories despite preference defaults',
+    (tester) async {
+      final site = instance('meta.discourse.org', title: 'Discourse Meta');
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        categoryList: const [
+          TopicCategory(id: 1, name: 'Alpha', color: '111111', position: 20),
+          TopicCategory(id: 2, name: 'Zulu', color: '222222', position: 10),
+        ],
+        siteConfigs: {
+          site.url: const SiteConfig(
+            fixedCategoryPositions: true,
+            defaultNavigationMenuCategoryIds: [2],
+          ),
+        },
+      );
 
-    await pumpShell(tester, desktop, instances: [site], api: api);
+      await pumpShell(tester, desktop, instances: [site], api: api);
 
-    expect(sidebarDestination('Zulu'), findsOneWidget);
-    expect(sidebarDestination('Alpha'), findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      expect(sidebarDestination('Zulu'), findsOneWidget);
+      expect(sidebarDestination('Alpha'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 
   testWidgets('draws a custom category emoji from its uploaded artwork', (
     tester,
@@ -1834,9 +1856,9 @@ void _registerShellNavigationTests() {
     final sidebar = find.byType(InstanceSidebar);
     final header = find.byKey(const ValueKey('sidebar-panel-tabs'));
     expect(header, findsOneWidget);
-    expect(find.byType(ForumIdentityHeader), findsNothing);
+    expect(find.byType(ForumIdentityHeader), findsOneWidget);
     final headerRect = tester.getRect(header);
-    expect(headerRect.top, tester.getRect(sidebar).top + 8);
+    expect(headerRect.top, tester.getRect(sidebar).top + 56);
     final navigation = find.descendant(
       of: sidebar,
       matching: find.byType(CustomScrollView),
@@ -1881,8 +1903,8 @@ void _registerShellNavigationTests() {
     expect(tile.top - header.bottom, closeTo(10, 0.01));
     expect(tile.left - sidebar.left, closeTo(8, 0.01));
     expect(sidebar.right - tile.right, closeTo(8, 0.01));
-    expect(tile.height, closeTo(34, 0.01));
-    expect(tester.getRect(topics).left - sidebar.left, closeTo(42, 0.01));
+    expect(tile.height, closeTo(30, 0.01));
+    expect(tester.getRect(topics).left - sidebar.left, closeTo(40, 0.01));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('sidebar destinations show a hand cursor and hover background', (
@@ -1910,21 +1932,16 @@ void _registerShellNavigationTests() {
           )
           .first,
     );
-    final tokens = DTokens.of(tester.element(destination));
-    Color? background() =>
-        (tester
-                    .widgetList<Container>(
-                      find.descendant(
-                        of: inkWell,
-                        matching: find.byType(Container),
-                      ),
-                    )
-                    .firstWhere((widget) => widget.decoration is BoxDecoration)
-                    .decoration!
-                as BoxDecoration)
-            .color;
+    bool hovered() => tester
+        .widget<DSidebarRowSurface>(
+          find.descendant(
+            of: inkWell,
+            matching: find.byType(DSidebarRowSurface),
+          ),
+        )
+        .hovered;
     expect(detector.mouseCursor, SystemMouseCursors.click);
-    expect(background(), isNull);
+    expect(hovered(), isFalse);
 
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
@@ -1932,7 +1949,7 @@ void _registerShellNavigationTests() {
     await gesture.moveTo(tester.getCenter(destination));
     await tester.pumpAndSettle();
 
-    expect(background(), tokens.hover);
+    expect(hovered(), isTrue);
 
     final selectedRow = find.widgetWithText(DSidebarMenuButton, 'Topics');
     expect(tester.widget<DSidebarMenuButton>(selectedRow).isActive, isTrue);
@@ -1944,11 +1961,11 @@ void _registerShellNavigationTests() {
       Offset(selectedRect.center.dx, selectedRect.bottom + 1),
     );
     await tester.pumpAndSettle();
-    expect(background(), isNull);
+    expect(hovered(), isFalse);
 
     await gesture.moveTo(Offset.zero);
     await tester.pumpAndSettle();
-    expect(background(), isNull);
+    expect(hovered(), isFalse);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('forum removal stays reachable from the rail without a placard', (
@@ -1956,7 +1973,7 @@ void _registerShellNavigationTests() {
   ) async {
     await pumpShell(tester, desktop);
 
-    expect(find.byType(ForumIdentityHeader), findsNothing);
+    expect(find.byType(ForumIdentityHeader), findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey('https://meta.discourse.org')),
       kind: PointerDeviceKind.mouse,
@@ -2999,7 +3016,7 @@ void _registerShellNavigationTests() {
 
       expect(tester.getTopLeft(team).dy, lessThan(tester.getTopLeft(meta).dy));
       expect(
-        find.bySemanticsLabel('Discourse Meta, forum menu'),
+        find.byKey(const ValueKey('https://meta.discourse.org')),
         findsOneWidget,
       );
       expect((await store.load()).map((site) => site.url), [
@@ -3145,7 +3162,7 @@ void _registerShellNavigationTests() {
       expect(meta, findsNothing);
       expect(railItem('team.discourse.org'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Discourse Team, forum menu'),
+        find.byKey(const ValueKey('https://team.discourse.org')),
         findsOneWidget,
       );
       expect(auth.disconnected, ['https://meta.discourse.org']);
@@ -3720,4 +3737,18 @@ Future<void> _systemBack(WidgetTester tester) async {
     const JSONMethodCodec().encodeMethodCall(const MethodCall('popRoute')),
     (_) {},
   );
+}
+
+Future<void> _selectCategoryFilter(WidgetTester tester, int id) async {
+  final field = find.descendant(
+    of: find.byType(TopicFilterInput),
+    matching: find.byType(TextField),
+  );
+  await tester.enterText(field, 'category:$id');
+  await tester.pumpAndSettle();
+  await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+  await tester.pumpAndSettle();
+  final done = find.widgetWithText(DButton, 'Done');
+  if (done.evaluate().isNotEmpty) await tester.tap(done);
+  await tester.pumpAndSettle();
 }

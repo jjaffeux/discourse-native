@@ -121,7 +121,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel(RegExp('Paris:')).first);
       await tester.pumpAndSettle();
       expect(find.text('Paris'), findsOneWidget);
-      expect(find.textContaining('Device'), findsOneWidget);
+      expect(find.text('UTC'), findsWidgets);
     },
   );
 

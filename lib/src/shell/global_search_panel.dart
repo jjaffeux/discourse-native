@@ -1483,7 +1483,7 @@ class _RecentQuery extends StatelessWidget {
         if (expression.order != null)
           DBadge(
             variant: DBadgeVariant.secondary,
-            child: Text('order: ${expression.order}'),
+            child: Text('${context.l10n.ordering}: ${expression.order}'),
           ),
       ],
     );

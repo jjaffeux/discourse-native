@@ -41,13 +41,20 @@ const descriptionKey = Key('description');
 Widget sample(DItemSize size) => DItem(
   size: size,
   variant: DItemVariant.outline,
-  children: const [
+  children: [
     DItemMedia(
       key: mediaKey,
       variant: DItemMediaVariant.avatar,
-      child: ColoredBox(color: Colors.blue),
+      child: SizedBox.square(
+        dimension: switch (size) {
+          DItemSize.standard => 40,
+          DItemSize.sm => 32,
+          DItemSize.xs => 24,
+        },
+        child: const ColoredBox(color: Colors.blue),
+      ),
     ),
-    DItemContent(
+    const DItemContent(
       children: [
         DItemTitle(child: Text('Title', key: titleKey)),
         DItemDescription(child: Text('Description', key: descriptionKey)),
@@ -663,80 +670,81 @@ void main() {
     },
   );
 
-  testWidgets('neutral rows keep hover subtle and selection borderless', (
-    tester,
-  ) async {
-    final strategy = FocusManager.instance.highlightStrategy;
-    FocusManager.instance.highlightStrategy =
-        FocusHighlightStrategy.alwaysTraditional;
-    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer(location: const Offset(700, 500));
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    for (final brightness in Brightness.values) {
-      final theme = ThemeData(brightness: brightness);
-      final tokens = DTokens.fromTheme(theme);
-      var selected = false;
-      await tester.pumpWidget(
-        host(
-          StatefulBuilder(
-            builder: (context, setState) => DItem(
-              focusNode: focus,
-              selected: selected,
-              selectionStyle: DItemSelectionStyle.tinted,
-              showSelectionIndicator: false,
-              onPressed: () => setState(() => selected = !selected),
-              children: const [
-                DItemContent(children: [DItemTitle(child: Text('Topic'))]),
-              ],
+  testWidgets(
+    'strong neutral rows keep hover subtle and selection borderless',
+    (tester) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(700, 500));
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      for (final brightness in Brightness.values) {
+        final theme = ThemeData(brightness: brightness);
+        final tokens = DTokens.fromTheme(theme);
+        var selected = false;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) => DItem(
+                focusNode: focus,
+                selected: selected,
+                selectionStyle: DItemSelectionStyle.strongNeutral,
+                showSelectionIndicator: false,
+                onPressed: () => setState(() => selected = !selected),
+                children: const [
+                  DItemContent(children: [DItemTitle(child: Text('Topic'))]),
+                ],
+              ),
             ),
+            theme: theme,
           ),
-          theme: theme,
-        ),
-      );
-      await tester.pumpAndSettle();
-      BoxDecoration painted() =>
-          tester
-                  .renderObject<RenderDecoratedBox>(
-                    find
-                        .descendant(
-                          of: find.byType(DItem),
-                          matching: find.byType(DecoratedBox),
-                        )
-                        .first,
-                  )
-                  .decoration
-              as BoxDecoration;
-      final bounds = tester.getRect(find.text('Topic'));
-      await mouse.moveTo(tester.getCenter(find.text('Topic')));
-      await tester.pump();
-      final hovered = painted();
-      expect(hovered.color!.a, inExclusiveRange(0, .1));
-      expect(hovered.border!.top.color, Colors.transparent);
-      expect(
-        (hovered.borderRadius! as BorderRadius).topLeft.x,
-        greaterThan(tokens.radius),
-      );
-      await tester.pump(const Duration(milliseconds: 75));
-      expect(painted(), hovered);
-      await mouse.moveTo(const Offset(700, 500));
-      await tester.pump();
-      expect(painted().color, Colors.transparent);
-      await tester.tap(find.text('Topic'));
-      focus.unfocus();
-      await tester.pump();
-      expect(painted().color!.a, inExclusiveRange(0, .1));
-      expect(painted().border!.top.color, Colors.transparent);
-      expect(tester.getRect(find.text('Topic')), bounds);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-      expect(focus.hasFocus, isTrue);
-      expect(painted().border!.top.color, tokens.focusRing);
-      await tester.pumpWidget(const SizedBox());
-    }
-  });
+        );
+        await tester.pumpAndSettle();
+        BoxDecoration painted() =>
+            tester
+                    .renderObject<RenderDecoratedBox>(
+                      find
+                          .descendant(
+                            of: find.byType(DItem),
+                            matching: find.byType(DecoratedBox),
+                          )
+                          .first,
+                    )
+                    .decoration
+                as BoxDecoration;
+        final bounds = tester.getRect(find.text('Topic'));
+        await mouse.moveTo(tester.getCenter(find.text('Topic')));
+        await tester.pump();
+        final hovered = painted();
+        expect(hovered.color!.a, inExclusiveRange(0, .1));
+        expect(hovered.border!.top.color, Colors.transparent);
+        expect(
+          (hovered.borderRadius! as BorderRadius).topLeft.x,
+          greaterThan(tokens.radius),
+        );
+        await tester.pump(const Duration(milliseconds: 75));
+        expect(painted(), hovered);
+        await mouse.moveTo(const Offset(700, 500));
+        await tester.pump();
+        expect(painted().color, Colors.transparent);
+        await tester.tap(find.text('Topic'));
+        focus.unfocus();
+        await tester.pump();
+        expect(painted().color, tokens.foreground.withValues(alpha: .13));
+        expect(painted().border!.top.color, Colors.transparent);
+        expect(tester.getRect(find.text('Topic')), bounds);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(focus.hasFocus, isTrue);
+        expect(painted().border!.top.color, tokens.focusRing);
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
 
   testWidgets(
     'strong neutral menu selection keeps a 13% fill and 8px corners',
@@ -1305,7 +1313,7 @@ void main() {
     tester,
   ) async {
     final form = GlobalKey<FormState>();
-    String? saved;
+    final field = GlobalKey<FormFieldState<String>>();
     final item = DItem(
       header: const DItemHeader(child: Text('Header')),
       footer: const DItemFooter(child: Text('Footer')),
@@ -1320,7 +1328,7 @@ void main() {
             ),
             Form(
               key: form,
-              child: DInput(initialValue: 'Initial'),
+              child: DInput(key: field, initialValue: 'Initial'),
             ),
           ],
         ),
@@ -1329,6 +1337,7 @@ void main() {
     );
     await tester.pumpWidget(host(SingleChildScrollView(child: item)));
     await tester.enterText(find.byType(DInput), 'Edited');
+    final originalField = field.currentState;
     await tester.pumpWidget(
       host(
         SingleChildScrollView(child: item),
@@ -1339,8 +1348,8 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.text('Edited'), findsOneWidget);
-    form.currentState!.save();
-    expect(saved, 'Edited');
+    expect(field.currentState, same(originalField));
+    expect(field.currentState!.value, 'Edited');
     form.currentState!.reset();
     await tester.pump();
     expect(find.text('Initial'), findsOneWidget);

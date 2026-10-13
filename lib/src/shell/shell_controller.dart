@@ -18217,6 +18217,16 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
+  void setPageSearchWords(String siteUrl, String routeId, String words) {
+    if (isDisposed ||
+        currentInstance?.url != siteUrl ||
+        currentContent?.id != routeId) {
+      return;
+    }
+    search.setPageWords(siteUrl, activeTabId, routeId, words);
+  }
+
+  @override
   void replaceCurrentContent(ContentRoute route) {
     final startsPluginPane = _preparePluginPaneForRoute(route.id);
     final tab = activeTab;
@@ -19080,6 +19090,11 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   @override
   void selectDestination(SidebarDestination destination) =>
       _shell.selectDestination(destination);
+
+  @override
+  void setPageSearchWords(String siteUrl, String routeId, String words) {
+    if (!isDisposed) _shell.setPageSearchWords(siteUrl, routeId, words);
+  }
 
   @override
   void openPageTab(ContentRoute route) => _shell.openPageTab(route);

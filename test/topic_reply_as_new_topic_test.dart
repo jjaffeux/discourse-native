@@ -211,16 +211,13 @@ void main() {
     final existing = controller.visibleComposer!;
     await controller.finishComposerDraftRestore(existing);
     existing.text.text = 'An unsent reply';
-    controller.confirmComposerReplacement = (composer) async {
-      controller.store.put(
-        _siteUrl,
-        source(privateMessage: true, allowedMessageUsers: const ['sam']),
-      );
-      controller.closeComposer(composer: composer);
-    };
-
-    await controller.openReplyAsNewTopic(_continuation);
-
-    expect(controller.visibleComposer, isNull);
+    final opening = controller.openReplyAsNewTopic(_continuation);
+    controller.store.put(
+      _siteUrl,
+      source(privateMessage: true, allowedMessageUsers: const ['sam']),
+    );
+    await opening;
+    expect(controller.visibleComposer, same(existing));
+    expect(existing.raw, 'An unsent reply');
   });
 }

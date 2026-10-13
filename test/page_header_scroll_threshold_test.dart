@@ -16,7 +16,7 @@ Future<void> _mount(
 }) async {
   const header = SizedBox(key: _header, height: 80, child: Text('Header'));
   final content = SizedBox(
-    height: contentHeight - (kind == _PageKind.column ? 0 : 80),
+    height: contentHeight - (kind == _PageKind.slivers ? 80 : 0),
   );
   await tester.pumpWidget(
     MaterialApp(

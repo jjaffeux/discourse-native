@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
+import '../../theme/discourse_typography.dart';
 import '../styleguide_example.dart';
 
 final tabsExamples = ComponentExamples(
@@ -53,7 +54,7 @@ final tabsExamples = ComponentExamples(
                     '43',
                     style: TextStyle(
                       color: DTokens.of(context).success,
-                      fontSize: 12,
+                      fontSize: DiscourseTypography.xs,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

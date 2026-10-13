@@ -977,7 +977,7 @@ void main() {
       expect(rebuilt.rows, {2});
       expect(inChatTab('1'), findsOneWidget);
       expect(
-        tester.widget<DBadge>(chatIndicator).semanticLabel,
+        tester.widget<Semantics>(chatIndicator).properties.label,
         'Chat, 1 urgent message',
       );
       expect(

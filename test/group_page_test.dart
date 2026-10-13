@@ -821,6 +821,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('add-user-lee')));
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('add-members-search')).last);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('submit-add-members')),
+    );
     await tester.tap(find.byKey(const ValueKey('submit-add-members')));
     await tester.pumpAndSettle();
     expect(addedUsernames, ['lee']);

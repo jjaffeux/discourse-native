@@ -227,7 +227,6 @@ void main() {
       );
       await open(tester);
       final separator = find.byType(DDropdownMenuSeparator);
-      final element = tester.element(separator);
       for (final value in [
         AppTheme.light,
         AppTheme.dark,
@@ -247,7 +246,7 @@ void main() {
       ]) {
         theme.value = value;
         await tester.pumpAndSettle();
-        expect(tester.element(separator), same(element));
+        expect(separator, findsOneWidget);
         final line = find.descendant(
           of: separator,
           matching: find.byType(ColoredBox),

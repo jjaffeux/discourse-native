@@ -1667,14 +1667,15 @@ void main() {
                   find.byKey(const ValueKey('topic-progress-button')),
                 );
                 await tester.pumpAndSettle();
-                tester
-                    .widget<DSlider>(
-                      find.byKey(const ValueKey('topic-progress-slider')),
-                    )
-                    .onChanged!(137);
+                final slider = tester.widget<DMultiSlider>(
+                  find.byKey(const ValueKey('topic-progress-slider')),
+                );
+                slider.onChanged!(const [137]);
                 await tester.pump();
+                slider.onChangeEnd!(const [137]);
+                await tester.pumpAndSettle();
                 await tester.tap(
-                  find.byKey(const ValueKey('topic-progress-jump')),
+                  find.byKey(const ValueKey('topic-progress-button')),
                 );
               } else {
                 expect(
@@ -3115,7 +3116,7 @@ void main() {
         );
         expect(find.text('First post'), findsOneWidget);
         expect(find.text('Latest post'), findsOneWidget);
-        final actions = ['First post', 'Jump', 'Latest post']
+        final actions = ['First post', 'Latest post']
             .map(
               (label) => find.ancestor(
                 of: find.text(label),
@@ -3128,7 +3129,7 @@ void main() {
         }
         expect(
           actions.map((action) => tester.widget<DButton>(action).variant),
-          [DButtonVariant.ghost, DButtonVariant.primary, DButtonVariant.ghost],
+          [DButtonVariant.ghost, DButtonVariant.ghost],
         );
 
         await tester.tap(find.text('Latest post'));
@@ -3137,7 +3138,7 @@ void main() {
         expect(controller.currentContent?.postNumber, 30);
         expect(
           find.byKey(const ValueKey('topic-progress-slider')),
-          findsNothing,
+          findsOneWidget,
         );
       });
     });

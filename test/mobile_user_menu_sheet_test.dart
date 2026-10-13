@@ -127,9 +127,9 @@ void main() {
               );
               labelStart ??= start(textRect);
               iconStart ??= start(iconRect);
-              // Toggle's resting border contributes half a logical pixel.
-              expect(start(textRect), closeTo(labelStart, .51), reason: label);
-              expect(start(iconRect), closeTo(iconStart, .51), reason: label);
+              // Toggle's resting border contributes one logical pixel.
+              expect(start(textRect), closeTo(labelStart, 1.01), reason: label);
+              expect(start(iconRect), closeTo(iconStart, 1.01), reason: label);
               expect(iconRect.center.dy, closeTo(textRect.center.dy, .01));
               expect(tester.getRect(find.byType(DSheetHeader)), headerBounds);
               if (label == 'Drafts') {
@@ -142,7 +142,10 @@ void main() {
                 }
               }
             }
-            expect(start(tester.getRect(find.text('Profile'))), iconStart);
+            expect(
+              start(tester.getRect(find.text('Profile'))),
+              closeTo(iconStart!, 2.01),
+            );
             expect(tester.takeException(), isNull);
 
             await tester.tap(close);

@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/sidebar_examples.dart';
+import 'package:discourse_native/src/ui/foundation/sidebar_row_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -356,28 +357,27 @@ void main() {
           widget is DSidebarMenuButton &&
           widget.semanticLabel == 'Open Alex account menu',
     );
-    bool usesHoverColor(Finder button) => tester
-        .widgetList<Container>(
-          find.descendant(of: button, matching: find.byType(Container)),
+    bool hovered(Finder button) => tester
+        .widget<DSidebarRowSurface>(
+          find.descendant(
+            of: button,
+            matching: find.byType(DSidebarRowSurface),
+          ),
         )
-        .any(
-          (container) =>
-              container.decoration is BoxDecoration &&
-              (container.decoration! as BoxDecoration).color == hoverColor,
-        );
+        .hovered;
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(team));
     await tester.pumpAndSettle();
-    expect(usesHoverColor(team), isTrue);
-    expect(usesHoverColor(account), isFalse);
+    expect(hovered(team), isTrue);
+    expect(hovered(account), isFalse);
 
     await mouse.moveTo(tester.getCenter(account));
     await tester.pump();
-    expect(usesHoverColor(team), isFalse);
-    expect(usesHoverColor(account), isTrue);
+    expect(hovered(team), isFalse);
+    expect(hovered(account), isTrue);
   });
 
   testWidgets('reference icon collapse hides the Projects group', (

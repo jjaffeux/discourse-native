@@ -194,14 +194,16 @@ void main() {
     double physicalPage() => (pageController.position as PageMetrics).page!;
     final initialPage = physicalPage();
 
-    await controller.previous();
-    await tester.pump();
+    final previous = controller.previous();
+    await tester.pumpAndSettle();
+    await previous;
     expect((selected[controller] ?? 0), 2);
     expect(physicalPage(), initialPage - 1);
     expect((selected[controller] ?? 0) / 2, 1);
 
-    await controller.next();
-    await tester.pump();
+    final next = controller.next();
+    await tester.pumpAndSettle();
+    await next;
     expect((selected[controller] ?? 0), 0);
     expect(physicalPage(), initialPage);
     expect((selected[controller] ?? 0) / 2, 0);

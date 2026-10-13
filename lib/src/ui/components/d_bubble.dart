@@ -326,7 +326,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
             child: DefaultTextStyle.merge(
               style: TextStyle(
                 color: style.foreground,
-                fontSize: 12.5,
+                fontSize: DiscourseTypography.preview,
                 height: 1.3,
               ),
               child: _contents(context, status),

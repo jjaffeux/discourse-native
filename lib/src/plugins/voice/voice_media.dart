@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart' show WriteException;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
-import '../../data/discourse_api_contracts.dart';
 import 'voice_diagnostics.dart';
 import 'voice_livekit_endpoint.dart';
 import 'voice_models.dart';

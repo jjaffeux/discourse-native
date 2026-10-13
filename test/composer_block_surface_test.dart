@@ -869,7 +869,14 @@ void main() {
             : source.startsWith('```')
             ? blockRect.top + surface.lineHeight / 2
             : editable.localToGlobal(caret.center).dy;
-        expect(add.center.dy, closeTo(expectedCenter, .01));
+        final surfaceTop = tester
+            .getTopLeft(find.byType(ComposerBlockSurface))
+            .dy;
+        final boundedCenter = expectedCenter.clamp(
+          surfaceTop + add.height / 2,
+          double.infinity,
+        );
+        expect(add.center.dy, closeTo(boundedCenter, .01));
         expect(handle.center.dy, closeTo(add.center.dy, .01));
         expect(
           handle.top,
@@ -951,8 +958,8 @@ void main() {
     final id = composer.blocks.index.blocks.first.id;
     final add = find.byKey(ValueKey('composer-block-add-$id'));
     final handle = find.byKey(ValueKey('composer-block-handle-$id'));
-    expect(tester.getSize(add), const Size(20, 34));
-    expect(tester.getSize(handle), const Size(20, 34));
+    expect(tester.getSize(add), const Size(20, 30));
+    expect(tester.getSize(handle), const Size(20, 30));
     expect(tester.getRect(add).right, tester.getRect(handle).left);
     await tester.tap(add);
     await tester.pumpAndSettle();

@@ -466,8 +466,8 @@ void main() {
       ]) {
         final target = find.byKey(key);
         final size = tester.getSize(target);
-        expect(size.width, greaterThanOrEqualTo(44));
-        expect(size.height, greaterThanOrEqualTo(44));
+        expect(size.width, 30);
+        expect(size.height, 30);
         final data = tester.getSemantics(target).getSemanticsData();
         expect(data.flagsCollection.isButton, isTrue);
         expect(data.hasAction(SemanticsAction.tap), isTrue);

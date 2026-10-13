@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
+import '../../theme/discourse_typography.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
@@ -1531,7 +1532,7 @@ class _ResumeContent extends StatelessWidget {
             children: [
               DefaultTextStyle.merge(
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: DiscourseTypography.compact,
                   height: 18 / 13.5,
                   fontWeight: FontWeight.w600,
                   color: tokens.foreground,
@@ -1544,7 +1545,7 @@ class _ResumeContent extends StatelessWidget {
               if (description != null)
                 DefaultTextStyle.merge(
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: DiscourseTypography.xs,
                     height: 16 / 12,
                     fontWeight: FontWeight.w400,
                     color: tokens.mutedForeground,

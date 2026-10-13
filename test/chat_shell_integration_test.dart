@@ -377,7 +377,6 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
 
           final content = find.byKey(const ValueKey('desktop-panel-main'));
-          final theme = Theme.of(tester.element(content));
           final boundary = tester.renderObject<RenderRepaintBoundary>(
             find
                 .ancestor(of: content, matching: find.byType(RepaintBoundary))
@@ -400,11 +399,17 @@ void _registerChatShellTests() {
               ]) {
                 final offset =
                     (point.dy.round() * image.width + point.dx.round()) * 4;
-                final expected = theme.scaffoldBackgroundColor.toARGB32();
+                // The workspace includes palette pools beneath glass panels.
+                // Compare with the neighboring gutter at the same height.
+                final gutterX = point.dx < bounds.center.dx
+                    ? bounds.left - 2
+                    : bounds.right + 1;
+                final gutterOffset =
+                    (point.dy.round() * image.width + gutterX.round()) * 4;
                 for (var channel = 0; channel < 3; channel++) {
                   expect(
                     pixels.getUint8(offset + channel),
-                    (expected >> (16 - channel * 8)) & 255,
+                    closeTo(pixels.getUint8(gutterOffset + channel), 1),
                     reason: 'Workspace background at $point',
                   );
                 }
@@ -663,7 +668,7 @@ void _registerChatShellTests() {
         expect(shortcut, findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
-      testWidgets('draws a quiet dot for ordinary public activity', (
+      testWidgets('draws a quiet count for ordinary public activity', (
         tester,
       ) async {
         await pumpChat(tester, public: [channel(9, unread: 42)]);
@@ -672,7 +677,7 @@ void _registerChatShellTests() {
         expect(urgent, findsNothing);
         expect(
           find.descendant(of: shortcut, matching: find.text('42')),
-          findsNothing,
+          findsOneWidget,
         );
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
@@ -2962,17 +2967,26 @@ void _registerChatShellTests() {
             ),
           ),
         );
-        expect(settingsRect.top, tester.getRect(settingsLabel).top - 11);
-        expect(settingsRect.bottom, tester.getRect(settingsLabel).bottom + 11);
-        expect(settingsRect.height, tester.getSize(settingsLabel).height + 22);
+        expect(
+          settingsRect.top,
+          closeTo(tester.getRect(settingsLabel).top - 11, .001),
+        );
+        expect(
+          settingsRect.bottom,
+          closeTo(tester.getRect(settingsLabel).bottom + 11, .001),
+        );
+        expect(
+          settingsRect.height,
+          closeTo(tester.getSize(settingsLabel).height + 22, .001),
+        );
         final tabBar = tester.getRect(
           find.byKey(const ValueKey('chat-channel-info-tabs')),
         );
-        expect(tabBar.height, 58);
+        expect(tabBar.height, closeTo(58, .001));
         final membersTab = tester.getRect(
           find.byKey(const ValueKey('chat-channel-info-members-tab')),
         );
-        expect(membersTab.height, settingsRect.height);
+        expect(membersTab.height, closeTo(settingsRect.height, .001));
         final settingsContent = shell.currentContent?.id;
         for (final outside in [
           membersTab.topCenter - const Offset(0, 1),

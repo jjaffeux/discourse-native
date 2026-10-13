@@ -135,8 +135,8 @@ void main() {
       final description = tester.getRect(find.text('Description'));
       expect(label.height, closeTo(19.25, .5));
       expect(description.height, closeTo(21, .1));
-      expect(editor.left - label.left, closeTo(11, .1));
-      expect(editor.top - label.bottom, closeTo(15, .1));
+      expect(editor.left - label.left, closeTo(10, .1));
+      expect(editor.top - label.bottom, closeTo(13.5, .1));
       await tester.pumpWidget(
         _app(
           Center(

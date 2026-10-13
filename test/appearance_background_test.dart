@@ -242,13 +242,10 @@ void main() {
             card.color,
             DTokens.of(tester.element(find.byType(DCard))).background,
           );
-          if (sameHeaderAndPanelColor) {
-            expect(canvasColor.r, lessThan(card.color!.r));
-            expect(canvasColor.g, lessThan(card.color!.g));
-            expect(canvasColor.b, lessThan(card.color!.b));
-          } else {
-            expect(canvasColor, theme.scaffoldBackgroundColor);
-          }
+          expect(canvasColor, Color.lerp(card.color, Colors.black, .14));
+          expect(canvasColor.r, lessThan(card.color!.r));
+          expect(canvasColor.g, lessThan(card.color!.g));
+          expect(canvasColor.b, lessThan(card.color!.b));
         }
       }
     },
@@ -258,7 +255,11 @@ void main() {
     'panel transparency updates independently while footers stay opaque',
     (tester) async {
       for (final brightness in Brightness.values) {
-        for (final transparency in [0.0, .1, .2]) {
+        for (final (transparency, panelOpacity) in [
+          (0.0, 1.0),
+          (.1, .87),
+          (.2, .73),
+        ]) {
           final custom = forumThemePresets.first
               .forBrightness(brightness)
               .copyWith(
@@ -295,7 +296,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(panel!.a, closeTo(1 - transparency, .001));
+          expect(panel!.a, closeTo(panelOpacity, .001));
           expect(footer!.a, 1);
           expect(nested, panel);
           expect(tester.takeException(), isNull);

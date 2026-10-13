@@ -6,8 +6,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/search_words.dart';
-import '../../shell/shell_scope.dart';
 import 'chat_plugin.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
@@ -129,16 +127,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void _setQuery(String value) {
     _pageQuery = value;
     _search.setGlobalQuery(widget.siteUrl, value);
-    final shell = ShellScope.maybeRead(context);
-    if (shell?.currentInstance?.url == widget.siteUrl &&
-        shell?.currentContent?.id == ChatPlugin.searchRouteId) {
-      shell!.search.setPageWords(
-        widget.siteUrl,
-        shell.activeTabId,
-        ChatPlugin.searchRouteId,
-        value,
-      );
-    }
+    _shell?.setPageSearchWords(widget.siteUrl, ChatPlugin.searchRouteId, value);
   }
 
   @override
@@ -244,7 +233,6 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   Future<void> _open(ChatSearchHit hit) async {
     final siteUrl = widget.siteUrl;
     final words = _search.globalState(siteUrl).query;
-    final owner = ShellScope.maybeRead(context);
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     bool ownsActivation() =>
@@ -270,17 +258,9 @@ class _ChatSearchViewState extends State<ChatSearchView> {
       } else {
         shell.openChannel(channel.id, messageId: hit.message.id);
       }
-      if (owner != null &&
-          identical(ShellScope.maybeRead(context), owner) &&
-          owner.currentInstance?.url == siteUrl &&
-          shell.visibleChannelId == channel.id) {
-        if (owner.currentContent case final route?) {
-          owner.search.setPageWords(
-            siteUrl,
-            owner.activeTabId,
-            route.id,
-            words,
-          );
+      if (ownsActivation() && shell.visibleChannelId == channel.id) {
+        if (shell.currentContent case final route?) {
+          shell.setPageSearchWords(siteUrl, route.id, words);
         }
       }
     } catch (_) {

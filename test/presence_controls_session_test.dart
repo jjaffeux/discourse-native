@@ -166,6 +166,9 @@ void main() {
           } else {
             expect(tester.widget(control), isA<DToggle>());
           }
+          final desktopControl = defaultTargetPlatform == TargetPlatform.macOS
+              ? tester.widget<DDropdownMenuCheckboxItem>(control)
+              : null;
           final source = tester.element(control);
           final shell = ShellScope.read(tester.element(control));
           final lease = shell.lifecycle.capture(_site);
@@ -192,7 +195,12 @@ void main() {
             shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
             isTrue,
           );
-          await tester.tap(control);
+          if (retired && desktopControl != null) {
+            // Even a held callback cannot act for a retired account session.
+            desktopControl.onChanged?.call(!desktopControl.checked);
+          } else {
+            await tester.tap(control);
+          }
           await tester.pumpAndSettle();
           if (retired) {
             expect(sent, isEmpty);
@@ -201,6 +209,13 @@ void main() {
               shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
               isTrue,
             );
+            if (desktopControl != null) {
+              expect(control, findsNothing);
+              expect(source.mounted, isFalse);
+              await tester.tap(find.byKey(UserMenuButton.avatarKey));
+              await tester.pumpAndSettle();
+              expect(tester.element(control), isNot(same(source)));
+            }
             await tester.tap(control);
             await tester.pumpAndSettle();
           }

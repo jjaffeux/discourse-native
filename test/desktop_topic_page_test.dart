@@ -83,7 +83,7 @@ void main() {
       expect(tester.getCenter(filterAction).dy, tester.getCenter(title).dy);
       expect(
         tester.widget<DButton>(filterAction).variant,
-        DButtonVariant.secondary,
+        DButtonVariant.quiet,
       );
 
       _openTopicTab(h.shell, h.topics.first);

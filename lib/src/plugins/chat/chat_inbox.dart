@@ -6,7 +6,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../shell/forum_theme_surfaces.dart';
 import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';

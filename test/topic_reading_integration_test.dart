@@ -2512,7 +2512,10 @@ void _registerTopicReadingTests() {
         ),
         findsNothing,
       );
-      expect(tester.widget<Text>(bellBadge).data, '3');
+      expect(
+        find.descendant(of: bellBadge, matching: find.text('3')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a notification arriving marks the bell', (tester) async {
@@ -2620,7 +2623,10 @@ void _registerTopicReadingTests() {
         find.descendant(of: railBadge, matching: find.text('3')),
         findsOneWidget,
       );
-      expect(tester.widget<Text>(bellBadge).data, '3');
+      expect(
+        find.descendant(of: bellBadge, matching: find.text('3')),
+        findsOneWidget,
+      );
 
       tracker.deliverNotification(const {
         'all_unread_notifications_count': 5,
@@ -2632,7 +2638,10 @@ void _registerTopicReadingTests() {
         find.descendant(of: railBadge, matching: find.text('5')),
         findsOneWidget,
       );
-      expect(tester.widget<Text>(bellBadge).data, '5');
+      expect(
+        find.descendant(of: bellBadge, matching: find.text('5')),
+        findsOneWidget,
+      );
       expect(find.text('2'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

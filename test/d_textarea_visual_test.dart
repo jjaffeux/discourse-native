@@ -102,7 +102,7 @@ Future<List<int>> _render(
                   child: DTextarea(
                     focusNode: focus,
                     hintText: 'Type your message here.',
-
+                    errorText: invalid ? 'Invalid' : null,
                     enabled: enabled,
                   ),
                 ),

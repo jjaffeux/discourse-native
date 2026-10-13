@@ -391,11 +391,20 @@ void main() {
         },
       );
 
+      test('opens the native About page in a background tab', () {
+        final original = controller.activeTab;
+        expect(controller.openLinkInNewTab('/about'), TabOpenResult.opened);
+        expect(
+          controller.tabsForCurrentForum.last.currentContent.id,
+          'forum-about',
+        );
+        expect(controller.activeTab, original);
+      });
+
       test('declines unsupported links without creating empty tabs', () {
         final original = controller.activeTab;
         for (final url in [
           'https://other.example/t/topic/42',
-          '/about',
           'https://name:password@one.example/t/topic/42',
           '/c/support/12/l/top',
         ]) {

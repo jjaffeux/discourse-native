@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -14,6 +15,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
+import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -249,6 +251,7 @@ ReactionsController _controller({
   PluginEmojiHost? emoji,
   PluginPostHost? posts,
   ReactionsWriteApi? writes,
+  SiteConfig config = const SiteConfig.unknown(),
 }) => ReactionsController(
   api: api,
   writes: writes,
@@ -256,7 +259,7 @@ ReactionsController _controller({
   posts: posts ?? _UnusedPostHost(),
   siteState: PluginSiteStateHost(
     currentUserFor: (_) => null,
-    siteConfigFor: (_) => const SiteConfig.unknown(),
+    siteConfigFor: (_) => config,
   ),
   resolveSiteConfig: (_) async => null,
   emoji: emoji ?? _emojiHost(loadCatalog: (_, {refresh = false}) async => null),
@@ -431,12 +434,19 @@ void main() {
         api: _SequencedReactorsApi([]),
         requests: FakePluginRequestHost(),
         emoji: catalog.host,
+        config: SiteConfig(
+          plugins: PluginData.none.withValue(
+            reactionsSettingsDataKey,
+            const ReactionsSettings(offeredReactions: ['clap']),
+          ),
+        ),
       );
       addTearDown(controller.dispose);
       final post = Post(
         id: 7,
         postNumber: 1,
         username: 'author',
+        canLike: true,
         cooked: '<p>Post</p>',
         plugins: PluginData.none.withValue(
           reactionsDataKey,
@@ -465,7 +475,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel('Remove your clap reaction'), findsOne);
+      await tester.tap(find.byTooltip('Add reaction'));
+      await tester.pumpAndSettle();
+      final held = tester.widget<DToggle>(
+        find
+            .ancestor(
+              of: find.bySemanticsLabel('clap'),
+              matching: find.byType(DToggle),
+            )
+            .first,
+      );
+      expect(held.pressed, isTrue);
       // Settling only proves something if the held emoji asked for a catalog.
       expect(catalog.loads, isPositive);
     });
@@ -484,12 +504,19 @@ void main() {
           api: _SequencedReactorsApi([]),
           requests: FakePluginRequestHost(),
           emoji: emoji,
+          config: SiteConfig(
+            plugins: PluginData.none.withValue(
+              reactionsSettingsDataKey,
+              const ReactionsSettings(offeredReactions: ['clap']),
+            ),
+          ),
         );
         addTearDown(controller.dispose);
         final post = Post(
           id: 7,
           postNumber: 1,
           username: 'author',
+          canLike: true,
           cooked: '<p>Post</p>',
           plugins: PluginData.none.withValue(
             reactionsDataKey,
@@ -517,6 +544,8 @@ void main() {
         );
         // Settled first, so the button's own settings read cannot be what
         // redraws it once the catalog arrives.
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Add reaction'));
         await tester.pumpAndSettle();
         String drawn() =>
             tester.widget<EmojiImage>(find.byType(EmojiImage)).url;

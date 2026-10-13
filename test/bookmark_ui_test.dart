@@ -73,8 +73,7 @@ void main() {
         expect(tester.takeException(), isNull);
         final amount = find.byWidgetPredicate(
           (widget) =>
-              widget is TextField &&
-              widget.keyboardType == TextInputType.number,
+              widget is DInput && widget.keyboardType == TextInputType.number,
         );
         await tester.ensureVisible(amount);
         await tester.pumpAndSettle();

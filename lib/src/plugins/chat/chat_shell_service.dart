@@ -91,6 +91,15 @@ final class ChatShellService
   NotificationTotals? get currentTotals => _host.currentTotals;
   ContentRoute? get currentContent => _host.currentContent;
   String? get activeTabId => _host.activeTabId;
+
+  void setPageSearchWords(String siteUrl, String routeId, String words) {
+    if (!_disposed &&
+        currentSiteUrl == siteUrl &&
+        currentContent?.id == routeId) {
+      _host.setPageSearchWords(siteUrl, routeId, words);
+    }
+  }
+
   bool get fullPageChatActive =>
       ChatPlugin.ownsRouteId(_host.currentContent?.id);
   int? get visibleChannelId {

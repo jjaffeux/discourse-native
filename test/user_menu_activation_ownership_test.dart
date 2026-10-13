@@ -95,7 +95,7 @@ void main() {
             _Section.chat => find.byType(PluginNotificationsSection),
           };
           final sourceState = tester.state(stateFinder);
-          var activeState = sourceState;
+          final activeState = sourceState;
           final shell = ShellScope.read(tester.element(stateFinder));
           final sourceRoute = shell.currentContent?.id;
           final link = find.descendant(
@@ -115,20 +115,9 @@ void main() {
           if (switchSite) {
             shell.selectInstance(1);
             await tester.pumpAndSettle();
-            if (defaultTargetPlatform == TargetPlatform.macOS) {
-              // Desktop menus belong to one site/session and close on switch.
-              // Reopen the new site's menu before releasing the old activation.
-              expect(stateFinder, findsNothing);
-              expect(sourceState.mounted, isFalse);
-              await tester.tap(find.byKey(UserMenuButton.bellKey));
-              await tester.pumpAndSettle();
-              await tester.ensureVisible(tab);
-              await tester.pumpAndSettle();
-              await tester.tap(tab);
-              await tester.pumpAndSettle();
-              activeState = tester.state(stateFinder);
-              expect(activeState, isNot(same(sourceState)));
-            }
+            // Site navigation preserves the selected section; its late
+            // activation still belongs to the previous site/account.
+            expect(sourceState.mounted, isTrue);
             expect(stateFinder, findsOneWidget);
             expect(tester.state(stateFinder), same(activeState));
             expect(shell.currentInstance?.url, _team);

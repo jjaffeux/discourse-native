@@ -607,7 +607,10 @@ void main() {
         final api = await _pumpMobileBrowse(tester, phone);
         final filter = tester.getRect(_filter);
         final card = tester.getRect(_card(3));
-        expect(tester.getRect(_list).bottom, tester.getRect(_browse).bottom);
+        expect(
+          tester.getRect(_list).bottom,
+          closeTo(tester.getRect(_browse).bottom, .001),
+        );
 
         await tester.drag(_list, const Offset(0, -200));
         await tester.pumpAndSettle();

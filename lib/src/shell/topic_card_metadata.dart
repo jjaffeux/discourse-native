@@ -5,7 +5,7 @@ const _topicTagGap = 5.0;
 
 TextStyle _topicMetadataStyle(BuildContext context) =>
     Theme.of(context).textTheme.labelSmall!.copyWith(
-      fontSize: 12,
+      fontSize: DiscourseTypography.xs,
       height: 1.5,
       fontWeight: FontWeight.w400,
       color: Color.lerp(
@@ -122,15 +122,15 @@ class _TopicCardFooter extends StatelessWidget {
       dimension: 20,
       children: [
         for (final poster in shown)
-          UserCardTarget.avatar(
-            username: poster.username ?? '',
-            siteUrl: row.siteUrl,
-            child: DTooltip(
-              message: [
-                poster.username,
-                poster.description,
-              ].whereType<String>().join(' — '),
-              excludeFromSemantics: true,
+          DTooltip(
+            message: [
+              poster.username,
+              poster.description,
+            ].whereType<String>().join(' — '),
+            excludeFromSemantics: true,
+            child: UserCardTarget.avatar(
+              username: poster.username ?? '',
+              siteUrl: row.siteUrl,
               child: DAvatar(
                 dimension: 20,
                 border: false,
@@ -148,7 +148,7 @@ class _TopicCardFooter extends StatelessWidget {
                       poster.username?.characters.firstOrNull?.toUpperCase() ??
                           '',
                       style: const TextStyle(
-                        fontSize: 9,
+                        fontSize: DiscourseTypography.badge,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -357,7 +357,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
             semanticLabel: context.l10n.moreTopiclistview(layout.remainingTags),
             label: Text(
               '+${layout.remainingTags}',
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: DiscourseTypography.xs),
             ),
             onPressed: () => setState(() => _allTags = true),
           ),
@@ -478,7 +478,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
                 maxLines: 1,
                 softWrap: false,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: DiscourseTypography.xs,
                   color: parent ? _topicMetadataStyle(context).color : null,
                 ),
               ),
@@ -511,7 +511,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           isLink: true,
           label: Text(
             label ?? '#${tag.name}',
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: DiscourseTypography.xs),
             maxLines: 1,
           ),
           onPressed: () => shell?.openTopicTag(

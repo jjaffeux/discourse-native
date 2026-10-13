@@ -31,6 +31,7 @@ import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/oneboxes/reddit.dart';
 import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
+import 'package:discourse_native/src/shell/pdf_attachment.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -193,6 +194,7 @@ const _values = [
 /// the point: what has to hold is that a half-written one is declined, not
 /// that a well-formed one is drawn.
 const _skeletons = [
+  '<a class="attachment" href="https://example.com/uploads/report.pdf">report.pdf</a>',
   '<img class="emoji" src="@SRC" alt="@V" title="@V">',
   '<img class="emoji only-emoji" src="@SRC">',
   '<a class="hashtag-cooked" href="@SRC" data-type="@V" data-slug="@V">'
@@ -403,6 +405,7 @@ const _builders = [
   'imageGrid',
   'lightbox',
   'inlineVideo',
+  'pdfAttachment',
   'youtubeVideo',
   'onebox',
   'quote',
@@ -447,6 +450,7 @@ const _drawn = [
   'ImageGridMosaic',
   'LightboxThumbnail',
   'InlineVideo',
+  'PdfAttachment',
   'YoutubeVideo',
   'OneboxCard',
   // A shared theme that does not decode.
@@ -517,6 +521,11 @@ void main() {
           probe(
             'inlineVideo',
             () => inlineVideoWidgetBuilder(element, siteUrl: site),
+            element,
+          );
+          probe(
+            'pdfAttachment',
+            () => pdfAttachmentWidgetBuilder(element, siteUrl: site),
             element,
           );
           probe(

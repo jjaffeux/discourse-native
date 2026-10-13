@@ -134,7 +134,7 @@ void main() {
       matching: find.text('Topics'),
     );
     expect(topics, findsOneWidget);
-    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 13);
+    expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 12.5);
     expect(
       tester
           .getSize(
@@ -180,7 +180,10 @@ void main() {
         final textRect = tester.getRect(topics);
         final rowRect = tester.getRect(row);
 
-        expect(DefaultTextStyle.of(tester.element(topics)).style.fontSize, 13);
+        expect(
+          DefaultTextStyle.of(tester.element(topics)).style.fontSize,
+          12.5,
+        );
         expect(rowRect.height, greaterThan(DControlStyle.regularHeight));
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
@@ -342,7 +345,7 @@ void main() {
                 widget is Container &&
                 widget.decoration is BoxDecoration &&
                 widget.constraints ==
-                    const BoxConstraints.tightFor(width: 4, height: 24),
+                    const BoxConstraints.tightFor(width: 4, height: 36),
           ),
         ),
       );

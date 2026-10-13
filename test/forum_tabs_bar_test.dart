@@ -584,7 +584,7 @@ void main() {
         expect(style.height, control.height);
         expect(style.fontWeight, FontWeight.w400);
         expect(
-          DefaultTextStyle.of(tester.element(title)).style.fontSize,
+          tester.renderObject<RenderParagraph>(title).text.style!.fontSize,
           style.fontSize,
         );
       }
@@ -598,11 +598,26 @@ void main() {
       await tester.pump();
       final dragged = find.text(second.title);
       expect(dragged, findsNWidgets(2));
-      for (final paragraph in tester.renderObjectList<RenderParagraph>(
-        dragged,
-      )) {
-        expect(paragraph.text.style?.fontSize, DiscourseTypography.control);
-      }
+      final feedbackTitle = find.descendant(
+        of: find.byType(ForumTabDragFeedback),
+        matching: find.text(second.title),
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(feedbackTitle)
+            .text
+            .style
+            ?.fontSize,
+        DiscourseTypography.preview,
+      );
+      final stripTitle = find.descendant(
+        of: find.byKey(const ValueKey('forum-tab-item-chat-2')),
+        matching: find.text(second.title),
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(stripTitle).text.style?.fontSize,
+        DiscourseTypography.control,
+      );
       await drag.up();
       await tester.pumpAndSettle();
 

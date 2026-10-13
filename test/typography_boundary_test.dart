@@ -82,12 +82,12 @@ void main() {
                         entries: const [
                           DSelectItem(
                             value: 'latest',
-                            textValue: 'latest',
+                            textValue: 'Latest topics',
                             child: Text('Latest topics'),
                           ),
                           DSelectItem(
                             value: 'new',
-                            textValue: 'new',
+                            textValue: 'New topics',
                             child: Text('New topics'),
                           ),
                         ],
@@ -159,14 +159,15 @@ void main() {
           ]) {
             final paragraph = _paragraph(tester, label);
             final (fontSize, lineHeight) = switch (label) {
-              'Native small' || 'Inline code' => (12.5, 18.75),
+              'Native small' ||
               'Native regular' ||
+              'Latest topics' ||
+              'All categories' ||
+              'Inline code' => (12.5, 18.75),
               'Material action' ||
               'Outlined action' ||
               'Topic column' ||
-              'Replies column' ||
-              'Latest topics' ||
-              'All categories' => (13.0, 19.5),
+              'Replies column' => (13.0, 19.5),
               _ => (14.0, 21.0),
             };
             expect(

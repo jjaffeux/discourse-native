@@ -677,7 +677,8 @@ void main() {
           expect(local.replyTo?.excerpt, 'Message 7');
           expect(
             find.byKey(ChatMessageTile.replyIndicatorKey(7)),
-            findsOneWidget,
+            findsNothing,
+            reason: 'An adjacent inline reply does not repeat its quoted row.',
           );
           expect(find.text('Replying to @sam'), findsNothing);
           expect(_text(tester), isEmpty);

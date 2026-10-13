@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -79,7 +79,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     for (final element in find.byType(DTabTrigger<String>).evaluate()) {
-      expect(tester.getSize(find.byWidget(element.widget)).width, 44);
+      final trigger = find.byWidget(element.widget);
+      final artwork = find.descendant(
+        of: trigger,
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(tester.getRect(trigger), tester.getRect(artwork));
+      expect(tester.getSize(trigger).width, 38);
     }
     expect(tester.takeException(), isNull);
   });
@@ -295,13 +301,13 @@ void main() {
     (tester) async {
       await mount(tester, tabs());
       await tester.pumpAndSettle();
-      // The regular 34px preset holds a trigger inset by 3.5px on each side;
-      // its 20px label line fits inside that minimum.
+      // The regular 30px preset holds an inset trigger whose label and
+      // ordinary padding determine its visible and interactive bounds.
       expect(
         tester.getSize(find.byType(DTabList<String>)).height,
         DControlStyle.regularHeight,
       );
-      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 27);
+      expect(tester.getSize(find.byType(DTabTrigger<String>).first).height, 24);
 
       await mount(
         tester,
@@ -321,7 +327,7 @@ void main() {
       final first = tester.getRect(find.byType(DTabTrigger<String>).first);
       final second = tester.getRect(find.byType(DTabTrigger<String>).last);
       expect(second.left - first.right, 20);
-      expect(first.height, 42);
+      expect(first.height, 41);
       expect(first.left, tester.getRect(find.byType(DTabList<String>)).left);
       expect(first.width, tester.getSize(find.text('One')).width);
       expect(
@@ -350,16 +356,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Panel one'), findsOneWidget);
     expect(find.text('Panel two'), findsNothing);
+    expect(values, ['one']);
 
     await tester.tap(find.text('Two'));
     await tester.pumpAndSettle();
-    expect(values, ['two']);
+    expect(values, ['one', 'two']);
     expect(find.text('Panel one'), findsNothing);
     expect(find.text('Panel two'), findsOneWidget);
     final data = tester
         .getSemantics(find.byType(DTabTrigger<String>).at(1))
         .getSemanticsData();
     expect(data.flagsCollection.isSelected, Tristate.isTrue);
+    final third = tester.getSemantics(find.byType(DTabTrigger<String>).at(2));
+    third.owner!.performAction(third.id, SemanticsAction.tap);
+    await tester.pumpAndSettle();
+    expect(values, ['one', 'two', 'three']);
+    expect(find.text('Panel two'), findsNothing);
+    expect(find.text('Panel three'), findsOneWidget);
     semantics.dispose();
   });
 
@@ -476,7 +489,11 @@ void main() {
     );
     final triggerSize = tester.getSize(find.byType(DTabTrigger<String>).first);
     expect(triggerSize.width, greaterThanOrEqualTo(44));
-    expect(triggerSize.height, greaterThanOrEqualTo(44));
+    final artwork = find.descendant(
+      of: find.byType(DTabTrigger<String>).first,
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(triggerSize, tester.getSize(artwork));
     await tester.scrollUntilVisible(
       find.text('Three'),
       100,

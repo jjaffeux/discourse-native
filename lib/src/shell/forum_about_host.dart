@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../plugins/voice/voice_settings.dart';
 import 'external_link.dart';
 import 'forum_about_page.dart';
 import 'shell_scope.dart';
@@ -30,7 +29,10 @@ class ForumAboutHost extends StatelessWidget {
         private:
             instance == null ||
             (instance.loginRequired && !instance.isConnected),
-        voiceEnabled: shell.siteConfigFor(siteUrl).voiceSettings.enabled,
+        voiceEnabled: shell.plugins.registry.siteFeatureEnabled(
+          'voice',
+          shell.siteConfigFor(siteUrl).plugins,
+        ),
       );
     },
     builder: (context, owner, _) => ForumAboutPage(

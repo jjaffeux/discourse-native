@@ -65,6 +65,12 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }) async {
     final instance = _instance(owner);
     if (instance == null) return;
+    _shell.search.setPageWords(
+      owner.siteUrl,
+      owner.tabId,
+      'groups',
+      query.filter,
+    );
     await _shell.groups.loadDirectory(
       instance,
       GroupDirectoryQuery(filter: query.filter, type: query.type),

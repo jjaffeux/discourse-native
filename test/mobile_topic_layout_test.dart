@@ -181,7 +181,10 @@ void main() {
       find.byKey(const ValueKey('topic-status-button')),
     ]) {
       expect(tester.widget<DButton>(control).size, DButtonSize.filter);
-      expect(tester.getRect(surface(control)).height, closeTo(categorySurface.height, .01));
+      expect(
+        tester.getRect(surface(control)).height,
+        closeTo(categorySurface.height, .01),
+      );
     }
     expect(
       tester.getRect(surface(bookmark)).right,
@@ -205,7 +208,9 @@ void main() {
       surface(find.byKey(const ValueKey('topic-status-button'))),
     );
     expect(statusSurface.top, notificationSurface.top);
-    final moreSurface = tester.getRect(surface(find.byKey(const ValueKey('topic-more-actions'))));
+    final moreSurface = tester.getRect(
+      surface(find.byKey(const ValueKey('topic-more-actions'))),
+    );
     expect(moreSurface.left - notificationSurface.right, closeTo(8, .01));
     expect(statusSurface.left - moreSurface.right, closeTo(6, .01));
     expect(tester.takeException(), isNull);
@@ -367,7 +372,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('topic-progress-selection')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         find.descendant(

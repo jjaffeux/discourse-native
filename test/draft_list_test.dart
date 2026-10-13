@@ -32,9 +32,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
     show
         ConstrainedBox,
-        BoxDecoration,
-        DecoratedBox,
-        FilledButton,
         Focus,
         InkWell,
         MaterialApp,
@@ -46,8 +43,7 @@ import 'package:flutter/material.dart'
         Size,
         TextScaler,
         ValueKey,
-        ValueListenableBuilder,
-        WidgetState;
+        ValueListenableBuilder;
 import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
@@ -202,15 +198,6 @@ void main() {
       (tester) async {
         await _pump(tester);
 
-        final button = tester.widget<FilledButton>(
-          find.descendant(
-            of: find.byKey(TopicCreateButton.buttonKey),
-            matching: find.byType(FilledButton),
-          ),
-        );
-        final tokens = DTokens.of(
-          tester.element(find.byKey(TopicCreateButton.buttonKey)),
-        );
         final nativeButton = tester.widget<DButton>(
           find.byKey(TopicCreateButton.buttonKey),
         );
@@ -218,27 +205,23 @@ void main() {
         expect(nativeButton.shape, DButtonShape.pill);
         expect(
           tester
-              .widgetList<DecoratedBox>(
-                find.descendant(
-                  of: find.byKey(TopicCreateButton.buttonKey),
-                  matching: find.byType(DecoratedBox),
-                ),
+              .widget<DCard>(
+                find
+                    .ancestor(
+                      of: find.byKey(TopicCreateButton.buttonKey),
+                      matching: find.byType(DCard),
+                    )
+                    .first,
               )
-              .map((box) => box.decoration)
-              .whereType<BoxDecoration>()
-              .map((decoration) => decoration.color),
-          contains(tokens.buttonTheme.primary.background),
+              .variant,
+          DCardVariant.primaryCapsule,
         );
-        expect(
-          button.style?.foregroundColor?.resolve(<WidgetState>{}),
-          tokens.buttonTheme.primary.foreground,
-        );
+        expect(nativeButton.density, DButtonDensity.chrome);
         expect(
           find.descendant(
             of: find.byKey(TopicCreateButton.buttonKey),
             matching: find.byWidgetPredicate(
-              (widget) =>
-                  widget is DIcon && widget.icon == DIcons.farPenToSquare,
+              (widget) => widget is DIcon && widget.icon == DIcons.penToSquare,
             ),
           ),
           findsOneWidget,

@@ -59,8 +59,8 @@ void main() {
           matching: find.byType(AnimatedContainer),
         );
         expect(
-          tester.getRect(moreSurface).left - tester.getRect(replySurface).right,
-          closeTo(DSpacing.controlGap, .1),
+          tester.getRect(replySurface).left - tester.getRect(moreSurface).right,
+          closeTo(4, .1),
         );
         expect(find.text('Reply'), findsNothing);
         expect(find.text('161'), findsOneWidget);
@@ -137,7 +137,7 @@ void main() {
       of: find.byKey(const ValueKey('post-reaction-1-heart')),
       matching: find.byType(DToggle),
     );
-    expect(tester.getSize(heart).height, 24);
+    expect(tester.getSize(heart).height, 30);
     expect(
       tester.getSize(find.byKey(const ValueKey('post-reaction-button-1'))),
       const Size.square(30),
@@ -149,7 +149,7 @@ void main() {
     final more = find.byKey(const ValueKey('post-more-actions-1'));
     expect(tester.getSize(reply), const Size.square(30));
     expect(tester.getSize(more), const Size.square(30));
-    expect(tester.getRect(more).left, tester.getRect(reply).right + 6);
+    expect(tester.getRect(reply).left, tester.getRect(more).right + 4);
     expect(
       find.byKey(const ValueKey(('post-footer-action', 1, 'Edit'))),
       findsNothing,

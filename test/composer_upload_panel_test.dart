@@ -1990,7 +1990,7 @@ void main() {
         final toolbar = find.byKey(const ValueKey('composer-gallery-toolbar'));
         expect(toolbar, findsOneWidget);
         final toolbarRect = tester.getRect(toolbar);
-        expect(toolbarRect.size, const Size(44 * 4, 44));
+        expect(toolbarRect.size, const Size(30 * 4, 30));
         final viewport = Rect.fromLTWH(
           0,
           0,
@@ -2008,8 +2008,8 @@ void main() {
         for (final button in iconButtons.evaluate()) {
           final size = tester.getSize(find.byWidget(button.widget));
           final tooltip = (button.widget as DButton).tooltip;
-          expect(size.width, greaterThanOrEqualTo(44), reason: tooltip);
-          expect(size.height, greaterThanOrEqualTo(44), reason: tooltip);
+          expect(size.width, 30, reason: tooltip);
+          expect(size.height, 30, reason: tooltip);
         }
 
         final modeToggles = find.descendant(
@@ -2019,8 +2019,8 @@ void main() {
         expect(modeToggles, findsNWidgets(2));
         for (final button in modeToggles.evaluate()) {
           final size = tester.getSize(find.byWidget(button.widget));
-          expect(size.width, 44);
-          expect(size.height, 44);
+          expect(size.width, 30);
+          expect(size.height, 30);
         }
 
         Finder modeButton(String tooltip) => find.bySemanticsLabel(tooltip);

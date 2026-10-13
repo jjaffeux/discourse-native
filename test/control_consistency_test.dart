@@ -98,7 +98,12 @@ void main() {
         for (final surface in [select]) {
           expect(surface.borderRadius, radius);
           expect(surface.borderColor, action.borderColor);
-          expect(surface.color, action.color);
+          expect(
+            surface.color,
+            DTokens.of(
+              tester.element(find.byType(DSelect<String>)),
+            ).buttonTheme.outline.background,
+          );
         }
         expect(select.strokeWidth, 1);
         expect(select.shadowColor.a, 0);
@@ -106,7 +111,7 @@ void main() {
           tester
               .getSize(find.byKey(const Key('d-select-trigger-visual')))
               .height,
-          tester.getSize(find.widgetWithText(FilledButton, 'Action')).height,
+          tester.getSize(find.widgetWithText(DButton, 'Action')).height,
         );
       }
     },
@@ -176,7 +181,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Support'));
     await tester.pumpAndSettle();
-    expect(find.text('Support'), findsNWidgets(3));
+    expect(find.text('Support'), findsOneWidget);
     await tester.ensureVisible(find.text('Watching'));
     await tester.tap(find.text('Watching'));
     await tester.pumpAndSettle();

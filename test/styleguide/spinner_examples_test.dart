@@ -75,8 +75,7 @@ void main() {
   testWidgets(
     'button example reproduces the disabled small reference buttons',
     (tester) async {
-      // Pointer platforms keep the 28px reference height; touch platforms
-      // enlarge only the invisible target.
+      // Each small variant keeps its visible bounds and native icon insets.
       await _pump(tester, 'Button', platform: TargetPlatform.macOS);
       for (final (label, variant) in [
         ('Loading...', DButtonVariant.primary),
@@ -97,7 +96,11 @@ void main() {
         final spinnerRect = tester.getRect(spinner);
         expect(buttonRect.height, 24, reason: label);
         expect(spinnerRect.size, const Size.square(16), reason: label);
-        expect(spinnerRect.left - buttonRect.left, 6, reason: label);
+        expect(
+          spinnerRect.left - buttonRect.left,
+          variant == DButtonVariant.secondary ? 11 : 6,
+          reason: label,
+        );
         expect(
           tester.getRect(find.text(label).first).left - spinnerRect.right,
           4,

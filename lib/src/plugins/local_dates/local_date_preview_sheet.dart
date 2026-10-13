@@ -1,10 +1,10 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../theme/d_icons.dart';
 import 'local_date.dart';
 
 /// The touch preview emphasizes the reader's time, then compares other zones.

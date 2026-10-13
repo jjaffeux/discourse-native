@@ -398,6 +398,16 @@ void main() {
         expect(controller.tabsForCurrentForum, hasLength(3));
         expect(_bar(tester).selectedId, openedTabId);
 
+        // Start pages are intentionally excluded from recently closed tabs.
+        controller.pushContent(
+          const ContentRoute(
+            id: 'all-categories',
+            title: 'Categories',
+            icon: DIcons.layerGroup,
+          ),
+        );
+        await tester.pumpAndSettle();
+
         expect(
           await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
           isTrue,
@@ -1016,7 +1026,7 @@ void main() {
               );
               expect(tester.widget<DToggle>(splitToggle).pressed, isTrue);
               final toggleRect = tester.getRect(splitToggle);
-              expect(toggleRect.size, const Size.square(32));
+              expect(toggleRect.size, const Size.square(36));
               expect(panelRect.right - toggleRect.right, 10);
               expect(toggleRect.center.dy, headerRect.center.dy);
             }

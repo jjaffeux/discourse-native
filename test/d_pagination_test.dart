@@ -106,7 +106,7 @@ void main() {
               ),
             )
             .height,
-        44,
+        30,
       );
 
       await tester.tap(find.bySemanticsLabel('Go to last page'));

@@ -431,7 +431,7 @@ class ChatPlugin
                 indicator.label!,
                 style: TextStyle(
                   color: colors.success,
-                  fontSize: 12,
+                  fontSize: DiscourseTypography.xs,
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),

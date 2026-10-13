@@ -213,7 +213,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Forum'), findsOneWidget);
-      expect(find.text('Chat'), findsNothing);
+      expect(find.text('Chat'), findsOneWidget);
+      final chatTrigger = find.byWidgetPredicate(
+        (widget) => widget is DTabTrigger<String> && widget.value == 'chat',
+      );
+      expect(
+        find.descendant(
+          of: chatTrigger,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics && widget.properties.selected == false,
+          ),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(
         find.byWidgetPredicate(
           (widget) => widget is DTabTrigger<String> && widget.value == 'chat',
@@ -221,8 +234,18 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Chat'), findsOneWidget);
-      expect(find.text('Forum'), findsNothing);
+      expect(find.text('Forum'), findsOneWidget);
       expect(find.bySemanticsLabel('Chat'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: chatTrigger,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics && widget.properties.selected == true,
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await _capture(tester, capture, 'components-${dark ? 'dark' : 'light'}');
       semantics.dispose();

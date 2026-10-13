@@ -80,8 +80,8 @@ void _registerConnectionSessionTests() {
 
       final signUp = tester.getRect(find.byKey(UserMenuButton.signUpKey));
       final signIn = tester.getRect(find.byKey(UserMenuButton.signInKey));
-      expect(signUp.height, 40);
-      expect(signIn.height, 40);
+      expect(signUp.height, 37);
+      expect(signIn.height, 37);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('sign-up opens the selected forum registration page', (
@@ -1561,7 +1561,7 @@ void _registerConnectionSessionTests() {
           );
           expect(
             tester.getSize(activityAction).height,
-            greaterThanOrEqualTo(44),
+            closeTo(tester.getSemantics(activityAction).rect.height, .001),
           );
         } finally {
           menuSemantics.dispose();

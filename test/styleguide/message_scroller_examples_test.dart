@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/message_scroller_examples.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -71,7 +72,7 @@ void main() {
     }
   });
 
-  testWidgets('command example targets a stable virtualized row', (
+  testWidgets('command example reaches stable transcript endpoints', (
     tester,
   ) async {
     final example = messageScrollerExamples.examples.singleWhere(
@@ -86,14 +87,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Message 24'));
+    await tester.tap(find.text('End'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Addressable message 24'), findsOneWidget);
+    expect(find.text('Message 40'), findsOneWidget);
     final viewport = tester.widget<DMessageScrollerViewport>(
       find.byType(DMessageScrollerViewport),
     );
-    expect(viewport.itemId(23), 'command-23');
+    expect(viewport.itemId(39), 'command-39');
+    await tester.tap(find.text('Start'));
+    await tester.pumpAndSettle();
+    expect(find.text('Message 1'), findsOneWidget);
   });
 
   testWidgets('history example preserves its visible row across large prepends', (
@@ -107,6 +111,17 @@ void main() {
     final retained = find.text(
       'Earlier message 20 includes a second line to demonstrate variable-height restoration.',
     );
+    await tester.scrollUntilVisible(
+      retained,
+      -250,
+      scrollable: find
+          .descendant(
+            of: find.byType(DMessageScrollerViewport),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     final top = tester.getTopLeft(retained).dy;
 
     for (var batch = 0; batch < 2; batch++) {
@@ -239,7 +254,7 @@ void main() {
     expect(viewport.itemIsAnchor(12), isFalse);
   });
 
-  testWidgets('outline preview has an accessible click-to-open jump list', (
+  testWidgets('command endpoints activate through keyboard focus', (
     tester,
   ) async {
     final example = messageScrollerExamples.examples.singleWhere(
@@ -247,17 +262,16 @@ void main() {
     );
     await tester.pumpWidget(exampleHost(example.builder));
     await tester.pumpAndSettle();
-    expect(find.byType(DHoverCard), findsOneWidget);
-    await tester.tap(find.text('Transcript outline'));
-    await tester.pumpAndSettle();
-    final turn = find.descendant(
-      of: find.byKey(const ValueKey('transcript-outline-false')),
-      matching: find.text('Turn 3'),
-    );
-    await tester.tap(turn);
+    Focus.of(tester.element(find.text('Start'))).requestFocus();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(find.text('Addressable message 17'), findsOneWidget);
+    expect(find.text('Message 1'), findsOneWidget);
+    Focus.of(tester.element(find.text('End'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Message 40'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

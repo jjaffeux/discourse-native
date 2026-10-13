@@ -222,8 +222,10 @@ class _MessageScrollerReferenceDemoState
               ),
               DCardContent(
                 joinNext: true,
-                child: SizedBox(
-                  height: MediaQuery.textScalerOf(context).scale(294),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.textScalerOf(context).scale(294),
+                  ),
                   child: _messages.isEmpty
                       ? const DEmpty(
                           padding: EdgeInsets.all(DSpacing.xl),
@@ -242,24 +244,29 @@ class _MessageScrollerReferenceDemoState
                             ),
                           ],
                         )
-                      : DMessageScroller(
-                          children: [
-                            DMessageScrollerViewport.builder(
-                              itemCount: _messages.length,
-                              itemIdBuilder: (index) => 'reference-$index',
-                              scrollAnchorBuilder: (index) => index.isEven,
+                      : SizedBox(
+                          height: MediaQuery.textScalerOf(context).scale(294),
+                          child: DMessageScroller(
+                            children: [
+                              DMessageScrollerViewport.builder(
+                                itemCount: _messages.length,
+                                itemIdBuilder: (index) => 'reference-$index',
+                                scrollAnchorBuilder: (index) => index.isEven,
 
-                              contentPadding: const EdgeInsets.all(DSpacing.md),
-                              itemBuilder: (context, index) => _MessageRow(
-                                text: _messages[index],
-                                outgoing: index.isEven,
-                                sender: index.isEven ? 'You' : 'Assistant',
-                                animate: false,
-                                animation: _EntryAnimation.none,
+                                contentPadding: const EdgeInsets.all(
+                                  DSpacing.md,
+                                ),
+                                itemBuilder: (context, index) => _MessageRow(
+                                  text: _messages[index],
+                                  outgoing: index.isEven,
+                                  sender: index.isEven ? 'You' : 'Assistant',
+                                  animate: false,
+                                  animation: _EntryAnimation.none,
+                                ),
                               ),
-                            ),
-                            const DMessageScrollerButton(),
-                          ],
+                              const DMessageScrollerButton(),
+                            ],
+                          ),
                         ),
                 ),
               ),
@@ -850,7 +857,13 @@ class _Frame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final frame = SizedBox(height: 320, child: child);
+    final frame = SizedBox(
+      height:
+          320 *
+          MediaQuery.textScalerOf(context).scale(DiscourseTypography.base) /
+          DiscourseTypography.base,
+      child: child,
+    );
     return decorated ? DCard(child: frame) : frame;
   }
 }

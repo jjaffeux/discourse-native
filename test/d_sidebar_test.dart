@@ -223,8 +223,12 @@ void main() {
       () => DSidebar(width: 0, child: const SizedBox()),
       throwsAssertionError,
     );
-    expect(() => const DSidebar(child: SizedBox()), throwsAssertionError);
-    expect(() => const DSidebar(child: SizedBox()), throwsAssertionError);
+    expect(
+      () => DSidebar(width: -1, child: const SizedBox()),
+      throwsAssertionError,
+    );
+    expect(() => const DSidebar(child: SizedBox()), returnsNormally);
+    expect(() => DSidebarMenuSkeleton(widthFactor: 0), throwsAssertionError);
     expect(() => DSidebarMenuSkeleton(widthFactor: 1.1), throwsAssertionError);
   });
 
@@ -625,7 +629,7 @@ void main() {
     expect(find.text('Header'), findsNothing);
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('$platform touch target surrounds compact visuals', (
+    testWidgets('$platform touch targets match compact visuals', (
       tester,
     ) async {
       var calls = 0;
@@ -664,9 +668,9 @@ void main() {
         expect(
           bounds.height,
           type == DSidebarMenuButton
-              ? 44
+              ? 30
               : type == DSidebarTrigger
-              ? 44
+              ? 30
               : 20,
         );
         expect(bounds.width, greaterThan(0));
@@ -857,7 +861,7 @@ void main() {
           ),
         ),
       );
-      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 34);
+      expect(tester.getSize(find.byType(DSidebarMenuButton).first).height, 30);
       focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.space);

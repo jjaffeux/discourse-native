@@ -145,12 +145,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       final button = tester.widget<DButton>(find.byKey(UserMenuButton.bellKey));
-      final color = switch (role) {
-        'personal' => theme.discourse.success,
-        'review' => theme.colorScheme.error,
-        _ => theme.discourse.notificationIndicator,
-      };
-      expect(button.backgroundColor, color.withValues(alpha: .14));
+      final primary = DTokens.of(
+        tester.element(find.byKey(UserMenuButton.bellKey)),
+      ).buttonTheme.primary;
+      final badge = tester.widget<DBadge>(
+        find.byKey(UserMenuButton.unreadDotKey),
+      );
+      expect(button.variant, DButtonVariant.ghost);
+      expect(badge.backgroundColor, primary.background);
+      expect(badge.foregroundColor, primary.foreground);
       expect(find.text('99+'), findsOneWidget);
       expect(button.semanticLabel, 'Notifications, 128 unread items');
     });
@@ -192,8 +195,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = find.byKey(UserMenuButton.bellKey);
-      expect(tester.getSize(button).height, 34);
-      expect(tester.getSize(button).width, greaterThan(34));
+      expect(tester.getSize(button).height, 28);
+      expect(tester.getSize(button).width, 32);
       expect(
         tester.getRect(button).right,
         lessThanOrEqualTo(

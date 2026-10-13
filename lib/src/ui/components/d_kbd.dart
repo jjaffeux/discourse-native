@@ -419,7 +419,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
                       platform,
                     ).map((key) => key.visual).join(' '),
                     style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                      fontSize: 11,
+                      fontSize: DiscourseTypography.micro,
                       height: 1.5,
                       fontWeight: FontWeight.w400,
                       color: Color.lerp(

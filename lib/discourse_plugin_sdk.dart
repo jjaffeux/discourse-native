@@ -152,6 +152,7 @@ export 'src/shell/emoji_composer.dart' show openEmojiPickerForComposer;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
 export 'src/shell/forum_search.dart' show ForumSearch;
+export 'src/shell/forum_theme_surfaces.dart' show ForumWindowBackground;
 export 'src/shell/global_search_models.dart'
     show GlobalSearchCondition, GlobalSearchContext;
 export 'src/shell/group_flair.dart' show GroupFlairBadge;
@@ -199,6 +200,8 @@ export 'src/shell/reaction_presentation.dart'
 export 'src/shell/relative_time.dart'
     show RelativeTimeBuilder, RelativeTimeText, relativeTime;
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
+export 'src/shell/search_words.dart'
+    show SearchWords, SearchText, searchSnippet;
 export 'src/shell/shell_metrics.dart' show shellHeaderHeight;
 export 'src/shell/shell_sheet.dart' show showShellSheet;
 export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;

@@ -28,6 +28,27 @@ const _site = 'https://meta.discourse.org';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('page search words stay with the current site and route', () async {
+    final fixture = await _fixture(
+      channels: ChatChannels(public: [_channel(9)]),
+    );
+    addTearDown(fixture.dispose);
+    fixture.shell.openSearch();
+    fixture.shell.setPageSearchWords(_site, ChatPlugin.searchRouteId, 'needle');
+    fixture.shell.setPageSearchWords(
+      'https://other.example',
+      ChatPlugin.searchRouteId,
+      'foreign',
+    );
+    fixture.shell.setPageSearchWords(_site, 'other-route', 'foreign');
+    expect(fixture.host.pageSearchWords, [
+      (_site, ChatPlugin.searchRouteId, 'needle'),
+    ]);
+    fixture.shell.openChannel(9);
+    fixture.shell.setPageSearchWords(_site, ChatPlugin.searchRouteId, 'stale');
+    expect(fixture.host.pageSearchWords, hasLength(1));
+  });
+
   test(
     'unrelated host updates do not notify chat presentation listeners',
     () async {
@@ -316,6 +337,12 @@ final class _NavigationHost implements PluginNavigationHost {
   List<ContentRoute>? _pluginPaneStack;
   bool _pluginPaneActive = false;
   bool _disposed = false;
+  final pageSearchWords = <(String, String, String)>[];
+
+  @override
+  void setPageSearchWords(String siteUrl, String routeId, String words) {
+    pageSearchWords.add((siteUrl, routeId, words));
+  }
 
   @override
   Listenable get changes => _changes;

@@ -48,9 +48,12 @@ void main() {
           of: find.byType(DMobileDockItem),
           matching: find.byType(DIcon),
         );
-        expect(tester.getSize(actionIcon), tester.getSize(destinationIcon));
         expect(
-          tester.getSize(actionIcon).width,
+          tester.getSize(actionIcon).height,
+          tester.getSize(destinationIcon).height,
+        );
+        expect(
+          tester.getSize(actionIcon).height,
           scale == 1 ? 20 : greaterThan(20),
         );
         expect(tester.getCenter(actionIcon), tester.getCenter(action));

@@ -303,13 +303,14 @@ void main() {
       expect(shell.visibleComposer, same(composer));
       createPostGate.complete();
       await submission;
-      expect(shell.visibleComposer, isNull);
+      expect(composer.isDisposed, isTrue);
+      expect(shell.liveComposers, isNot(contains(composer)));
       expect(api.created.single['topicId'], 7);
     },
   );
 
   test(
-    'explicitly replying to another topic replaces the forum composer and saves its draft',
+    'explicitly replying to another topic retains the prior reply and saves its draft',
     () async {
       final composer = openReply(7);
       await shell.finishComposerDraftRestore(composer);
@@ -317,8 +318,9 @@ void main() {
       shell.createTab();
       final replacement = openReply(8);
       await composer.finishDraftSaves();
-      expect(composer.isDisposed, isTrue);
-      expect(shell.liveComposers, [replacement]);
+      expect(composer.isDisposed, isFalse);
+      expect(shell.liveComposers, containsAll([composer, replacement]));
+      expect(shell.visibleComposer, same(replacement));
       expect(
         ComposerDraft.decode(api.draftsSaved.single['data']! as String)?.reply,
         'Saved first reply',

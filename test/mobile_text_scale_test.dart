@@ -73,12 +73,12 @@ void main() {
                     entries: const [
                       DSelectItem(
                         value: 'latest',
-                        textValue: 'latest',
+                        textValue: 'Latest',
                         child: Text('Latest'),
                       ),
                       DSelectItem(
                         value: 'new',
-                        textValue: 'new',
+                        textValue: 'New',
                         child: Text('New'),
                       ),
                     ],
@@ -114,7 +114,7 @@ void main() {
           );
           for (final (size, base) in [
             ('small', 12.5),
-            ('regular', 13.0),
+            ('regular', 12.5),
             ('large', 14.0),
           ]) {
             final label = _paragraph(tester, size);

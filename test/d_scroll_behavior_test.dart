@@ -207,6 +207,8 @@ void main() {
       _expectInk(await _pixel(tester, key, 20), .5 / 14);
       _expectInk(await _pixel(tester, key, 27), 7.5 / 14);
       expect(scroll.position, same(position));
+      // Let the header's mockup hold interval expire before reversing intent.
+      await tester.pump(const Duration(milliseconds: 401));
       await tester.drag(find.byType(CustomScrollView), const Offset(0, 100));
       await tester.pumpAndSettle();
       _expectInk(await _pixel(tester, key, 60), .5 / 14);

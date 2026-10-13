@@ -132,6 +132,9 @@ abstract interface class PluginNavigationHost {
   void openPageTab(ContentRoute route);
   void replaceCurrentContent(ContentRoute route);
   void selectDestination(SidebarDestination destination);
+
+  /// Updates highlights only in the current site's current route and tab.
+  void setPageSearchWords(String siteUrl, String routeId, String words);
   void showPluginContent();
 
   /// Saves the active forum tab and restores this plugin's last tab snapshot.

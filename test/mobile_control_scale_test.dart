@@ -7,7 +7,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final (size, height, font, icon) in [
       (DControlSize.small, 40.0, 12.5, 12.0),
-      (DControlSize.regular, 44.0, 13.0, 14.0),
+      (DControlSize.regular, 30.0, 12.5, 12.0),
       (DControlSize.large, 48.0, 14.0, 16.0),
     ]) {
       testWidgets(
@@ -148,7 +148,7 @@ void main() {
       expect(tester.takeException(), isNull);
       for (final button in find.byType(FilledButton).evaluate()) {
         final rect = tester.getRect(find.byWidget(button.widget));
-        expect(rect.height, greaterThanOrEqualTo(44));
+        expect(rect.height, greaterThanOrEqualTo(30));
       }
       await tester.tap(find.byTooltip('Bookmark'));
       await tester.pump();

@@ -399,7 +399,7 @@ void main() {
       shell.selectTopicListCategory(parent);
       shell.selectTopicListTag('Alpha');
       await tester.pumpAndSettle();
-      expect(find.text('Filters 2'), findsOneWidget);
+      expect(find.text('Filters · 2'), findsOneWidget);
       await openFilters(tester);
       expect(find.text('category: Product'), findsOneWidget);
       expect(find.text('tag: Alpha'), findsOneWidget);

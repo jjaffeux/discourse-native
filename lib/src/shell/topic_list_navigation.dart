@@ -10,6 +10,7 @@ import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
@@ -142,7 +143,13 @@ class TopicListNavigation extends StatelessWidget {
           return DPageSurface(
             framed: false,
             identity: state.filterOwner,
-            header: constraints.maxHeight < 320
+            header:
+                constraints.maxHeight <
+                    320 *
+                        MediaQuery.textScalerOf(
+                          context,
+                        ).scale(DiscourseTypography.base) /
+                        DiscourseTypography.base
                 ? ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: constraints.maxHeight / 2,

@@ -12,6 +12,7 @@ import '../models/user_card.dart';
 import '../models/user_status.dart';
 import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/emoji_usage.dart';
+import '../theme/discourse_typography.dart';
 import 'emoji_picker.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -383,7 +384,7 @@ class _UserStatusEditorState extends State<_UserStatusEditor> {
                               controller: _description,
                               borderless: true,
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: DiscourseTypography.preview,
                                 height: 1.3,
                               ),
                               autofocus: !context.isTouch,

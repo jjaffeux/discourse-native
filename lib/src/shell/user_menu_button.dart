@@ -19,6 +19,7 @@ import 'user_status.dart';
 typedef _AccountAvatarSnapshot = ({
   bool showAccountControls,
   String? siteUrl,
+  Object? session,
   String? avatarUrl,
   String? username,
   String? displayName,
@@ -55,12 +56,66 @@ class UserMenuButton extends StatefulWidget {
   State<UserMenuButton> createState() => _UserMenuButtonState();
 }
 
+typedef _AccountMenuOwner = ({
+  ShellRootMode rootMode,
+  String? siteUrl,
+  int? userId,
+  Object? session,
+});
+
 class _UserMenuButtonState extends State<UserMenuButton> {
   final _notifications = DPopoverController();
   final _profile = DPopoverController();
+  _AccountMenuOwner? _menuOwner;
+  var _menuGeneration = 0;
+  ShellController? _shell;
+
+  _AccountMenuOwner _owner(ShellController shell) {
+    final instance = shell.currentInstance;
+    return (
+      rootMode: shell.rootMode,
+      siteUrl: instance?.url,
+      userId: instance?.user?.id,
+      session: instance == null
+          ? null
+          : shell.lifecycle.capture(instance.url).session,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shell = ShellScope.read(context);
+    if (identical(shell, _shell)) return;
+    _shell?.removeListener(_handleShellChanged);
+    _shell = shell;
+    shell.addListener(_handleShellChanged);
+    _handleShellChanged();
+  }
+
+  void _handleShellChanged() {
+    final owner = _owner(_shell!);
+    if (_menuOwner == owner) return;
+    final previous = _menuOwner;
+    final retired =
+        previous != null &&
+        (previous.rootMode != owner.rootMode ||
+            previous.siteUrl == owner.siteUrl &&
+                (previous.userId != owner.userId ||
+                    previous.session != owner.session));
+    if (retired && !context.isTouch) {
+      // Site navigation keeps the selected menu section. A retired account
+      // removes its content before the dismissal animation can reload it.
+      _menuGeneration++;
+      _notifications.close();
+      _profile.close();
+    }
+    _menuOwner = owner;
+  }
 
   @override
   void dispose() {
+    _shell?.removeListener(_handleShellChanged);
     _notifications.dispose();
     _profile.dispose();
     super.dispose();
@@ -94,6 +149,9 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       return (
         showAccountControls: controller.rootMode == ShellRootMode.forum,
         siteUrl: instance?.url,
+        session: instance == null
+            ? null
+            : controller.lifecycle.capture(instance.url).session,
         avatarUrl: user?.avatarUrl,
         username: user?.username,
         displayName: user?.displayName,
@@ -137,6 +195,12 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   children: [
                     ...?widget.leadingActions,
                     _AccountMenuPopover(
+                      key: context.isTouch
+                          ? null
+                          : ValueKey((
+                              UserMenuView.notifications,
+                              _menuGeneration,
+                            )),
                       view: UserMenuView.notifications,
                       controller: _notifications,
                       onOpen: _profile.close,
@@ -156,6 +220,9 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 ),
               ),
               _AccountMenuPopover(
+                key: context.isTouch
+                    ? null
+                    : ValueKey((UserMenuView.profile, _menuGeneration)),
                 view: UserMenuView.profile,
                 controller: _profile,
                 onOpen: _notifications.close,
@@ -201,6 +268,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
 
 class _AccountMenuPopover extends StatelessWidget {
   const _AccountMenuPopover({
+    super.key,
     required this.view,
     required this.controller,
     required this.onOpen,

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 /// to 17px on mobile, then applies platform accessibility scaling and app zoom;
 /// styles must never multiply their font size by these scales themselves.
 abstract final class DiscourseTypography {
+  static const double badge = 9;
   static const double micro = 11;
   static const double metadata = 11.5;
   static const double xs = 12;
@@ -23,6 +24,7 @@ abstract final class DiscourseTypography {
   static const double rowTitle = 14.5;
   static const double lg = 17;
   static const double xl = 18;
+  static const double magnifier = 20;
   static const double xxl = 22;
   static const double xxxl = 28;
   static const double xxxxl = 32;

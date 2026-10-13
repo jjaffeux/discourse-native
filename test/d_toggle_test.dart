@@ -373,7 +373,7 @@ void main() {
   ) async {
     for (final entry in const [
       (DToggleSize.small, 24.0, 12.0, 40.0),
-      (DToggleSize.regular, 34.0, 14.0, 44.0),
+      (DToggleSize.regular, 30.0, 12.0, 30.0),
       (DToggleSize.large, 40.0, 16.0, 48.0),
     ]) {
       for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
@@ -594,7 +594,7 @@ void main() {
 
     for (final entry in const [
       (DToggleSize.small, 6.0),
-      (DToggleSize.regular, 8.0),
+      (DToggleSize.regular, 10.0),
       (DToggleSize.large, 8.0),
     ]) {
       await mount(
@@ -607,7 +607,9 @@ void main() {
       );
       expect(
         artwork().padding,
-        EdgeInsetsDirectional.only(start: entry.$2, end: 10),
+        entry.$1 == DToggleSize.regular
+            ? const EdgeInsets.symmetric(horizontal: 10)
+            : EdgeInsetsDirectional.only(start: entry.$2, end: 10),
       );
       final iconRect = tester.getRect(find.byKey(const ValueKey('icon')));
       final labelRect = tester.getRect(find.byKey(const ValueKey('label')));
@@ -624,7 +626,9 @@ void main() {
       );
       expect(
         artwork().padding,
-        EdgeInsetsDirectional.only(start: 10, end: entry.$2),
+        entry.$1 == DToggleSize.regular
+            ? const EdgeInsets.symmetric(horizontal: 10)
+            : EdgeInsetsDirectional.only(start: 10, end: entry.$2),
       );
     }
 

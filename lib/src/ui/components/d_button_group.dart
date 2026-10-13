@@ -286,7 +286,7 @@ class DButtonGroupText extends StatelessWidget {
               child: DefaultTextStyle.merge(
                 style: TextStyle(
                   color: Color.lerp(tokens.background, tokens.foreground, .32),
-                  fontSize: 12.5,
+                  fontSize: DiscourseTypography.preview,
                   height: 1.5,
                   fontWeight: FontWeight.w500,
                 ),

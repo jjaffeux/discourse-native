@@ -13,7 +13,6 @@ import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
 import 'groups_controller.dart';
 import 'groups_page.dart';
-import 'shell_scope.dart';
 import 'topic_list_view.dart';
 
 class GroupPagesHost extends StatefulWidget {
@@ -110,9 +109,6 @@ class _GroupsDirectoryView extends StatelessWidget {
             canCreateGroup: port.canCreateGroup(owner),
           ),
           onSearchChanged: (value) {
-            ShellScope.maybeRead(
-              context,
-            )?.search.setPageWords(owner.siteUrl, owner.tabId, 'groups', value);
             if (coordinator.replaceDirectoryQuery(
               coordinator.directoryQuery.copyWith(filter: value),
             )) {
