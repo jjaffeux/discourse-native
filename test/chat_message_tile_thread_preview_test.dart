@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -32,9 +34,11 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kMiddleMouseButton, kSecondaryMouseButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,6 +56,131 @@ const _replyToMessageAction = CustomSemanticsAction(label: 'Reply');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
+  setUpAll(() async {
+    final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
+    if (output != null) {
+      final fonts =
+          jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
+      for (final entry in fonts.cast<Map<String, dynamic>>()) {
+        final loader = FontLoader(entry['family'] as String);
+        for (final face
+            in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+          loader.addFont(rootBundle.load(face['asset'] as String));
+        }
+        await loader.load();
+      }
+    }
+  });
+  for (final dark in [false, true]) {
+    for (final material in DAppearanceMaterial.values) {
+      for (final inThread in [false, true]) {
+        testWidgets(
+          'chat reaction artwork parity ($dark, $material, thread=$inThread)',
+          (tester) async {
+            final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
+            installTestMediaPipeline(
+              client: MockClient((request) async {
+                final emojiDir =
+                    Platform.environment['CHAT_REACTION_EMOJI_DIR'];
+                if (request.url.path.endsWith('/clap.png') ||
+                    request.url.path.endsWith('/heart.png')) {
+                  return http.Response.bytes(
+                    emojiDir == null
+                        ? _emojiPng
+                        : File(
+                            '$emojiDir/${request.url.path.split('/').last}',
+                          ).readAsBytesSync(),
+                    200,
+                    headers: {'content-type': 'image/png'},
+                  );
+                }
+                return http.Response('', 404);
+              }),
+            );
+            final controller = await _controller(
+              _message(
+                null,
+                threadId: inThread ? 3 : null,
+                reactions: const [
+                  ChatReaction(emoji: 'clap', count: 2),
+                  ChatReaction(emoji: 'heart', count: 12, reacted: true),
+                ],
+              ),
+            );
+            addTearDown(controller.dispose);
+            final captureKey = GlobalKey();
+            await tester.pumpWidget(
+              _TestTile(
+                controller: controller,
+                onOpenThread: (_) {},
+                contextThreadId: inThread ? 3 : null,
+                brightness: dark ? Brightness.dark : Brightness.light,
+                material: material,
+                captureKey: captureKey,
+              ),
+            );
+            await tester.pumpAndSettle();
+            final pills = find.byType(ReactionPill);
+            expect(pills, findsNWidgets(2));
+            for (var i = 0; i < 2; i++) {
+              final toggle = find.descendant(
+                of: pills.at(i),
+                matching: find.byType(DToggle),
+              );
+              final artwork = find.descendant(
+                of: toggle,
+                matching: find.byType(AnimatedContainer),
+              );
+              final tokens = DTokens.of(tester.element(toggle));
+              final decoration =
+                  tester.widget<AnimatedContainer>(artwork).decoration!
+                      as BoxDecoration;
+              expect(tester.getSize(artwork).height, 24);
+              expect(
+                decoration.color,
+                Color.lerp(
+                  tokens.colors.surface,
+                  tokens.foreground,
+                  i == 0 ? .10 : .15,
+                ),
+              );
+              expect(
+                find.descendant(
+                  of: toggle,
+                  matching: find.byType(DMaterialSurface),
+                ),
+                findsNothing,
+              );
+            }
+            if (output != null) {
+              await tester.runAsync(() async {
+                for (final element in find.byType(Image).evaluate()) {
+                  await precacheImage((element.widget as Image).image, element);
+                }
+              });
+              await tester.pumpAndSettle();
+              await tester.runAsync(() async {
+                final boundary =
+                    captureKey.currentContext!.findRenderObject()!
+                        as RenderRepaintBoundary;
+                final image = await boundary.toImage(pixelRatio: 2);
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                final dir = Directory(output)..createSync(recursive: true);
+                await File(
+                  '${dir.path}/${dark ? 'dark' : 'light'}-${material.name}-${inThread ? 'thread' : 'channel'}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+              });
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   const aiFlair = UserFlair(
     groupId: 12,
     name: 'discourse_ai_users',
@@ -2676,6 +2805,8 @@ class _TestTile extends StatelessWidget {
     this.withToaster = false,
     this.brightness = Brightness.light,
     this.textScaler,
+    this.material,
+    this.captureKey,
   });
 
   final ShellController controller;
@@ -2692,6 +2823,19 @@ class _TestTile extends StatelessWidget {
   final bool withToaster;
   final Brightness brightness;
   final TextScaler? textScaler;
+  final DAppearanceMaterial? material;
+  final GlobalKey? captureKey;
+
+  ThemeData get _theme {
+    final base = brightness == Brightness.dark ? AppTheme.dark : AppTheme.light;
+    final theme = base.copyWith(
+      platform: platform,
+      textTheme: captureKey == null
+          ? base.textTheme
+          : base.textTheme.apply(fontFamily: 'Lato'),
+    );
+    return material == null ? theme : DMaterialTheme.apply(theme, material!);
+  }
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -2699,8 +2843,7 @@ class _TestTile extends StatelessWidget {
     child: PluginUiScope.own(
       chatPluginId,
       MaterialApp(
-        theme: (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
-            .copyWith(platform: platform),
+        theme: _theme,
         builder: (context, child) {
           if (withToaster) {
             child = DToaster(child: child!);
@@ -2714,19 +2857,25 @@ class _TestTile extends StatelessWidget {
           body: Align(
             alignment: Alignment.topLeft,
             child: SizedBox(
-              width: 720,
-              child: ChatMessageTile(
-                key: _messageTileKey,
-                siteUrl: _siteUrl,
-                messageId: messageId,
-                chained: chained,
-                previousMessageId: previousMessageId,
-                contextThreadId: contextThreadId,
-                onOpenThread: onOpenThread,
-                onJumpToMessage: onJumpToMessage,
-                onReply: onReply,
-                onEdit: onEdit,
-                showThreadSummary: showThreadSummary,
+              width: captureKey == null ? 720 : 380,
+              child: RepaintBoundary(
+                key: captureKey,
+                child: ColoredBox(
+                  color: _theme.colorScheme.surface,
+                  child: ChatMessageTile(
+                    key: _messageTileKey,
+                    siteUrl: _siteUrl,
+                    messageId: messageId,
+                    chained: chained,
+                    previousMessageId: previousMessageId,
+                    contextThreadId: contextThreadId,
+                    onOpenThread: onOpenThread,
+                    onJumpToMessage: onJumpToMessage,
+                    onReply: onReply,
+                    onEdit: onEdit,
+                    showThreadSummary: showThreadSummary,
+                  ),
+                ),
               ),
             ),
           ),

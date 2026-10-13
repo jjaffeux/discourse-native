@@ -15,7 +15,7 @@ enum DToggleVariant { standard, outline, segmented, inline }
 
 /// Application artwork presets use matching hit areas.
 ///
-/// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
+/// [chatReaction] matches the chat mockup's flat 24px outlined pill.
 /// [chrome] provides 18px icons in a 32px window control.
 /// [splitView] provides neutral 20px artwork in a 36px circular control,
 /// with a circular hover surface and a press animation.
@@ -264,6 +264,9 @@ class _DToggleState extends State<DToggle> {
 
     final postReaction = widget.density == DToggleDensity.postReaction;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
+    // ChatBubble derives these roles from the palette's raw secondary, not
+    // the panel fill. Reaction chips stay flat in both appearance materials.
+    final chatBackground = tokens.colors.surface;
     final tile = widget.density == DToggleDensity.tile;
     final compactInset = widget.density == DToggleDensity.compactInset;
     final chrome = widget.density == DToggleDensity.chrome;
@@ -287,7 +290,7 @@ class _DToggleState extends State<DToggle> {
               ? tokens.foreground
               : Color.lerp(tokens.background, tokens.foreground, .5)!)
         : chatReaction
-        ? Color.lerp(tokens.background, tokens.foreground, .62)!
+        ? Color.lerp(chatBackground, tokens.foreground, .62)!
         : outlined
         ? outline.foreground
         : tile && !_current
@@ -348,7 +351,7 @@ class _DToggleState extends State<DToggle> {
               : Colors.transparent
         : chatReaction && outlined
         ? Color.lerp(
-            tokens.background,
+            chatBackground,
             tokens.foreground,
             activeSurface ? .32 : .22,
           )!
@@ -411,6 +414,8 @@ class _DToggleState extends State<DToggle> {
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
                   : tile
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
+                  : chatReaction
+                  ? FontWeight.w400
                   : FontWeight.w500,
               letterSpacing: 0,
             ),
@@ -492,7 +497,7 @@ class _DToggleState extends State<DToggle> {
               : Colors.transparent
         : chatReaction && outlined
         ? Color.lerp(
-            tokens.background,
+            chatBackground,
             tokens.foreground,
             activeSurface ? .15 : .10,
           )!
@@ -528,7 +533,7 @@ class _DToggleState extends State<DToggle> {
       decoration: BoxDecoration(
         color: splitView
             ? null
-            : postReaction
+            : postReaction || chatReaction
             ? surfaceColor
             : DMaterialSurface.fill(context, surfaceColor),
         gradient: splitView
@@ -590,7 +595,7 @@ class _DToggleState extends State<DToggle> {
               child: child,
             ),
           )
-        : postReaction
+        : postReaction || chatReaction
         ? artwork
         : DMaterialSurface(radius: radius, color: surfaceColor, child: artwork);
 

@@ -72,7 +72,7 @@ final toggleExamples = ComponentExamples(
     StyleguideExample(
       title: 'Chat reaction',
       description:
-          'A 24px outlined pill with 12px emoji and count, matching chat messages.',
+          'A flat 24px outlined pill with 12px emoji and regular-weight count, matching chat channels and threads in both materials.',
       code:
           "DToggle(density: DToggleDensity.chatReaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
       builder: (_) => const DToggle(
