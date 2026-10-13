@@ -398,10 +398,14 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
         final total = horizontal ? constraints.maxWidth : constraints.maxHeight;
         final hit = math.min(
           total,
-          DResizableHandle.visualExtent(
-            withHandle: h.withHandle,
-            dividerThickness: h.dividerThickness,
-          ),
+          // Divider-free handles paint and receive input only within the
+          // grip. Keep paintOffset in that same coordinate space.
+          h.withHandle && h.dividerThickness == 0
+              ? DResizableHandle.gripThickness
+              : DResizableHandle.visualExtent(
+                  withHandle: h.withHandle,
+                  dividerThickness: h.dividerThickness,
+                ),
         );
         final handleStart = (position + .5 - hit / 2)
             .clamp(0.0, math.max(0.0, total - hit))

@@ -582,10 +582,38 @@ void main() {
 
           expect(gap(), 12);
           final before = tester.getSize(editor);
-          final gutter = tester.getRect(find.byType(DResizableHandle));
-          expect(placement.isSide ? gutter.width : gutter.height, 12);
+          final handle = find.descendant(
+            of: find.byType(DResizableHandle),
+            matching: find.byType(GestureDetector),
+          );
+          final grip = find.descendant(
+            of: handle,
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration! as BoxDecoration).borderRadius != null,
+            ),
+          );
+          void expectCenteredGrip() {
+            final r = tester.getRect(reader);
+            final e = tester.getRect(find.byType(WorkspacePanel));
+            final expected = switch (placement) {
+              ComposerPlacement.left => (r.left + 5.5 + e.right) / 2,
+              ComposerPlacement.right => (e.left + r.right - 5.5) / 2,
+              _ => (e.top + r.bottom - 5.5) / 2,
+            };
+            final rect = tester.getRect(grip);
+            expect(
+              placement.isSide ? rect.center.dx : rect.center.dy,
+              expected,
+            );
+            expect(tester.getRect(handle), rect);
+          }
+
+          expectCenteredGrip();
           await tester.dragFrom(
-            Offset(gutter.left + .5, gutter.top + .5),
+            tester.getCenter(handle),
             placement.isSide
                 ? Offset(placement == ComposerPlacement.left ? 40 : -40, 0)
                 : const Offset(0, -40),
@@ -598,6 +626,7 @@ void main() {
                 : tester.getSize(editor).height,
             greaterThan(placement.isSide ? before.width : before.height),
           );
+          expectCenteredGrip();
           expect(tester.state(find.byType(ComposerEditor)), same(editorState));
           expect(tester.takeException(), isNull);
         },

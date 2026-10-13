@@ -63,7 +63,7 @@ void main() {
   for (final axis in Axis.values) {
     for (final direction in TextDirection.values) {
       testWidgets(
-        'workspace gutter resizes along its whole $axis in $direction',
+        'workspace grip stays centered and resizes in $axis $direction',
         (tester) async {
           final c = _LayoutProbe();
           addTearDown(c.dispose);
@@ -88,7 +88,7 @@ void main() {
           final gutter = find.byKey(gestureKey);
           expect(
             tester.getSize(gutter),
-            horizontal ? const Size(12, 300) : const Size(602, 12),
+            horizontal ? const Size(4, 36) : const Size(36, 4),
           );
           final pill = find.descendant(
             of: gutter,
@@ -103,6 +103,24 @@ void main() {
             tester.getSize(pill),
             horizontal ? const Size(4, 36) : const Size(36, 4),
           );
+          void expectCenteredGrip() {
+            final first = tester.getRect(find.byKey(const ValueKey('a')).first);
+            final second = tester.getRect(
+              find.byKey(const ValueKey('b')).first,
+            );
+            final center = horizontal
+                ? Offset(
+                    direction == TextDirection.ltr
+                        ? (first.right + second.left) / 2
+                        : (second.right + first.left) / 2,
+                    first.center.dy,
+                  )
+                : Offset(first.center.dx, (first.bottom + second.top) / 2);
+            expect(tester.getRect(pill).center, center);
+            expect(tester.getRect(gutter), tester.getRect(pill));
+          }
+
+          expectCenteredGrip();
           final target = tester.renderObject(gutter);
           final rect = tester.getRect(gutter);
           final outside = horizontal
@@ -143,6 +161,7 @@ void main() {
               closeTo(total, .001),
             );
           }
+          expectCenteredGrip();
           expect(tester.takeException(), isNull);
         },
       );
@@ -186,7 +205,7 @@ void main() {
         expect(color(), tokens.border);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
-        final rect = tester.getRect(handle);
+        final rect = tester.getRect(pill);
         await mouse.moveTo(Offset(rect.left + .5, rect.top + 5));
         await tester.pump();
         expect(color(), disabled ? tokens.border : tokens.primary);
