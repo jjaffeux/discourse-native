@@ -1664,6 +1664,48 @@ void main() {
   });
 
   group('overflow layout', () {
+    for (final direction in TextDirection.values) {
+      for (final material in DAppearanceMaterial.values) {
+        testWidgets('scroll button corners reveal the parent surface in '
+            '$direction with $material', (tester) async {
+          const background = Color(0xff535969);
+          final items = [
+            for (var index = 0; index < 12; index++)
+              ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+          ];
+          await _pumpBar(
+            tester,
+            items: items,
+            selectedId: items.first.id,
+            width: 320,
+            theme: DMaterialTheme.apply(AppTheme.dark, material),
+            textDirection: direction,
+            backgroundColor: background,
+          );
+          final forward = find.byKey(
+            const ValueKey('forum-tabs-scroll-forward'),
+          );
+          await tester.tap(forward);
+          await tester.pumpAndSettle();
+          final backward = find.byKey(
+            const ValueKey('forum-tabs-scroll-backward'),
+          );
+          expect(forward, findsOneWidget);
+          expect(backward, findsOneWidget);
+          final samples = <(Offset, Color)>[];
+          for (final control in [forward, backward]) {
+            final rect = tester.getRect(control);
+            samples.addAll([
+              (Offset(rect.left + 1, rect.top + 1), background),
+              (Offset(rect.right - 2, rect.top + 1), background),
+            ]);
+          }
+          await _expectTabPixels(tester, samples);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
     testWidgets('scroll buttons reveal tabs and stay beside the tab lane', (
       tester,
     ) async {
@@ -2306,6 +2348,7 @@ Future<void> _pumpBar(
   void Function(String id, String title)? onRename,
   double width = 500,
   ThemeData? theme,
+  Color? backgroundColor,
   ShellController? controller,
   ForumPanel? panel,
   void Function(String id, ForumPanel panel)? onMoveToPanel,
@@ -2339,7 +2382,9 @@ Future<void> _pumpBar(
               RepaintBoundary(
                 key: const ValueKey('forum-tabs-paint-boundary'),
                 child: ColoredBox(
-                  color: (theme ?? AppTheme.light).shell.sidebar,
+                  color:
+                      backgroundColor ??
+                      (theme ?? AppTheme.light).shell.sidebar,
                   child: StatefulBuilder(
                     builder: (context, setState) => ForumTabsBar(
                       panel: panel,

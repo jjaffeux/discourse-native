@@ -1553,7 +1553,6 @@ class _ForumTabScrollButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final pointsRight =
         forward == (Directionality.of(context) == TextDirection.ltr);
-    final background = Theme.of(context).shell.sidebar;
     final buttonWidth = DControlStyle.scaledHeight(
       DControlSize.tabAction,
       MediaQuery.textScalerOf(context),
@@ -1561,14 +1560,6 @@ class _ForumTabScrollButton extends StatelessWidget {
     );
     return Container(
       width: buttonWidth + 8,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: pointsRight ? Alignment.centerLeft : Alignment.centerRight,
-          end: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
-          colors: [background.withValues(alpha: 0), background, background],
-          stops: const [0, .55, 1],
-        ),
-      ),
       alignment: pointsRight ? Alignment.centerRight : Alignment.centerLeft,
       child: DButton.iconOnly(
         tooltip: forward
