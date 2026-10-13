@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
@@ -532,7 +533,14 @@ void main() {
     final main = shell.activeTab!;
 
     await tester.tap(
-      find.descendant(of: _secondaryPanel, matching: find.text(_topic.title)),
+      find.descendant(of: _secondaryPanel, matching: find.text('Topics')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: _secondaryPanel,
+        matching: find.byKey(const ValueKey('topic-card-42')),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -679,6 +687,54 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  for (final panel in ForumPanel.values) {
+    testWidgets('folding $panel retains document paint during motion', (
+      tester,
+    ) async {
+      _openTopicTab(shell, _topic);
+      await _pump(tester, shell);
+      final documents = tester
+          .renderObjectList<RenderObject>(find.byType(MainContent))
+          .toSet();
+      final paints = <RenderObject, int>{};
+      final previous = debugOnProfilePaint;
+      debugOnProfilePaint = (object) {
+        previous?.call(object);
+        if (documents.contains(object)) {
+          paints.update(object, (count) => count + 1, ifAbsent: () => 1);
+        }
+      };
+
+      Future<void> expectRetainedPaint() async {
+        // Allow the initial width change and first visible motion frame (a
+        // restored panel starts fully transparent). The remaining fold
+        // frames should only composite document layers.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 16));
+        paints.clear();
+        for (var frame = 0; frame < 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(paints, isEmpty);
+        await tester.pumpAndSettle();
+      }
+
+      try {
+        await tester.tap(
+          find.byKey(ValueKey('panel-split-view-${panel.name}')),
+        );
+        await expectRetainedPaint();
+        _toggleSplit(tester);
+        await expectRetainedPaint();
+      } finally {
+        debugOnProfilePaint = previous;
+      }
+      expect(find.byType(TopicView), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('the secondary panel folds away as the main panel opens up', (
     tester,
@@ -1212,13 +1268,8 @@ void main() {
     await _pump(tester, shell);
     final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
     expect(tester.getRect(_mainPanel).width, 400);
-    final gutter = tester.getRect(handle);
-    expect(gutter.width, workspacePanelGap);
-    expect(gutter.height, tester.getSize(_mainPanel).height);
-    await tester.dragFrom(
-      Offset(gutter.left + .5, gutter.top + 5),
-      const Offset(80, 0),
-    );
+    expect(tester.getSize(handle), const Size(4, 36));
+    await tester.drag(handle, const Offset(80, 0));
     await tester.pumpAndSettle();
 
     expect(tester.getRect(_mainPanel).width, 480);

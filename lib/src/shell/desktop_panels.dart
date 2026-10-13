@@ -610,7 +610,11 @@ class _DesktopPanelsState extends State<DesktopPanels>
                             enabled: !quiet,
                             child: ExcludeFocus(
                               excluding: quiet,
-                              child: documents[target]!,
+                              // The slide, fade and reveal clip change above
+                              // this layer. Retain the panel's paint instead
+                              // of repainting its surface and document on
+                              // every animation frame.
+                              child: RepaintBoundary(child: documents[target]!),
                             ),
                           ),
                         ),
