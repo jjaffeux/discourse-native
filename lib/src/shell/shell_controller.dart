@@ -17364,6 +17364,8 @@ class ShellController extends FrameSafeNotifier
       if (refresh) unawaited(loadTags(instance.url, force: true));
     } else if (!content.isNewTab &&
         !content.isForumAbout &&
+        !content.isAppearance &&
+        !content.isPreferences &&
         _registeredHomepage(content.id) == null) {
       if (content.id == 'all-categories') {
         unawaited(loadCategories(instance.url, force: refresh));

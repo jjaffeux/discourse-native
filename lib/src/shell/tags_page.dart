@@ -98,7 +98,9 @@ class _TagsPageState extends State<TagsPage> {
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         builder: (context, lane) => ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding,
+          padding: lane.padding.add(
+            EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+          ),
           itemCount: tags.length + (feed.error == null ? 0 : 1),
           separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {

@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_context_menu.dart';
+import 'd_scroll_chrome.dart';
 
 /// A passive presentation table with optional lazy body rows. Sorting,
 /// selection controls, forms and menus belong to callers.
@@ -351,6 +352,9 @@ class _DTableState extends State<DTable> {
                     fragment(widget.header!.rows, header: true),
                   Expanded(
                     child: ListView.builder(
+                      padding: EdgeInsets.only(
+                        bottom: DScrollChrome.bottomInsetOf(context),
+                      ),
                       controller: widget.verticalScrollController,
                       primary: false,
                       findChildIndexCallback: widget.findChildIndexCallback,

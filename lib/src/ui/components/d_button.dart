@@ -115,6 +115,9 @@ enum DButtonDensity {
   /// circular, with the hit area matching the visible surface.
   mobileDockAction,
 
+  /// Active destination remaining in a folded mobile dock.
+  mobileDockCollapsed,
+
   /// Inset window actions: 32 by 28px, 15px icons and a flat hover tint.
   /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
   chrome,
@@ -622,6 +625,7 @@ class DButton extends StatelessWidget {
 
     final mobileDock = density == DButtonDensity.mobileDock;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
+    final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
 
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -640,7 +644,11 @@ class DButton extends StatelessWidget {
         ? DButtonSize.post
         : backLink
         ? DButtonSize.toolbar
-        : ((avatar) || mobileDock || mobileDockAction || composerBlock
+        : ((avatar) ||
+                  mobileDock ||
+                  mobileDockAction ||
+                  mobileDockCollapsed ||
+                  composerBlock
               ? DButtonSize.regular
               : size);
     final fontSize = floatingCall
@@ -669,7 +677,7 @@ class DButton extends StatelessWidget {
         ? 15.0
         : backLink
         ? 11.0
-        : mobileDock || mobileDockAction
+        : mobileDock || mobileDockAction || mobileDockCollapsed
         ? 20.0 + MediaQuery.textScalerOf(context).scale(11) - 11
         : (chatMessageAction
               ? 16.0
@@ -696,7 +704,11 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = timeline
+    final visualDimension =
+        mobileDock || mobileDockAction || mobileDockCollapsed
+        ? (mobileDockCollapsed ? 40.0 : 50.0) +
+              math.max(0, MediaQuery.textScalerOf(context).scale(11) - 11)
+        : timeline
         ? (floatingCall
                   ? 26
                   : topicProgress
@@ -939,7 +951,7 @@ class DButton extends StatelessWidget {
         return DButtonStateStyle(
           foregroundColor: foreground,
           iconColor: foreground,
-          backgroundColor: Colors.transparent,
+          backgroundColor: backgroundColor ?? Colors.transparent,
           border: BorderSide.none,
         );
       }

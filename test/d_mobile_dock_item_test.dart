@@ -108,10 +108,17 @@ void main() {
       final item = find.byType(DMobileDockItem);
       final label = find.text('Chat');
       final count = find.text('32');
-      final capsule = find.byKey(const ValueKey('mobile-dock-capsule'));
+      final capsule = find.descendant(
+        of: item,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer &&
+              widget.decoration is DButtonDecoration,
+        ),
+      );
       expect(tester.getSize(item).width, 72);
-      expect(tester.getSize(item).height, 46);
-      expect(tester.getSize(capsule), const Size(44, 30));
+      expect(tester.getSize(item).height, 50);
+      expect(tester.getRect(capsule), tester.getRect(item));
       expect(
         tester.getRect(count).left,
         greaterThan(tester.getRect(label).right),
@@ -127,7 +134,8 @@ void main() {
       await pump(selected: true);
       await tester.pumpAndSettle();
       final decoration =
-          tester.widget<AnimatedContainer>(capsule).decoration as BoxDecoration;
+          tester.widget<AnimatedContainer>(capsule).decoration
+              as DButtonDecoration;
       expect(decoration.color, isNot(Colors.transparent));
 
       await pump(selected: true, scale: 2);

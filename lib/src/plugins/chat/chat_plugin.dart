@@ -841,10 +841,11 @@ class ChatPlugin
     required bool compact,
     Color? ringColor,
   }) => [
-    ChatHeaderButton(
-      ringColor: ringColor,
-      trailingSpacing: DSpacing.controlGap,
-    ),
+    if (!context.isTouch)
+      ChatHeaderButton(
+        ringColor: ringColor,
+        trailingSpacing: DSpacing.controlGap,
+      ),
   ];
 
   static SidebarDestination destination(

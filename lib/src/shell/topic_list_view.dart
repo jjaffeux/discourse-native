@@ -772,102 +772,104 @@ class _TopicListViewState extends State<TopicListView> {
                   focusNode: _keyboardFocus,
                   onStart: () => _jumpToBoundary(end: false),
                   onEnd: () => _jumpToBoundary(end: true),
-                  child: SuperListView.separated(
-                    // Switching destinations swaps the controller, so the
-                    // scrollable has to be a new one rather than re-attached
-                    // to a different controller.
-                    key: ValueKey(feedIdentity),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    controller: _scroll,
-                    listController: _list,
-                    // During a fast fling, build the visible rows first. The
-                    // sliver fills its cache once scrolling slows down.
-                    delayPopulatingCacheArea: true,
-                    extentEstimation: _estimateExtent,
-                    padding: lane.padding,
-                    itemCount:
-                        feed.topicIds.length +
-                        (feed.loadingMore || feed.pageError ? 1 : 0),
-                    findChildIndexCallback: (key) {
-                      if (key is! ValueKey<int>) return null;
-                      final index = feed.topicIds.indexOf(key.value);
-                      // The separated delegate addresses topics and gaps.
-                      return index < 0 ? null : index * 2;
-                    },
-                    separatorBuilder: (context, index) =>
-                        ValueListenableBuilder<_TopicListCursor?>(
-                          valueListenable: _cursor!,
-                          builder: (context, cursor, _) {
-                            final current = feed.topicIds[index];
-                            final next = index + 1 < feed.topicIds.length
-                                ? feed.topicIds[index + 1]
-                                : null;
-                            final keyboardId =
-                                cursor != null &&
-                                    (cursor.keyboard ||
-                                        readingTopicId == cursor.topicId)
-                                ? cursor.topicId
-                                : null;
-                            final selectedId = widget.inbox
-                                ? readingTopicId
-                                : null;
-                            return TopicListSeparator(
-                              besideSelection:
-                                  current == keyboardId ||
-                                  next != null && next == keyboardId ||
-                                  current == selectedId ||
-                                  next != null && next == selectedId,
-                            );
-                          },
-                        ),
-                    itemBuilder: (context, index) {
-                      if (_recording) {
-                        _recordScrollEvent('topicList.row.built', {
-                          'index': index,
-                        });
-                      }
-                      if (index >= feed.topicIds.length) {
-                        if (feed.loadingMore) {
-                          return const _LoadingMoreRow();
+                  child: DPageScrollInsets(
+                    builder: (context, insets) => SuperListView.separated(
+                      // Switching destinations swaps the controller, so the
+                      // scrollable has to be a new one rather than re-attached
+                      // to a different controller.
+                      key: ValueKey(feedIdentity),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      controller: _scroll,
+                      listController: _list,
+                      // During a fast fling, build the visible rows first. The
+                      // sliver fills its cache once scrolling slows down.
+                      delayPopulatingCacheArea: true,
+                      extentEstimation: _estimateExtent,
+                      padding: lane.padding.add(insets),
+                      itemCount:
+                          feed.topicIds.length +
+                          (feed.loadingMore || feed.pageError ? 1 : 0),
+                      findChildIndexCallback: (key) {
+                        if (key is! ValueKey<int>) return null;
+                        final index = feed.topicIds.indexOf(key.value);
+                        // The separated delegate addresses topics and gaps.
+                        return index < 0 ? null : index * 2;
+                      },
+                      separatorBuilder: (context, index) =>
+                          ValueListenableBuilder<_TopicListCursor?>(
+                            valueListenable: _cursor!,
+                            builder: (context, cursor, _) {
+                              final current = feed.topicIds[index];
+                              final next = index + 1 < feed.topicIds.length
+                                  ? feed.topicIds[index + 1]
+                                  : null;
+                              final keyboardId =
+                                  cursor != null &&
+                                      (cursor.keyboard ||
+                                          readingTopicId == cursor.topicId)
+                                  ? cursor.topicId
+                                  : null;
+                              final selectedId = widget.inbox
+                                  ? readingTopicId
+                                  : null;
+                              return TopicListSeparator(
+                                besideSelection:
+                                    current == keyboardId ||
+                                    next != null && next == keyboardId ||
+                                    current == selectedId ||
+                                    next != null && next == selectedId,
+                              );
+                            },
+                          ),
+                      itemBuilder: (context, index) {
+                        if (_recording) {
+                          _recordScrollEvent('topicList.row.built', {
+                            'index': index,
+                          });
                         }
-                        return _LoadMoreErrorRow(
-                          message: feed.error!,
-                          onRetry: () =>
-                              unawaited(controller.loadMoreFeed(destination)),
-                        );
-                      }
+                        if (index >= feed.topicIds.length) {
+                          if (feed.loadingMore) {
+                            return const _LoadingMoreRow();
+                          }
+                          return _LoadMoreErrorRow(
+                            message: feed.error!,
+                            onRetry: () =>
+                                unawaited(controller.loadMoreFeed(destination)),
+                          );
+                        }
 
-                      if (index == feed.topicIds.length - 1 && feed.hasMore) {
-                        _scheduleLoadMore(
-                          controller,
-                          destination,
-                          feedIdentity,
-                          feed,
-                        );
-                      }
+                        if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                          _scheduleLoadMore(
+                            controller,
+                            destination,
+                            feedIdentity,
+                            feed,
+                          );
+                        }
 
-                      final topicId = feed.topicIds[index];
-                      return ValueListenableBuilder<_TopicListCursor?>(
-                        key: ValueKey(topicId),
-                        valueListenable: _cursor!,
-                        builder: (context, cursor, child) =>
-                            KeyboardSelection.scope(
-                              key: ValueKey('topic-list-keyboard-$topicId'),
-                              selected:
-                                  cursor?.topicId == topicId &&
-                                  (cursor!.keyboard ||
-                                      readingTopicId == topicId),
-                              child: child!,
-                            ),
-                        child: _TopicRow(
-                          topicId: topicId,
-                          compact: lane.width < 600,
-                          inbox: widget.inbox,
-                          onOpen: _openRow,
-                          hiddenCategoryId: hiddenCategoryId,
-                        ),
-                      );
-                    },
+                        final topicId = feed.topicIds[index];
+                        return ValueListenableBuilder<_TopicListCursor?>(
+                          key: ValueKey(topicId),
+                          valueListenable: _cursor!,
+                          builder: (context, cursor, child) =>
+                              KeyboardSelection.scope(
+                                key: ValueKey('topic-list-keyboard-$topicId'),
+                                selected:
+                                    cursor?.topicId == topicId &&
+                                    (cursor!.keyboard ||
+                                        readingTopicId == topicId),
+                                child: child!,
+                              ),
+                          child: _TopicRow(
+                            topicId: topicId,
+                            compact: lane.width < 600,
+                            inbox: widget.inbox,
+                            onOpen: _openRow,
+                            hiddenCategoryId: hiddenCategoryId,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),

@@ -182,7 +182,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: lane.padding,
+              padding: lane.padding.add(
+                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+              ),
               sliver: SliverMainAxisGroup(
                 slivers: [
                   SliverToBoxAdapter(

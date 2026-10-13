@@ -326,10 +326,16 @@ class _MainContentBody extends StatelessWidget {
         (!panelScoped || !route.isTopic) &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
-        type: context.isTouch && !ForumWindowBackground.isContinuous(context)
+        type:
+            context.isTouch &&
+                !ForumWindowBackground.isContinuous(context) &&
+                !ForumWindowBackground.hasMobileSurface(context)
             ? MaterialType.canvas
             : MaterialType.transparency,
-        color: context.isTouch && !ForumWindowBackground.isContinuous(context)
+        color:
+            context.isTouch &&
+                !ForumWindowBackground.isContinuous(context) &&
+                !ForumWindowBackground.hasMobileSurface(context)
             ? theme.shell.content
             : null,
         child: SafeArea(
@@ -406,10 +412,16 @@ class _MainContentBody extends StatelessWidget {
     }
 
     final page = Material(
-      type: context.isTouch && !ForumWindowBackground.isContinuous(context)
+      type:
+          context.isTouch &&
+              !ForumWindowBackground.isContinuous(context) &&
+              !ForumWindowBackground.hasMobileSurface(context)
           ? MaterialType.canvas
           : MaterialType.transparency,
-      color: context.isTouch && !ForumWindowBackground.isContinuous(context)
+      color:
+          context.isTouch &&
+              !ForumWindowBackground.isContinuous(context) &&
+              !ForumWindowBackground.hasMobileSurface(context)
           ? theme.shell.content
           : null,
       child: SafeArea(
@@ -641,7 +653,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 ),
               ),
               ...registry.contentHeaderActions(context, sourceRoute),
-              if (state.siteUrl != null && !messages)
+              if (state.siteUrl != null &&
+                  !messages &&
+                  !controller.mobileNavigationEnabled)
                 // Reserve space for the title when the filter label grows.
                 ConstrainedBox(
                   constraints: BoxConstraints(
@@ -745,8 +759,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           backgroundColor: ForumWindowBackground.panelColor(
                             context,
                           ),
-                          framed: !context.isTouch &&
-                            ForumTabScope.panelOf(context) == null,
+                          framed:
+                              !context.isTouch &&
+                              ForumTabScope.panelOf(context) == null,
                           limitContentSize:
                               ContentSettingsScope.limitContentSizeOf(context),
                           tabs:
@@ -833,7 +848,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         backgroundColor: ForumWindowBackground.panelColor(
                           context,
                         ),
-                        framed: !context.isTouch &&
+                        framed:
+                            !context.isTouch &&
                             ForumTabScope.panelOf(context) == null,
                         limitContentSize:
                             ContentSettingsScope.limitContentSizeOf(context),
@@ -1416,7 +1432,9 @@ class _TopicListHeadingTitle extends StatelessWidget {
       return ShellSelector<TopicListMode?>(
         select: (shell) => shell.currentTopicListMode,
         builder: (context, mode, _) => title(
-          mode == null
+          ShellScope.read(context).mobileNavigationEnabled
+              ? context.l10n.topics
+              : mode == null
               ? pageTitle
               : context.l10n.topicsMaincontent(
                   (TopicFeedMenu.label(mode)).toString(),

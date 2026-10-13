@@ -18,6 +18,8 @@ class DMobileDockItem extends StatelessWidget {
     required this.onPressed,
     this.badge,
     this.selected = false,
+    this.bare = false,
+    this.collapsed = false,
 
     this.focusNode,
     this.expanded = false,
@@ -28,6 +30,8 @@ class DMobileDockItem extends StatelessWidget {
   final String label;
   final Widget? badge;
   final bool selected;
+  final bool bare;
+  final bool collapsed;
 
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
@@ -37,72 +41,94 @@ class DMobileDockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final accent = tokens.buttonTheme.primary;
-    final scaleDelta = MediaQuery.textScalerOf(context).scale(11) - 11;
-    final labelHeight = math.max(14.0, 14 + scaleDelta);
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 200);
-    return Semantics(
-      selected: selected,
-      child: DButton(
-        density: DButtonDensity.mobileDock,
+    final scaleDelta = math.max(
+      0.0,
+      MediaQuery.textScalerOf(context).scale(11) - 11,
+    );
+    final labelHeight = 14 + scaleDelta;
+    final measure = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: Theme.of(context).textTheme.labelLarge!.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    )..layout();
+    final labelWidth = measure.width;
+    measure.dispose();
+    if (collapsed) {
+      return DButton.iconOnly(
+        density: DButtonDensity.mobileDockCollapsed,
         variant: DButtonVariant.ghost,
         shape: DButtonShape.pill,
+        icon: icon,
         tooltip: label,
-        semanticLabel: null,
-        focusNode: focusNode,
-        expanded: expanded,
-        hasPopup: hasPopup,
         onPressed: onPressed,
-        foregroundColor: selected ? tokens.primary : tokens.mutedForeground,
-        label: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              key: const ValueKey('mobile-dock-capsule'),
-              duration: duration,
-              curve: Curves.easeOut,
-              width: 44 + scaleDelta,
-              height: 30 + scaleDelta,
-              decoration: BoxDecoration(
-                color: selected ? accent.background : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: IconTheme.merge(
-                data: IconThemeData(
-                  color: selected ? accent.foreground : tokens.mutedForeground,
-                ),
+      );
+    }
+    return MergeSemantics(
+      child: Semantics(
+        selected: selected,
+        child: DButton(
+          density: DButtonDensity.mobileDock,
+          variant: DButtonVariant.ghost,
+          shape: DButtonShape.pill,
+          tooltip: label,
+          semanticLabel: bare ? label : null,
+          focusNode: focusNode,
+          expanded: expanded,
+          hasPopup: hasPopup,
+          onPressed: onPressed,
+          foregroundColor: selected
+              ? tokens.foreground
+              : tokens.mutedForeground,
+          backgroundColor: selected
+              ? Color.lerp(tokens.background, tokens.foreground, .20)
+              : Colors.transparent,
+          label: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                key: const ValueKey('mobile-dock-glyph'),
+                height: 26 + scaleDelta,
                 child: Center(child: ExcludeSemantics(child: icon)),
               ),
-            ),
-            const SizedBox(height: 2),
-            SizedBox(
-              height: labelHeight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+              if (!bare) ...[
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: labelHeight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: labelWidth),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (badge case final count?) ...[
+                        const SizedBox(width: 4),
+                        count,
+                      ],
+                    ],
                   ),
-                  if (badge case final count?) ...[
-                    const SizedBox(width: 4),
-                    count,
-                  ],
-                ],
-              ),
-            ),
-          ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

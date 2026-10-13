@@ -4,6 +4,16 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'mobile-dock',
+    name: 'Mobile dock',
+    sections: ['Floating capsule', 'Collapsed destination'],
+  ),
+  ComponentReference(
+    id: 'header-morph',
+    name: 'Header morph',
+    sections: ['Full and compact'],
+  ),
+  ComponentReference(
     id: 'thread-writing',
     name: 'Thread writing',
     sections: ['Thread writing'],

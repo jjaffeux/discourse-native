@@ -52,6 +52,7 @@ import 'examples/mermaid_examples.dart';
 import 'examples/message_examples.dart';
 import 'examples/message_inbox_menu_examples.dart';
 import 'examples/message_scroller_examples.dart';
+import 'examples/mobile_chrome_examples.dart';
 import 'examples/navigation_menu_examples.dart';
 import 'examples/notification_dot_examples.dart';
 import 'examples/notification_level_menu_examples.dart';
@@ -91,6 +92,8 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'mobile-dock': mobileDockExamples,
+  'header-morph': headerMorphExamples,
   'action-transition': actionTransitionExamples,
   'gradient-blur': gradientBlurExamples,
   'onebox': oneboxExamples,

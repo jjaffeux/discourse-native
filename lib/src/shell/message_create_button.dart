@@ -37,6 +37,14 @@ class MessageCreateButton extends StatelessWidget {
         controller.currentInstance?.user?.canSendPrivateMessages == true,
     builder: (context, permitted, _) {
       if (!permitted) return const SizedBox.shrink();
+      if (dockAction) {
+        return DMobileDockAction(
+          buttonKey: const ValueKey('new-message-button'),
+          icon: const DIcon(DIcons.plus),
+          label: context.l10n.newMessage,
+          onPressed: () => _compose(context),
+        );
+      }
       final header = pill && !dockAction && !DControlStyle.isTouch(context);
       if (header && !showLabel) {
         return DButton(

@@ -11,6 +11,7 @@ class MobileScrollDock extends StatelessWidget {
     this.visible = true,
     this.hideOnScroll = true,
     this.keepActionVisible = false,
+    this.floating = true,
   });
 
   final Widget body;
@@ -23,6 +24,7 @@ class MobileScrollDock extends StatelessWidget {
 
   /// An active composer must keep its Send/Save action reachable.
   final bool keepActionVisible;
+  final bool floating;
 
   @override
   Widget build(BuildContext context) => DScrollChrome(
@@ -30,7 +32,9 @@ class MobileScrollDock extends StatelessWidget {
     visible: visible,
     enabled: hideOnScroll,
     keepFooterVisible: keepActionVisible,
-    footerBuilder: (hidden) => dockBuilder(hidden && keepActionVisible),
+    floatingFooter: floating,
+    footerBuilder: (hidden) =>
+        dockBuilder(floating ? hidden : hidden && keepActionVisible),
     child: body,
   );
 }

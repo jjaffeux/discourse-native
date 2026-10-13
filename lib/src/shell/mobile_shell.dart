@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -48,6 +47,7 @@ class MobileForumRoot extends StatefulWidget {
 
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _navigationPageKey = GlobalKey();
+  int _shownDockCount = 3;
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
@@ -126,6 +126,31 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             .toList();
         SidebarDestination? destination(String id) =>
             destinations.where((entry) => entry.id == id).firstOrNull;
+        final extraDestinations = <SidebarDestination>[
+          SidebarDestination(
+            id: 'all-categories',
+            label: context.l10n.categories,
+            icon: DIcons.layerGroup,
+          ),
+          for (final id in ['groups', 'badges']) ?destination(id),
+          if (instance.isConnected)
+            SidebarDestination(
+              id: 'user-bookmarks',
+              label: context.l10n.bookmarks,
+              icon: DIcons.bookmark,
+            ),
+          SidebarDestination(
+            id: 'appearance',
+            label: context.l10n.settings,
+            icon: DIcons.gear,
+          ),
+          if (instance.isConnected && instance.user != null)
+            SidebarDestination(
+              id: 'preferences',
+              label: context.l10n.preferences,
+              icon: DIcons.gear,
+            ),
+        ];
         final selected = shell.mobileNavigation.tab;
         final tabOrder = [
           MobileTab.start,
@@ -134,14 +159,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           if (destination('messages') != null) MobileTab.messages,
           if (destination('users') != null) MobileTab.users,
           for (final shortcut in shortcuts) MobileTab.destination(shortcut.id),
+          for (final extra in extraDestinations)
+            MobileTab.destination(extra.id),
           MobileTab.more,
         ];
         if ((selected.panelOwner != null &&
                 !panels.any((p) => p.owner.value == selected.panelOwner)) ||
             (selected.name.startsWith('destination/') &&
-                !shortcuts.any(
-                  (d) => MobileTab.destination(d.id) == selected,
-                )) ||
+                !([
+                  ...shortcuts,
+                  ...extraDestinations,
+                ]).any((d) => MobileTab.destination(d.id) == selected)) ||
             (selected == MobileTab.messages &&
                 destination('messages') == null) ||
             (selected == MobileTab.users && destination('users') == null)) {
@@ -235,6 +263,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 shortcut,
               ),
             ),
+          for (final extra in extraDestinations)
+            (
+              tab: MobileTab.destination(extra.id),
+              label: extra.label,
+              icon: extra.icon,
+              badge: null,
+              onPressed: () => shell.selectMobileDestination(
+                MobileTab.destination(extra.id),
+                extra,
+              ),
+            ),
         ];
         final source = shell.topicListContent;
         final showReply =
@@ -268,7 +307,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ForumSidebarTheme(
               child: Padding(
                 key: const ValueKey('mobile-header'),
-                padding: const EdgeInsets.all(DSpacing.xs),
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
                 child: Builder(
                   builder: (context) {
                     final navigation = <Widget>[
@@ -289,6 +328,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
                           child: ForumIdentityHeader(
+                            size: 28,
                             name: instance.title,
                             iconUrl: instance.iconUrl,
                             monogram: instance.monogram,
@@ -316,10 +356,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            spacing: DSpacing.controlGap,
-                            children: navigation,
-                          ),
+                          Row(spacing: 10, children: navigation),
                           const SizedBox(height: DSpacing.controlGap),
                           Wrap(
                             alignment: WrapAlignment.end,
@@ -331,7 +368,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       );
                     }
                     return Row(
-                      spacing: DSpacing.controlGap,
+                      spacing: 10,
                       children: [
                         ...navigation,
                         Row(mainAxisSize: MainAxisSize.min, children: actions),
@@ -361,23 +398,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   body: content!,
                   dockBuilder: (hidden) => ForumSidebarTheme(
                     child: Padding(
-                      padding: const EdgeInsets.all(DSpacing.xs),
+                      padding: EdgeInsets.fromLTRB(
+                        6,
+                        6,
+                        6,
+                        6 + MediaQuery.paddingOf(context).bottom,
+                      ),
                       child: LayoutBuilder(
                         builder: (context, constraints) => _buildBottomBar(
                           context,
                           constraints,
                           destinations: dockDestinations,
                           selected: selected,
-                          moreDestinations: [
-                            for (final id in ['groups', 'badges'])
-                              ?destination(id),
-                            if (instance.isConnected)
-                              SidebarDestination(
-                                id: 'user-bookmarks',
-                                label: context.l10n.bookmarks,
-                                icon: DIcons.bookmark,
-                              ),
-                          ],
                           showReply: showReply,
                           showNewMessage: showNewMessage,
                           panelAction: panelAction,
@@ -407,14 +439,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: DSpacing.xs,
-                      ),
-                      child: DPageSurface(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
-                        backgroundColor: ForumWindowBackground.panelColor(
-                          context,
-                        ),
+                        pushed: !panelRoot && shell.mobileNavigation.canGoBack,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -465,7 +493,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     BoxConstraints constraints, {
     required List<_DockDestination> destinations,
     required MobileTab selected,
-    required List<SidebarDestination> moreDestinations,
     required bool showReply,
     required bool showNewMessage,
     required SidebarPanelAction? panelAction,
@@ -474,30 +501,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
-    final labelGrowth = MediaQuery.textScalerOf(context).scale(11) - 11;
-    final itemMin = 66.0 + labelGrowth * 2;
-    final itemMax = 80.0 + labelGrowth * 2;
-    // The dock is sized from the width, the text scale and the destinations
-    // alone, always leaving room for one trailing action. Sizing it from the
-    // active tab's actions resized and re-spilled every slot on each switch.
-    final fits = (constraints.maxWidth / itemMin).floor() - 1;
-    final minimumSlots = labelGrowth > 3 ? 3 : 4;
-    final shownCount = (math.max(fits, minimumSlots) - 1).clamp(
-      1,
-      destinations.length,
-    );
-    final shown = destinations.take(shownCount).toList();
-    final spilled = destinations.skip(shownCount).toList();
-    // Give the action the same column as a destination on compact screens.
-    final itemWidth = math.min(
-      itemMax,
-      constraints.maxWidth / (shown.length + 2),
-    );
-    final dockWidth = itemWidth * (shown.length + 1);
-    final actionWidth = (constraints.maxWidth - dockWidth).clamp(
-      itemWidth,
-      220.0,
-    );
     final actionIcon =
         pageAction?.icon ??
         (showReply
@@ -507,22 +510,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             : panelAction?.icon ?? DIcons.plus);
     Widget? primaryAction;
     if (pageAction case final action?) {
-      primaryAction = DButton.iconOnly(
+      primaryAction = _dockAction(
         key: action.key ?? const ValueKey('mobile-page-action'),
-        icon: DIcon(action.icon),
+        icon: action.icon,
         loading: action.loading,
-        tooltip: action.label,
-        shape: DButtonShape.pill,
-        density: DButtonDensity.mobileDockAction,
+        label: action.label,
         onPressed: action.onPressed,
       );
     } else if (showReply) {
-      primaryAction = DButton.iconOnly(
+      primaryAction = _dockAction(
         key: const ValueKey('mobile-topic-reply'),
-        icon: const DIcon(DIcons.reply),
-        tooltip: context.l10n.replyToThisTopic,
-        shape: DButtonShape.pill,
-        density: DButtonDensity.mobileDockAction,
+        icon: DIcons.reply,
+        label: context.l10n.reply,
         onPressed: shell.openReply,
       );
     } else if (showNewMessage) {
@@ -538,7 +537,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: panelAction.label,
         onPressed: panelAction.onPressed,
       );
-    } else if (showNewTopic) {
+    } else if (showNewTopic || shell.canCreateTopicFromSidebar) {
       primaryAction = _dockAction(
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.plus,
@@ -546,99 +545,80 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
       );
     }
-    return Row(
+    final active = destinations
+        .where((item) => item.tab == selected)
+        .firstOrNull;
+    final activeOverflow =
+        active == null || destinations.indexOf(active) >= _shownDockCount;
+    return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        SizedBox(
-          width: dockWidth,
-          child: Visibility(
-            visible: !hideDestinations,
-            maintainState: true,
-            maintainAnimation: true,
-            maintainSize: true,
-            child: Row(
-              children: [
-                for (final item in shown)
-                  Expanded(
-                    child: DMobileDockItem(
-                      key: ValueKey('mobile-mode-${item.tab.name}'),
-                      icon: DIcon(item.icon),
-                      label: item.label,
-                      badge: item.badge,
-                      selected: selected == item.tab,
-                      onPressed: item.onPressed,
-                    ),
-                  ),
-                Expanded(
-                  child: DDropdownMenu(
-                    content: DDropdownMenuContent(
-                      semanticLabel: context.l10n.moreDestinations,
-                      side: DPopoverSide.top,
-                      align: DPopoverAlign.end,
-                      children: [
-                        for (final item in spilled)
-                          DDropdownMenuItem(
-                            leading: DIcon(item.icon),
-                            onPressed: item.onPressed,
-                            child: Text(
-                              item.tab == MobileTab.messages
-                                  ? context.l10n.messages
-                                  : item.label,
-                            ),
-                          ),
-                        for (final entry in moreDestinations)
-                          DDropdownMenuItem(
-                            leading: DIcon(entry.icon),
-                            onPressed: () => shell.selectMobileDestination(
-                              MobileTab.more,
-                              entry,
-                            ),
-                            child: Text(entry.label),
-                          ),
-                      ],
-                    ),
-                    child: DDropdownMenuTrigger(
-                      builder: (context, state) => DMobileDockItem(
-                        key: const ValueKey('mobile-mode-more'),
-                        icon: const DIcon(DIcons.ellipsisVertical),
-                        label: context.l10n.more,
-                        selected:
-                            selected == MobileTab.more ||
-                            spilled.any((item) => item.tab == selected),
-                        focusNode: state.focusNode,
-                        hasPopup: true,
-                        expanded: state.open,
-                        onPressed: state.toggle,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      collapsed: hideDestinations && pageAction == null,
+      destinationsHidden: hideDestinations && pageAction != null,
+      onOverflowChanged: (shown) {
+        if (mounted && _shownDockCount != shown) {
+          setState(() => _shownDockCount = shown);
+        }
+      },
+      collapsedDestination: DMobileDockItem(
+        key: const ValueKey('mobile-dock-reveal'),
+        collapsed: true,
+        icon: DIcon(activeOverflow ? DIcons.ellipsisVertical : active.icon),
+        label:
+            '${activeOverflow ? context.l10n.more : active.label}, ${context.l10n.openNavigation}',
+        onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
+      ),
+      destinations: [
+        for (final item in destinations)
+          DMobileDockItem(
+            key: ValueKey('mobile-mode-${item.tab.name}'),
+            icon: DIcon(item.icon),
+            label: item.label,
+            badge: item.badge,
+            selected: selected == item.tab,
+            onPressed: item.onPressed,
           ),
-        ),
-        SizedBox(
-          width: actionWidth,
-          child: Center(
-            child: DActionTransition(
-              // Never retain an outgoing action across a site/account change.
-              key: ValueKey((
-                shell.currentInstance?.url,
-                shell.currentAccountIdentity,
-              )),
-              child: primaryAction == null
-                  ? null
-                  : KeyedSubtree(
-                      // Only a visible change should animate. Route-specific
-                      // tooltips and callbacks still update for identical icons.
-                      key: ValueKey(actionIcon),
-                      child: primaryAction,
-                    ),
-            ),
-          ),
-        ),
       ],
+      more: DDropdownMenu(
+        content: DDropdownMenuContent(
+          semanticLabel: context.l10n.moreDestinations,
+          side: DPopoverSide.top,
+          align: DPopoverAlign.end,
+          children: [
+            for (final item in destinations.skip(_shownDockCount))
+              DDropdownMenuItem(
+                leading: DIcon(item.icon),
+                onPressed: item.onPressed,
+                child: Text(
+                  item.tab == MobileTab.messages
+                      ? context.l10n.messages
+                      : item.label,
+                ),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DMobileDockItem(
+            key: const ValueKey('mobile-mode-more'),
+            bare: true,
+            icon: const DIcon(DIcons.ellipsisVertical),
+            label: context.l10n.more,
+            selected: activeOverflow,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            onPressed: state.toggle,
+          ),
+        ),
+      ),
+      action: DActionTransition(
+        key: ValueKey((
+          shell.currentInstance?.url,
+          shell.currentAccountIdentity,
+        )),
+        child: primaryAction == null
+            ? null
+            : KeyedSubtree(key: ValueKey(actionIcon), child: primaryAction),
+      ),
     );
   }
 
@@ -646,13 +626,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required Key key,
     required DIconData icon,
     required String label,
-    required VoidCallback onPressed,
-  }) => DButton.iconOnly(
-    key: key,
+    required VoidCallback? onPressed,
+    bool loading = false,
+  }) => DMobileDockAction(
+    buttonKey: key,
     icon: DIcon(icon),
-    tooltip: label,
-    shape: DButtonShape.pill,
-    density: DButtonDensity.mobileDockAction,
+    label: label,
+    loading: loading,
     onPressed: onPressed,
   );
 }

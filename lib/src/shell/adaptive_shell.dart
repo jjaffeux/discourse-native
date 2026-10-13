@@ -662,7 +662,10 @@ class _ForumBoundaryShell extends StatelessWidget {
   Widget build(BuildContext context) {
     if (ShellScope.read(context).mobileNavigationEnabled) {
       return ForumWindowBackground(
-        child: SafeArea(child: MobileForumRoot(content: child, boundary: true)),
+        child: SafeArea(
+          bottom: false,
+          child: MobileForumRoot(content: child, boundary: true),
+        ),
       );
     }
     return Column(
@@ -910,6 +913,7 @@ class _MobileShell extends StatelessWidget {
     },
     child: ForumWindowBackground(
       child: SafeArea(
+        bottom: false,
         child:
             ShellSelector<({InstanceLoadStatus loadStatus, bool hasInstances})>(
               select: (shell) => (

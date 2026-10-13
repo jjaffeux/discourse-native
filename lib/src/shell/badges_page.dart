@@ -49,7 +49,9 @@ class BadgesPage extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: lane.padding,
+          padding: lane.padding.add(
+            EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+          ),
           sliver: SliverMainAxisGroup(
             slivers: [
               if (state.error != null)

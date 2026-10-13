@@ -20,6 +20,7 @@ class DScrollChrome extends StatefulWidget {
     this.visible = true,
     this.enabled = true,
     this.keepFooterVisible = false,
+    this.floatingFooter = false,
   });
 
   final Object identity;
@@ -30,6 +31,17 @@ class DScrollChrome extends StatefulWidget {
 
   /// Keeps contextual actions visible while the builder hides destinations.
   final bool keepFooterVisible;
+
+  /// Overlays the footer without resizing the page viewport. The builder owns
+  /// its compact state; [bottomInsetOf] keeps the last row clear of the open dock.
+  final bool floatingFooter;
+
+  static double bottomInsetOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_DockRoom>()
+          ?.notifier
+          ?.value ??
+      0;
 
   static DScrollChromeController? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ChromeScope>()?.controller;
@@ -58,6 +70,9 @@ class DScrollChromeController extends ChangeNotifier
   double get hiddenFraction => _animation.value;
   @override
   double get value => hiddenFraction;
+
+  /// Opens coupled page headers and the dock without changing the destination.
+  void reveal() => _animation.reveal(fresh: true);
 
   /// The reduction is space released from the viewport's surrounding layout;
   /// floating headers report zero because their viewport does not change size.
@@ -127,6 +142,20 @@ class _DScrollChromeState extends State<DScrollChrome>
   bool _updateScheduled = false;
   double _shownFooterHeight = 0;
   Widget? _footerContent;
+  final _dockRoom = ValueNotifier<double>(0);
+
+  void _measureDock() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.floatingFooter) return;
+      final height = _footerContentKey.currentContext?.size?.height ?? 0;
+      if (widget.visible &&
+          (!_hidden || height > _dockRoom.value) &&
+          height > 0 &&
+          (_dockRoom.value - height).abs() > .5) {
+        _dockRoom.value = height;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -171,7 +200,9 @@ class _DScrollChromeState extends State<DScrollChrome>
       return (fraction, 0.0);
     }
     final header = _controller._layoutExtent;
-    final footer = widget.keepFooterVisible ? 0.0 : _shownFooterHeight;
+    final footer = widget.keepFooterVisible || widget.floatingFooter
+        ? 0.0
+        : _shownFooterHeight;
     final change = fraction - previous;
     // Only compensate layout released by our own bars. Keyboard, window,
     // content and unrelated viewport changes retain their platform behavior.
@@ -249,7 +280,9 @@ class _DScrollChromeState extends State<DScrollChrome>
     if (!_hidden && _animation.value == 0) _shownFooterHeight = natural;
     final footerHeight = _footerKey.currentContext?.size?.height ?? 0;
     final reduction =
-        math.max(0.0, _shownFooterHeight - footerHeight) +
+        (widget.floatingFooter
+            ? 0.0
+            : math.max(0.0, _shownFooterHeight - footerHeight)) +
         _controller._layoutReduction;
     final shownViewport = metrics.viewportDimension - reduction;
     final content =
@@ -332,11 +365,60 @@ class _DScrollChromeState extends State<DScrollChrome>
     _animation.dispose();
     _controller.dispose();
     _footerFocus.dispose();
+    _dockRoom.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.floatingFooter) {
+      _measureDock();
+      return _ChromeScope(
+        controller: _controller,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _DockRoom(
+              notifier: _dockRoom,
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: _onMetrics,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _onScroll,
+                  child: ScrollConfiguration(
+                    behavior: _ChromeScrollBehavior(
+                      delegate: ScrollConfiguration.of(context),
+                      anchorFor: _anchorFor,
+                    ),
+                    child: widget.child,
+                  ),
+                ),
+              ),
+            ),
+            if (widget.visible)
+              PositionedDirectional(
+                start: 0,
+                end: 0,
+                bottom: 0,
+                child: NotificationListener<SizeChangedLayoutNotification>(
+                  onNotification: (_) {
+                    _measureDock();
+                    return false;
+                  },
+                  child: SizeChangedLayoutNotifier(
+                    child: Focus(
+                      focusNode: _footerFocus,
+                      child: SizedBox(
+                        key: _footerContentKey,
+                        child: _footerContent ??= widget.footerBuilder(_hidden),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return _ChromeScope(
       controller: _controller,
       child: Column(
@@ -399,6 +481,10 @@ class _DScrollChromeState extends State<DScrollChrome>
       ),
     );
   }
+}
+
+class _DockRoom extends InheritedNotifier<ValueNotifier<double>> {
+  const _DockRoom({required super.notifier, required super.child});
 }
 
 // Correct inside viewport layout, before paint, so retracting a column header

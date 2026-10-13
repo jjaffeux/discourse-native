@@ -69,7 +69,11 @@ class ChatMobileSidebar extends StatelessWidget {
                 ? ChatBrowseSkeleton(
                     page: ChatBrowsePage.chats,
                     scrollable: lazy,
-                    padding: lane.padding,
+                    padding: lane.padding.add(
+                      EdgeInsets.only(
+                        bottom: DScrollChrome.bottomInsetOf(context),
+                      ),
+                    ),
                   )
                 : error != null && channels.isEmpty && rooms.isEmpty
                 ? ChatInboxError(
@@ -89,7 +93,11 @@ class ChatMobileSidebar extends StatelessWidget {
                 : lazy
                 ? ListView.separated(
                     key: PageStorageKey(('mobile-chat-list', siteUrl, filter)),
-                    padding: lane.padding,
+                    padding: lane.padding.add(
+                      EdgeInsets.only(
+                        bottom: DScrollChrome.bottomInsetOf(context),
+                      ),
+                    ),
                     itemCount:
                         channels.length +
                         rooms.length +
@@ -111,7 +119,11 @@ class ChatMobileSidebar extends StatelessWidget {
                     },
                   )
                 : Padding(
-                    padding: lane.padding,
+                    padding: lane.padding.add(
+                      EdgeInsets.only(
+                        bottom: DScrollChrome.bottomInsetOf(context),
+                      ),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

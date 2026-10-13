@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -20,6 +22,7 @@ class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
     this.header,
+    this.compactHeader,
     this.headerControls,
     this.tabs,
     this.footer,
@@ -43,6 +46,7 @@ class DPageSurface extends StatefulWidget {
   const DPageSurface.scrollable({
     super.key,
     this.header,
+    this.compactHeader,
     this.headerControls,
     this.tabs,
     this.footer,
@@ -61,6 +65,10 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
+
+  /// Alternative reader layout after scrolling past the difference between
+  /// its full and compact measured extents. The full spacer remains reserved.
+  final Widget? compactHeader;
 
   /// A control bar below the title that remains visible when [header] retracts.
   /// The title's original space remains reserved above the scrolling body, so
@@ -151,6 +159,12 @@ class _DPageSurfaceState extends State<DPageSurface>
     vsync: this,
     duration: const Duration(milliseconds: 240),
   )..addListener(_updateHeader);
+  bool _compact = false;
+  double _compactHeight = 76;
+  Timer? _compactTimer;
+  Widget? get _header =>
+      _compact ? widget.compactHeader ?? widget.header : widget.header;
+
   bool _headerHeldAtEnd = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
@@ -243,11 +257,14 @@ class _DPageSurfaceState extends State<DPageSurface>
       widget.headerSuppressed?.addListener(_syncSuppression);
       _syncSuppression();
     }
-    if (widget.header == null) _headerGeometry._update(0, 0);
+    if (_header == null) _headerGeometry._update(0, 0);
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
-        (oldWidget.header != null && widget.header == null)) {
+        (oldWidget.header != null && _header == null)) {
+      _compactTimer?.cancel();
+      _compact = false;
+      _compactHeight = 76;
       _headerHeldAtEnd = false;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
@@ -322,7 +339,7 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
     if (_scrollChrome != null) return false;
-    if (widget.header != null &&
+    if (_header != null &&
         widget.hideHeaderOnScroll &&
         notification.metrics.axis == Axis.vertical &&
         _isPageScroll(notification.depth, notification.context)) {
@@ -331,9 +348,46 @@ class _DPageSurfaceState extends State<DPageSurface>
     return false;
   }
 
+  void _updateCompact(ScrollNotification notification) {
+    if (_headerFocus.hasFocus ||
+        widget.compactHeader == null ||
+        notification.metrics.axis != Axis.vertical ||
+        !_isPageScroll(notification.depth, notification.context)) {
+      return;
+    }
+    final box =
+        _headerKey.currentContext?.findRenderObject()
+            as _RenderScrollHeaderExtent?;
+    if (_compact && box != null) _compactHeight = box.naturalHeight;
+    final floor = math.max(0.0, _headerGeometry.naturalExtent - _compactHeight);
+    final compact =
+        notification.metrics.pixels - notification.metrics.minScrollExtent >
+        floor;
+    if (compact == _compact) return;
+    _compactTimer?.cancel();
+    void change() {
+      if (!mounted) return;
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _compact = compact);
+        });
+      } else {
+        setState(() => _compact = compact);
+      }
+    }
+
+    if (compact && _gone) {
+      _compactTimer = Timer(const Duration(milliseconds: 240), change);
+    } else {
+      change();
+    }
+  }
+
   bool _onScroll(ScrollNotification notification) {
+    _updateCompact(notification);
     if (_scrollChrome != null ||
-        widget.header == null ||
+        _header == null ||
         !widget.hideHeaderOnScroll) {
       return false;
     }
@@ -394,6 +448,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     _scrollChrome?.unregisterHeader(this);
     widget.headerSuppressed?.removeListener(_syncSuppression);
     _suppression.dispose();
+    _compactTimer?.cancel();
     _motion.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
@@ -402,6 +457,7 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   @override
   Widget build(BuildContext context) {
+    _headerGeometry._retainNaturalExtent = _compact;
     final limited =
         widget.limitContentSize ?? DPageContentSettings.limitOf(context);
     Widget fixedContent(Widget child) => Align(
@@ -413,7 +469,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         child: SizedBox(width: double.infinity, child: child),
       ),
     );
-    final headerContent = widget.header == null
+    final headerContent = _header == null
         ? widget.headerControls == null
               ? null
               : fixedContent(widget.headerControls!)
@@ -438,7 +494,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                         width: double.infinity,
                         child: Focus(
                           focusNode: _headerFocus,
-                          child: RepaintBoundary(child: widget.header!),
+                          child: RepaintBoundary(child: _header!),
                         ),
                       ),
                     ),
@@ -485,7 +541,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (widget.header != null) _headerGeometry.spacer,
+                              if (_header != null) _headerGeometry.spacer,
                               widget.child!,
                             ],
                           ),
@@ -499,9 +555,9 @@ class _DPageSurfaceState extends State<DPageSurface>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ?widget.tabs,
-        if (!floating || widget.header == null) ?header,
+        if (!floating || _header == null) ?header,
         Expanded(
-          child: floating && widget.header != null
+          child: floating && _header != null
               ? ClipRect(
                   child: _PageOverlay(
                     geometry: _headerGeometry,
@@ -729,14 +785,15 @@ class DPageHeaderGeometry extends ChangeNotifier {
 
   double _naturalExtent = 0;
   double _visibleExtent = 0;
+  bool _retainNaturalExtent = false;
   double get naturalExtent => _naturalExtent;
   double get visibleExtent => _visibleExtent;
   double _readVisibleExtent() => _visibleExtent;
 
   void _update(double natural, double visible) {
-    final full = natural == 0
-        ? 0.0
-        : (natural > _naturalExtent ? natural : _naturalExtent);
+    final full = _retainNaturalExtent && natural > 0
+        ? math.max(natural, _naturalExtent)
+        : natural;
     if (full == _naturalExtent && visible == _visibleExtent) return;
     _naturalExtent = full;
     _visibleExtent = visible;
@@ -933,4 +990,50 @@ class _HeaderBodyClipper extends CustomClipper<Rect> {
   @override
   bool shouldReclip(_HeaderBodyClipper oldClipper) =>
       oldClipper.geometry != geometry;
+}
+
+/// Leading space for a lazy viewport beneath a floating page header. Only
+/// natural extent changes rebuild the viewport; scrolling changes paint alone.
+class DPageScrollInsets extends StatefulWidget {
+  const DPageScrollInsets({super.key, required this.builder});
+  final Widget Function(BuildContext context, EdgeInsets insets) builder;
+  @override
+  State<DPageScrollInsets> createState() => _DPageScrollInsetsState();
+}
+
+class _DPageScrollInsetsState extends State<DPageScrollInsets> {
+  DPageHeaderGeometry? _geometry;
+  double _top = 0;
+  bool _scheduled = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = DPageSurface.headerGeometryOf(context);
+    if (identical(next, _geometry)) return;
+    _geometry?.removeListener(_changed);
+    _geometry = next;
+    next?.addListener(_changed);
+    _top = next?.naturalExtent ?? 0;
+  }
+
+  void _changed() {
+    if (_top == _geometry?.naturalExtent || _scheduled) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (mounted) setState(() => _top = _geometry?.naturalExtent ?? 0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _geometry?.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(
+    context,
+    EdgeInsets.only(top: _top, bottom: DScrollChrome.bottomInsetOf(context)),
+  );
 }

@@ -400,7 +400,9 @@ class _SectionScroller extends StatelessWidget {
     basePadding: padding,
     builder: (context, lane) => SingleChildScrollView(
       primary: true,
-      padding: lane.padding,
+      padding: lane.padding.add(
+        EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+      ),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

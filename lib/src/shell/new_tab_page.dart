@@ -521,6 +521,7 @@ class _StartList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     primary: false,
+    padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
     child: DPageReadingLaneBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

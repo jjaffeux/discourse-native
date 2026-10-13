@@ -1655,7 +1655,9 @@ class _StreamState extends State<ChatMessageStream>
               cacheExtent: 0,
               preserveScrollOnPrepend: false,
               preserveReaderPositionOnResize: false,
-              contentPadding: lane.padding,
+              contentPadding: lane.padding.add(
+                EdgeInsets.only(top: DScrollChrome.bottomInsetOf(context)),
+              ),
               // Reversal puts the final spacer at the physical top. Its full
               // header extent stays fixed while the visible header retracts.
               itemCount: contentRows + (header == null ? 0 : 1),

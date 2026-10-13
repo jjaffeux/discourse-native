@@ -2755,13 +2755,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         if (controller.mobileNavigationEnabled)
           SliverPadding(
             padding: EdgeInsets.only(
-              bottom:
-                  DControlStyle.scaledHeight(
-                    DControlSize.regular,
-                    MediaQuery.textScalerOf(context),
-                    context: context,
-                  ) +
-                  DSpacing.lg,
+              bottom: DScrollChrome.bottomInsetOf(context),
             ),
           ),
       ];
@@ -2870,7 +2864,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             PositionedDirectional(
               start: DSpacing.sm,
               end: DSpacing.sm,
-              bottom: DSpacing.sm,
+              bottom:
+                  DSpacing.sm +
+                  (controller.mobileNavigationEnabled
+                      ? DScrollChrome.bottomInsetOf(context)
+                      : 0),
               child: Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: TopicChromeVisibility(

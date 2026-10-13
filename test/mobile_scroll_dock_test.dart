@@ -27,6 +27,7 @@ Future<void> _mount(
   Widget? body,
   bool reverse = false,
   bool reducedMotion = false,
+  bool floating = false,
   bool visible = true,
   bool hideOnScroll = true,
   bool keepVisible = false,
@@ -40,6 +41,7 @@ Future<void> _mount(
         data: MediaQueryData(disableAnimations: reducedMotion),
         child: Scaffold(
           body: MobileScrollDock(
+            floating: floating,
             identity: identity,
             visible: visible,
             hideOnScroll: hideOnScroll,
@@ -76,6 +78,28 @@ Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
 }
 
 void main() {
+  testWidgets(
+    'floating dock keeps the viewport and exposes measured clearance',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 200);
+      addTearDown(controller.dispose);
+      await _mount(tester, controller: controller, floating: true);
+      final height = tester.getSize(find.byKey(_body)).height;
+      expect(height, tester.getSize(find.byType(Scaffold)).height);
+      expect(
+        DScrollChrome.bottomInsetOf(tester.element(find.byKey(_body))),
+        60,
+      );
+      await _wheel(tester, 80);
+      expect(tester.getSize(find.byKey(_body)).height, height);
+      expect(find.byKey(_dock), findsOneWidget);
+      expect(
+        DScrollChrome.bottomInsetOf(tester.element(find.byKey(_body))),
+        60,
+      );
+    },
+  );
+
   testWidgets('disabling scroll hiding restores and keeps the full dock', (
     tester,
   ) async {

@@ -28,7 +28,12 @@ class ForumWindowBackground extends StatefulWidget {
       false;
 
   static Color surfaceColor(BuildContext context, Color fallback) =>
-      isContinuous(context) ? Colors.transparent : fallback;
+      isContinuous(context) || hasMobileSurface(context)
+      ? Colors.transparent
+      : fallback;
+
+  static bool hasMobileSurface(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_MobileSurfaceScope>() != null;
 
   /// Window chrome shares the plain workspace canvas behind framed panels.
   /// Custom backgrounds still use [surfaceColor] to expose their effect.
@@ -321,4 +326,35 @@ class _PalettePools extends CustomPainter {
   @override
   bool shouldRepaint(_PalettePools old) =>
       old.accent != accent || old.secondary != secondary;
+}
+
+/// Root screens share the canvas; a pushed reader owns one rounded panel.
+class ForumMobileSurface extends StatefulWidget {
+  const ForumMobileSurface({
+    super.key,
+    required this.pushed,
+    required this.child,
+  });
+  final bool pushed;
+  final Widget child;
+  @override
+  State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
+}
+
+class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
+  final _content = GlobalKey();
+  @override
+  Widget build(BuildContext context) => DPageSurface(
+    framed: widget.pushed,
+    border: false,
+    borderRadius: BorderRadius.circular(14),
+    backgroundColor: ForumWindowBackground.panelColor(context),
+    child: _MobileSurfaceScope(key: _content, child: widget.child),
+  );
+}
+
+class _MobileSurfaceScope extends InheritedWidget {
+  const _MobileSurfaceScope({super.key, required super.child});
+  @override
+  bool updateShouldNotify(_MobileSurfaceScope oldWidget) => false;
 }

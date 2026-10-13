@@ -1031,8 +1031,10 @@ class ForumIdentityHeader extends StatelessWidget {
     required this.iconUrl,
     required this.monogram,
     required this.accentColor,
+    this.size = 32,
   });
 
+  final double size;
   final String name;
   final String? iconUrl;
   final String monogram;
@@ -1048,10 +1050,10 @@ class ForumIdentityHeader extends StatelessWidget {
       key: const ValueKey('forum-identity-logo'),
       semanticLabel: name,
       border: false,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(size == 28 ? 8 : 6),
       child: AvatarImage(
         url: iconUrl,
-        size: 32,
+        size: size,
         fit: BoxFit.contain,
         fallback: ColoredBox(
           color: accentColor,

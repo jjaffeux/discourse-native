@@ -183,6 +183,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 padding: EdgeInsets.only(
                   left: lane.leftInset,
                   right: lane.rightInset,
+                  bottom: DScrollChrome.bottomInsetOf(context),
                 ),
                 sliver: SliverMainAxisGroup(
                   slivers: [

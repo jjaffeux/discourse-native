@@ -16,6 +16,7 @@ import 'content_reading_lane.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_filter_bar.dart';
 
@@ -84,6 +85,9 @@ class TopicListNavigation extends StatelessWidget {
   final bool stacked;
   final bool keepTopicOpen;
 
+  bool controllerMobile(BuildContext context) =>
+      ShellScope.read(context).mobileNavigationEnabled;
+
   @override
   Widget build(
     BuildContext context,
@@ -139,7 +143,18 @@ class TopicListNavigation extends StatelessWidget {
             headingBuilder: headingBuilder,
             stacked: stacked,
             keepTopicOpen: keepTopicOpen,
+            includeHeading: !controllerMobile(context),
           );
+          if (controllerMobile(context) && headingBuilder != null) {
+            return DPageSurface.scrollable(
+              framed: false,
+              identity: state.filterOwner,
+              hideHeaderOnScroll: true,
+              header: headingBuilder!(context, null),
+              headerControls: controls,
+              bodyBuilder: (_, _) => child,
+            );
+          }
           return DPageSurface(
             framed: false,
             identity: state.filterOwner,
@@ -174,8 +189,10 @@ class _TopicListNavigationControls extends StatelessWidget {
     required this.headingBuilder,
     required this.stacked,
     required this.keepTopicOpen,
+    this.includeHeading = true,
   });
 
+  final bool includeHeading;
   final _TopicListNavigationSnapshot state;
   final bool showsTabs;
   final bool showsFilters;
@@ -266,7 +283,7 @@ class _TopicListNavigationControls extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (headingBuilder != null)
+          if (includeHeading && headingBuilder != null)
             KeyedSubtree(
               key: const ValueKey('topic-list-primary-row'),
               child: headingBuilder!(context, null),
@@ -275,9 +292,13 @@ class _TopicListNavigationControls extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 16,
-                context.isTouch && headingBuilder != null ? 0 : 8,
+                controller.mobileNavigationEnabled
+                    ? 16
+                    : context.isTouch && headingBuilder != null
+                    ? 0
+                    : 8,
                 16,
-                16,
+                controller.mobileNavigationEnabled ? 14 : 16,
               ),
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
@@ -319,6 +340,18 @@ class _TopicListNavigationControls extends StatelessWidget {
                       showChevron: !controller.mobileNavigationEnabled,
                     ),
                   ],
+                  if (controller.mobileNavigationEnabled &&
+                      state.siteUrl != null &&
+                      state.route?.isMessages != true) ...[
+                    const SizedBox(width: 8),
+                    TopicListFilterMenu(
+                      key: ValueKey((state.siteUrl, state.route!.id)),
+                      siteUrl: state.siteUrl!,
+                      query: controller.topicListFilterEditorQuery(
+                        state.route!,
+                      ),
+                    ),
+                  ],
                   if (trailing != null) ...[
                     const SizedBox(width: DSpacing.sm),
                     trailing!,
@@ -327,7 +360,7 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
             ),
           ),
-          if (headingBuilder != null)
+          if (includeHeading && headingBuilder != null)
             const ContentReadingLaneBox(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: DSeparator(key: ValueKey('topic-list-heading-separator')),
