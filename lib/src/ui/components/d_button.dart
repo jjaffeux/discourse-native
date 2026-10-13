@@ -853,7 +853,8 @@ class DButton extends StatelessWidget {
           expanded: expanded,
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
-            color: chrome
+            // Launcher cells use a flat interaction tint in both materials.
+            color: chrome || launcher
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -870,7 +871,7 @@ class DButton extends StatelessWidget {
           child: child,
         );
         final artwork = DControlArtwork(
-          child: chrome
+          child: chrome || launcher
               ? surface
               : DMaterialSurface(
                   radius: radius,

@@ -24,12 +24,14 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/button_surface.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -265,6 +267,37 @@ void main() {
     expect(_onPage(find.text('Support')), findsNothing);
     await _capture(tester, 'desktop-launcher');
   });
+
+  for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+    _test('Start launcher hover uses the flat mockup tint in $mode', (
+      tester,
+    ) async {
+      final shell = await _start(tester, desktop);
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      final activity = shortcut('Activity');
+      final bounds = tester.getRect(activity);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(bounds.center);
+      await tester.pumpAndSettle();
+      final surface = buttonSurface(tester, of: activity);
+      expect(
+        surface.color,
+        (mode == AppThemeMode.dark ? Colors.white : Colors.black).withValues(
+          alpha: mode == AppThemeMode.dark ? .055 : .045,
+        ),
+      );
+      expect(surface.borderColor.a, 0);
+      expect(tester.getRect(activity), bounds);
+      await _capture(tester, 'desktop-launcher-hover-${mode.name}');
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester, of: activity).color.a, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   _test('Recently closed is a bare list above the shortcut grid', (
     tester,

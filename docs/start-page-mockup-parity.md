@@ -10,7 +10,7 @@ below and the Topics pin layout in `start-page-topics-mockup-parity.md`.
 | Start change | Native behavior |
 | --- | --- |
 | Recently closed is the only content list | It leads the shortcuts when nonempty and disappears when empty. Entries stack in bare Native Item rows, with their existing identity marks and titles. The section has no card, pin, timestamps, counts or excerpts. Reopening, link menus, and desktop dragging are retained. |
-| Every other destination becomes a square shortcut | The approved Native Button launcher variant owns the icon tile, centered label, transparent resting surface, neutral hover/focus fill, keyboard activation, scaling and matching hit bounds. |
+| Every other destination becomes a square shortcut | The approved Native Button launcher variant owns the icon tile, centered label, transparent resting surface, flat neutral hover/focus fill with no raised rim or shadow in either material, keyboard activation, scaling and matching hit bounds. |
 | Responsive grid | Cells wrap within the shared reading column with equal row and column spacing. The minimum cell extent grows with text size. Removing the alphabet rail restores the trailing content space and removes the artificial scroll tail. |
 | Alphabetical destinations, then settings | Available destinations sort by their displayed labels. Preferences and Settings follow the alphabet, in that order. |
 | Remove section previews | Topics, Bookmarks, Categories, Chat, Messages, Groups, Badges, Users, Activity, Channels, Threads and Events provide destination buttons without cached content rows. Opening Start requests no additional feeds or directories. |

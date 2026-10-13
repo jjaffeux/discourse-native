@@ -1,14 +1,138 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/button_surface.dart';
 
 void main() {
+  for (final material in DAppearanceMaterial.values) {
+    for (final brightness in Brightness.values) {
+      testWidgets('launcher hover stays flat in $material $brightness', (
+        tester,
+      ) async {
+        const canvas = Color(0xff323642);
+        const capture = ValueKey('launcher-hover');
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        final shadowsDisabled = debugDisableShadows;
+        debugDisableShadows = false;
+        try {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: DMaterialTheme.apply(
+                AppTheme.forBrightness(brightness),
+                material,
+              ),
+              home: Center(
+                child: RepaintBoundary(
+                  key: capture,
+                  child: ColoredBox(
+                    color: canvas,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: SizedBox(
+                        width: 112,
+                        child: DButton(
+                          variant: DButtonVariant.launcher,
+                          icon: const DIcon(DIcons.plus),
+                          label: const Text('Topics'),
+                          focusNode: focus,
+                          onPressed: () {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester).color.a, 0);
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(find.byType(DButton)));
+          await tester.pumpAndSettle();
+          final tint =
+              (brightness == Brightness.dark ? Colors.white : Colors.black)
+                  .withValues(
+                    alpha: brightness == Brightness.dark ? .055 : .045,
+                  );
+          expect(buttonSurface(tester).borderColor.a, 0);
+          final expected = Color.alphaBlend(tint, canvas);
+          await tester.runAsync(() async {
+            final image = await tester
+                .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                .toImage();
+            try {
+              final pixels = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              void expectPixel(int x, int y, Color color) {
+                final offset = (y * image.width + x) * 4;
+                for (final (channel, value) in [
+                  (0, color.r),
+                  (1, color.g),
+                  (2, color.b),
+                ]) {
+                  expect(
+                    pixels.getUint8(offset + channel),
+                    closeTo((value * 255).round(), 1),
+                    reason: 'Flat launcher pixel at ($x, $y), channel $channel',
+                  );
+                }
+              }
+
+              for (var x = 48; x < 112; x++) {
+                expectPixel(x, 24, expected); // Top edge has no raised rim.
+                expectPixel(x, 32, expected); // Fill keeps the mockup opacity.
+                expectPixel(x, 137, canvas); // No shadow outside the cell.
+              }
+              final output = Platform.environment['START_PAGE_CAPTURE_DIR'];
+              if (output != null) {
+                final file = File(
+                  '$output/launcher-hover-${material.name}-${brightness.name}.png',
+                );
+                await file.parent.create(recursive: true);
+                await file.writeAsBytes(
+                  (await image.toByteData(
+                    format: ui.ImageByteFormat.png,
+                  ))!.buffer.asUint8List(),
+                );
+              }
+            } finally {
+              image.dispose();
+            }
+          });
+          expect(buttonSurface(tester).color, tint);
+          await mouse.down(tester.getCenter(find.byType(DButton)));
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester).color, tint);
+          await mouse.up();
+          await mouse.moveTo(Offset.zero);
+          focus.requestFocus();
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester).color, tint);
+          focus.unfocus();
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester).color.a, 0);
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDisableShadows = shadowsDisabled;
+        }
+      });
+    }
+  }
   for (final rtl in [false, true]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets(
