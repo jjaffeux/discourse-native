@@ -84,10 +84,10 @@ void main() {
         of: split,
         matching: find.byType(DLayoutGlyph),
       );
-      expect(tester.getSize(split), const Size.square(32));
-      expect(tester.getSize(splitIcon), const Size.square(18));
+      expect(tester.getSize(split), const Size.square(36));
+      expect(tester.getSize(splitIcon), const Size(20, 15));
       expect(tester.widget<DLayoutGlyph>(splitIcon).mainVisible, isTrue);
-      expect(tester.widget<DToggle>(split).variant, DToggleVariant.inline);
+      expect(tester.widget<DToggle>(split).density, DToggleDensity.splitView);
       expect(tester.widget<DToggle>(split).pressed, isTrue);
       final splitWidth = tester.getSize(mainPanel).width;
       await tester.tap(split);

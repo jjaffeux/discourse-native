@@ -7,15 +7,26 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
 enum DToggleVariant { standard, outline, segmented, inline }
 
 /// Application artwork presets use matching hit areas.
+///
 /// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
 /// [chrome] provides 18px icons in a 32px window control.
-enum DToggleDensity { standard, chatReaction, tile, compactInset, chrome }
+/// [splitView] provides neutral 20px artwork in a 36px circular control,
+/// with glass appearing only under the pointer and a press animation.
+enum DToggleDensity {
+  standard,
+  chatReaction,
+  tile,
+  compactInset,
+  chrome,
+  splitView,
+}
 
 /// The shared button height scale.
 typedef DToggleSize = DControlSize;
@@ -253,8 +264,13 @@ class _DToggleState extends State<DToggle> {
     final tile = widget.density == DToggleDensity.tile;
     final compactInset = widget.density == DToggleDensity.compactInset;
     final chrome = widget.density == DToggleDensity.chrome;
+    final splitView = widget.density == DToggleDensity.splitView;
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final glass = DMaterialTheme.glassOf(context);
     final interacting = _enabled && (_hovered || _pointerPressed);
-    final foreground = inline
+    final foreground = splitView
+        ? Color.lerp(tokens.colors.surface, tokens.foreground, .62)!
+        : inline
         ? _current
               ? interacting
                     ? Color.lerp(tokens.primary, tokens.foreground, .25)!
@@ -274,7 +290,9 @@ class _DToggleState extends State<DToggle> {
         ? tokens.mutedForeground
         : tokens.foreground;
     final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = chrome
+    final visualDimension = splitView
+        ? 36.0 + math.max(0, scaler.scale(13) - 13)
+        : chrome
         ? 32.0 + math.max(0, scaler.scale(13) - 13)
         : compactInset
         ? 26.0
@@ -284,7 +302,9 @@ class _DToggleState extends State<DToggle> {
         ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
         : (DControlStyle.scaledHeight(widget.size, scaler, context: context));
     final visualWidth = compactInset ? 30.0 : visualDimension;
-    final iconDimension = chrome
+    final iconDimension = splitView
+        ? 20.0
+        : chrome
         ? 18.0
         : tile
         ? 20.0
@@ -308,6 +328,10 @@ class _DToggleState extends State<DToggle> {
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : splitView
+        ? glass && interacting
+              ? Colors.white.withValues(alpha: dark ? .14 : .75)
+              : Colors.transparent
         : chatReaction && outlined
         ? Color.lerp(
             tokens.background,
@@ -330,7 +354,7 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  chatReaction
+                  splitView || chatReaction
                       ? 999
                       : outlined
                       ? tokens.buttonTheme.radius
@@ -340,7 +364,7 @@ class _DToggleState extends State<DToggle> {
     final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
     final borderSide = BorderSide(
       color: borderColor,
-      width: outlined ? 1 : DControlDecoration.borderWidth,
+      width: splitView || outlined ? 1 : DControlDecoration.borderWidth,
     );
     const noBorder = BorderSide.none;
     final border = Border(
@@ -356,7 +380,7 @@ class _DToggleState extends State<DToggle> {
 
     final effectiveIcon =
         _enabled &&
-            (interacting || _focus.hasFocus) &&
+            (interacting || (splitView ? _focusVisible : _focus.hasFocus)) &&
             widget.interactiveIcon != null
         ? widget.interactiveIcon
         : _current
@@ -418,11 +442,19 @@ class _DToggleState extends State<DToggle> {
       child: content,
     );
 
-    if (chrome || DControlStyle.isApplicationSize(widget.size)) {
+    if (splitView || chrome || DControlStyle.isApplicationSize(widget.size)) {
       content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
     }
 
-    final surfaceColor = inline
+    final surfaceColor = splitView
+        ? glass && interacting
+              ? Color.lerp(
+                  tokens.colors.surface,
+                  tokens.foreground,
+                  .10,
+                )!.withValues(alpha: .28)
+              : Colors.transparent
+        : inline
         ? Colors.transparent
         : segmented
         ? activeSurface
@@ -445,49 +477,84 @@ class _DToggleState extends State<DToggle> {
               ? tokens.foreground.withValues(alpha: .13)
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
-    final artwork = DMaterialSurface(
-      radius: radius,
-      color: surfaceColor,
-      child: AnimatedContainer(
-        duration: Duration.zero,
-        curve: const Cubic(.4, 0, .2, 1),
-        constraints: BoxConstraints(
-          minWidth: visualWidth,
-          minHeight: visualDimension,
-        ),
-        padding: (widget._iconOnly
-            ? EdgeInsets.zero
-            : tile
-            ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
-            : chatReaction
-            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
-            : (DToggle._paddingFor(
-                widget.size,
-                hasIcon: effectiveIcon != null,
-                iconPosition: widget.iconPosition,
-              ))),
-        decoration: BoxDecoration(
-          color: DMaterialSurface.fill(context, surfaceColor),
-          borderRadius: radius,
-          border: border,
-        ),
-        foregroundDecoration: DControlDecoration(
-          color: Colors.transparent,
-          borderColor: Colors.transparent,
-          borderRadius: radius,
-          ringColor: ringColor,
-          ringWidth: DControlStyle.focusWidth,
-          ringOffset: DControlStyle.focusOffset,
-        ),
-        child: Center(
-          widthFactor: tile || widget.visualStyle?.expandArtwork == true
-              ? null
-              : 1,
-          heightFactor: 1,
-          child: content,
-        ),
+    final artwork = AnimatedContainer(
+      duration: splitView && !reducedMotion
+          ? const Duration(milliseconds: 150)
+          : Duration.zero,
+      curve: splitView ? Curves.ease : const Cubic(.4, 0, .2, 1),
+      constraints: BoxConstraints(
+        minWidth: visualWidth,
+        minHeight: visualDimension,
+      ),
+      padding: (widget._iconOnly
+          ? EdgeInsets.zero
+          : tile
+          ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
+          : chatReaction
+          ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
+          : (DToggle._paddingFor(
+              widget.size,
+              hasIcon: effectiveIcon != null,
+              iconPosition: widget.iconPosition,
+            ))),
+      decoration: BoxDecoration(
+        color: splitView
+            ? surfaceColor
+            : DMaterialSurface.fill(context, surfaceColor),
+        gradient: splitView && glass
+            ? RadialGradient(
+                center: Alignment.topCenter,
+                radius: 2.4,
+                transform: const _SplitViewSheenTransform(),
+                colors: [
+                  Colors.white.withValues(
+                    alpha: interacting ? (dark ? .12 : .55) : 0,
+                  ),
+                  Colors.white.withValues(alpha: 0),
+                ],
+                stops: const [0, .62],
+              )
+            : null,
+        borderRadius: radius,
+        border: border,
+      ),
+      foregroundDecoration: DControlDecoration(
+        color: Colors.transparent,
+        borderColor: Colors.transparent,
+        borderRadius: radius,
+        ringColor: ringColor,
+        ringWidth: DControlStyle.focusWidth,
+        ringOffset: DControlStyle.focusOffset,
+      ),
+      child: Center(
+        widthFactor: tile || widget.visualStyle?.expandArtwork == true
+            ? null
+            : 1,
+        heightFactor: 1,
+        child: content,
       ),
     );
+    // Bare glass has only an inset rim and sheen. It does not acquire the
+    // raised material's lens or outer shadow when the pointer enters.
+    final surface = splitView
+        ? TweenAnimationBuilder<double>(
+            tween: Tween(end: glass && interacting ? 1.0 : 0.0),
+            duration: reducedMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 150),
+            curve: Curves.ease,
+            child: artwork,
+            builder: (context, opacity, child) => CustomPaint(
+              foregroundPainter: _SplitViewCatch(
+                radius,
+                Colors.white.withValues(
+                  alpha: (dark ? .12 : .55) * 1.4 * opacity,
+                ),
+              ),
+              child: child,
+            ),
+          )
+        : DMaterialSurface(radius: radius, color: surfaceColor, child: artwork);
 
     final control = MergeSemantics(
       child: Semantics(
@@ -553,14 +620,68 @@ class _DToggleState extends State<DToggle> {
                       _toggle();
                     }
                   : null,
-              child: Opacity(opacity: _enabled ? 1 : .6, child: artwork),
+              child: Opacity(opacity: _enabled ? 1 : .6, child: surface),
             ),
           ),
         ),
       ),
     );
-    return Align(widthFactor: 1, heightFactor: 1, child: control);
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: splitView
+          ? AnimatedScale(
+              scale: _pointerPressed ? .92 : 1,
+              duration: reducedMotion
+                  ? Duration.zero
+                  : Duration(
+                      milliseconds: _pointerPressed ? 80 : (glass ? 400 : 0),
+                    ),
+              curve: glass ? const Cubic(.34, 1.56, .64, 1) : Curves.ease,
+              child: control,
+            )
+          : control,
+    );
   }
+}
+
+class _SplitViewSheenTransform extends GradientTransform {
+  const _SplitViewSheenTransform();
+
+  @override
+  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) =>
+      Matrix4.identity()
+        ..translateByDouble(0, bounds.top, 0, 1)
+        ..scaleByDouble(1, 11 / 12, 1, 1)
+        ..translateByDouble(0, -bounds.top, 0, 1);
+}
+
+class _SplitViewCatch extends CustomPainter {
+  const _SplitViewCatch(this.radius, this.color);
+
+  final BorderRadius radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (color.a == 0) return;
+    final shape = radius.toRRect(Offset.zero & size);
+    canvas.save();
+    canvas.clipRRect(shape);
+    canvas.drawRRect(
+      shape.shift(const Offset(0, 1)),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_SplitViewCatch oldDelegate) =>
+      radius != oldDelegate.radius || color != oldDelegate.color;
 }
 
 /// Lays the icon out at its natural width first and gives the label only what

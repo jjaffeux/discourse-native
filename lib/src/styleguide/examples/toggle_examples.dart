@@ -17,6 +17,7 @@ final toggleExamples = ComponentExamples(
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '
       'Visual surfaces are 24/28/32px with hit areas matching their surfaces, 12/14/16px icons, exact icon-side padding, '
       'and an inline window control with a 32px surface and 18px icon. Inline hover and press change only color; selection uses the accent color. '
+      'Split-view controls use a neutral 20×15 layout glyph in a 36px circle, with glass hover rims and animated previews that respect reduced motion. '
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
@@ -70,12 +71,11 @@ final toggleExamples = ComponentExamples(
     StyleguideExample(
       title: 'Panel layout preview',
       description:
-          'The window layout at rest, and the result of activation under the pointer or keyboard focus.',
+          'A neutral 20×15 window frame in a 36px circular control. Glass hover adds an inset rim and sheen; the panel preview animates on hover and keyboard focus.',
       code:
-          "DToggle.iconOnly(icon: DLayoutGlyph(mainVisible: true, secondaryVisible: true, changingPanel: 0), interactiveIcon: DLayoutGlyph(mainVisible: false, secondaryVisible: true, changingPanel: 0), semanticLabel: 'Hide split view')",
+          "DToggle.iconOnly(density: DToggleDensity.splitView, icon: DLayoutGlyph(mainVisible: true, secondaryVisible: true, changingPanel: 0), interactiveIcon: DLayoutGlyph(mainVisible: false, secondaryVisible: true, changingPanel: 0), semanticLabel: 'Hide split view')",
       builder: (_) => const DToggle.iconOnly(
-        density: DToggleDensity.chrome,
-        variant: DToggleVariant.inline,
+        density: DToggleDensity.splitView,
         semanticLabel: 'Hide split view',
         pressed: true,
         icon: DLayoutGlyph(
