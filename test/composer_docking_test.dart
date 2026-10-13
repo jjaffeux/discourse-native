@@ -852,6 +852,8 @@ void main() {
       await tester.pumpAndSettle();
       final restore = find.byKey(const ValueKey('composer-restore'));
       expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
+      expect(tester.getRect(restore).left, 6);
+      expect(tester.getRect(restore).right, 390 - 6);
       expect(restore.hitTestable(), findsOneWidget);
       // During keyboard dismissal padding may vanish before viewPadding does.
       tester.view.padding = const FakeViewPadding();

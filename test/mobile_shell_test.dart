@@ -1623,6 +1623,8 @@ void main() {
     final dock = tester.getRect(
       find.byKey(const ValueKey('mobile-dock-surface')),
     );
+    expect(tester.getRect(restore).left, closeTo(dock.left, .01));
+    expect(tester.getRect(restore).right, closeTo(dock.right, .01));
     expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     expect(tester.takeException(), isNull);
   });

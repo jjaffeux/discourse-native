@@ -638,14 +638,14 @@ class _ComposerDockState extends State<ComposerDock> {
         if (minimized) {
           final height = DButton.resumeHeight(context);
           final width = mobile
-              ? constraints.maxWidth
+              ? constraints.maxWidth - 12
               : math.min(constraints.maxWidth - 12, 460.0);
           final content = Column(
             children: [
               Expanded(child: readerViewport()),
               Padding(
                 padding: mobile
-                    ? const EdgeInsets.only(top: 8)
+                    ? const EdgeInsets.fromLTRB(6, 8, 6, 0)
                     : const EdgeInsets.fromLTRB(6, 8, 6, 6),
                 child: Center(
                   child: SizedBox(
