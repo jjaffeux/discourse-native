@@ -20,7 +20,7 @@ class AppHomeTheme extends StatelessWidget {
     return Theme(
       data: DMaterialTheme.apply(
         homeTheme.copyWith(platform: Theme.of(context).platform),
-        shared.material,
+        shared.materialFor(Theme.of(context).platform),
       ),
       child: child,
     );

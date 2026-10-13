@@ -1,5 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 import '../theme/app_theme.dart';
 
@@ -13,13 +15,24 @@ enum StyleguideTheme {
   const StyleguideTheme(this.label);
   final String label;
 
-  ThemeData resolve(ThemeData current) => switch (this) {
-    StyleguideTheme.current => current,
-    StyleguideTheme.light => AppTheme.light,
-    StyleguideTheme.dark => AppTheme.dark,
-    StyleguideTheme.forest => _siteTheme(false),
-    StyleguideTheme.plum => _siteTheme(true),
-  };
+  ThemeData resolve(ThemeData current) {
+    if (this == StyleguideTheme.current) return current;
+    final theme = switch (this) {
+      StyleguideTheme.current => current,
+      StyleguideTheme.light => AppTheme.light,
+      StyleguideTheme.dark => AppTheme.dark,
+      StyleguideTheme.forest => _siteTheme(false),
+      StyleguideTheme.plum => _siteTheme(true),
+    };
+    return DMaterialTheme.apply(
+      theme.copyWith(platform: current.platform),
+      SharedAppearance(
+        material:
+            current.extension<DMaterialTheme>()?.material ??
+            DAppearanceMaterial.standard,
+      ).materialFor(current.platform),
+    );
+  }
 }
 
 // Samples use the same palette adapter as a real site, with no server or store.

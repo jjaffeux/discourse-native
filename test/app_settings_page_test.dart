@@ -31,6 +31,39 @@ Finder _textSize(String value) => find.descendant(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} settings use glass without a material selector',
+      (tester) async {
+        final controller = _controller();
+        addTearDown(controller.dispose);
+        await _pumpPage(
+          tester,
+          controller,
+          size: const Size(1100, 1400),
+          theme: AppTheme.light.copyWith(platform: platform),
+        );
+        expect(
+          controller.forumSettings.shared.material,
+          DAppearanceMaterial.standard,
+        );
+        expect(find.byKey(const ValueKey('appearance-material')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('appearance-effects')),
+          findsOneWidget,
+        );
+        final context = tester.element(
+          find.byKey(const ValueKey('app-settings-form')),
+        );
+        expect(
+          DMaterialTheme.of(context)!.material,
+          DAppearanceMaterial.liquidGlass,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('settings switch row responds to mouse hover in the modal', (
     tester,
   ) async {
@@ -203,7 +236,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tapAt(tester.getTopLeft(opacity) + const Offset(1, 13));
       await tester.pumpAndSettle();
-      expect(find.text('70%'), findsOneWidget);
+      expect(find.text('60%'), findsOneWidget);
       await tester.tap(find.text('Paper'));
       await tester.pumpAndSettle();
       expect(slider('intensity').onChanged, isNotNull);

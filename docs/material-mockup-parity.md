@@ -6,10 +6,11 @@ control contracts remain in use.
 
 ## Implemented behavior
 
-- Settings → Effects → Style offers **Standard** and **Liquid glass** with the
-  existing Native toggle group. Standard is the migration/default choice.
-  Material is shared across forums and survives restart through the existing
-  appearance store (JSON version 3; versions 1 and 2 still load).
+- macOS and iOS always select **Liquid glass**, including installations with
+  an existing Standard preference. Forums, app settings and styleguide palette
+  previews use the same platform policy; Apple settings omit the style selector.
+  Other platforms retain the Standard/Liquid glass choice and its saved value.
+  The appearance store stays compatible with JSON versions 1, 2 and 3.
 - Both styles use raised controls, recessed choice/input wells, selected
   surfaces, lit edges and layered panel/menu shadows. Reading cards and palette
   swatches keep solid colors. Primary/destructive actions keep their existing

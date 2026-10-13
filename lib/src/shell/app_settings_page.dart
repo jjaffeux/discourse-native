@@ -289,30 +289,32 @@ class _EffectsSetting extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 16,
                 children: [
-                  DField(
-                    children: [
-                      DFieldLabel(child: Text(context.l10n.appearanceStyle)),
-                      DToggleGroup<DAppearanceMaterial>(
-                        key: const ValueKey('appearance-material'),
-                        values: [settings.shared.material],
-                        allowEmptySelection: false,
-                        expanded: true,
-                        inset: true,
-                        items: [
-                          DToggleGroupItem(
-                            value: DAppearanceMaterial.standard,
-                            child: Text(context.l10n.standardMaterial),
-                          ),
-                          DToggleGroupItem(
-                            value: DAppearanceMaterial.liquidGlass,
-                            child: Text(context.l10n.liquidGlassMaterial),
-                          ),
-                        ],
-                        onChanged: (values) =>
-                            unawaited(_material(context, values.single)),
-                      ),
-                    ],
-                  ),
+                  if (Theme.of(context).platform != TargetPlatform.macOS &&
+                      Theme.of(context).platform != TargetPlatform.iOS)
+                    DField(
+                      children: [
+                        DFieldLabel(child: Text(context.l10n.appearanceStyle)),
+                        DToggleGroup<DAppearanceMaterial>(
+                          key: const ValueKey('appearance-material'),
+                          values: [settings.shared.material],
+                          allowEmptySelection: false,
+                          expanded: true,
+                          inset: true,
+                          items: [
+                            DToggleGroupItem(
+                              value: DAppearanceMaterial.standard,
+                              child: Text(context.l10n.standardMaterial),
+                            ),
+                            DToggleGroupItem(
+                              value: DAppearanceMaterial.liquidGlass,
+                              child: Text(context.l10n.liquidGlassMaterial),
+                            ),
+                          ],
+                          onChanged: (values) =>
+                              unawaited(_material(context, values.single)),
+                        ),
+                      ],
+                    ),
                   ForumAppearanceEffects(
                     key: const ValueKey('appearance-effects'),
                     effects: settings.shared.effects,

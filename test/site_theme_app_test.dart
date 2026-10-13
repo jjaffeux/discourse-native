@@ -28,6 +28,7 @@ import 'package:discourse_native/src/shell/forum_texture.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -46,6 +47,44 @@ import 'support/site_appearance_fixtures.dart';
 void main() {
   const siteA = 'https://a.example';
   const siteB = 'https://b.example';
+
+  testWidgets(
+    'Apple forum themes use glass with a saved Standard preference',
+    (tester) async {
+      final settings = ForumSettingsStore.memory();
+      await settings.writeAppearance(
+        const SharedAppearance(material: DAppearanceMaterial.standard),
+      );
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore(const [
+          DiscourseInstance(url: siteA, title: 'A'),
+          DiscourseInstance(url: siteB, title: 'B'),
+        ]),
+        api: FakeDiscourseApi(),
+        forumSettingsStore: settings,
+      );
+      final shell = _controller(tester);
+      expect(shell.forumSettings.shared.material, DAppearanceMaterial.standard);
+      for (final index in [0, 1, 0]) {
+        shell.selectInstance(index);
+        await tester.pumpAndSettle();
+        expect(
+          _activeTheme(tester).extension<DMaterialTheme>()!.material,
+          DAppearanceMaterial.liquidGlass,
+        );
+        expect(
+          DMaterialTheme.glassOf(tester.element(find.byType(AdaptiveShell))),
+          isTrue,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
+  );
 
   testWidgets(
     'rail Settings opens app preferences before any forum is connected',
@@ -188,9 +227,13 @@ void main() {
           final context = tester.element(sidebar);
           expect(
             tester.widget<DSidebar>(sidebar).backgroundColor,
-            darker ? DTokens.of(context).muted : Colors.transparent,
+            Colors.transparent,
             reason:
                 '$mode, custom background: $customBackground, darker: $darker',
+          );
+          expect(
+            DMaterialTheme.of(context)!.material,
+            DAppearanceMaterial.liquidGlass,
           );
           final card = find
               .ancestor(
@@ -258,8 +301,8 @@ void main() {
           .first,
     );
     expect(canvasColor, isNot(palette.secondary));
-    expect(titleBar.color, canvasColor);
-    expect(rail.color, canvasColor);
+    expect(titleBar.color, Colors.transparent);
+    expect(rail.color, Colors.transparent);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live textures and opacity retain the topic reader and panels', (
@@ -333,12 +376,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(tester.element(find.byType(TopicView).first), same(topicElement));
       expect(find.byKey(const ValueKey('forum-window-canvas')), findsOneWidget);
-      final panels = tester
-          .widgetList<DPageSurface>(find.byType(DPageSurface))
-          .where((page) => page.framed);
+      final panels = find.byType(WorkspacePanel).evaluate().toList();
       expect(panels, isNotEmpty);
       for (final panel in panels) {
-        expect(panel.backgroundColor!.a, closeTo(.8, .001));
+        final surface = tester.widget<DCard>(
+          find
+              .descendant(
+                of: find.byWidget(panel.widget),
+                matching: find.byType(DCard),
+              )
+              .first,
+        );
+        expect(surface.backgroundColor!.a, closeTo(.73, .001));
       }
       expect(
         _activeTheme(tester).extension<ForumThemeEffects>()!.background,

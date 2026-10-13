@@ -145,6 +145,9 @@ class _DiscourseAppState extends State<DiscourseApp>
     ForumBackground effects,
   ) {
     final palette = appearance?.paletteForBrightness(brightness);
+    final material = _controller.forumSettings.shared.materialFor(
+      defaultTargetPlatform,
+    );
     final key = (
       palette,
       brightness,
@@ -152,7 +155,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       fontFamily,
       readingFontFamily,
       effects,
-      _controller.forumSettings.shared.material,
+      material,
     );
     final cached = _themes.read(key);
     if (cached != null) return cached;
@@ -168,10 +171,7 @@ class _DiscourseAppState extends State<DiscourseApp>
             readingFontFamily: readingFontFamily,
             background: effects,
           );
-    final materialTheme = DMaterialTheme.apply(
-      theme,
-      _controller.forumSettings.shared.material,
-    );
+    final materialTheme = DMaterialTheme.apply(theme, material);
     _themes.put(key, materialTheme);
     return materialTheme;
   }

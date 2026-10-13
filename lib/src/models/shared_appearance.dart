@@ -59,6 +59,15 @@ final class SharedAppearance {
   final DIconSet iconSet;
   final DAppearanceMaterial material;
 
+  /// Apple platforms always use Liquid glass, including existing installations
+  /// whose saved cross-platform appearance still requests Standard.
+  DAppearanceMaterial materialFor(TargetPlatform platform) =>
+      switch (platform) {
+        TargetPlatform.macOS ||
+        TargetPlatform.iOS => DAppearanceMaterial.liquidGlass,
+        _ => material,
+      };
+
   /// Opacity and texture, drawn over whichever colours a forum uses. Its
   /// strength is never drawn: a theme carries its own [ForumTheme.tint].
   final ForumBackground effects;
