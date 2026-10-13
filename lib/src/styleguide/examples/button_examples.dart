@@ -151,6 +151,23 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Launcher',
+      description:
+          'Square destinations with an accent icon above the label. Transparent at rest, with Native hover and keyboard focus. The grid and cells grow at large text sizes.',
+      states: const ['Hover', 'Keyboard', 'Touch', 'Large text', 'RTL'],
+      code:
+          "DButton(variant: DButtonVariant.launcher, icon: DIcon(DIcons.layerGroup), label: Text('Topics'), onPressed: browse)",
+      builder: (context) => SizedBox(
+        width: DButton.launcherMinimumExtent(context),
+        child: DButton(
+          variant: DButtonVariant.launcher,
+          icon: const DIcon(DIcons.layerGroup),
+          label: const Text('Topics'),
+          onPressed: () {},
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Resume card',
       description:
           'An opt-in 52px card with an accent icon tile, title, metadata and passive restore artwork. The whole card is one target and grows with text.',

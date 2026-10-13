@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -19,22 +18,17 @@ import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/shell/badges_page.dart';
-import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/groups_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -222,754 +216,229 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  _test('Start keeps only Filters on its header bar at every width', (
+  Finder shortcut(String label) =>
+      _onPage(find.byKey(ValueKey('start-page-section-link-$label')));
+  Finder launchers() => _onPage(
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is DButton && widget.variant == DButtonVariant.launcher,
+    ),
+  );
+
+  _test('Start is an alphabetical square launcher with settings last', (
     tester,
   ) async {
-    final shell = await _start(tester, desktop);
-    await shell.appSettings.setLimitContentSize(false);
-    for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-      await shell.forumSettings.setThemeMode(_site, mode);
-      for (final width in [2400.0, 1000.0, 2400.0]) {
-        tester.view.physicalSize = Size(width, 900);
-        await tester.pumpAndSettle();
-        final filter = _onPage(find.byKey(const ValueKey('topic-list-filter')));
-        final tokens = DTokens.of(tester.element(filter));
-        final button = tester.widget<DButton>(filter);
-        final surface = buttonSurface(tester, of: filter);
-        expect(button.variant, DButtonVariant.secondary);
-        expect(button.backgroundColor, tokens.buttonTheme.outline.hover);
-        expect(surface.borderColor, tokens.buttonTheme.outline.border);
-        expect(surface.strokeWidth, 1);
-        expect(
-          _onPage(find.byKey(const ValueKey('start-page-more'))),
-          findsNothing,
-        );
-        expect(
-          _onPage(find.byKey(const ValueKey('start-page-shortcuts'))),
-          findsNothing,
-        );
-        expect(_section('Groups'), findsOneWidget);
-        expect(_section('Settings'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      }
-    }
-  });
-
-  _test(
-    'Start pins Topics above the alphabet with preferences and settings at the end',
-    (tester) async {
-      final shell = await _start(tester, const Size(1000, 900));
-      expect(
-        tester.getRect(_section('Topics')).bottom,
-        lessThan(tester.getRect(_section('Activity')).top),
-      );
-      final titles = [
+    await _start(tester, const Size(1800, 1000));
+    final buttons = tester.widgetList<DButton>(launchers()).toList();
+    final names = buttons.map((b) => (b.label as Text).data!).toList();
+    expect(
+      names.take(names.length - 2),
+      orderedEquals([...names.take(names.length - 2)]..sort()),
+    );
+    expect(names.sublist(names.length - 2), ['Preferences', 'Settings']);
+    expect(
+      names,
+      containsAll([
         'Activity',
         'Badges',
         'Bookmarks',
         'Categories',
         'Channels',
         'Chat',
-        'Drafts',
         'Groups',
         'Messages',
         'Summary',
         'Threads',
+        'Topics',
         'Users',
-        'Preferences',
-        'Settings',
-      ];
-      for (var i = 1; i < titles.length; i++) {
-        final previous = tester.getRect(_section(titles[i - 1]));
-        final next = tester.getRect(_section(titles[i]));
-        expect(previous.left, next.left);
-        expect(previous.right, next.right);
-        expect(previous.bottom, closeTo(next.top, .01));
-      }
-      tester.view.physicalSize = const Size(2400, 1000);
-      await shell.appSettings.setLimitContentSize(false);
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(_section('Bookmarks')).left,
-        tester.getRect(_section('Categories')).left,
-      );
-      for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-        await shell.forumSettings.setThemeMode(_site, mode);
-        await tester.pumpAndSettle();
-        await _capture(tester, 'desktop-${mode.name}');
-      }
-      final heading = _onPage(
-        find.byKey(const ValueKey('start-page-section-link-Categories')),
-      );
-      await Scrollable.ensureVisible(tester.element(heading), alignment: .5);
-      await tester.pumpAndSettle();
-      await tester.tapAt(
-        Offset(
-          tester.getRect(heading).right - 40,
-          tester.getCenter(heading).dy,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'all-categories');
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test(
-    'Topics previews follow the cached forum list, including unvisited topics',
-    (tester) async {
-      final api = _api();
-      final shell = await _start(tester, desktop, api: api, visitTopics: false);
-      final requests = api.feedPaths.toList();
-      expect(shell.recentTopicsFor(_site), isEmpty);
-      for (var i = 0; i < _topics.length; i++) {
-        final row = _onPage(
-          find.byKey(ValueKey('start-page-recent-topic-${_topics[i].id}')),
-        );
-        expect(row, findsOneWidget);
-        if (i > 0) {
-          expect(
-            tester.getRect(row).top,
-            greaterThan(
-              tester
-                  .getRect(
-                    _onPage(
-                      find.byKey(
-                        ValueKey(
-                          'start-page-recent-topic-${_topics[i - 1].id}',
-                        ),
-                      ),
-                    ),
-                  )
-                  .top,
-            ),
-          );
-        }
-      }
-      shell.pushContent(
-        ContentRoute.topic(
-          topicId: 4,
-          slug: 'meet',
-          title: 'Where shall we meet?',
-        ),
-      );
-      shell.pushContent(
-        ContentRoute.topic(
-          topicId: 99,
-          slug: 'outside',
-          title: 'Viewed outside Latest',
-        ),
-      );
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      expect(_onPage(find.text('Viewed outside Latest')), findsNothing);
-      expect(_section('Recent topics'), findsNothing);
-      expect(_section('Recently viewed'), findsNothing);
-      final index = tester.widget<DAlphabetIndex<String>>(
-        _onPage(find.byType(DAlphabetIndex<String>)),
-      );
-      expect(
-        index.entries.map((entry) => entry.value),
-        isNot(contains('recent-topics')),
-      );
-      expect(index.entries.first.value, 'topics');
-      expect(api.feedPaths, requests);
-      await tester.tap(
-        _onPage(find.byKey(const ValueKey('start-page-recent-topic-1'))),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 1);
-      expect(
-        shell.activeTab?.contentStack.any((route) => route.isNewTab),
-        isTrue,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test(
-    'empty Topics stays a pinned destination without fetching or visit placeholders',
-    (tester) async {
-      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-      final shell = await _start(tester, desktop, api: api);
-      final requests = api.feedPaths.toList();
-      expect(_section('Topics'), findsOneWidget);
-      expect(
-        _onPage(find.byKey(const ValueKey('start-page-pinned-topics'))),
-        findsOneWidget,
-      );
-      expect(_section('Recent topics'), findsNothing);
-      expect(_section('Recently viewed'), findsNothing);
-      expect(_onPage(find.text('Welcome to the community')), findsNothing);
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      expect(api.feedPaths, requests);
-      await tester.tap(
-        _onPage(find.byKey(const ValueKey('start-page-section-link-Topics'))),
-      );
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'latest');
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test(
-    'Recently closed leads after repinning and Topics unpins independently',
-    (tester) async {
-      final shell = await _start(tester, desktop);
-      shell.createTab(panel: ForumPanel.secondary);
-      shell.pushContent(
-        ContentRoute.topic(
-          topicId: 1,
-          slug: 'welcome',
-          title: 'Welcome to the community',
-        ),
-      );
-      shell.closeTab(shell.activeTabId!);
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      Future<void> pin(String id) async {
-        final control = _onPage(find.byKey(ValueKey('start-page-pin-$id')));
-        await Scrollable.ensureVisible(tester.element(control), alignment: .5);
-        await tester.pumpAndSettle();
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: tester.getCenter(control));
-        await mouse.moveTo(tester.getCenter(control));
-        await tester.pumpAndSettle();
-        await tester.tap(control);
-        await tester.pumpAndSettle();
-        await mouse.removePointer();
-        expect(shell.currentContent?.isNewTab, isTrue);
-      }
-
-      await pin('recently-closed');
-      await pin('categories');
-      await pin('recently-closed');
-      expect(shell.startPage.pinsFor(_site), [
-        'recently-closed',
-        'topics',
-        'categories',
-      ]);
-      expect(
-        tester.getRect(_section('Recently closed')).top,
-        lessThan(tester.getRect(_section('Topics')).top),
-      );
-      expect(
-        tester.getRect(_section('Topics')).top,
-        lessThan(tester.getRect(_section('Categories')).top),
-      );
-      final index = tester.widget<DAlphabetIndex<String>>(
-        _onPage(find.byType(DAlphabetIndex<String>)),
-      );
-      expect(index.entries.first.value, 'recently-closed');
-      await _capture(tester, 'repinned-closed');
-      await pin('topics');
-      expect(shell.startPage.pinsFor(_site), ['recently-closed', 'categories']);
-      expect(
-        tester.getRect(_section('Threads')).top,
-        lessThan(tester.getRect(_section('Topics')).top),
-      );
-      expect(
-        tester.getRect(_section('Topics')).top,
-        lessThan(tester.getRect(_section('Users')).top),
-      );
-      await pin('topics');
-      expect(shell.startPage.pinsFor(_site), [
-        'recently-closed',
-        'categories',
-        'topics',
-      ]);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test('account retirement clears cached Topics and restores default pins', (
-    tester,
-  ) async {
-    final api = _api();
-    final shell = await _start(tester, desktop, api: api);
-    expect(_onPage(find.text('Welcome to the community')), findsOneWidget);
-    shell.startPage.togglePin(_site, 'topics');
-    shell.startPage.togglePin(_site, 'categories');
-    await tester.pumpAndSettle();
-    // The anonymous account's latest response does not contain the old data.
-    api.feeds['/latest.json'] = const [];
-    await shell.disconnectCurrentInstance();
-    await tester.pumpAndSettle();
-    expect(shell.currentInstance?.user, isNull);
-    expect(shell.cachedLatestTopicsFor(_site), isEmpty);
-    expect(_onPage(find.text('Welcome to the community')), findsNothing);
-    expect(shell.startPage.pinsFor(_site), ['recently-closed', 'topics']);
-    expect(
-      _onPage(find.byKey(const ValueKey('start-page-pinned-topics'))),
-      findsOneWidget,
+      ]),
     );
-    expect(_section('Drafts'), findsNothing);
-    expect(tester.takeException(), isNull);
+    for (final button in launchers().evaluate()) {
+      final rect = tester.getRect(find.byWidget(button.widget));
+      expect(rect.width, closeTo(rect.height, .01));
+    }
+    expect(_onPage(find.byType(DAlphabetIndex<String>)), findsNothing);
+    expect(_onPage(find.byType(DToggle)), findsNothing);
+    expect(_onPage(find.text('Welcome to the community')), findsNothing);
+    expect(_onPage(find.text('General')), findsNothing);
+    expect(_onPage(find.text('A discussion worth keeping')), findsNothing);
+    expect(_onPage(find.text('Support')), findsNothing);
+    await _capture(tester, 'desktop-launcher');
   });
 
-  _test('pinning moves a section into a card and survives reopening Start', (
+  _test('Recently closed is a bare list above the shortcut grid', (
     tester,
   ) async {
     final shell = await _start(tester, desktop);
-    final pin = _onPage(
-      find.byKey(const ValueKey('start-page-pin-categories')),
-    );
-    await Scrollable.ensureVisible(tester.element(pin), alignment: .5);
-    await tester.pumpAndSettle();
-    // A touch platform keeps the independent pin action visible.
-    await tester.tap(pin);
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.isNewTab, isTrue);
-    expect(shell.startPage.pinsFor(_site), contains('categories'));
-    expect(
-      _onPage(find.byKey(const ValueKey('start-page-pinned-categories'))),
-      findsOneWidget,
-    );
-    expect(
-      tester.getRect(_section('Categories')).top,
-      lessThan(tester.getRect(_section('Activity')).top),
-    );
-    shell.openUserSummary(_site);
+    final closed = <String>[];
+    for (final topic in _topics.take(2)) {
+      shell.createTab(panel: ForumPanel.main);
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: topic.id,
+          slug: topic.slug,
+          title: topic.title,
+        ),
+      );
+      closed.add(shell.activeTabId!);
+      shell.closeTab(shell.activeTabId!);
+    }
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
+    final section = _section('Recently closed');
+    expect(section, findsOneWidget);
     expect(
-      _onPage(find.byKey(const ValueKey('start-page-pinned-categories'))),
-      findsOneWidget,
+      find.descendant(of: section, matching: find.byType(DCard)),
+      findsNothing,
     );
-    final unpin = _onPage(
-      find.byKey(const ValueKey('start-page-pin-categories')),
-    );
-    await Scrollable.ensureVisible(tester.element(unpin), alignment: .5);
-    await tester.pumpAndSettle();
-    await tester.tap(unpin);
-    await tester.pumpAndSettle();
-    expect(shell.startPage.pinsFor(_site), isNot(contains('categories')));
+    final rows = [
+      for (final id in closed)
+        _onPage(find.byKey(ValueKey('start-page-recent-closed-$id'))),
+    ];
+    expect(tester.getRect(rows.first).width, tester.getRect(rows.last).width);
     expect(
-      tester.getRect(_section('Bookmarks')).top,
-      lessThan(tester.getRect(_section('Categories')).top),
+      tester.getTopLeft(rows.last).dy,
+      lessThan(tester.getTopLeft(rows.first).dy),
     );
-    expect(tester.takeException(), isNull);
-  }, platform: TargetPlatform.iOS);
+    expect(
+      tester.getBottomLeft(section).dy,
+      lessThan(tester.getTopLeft(launchers().first).dy),
+    );
+    await _capture(tester, 'desktop-closed-launcher');
+  });
 
-  _test(
-    'cached Start filtering matches titles, excerpts and tags with no network search',
-    (tester) async {
-      final api = _api();
-      final shell = await _start(tester, desktop, api: api);
-      final feedRequests = api.feedPaths.toList();
-      final pluginRequests = api.pluginReadPaths.toList();
-      final tab = shell.activeTabId!;
-      for (final (query, title) in [
-        ('keyboard', 'A useful keyboard shortcut'),
-        ('design', 'A quieter start page'),
-        ('garden', 'Where shall we meet?'),
-      ]) {
-        shell.search.setStartPageQuery(_site, tab, query);
-        await tester.pumpAndSettle();
-        expect(_onPage(find.text(title)), findsOneWidget);
-        expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
-        expect(_section('Bookmarks'), findsNothing);
-        expect(find.byKey(ForumSearch.panelKey), findsNothing);
-      }
-      shell.search.setStartPageQuery(_site, tab, 'does not exist');
-      await tester.pumpAndSettle();
-      expect(
-        _onPage(find.text('Nothing matches “does not exist”')),
-        findsOneWidget,
-      );
-      expect(_section('Topics'), findsNothing);
-      expect(shell.globalSearch.query, isEmpty);
-      expect(api.searchesRequested, isEmpty);
-      expect(api.feedPaths, feedRequests);
-      expect(api.pluginReadPaths, pluginRequests);
-      shell.search.setStartPageQuery(_site, tab, '');
-      await tester.pumpAndSettle();
-      expect(_section('Topics'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('start-page-search-results')),
-        findsNothing,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test('bookmark search finds cached matches beyond the four preview rows', (
+  _test('Start retains Filters and opening a shortcut navigates to its page', (
     tester,
   ) async {
     final api = _api();
-    api.bookmarkList!.addAll([
-      for (var i = 20; i < 24; i++)
-        Bookmark(id: i, title: 'Saved topic $i', path: '/t/saved/$i'),
-      const Bookmark(id: 99, title: 'Hidden bookmark', path: '/t/hidden/99'),
-    ]);
     final shell = await _start(tester, desktop, api: api);
-    expect(_onPage(find.text('Hidden bookmark')), findsNothing);
-    final requests = api.pluginReadPaths.toList();
-    shell.search.setStartPageQuery(
-      _site,
-      shell.activeTabId!,
-      'Hidden bookmark',
-    );
+    final requests = [...api.feedPaths];
+    expect(_onPage(find.text('Filters')), findsOneWidget);
+    await tester.tap(shortcut('Topics'));
     await tester.pumpAndSettle();
-    expect(_onPage(find.text('Hidden bookmark')), findsOneWidget);
-    expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
-    expect(api.searchesRequested, isEmpty);
-    expect(api.pluginReadPaths, requests);
-    expect(tester.takeException(), isNull);
-  });
-
-  _test('topic search finds cached matches beyond the four preview rows', (
-    tester,
-  ) async {
-    final api = _api(
-      topics: [
-        ..._topics,
-        const Topic(id: 99, title: 'Another forum topic', slug: 'another'),
-      ],
-    );
-    final shell = await _start(tester, desktop, api: api);
-    expect(_onPage(find.text('Another forum topic')), findsNothing);
-    final requests = api.feedPaths.toList();
-    final pluginRequests = api.pluginReadPaths.toList();
-    shell.search.setStartPageQuery(_site, shell.activeTabId!, 'Another');
+    expect(shell.currentContent?.id, 'latest');
+    shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    expect(_onPage(find.text('Another forum topic')), findsOneWidget);
-    expect(_onPage(find.textContaining('1 result for')), findsOneWidget);
     expect(api.feedPaths, requests);
-    expect(api.searchesRequested, isEmpty);
-    expect(api.pluginReadPaths, pluginRequests);
-    expect(tester.takeException(), isNull);
+    final settings = shortcut('Settings');
+    await Scrollable.ensureVisible(tester.element(settings), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(settings);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'appearance');
   });
 
   _test(
-    'cached Start queries stay tab-local while chrome search is global on every page',
+    'search counts only closed matches and never removes launcher destinations',
     (tester) async {
-      final api = _api();
-      final shell = await _start(tester, desktop, api: api);
-      final first = shell.activeTabId!;
-      final input = find.byKey(ForumSearch.inputKey).first;
-      shell.search.setStartPageQuery(_site, first, 'garden');
-      await tester.pumpAndSettle();
-      shell.createTab();
-      final second = shell.activeTabId!;
-      await tester.pumpAndSettle();
-      expect(shell.search.startPageQueryFor(_site, second), isEmpty);
-      expect(_section('Bookmarks'), findsOneWidget);
-      shell.search.setStartPageQuery(_site, second, 'design');
-      await tester.pumpAndSettle();
-      shell.selectTab(first);
-      await tester.pumpAndSettle();
-      expect(_onPage(find.text('Where shall we meet?')), findsOneWidget);
-      expect(_onPage(find.text('A quieter start page')), findsNothing);
-      // Chrome search now opens the shared global surface on Start as well.
-      await tester.tap(input);
-      await tester.pumpAndSettle();
-      await tester.enterText(input, 'global query');
-      await tester.pump(const Duration(milliseconds: 450));
-      await tester.pumpAndSettle();
-      expect(shell.globalSearch.query, 'global query');
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(shell.search.startPageQueryFor(_site, first), 'garden');
-      expect(_onPage(find.text('Where shall we meet?')), findsOneWidget);
-      expect(
-        api.pluginReadPaths.any((path) {
-          final uri = Uri.parse(path);
-          return uri.path == '/search/query.json' &&
-              uri.queryParameters['term'] == 'global query';
-        }),
-        isTrue,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      final shell = await _start(tester, desktop);
+      shell.createTab(panel: ForumPanel.main);
       shell.pushContent(
         ContentRoute.topic(
           topicId: 1,
-          title: 'Welcome to the community',
+          title: _topics.first.title,
           slug: 'welcome',
         ),
       );
+      final closed = shell.activeTabId!;
+      shell.closeTab(closed);
+      shell.createTab(panel: ForumPanel.main);
       await tester.pumpAndSettle();
-      await tester.tap(input);
+      final count = launchers().evaluate().length;
+      shell.search.setStartPageQuery(_site, shell.activeTabId!, 'community');
       await tester.pumpAndSettle();
-      await tester.enterText(input, 'server query');
-      await tester.pump(const Duration(milliseconds: 450));
+      expect(
+        _onPage(find.byKey(ValueKey('start-page-recent-closed-$closed'))),
+        findsOneWidget,
+      );
+      expect(_onPage(find.text('1 result for “community”')), findsOneWidget);
+      expect(launchers().evaluate().length, count);
+      shell.search.setStartPageQuery(
+        _site,
+        shell.activeTabId!,
+        'nothing matches',
+      );
       await tester.pumpAndSettle();
-      expect(shell.globalSearch.query, 'server query');
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsNothing);
-      expect(shell.search.startPageQueryFor(_site, first), 'garden');
-      expect(shell.search.startPageQueryFor(_site, second), 'design');
-      expect(tester.takeException(), isNull);
+      expect(_section('Recently closed'), findsNothing);
+      expect(
+        _onPage(find.text('Nothing matches “nothing matches”')),
+        findsOneWidget,
+      );
+      expect(launchers().evaluate().length, count);
+      expect(shortcut('Topics'), findsOneWidget);
     },
   );
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    _test(
-      'forum title menu keeps actions on one line and opens externally on $platform',
-      (tester) async {
-        final launched = watchBrowser(tester);
-        final shell = await _start(
-          tester,
-          platform == TargetPlatform.iOS ? phone : desktop,
-        );
-        final options = _onPage(
-          find.byKey(const ValueKey('start-page-forum-options')),
-        );
-        for (final scale in [
-          AppTextScale.percent100,
-          AppTextScale.percent200,
-        ]) {
-          await shell.appSettings.setTextScale(scale);
-          await tester.pumpAndSettle();
-          await tester.tap(options);
-          await tester.pumpAndSettle();
-          for (final label in ['Open forum in browser', 'Remove forum']) {
-            final paragraph = tester.renderObject<RenderParagraph>(
-              find.descendant(
-                of: find.text(label),
-                matching: find.byType(RichText),
-              ),
-            );
-            expect(
-              paragraph.getBoxesForSelection(
-                TextSelection(baseOffset: 0, extentOffset: label.length),
-              ),
-              hasLength(1),
-              reason: '$label should occupy one line at $scale',
-            );
-            if (scale == AppTextScale.percent100) {
-              expect(paragraph.didExceedMaxLines, isFalse);
-            }
-          }
-          final popup = tester.getRect(find.byType(DDropdownMenuContent));
-          expect(popup.left, greaterThanOrEqualTo(0));
-          expect(
-            popup.right,
-            lessThanOrEqualTo(tester.view.physicalSize.width),
-          );
-          await tester.tap(
-            find.widgetWithText(DDropdownMenuItem, 'Open forum in browser'),
-          );
-          await tester.pumpAndSettle();
-        }
-        expect(launched, [_site, _site]);
-        await tester.tap(options);
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(DDropdownMenuItem, 'Remove forum'),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Remove Discourse Meta?'), findsOneWidget);
-        await tester.tap(find.widgetWithText(DButton, 'Cancel'));
-        await tester.pumpAndSettle();
-        expect(shell.currentInstance?.url, _site);
-        expect(tester.takeException(), isNull);
-      },
-      platform: platform,
-    );
-  }
-
-  _test('Start shows cached drafts and threads without fetching on entry', (
+  _test('Drafts appears only when there is a resumable cached draft', (
     tester,
   ) async {
     final api = _api(
-      drafts: const [
-        UserDraft(
+      drafts: [
+        const UserDraft(
           key: 'new_topic',
           sequence: 1,
+          title: 'Unfinished topic',
           data: ComposerDraft(
-            reply: 'A draft body',
-            title: 'An unfinished announcement',
+            reply: 'A reply',
             action: 'createTopic',
+            title: 'Unfinished topic',
           ),
         ),
       ],
-      threads: const {
-        9: ChatThreadPage(
-          threads: [
-            ChatThread(
-              id: 71,
-              channelId: 9,
-              status: 'open',
-              lastMessageId: 78,
-              replyCount: 3,
-              title: 'A cached thread',
-            ),
-          ],
-        ),
-      },
     );
     final shell = await _start(tester, desktop, api: api);
-    expect(api.userDraftRequests, isEmpty);
-    expect(api.chatThreadPagesRequested, isEmpty);
+    expect(shortcut('Drafts'), findsNothing);
     await shell.draftList.load(shell.currentInstance!);
-    shell.pushContent(
-      const ContentRoute(
-        id: 'chat-c-9-threads',
-        title: 'Threads',
-        icon: DIcons.comments,
-      ),
-    );
     await tester.pumpAndSettle();
-    shell.pushContent(ContentRoute.newTab());
+    expect(shortcut('Drafts'), findsOneWidget);
+    expect(_onPage(find.text('Unfinished topic')), findsNothing);
+    await tester.tap(shortcut('Drafts'));
     await tester.pumpAndSettle();
-    expect(_onPage(find.text('An unfinished announcement')), findsOneWidget);
-    expect(_onPage(find.text('A cached thread')), findsOneWidget);
-    expect(api.userDraftRequests, hasLength(1));
-    expect(api.chatChannelThreadPagesRequested, hasLength(1));
-    expect(tester.takeException(), isNull);
+    expect(shell.currentContent?.id, 'drafts');
   });
 
-  _test(
-    'Start previews use cached membership, earned badges, connections and activity',
-    (tester) async {
-      final api = _api(
-        summary: const UserSummary(
-          mostRepliedToUsers: [
-            UserSummaryUser(id: 1, username: 'sam', name: 'Sam', count: 2),
-          ],
-          mostLikedByUsers: [
-            UserSummaryUser(id: 2, username: 'alex', name: 'Alex', count: 3),
-          ],
-          mostLikedUsers: [
-            UserSummaryUser(id: 1, username: 'sam', name: 'Sam', count: 4),
-          ],
-        ),
-        activity: const [
-          UserActivityItem(
-            actionType: 5,
-            topicId: 1,
-            postNumber: 7,
-            title: 'A recent reply',
-            slug: 'recent',
-            username: 'reader',
-            excerpt: 'Searchable answer',
-          ),
-        ],
-        responses: const {
-          'GET /groups.json?asc=true': {
-            'groups': [
-              {'id': 1, 'name': 'sailors', 'is_group_user': true},
-              {'id': 2, 'name': 'staff'},
-            ],
-          },
-          'GET /badges.json?only_listable=true': {
-            'badges': [
-              {
-                'id': 1,
-                'name': 'First Like',
-                'has_badge': true,
-                'badge_type_id': 3,
-              },
-              {
-                'id': 2,
-                'name': 'Unseen badge',
-                'has_badge': false,
-                'badge_type_id': 1,
-              },
-            ],
-          },
-        },
-      );
-      final shell = await _start(tester, desktop, api: api);
-      final site = shell.currentInstance!;
-      await shell.userSummary.load(site);
-      await shell.accountActivity.loadUserActivity(site);
-      await shell.groups.loadDirectory(site, const GroupDirectoryQuery());
-      await shell.badges.load(site, const BadgeRoute.directory());
-      await tester.pumpAndSettle();
-      expect(_onPage(find.text('A recent reply')), findsOneWidget);
-      expect(_onPage(find.text('sailors')), findsOneWidget);
-      expect(_onPage(find.text('staff')), findsNothing);
-      expect(_onPage(find.text('First Like')), findsOneWidget);
-      expect(_onPage(find.text('Unseen badge')), findsNothing);
-      expect(_onPage(find.byType(BadgeMedal)), findsOneWidget);
-      expect(
-        tester.getTopLeft(_onPage(find.text('Sam'))).dy,
-        lessThan(tester.getTopLeft(_onPage(find.text('Alex'))).dy),
-      );
-      final channels = find.descendant(
-        of: _section('Channels'),
-        matching: find.text('General'),
-      );
-      expect(channels, findsOneWidget);
-      final calls = api.pluginReadPaths.length;
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      expect(api.pluginReadPaths, hasLength(calls));
-      final activity = _onPage(find.text('A recent reply'));
-      await Scrollable.ensureVisible(tester.element(activity), alignment: .5);
-      await tester.pumpAndSettle();
-      await tester.tap(activity);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 1);
-      expect(shell.currentContent?.postNumber, 7);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _test('alphabet press and drag land below the header without opening rows', (
-    tester,
-  ) async {
-    final shell = await _start(tester, phone);
-    final index = _onPage(find.byType(DAlphabetIndex<String>));
-    final u = find.descendant(of: index, matching: find.text('U'));
-    await tester.tap(u);
-    await tester.pumpAndSettle();
-    final filter = _onPage(find.byKey(const ValueKey('topic-list-filter')));
-    final users = _section('Users');
-    expect(
-      tester.getRect(users).top,
-      greaterThan(tester.getRect(filter).bottom),
+  _test('anonymous Start exposes only permitted destinations', (tester) async {
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org')],
     );
-    expect(users.hitTestable(), findsOneWidget);
-    expect(shell.currentContent?.isNewTab, isTrue);
-    final b = find.descendant(of: index, matching: find.text('B'));
-    final gesture = await tester.startGesture(tester.getCenter(u));
-    await gesture.moveTo(tester.getCenter(b));
-    await tester.pump();
-    await gesture.up();
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
-    expect(_section('Badges').hitTestable(), findsOneWidget);
-    expect(shell.currentContent?.isNewTab, isTrue);
-    await tester.tapAt(tester.getTopLeft(index) + const Offset(10, 10));
-    await tester.pumpAndSettle();
-    expect(_section('Activity').hitTestable(), findsOneWidget);
-    expect(shell.currentContent?.isNewTab, isTrue);
-    expect(tester.takeException(), isNull);
-  }, platform: TargetPlatform.iOS);
+    for (final name in [
+      'Activity',
+      'Bookmarks',
+      'Drafts',
+      'Messages',
+      'Preferences',
+      'Summary',
+    ]) {
+      expect(shortcut(name), findsNothing);
+    }
+    expect(shortcut('Topics'), findsOneWidget);
+    expect(shortcut('Settings'), findsOneWidget);
+  });
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    _test('native Start list fits phone and large text in $mode', (
-      tester,
-    ) async {
+    _test('launcher fits phone and large text in $mode', (tester) async {
       final shell = await _start(tester, phone);
       await shell.forumSettings.setThemeMode(_site, mode);
       await tester.pumpAndSettle();
       await _capture(tester, 'phone-${mode.name}');
-      expect(
-        _onPage(find.byKey(const ValueKey('start-page-more'))),
-        findsNothing,
-      );
-      final settings = _onPage(
-        find.byKey(const ValueKey('start-page-section-link-Settings')),
-      );
-      await Scrollable.ensureVisible(tester.element(settings), alignment: .5);
-      await tester.pumpAndSettle();
-      await tester.tap(settings);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'appearance');
-      shell.pushContent(ContentRoute.newTab());
       tester.view.physicalSize = const Size(320, 1000);
       await shell.appSettings.setTextScale(AppTextScale.percent200);
       await tester.pumpAndSettle();
-      expect(_section('Settings'), findsOneWidget);
+      final grid = _onPage(find.byKey(const ValueKey('start-page-shortcuts')));
+      final bounds = tester.getRect(grid);
+      for (final button in launchers().evaluate()) {
+        final rect = tester.getRect(find.byWidget(button.widget));
+        expect(rect.left, greaterThanOrEqualTo(bounds.left));
+        expect(rect.right, lessThanOrEqualTo(bounds.right + .01));
+        expect(rect.width, closeTo(rect.height, .01));
+      }
       expect(tester.takeException(), isNull);
       await _capture(tester, 'large-text-${mode.name}');
     }, platform: TargetPlatform.iOS);

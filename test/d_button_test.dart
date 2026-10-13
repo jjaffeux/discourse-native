@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,113 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+    testWidgets(
+      'launcher owns square artwork, targets and keyboard activation in $direction',
+      (tester) async {
+        var presses = 0;
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        for (final scale in [1.0, 2.0]) {
+          focus.unfocus();
+          await tester.pump();
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light,
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Directionality(
+                  textDirection: direction,
+                  child: Scaffold(
+                    body: Center(
+                      child: SizedBox(
+                        width: 112 + (13 * scale - 13) * 3,
+                        child: DButton(
+                          variant: DButtonVariant.launcher,
+                          icon: const DIcon(DIcons.plus),
+                          label: const Text('Topics'),
+                          focusNode: focus,
+                          onPressed: () => presses++,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final button = find.byType(DButton);
+          final bounds = tester.getRect(button);
+          expect(bounds.size, Size.square(112 + (13 * scale - 13) * 3));
+          expect(tester.getRect(find.byType(FilledButton)), bounds);
+          expect(
+            tester.getCenter(find.byType(DAvatar)).dy,
+            lessThan(tester.getCenter(find.text('Topics')).dy),
+          );
+          expect(buttonSurface(tester).color.a, 0);
+          final before = presses;
+          for (final point in [
+            bounds.centerLeft - const Offset(1, 0),
+            bounds.centerRight + const Offset(1, 0),
+            bounds.topCenter - const Offset(0, 1),
+            bounds.bottomCenter + const Offset(0, 1),
+          ]) {
+            await tester.tapAt(point);
+          }
+          expect(presses, before);
+          await tester.tapAt(bounds.topLeft + const Offset(2, 2));
+          await tester.pumpAndSettle();
+          expect(presses, before + 1);
+          focus.requestFocus();
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(presses, before + 2);
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: bounds.center);
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester).color.a, greaterThan(0));
+          await mouse.removePointer();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'disabled launcher exposes a single destination and ignores activation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 112,
+                child: DButton(
+                  variant: DButtonVariant.launcher,
+                  icon: DIcon(DIcons.plus),
+                  label: Text('Topics'),
+                  onPressed: null,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('Topics'), findsOneWidget);
+      await tester.tap(find.byType(DButton));
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester).color.a, 0);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    },
+  );
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,

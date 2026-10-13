@@ -1953,7 +1953,7 @@ void main() {
     await pumpMobileShellFixture(tester, events: true);
     for (final (tab, heading, duplicate) in [
       ('users', 'Users', 'Users'),
-      ('destination/events-upcoming', 'Events', 'Upcoming events'),
+      ('destination/events-upcoming', 'Events', 'Events'),
     ]) {
       await _tapDockTab(tester, tab);
       expect(

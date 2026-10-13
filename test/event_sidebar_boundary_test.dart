@@ -168,7 +168,7 @@ void main() {
         // The phone dock spills Events into its More menu.
         final upcoming = mobile
             ? find.byKey(const ValueKey('mobile-mode-more'))
-            : sidebarDestination('Upcoming events');
+            : sidebarDestination('Events');
         expect(upcoming, findsOneWidget);
         expect(sidebarDestination('My events'), findsNothing);
         if (!mobile) {
@@ -269,12 +269,12 @@ void main() {
     final controller = ShellScope.read(
       tester.element(find.byType(InstanceSidebar)),
     );
-    expect(sidebarDestination('Upcoming events'), findsOneWidget);
+    expect(sidebarDestination('Events'), findsOneWidget);
     for (var index = 1; index < sites.length; index++) {
       controller.selectInstance(index);
       await tester.pumpAndSettle();
       expect(
-        sidebarDestination('Upcoming events'),
+        sidebarDestination('Events'),
         findsNothing,
         reason: 'site configuration $index',
       );
@@ -282,7 +282,7 @@ void main() {
     }
     controller.selectInstance(0);
     await tester.pumpAndSettle();
-    expect(sidebarDestination('Upcoming events'), findsOneWidget);
+    expect(sidebarDestination('Events'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('the event link appears when site settings finish loading', (
@@ -300,11 +300,11 @@ void main() {
       ),
       pluginManifest: _manifest,
       beforeSettle: () async {
-        expect(sidebarDestination('Upcoming events'), findsNothing);
+        expect(sidebarDestination('Events'), findsNothing);
         gate.complete();
       },
     );
-    expect(sidebarDestination('Upcoming events'), findsOneWidget);
+    expect(sidebarDestination('Events'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('an event loading elsewhere leaves the event link alone', (
@@ -323,7 +323,7 @@ void main() {
       ),
       pluginManifest: _manifest,
     );
-    expect(sidebarDestination('Upcoming events'), findsOneWidget);
+    expect(sidebarDestination('Events'), findsOneWidget);
     final events = PluginUiScope.require(
       PluginUiScope.contextFor(
         tester.element(find.byType(InstanceSidebar)),
@@ -335,7 +335,7 @@ void main() {
     final previous = debugOnRebuildDirtyWidget;
     debugOnRebuildDirtyWidget = (element, builtOnce) {
       previous?.call(element, builtOnce);
-      if (element.widget case Text(data: 'Upcoming events')) {
+      if (element.widget case Text(data: 'Events')) {
         element.visitAncestorElements((ancestor) {
           if (ancestor.widget is! InstanceSidebar) return true;
           rebuilds++;

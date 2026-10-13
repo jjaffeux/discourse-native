@@ -1,5 +1,36 @@
 # Start page parity
 
+## Current launcher layout
+
+Reference: `/Users/joffreyjaffeux/Code/discourse-native-mockups`, Start launcher
+change `09b38e04872e6c7ca23e6bf4c4922630fb9fb6c2`, checked against snapshot
+`7c86328` on 2026-10-13. This layout supersedes the section list and pinning
+below and the Topics pin layout in `start-page-topics-mockup-parity.md`.
+
+| Start change | Native behavior |
+| --- | --- |
+| Recently closed is the only content list | It leads the shortcuts when nonempty and disappears when empty. Entries stack in bare Native Item rows, with their existing identity marks and titles. The section has no card, pin, timestamps, counts or excerpts. Reopening, link menus, and desktop dragging are retained. |
+| Every other destination becomes a square shortcut | The approved Native Button launcher variant owns the icon tile, centered label, transparent resting surface, neutral hover/focus fill, keyboard activation, scaling and matching hit bounds. |
+| Responsive grid | Cells wrap within the shared reading column with equal row and column spacing. The minimum cell extent grows with text size. Removing the alphabet rail restores the trailing content space and removes the artificial scroll tail. |
+| Alphabetical destinations, then settings | Available destinations sort by their displayed labels. Preferences and Settings follow the alphabet, in that order. |
+| Remove section previews | Topics, Bookmarks, Categories, Chat, Messages, Groups, Badges, Users, Activity, Channels, Threads and Events provide destination buttons without cached content rows. Opening Start requests no additional feeds or directories. |
+| Remove pinning and the A–Z rail | Start has no pin controls, pinned cards, alphabet shortcuts, scrubbing or session pin controller. Saved legacy density preferences do not restore these layouts. The reusable alphabet component remains in the kit. |
+| Drafts is conditional | The Drafts shortcut appears for authenticated readers with resumable cached drafts. It opens Native's existing Drafts page and uses the existing resume lifecycle. Start does not fetch drafts to decide whether to show it. |
+| Search affects only Recently closed | Its match count includes only matching closed entries. Destination shortcuts stay available independently of the query. The existing chrome search interface is retained. |
+| Upcoming events becomes Events | Enabled event destinations use Events on Start, in the sidebar and in retained destination navigation. The event route and site setting checks remain the same. |
+| Keep the forum header and Filters | The forum switcher, external website link, Filters action, account permissions and enabled plugin destinations remain available. |
+
+Changes to post reactions, general back/forward transitions, mobile docks,
+platform glass and the Lab in the same mockup history are outside Start's
+layout change.
+
+The owning widget tests replace obsolete preview and pin assertions with grid,
+conditional destination, closed-row and navigation contracts. Button checks
+cover exact hit bounds, keyboard activation, disabled semantics, hover, text
+scaling and both text directions. Rendered shell fixtures cover desktop and
+phone, light/dark themes and 200% text. These are Flutter renders, not a
+physical-device deployment.
+
 ## Latest account pages and desktop shell
 
 The latest four mockup changes are implemented from `c0313acc`, `4e0e388b`,

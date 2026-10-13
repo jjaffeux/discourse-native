@@ -137,7 +137,6 @@ import 'preview_requests.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
-import 'start_page_controller.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_feed_controller.dart';
 import 'topic_filter_controller.dart' show splitTopicFilterQuery;
@@ -575,7 +574,6 @@ class ShellController extends FrameSafeNotifier
   final RecentDestinationsStore recentDestinations;
   final AppSettingsController appSettings;
   final ForumSettingsController forumSettings;
-  final StartPageController startPage = StartPageController();
   final sidebarSections = SidebarSectionStore();
   final topicSidebar = TopicSidebarStore();
 
@@ -16907,7 +16905,6 @@ class ShellController extends FrameSafeNotifier
 
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
-    startPage.forget(siteUrl);
     userSummary.forget(siteUrl);
     groups.forget(siteUrl);
     userDirectory.forget(siteUrl);
@@ -18663,7 +18660,6 @@ class ShellController extends FrameSafeNotifier
     }
     globalSearch.dispose();
     search.dispose();
-    startPage.dispose();
     for (final host in _coreBookmarkTargetHosts.values) {
       host.dispose();
     }

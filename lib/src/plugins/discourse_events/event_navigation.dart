@@ -57,7 +57,7 @@ final class EventNavigation implements PluginLinkHandler {
       id:
           page?.directoryPage.routeId(mine) ??
           (mine ? 'events-mine' : 'events-upcoming'),
-      title: mine ? appL10n.myEvents : appL10n.upcomingEvents,
+      title: mine ? appL10n.myEvents : appL10n.events,
       icon: EventIcons.calendar,
     );
     if (host.currentContent?.id == route.id) return;

@@ -176,7 +176,7 @@ final class DiscourseEventsPlugin
     return [
       SidebarDestination(
         id: 'events-upcoming',
-        label: appL10n.upcomingEvents,
+        label: appL10n.events,
         mobileNavigationLabel: appL10n.events,
         icon: EventIcons.calendar,
       ),

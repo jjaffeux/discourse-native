@@ -108,91 +108,7 @@ void main() {
     );
   });
 
-  testStartPage('recent previews stay at four rows as the panel resizes', (
-    tester,
-  ) async {
-    await pumpShell(
-      tester,
-      const Size(2400, 1000),
-      api: FakeDiscourseApi(
-        feeds: {
-          '/latest.json': [
-            for (var i = 1; i <= 8; i++)
-              Topic(id: i, title: 'Topic $i', slug: 'topic-$i'),
-          ],
-        },
-      ),
-    );
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    await shell.appSettings.setLimitContentSize(false);
-    for (var i = 1; i <= 8; i++) {
-      shell.pushContent(
-        ContentRoute.topic(topicId: i, title: 'Topic $i', slug: 'topic-$i'),
-      );
-    }
-    shell.createTab(panel: ForumPanel.secondary);
-    await tester.pumpAndSettle();
-    final rows = find.byWidgetPredicate(
-      (widget) =>
-          widget is DItem &&
-          widget.key is ValueKey<String> &&
-          (widget.key! as ValueKey<String>).value.startsWith(
-            'start-page-recent-topic-',
-          ),
-    );
-    for (final size in [const Size(2400, 1000), const Size(800, 1000)]) {
-      tester.view.physicalSize = size;
-      await tester.pumpAndSettle();
-      expect(rows, findsNWidgets(4));
-      expect({
-        for (var i = 0; i < 4; i++) tester.getTopLeft(rows.at(i)).dy,
-      }, hasLength(4));
-      expect(find.byTooltip('Comfortable'), findsNothing);
-      expect(tester.takeException(), isNull);
-    }
-  });
-
-  testStartPage('category history cannot reintroduce unavailable categories', (
-    tester,
-  ) async {
-    await pumpShell(
-      tester,
-      desktop,
-      api: FakeDiscourseApi(
-        categoryList: const [
-          TopicCategory(
-            id: 1,
-            name: 'Visible category',
-            slug: 'visible',
-            color: '0088cc',
-          ),
-        ],
-      ),
-    );
-    final shell = ShellScope.read(
-      tester.element(find.byType(MainContent).first),
-    );
-    expect(shell.recentCategoriesFor(shell.currentInstance!.url), isEmpty);
-    shell.openListUrl('/c/visible/1', title: 'Visible category');
-    shell.openListUrl('/c/removed/99', title: 'Removed category');
-    shell.pushContent(ContentRoute.newTab());
-    await tester.pumpAndSettle();
-    final page = find.byType(NewTabPage).first;
-    expect(
-      find.descendant(of: page, matching: find.text('Visible category')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: page, matching: find.text('Removed category')),
-      findsNothing,
-    );
-  });
-
-  testStartPage('compact closed chips size naturally, wrap, drag and restore', (
-    tester,
-  ) async {
+  testStartPage('closed rows stack, drag and restore', (tester) async {
     await pumpShell(tester, const Size(1400, 1000));
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
@@ -227,9 +143,8 @@ void main() {
     );
     final short = tester.getRect(chip(0));
     final longer = tester.getRect(chip(1));
-    expect(short.width, lessThan(longer.width));
-    expect(longer.width, lessThanOrEqualTo(280));
-    expect(tester.widget<DItem>(chip(0)).fitContent, isTrue);
+    expect(short.width, closeTo(longer.width, .01));
+    expect(tester.widget<DItem>(chip(0)).fitContent, isFalse);
     expect(
       {
         for (var i = 0; i < closed.length; i++) tester.getTopLeft(chip(i)).dy,
@@ -359,7 +274,7 @@ void main() {
           ValueKey('start-page-recent-closed-${closed[index]}'),
         );
         expect(chip, findsOneWidget);
-        expect(tester.widget<DItem>(chip).fitContent, isTrue);
+        expect(tester.widget<DItem>(chip).fitContent, isFalse);
       }
       expect(
         find.descendant(
