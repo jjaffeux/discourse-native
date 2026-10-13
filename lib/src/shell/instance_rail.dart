@@ -909,11 +909,7 @@ class _RailFooter extends StatelessWidget {
               buttonKey: const ValueKey('styleguide-rail-button'),
               tooltip: context.l10n.openComponentStyleguide,
               onTap: () => unawaited(showComponentStyleguide(context)),
-              icon: Icon(
-                Icons.palette_outlined,
-                size: _railFooterIconSize,
-                color: Theme.of(context).shell.railForeground,
-              ),
+              icon: const Icon(Icons.palette_outlined, size: _railFooterIconSize),
             ),
           ),
         ),
@@ -942,6 +938,13 @@ class _RailFooter extends StatelessWidget {
   }
 }
 
+// The mockup rail uses --text-muted (a 50% primary/secondary mix). Legacy
+// palettes can map the general muted foreground to a stronger metadata color.
+Color _railActionForeground(BuildContext context) {
+  final tokens = DTokens.of(context);
+  return Color.lerp(tokens.background, tokens.foreground, .5)!;
+}
+
 class _RailFooterButton extends StatelessWidget {
   const _RailFooterButton({
     required this.buttonKey,
@@ -966,7 +969,7 @@ class _RailFooterButton extends StatelessWidget {
     variant: DButtonVariant.ghost,
     backgroundColor: Colors.transparent,
     interactiveBackgroundColor: Colors.transparent,
-    foregroundColor: Theme.of(context).shell.railForeground,
+    foregroundColor: _railActionForeground(context),
     size: DButtonSize.large,
     expanded: expanded,
     onPressed: onTap,
@@ -981,16 +984,11 @@ class _SettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return _RailFooterButton(
       buttonKey: const ValueKey('settings-rail-button'),
       tooltip: context.l10n.settings,
       onTap: onTap,
-      icon: DIcon(
-        DIcons.gear,
-        size: _railFooterIconSize,
-        color: theme.shell.railForeground,
-      ),
+      icon: const DIcon(DIcons.gear, size: _railFooterIconSize),
     );
   }
 }
@@ -1038,11 +1036,7 @@ class _DiagnosticsButton extends StatelessWidget {
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
-                  DIcon(
-                    DIcons.bug,
-                    size: _railFooterIconSize,
-                    color: theme.shell.railForeground,
-                  ),
+                  const DIcon(DIcons.bug, size: _railFooterIconSize),
                   if (unseen > 0)
                     Positioned(
                       right: -4,
@@ -1585,7 +1579,7 @@ class _AddInstanceButton extends StatelessWidget {
       shape: DButtonShape.pill,
       backgroundColor: Colors.transparent,
       interactiveBackgroundColor: Colors.transparent,
-      foregroundColor: Theme.of(context).shell.marker,
+      foregroundColor: _railActionForeground(context),
       onPressed: () => showAddInstanceSheet(context),
       icon: const DIcon(DIcons.plus, size: 17),
     );
