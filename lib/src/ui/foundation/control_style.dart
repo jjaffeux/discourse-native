@@ -159,7 +159,9 @@ abstract final class DControlStyle {
     DControlSize.chrome => 7,
     DControlSize.action => 14,
     DControlSize.post => 12,
-    DControlSize.documentTab => 10,
+    // The document surface supplies its border/inset pixel. The trailing
+    // button inset is the mockup's 7px gap plus 2px close-action margin.
+    DControlSize.documentTab => 9,
     DControlSize.tabAction || DControlSize.tabClose => 0,
     _ => 10,
   };

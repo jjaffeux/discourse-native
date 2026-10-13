@@ -1426,15 +1426,18 @@ class _ReorderableForumTab extends StatelessWidget {
 
     return Listener(
       onPointerDown: (event) {
-        if (event.buttons == kPrimaryButton &&
-            event.localPosition.dx <
-                (context.findRenderObject()! as RenderBox).size.width -
-                    DControlStyle.scaledHeight(
-                      DControlSize.tabClose,
-                      MediaQuery.textScalerOf(context),
-                      context: context,
-                    ) -
-                    ForumTabsBar._tabContentInset) {
+        final closeSlot =
+            DControlStyle.scaledHeight(
+              DControlSize.tabClose,
+              MediaQuery.textScalerOf(context),
+              context: context,
+            ) +
+            11; // The document tab's 10px trailing padding and 1px border.
+        final width = (context.findRenderObject()! as RenderBox).size.width;
+        final inSelection = Directionality.of(context) == TextDirection.rtl
+            ? event.localPosition.dx >= closeSlot
+            : event.localPosition.dx < width - closeSlot;
+        if (event.buttons == kPrimaryButton && inSelection) {
           onSelect();
         }
       },

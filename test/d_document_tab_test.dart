@@ -38,6 +38,7 @@ void main() {
                       width: 240,
                       child: StatefulBuilder(
                         builder: (context, setState) => DDocumentTab(
+                          size: DControlSize.documentTab,
                           selected: selected,
                           onSelect: () => setState(() {
                             selected = true;
@@ -87,12 +88,15 @@ void main() {
       );
       await pointer.moveTo(tester.getCenter(buttons.first));
       await tester.pump();
-      await _expectFill(tester, fill);
+      await _expectFill(tester, theme.colorScheme.surface);
       for (var click = 0; click < 2; click++) {
         await pointer.down(tester.getCenter(buttons.first));
         for (final elapsed in [0, 16, 75, 150]) {
           await tester.pump(Duration(milliseconds: elapsed));
-          await _expectFill(tester, fill);
+          await _expectFill(
+            tester,
+            selected ? fill : theme.colorScheme.surface,
+          );
         }
         await pointer.up();
         for (final elapsed in [0, 16, 150, 350]) {
@@ -110,7 +114,7 @@ void main() {
       expect((decoration().shape as OutlinedBorder).side.width, 1);
       expect(
         (decoration().shape as RoundedRectangleBorder).borderRadius,
-        BorderRadius.circular(DRadius.panel),
+        BorderRadius.circular(DRadius.pill),
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();

@@ -220,9 +220,9 @@ void main() {
         expect(tabRect.width, lessThan(150));
         expect(tester.getSize(suffix).width, closeTo(tabRect.width + 17, .01));
         expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
-        expect(labelRect.left - tabRect.left, 2 + 10 + 12 + 7);
-        expect(closeRect.left - labelRect.right, closeTo(10, .01));
-        expect(tabRect.right - closeRect.right, 2);
+        expect(labelRect.left - tabRect.left, 11 + 12 + 7);
+        expect(closeRect.left - labelRect.right, closeTo(9, .01));
+        expect(tabRect.right - closeRect.right, 11);
         expect(tester.takeException(), isNull);
       }
     });
@@ -315,7 +315,7 @@ void main() {
                 )
                 .left -
             tester.getRect(tab).left,
-        2 + 10 + 16 + 7,
+        11 + 16 + 7,
       );
     });
 
@@ -621,7 +621,7 @@ void main() {
       expect(_tabDecoration(tester, secondTab).color, Colors.transparent);
     });
 
-    testWidgets('shows a neutral rounded hover pill without moving the tab', (
+    testWidgets('keeps inactive standard tabs transparent on hover', (
       tester,
     ) async {
       await _pumpBar(
@@ -640,48 +640,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.getRect(tab), before);
-      expect(
-        _tabDecoration(tester, tab).color,
-        Color.lerp(
-          DTokens.of(tester.element(tab)).background,
-          DTokens.of(tester.element(tab)).foreground,
-          .10,
-        )!,
-      );
+      expect(_tabDecoration(tester, tab).color, Colors.transparent);
       await _expectTabPixels(tester, [
         (before.topLeft, theme.shell.sidebar),
-        (
-          Offset(before.center.dx, before.top + 3),
-          Color.lerp(
-            DTokens.of(tester.element(tab)).background,
-            DTokens.of(tester.element(tab)).foreground,
-            .10,
-          )!,
-        ),
-        (
-          Offset(before.left + 3, before.center.dy),
-          Color.lerp(
-            DTokens.of(tester.element(tab)).background,
-            DTokens.of(tester.element(tab)).foreground,
-            .10,
-          )!,
-        ),
-        (
-          Offset(before.center.dx, before.bottom - 6),
-          Color.lerp(
-            DTokens.of(tester.element(tab)).background,
-            DTokens.of(tester.element(tab)).foreground,
-            .10,
-          )!,
-        ),
-        (
-          Offset(before.center.dx, before.bottom - 1),
-          Color.lerp(
-            DTokens.of(tester.element(tab)).background,
-            DTokens.of(tester.element(tab)).foreground,
-            .10,
-          )!,
-        ),
+        (Offset(before.center.dx, before.top + 3), theme.shell.sidebar),
+        (Offset(before.left + 3, before.center.dy), theme.shell.sidebar),
+        (Offset(before.center.dx, before.bottom - 6), theme.shell.sidebar),
+        (Offset(before.center.dx, before.bottom - 1), theme.shell.sidebar),
       ]);
     });
   });
@@ -712,6 +677,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(selected, [second.id]);
     });
+
+    for (final direction in TextDirection.values) {
+      testWidgets('glass close does not select a tab in $direction', (
+        tester,
+      ) async {
+        final selected = <String>[];
+        final closed = <String>[];
+        await _pumpBar(
+          tester,
+          items: const [first, second],
+          selectedId: first.id,
+          theme: DMaterialTheme.apply(
+            AppTheme.dark,
+            DAppearanceMaterial.liquidGlass,
+          ),
+          textDirection: direction,
+          onSelect: selected.add,
+          onClose: closed.add,
+        );
+        final close = find.byKey(const ValueKey('forum-tab-close-topic-1'));
+        final rect = tester.getRect(close);
+        await tester.tapAt(Offset(rect.left + 1, rect.center.dy));
+        expect(closed, [first.id]);
+        expect(selected, isEmpty);
+        await tester.tap(find.text(second.title));
+        expect(selected, [second.id]);
+      });
+    }
 
     testWidgets('delegate add, selection, and distinct close actions by ID', (
       tester,
@@ -949,7 +942,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(buttonSurface(tester, of: surface).color, Colors.transparent);
-      expect(iconColor(), isNot(restingIconColor));
+      expect(iconColor(), restingIconColor);
       expect(tester.getSize(surface), const Size.square(18));
 
       await pointer.moveTo(tester.getCenter(find.text(second.title)));

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_kbd.dart';
@@ -1150,7 +1152,8 @@ class _DDocumentTabState extends State<DDocumentTab> {
     final tokens = DTokens.of(context);
     Color mix(double amount) =>
         Color.lerp(tokens.background, tokens.foreground, amount)!;
-    final foreground = widget.selected || _hovered ? mix(.9) : mix(.5);
+    final foreground = widget.selected ? mix(.9) : mix(.5);
+    final glass = DMaterialTheme.glassOf(context);
     final radius = BorderRadius.circular(
       widget.selected && widget.size != DControlSize.documentTab
           ? DRadius.panel
@@ -1174,109 +1177,325 @@ class _DDocumentTabState extends State<DDocumentTab> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: Container(
-        key: widget.surfaceKey,
-        height: DControlStyle.scaledHeight(
-          widget.size,
-          MediaQuery.textScalerOf(context),
-          context: context,
-        ),
-        // The outline supplies the other pixel of the compact outer inset.
-        padding: const EdgeInsets.symmetric(horizontal: 1),
-        decoration: ShapeDecoration(
-          color: widget.selected || _hovered ? mix(.10) : Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: radius,
-            side: (BorderSide(
-              color: widget.selected ? mix(.22) : Colors.transparent,
-              strokeAlign: BorderSide.strokeAlignInside,
-            )),
+      child: _DocumentTabMaterial(
+        selected: widget.selected,
+        hovered: _hovered,
+        radius: radius,
+        color: mix(.10),
+        child: Container(
+          key: widget.surfaceKey,
+          height: DControlStyle.scaledHeight(
+            widget.size,
+            MediaQuery.textScalerOf(context),
+            context: context,
           ),
-        ),
-        child: IconTheme.merge(
-          data: IconThemeData(color: foreground),
-          child: DefaultTextStyle.merge(
-            style: labelStyle.copyWith(color: foreground),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child:
-                      widget.editor ??
-                      ExcludeSemantics(
-                        excluding: widget.excludeSelectionSemantics,
-                        child: MergeSemantics(
-                          child: Semantics(
-                            selected: widget.selected,
-                            child: GestureDetector(
-                              onDoubleTap: widget.onDoubleTap,
-                              excludeFromSemantics: true,
-                              child: Listener(
-                                onPointerDown: (event) {
-                                  if (event.buttons != kPrimaryButton) return;
-                                  widget.onTapDown?.call(
-                                    TapDownDetails(
-                                      globalPosition: event.position,
-                                      localPosition: event.localPosition,
-                                      kind: event.kind,
+          // The outline supplies the other pixel of the compact outer inset.
+          padding: const EdgeInsetsDirectional.only(start: 1, end: 10),
+          decoration: ShapeDecoration(
+            color: widget.selected && !glass ? mix(.10) : Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: (BorderSide(
+                color: widget.selected && !glass
+                    ? mix(.22)
+                    : Colors.transparent,
+                strokeAlign: BorderSide.strokeAlignInside,
+              )),
+            ),
+          ),
+          child: IconTheme.merge(
+            data: IconThemeData(color: foreground),
+            child: DefaultTextStyle.merge(
+              style: labelStyle.copyWith(color: foreground),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child:
+                        widget.editor ??
+                        ExcludeSemantics(
+                          excluding: widget.excludeSelectionSemantics,
+                          child: MergeSemantics(
+                            child: Semantics(
+                              selected: widget.selected,
+                              child: GestureDetector(
+                                onDoubleTap: widget.onDoubleTap,
+                                excludeFromSemantics: true,
+                                child: Listener(
+                                  onPointerDown: (event) {
+                                    if (event.buttons != kPrimaryButton) return;
+                                    widget.onTapDown?.call(
+                                      TapDownDetails(
+                                        globalPosition: event.position,
+                                        localPosition: event.localPosition,
+                                        kind: event.kind,
+                                      ),
+                                    );
+                                  },
+                                  onPointerCancel: (_) =>
+                                      widget.onTapCancel?.call(),
+                                  child: DButton(
+                                    onPressed: widget.onSelect,
+                                    size:
+                                        widget.size == DControlSize.documentTab
+                                        ? DControlSize.documentTab
+                                        : DButtonSize.small,
+                                    focusNode: _selectionFocus,
+                                    variant: DButtonVariant.ghost,
+                                    alignment: AlignmentDirectional.centerStart,
+                                    backgroundColor: Colors.transparent,
+                                    interactiveBackgroundColor:
+                                        Colors.transparent,
+                                    foregroundColor: foreground,
+                                    label: DefaultTextStyle.merge(
+                                      style: labelStyle,
+                                      child: widget.child,
                                     ),
-                                  );
-                                },
-                                onPointerCancel: (_) =>
-                                    widget.onTapCancel?.call(),
-                                child: DButton(
-                                  onPressed: widget.onSelect,
-                                  size: widget.size == DControlSize.documentTab
-                                      ? DControlSize.documentTab
-                                      : DButtonSize.small,
-                                  focusNode: _selectionFocus,
-                                  variant: DButtonVariant.ghost,
-                                  alignment: AlignmentDirectional.centerStart,
-                                  backgroundColor: Colors.transparent,
-                                  interactiveBackgroundColor:
-                                      Colors.transparent,
-                                  foregroundColor: foreground,
-                                  label: DefaultTextStyle.merge(
-                                    style: labelStyle,
-                                    child: widget.child,
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                ),
-                ListenableBuilder(
-                  listenable: _closeFocus,
-                  builder: (context, _) => AnimatedOpacity(
-                    opacity: widget.selected || _hovered || _closeFocus.hasFocus
-                        ? 1
-                        : 0,
-                    alwaysIncludeSemantics: true,
-                    duration: DMotion.duration(context, DMotion.change),
-                    child: Center(
-                      widthFactor: 1,
-                      child: DButton.iconOnly(
-                        key: widget.closeKey,
-                        tooltip: widget.closeLabel,
-                        shortcut: widget.closeShortcut,
-                        focusNode: _closeFocus,
-                        size: widget.size == DControlSize.documentTab
-                            ? DControlSize.tabClose
-                            : DButtonSize.small,
-                        variant: DButtonVariant.inline,
-                        icon: const DIcon(DIcons.xmark),
-                        onPressed: widget.onClose,
+                  ),
+                  ListenableBuilder(
+                    listenable: _closeFocus,
+                    builder: (context, _) => AnimatedOpacity(
+                      opacity:
+                          widget.selected ||
+                              _hovered ||
+                              _closeFocus.hasFocus ||
+                              DControlStyle.isTouch(context)
+                          ? 1
+                          : 0,
+                      alwaysIncludeSemantics: true,
+                      duration: DMotion.duration(context, DMotion.change),
+                      child: Center(
+                        widthFactor: 1,
+                        child: DButton.iconOnly(
+                          key: widget.closeKey,
+                          tooltip: widget.closeLabel,
+                          shortcut: widget.closeShortcut,
+                          focusNode: _closeFocus,
+                          size: widget.size == DControlSize.documentTab
+                              ? DControlSize.tabClose
+                              : DButtonSize.small,
+                          variant: DButtonVariant.inline,
+                          backgroundColor: Colors.transparent,
+                          interactiveBackgroundColor: Colors.transparent,
+                          foregroundColor: mix(.5),
+                          icon: const DIcon(DIcons.xmark),
+                          onPressed: widget.onClose,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// The mockup's tab-specific glass: thinner than ordinary raised controls.
+/// Paint stays behind the stable controls, so material changes retain focus.
+class _DocumentTabMaterial extends StatelessWidget {
+  const _DocumentTabMaterial({
+    required this.selected,
+    required this.hovered,
+    required this.radius,
+    required this.color,
+    required this.child,
+  });
+
+  final bool selected;
+  final bool hovered;
+  final BorderRadius radius;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = DMaterialTheme.glassOf(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final visible = glass && (selected || hovered);
+    // app.css: selected .42/.50 tint, inactive hover .22, blur(5px),
+    // saturate(185%), a white rim and a highlight at 35% -25%.
+    final highlight = hovered ? .22 : (dark ? .12 : .55);
+    return CustomPaint(
+      painter: glass && selected ? _DocumentTabShadow(radius, dark) : null,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: ClipRRect(
+                  borderRadius: radius,
+                  child: BackdropFilter(
+                    enabled: glass && selected,
+                    filter: ui.ImageFilter.compose(
+                      outer:
+                          // CSS saturation matrix, using sRGB luminance.
+                          const ColorFilter.matrix([
+                            1.66895,
+                            -.60775,
+                            -.0612,
+                            0,
+                            0,
+                            -.18105,
+                            1.24225,
+                            -.0612,
+                            0,
+                            0,
+                            -.18105,
+                            -.60775,
+                            1.7888,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            1,
+                            0,
+                          ]),
+                      inner: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    ),
+                    child: CustomPaint(
+                      painter: visible
+                          ? _DocumentTabGlassPaint(
+                              radius: radius,
+                              tint: color.withValues(
+                                alpha:
+                                    color.a *
+                                    (selected ? (dark ? .42 : .5) : .22),
+                              ),
+                              rim: Colors.white.withValues(
+                                alpha: dark ? .14 : .75,
+                              ),
+                              highlight: selected ? highlight : 0,
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentTabShadow extends CustomPainter {
+  const _DocumentTabShadow(this.radius, this.dark);
+  final BorderRadius radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = radius.toRRect(rect);
+    // CSS outer shadows leave the border box clear. A normal BoxShadow
+    // would show through the translucent tab and pollute its own backdrop.
+    final outside = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(30))
+      ..addRRect(shape);
+    canvas.save();
+    canvas.clipPath(outside);
+    canvas.drawRRect(
+      shape.shift(const Offset(0, 4)),
+      const BoxShadow(blurRadius: 14)
+          .copyWith(color: Colors.black.withValues(alpha: dark ? .2 : .08))
+          .toPaint(),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_DocumentTabShadow old) =>
+      radius != old.radius || dark != old.dark;
+}
+
+class _DocumentTabGlassPaint extends CustomPainter {
+  const _DocumentTabGlassPaint({
+    required this.radius,
+    required this.tint,
+    required this.rim,
+    required this.highlight,
+  });
+
+  final BorderRadius radius;
+  final Color tint;
+  final Color rim;
+  final double highlight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = radius.toRRect(rect);
+    canvas.drawRRect(shape, Paint()..color = tint);
+    if (highlight > 0) {
+      canvas.save();
+      canvas.clipRRect(shape);
+      // CSS's explicit elliptical radial gradient, fading at 62%.
+      canvas.translate(size.width * .35, size.height * -.25);
+      canvas.scale(size.width * 1.2, size.height * 1.1);
+      canvas.drawCircle(
+        Offset.zero,
+        1,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset.zero,
+            1,
+            [Colors.white.withValues(alpha: highlight), Colors.transparent],
+            [0, .62],
+          ),
+      );
+      canvas.restore();
+      // Inset catches along the upper and lower edge, clipped to the capsule.
+      canvas.save();
+      canvas.clipRRect(shape);
+      for (final (offset, blur, color) in [
+        (
+          const Offset(0, 1),
+          1.0,
+          Colors.white.withValues(alpha: highlight * 1.8),
+        ),
+        (const Offset(0, -1), 2.0, Colors.black.withValues(alpha: .1)),
+      ]) {
+        final outside = Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(rect.inflate(20))
+          ..addRRect(shape.shift(offset));
+        canvas.drawPath(
+          outside,
+          Paint()
+            ..color = color
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur / 2),
+        );
+      }
+      canvas.restore();
+    }
+    canvas.drawRRect(
+      shape.deflate(.5),
+      Paint()
+        ..color = rim
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DocumentTabGlassPaint old) =>
+      radius != old.radius ||
+      tint != old.tint ||
+      rim != old.rim ||
+      highlight != old.highlight;
 }
