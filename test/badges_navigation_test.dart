@@ -42,32 +42,24 @@ void main() {
       ),
       findsOneWidget,
     );
-    final header = tester
-        .widget<DPageSurface>(
-          find
-              .ancestor(
-                of: find.byType(BadgesPage),
-                matching: find.byType(DPageSurface),
-              )
-              .first,
+    final surface = find
+        .ancestor(
+          of: find.byType(BadgesPage),
+          matching: find.byType(DPageSurface),
         )
-        .header!;
+        .first;
+    expect(tester.widget<DPageSurface>(surface).header, isNull);
     expect(
-      find.descendant(of: find.byWidget(header), matching: find.text('Badges')),
+      find.descendant(of: surface, matching: find.byTooltip('Back')),
       findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byWidget(header),
-        matching: find.byTooltip('Back'),
-      ),
-      findsOneWidget,
     );
     final shell = ShellScope.read(tester.element(primaryMainContent));
     expect(shell.currentContent!.badgeRoute, const BadgeRoute.directory());
     await tester.tap(find.text('Autobiographer'));
     await tester.pumpAndSettle();
     expect(shell.currentContent!.badgeRoute?.badgeId, 1);
+    expect(tester.widget<DPageSurface>(surface).header, isNull);
+    expect(find.text('All badges'), findsOneWidget);
     expect(find.text('Recently awarded'), findsOneWidget);
     expect(find.text('sam'), findsOneWidget);
     await tester.tap(find.text('Welcome to the community'));
