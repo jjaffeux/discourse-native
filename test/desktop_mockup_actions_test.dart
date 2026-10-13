@@ -103,7 +103,7 @@ void main() {
       final hover =
           tester.widget<AnimatedContainer>(splitArt).decoration!
               as BoxDecoration;
-      expect(hover.color!.a, greaterThan(0));
+      expect(hover.gradient!.colors.last.a, greaterThan(0));
       expect((hover.border! as Border).top.color.a, greaterThan(0));
       expect(hover.borderRadius, BorderRadius.circular(999));
       await mouse.moveTo(Offset.zero);

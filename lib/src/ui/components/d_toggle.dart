@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
@@ -266,7 +265,6 @@ class _DToggleState extends State<DToggle> {
     final chrome = widget.density == DToggleDensity.chrome;
     final splitView = widget.density == DToggleDensity.splitView;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final glass = DMaterialTheme.glassOf(context);
     final interacting = _enabled && (_hovered || _pointerPressed);
     final foreground = splitView
         ? Color.lerp(tokens.colors.surface, tokens.foreground, .62)!
@@ -330,9 +328,7 @@ class _DToggleState extends State<DToggle> {
           )
         : splitView
         ? interacting
-              ? (glass || dark ? Colors.white : Colors.black).withValues(
-                  alpha: glass ? (dark ? .14 : .75) : .14,
-                )
+              ? Colors.white.withValues(alpha: dark ? .14 : .75)
               : Colors.transparent
         : chatReaction && outlined
         ? Color.lerp(
@@ -450,15 +446,11 @@ class _DToggleState extends State<DToggle> {
 
     final surfaceColor = splitView
         ? interacting
-              ? glass
-                    ? Color.lerp(
-                        tokens.colors.surface,
-                        tokens.foreground,
-                        .10,
-                      )!.withValues(alpha: .28)
-                    : (dark ? Colors.white : Colors.black).withValues(
-                        alpha: dark ? .09 : .06,
-                      )
+              ? Color.lerp(
+                  tokens.colors.surface,
+                  tokens.foreground,
+                  .10,
+                )!.withValues(alpha: .28)
               : Colors.transparent
         : inline
         ? Colors.transparent
@@ -504,19 +496,23 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             ))),
       decoration: BoxDecoration(
-        color: splitView
-            ? surfaceColor
-            : DMaterialSurface.fill(context, surfaceColor),
-        gradient: splitView && glass
+        color: splitView ? null : DMaterialSurface.fill(context, surfaceColor),
+        gradient: splitView
             ? RadialGradient(
                 center: Alignment.topCenter,
-                radius: 2.4,
+                radius: 1.2,
                 transform: const _SplitViewSheenTransform(),
+                // Composite the CSS highlight over its tint in the shader.
+                // Setting BoxDecoration.color as well would multiply the
+                // shader's opacity instead of painting a second layer.
                 colors: [
-                  Colors.white.withValues(
-                    alpha: interacting ? (dark ? .12 : .55) : 0,
+                  Color.alphaBlend(
+                    Colors.white.withValues(
+                      alpha: interacting ? (dark ? .12 : .55) : 0,
+                    ),
+                    surfaceColor,
                   ),
-                  Colors.white.withValues(alpha: 0),
+                  surfaceColor,
                 ],
                 stops: const [0, .62],
               )
@@ -544,7 +540,7 @@ class _DToggleState extends State<DToggle> {
     // raised material's lens or outer shadow when the pointer enters.
     final surface = splitView
         ? TweenAnimationBuilder<double>(
-            tween: Tween(end: glass && interacting ? 1.0 : 0.0),
+            tween: Tween(end: interacting ? 1.0 : 0.0),
             duration: reducedMotion
                 ? Duration.zero
                 : const Duration(milliseconds: 150),
@@ -640,10 +636,8 @@ class _DToggleState extends State<DToggle> {
               scale: _pointerPressed ? .92 : 1,
               duration: reducedMotion
                   ? Duration.zero
-                  : Duration(
-                      milliseconds: _pointerPressed ? 80 : (glass ? 400 : 0),
-                    ),
-              curve: glass ? const Cubic(.34, 1.56, .64, 1) : Curves.ease,
+                  : Duration(milliseconds: _pointerPressed ? 80 : 400),
+              curve: const Cubic(.34, 1.56, .64, 1),
               child: control,
             )
           : control,
