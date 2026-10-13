@@ -419,52 +419,56 @@ class DTabList<T> extends StatelessWidget {
           return Semantics(
             container: true,
             explicitChildNodes: true,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DMaterialBatch(
-                child: DMaterialSurface(
-                  depth: DSurfaceDepth.recessed,
-                  preserveColor: true,
-                  insetEdges: true,
-                  color: well,
-                  radius: BorderRadius.circular(DRadius.pill),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: DMaterialSurface.fill(context, well),
-                      borderRadius: BorderRadius.circular(DRadius.pill),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: _DTabListScope<T>(
-                        variant: variant,
-                        size: size,
-                        activateOnFocus: activateOnFocus,
-                        expandSelected: true,
-                        child: _ExpandingTabStrip(
-                          availableWidth: constraints.hasBoundedWidth
-                              ? math.max(0, constraints.maxWidth - 6)
-                              : 0,
-                          textDirection: Directionality.of(context),
-                          children: [
-                            for (final tab in tabs)
-                              TweenAnimationBuilder<double>(
-                                key: ValueKey(('expanding-tab', tab.value)),
-                                tween: Tween(
-                                  end: root.value == tab.value ? 1 : 0,
+            child: ClipRect(
+              clipper: const _SidebarTabShadowClipper(),
+              child: SingleChildScrollView(
+                clipBehavior: Clip.none,
+                scrollDirection: Axis.horizontal,
+                child: DMaterialBatch(
+                  child: DMaterialSurface(
+                    depth: DSurfaceDepth.recessed,
+                    preserveColor: true,
+                    insetEdges: true,
+                    color: well,
+                    radius: BorderRadius.circular(DRadius.pill),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: DMaterialSurface.fill(context, well),
+                        borderRadius: BorderRadius.circular(DRadius.pill),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: _DTabListScope<T>(
+                          variant: variant,
+                          size: size,
+                          activateOnFocus: activateOnFocus,
+                          expandSelected: true,
+                          child: _ExpandingTabStrip(
+                            availableWidth: constraints.hasBoundedWidth
+                                ? math.max(0, constraints.maxWidth - 6)
+                                : 0,
+                            textDirection: Directionality.of(context),
+                            children: [
+                              for (final tab in tabs)
+                                TweenAnimationBuilder<double>(
+                                  key: ValueKey(('expanding-tab', tab.value)),
+                                  tween: Tween(
+                                    end: root.value == tab.value ? 1 : 0,
+                                  ),
+                                  duration: DMotion.duration(
+                                    context,
+                                    const Duration(milliseconds: 300),
+                                  ),
+                                  curve: Curves.ease,
+                                  child: tab,
+                                  builder: (_, weight, child) =>
+                                      _ExpandingTabWeight(
+                                        weight: weight,
+                                        child: child!,
+                                      ),
                                 ),
-                                duration: DMotion.duration(
-                                  context,
-                                  const Duration(milliseconds: 300),
-                                ),
-                                curve: Curves.ease,
-                                child: tab,
-                                builder: (_, weight, child) =>
-                                    _ExpandingTabWeight(
-                                      weight: weight,
-                                      child: child!,
-                                    ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -561,6 +565,19 @@ class DTabList<T> extends StatelessWidget {
 
 // The reference distributes spare width by animated flex-grow, after measuring
 // each glyph/label/badge. Layout and hit testing use the same painted bounds.
+/// Keep horizontally scrolled choices inside the track while allowing the
+/// selected capsule's 4px/14px shadow to paint above and below its artwork.
+class _SidebarTabShadowClipper extends CustomClipper<Rect> {
+  const _SidebarTabShadowClipper();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, -30, size.width, size.height + 30);
+
+  @override
+  bool shouldReclip(_SidebarTabShadowClipper oldClipper) => false;
+}
+
 class _ExpandingTabData extends ContainerBoxParentData<RenderBox> {
   double weight = 0;
 }
@@ -856,7 +873,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         : tokens.background;
     final foreground = outlinePill && selected
         ? accent.foreground
-        : selected || _hovered
+        : selected || (_hovered && !expanding)
         ? tokens.foreground
         : expanding || flat || horizontalLine
         ? tokens.mutedForeground
@@ -1040,11 +1057,24 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               ),
               curve: Curves.ease,
               child: surface,
-              builder: (_, color, child) => DMaterialSurface(
-                color: color!,
-                radius: BorderRadius.circular(radius),
-                child: child!,
-              ),
+              builder: (_, color, child) => DMaterialTheme.glassOf(context)
+                  ? _DocumentTabMaterial(
+                      sidebar: true,
+                      selected: selected,
+                      hovered: _hovered,
+                      radius: BorderRadius.circular(radius),
+                      color: Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .1,
+                      )!,
+                      child: child!,
+                    )
+                  : DMaterialSurface(
+                      color: color!,
+                      radius: BorderRadius.circular(radius),
+                      child: child!,
+                    ),
             )
           : surface,
     );
@@ -1552,6 +1582,7 @@ class _DocumentTabMaterial extends StatelessWidget {
     required this.radius,
     required this.color,
     required this.child,
+    this.sidebar = false,
   });
 
   final bool selected;
@@ -1559,15 +1590,20 @@ class _DocumentTabMaterial extends StatelessWidget {
   final BorderRadius radius;
   final Color color;
   final Widget child;
+  final bool sidebar;
 
   @override
   Widget build(BuildContext context) {
     final glass = DMaterialTheme.glassOf(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final visible = glass && (selected || hovered);
-    // app.css: selected .42/.50 tint, inactive hover .22, blur(5px),
-    // saturate(185%), a white rim and a highlight at 35% -25%.
-    final highlight = hovered ? .22 : (dark ? .12 : .55);
+    // app.css: selected .42/.50 tint, inactive document hover .22 and
+    // sidebar bare hover .28. Only selection samples the softened backdrop.
+    final highlight = sidebar && hovered
+        ? (selected ? (dark ? .22 : .75) : (dark ? .12 : .55))
+        : hovered
+        ? .22
+        : (dark ? .12 : .55);
     return CustomPaint(
       painter: glass && selected ? _DocumentTabShadow(radius, dark) : null,
       child: Stack(
@@ -1607,22 +1643,56 @@ class _DocumentTabMaterial extends StatelessWidget {
                           ]),
                       inner: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                     ),
-                    child: CustomPaint(
-                      painter: visible
-                          ? _DocumentTabGlassPaint(
-                              radius: radius,
-                              tint: color.withValues(
-                                alpha:
-                                    color.a *
-                                    (selected ? (dark ? .42 : .5) : .22),
+                    child: sidebar
+                        ? TweenAnimationBuilder<Color?>(
+                            tween: ColorTween(
+                              end: color.withValues(
+                                alpha: !visible
+                                    ? 0
+                                    : selected
+                                    ? (dark ? .42 : .5)
+                                    : .28,
                               ),
-                              rim: Colors.white.withValues(
-                                alpha: dark ? .14 : .75,
-                              ),
-                              highlight: selected ? highlight : 0,
-                            )
-                          : null,
-                    ),
+                            ),
+                            duration: DMotion.duration(
+                              context,
+                              const Duration(milliseconds: 200),
+                            ),
+                            curve: Curves.ease,
+                            builder: (_, tint, _) {
+                              final strength =
+                                  (tint!.a /
+                                          (selected ? (dark ? .42 : .5) : .28))
+                                      .clamp(0.0, 1.0);
+                              return CustomPaint(
+                                painter: _DocumentTabGlassPaint(
+                                  radius: radius,
+                                  tint: tint,
+                                  rim: Colors.white.withValues(
+                                    alpha: (dark ? .14 : .75) * strength,
+                                  ),
+                                  highlight: highlight * strength,
+                                  bare: !selected,
+                                ),
+                              );
+                            },
+                          )
+                        : CustomPaint(
+                            painter: visible
+                                ? _DocumentTabGlassPaint(
+                                    radius: radius,
+                                    tint: color.withValues(
+                                      alpha:
+                                          color.a *
+                                          (selected ? (dark ? .42 : .5) : .22),
+                                    ),
+                                    rim: Colors.white.withValues(
+                                      alpha: dark ? .14 : .75,
+                                    ),
+                                    highlight: selected ? highlight : 0,
+                                  )
+                                : null,
+                          ),
                   ),
                 ),
               ),
@@ -1672,12 +1742,14 @@ class _DocumentTabGlassPaint extends CustomPainter {
     required this.tint,
     required this.rim,
     required this.highlight,
+    this.bare = false,
   });
 
   final BorderRadius radius;
   final Color tint;
   final Color rim;
   final double highlight;
+  final bool bare;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1688,7 +1760,10 @@ class _DocumentTabGlassPaint extends CustomPainter {
       canvas.save();
       canvas.clipRRect(shape);
       // CSS's explicit elliptical radial gradient, fading at 62%.
-      canvas.translate(size.width * .35, size.height * -.25);
+      canvas.translate(
+        size.width * (bare ? .5 : .35),
+        size.height * (bare ? 0 : -.25),
+      );
       canvas.scale(size.width * 1.2, size.height * 1.1);
       canvas.drawCircle(
         Offset.zero,
@@ -1709,9 +1784,10 @@ class _DocumentTabGlassPaint extends CustomPainter {
         (
           const Offset(0, 1),
           1.0,
-          Colors.white.withValues(alpha: highlight * 1.8),
+          Colors.white.withValues(alpha: highlight * (bare ? 1.4 : 1.8)),
         ),
-        (const Offset(0, -1), 2.0, Colors.black.withValues(alpha: .1)),
+        if (!bare)
+          (const Offset(0, -1), 2.0, Colors.black.withValues(alpha: .1)),
       ]) {
         final outside = Path()
           ..fillType = PathFillType.evenOdd
@@ -1740,5 +1816,6 @@ class _DocumentTabGlassPaint extends CustomPainter {
       radius != old.radius ||
       tint != old.tint ||
       rim != old.rim ||
-      highlight != old.highlight;
+      highlight != old.highlight ||
+      bare != old.bare;
 }

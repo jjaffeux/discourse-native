@@ -3,10 +3,12 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'src/models/forum_theme_presets.dart';
 import 'src/theme/app_theme.dart';
 import 'src/theme/d_icons.dart';
 import 'src/theme/d_native_icons.dart';
@@ -26,6 +28,8 @@ class SidebarSwitchReview extends StatefulWidget {
 
 class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
   final _capture = GlobalKey();
+  final _referenceCapture = GlobalKey();
+  final _hoverTarget = GlobalKey();
   String _selected = 'forum';
 
   @override
@@ -34,10 +38,11 @@ class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
     WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_review()));
   }
 
-  Future<void> _save(String name) async {
+  Future<void> _save(String name, {GlobalKey? capture}) async {
     await WidgetsBinding.instance.endOfFrame;
     final boundary =
-        _capture.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        (capture ?? _capture).currentContext!.findRenderObject()!
+            as RenderRepaintBoundary;
     // Redraw the whole matrix before reading retained native layers.
     boundary.markNeedsPaint();
     WidgetsBinding.instance.scheduleFrame();
@@ -61,6 +66,30 @@ class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
     if (!const bool.fromEnvironment('SIDEBAR_REVIEW_CAPTURE')) return;
     await Future<void>.delayed(const Duration(milliseconds: 800));
     await _save('forum');
+    await _save('reference-forum', capture: _referenceCapture);
+    final target =
+        _hoverTarget.currentContext!.findRenderObject()! as RenderBox;
+    final position = target.localToGlobal(target.size.center(Offset.zero));
+    GestureBinding.instance.handlePointerEvent(
+      PointerAddedEvent(
+        kind: PointerDeviceKind.mouse,
+        device: 77,
+        position: position,
+      ),
+    );
+    GestureBinding.instance.handlePointerEvent(
+      PointerHoverEvent(
+        kind: PointerDeviceKind.mouse,
+        device: 77,
+        position: position,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await _save('hover');
+    await _save('reference-hover', capture: _referenceCapture);
+    GestureBinding.instance.handlePointerEvent(
+      const PointerRemovedEvent(kind: PointerDeviceKind.mouse, device: 77),
+    );
     setState(() => _selected = 'chat');
     await Future<void>.delayed(const Duration(milliseconds: 150));
     await _save('transition');
@@ -71,63 +100,81 @@ class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
     await _save('shortcuts');
   }
 
-  Widget _switch(String selected, {bool dot = false}) => SizedBox(
-    width: 226,
-    child: DTabs<String>.controlled(
-      value: selected,
-      onChanged: (value) => setState(() => _selected = value!),
-      children: [
-        DTabList<String>(
-          expandSelected: true,
+  Widget _switch(String selected, {bool dot = false, bool reference = false}) =>
+      SizedBox(
+        width: reference ? 400 : 226,
+        child: DTabs<String>.controlled(
+          value: selected,
+          onChanged: (value) => setState(() => _selected = value!),
           children: [
-            const DTabTrigger(
-              value: 'forum',
-              semanticLabel: 'Forum',
-              icon: DIcon(DIcons.layerGroup),
-              selectedLabelOnly: true,
-              child: Text('Forum'),
-            ),
-            DTabTrigger(
-              value: 'chat',
-              semanticLabel: 'Chat',
-              icon: const DIcon(DIcons.comment),
-              selectedLabelOnly: true,
-              trailing: dot
-                  ? const DNotificationDot()
-                  : Builder(
-                      builder: (context) => Text(
-                        '43',
-                        style: TextStyle(
-                          color: DTokens.of(context).success,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+            DTabList<String>(
+              expandSelected: true,
+              children: [
+                const DTabTrigger(
+                  value: 'forum',
+                  semanticLabel: 'Forum',
+                  icon: DIcon(DIcons.layerGroup),
+                  selectedLabelOnly: true,
+                  child: Text('Forum'),
+                ),
+                DTabTrigger(
+                  key: reference && !dot ? _hoverTarget : null,
+                  value: 'chat',
+                  semanticLabel: 'Chat',
+                  icon: const DIcon(DIcons.comment),
+                  selectedLabelOnly: true,
+                  trailing: dot
+                      ? const DNotificationDot()
+                      : Builder(
+                          builder: (context) => Text(
+                            '43',
+                            style: TextStyle(
+                              color: DTokens.of(context).success,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-              child: const Text('Chat'),
-            ),
-            const DTabTrigger(
-              value: 'shortcuts',
-              semanticLabel: 'Shortcuts',
-              icon: DIcon(DNativeIcons.bolt),
-              selectedLabelOnly: true,
-              child: Text('Shortcuts'),
+                  child: const Text('Chat'),
+                ),
+                const DTabTrigger(
+                  value: 'shortcuts',
+                  semanticLabel: 'Shortcuts',
+                  icon: DIcon(DNativeIcons.bolt),
+                  selectedLabelOnly: true,
+                  child: Text('Shortcuts'),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  );
+      );
 
-  Widget _sample(Brightness brightness, DAppearanceMaterial material) => Theme(
+  Widget _sample(
+    Brightness brightness,
+    DAppearanceMaterial material, {
+    bool reference = false,
+  }) => Theme(
     data: DMaterialTheme.apply(
-      brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+      reference
+          ? AppTheme.fromPalette(
+              forumThemePresets
+                  .firstWhere((theme) => theme.id == 'dracula')
+                  .resolve(Brightness.dark),
+            )
+          : brightness == Brightness.dark
+          ? AppTheme.dark
+          : AppTheme.light,
       material,
     ),
     child: Builder(
       builder: (context) => ColoredBox(
-        color: DTokens.of(context).background,
+        color: reference
+            ? const Color(0xff49405f)
+            : DTokens.of(context).background,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -139,9 +186,9 @@ class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 14),
-              _switch(_selected),
+              _switch(_selected, reference: reference),
               const SizedBox(height: 14),
-              _switch(_selected, dot: true),
+              _switch(_selected, dot: true, reference: reference),
               const SizedBox(height: 14),
               MediaQuery(
                 data: MediaQuery.of(
@@ -167,6 +214,14 @@ class _SidebarSwitchReviewState extends State<SidebarSwitchReview> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              RepaintBoundary(
+                key: _referenceCapture,
+                child: _sample(
+                  Brightness.dark,
+                  DAppearanceMaterial.liquidGlass,
+                  reference: true,
+                ),
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

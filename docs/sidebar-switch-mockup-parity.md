@@ -20,6 +20,13 @@ motion applies these changes immediately.
 
 The existing Native material renderer paints the recessed track and raised
 selection for Standard and Liquid glass, including light and dark themes.
+The track uses the reference's inner shadow and bottom rim. Liquid glass uses
+the raised palette tint at 42% in dark mode and 50% in light mode, with 5px
+backdrop blur, 185% saturation, an elliptical upper sheen and inset white rim.
+Inactive hover uses a 28% tint, its own centered sheen and upper edge catch,
+without a backdrop filter or outer shadow. Selected hover brightens the sheen.
+Idle inactive controls remain transparent. Tint changes retain the 200ms fade;
+high contrast and Reduce Transparency keep the opaque Standard treatment.
 Desktop Chat urgent counts are plain green, bold, 12px tabular text with their
 existing accessible description; ordinary unread activity keeps its dot.
 Routing, plugin visibility, manual keyboard activation, RTL, tooltips and
@@ -36,6 +43,8 @@ flutter run -d macos -t lib/sidebar_switch_review_main.dart \
 It logs the platform temporary paths for Forum, Chat, Shortcuts and a transition
 frame. Each image covers light/dark, Standard/Liquid glass, counts/dots and 200%
 text. These are macOS rendered captures; no physical mobile device was checked.
+It also captures inactive Chat hover and a Dracula palette over a purple ground,
+matching the supplied reference's material, with separate reference images.
 The shared material renderer supplies platform-specific glass rendering.
 
 Focused checks: `d_expanding_tabs_test.dart` (geometry, measured badges, transition
@@ -45,3 +54,7 @@ width, gaps, reduced motion, RTL keyboard, scrolling, hover and press),
 `d_tabs_test.dart` also ran: its two existing failures (38px versus an old 44px
 navigation target assertion; initial automatic selection included in callbacks)
 reproduced on unchanged main before this change.
+
+The material correction is additionally covered by `d_sidebar_tab_material_test.dart`
+(rendered tint against two backdrops, bare hover, pointer exit and high contrast)
+and `d_document_tab_material_test.dart` (the shared glass painter's document tabs).
