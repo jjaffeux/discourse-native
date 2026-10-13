@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -27,9 +28,16 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('search chrome dark=$dark scale=$scale', (tester) async {
-        tester.view.physicalSize = const Size(800, 760);
+    for (final (scale, width) in const [
+      (1.0, 600.0),
+      (2.0, 600.0),
+      (1.0, 1200.0),
+      (2.0, 1200.0),
+    ]) {
+      testWidgets('search chrome dark=$dark scale=$scale width=$width', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width + 200, 760);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         final shell = createGlobalSearchFixtureController();
@@ -56,14 +64,14 @@ void main() {
                   ).copyWith(textScaler: TextScaler.linear(scale)),
                   child: child!,
                 ),
-                home: const Scaffold(
+                home: Scaffold(
                   body: Padding(
-                    padding: EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.only(top: 24),
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: SizedBox(
-                        width: 600,
-                        child: ForumSearch(
+                        width: width,
+                        child: const ForumSearch(
                           size: DControlSize.field,
                           showNavigationControls: false,
                         ),
@@ -140,14 +148,25 @@ void main() {
         final viewport = find
             .ancestor(of: chip, matching: find.byType(DScrollArea))
             .first;
+        final visibleChipRight = math.min(
+          tester.getRect(chip).right,
+          tester.getRect(viewport).right,
+        );
         expect(
           tester.getRect(viewport).right,
           lessThan(tester.getRect(editor).left),
         );
+        expect(tester.getRect(editor).left - visibleChipRight, 8);
         await _capture(tester, boundary, '$dark-$scale-filter');
         shell.globalSearch.setQuery('');
         await tester.pumpAndSettle();
         expect(find.text('Add words or filters…'), findsOneWidget);
+        expect(
+          tester.getRect(find.text('Add words or filters…')).left -
+              visibleChipRight,
+          8,
+        );
+        await _capture(tester, boundary, '$dark-$scale-$width-placeholder');
         expect(clear, findsOneWidget);
         await tester.tap(clear);
         await tester.pumpAndSettle();

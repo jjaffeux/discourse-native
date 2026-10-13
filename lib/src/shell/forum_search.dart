@@ -669,8 +669,8 @@ class _ForumSearchState extends State<ForumSearch> {
           if (hasConditions)
             DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineStart,
-              child: SizedBox(
-                width: width * .55,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: width * .55),
                 child: DScrollArea(
                   axes: DScrollAxes.horizontal,
                   showScrollbar: false,
