@@ -512,6 +512,40 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             row.localToGlobal(Offset(position, 0), ancestor: bar).dx - 1.5;
       }
     }
+    // Width changes constrain the same tab widgets. Their ownership and
+    // actions change only when the strip's inputs change.
+    final tabWidgets = <Widget>[
+      for (final (index, item) in widget.items.indexed)
+        _ReorderableForumTab(
+          item: item,
+          index: index,
+          itemCount: widget.items.length,
+          movesBetweenStrips: widget.onDropTab != null,
+          selected: item.id == widget.selectedId,
+          onSelect: () => widget.onSelect(item.id),
+          onClose: () => widget.onClose(item.id),
+          onReorder: (id, index) => widget.onReorder(id, index),
+          onCloseOthers: widget.items.length == 1
+              ? null
+              : () => widget.onCloseOthers(item.id),
+          onRename: widget.onRename == null
+              ? null
+              : (title) => widget.onRename!(item.id, title),
+          moveToPanel: widget.panel == null || widget.onMoveToPanel == null
+              ? null
+              : () => widget.onMoveToPanel!(
+                  item.id,
+                  widget.panel == ForumPanel.main
+                      ? ForumPanel.secondary
+                      : ForumPanel.main,
+                ),
+          moveToPanelLabel: widget.panel == null
+              ? null
+              : widget.panel == ForumPanel.main
+              ? context.l10n.moveToSecondaryPanel
+              : context.l10n.moveToMainPanel,
+        ),
+    ];
     return Container(
       key: const ValueKey('forum-tabs-bar'),
       width: double.infinity,
@@ -609,40 +643,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                   constraints: BoxConstraints(
                                     maxWidth: tabMaxWidth,
                                   ),
-                                  child: _ReorderableForumTab(
-                                    item: item,
-                                    index: index,
-                                    itemCount: widget.items.length,
-                                    movesBetweenStrips:
-                                        widget.onDropTab != null,
-                                    selected: item.id == widget.selectedId,
-                                    onSelect: () => widget.onSelect(item.id),
-                                    onClose: () => widget.onClose(item.id),
-                                    onReorder: (id, index) =>
-                                        widget.onReorder(id, index),
-                                    onCloseOthers: widget.items.length == 1
-                                        ? null
-                                        : () => widget.onCloseOthers(item.id),
-                                    onRename: widget.onRename == null
-                                        ? null
-                                        : (title) =>
-                                              widget.onRename!(item.id, title),
-                                    moveToPanel:
-                                        widget.panel == null ||
-                                            widget.onMoveToPanel == null
-                                        ? null
-                                        : () => widget.onMoveToPanel!(
-                                            item.id,
-                                            widget.panel == ForumPanel.main
-                                                ? ForumPanel.secondary
-                                                : ForumPanel.main,
-                                          ),
-                                    moveToPanelLabel: widget.panel == null
-                                        ? null
-                                        : widget.panel == ForumPanel.main
-                                        ? context.l10n.moveToSecondaryPanel
-                                        : context.l10n.moveToMainPanel,
-                                  ),
+                                  child: tabWidgets[index],
                                 ),
                                 if (index != widget.items.length - 1)
                                   const SizedBox(width: _tabGap),

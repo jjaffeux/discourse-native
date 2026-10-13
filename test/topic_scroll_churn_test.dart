@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
+import 'package:discourse_native/src/shell/topic_post_sliver.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,62 @@ import 'support/topic_post_list.dart';
 import 'support/topic_scroll_fixture.dart';
 
 void main() {
+  testWidgets(
+    'reader width changes reflow replies without rebuilding its header',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = await mixedTopicScrollController();
+      addTearDown(controller.dispose);
+      final paneWidth = ValueNotifier(900.0);
+      addTearDown(paneWidth.dispose);
+      await tester.pumpWidget(
+        ValueListenableBuilder<double>(
+          valueListenable: paneWidth,
+          child: TopicScrollFixture(controller: controller, inbox: false),
+          builder: (_, width, child) => Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: width, child: child),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final stream = tester.element(find.byType(TopicPostSliver));
+      final header = <Element>{};
+      void collect(Element element) {
+        header.add(element);
+        element.visitChildren(collect);
+      }
+
+      collect(
+        tester.element(find.byKey(const ValueKey('topic-content-header'))),
+      );
+      final rebuilt = <Element>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (header.contains(element) || element == stream) rebuilt.add(element);
+      };
+      final body = find.byWidgetPredicate(
+        (widget) => widget is CookedHtml && widget.post?.id == 1,
+      );
+      final initialWidth = tester.getSize(body).width;
+      try {
+        for (final width in [880.0, 860.0, 840.0, 820.0]) {
+          paneWidth.value = width;
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(rebuilt, isEmpty);
+        expect(tester.element(find.byType(TopicPostSliver)), same(stream));
+        expect(tester.getSize(body).width, lessThan(initialWidth));
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugOnRebuildDirtyWidget = previous;
+      }
+    },
+  );
+
   for (final inbox in [true, false]) {
     for (final overscroll in [0.0, 800.0]) {
       testWidgets(

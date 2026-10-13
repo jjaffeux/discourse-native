@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_post_sliver.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -1260,6 +1261,45 @@ void main() {
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.selectedTabIn(ForumPanel.main)?.id, original);
     expect(shell.currentWorkspace!.tabsIn(ForumPanel.secondary), hasLength(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('seam resizing keeps tab controls and reader structure mounted', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final controls = tester.elementList(find.byType(DDocumentTab)).toSet();
+    final stream = tester.element(find.byType(TopicPostSliver));
+    final retained = {...controls, stream};
+    expect(controls, hasLength(3));
+    final rebuilt = <Element>{};
+    final reader = tester.state(find.byType(TopicView));
+    final before = tester.getSize(_mainPanel).width;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (retained.contains(element)) rebuilt.add(element);
+    };
+    try {
+      final gesture = await tester.startGesture(
+        tester.getCenter(
+          find.byKey(const ValueKey('main-panel-resize-handle')),
+        ),
+      );
+      for (var frame = 0; frame < 10; frame++) {
+        await gesture.moveBy(const Offset(12, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      expect(rebuilt, isEmpty);
+    } finally {
+      debugOnRebuildDirtyWidget = previous;
+    }
+    await tester.pumpAndSettle();
+    expect(tester.getSize(_mainPanel).width, greaterThan(before + 90));
+    expect(tester.state(find.byType(TopicView)), same(reader));
+    expect(tester.element(find.byType(TopicPostSliver)), same(stream));
     expect(tester.takeException(), isNull);
   });
 

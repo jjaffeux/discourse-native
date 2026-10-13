@@ -1985,10 +1985,49 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     BuildContext context,
     TopicViewportSnapshot snapshot,
     Widget? child,
-  ) => ForumTabLayoutBuilder(
-    builder: (context, constraints) =>
-        _buildForViewport(context, snapshot, constraints.maxWidth),
-  );
+  ) {
+    (bool, EdgeInsets)? previousLayout;
+    Widget? viewport;
+    var width = 0.0;
+    return ForumTabLayoutBuilder(
+      builder: (context, constraints) {
+        width = constraints.maxWidth;
+        final canPinSidebar =
+            !widget.inbox &&
+            widget.showSidebar &&
+            width >= _TopicSidebarPanel.minimumPinnedViewportWidth;
+        final sidebarInset =
+            canPinSidebar && _sidebarRestored && !_sidebarCollapsed
+            ? _TopicSidebarPanel.dockedWidth
+            : 0.0;
+        final lane = ContentReadingLane.geometryFor(
+          context,
+          availableWidth: math.max(0.0, width - sidebarInset),
+          widthLimit: double.infinity,
+        );
+        if (_laidOutPostWidth != lane.width) {
+          _laidOutPostWidth = lane.width;
+          _scheduleLook();
+        }
+        final layout = (canPinSidebar, lane.padding);
+        // Width changes reflow the mounted posts. Replacing the header and
+        // sliver delegate on every drag tick also rebuilds their controls and
+        // rows, even when the reader's composition has not changed.
+        // This cache resets on state/snapshot updates; Builder independently
+        // tracks the reader's inherited theme, settings and plugin inputs.
+        if (viewport == null || layout != previousLayout) {
+          previousLayout = layout;
+          viewport = Builder(
+            builder: (context) => ForumTabScope.read(
+              context,
+              (_) => _buildForViewport(context, snapshot, width),
+            ),
+          );
+        }
+        return viewport!;
+      },
+    );
+  }
 
   Widget _buildFloatingDayOverlay(
     EdgeInsets readingLanePadding,
@@ -2627,7 +2666,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             postId: postId,
             post: post,
             topic: snapshot.topic!,
-            width: readingLane.width,
+            width: _laidOutPostWidth,
             summary: snapshot.summary,
             summaryLoading: snapshot.summaryLoading,
             readTimeWordCount: snapshot.readTimeWordCount,
@@ -3542,97 +3581,95 @@ class _TopicViewHeader extends StatelessWidget {
     final topicFlags = topic == null || siteUrl == null
         ? const <PostFlagType>[]
         : controller.availableTopicFlagTypes(siteUrl, topic);
-    return ForumTabLayoutBuilder(
-      builder: (context, constraints) => Container(
-        key: const ValueKey('topic-content-header'),
-        height: shellHeaderHeight,
-        padding: const EdgeInsets.only(left: 8, right: 8),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.shell.divider)),
-        ),
-        child: Row(
-          children: [
-            DButton.iconOnly(
-              onPressed: () =>
-                  controller.handleBack(canReturnToSidebar: canReturnToSidebar),
-              icon: const DIcon(DIcons.arrowLeft),
-              tooltip: context.l10n.back,
-              variant: DButtonVariant.ghost,
-              size: DButtonSize.small,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: topic?.canEdit == true && siteUrl != null
-                        ? InlineTopicTitleEditor(
-                            key: const ValueKey('topic-header-title'),
-                            title: title,
-                            siteUrl: siteUrl,
-                            style: titleStyle,
-                            onSave: (title, {required originalTitle}) =>
-                                controller.saveTopicTitle(
+    return Container(
+      key: const ValueKey('topic-content-header'),
+      height: shellHeaderHeight,
+      padding: const EdgeInsets.only(left: 8, right: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.shell.divider)),
+      ),
+      child: Row(
+        children: [
+          DButton.iconOnly(
+            onPressed: () =>
+                controller.handleBack(canReturnToSidebar: canReturnToSidebar),
+            icon: const DIcon(DIcons.arrowLeft),
+            tooltip: context.l10n.back,
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: topic?.canEdit == true && siteUrl != null
+                      ? InlineTopicTitleEditor(
+                          key: const ValueKey('topic-header-title'),
+                          title: title,
+                          siteUrl: siteUrl,
+                          style: titleStyle,
+                          onSave: (title, {required originalTitle}) =>
+                              controller.saveTopicTitle(
+                                siteUrl: siteUrl,
+                                topicId: topic!.id,
+                                title: title,
+                                originalTitle: originalTitle,
+                              ),
+                        )
+                      : DTooltip(
+                          message: title,
+                          child: siteUrl == null
+                              ? Text(
+                                  title,
+                                  key: const ValueKey('topic-header-title'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                )
+                              : TopicTitle(
+                                  title,
+                                  key: const ValueKey('topic-header-title'),
                                   siteUrl: siteUrl,
-                                  topicId: topic!.id,
-                                  title: title,
-                                  originalTitle: originalTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
                                 ),
-                          )
-                        : DTooltip(
-                            message: title,
-                            child: siteUrl == null
-                                ? Text(
-                                    title,
-                                    key: const ValueKey('topic-header-title'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: titleStyle,
-                                  )
-                                : TopicTitle(
-                                    title,
-                                    key: const ValueKey('topic-header-title'),
-                                    siteUrl: siteUrl,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: titleStyle,
-                                  ),
-                          ),
+                        ),
+                ),
+                if (topic != null && siteUrl != null) ...[
+                  const SizedBox(width: 4),
+                  TopicStatusButton(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    topicFlags: topicFlags,
                   ),
-                  if (topic != null && siteUrl != null) ...[
-                    const SizedBox(width: 4),
-                    TopicStatusButton(
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      topicFlags: topicFlags,
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
-            if (topic != null &&
-                siteUrl != null &&
-                controller.currentInstance?.user != null) ...[
-              const SizedBox(width: 8),
-              TopicBookmarkButton(
-                siteUrl: siteUrl,
-                topic: topic,
-                busy: bookmarkBusy,
-              ),
-            ],
-            if (topic != null && siteUrl != null && isConnected) ...[
-              SizedBox(width: controller.currentInstance?.user != null ? 4 : 8),
-              TopicNotificationLevelButton(siteUrl: siteUrl, topic: topic),
-            ],
-            if (onToggleSidebar case final onPressed?) ...[
-              const SizedBox(width: 4),
-              _TopicSidebarToggle(
-                sidebarVisible: sidebarVisible,
-                onPressed: onPressed,
-              ),
-            ],
+          ),
+          if (topic != null &&
+              siteUrl != null &&
+              controller.currentInstance?.user != null) ...[
+            const SizedBox(width: 8),
+            TopicBookmarkButton(
+              siteUrl: siteUrl,
+              topic: topic,
+              busy: bookmarkBusy,
+            ),
           ],
-        ),
+          if (topic != null && siteUrl != null && isConnected) ...[
+            SizedBox(width: controller.currentInstance?.user != null ? 4 : 8),
+            TopicNotificationLevelButton(siteUrl: siteUrl, topic: topic),
+          ],
+          if (onToggleSidebar case final onPressed?) ...[
+            const SizedBox(width: 4),
+            _TopicSidebarToggle(
+              sidebarVisible: sidebarVisible,
+              onPressed: onPressed,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -5501,6 +5538,43 @@ class _TopicMap extends StatelessWidget {
         (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
             .topicMapActions(context, siteUrl, topic);
 
+    final details = Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ..._stats(context),
+        if (topic.participants.isNotEmpty)
+          for (final participant in topic.participants.take(
+            _maximumVisibleParticipants,
+          ))
+            _TopicParticipantAvatar(
+              participant: participant,
+              siteUrl: siteUrl,
+              size: 24,
+            ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (readTime != null) _TopicReadTime(minutes: readTime),
+        if (topic.hasSummary && !pluginActions.replacesSummary)
+          DButton(
+            key: const ValueKey('topic-summary-button'),
+            label: Text(
+              summary ? context.l10n.showAllTopicview : context.l10n.summarize,
+            ),
+            onPressed: () => unawaited(_toggleSummary(context)),
+            icon: DIcon(summary ? DIcons.list : DIcons.layerGroup),
+            loading: summaryLoading,
+          ),
+        ...pluginActions.actions,
+      ],
+    );
+
     return Container(
       key: const ValueKey('topic-map'),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
@@ -5510,46 +5584,6 @@ class _TopicMap extends StatelessWidget {
             context,
             constraints.maxWidth,
           );
-          final showAvatars = topic.participants.isNotEmpty;
-          final details = Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ..._stats(context),
-              if (showAvatars)
-                for (final participant in topic.participants.take(
-                  _maximumVisibleParticipants,
-                ))
-                  _TopicParticipantAvatar(
-                    participant: participant,
-                    siteUrl: siteUrl,
-                    size: 24,
-                  ),
-            ],
-          );
-          final actions = Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (readTime != null) _TopicReadTime(minutes: readTime),
-              if (topic.hasSummary && !pluginActions.replacesSummary)
-                DButton(
-                  key: const ValueKey('topic-summary-button'),
-                  label: Text(
-                    summary
-                        ? context.l10n.showAllTopicview
-                        : context.l10n.summarize,
-                  ),
-                  onPressed: () => unawaited(_toggleSummary(context)),
-                  icon: DIcon(summary ? DIcons.list : DIcons.layerGroup),
-                  loading: summaryLoading,
-                ),
-              ...pluginActions.actions,
-            ],
-          );
-
           if (breakpointWidth < 560) {
             return Wrap(
               spacing: 16,
