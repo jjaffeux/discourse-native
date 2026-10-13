@@ -9,6 +9,7 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
 import 'd_kbd.dart';
@@ -59,6 +60,9 @@ enum DButtonShape { rounded, pill }
 /// Named artwork presets with shared styling and accessible touch targets.
 enum DButtonDensity {
   standard,
+
+  /// Flat 30px post-reaction pills and circular picker actions.
+  postReaction,
 
   /// Compact header shortcuts: 28px high, 32px icon-only targets, 12.5px
   /// count labels, 8px content gaps and 10px horizontal label insets.
@@ -495,6 +499,7 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final postReaction = density == DButtonDensity.postReaction;
     final chrome = density == DButtonDensity.chrome;
     final header = density == DButtonDensity.header;
     final variantStyle = _referenceStyle(tokens, dark);
@@ -515,12 +520,16 @@ class DButton extends StatelessWidget {
         (size == DControlSize.chip || size == DControlSize.chrome) &&
         density == DButtonDensity.standard;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
-    final effectiveSize = backLink
+    final effectiveSize = postReaction
+        ? DButtonSize.post
+        : backLink
         ? DButtonSize.toolbar
         : ((avatar) || mobileDock || mobileDockAction || composerBlock
               ? DButtonSize.regular
               : size);
-    final fontSize = header
+    final fontSize = postReaction
+        ? DPostReactionStyle.fontSize
+        : header
         ? 12.5
         : launcher
         ? 13.0
@@ -532,7 +541,9 @@ class DButton extends StatelessWidget {
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
     // Both dock densities scale artwork with the 11px destination labels.
-    final spacingUnit = header
+    final spacingUnit = postReaction
+        ? DPostReactionStyle.iconSize
+        : header
         ? 16.0
         : chrome
         ? 15.0
@@ -543,7 +554,9 @@ class DButton extends StatelessWidget {
         : (chatMessageAction
               ? 16.0
               : (DControlStyle.iconDimension(effectiveSize, context: context)));
-    final gap = header
+    final gap = postReaction
+        ? DPostReactionStyle.gap
+        : header
         ? 8.0
         : dashedTile
         ? 12.0
@@ -563,7 +576,9 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = header
+    final visualDimension = postReaction
+        ? DPostReactionStyle.height(MediaQuery.textScalerOf(context))
+        : header
         ? 28 +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
@@ -604,7 +619,8 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           resume || launcher
               ? 16
-              : chrome ||
+              : postReaction ||
+                    chrome ||
                     avatar ||
                     shape == DButtonShape.pill ||
                     variant == DButtonVariant.primary
@@ -668,6 +684,23 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (postReaction) {
+        final interactive =
+            !states.contains(WidgetState.disabled) &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed));
+        final foreground = DPostReactionStyle.foreground(tokens);
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: DPostReactionStyle.fill(
+            tokens,
+            dark,
+            interacting: interactive,
+          ),
+          border: BorderSide.none,
+        );
+      }
       if (chrome) {
         final interactive =
             !states.contains(WidgetState.disabled) &&
@@ -726,7 +759,7 @@ class DButton extends StatelessWidget {
       minimumSize: WidgetStatePropertyAll(
         _iconOnly && !intrinsicIcon
             ? iconOnlySurfaceSize
-            : Size(0, surfaceHeight),
+            : Size(postReaction ? visualDimension : 0, surfaceHeight),
       ),
       fixedSize: _iconOnly && !intrinsicIcon
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
@@ -739,6 +772,10 @@ class DButton extends StatelessWidget {
             ? (_iconOnly
                   ? EdgeInsets.zero
                   : const EdgeInsets.symmetric(horizontal: 10, vertical: 1))
+            : postReaction
+            ? (_iconOnly
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 10))
             : resume || launcher
             ? const EdgeInsets.all(8)
             : avatar
@@ -778,7 +815,7 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
-          height: header || inlineMetadata
+          height: postReaction || header || inlineMetadata
               ? 1.5
               : mobileDock
               ? 13 / 11
@@ -787,7 +824,9 @@ class DButton extends StatelessWidget {
                     fontSize
               : DControlStyle.lineHeight(effectiveSize, context: context) /
                     fontSize,
-          fontWeight: header
+          fontWeight: postReaction
+              ? FontWeight.w500
+              : header
               ? FontWeight.w600
               : mobileDock || backLink
               ? FontWeight.w500
@@ -854,7 +893,7 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: chrome || launcher
+            color: postReaction || chrome || launcher
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -871,7 +910,7 @@ class DButton extends StatelessWidget {
           child: child,
         );
         final artwork = DControlArtwork(
-          child: chrome || launcher
+          child: postReaction || chrome || launcher
               ? surface
               : DMaterialSurface(
                   radius: radius,

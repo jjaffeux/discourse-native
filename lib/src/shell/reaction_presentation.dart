@@ -19,13 +19,14 @@ class ReactionPills extends Padding {
   ReactionPills({
     super.key,
     required List<Widget> children,
+    double spacing = 6,
     super.padding = const EdgeInsets.only(top: DSpacing.xs),
   }) : super(
          child: Align(
            alignment: Alignment.centerLeft,
            child: Wrap(
-             spacing: 6,
-             runSpacing: 6,
+             spacing: spacing,
+             runSpacing: spacing,
              crossAxisAlignment: WrapCrossAlignment.center,
              children: children,
            ),
@@ -219,16 +220,24 @@ class _ReactionPillState extends State<ReactionPill> {
           semanticLongPressHint: context.l10n.showWhoReacted,
           variant: DToggleVariant.outline,
           icon: Builder(
-            builder: (context) => SiteEmojiImage(
-              siteUrl: widget.siteUrl,
-              name: widget.reaction,
-              size: widget.density == DToggleDensity.chatReaction
-                  ? 12
+            builder: (context) {
+              final size = widget.density == DToggleDensity.postReaction
+                  ? 14.0
+                  : widget.density == DToggleDensity.chatReaction
+                  ? 12.0
                   : widget.size == DToggleSize.post
-                  ? 16
-                  : IconTheme.of(context).size!,
-              alt: ':${widget.reaction}:',
-            ),
+                  ? 16.0
+                  : IconTheme.of(context).size!;
+              final emoji = SiteEmojiImage(
+                siteUrl: widget.siteUrl,
+                name: widget.reaction,
+                size: size,
+                alt: ':${widget.reaction}:',
+              );
+              return widget.density == DToggleDensity.postReaction
+                  ? SizedBox.square(dimension: size, child: emoji)
+                  : emoji;
+            },
           ),
           child: Text('${widget.count}'),
         ),

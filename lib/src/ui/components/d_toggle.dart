@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
@@ -21,6 +22,9 @@ enum DToggleVariant { standard, outline, segmented, inline }
 enum DToggleDensity {
   standard,
   chatReaction,
+
+  /// Flat 30px post pills with 14px emoji, 12.5px counts and accent selection.
+  postReaction,
   tile,
   compactInset,
   chrome,
@@ -160,10 +164,9 @@ class DToggle extends StatefulWidget {
   final DToggleVariant variant;
   final DToggleSize size;
 
-  /// Reaction densities supersede [size]. Chat reactions use 24px artwork,
-  /// 12px emoji/counts and pill corners; ordinary reactions use 28px artwork,
-  /// 18px icons and 12px counts. Text scaling grows
-  /// the artwork to fit its content.
+  /// Reaction densities supersede [size]. Chat reactions use 24px artwork
+  /// and 12px emoji/counts. Post reactions use flat 30px pills, 14px emoji
+  /// and 12.5px counts. Text scaling grows the artwork to fit its content.
   final DToggleDensity density;
   final String? semanticLabel;
   final String? semanticHint;
@@ -259,6 +262,7 @@ class _DToggleState extends State<DToggle> {
     final inline = widget.variant == DToggleVariant.inline;
     final outline = tokens.buttonTheme.outline;
 
+    final postReaction = widget.density == DToggleDensity.postReaction;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     final tile = widget.density == DToggleDensity.tile;
     final compactInset = widget.density == DToggleDensity.compactInset;
@@ -266,7 +270,9 @@ class _DToggleState extends State<DToggle> {
     final splitView = widget.density == DToggleDensity.splitView;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final interacting = _enabled && (_hovered || _pointerPressed);
-    final foreground = splitView
+    final foreground = postReaction
+        ? DPostReactionStyle.foreground(tokens, selected: _current)
+        : splitView
         ? Color.lerp(tokens.colors.surface, tokens.foreground, .62)!
         : inline
         ? _current
@@ -288,7 +294,9 @@ class _DToggleState extends State<DToggle> {
         ? tokens.mutedForeground
         : tokens.foreground;
     final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = splitView
+    final visualDimension = postReaction
+        ? DPostReactionStyle.height(scaler)
+        : splitView
         ? 36.0 + math.max(0, scaler.scale(13) - 13)
         : chrome
         ? 32.0 + math.max(0, scaler.scale(13) - 13)
@@ -300,7 +308,9 @@ class _DToggleState extends State<DToggle> {
         ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
         : (DControlStyle.scaledHeight(widget.size, scaler, context: context));
     final visualWidth = compactInset ? 30.0 : visualDimension;
-    final iconDimension = splitView
+    final iconDimension = postReaction
+        ? DPostReactionStyle.iconSize
+        : splitView
         ? 20.0
         : chrome
         ? 18.0
@@ -311,12 +321,16 @@ class _DToggleState extends State<DToggle> {
         : (compactInset
               ? 12.0
               : DControlStyle.iconDimension(widget.size, context: context));
-    final fontSize = tile
+    final fontSize = postReaction
+        ? DPostReactionStyle.fontSize
+        : tile
         ? 11.5
         : chatReaction
         ? 12.0
         : (DControlStyle.fontSize(widget.size, context: context));
-    final lineHeight = tile
+    final lineHeight = postReaction
+        ? DPostReactionStyle.fontSize * 1.5
+        : tile
         ? 17.0
         : chatReaction
         ? 18.0
@@ -326,6 +340,8 @@ class _DToggleState extends State<DToggle> {
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : postReaction
+        ? Colors.transparent
         : splitView
         ? interacting
               ? Colors.white.withValues(alpha: dark ? .14 : .75)
@@ -352,7 +368,7 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  splitView || chatReaction
+                  splitView || chatReaction || postReaction
                       ? 999
                       : outlined
                       ? tokens.buttonTheme.radius
@@ -419,7 +435,9 @@ class _DToggleState extends State<DToggle> {
                     ],
                   )
                 : _IconLabel(
-                    gap: segmented
+                    gap: postReaction
+                        ? DPostReactionStyle.gap
+                        : segmented
                         ? 7
                         : chatReaction
                         ? 6
@@ -440,11 +458,21 @@ class _DToggleState extends State<DToggle> {
       child: content,
     );
 
-    if (splitView || chrome || DControlStyle.isApplicationSize(widget.size)) {
+    if (postReaction ||
+        splitView ||
+        chrome ||
+        DControlStyle.isApplicationSize(widget.size)) {
       content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
     }
 
-    final surfaceColor = splitView
+    final surfaceColor = postReaction
+        ? DPostReactionStyle.fill(
+            tokens,
+            dark,
+            selected: _current,
+            interacting: interacting,
+          )
+        : splitView
         ? interacting
               ? Color.lerp(
                   tokens.colors.surface,
@@ -488,6 +516,8 @@ class _DToggleState extends State<DToggle> {
           ? EdgeInsets.zero
           : tile
           ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
+          : postReaction
+          ? const EdgeInsets.symmetric(horizontal: 10)
           : chatReaction
           ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : (DToggle._paddingFor(
@@ -496,7 +526,11 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             ))),
       decoration: BoxDecoration(
-        color: splitView ? null : DMaterialSurface.fill(context, surfaceColor),
+        color: splitView
+            ? null
+            : postReaction
+            ? surfaceColor
+            : DMaterialSurface.fill(context, surfaceColor),
         gradient: splitView
             ? RadialGradient(
                 center: Alignment.topCenter,
@@ -556,6 +590,8 @@ class _DToggleState extends State<DToggle> {
               child: child,
             ),
           )
+        : postReaction
+        ? artwork
         : DMaterialSurface(radius: radius, color: surfaceColor, child: artwork);
 
     final control = MergeSemantics(

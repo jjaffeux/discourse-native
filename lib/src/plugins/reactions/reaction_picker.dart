@@ -83,51 +83,6 @@ class _PostReactionButtonState extends State<PostReactionButton> {
     if (_isCurrent(session)) setState(() {});
   }
 
-  Future<void> _toggle(BuildContext buttonContext) async {
-    if (_busy) return;
-    final controller = widget.controller;
-    final post = widget.post;
-    final siteUrl = widget.siteUrl;
-    final session = _session();
-    if (!_isCurrent(session)) return;
-    final toast = DToast.maybeOf(context);
-    final operation = Object();
-    _panel.currentState?.close();
-    setState(() => _operation = operation);
-    try {
-      await controller.allowsAnyEmoji(siteUrl);
-      if (!_isCurrent(session)) return;
-      final current = controller.pickerPost(session, post);
-      if (current == null || !current.canReact) return;
-      final reaction =
-          current.reactions?.mine?.id ??
-          controller.siteConfigFor(siteUrl).reactionsSettings.mainReaction;
-      if (reaction == null) {
-        if (!buttonContext.mounted) return;
-        await showPostReactionPicker(
-          buttonContext,
-          controller,
-          widget.emoji,
-          siteUrl,
-          current,
-          session: session,
-        );
-        return;
-      }
-      _report(
-        toast,
-        controller,
-        session,
-        controller.toggleFromPicker(session, current, reaction),
-        stillOwnsUi: () => _isCurrent(session),
-      );
-    } finally {
-      if (mounted && identical(_operation, operation)) {
-        setState(() => _operation = null);
-      }
-    }
-  }
-
   Future<void> _openEmojiPicker(BuildContext buttonContext) async {
     if (_busy) return;
     final operation = Object();
@@ -154,25 +109,13 @@ class _PostReactionButtonState extends State<PostReactionButton> {
     listenable: _changes,
     builder: (context, _) {
       final controller = widget.controller;
-      final settings = controller
-          .siteConfigFor(widget.siteUrl)
-          .reactionsSettings;
       final current =
           controller.post(widget.siteUrl, widget.post.id) ?? widget.post;
-      final mine = current.reactions?.mine?.id;
       final enabled =
           current.canReact &&
           (widget.session == null || _isCurrent(widget.session!)) &&
           !_busy &&
           !controller.writeInFlight(widget.siteUrl, widget.post.id);
-      final icon =
-          DIcons.byName['far-${settings.likeIcon}'] ??
-          DIcons.byName[settings.likeIcon] ??
-          DIcons.farHeart;
-      final label = mine == null
-          ? context.l10n.addReaction
-          : context.l10n.removeYourReactionReactionpicker((mine).toString());
-
       return EmojiPickerAnchor(
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
@@ -201,23 +144,13 @@ class _PostReactionButtonState extends State<PostReactionButton> {
               ),
               child: FocusTraversalOrder(
                 order: const NumericFocusOrder(0),
-                child: DToggle.iconOnly(
-                  pressed: mine != null,
-                  enabled: enabled,
-                  size: DToggleSize.post,
-                  variant: DToggleVariant.outline,
-                  semanticLabel: label,
-                  semanticLongPressHint:
-                      context.l10n.chooseAReactionReactionpicker,
-                  onPressedChanged: (_) => _toggle(buttonContext),
-                  onLongPress: () => _panel.currentState?.open(),
-                  icon: mine != null
-                      ? EmojiImage(
-                          url: controller.emojiUrlFor(widget.siteUrl, mine),
-                          size: 16,
-                          alt: ':$mine:',
-                        )
-                      : DIcon(icon),
+                child: DButton.iconOnly(
+                  size: DButtonSize.post,
+                  density: DButtonDensity.postReaction,
+                  tooltip: context.l10n.addReaction,
+                  tooltipSide: DTooltipSide.bottom,
+                  onPressed: enabled ? () => _panel.currentState?.open() : null,
+                  icon: const DIcon(DIcons.faceSmile),
                 ),
               ),
             ),

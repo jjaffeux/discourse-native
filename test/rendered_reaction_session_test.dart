@@ -212,7 +212,7 @@ void main() {
                         : 'post-reaction-button-1',
                   ),
                 ),
-                matching: find.byType(DToggle),
+                matching: find.byType(desktop ? DToggle : DButton),
               );
         final originalControl = tester.element(control);
         if (transition != 'unchanged') {
@@ -264,6 +264,10 @@ void main() {
             );
             await tester.pumpAndSettle();
           }
+        }
+        if (!desktop) {
+          await tester.tap(find.bySemanticsLabel('heart').last);
+          await tester.pumpAndSettle();
         }
         expect(sent.single.method, 'PUT');
         expect(

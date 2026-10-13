@@ -196,6 +196,8 @@ void main() {
         await tester.pumpAndSettle();
       }
       if (transition == 'unchanged') {
+        await tester.tap(find.bySemanticsLabel('heart').last);
+        await tester.pumpAndSettle();
         expect(sent.single.method, 'PUT');
         expect(
           sent.single.url.path,

@@ -32,9 +32,8 @@ class _PostLikesState extends State<PostLikes> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   void _load() => unawaited(
-    ShellScope.read(
-      context,
-    ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
+    ShellScope.read(context)
+        .loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
   void _openPanel() => _panel.currentState?.open();
@@ -150,9 +149,7 @@ class _LikeCount extends StatelessWidget {
       return DToggle.iconOnly(
         pressed: post.liked,
         size: DToggleSize.post,
-        density: context.isTouch
-            ? DToggleDensity.standard
-            : DToggleDensity.chatReaction,
+        density: DToggleDensity.postReaction,
         variant: DToggleVariant.outline,
         semanticLabel: context.l10n.likeThisPost,
         onPressedChanged: (_) => toggle?.call(),
@@ -162,9 +159,7 @@ class _LikeCount extends StatelessWidget {
     return DToggle(
       pressed: post.liked,
       size: DToggleSize.post,
-      density: context.isTouch
-          ? DToggleDensity.standard
-          : DToggleDensity.chatReaction,
+      density: DToggleDensity.postReaction,
       variant: DToggleVariant.outline,
       semanticLabel: post.likeCount == 1
           ? context.l10n.message1LikeFrom((post.liked).toString())

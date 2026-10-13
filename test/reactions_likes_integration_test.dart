@@ -39,9 +39,25 @@ void main() {
 
 void _registerReactionAndLikeTests() {
   Finder menuAction(String label) => switch (label) {
-    'Like' => find.descendant(of: find.byType(PostLikes), matching: find.byWidgetPredicate((w) => w is DToggle && (w.semanticLabel == 'Like this post' || w.semanticHint == 'like this post'))),
-    'Remove like' => find.descendant(of: find.byType(PostLikes), matching: find.byWidgetPredicate((w) => w is DToggle && w.semanticHint == 'remove your like')),
-    'React' => find.descendant(of: find.byType(PostReactionButton), matching: find.byType(DToggle)),
+    'Like' => find.descendant(
+      of: find.byType(PostLikes),
+      matching: find.byWidgetPredicate(
+        (w) =>
+            w is DToggle &&
+            (w.semanticLabel == 'Like this post' ||
+                w.semanticHint == 'like this post'),
+      ),
+    ),
+    'Remove like' => find.descendant(
+      of: find.byType(PostLikes),
+      matching: find.byWidgetPredicate(
+        (w) => w is DToggle && w.semanticHint == 'remove your like',
+      ),
+    ),
+    'React' => find.descendant(
+      of: find.byType(PostReactionButton),
+      matching: find.byType(DButton),
+    ),
     _ => find.widgetWithText(DDropdownMenuItem, label),
   };
 
@@ -195,8 +211,8 @@ void _registerReactionAndLikeTests() {
 
       await openPostMenu(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        await tester.tap(menuAction('Like'));
+      await tester.pumpAndSettle();
+      await tester.tap(menuAction('Like'));
       await tester.pumpAndSettle();
 
       expect(count('3'), findsOneWidget);
@@ -590,7 +606,7 @@ void _registerReactionAndLikeTests() {
       await openPostMenu(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.longPress(menuAction('React').first);
+      await tester.tap(menuAction('React').first);
       await tester.pumpAndSettle();
     }
 
@@ -600,7 +616,7 @@ void _registerReactionAndLikeTests() {
     }
 
     Future<void> openFooterEmojiPicker(WidgetTester tester) async {
-      await tester.longPress(find.byType(PostReactionButton));
+      await tester.tap(find.byType(PostReactionButton));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('More emojis'));
       await tester.pumpAndSettle();
@@ -651,7 +667,7 @@ void _registerReactionAndLikeTests() {
           isSemantics(isButton: true, isFocusable: true, hasTapAction: true),
         );
 
-        await tester.longPress(launcher);
+        await tester.tap(launcher);
         await tester.pumpAndSettle();
 
         expect(find.byType(ReactionGrid), findsOneWidget);
@@ -715,8 +731,8 @@ void _registerReactionAndLikeTests() {
         siteConfigGate: gate,
         beforeSettle: () async {
           // The sidebar intentionally keeps animating while settings are held.
-          await tester.longPress(find.byType(PostReactionButton));
-          await tester.longPress(find.byType(PostReactionButton));
+          await tester.tap(find.byType(PostReactionButton));
+          await tester.tap(find.byType(PostReactionButton));
           await tester.pump();
           expect(find.byType(ReactionGrid), findsOneWidget);
           expect(find.byType(EmojiPicker), findsNothing);
@@ -812,67 +828,41 @@ void _registerReactionAndLikeTests() {
       expect(find.byType(PostReactionButton), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('the configured icon and default reaction are independent', (
-      tester,
-    ) async {
-      final api = await openTopic(
-        tester,
-        config: installedPlugins.models.siteConfig(const {
-          'discourse_reactions_enabled': true,
-          'discourse_reactions_like_icon': 'star',
-          'discourse_reactions_reaction_for_like': 'clap',
-          'discourse_reactions_enabled_reactions': 'heart|+1',
-        }, site),
-        posts: [post()],
-      );
-      final button = find.byType(PostReactionButton);
-      DIconData icon() => tester
-          .widget<DIcon>(
-            find.descendant(of: button, matching: find.byType(DIcon)),
-          )
-          .icon;
-      expect(icon(), DIcons.farStar);
-
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-
-      expect(api.reacted, [(postId: 1, reaction: 'clap')]);
-      expect(
-        tester
-            .widget<EmojiImage>(
-              find.descendant(
-                of: find
-                    .descendant(of: button, matching: find.byType(DToggle))
-                    .first,
-                matching: find.byType(EmojiImage),
-              ),
-            )
-            .alt,
-        ':clap:',
-      );
-      expect(
-        find.bySemanticsLabel('Remove your clap reaction'),
-        findsOneWidget,
-      );
-      expect(
-        tester.getRect(button).left,
-        greaterThan(
-          tester.getRect(find.bySemanticsLabel('1 clap reaction')).right,
-        ),
-      );
-
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-
-      expect(api.reacted, [
-        (postId: 1, reaction: 'clap'),
-        (postId: 1, reaction: 'clap'),
-      ]);
-      expect(icon(), DIcons.farStar);
-      expect(pill('1'), findsNothing);
-      expect(api.liked, isEmpty);
-      expect(api.unliked, isEmpty);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    testWidgets(
+      'the add action stays a smile and opens the configured picker',
+      (tester) async {
+        final api = await openTopic(
+          tester,
+          config: configured,
+          posts: [post()],
+        );
+        final button = find.byType(PostReactionButton);
+        expect(
+          tester
+              .widget<DIcon>(
+                find.descendant(of: button, matching: find.byType(DIcon)),
+              )
+              .icon,
+          DIcons.faceSmile,
+        );
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(api.reacted, isEmpty);
+        expect(find.byType(ReactionGrid), findsOneWidget);
+        await tester.tap(find.bySemanticsLabel('heart'));
+        await tester.pumpAndSettle();
+        expect(api.reacted, [(postId: 1, reaction: 'heart')]);
+        expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('post-reaction-1-heart')));
+        await tester.pumpAndSettle();
+        expect(api.reacted, [
+          (postId: 1, reaction: 'heart'),
+          (postId: 1, reaction: 'heart'),
+        ]);
+        expect(api.liked, isEmpty);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
 
     testWidgets('hovering opens the configured reactions above the footer', (
       tester,
@@ -975,15 +965,15 @@ void _registerReactionAndLikeTests() {
       );
 
       await tester.tap(find.byType(PostReactionButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('heart'));
       await tester.pump();
       await tester.tap(find.byType(PostReactionButton));
       await tester.pump();
 
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
       expect(
-        tester.getSemantics(
-          find.bySemanticsLabel('Remove your heart reaction'),
-        ),
+        tester.getSemantics(find.bySemanticsLabel('Add reaction')),
         isSemantics(
           hasEnabledState: true,
           isEnabled: false,
@@ -1013,6 +1003,8 @@ void _registerReactionAndLikeTests() {
 
       await tester.tap(find.byType(PostReactionButton));
       await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('heart'));
+      await tester.pumpAndSettle();
 
       expect(find.textContaining('Too fast'), findsOneWidget);
       expect(find.bySemanticsLabel('Add reaction'), findsOneWidget);
@@ -1038,7 +1030,7 @@ void _registerReactionAndLikeTests() {
         );
         tester.view.physicalSize = const Size(320, 720);
         await tester.pumpAndSettle();
-        await tester.longPress(find.byType(PostReactionButton));
+        await tester.tap(find.byType(PostReactionButton));
         await tester.pumpAndSettle();
 
         final grid = tester.getRect(find.byType(ReactionGrid));
@@ -1170,6 +1162,8 @@ void _registerReactionAndLikeTests() {
         );
         await tester.pumpAndSettle();
 
+        await tester.tap(find.bySemanticsLabel('heart').last);
+        await tester.pumpAndSettle();
         expect(api.reacted, [(postId: 1, reaction: 'heart')]);
         expect(tester.takeException(), isNull);
         expect(find.byType(DSheetContent), findsNothing);
@@ -1415,7 +1409,7 @@ void _registerReactionAndLikeTests() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.longPress(menuAction('React').first);
+      await tester.tap(menuAction('React').first);
       await tester.pumpAndSettle();
 
       expect(find.byType(ReactionGrid), findsOneWidget);
@@ -1459,7 +1453,7 @@ void _registerReactionAndLikeTests() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.longPress(menuAction('React').first);
+      await tester.tap(menuAction('React').first);
       await tester.pumpAndSettle();
       await tester.tap(find.bySemanticsLabel('clap'));
       await tester.pumpAndSettle();
@@ -1493,7 +1487,7 @@ void _registerReactionAndLikeTests() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await tester.longPress(menuAction('React').first);
+      await tester.tap(menuAction('React').first);
       await tester.pumpAndSettle();
 
       expect(
@@ -1587,7 +1581,7 @@ void _registerReactionAndLikeTests() {
       await openPostMenu(tester);
 
       expect(
-        tester.widget<DToggle>(menuAction('React')).enabled,
+        tester.widget<DButton>(menuAction('React')).onPressed != null,
         isFalse,
       );
       expect(api.reacted, [(postId: 1, reaction: 'heart')]);
@@ -1672,9 +1666,7 @@ void _registerReactionAndLikeTests() {
           posts: [post()],
         );
 
-        final launcherRect = tester.getRect(
-          find.byType(PostReactionButton),
-        );
+        final launcherRect = tester.getRect(find.byType(PostReactionButton));
         await openFooterEmojiPicker(tester);
 
         expect(find.byType(ReactionGrid), findsNothing);
@@ -1991,6 +1983,7 @@ void _registerReactionAndLikeTests() {
         debugOnRebuildDirtyWidget = (element, builtOnce) {
           previous?.call(element, builtOnce);
           if (element.widget is! DToggle &&
+              element.widget is! DButton &&
               element.widget is! PostActionsFooter) {
             return;
           }
@@ -2085,18 +2078,18 @@ void _registerReactionAndLikeTests() {
         final rebuilds = countRebuilds();
         Finder button(int postId) => find.descendant(
           of: find.byKey(ValueKey('post-reaction-button-$postId')),
-          matching: find.byType(DToggle),
+          matching: find.byType(DButton),
         );
-        DToggle react(int postId) => tester.widget(button(postId));
-        expect(react(1).enabled, isTrue);
-        expect(react(2).enabled, isTrue);
+        DButton react(int postId) => tester.widget(button(postId));
+        expect(react(1).onPressed != null, isTrue);
+        expect(react(2).onPressed != null, isTrue);
 
         // Held by the host, as a core write does, with no reactions state
         // changing: only the shell says the post is busy.
         expect(shell.beginPluginPostWrite(site, 1), isTrue);
         await tester.pump();
-        expect(react(1).enabled, isFalse);
-        expect(react(2).enabled, isTrue);
+        expect(react(1).onPressed != null, isFalse);
+        expect(react(2).onPressed != null, isTrue);
         expect(rebuilds.keys, [1]);
         await tester.tap(button(1));
         await tester.pump();
@@ -2104,8 +2097,8 @@ void _registerReactionAndLikeTests() {
 
         shell.endPluginPostWrite(site, 1);
         await tester.pump();
-        expect(react(1).enabled, isTrue);
-        expect(react(2).enabled, isTrue);
+        expect(react(1).onPressed != null, isTrue);
+        expect(react(2).onPressed != null, isTrue);
         expect(rebuilds.keys, [1]);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     });

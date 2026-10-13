@@ -71,6 +71,7 @@ class ReactionsRow extends StatelessWidget {
                 child: DButton(
                   key: ValueKey('post-reaction-summary-${post.id}'),
                   size: DButtonSize.post,
+                  density: DButtonDensity.postReaction,
                   variant: DButtonVariant.outline,
                   semanticLabel: context.l10n.showAllReactions(
                     (countLabel(count, CountNoun.reaction)).toString(),
@@ -110,14 +111,25 @@ class ReactionsRow extends StatelessWidget {
         ),
       );
     }
+    final ranked = reactions.entries.toList()
+      ..sort((a, b) {
+        final count = b.count.compareTo(a.count);
+        return count == 0 ? a.id.compareTo(b.id) : count;
+      });
+    final lead = ranked.take(3).toList();
+    final mine = reactions.mine?.id;
+    final yours = ranked.where((entry) => entry.id == mine).firstOrNull;
+    if (yours != null && !lead.contains(yours)) lead[lead.length - 1] = yours;
+    final remaining = ranked.length - lead.length;
     return ReactionPills(
+      spacing: 4,
       padding: const EdgeInsets.only(top: 10),
       children: [
-        for (final entry in reactions.entries)
+        for (final entry in lead)
           ReactionPill(
             key: ValueKey('post-reaction-${post.id}-${entry.id}'),
             size: DToggleSize.post,
-            density: DToggleDensity.chatReaction,
+            density: DToggleDensity.postReaction,
             siteUrl: siteUrl,
             reaction: entry.id,
             count: entry.count,
@@ -143,6 +155,30 @@ class ReactionsRow extends StatelessWidget {
                     filter: entry.id,
                     controller: controller,
                   ),
+          ),
+        if (remaining > 0)
+          DHoverCard(
+            content: DHoverCardContent(
+              width: 340,
+              child: _ReactionOverflowPanel(
+                siteUrl: siteUrl,
+                post: post,
+                controller: controller,
+                entries: ranked,
+              ),
+            ),
+            trigger: DHoverCardTrigger(
+              builder: (context, state) => DButton(
+                key: ValueKey('post-reaction-overflow-${post.id}'),
+                focusNode: state.focusNode,
+                size: DButtonSize.post,
+                density: DButtonDensity.postReaction,
+                semanticLabel: context.l10n.showAllReactionsReactionsrow,
+                label: Text('+$remaining'),
+                onPressed: () =>
+                    _showSummary(context, controller, emoji, session),
+              ),
+            ),
           ),
         if (post.canReact && controller != null && emoji != null)
           PostReactionButton(
@@ -218,6 +254,7 @@ class ReactionsRow extends StatelessWidget {
                             DToggle(
                               key: ValueKey('post-reaction-filter-${entry.id}'),
                               size: DToggleSize.post,
+                              density: DToggleDensity.postReaction,
                               variant: DToggleVariant.outline,
                               pressed: filter == entry.id,
                               semanticLabel: appL10n.namedReactions(
@@ -234,11 +271,14 @@ class ReactionsRow extends StatelessWidget {
                                 });
                               },
                               icon: Builder(
-                                builder: (context) => SiteEmojiImage(
-                                  siteUrl: siteUrl,
-                                  name: entry.id,
-                                  size: 16,
-                                  alt: ':${entry.id}:',
+                                builder: (context) => SizedBox.square(
+                                  dimension: 14,
+                                  child: SiteEmojiImage(
+                                    siteUrl: siteUrl,
+                                    name: entry.id,
+                                    size: 14,
+                                    alt: ':${entry.id}:',
+                                  ),
                                 ),
                               ),
                               child: Text('${entry.count}'),
@@ -318,4 +358,71 @@ class ReactorList extends StatelessWidget {
           reactions.load(siteUrl: siteUrl, postId: post.id, filter: filter),
     );
   }
+}
+
+class _ReactionOverflowPanel extends StatefulWidget {
+  const _ReactionOverflowPanel({
+    required this.siteUrl,
+    required this.post,
+    required this.controller,
+    required this.entries,
+  });
+  final String siteUrl;
+  final Post post;
+  final ReactionsController? controller;
+  final List<Reaction> entries;
+
+  @override
+  State<_ReactionOverflowPanel> createState() => _ReactionOverflowPanelState();
+}
+
+class _ReactionOverflowPanelState extends State<_ReactionOverflowPanel> {
+  String? _filter;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: DSpacing.sm,
+    children: [
+      ReactionPills(
+        spacing: 4,
+        padding: EdgeInsets.zero,
+        children: [
+          DToggle(
+            density: DToggleDensity.postReaction,
+            pressed: _filter == null,
+            onPressedChanged: (_) => setState(() => _filter = null),
+            child: Text(context.l10n.all),
+          ),
+          for (final entry in widget.entries)
+            DToggle(
+              density: DToggleDensity.postReaction,
+              pressed: _filter == entry.id,
+              semanticLabel: context.l10n.namedReactions(entry.count, entry.id),
+              onPressedChanged: (_) {
+                setState(() => _filter = _filter == entry.id ? null : entry.id);
+              },
+              icon: SizedBox.square(
+                dimension: 14,
+                child: SiteEmojiImage(
+                  siteUrl: widget.siteUrl,
+                  name: entry.id,
+                  size: 14,
+                  alt: ':${entry.id}:',
+                ),
+              ),
+              child: Text('${entry.count}'),
+            ),
+        ],
+      ),
+      if (widget.controller != null)
+        ReactorList(
+          siteUrl: widget.siteUrl,
+          post: widget.post,
+          controller: widget.controller,
+          filter: _filter,
+        ),
+    ],
+  );
 }

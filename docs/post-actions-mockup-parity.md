@@ -26,7 +26,7 @@ quote rendering, user cards, and search have separate owners.
   is an explicit, separate contribution used by Solved; `PostCardTonePlugin`
   allows Solved and Assign to opt into a surrounding status card. An ordinary
   decoration alone does not create a card.
-- Desktop reaction/like controls use the existing 24px Native preset and remain
+- Desktop reaction/like controls use the 30px flat Native post-reaction preset and remain
   available with zero reactions. Persistent menus do not duplicate those
   footer controls. Existing write/permission/account guards remain in place.
 - The reminder editor's selected option includes its readable timestamp.

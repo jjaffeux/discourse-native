@@ -21,6 +21,41 @@ final toggleExamples = ComponentExamples(
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
+      title: 'Post reactions',
+      description:
+          'Flat 30px pills with accent selection and a circular add action.',
+      code:
+          "DToggle(density: DToggleDensity.postReaction, icon: Icon(Icons.favorite), child: Text('3'))",
+      builder: (_) => Wrap(
+        spacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const DToggle(
+            density: DToggleDensity.postReaction,
+            icon: Icon(Icons.favorite),
+            child: Text('3'),
+          ),
+          const DToggle(
+            density: DToggleDensity.postReaction,
+            pressed: true,
+            icon: Icon(Icons.thumb_up),
+            child: Text('1'),
+          ),
+          DButton(
+            density: DButtonDensity.postReaction,
+            label: const Text('+3'),
+            onPressed: () {},
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.postReaction,
+            tooltip: 'Add reaction',
+            icon: const Icon(Icons.add_reaction),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Reaction',
       description:
           'Compact emoji and count with a matching hit area on mobile.',

@@ -635,6 +635,7 @@ void main() {
   test('Toggle registers every frozen documented example', () {
     expect(componentExamples['toggle'], same(toggleExamples));
     expect(toggleExamples.examples.map((example) => example.title), [
+      'Post reactions',
       'Reaction',
       'Chat reaction',
       'Window control',

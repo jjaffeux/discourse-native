@@ -15,7 +15,7 @@ import 'support/fakes.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
-  testWidgets('the like pill is a named 24px Native keyboard target', (
+  testWidgets('the like pill is a named 30px Native keyboard target', (
     tester,
   ) async {
     final api = FakeDiscourseApi();
@@ -70,8 +70,8 @@ void main() {
       );
       expect(target, findsOneWidget);
       expect(tester.widget<DToggle>(target).size, DToggleSize.post);
-      expect(tester.getSize(target).height, 24);
-      expect(tester.getSize(target).width, greaterThanOrEqualTo(24));
+      expect(tester.getSize(target).height, 30);
+      expect(tester.getSize(target).width, greaterThanOrEqualTo(30));
       expect(
         tester.getSemantics(find.bySemanticsLabel('1 like, from someone else')),
         isSemantics(
