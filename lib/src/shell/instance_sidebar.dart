@@ -1891,6 +1891,8 @@ class SidebarDestinationTile extends StatelessWidget {
                     if (count != null)
                       Text(
                         '$count',
+                        // Mockup --text-muted maps to --primary-medium.
+                        style: TextStyle(color: theme.discourse.whisper),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
