@@ -410,7 +410,10 @@ void main() {
       final ordinaryRect = tester.getRect(ordinary);
       expect(
         selectedRect.left,
-        barRect.left + 10 + ForumTabsBar.minimumActionTarget + 8,
+        tester
+                .getRect(find.byKey(const ValueKey('forum-tabs-switcher')))
+                .right +
+            8,
       );
       expect(selectedRect.top, barRect.top + 10.5);
       expect(selectedRect.bottom, barRect.bottom - 10.5);
@@ -1232,15 +1235,33 @@ void main() {
       );
     });
 
-    testWidgets('uses the shared outline surface without moving on hover', (
+    testWidgets('matches the circular mockup surface without moving on hover', (
       tester,
     ) async {
       await _pumpBar(tester, items: const [first], selectedId: first.id);
 
       final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
       final before = tester.getRect(switcher);
-      expect(before.size, const Size.square(30));
+      expect(
+        before.size,
+        Size.square(tester.getSize(find.byType(DDocumentTab)).height),
+      );
       expect(tester.widget<DButton>(switcher).variant, DButtonVariant.outline);
+      final tokens = DTokens.of(tester.element(switcher));
+      final surface = buttonSurface(tester, of: switcher);
+      expect(surface.borderRadius, BorderRadius.circular(before.height / 2));
+      expect(
+        surface.color,
+        Color.lerp(tokens.background, tokens.foreground, .10),
+      );
+      expect(
+        surface.borderColor,
+        Color.lerp(tokens.background, tokens.foreground, .12),
+      );
+      expect(
+        tester.widget<DButton>(switcher).foregroundColor,
+        Color.lerp(tokens.background, tokens.foreground, .62),
+      );
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer(location: const Offset(500, 500));
@@ -1250,9 +1271,56 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         buttonSurface(tester, of: switcher).color,
-        DTokens.of(tester.element(switcher)).buttonTheme.outline.hover,
+        Color.lerp(tokens.background, tokens.foreground, .16),
+      );
+      expect(
+        buttonSurface(tester, of: switcher).borderRadius,
+        surface.borderRadius,
       );
       expect(tester.getRect(switcher), before);
+    });
+
+    testWidgets('keeps the tab list circular in both themes and at larger text', (
+      tester,
+    ) async {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        for (final scale in [1.0, 2.0]) {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await _pumpBar(
+            tester,
+            items: const [first],
+            selectedId: first.id,
+            theme: theme,
+            textScaler: TextScaler.linear(scale),
+          );
+          final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
+          final before = tester.getRect(switcher);
+          final tab = tester.getRect(find.byType(DDocumentTab));
+          expect(before.size, Size.square(tab.height));
+          expect(before.center.dy, tab.center.dy);
+          expect(
+            buttonSurface(tester, of: switcher).borderRadius,
+            BorderRadius.circular(before.height / 2),
+          );
+          await _expectTabPixels(tester, [
+            (before.topLeft + const Offset(3, 3), theme.shell.sidebar),
+          ]);
+          await tester.tap(switcher);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+            findsOneWidget,
+          );
+          expect(tester.getRect(switcher), before);
+          expect(
+            buttonSurface(tester, of: switcher).borderRadius,
+            BorderRadius.circular(before.height / 2),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      }
     });
 
     testWidgets('searches open tabs and restores a chosen closed tab', (

@@ -1001,7 +1001,8 @@ void main() {
             expect(headerRect.height, 56);
             expect(barRect.topLeft, headerRect.topLeft);
             expect(switcher.left - headerRect.left, 10);
-            expect(tab.left - headerRect.left, 48);
+            expect(tab.left, switcher.right + 8);
+            expect(switcher.size, Size.square(tab.height));
             expect(switcher.center.dy, headerRect.center.dy);
             expect(tab.center.dy, headerRect.center.dy);
             if (size != _compact) {

@@ -914,6 +914,7 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final viewportSize = MediaQuery.sizeOf(context);
+    final tokens = DTokens.of(context);
     final panelWidth = math.max(0.0, math.min(420.0, viewportSize.width - 16));
     final availablePanelHeight = math.max(
       0.0,
@@ -1054,7 +1055,28 @@ class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
               ),
               tooltip: context.l10n.browseTabs,
               variant: DButtonVariant.outline,
-              size: DControlSize.tabAction,
+              size: DControlSize.documentTab,
+              shape: DButtonShape.pill,
+              backgroundColor: Color.lerp(
+                tokens.background,
+                tokens.foreground,
+                .10,
+              ),
+              interactiveBackgroundColor: Color.lerp(
+                tokens.background,
+                tokens.foreground,
+                .16,
+              ),
+              borderColor: Color.lerp(
+                tokens.background,
+                tokens.foreground,
+                .12,
+              ),
+              foregroundColor: Color.lerp(
+                tokens.background,
+                tokens.foreground,
+                .62,
+              ),
               icon: const DIcon(DIcons.chevronDown),
               focusNode: state.focusNode,
               hasPopup: true,
