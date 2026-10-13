@@ -15,6 +15,112 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 void main() {
+  testWidgets('recessed actions paint inner depth and leave no outer shadow', (
+    tester,
+  ) async {
+    final shadowsDisabled = debugDisableShadows;
+    debugDisableShadows = false;
+    try {
+      for (final material in DAppearanceMaterial.values) {
+        for (final brightness in Brightness.values) {
+          final dark = brightness == Brightness.dark;
+          final canvas = dark
+              ? const Color(0xff404458)
+              : const Color(0xffdadfe8);
+          await tester.pumpWidget(
+            MaterialApp(
+              themeAnimationStyle: AnimationStyle.noAnimation,
+              theme: DMaterialTheme.apply(
+                AppTheme.forBrightness(brightness),
+                material,
+              ),
+              home: Center(
+                child: RepaintBoundary(
+                  key: const ValueKey('inset-action'),
+                  child: SizedBox.square(
+                    dimension: 80,
+                    child: ColoredBox(
+                      color: canvas,
+                      child: Center(
+                        child: DButton.iconOnly(
+                          variant: DButtonVariant.recessed,
+                          shape: DButtonShape.pill,
+                          size: DControlSize.documentTab,
+                          icon: const SizedBox.shrink(),
+                          tooltip: 'All tabs',
+                          onPressed: () {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final surface = tester.widget<DMaterialSurface>(
+            find.byType(DMaterialSurface),
+          );
+          expect(surface.depth, DSurfaceDepth.recessed);
+          expect(tester.getSize(find.byType(DButton)), const Size.square(35));
+          await tester.runAsync(() async {
+            final image = await tester
+                .renderObject<RenderRepaintBoundary>(
+                  find.byKey(const ValueKey('inset-action')),
+                )
+                .toImage(pixelRatio: 2);
+            try {
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              Color pixel(double x, double y) {
+                final offset =
+                    ((y * 2).floor() * image.width + (x * 2).floor()) * 4;
+                return Color.fromARGB(
+                  bytes.getUint8(offset + 3),
+                  bytes.getUint8(offset),
+                  bytes.getUint8(offset + 1),
+                  bytes.getUint8(offset + 2),
+                );
+              }
+
+              for (final (x, y) in [
+                (40.0, 21.0),
+                (40.0, 59.0),
+                (21.0, 40.0),
+                (59.0, 40.0),
+                (24.0, 24.0),
+              ]) {
+                expect(
+                  pixel(x, y),
+                  canvas,
+                  reason: '$material $brightness outside ($x, $y)',
+                );
+              }
+              final center = pixel(40, 40).computeLuminance();
+              expect(center, lessThan(canvas.computeLuminance()));
+              expect(
+                pixel(40, 23.5).computeLuminance(),
+                lessThan(center),
+                reason: '$material $brightness top shadow',
+              );
+              expect(
+                pixel(40, 57).computeLuminance(),
+                greaterThan(center),
+                reason: '$material $brightness bottom rim',
+              );
+            } finally {
+              image.dispose();
+            }
+          });
+          expect(tester.takeException(), isNull);
+        }
+      }
+    } finally {
+      debugDisableShadows = shadowsDisabled;
+    }
+  });
+
   testWidgets('bounded panels leave the canvas clear outside rounded corners', (
     tester,
   ) async {

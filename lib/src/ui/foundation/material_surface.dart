@@ -21,6 +21,7 @@ class DMaterialSurface extends StatelessWidget {
     this.depth = DSurfaceDepth.raised,
     this.accented = false,
     this.preserveColor = false,
+    this.insetEdges = false,
   });
   final Widget child;
   final Color color;
@@ -30,6 +31,10 @@ class DMaterialSurface extends StatelessWidget {
 
   /// Pre-tinted window wells retain their opacity in both appearance modes.
   final bool preserveColor;
+
+  /// CSS-style inner shadow and bottom rim for inset action wells. This
+  /// opt-in retains the existing edge painting of other recessed controls.
+  final bool insetEdges;
 
   static bool active(BuildContext context) =>
       DMaterialTheme.of(context) != null;
@@ -77,6 +82,8 @@ class DMaterialSurface extends StatelessWidget {
     background = CustomPaint(
       foregroundPainter: color.a == 0
           ? null
+          : insetEdges
+          ? _InsetEdges(radius, dark)
           : _DepthEdge(radius, light, dark, recessed, glass && !solid),
       child: background,
     );
@@ -282,6 +289,53 @@ class _GlassPaintState extends State<_GlassPaint> {
     // the outer surface, preserving focus and unsaved input on style changes.
     return ClipRRect(borderRadius: widget.radius, child: glass);
   }
+}
+
+class _InsetEdges extends CustomPainter {
+  const _InsetEdges(this.radius, this.dark);
+
+  final BorderRadius radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = radius.toRRect(rect);
+    Path outside(Offset offset) => Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(8))
+      ..addRRect(shape.shift(offset));
+
+    canvas.save();
+    canvas.clipRRect(shape);
+    // inset 0 1px 2px black: draw the blurred outside of the shifted shape
+    // through the original shape's clip, so nothing casts an outer shadow.
+    canvas.drawPath(
+      outside(const Offset(0, 1)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: dark ? .32 : .12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+    );
+    canvas.drawRRect(
+      shape.deflate(.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = (dark ? Colors.white : Colors.black).withValues(
+          alpha: dark ? .07 : .06,
+        ),
+    );
+    // inset 0 -1px 0 white: the light catches only the bottom of the well.
+    canvas.drawPath(
+      outside(const Offset(0, -1)),
+      Paint()..color = Colors.white.withValues(alpha: dark ? .08 : .8),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_InsetEdges old) =>
+      old.radius != radius || old.dark != dark;
 }
 
 class _DepthEdge extends CustomPainter {

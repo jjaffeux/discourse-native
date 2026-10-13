@@ -206,6 +206,22 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Recessed tab list',
+      description:
+          'A circular inset action with a dark well, inner shadow and bottom rim. '
+          'Standard and Liquid glass retain the same depth without an outer shadow.',
+      code:
+          "DButton.iconOnly(variant: DButtonVariant.recessed, size: DControlSize.documentTab, shape: DButtonShape.pill, icon: DIcon(DIcons.chevronDown), tooltip: 'All tabs', onPressed: openTabs)",
+      builder: (_) => DButton.iconOnly(
+        variant: DButtonVariant.recessed,
+        size: DControlSize.documentTab,
+        shape: DButtonShape.pill,
+        icon: const DIcon(DIcons.chevronDown),
+        tooltip: 'All tabs',
+        onPressed: () {},
+      ),
+    ),
+    StyleguideExample(
       title: 'Compact toolbar',
       description:
           '24px-high surfaces, 32px icon actions and 14px icons, with hit areas matching their surfaces. Compare the shorter actions with a regular tag chip.',

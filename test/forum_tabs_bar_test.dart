@@ -1239,22 +1239,11 @@ void main() {
         before.size,
         Size.square(tester.getSize(find.byType(DDocumentTab)).height),
       );
-      expect(tester.widget<DButton>(switcher).variant, DButtonVariant.outline);
-      final tokens = DTokens.of(tester.element(switcher));
+      expect(tester.widget<DButton>(switcher).variant, DButtonVariant.recessed);
       final surface = buttonSurface(tester, of: switcher);
       expect(surface.borderRadius, BorderRadius.circular(before.height / 2));
-      expect(
-        surface.color,
-        Color.lerp(tokens.background, tokens.foreground, .10),
-      );
-      expect(
-        surface.borderColor,
-        Color.lerp(tokens.background, tokens.foreground, .12),
-      );
-      expect(
-        tester.widget<DButton>(switcher).foregroundColor,
-        Color.lerp(tokens.background, tokens.foreground, .62),
-      );
+      expect(surface.color, Colors.black.withValues(alpha: .045));
+      expect(surface.borderColor, Colors.transparent);
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer(location: const Offset(500, 500));
@@ -1264,7 +1253,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         buttonSurface(tester, of: switcher).color,
-        Color.lerp(tokens.background, tokens.foreground, .16),
+        Colors.black.withValues(alpha: .07),
       );
       expect(
         buttonSurface(tester, of: switcher).borderRadius,
@@ -1273,48 +1262,54 @@ void main() {
       expect(tester.getRect(switcher), before);
     });
 
-    testWidgets('keeps the tab list circular in both themes and at larger text', (
-      tester,
-    ) async {
-      for (final theme in [AppTheme.light, AppTheme.dark]) {
-        for (final scale in [1.0, 2.0]) {
-          await tester.pumpWidget(const SizedBox.shrink());
-          await _pumpBar(
-            tester,
-            items: const [first],
-            selectedId: first.id,
-            theme: theme,
-            textScaler: TextScaler.linear(scale),
-          );
-          final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
-          final before = tester.getRect(switcher);
-          final tab = tester.getRect(find.byType(DDocumentTab));
-          expect(before.size, Size.square(tab.height));
-          expect(before.center.dy, tab.center.dy);
-          expect(
-            buttonSurface(tester, of: switcher).borderRadius,
-            BorderRadius.circular(before.height / 2),
-          );
-          await _expectTabPixels(tester, [
-            (before.topLeft + const Offset(3, 3), theme.shell.sidebar),
-          ]);
-          await tester.tap(switcher);
-          await tester.pumpAndSettle();
-          expect(
-            find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-            findsOneWidget,
-          );
-          expect(tester.getRect(switcher), before);
-          expect(
-            buttonSurface(tester, of: switcher).borderRadius,
-            BorderRadius.circular(before.height / 2),
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
+    testWidgets(
+      'keeps the tab list circular in both themes and at larger text',
+      (tester) async {
+        for (final material in DAppearanceMaterial.values) {
+          for (final base in [AppTheme.light, AppTheme.dark]) {
+            final theme = DMaterialTheme.apply(base, material);
+            for (final scale in [1.0, 2.0]) {
+              await tester.pumpWidget(const SizedBox.shrink());
+              await _pumpBar(
+                tester,
+                items: const [first],
+                selectedId: first.id,
+                theme: theme,
+                textScaler: TextScaler.linear(scale),
+              );
+              final switcher = find.byKey(
+                const ValueKey('forum-tabs-switcher'),
+              );
+              final before = tester.getRect(switcher);
+              final tab = tester.getRect(find.byType(DDocumentTab));
+              expect(before.size, Size.square(tab.height));
+              expect(before.center.dy, tab.center.dy);
+              expect(
+                buttonSurface(tester, of: switcher).borderRadius,
+                BorderRadius.circular(before.height / 2),
+              );
+              await _expectTabPixels(tester, [
+                (before.topLeft + const Offset(3, 3), theme.shell.sidebar),
+              ]);
+              await tester.tap(switcher);
+              await tester.pumpAndSettle();
+              expect(
+                find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+                findsOneWidget,
+              );
+              expect(tester.getRect(switcher), before);
+              expect(
+                buttonSurface(tester, of: switcher).borderRadius,
+                BorderRadius.circular(before.height / 2),
+              );
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
+            }
+          }
         }
-      }
-    });
+      },
+    );
 
     testWidgets('searches open tabs and restores a chosen closed tab', (
       tester,

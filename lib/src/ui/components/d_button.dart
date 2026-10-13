@@ -19,6 +19,10 @@ import 'd_tooltip.dart';
 enum DButtonVariant {
   outline,
 
+  /// Inset secondary action with a dark well and no outer shadow. Used by
+  /// the workspace tab list; size and shape remain independent.
+  recessed,
+
   /// Creation tile with a dashed frame and framed leading icon. Give it a
   /// tight width constraint when the whole row should activate the action.
   dashedTile,
@@ -415,6 +419,13 @@ class DButton extends StatelessWidget {
           ),
           tokens.foreground,
         ),
+      ),
+      DButtonVariant.recessed => pair(
+        Colors.black.withValues(alpha: dark ? .16 : .045),
+        (dark ? Colors.white : Colors.black).withValues(
+          alpha: dark ? .05 : .07,
+        ),
+        buttons.outline.foreground,
       ),
       DButtonVariant.resume => pair(
         buttons.outline.background,
@@ -832,6 +843,11 @@ class DButton extends StatelessWidget {
               : DMaterialSurface(
                   radius: radius,
                   color: state.backgroundColor,
+                  depth: variant == DButtonVariant.recessed
+                      ? DSurfaceDepth.recessed
+                      : DSurfaceDepth.raised,
+                  preserveColor: variant == DButtonVariant.recessed,
+                  insetEdges: variant == DButtonVariant.recessed,
                   accented:
                       variant == DButtonVariant.primary ||
                       variant == DButtonVariant.destructive,
