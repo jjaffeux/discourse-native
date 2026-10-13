@@ -1369,10 +1369,10 @@ void main() {
       final rail = tester.getRect(find.byType(InstanceRail));
       expect(rail.left, DSpacing.xs);
       final addButton = tester.getRect(
-        find.byKey(const ValueKey('add-instance-rail-outline')),
+        find.byKey(const ValueKey('add-instance-rail-button')),
       );
-      expect(addButton.left, greaterThan(rail.left));
-      expect(addButton.right, lessThan(rail.right));
+      expect(addButton.left, greaterThanOrEqualTo(rail.left));
+      expect(addButton.right, lessThanOrEqualTo(rail.right));
       expect(_bar, findsNothing);
       expect(find.text('Shortcuts'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -2706,7 +2706,7 @@ void main() {
       void expectRailInsideViewport() {
         for (final finder in [
           find.byType(InstanceRail),
-          find.byKey(const ValueKey('add-instance-rail-outline')),
+          find.byKey(const ValueKey('add-instance-rail-button')),
         ]) {
           final box = tester.renderObject<RenderBox>(finder);
           final left = box.localToGlobal(Offset.zero).dx;

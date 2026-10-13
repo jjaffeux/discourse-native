@@ -964,6 +964,9 @@ class _RailFooterButton extends StatelessWidget {
     tooltipSide: DTooltipSide.right,
     semanticLabel: tooltip,
     variant: DButtonVariant.ghost,
+    backgroundColor: Colors.transparent,
+    interactiveBackgroundColor: Colors.transparent,
+    foregroundColor: Theme.of(context).shell.railForeground,
     size: DButtonSize.large,
     expanded: expanded,
     onPressed: onTap,
@@ -1578,71 +1581,15 @@ class _AddInstanceButton extends StatelessWidget {
       tooltipSide: DTooltipSide.right,
       semanticLabel: label,
       variant: DButtonVariant.ghost,
-      size: DButtonSize.small,
-      borderRadius: BorderRadius.circular(10),
+      size: DButtonSize.toolbar,
+      shape: DButtonShape.pill,
+      backgroundColor: Colors.transparent,
+      interactiveBackgroundColor: Colors.transparent,
+      foregroundColor: Theme.of(context).shell.marker,
       onPressed: () => showAddInstanceSheet(context),
-      icon: CustomPaint(
-        key: const ValueKey('add-instance-rail-outline'),
-        painter: _DashedRoundedRectPainter(
-          color: Theme.of(context).shell.marker.withValues(alpha: 0.35),
-          radius: 10,
-        ),
-        child: SizedBox.square(
-          dimension: _railVisualSize,
-          child: Center(
-            child: DIcon(
-              DIcons.plus,
-              size: _railIconSize,
-              color: Theme.of(context).shell.marker,
-            ),
-          ),
-        ),
-      ),
+      icon: const DIcon(DIcons.plus, size: 17),
     );
   }
-}
-
-class _DashedRoundedRectPainter extends CustomPainter {
-  const _DashedRoundedRectPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const strokeWidth = 1.5;
-    const dashLength = 5.0;
-    const gapLength = 4.0;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ).deflate(strokeWidth / 2),
-      );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    for (final metric in path.computeMetrics()) {
-      var offset = 0.0;
-      while (offset < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(
-            offset,
-            math.min(offset + dashLength, metric.length),
-          ),
-          paint,
-        );
-        offset += dashLength + gapLength;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedRoundedRectPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 class _CountBadge extends StatelessWidget {

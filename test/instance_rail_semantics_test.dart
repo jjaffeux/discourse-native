@@ -1,13 +1,17 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -68,6 +72,60 @@ List<String?> _customActions(SemanticsNode node) => [
 ];
 
 void main() {
+  testWidgets('rail actions keep cursor-only hover and keyboard focus', (
+    tester,
+  ) async {
+    await _pumpRail(tester);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    for (final key in [
+      'add-instance-rail-button',
+      'styleguide-rail-button',
+      'settings-rail-button',
+    ]) {
+      final button = find.byKey(ValueKey(key));
+      final before = buttonSurface(tester, of: button);
+      final bounds = tester.getRect(button);
+      final control = find.descendant(
+        of: button,
+        matching: find.byType(FilledButton),
+      );
+      final native = tester.widget<FilledButton>(control);
+      expect(before.color, Colors.transparent);
+      expect(before.borderColor, Colors.transparent);
+      expect(before.dashed, isFalse);
+      expect(
+        native.style!.mouseCursor!.resolve({WidgetState.hovered}),
+        SystemMouseCursors.click,
+      );
+      await mouse.moveTo(bounds.center);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(buttonSurface(tester, of: button), before);
+      expect(tester.getRect(control), bounds);
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      final focus = Focus.of(
+        tester.element(
+          find
+              .descendant(
+                of: control,
+                matching: find.byWidgetPredicate(
+                  (widget) => widget is DIcon || widget is Icon,
+                ),
+              )
+              .first,
+        ),
+      );
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester, of: button).ringWidth, greaterThan(0));
+      focus.unfocus();
+      await tester.pumpAndSettle();
+    }
+  }, variant: _desktopBridges);
+
   testWidgets('rail fallback keeps an emoji monogram intact', (tester) async {
     const title = '🧵 Discourse';
     await pumpShell(
