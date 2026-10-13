@@ -28,7 +28,10 @@ quote rendering, user cards, and search have separate owners.
   decoration alone does not create a card.
 - Desktop reaction/like controls use the 30px flat Native post-reaction preset and remain
   available with zero reactions. Persistent menus do not duplicate those
-  footer controls. Existing write/permission/account guards remain in place.
+  footer controls. Reply and More use bare 30px Native actions with 13px icons,
+  8px corners and a 4px gap; More precedes Reply. Standard hover uses a flat
+  tint, while Liquid Glass adds only an inset rim and sheen. Existing
+  write/permission/account guards remain in place.
 - The reminder editor's selected option includes its readable timestamp.
   Custom dates and times use existing Native inputs with the existing account
   timezone, DST, range, cancellation, preference, and persistence behavior.

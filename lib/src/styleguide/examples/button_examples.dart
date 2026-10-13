@@ -10,7 +10,7 @@ import 'linear_controls_example.dart';
 import 'mockup_control_sizes_example.dart';
 
 final buttonExamples = ComponentExamples(
-  topLevelExampleIndex: 0,
+  topLevelExampleIndex: 1,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
@@ -26,6 +26,31 @@ final buttonExamples = ComponentExamples(
       'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
+    StyleguideExample(
+      title: 'Bare post actions',
+      description:
+          '30px Reply and More actions with 13px icons, no resting fill, and an inset Liquid Glass hover sheen.',
+      code:
+          "DButton.iconOnly(density: DButtonDensity.postAction, icon: DIcon(DIcons.reply), tooltip: 'Reply', onPressed: reply)",
+      builder: (_) => Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 4,
+        children: [
+          DButton.iconOnly(
+            density: DButtonDensity.postAction,
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: 'More',
+            onPressed: () {},
+          ),
+          DButton.iconOnly(
+            density: DButtonDensity.postAction,
+            icon: const DIcon(DIcons.reply),
+            tooltip: 'Reply',
+            onPressed: () {},
+          ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Application control sizes',
       description:

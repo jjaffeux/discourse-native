@@ -1171,9 +1171,14 @@ class PostActionsFooter extends StatelessWidget {
         const SizedBox(width: 8),
         Padding(
           padding: const EdgeInsets.only(top: 10),
-          child: DButtonGroup.spaced(
-            size: DControlSize.post,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
             children: [
+              if (scope.actions.any(
+                (action) => action.placement != PostActionPlacement.trailing,
+              ))
+                const PostMoreActionsButton(),
               for (final action in actions)
                 Builder(
                   builder: (buttonContext) {
@@ -1196,7 +1201,8 @@ class PostActionsFooter extends StatelessWidget {
                             icon: icon,
                             label: Text(action.label),
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.outline,
+                            variant: DButtonVariant.ghost,
+                            density: DButtonDensity.postAction,
                             size: DButtonSize.post,
                             onPressed: onPressed,
                           )
@@ -1204,16 +1210,13 @@ class PostActionsFooter extends StatelessWidget {
                             key: key,
                             icon: icon,
                             tooltip: action.tooltip,
-                            variant: DButtonVariant.outline,
+                            variant: DButtonVariant.ghost,
+                            density: DButtonDensity.postAction,
                             size: DButtonSize.post,
                             onPressed: onPressed,
                           );
                   },
                 ),
-              if (scope.actions.any(
-                (action) => action.placement != PostActionPlacement.trailing,
-              ))
-                const PostMoreActionsButton(),
             ],
           ),
         ),
@@ -1306,7 +1309,8 @@ class PostMoreActionsButton extends StatelessWidget {
             semanticLabel: context.l10n.moreActionsForPost(
               (scope.postNumber).toString(),
             ),
-            variant: DButtonVariant.outline,
+            variant: DButtonVariant.ghost,
+            density: DButtonDensity.postAction,
             size: DButtonSize.post,
             onPressed: state.toggle,
           ),

@@ -9,6 +9,8 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
+import '../foundation/post_action_surface.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
@@ -63,6 +65,9 @@ enum DButtonDensity {
 
   /// Flat 30px post-reaction pills and circular picker actions.
   postReaction,
+
+  /// Bare 30px post actions: 13px icons, 8px corners and in-bounds hover sheen.
+  postAction,
 
   /// Compact header shortcuts: 28px high, 32px icon-only targets, 12.5px
   /// count labels, 8px content gaps and 10px horizontal label insets.
@@ -503,6 +508,8 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final postAction = density == DButtonDensity.postAction;
+    final glass = DMaterialTheme.glassOf(context);
     final postReaction = density == DButtonDensity.postReaction;
     final chrome =
         density == DButtonDensity.chrome ||
@@ -529,7 +536,7 @@ class DButton extends StatelessWidget {
         (size == DControlSize.chip || size == DControlSize.chrome) &&
         density == DButtonDensity.standard;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
-    final effectiveSize = postReaction
+    final effectiveSize = postReaction || postAction
         ? DButtonSize.post
         : backLink
         ? DButtonSize.toolbar
@@ -628,6 +635,8 @@ class DButton extends StatelessWidget {
         BorderRadius.circular(
           resume || launcher
               ? 16
+              : postAction
+              ? 8
               : postReaction ||
                     chrome ||
                     avatar ||
@@ -693,6 +702,31 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (postAction) {
+        final interacting =
+            !states.contains(WidgetState.disabled) &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed));
+        final foreground = Color.lerp(
+          tokens.background,
+          tokens.foreground,
+          interacting || states.contains(WidgetState.focused) ? .62 : .32,
+        )!;
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: interacting
+              ? glass
+                    ? Color.lerp(
+                        tokens.colors.surface,
+                        tokens.foreground,
+                        .10,
+                      )!.withValues(alpha: .28)
+                    : tokens.foreground.withValues(alpha: .08)
+              : Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
       if (postReaction) {
         final interactive =
             !states.contains(WidgetState.disabled) &&
@@ -909,9 +943,9 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: expandedChrome
+            color: expandedChrome || (postAction && glass)
                 ? Colors.transparent
-                : postReaction || chrome || launcher
+                : postAction || postReaction || chrome || launcher
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -928,7 +962,17 @@ class DButton extends StatelessWidget {
           child: child,
         );
         final artwork = DControlArtwork(
-          child: expandedChrome
+          child: postAction
+              ? DPostActionSurface(
+                  radius: radius,
+                  color: state.backgroundColor,
+                  interacting:
+                      enabled &&
+                      (states.contains(WidgetState.hovered) ||
+                          states.contains(WidgetState.pressed)),
+                  child: surface,
+                )
+              : expandedChrome
               ? DMaterialSurface(
                   radius: radius,
                   color: state.backgroundColor,
@@ -1137,6 +1181,14 @@ class DButton extends StatelessWidget {
             focusNode: focusNode,
             autofocus: autofocus,
             clipBehavior: Clip.none,
+            child: child,
+          )
+        : postAction
+        ? _DPostActionPrimitive(
+            onPressed: enabled ? onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
             child: child,
           )
         : FilledButton(
@@ -1394,4 +1446,60 @@ class _DLinkPrimitive extends FilledButton {
 
   @override
   bool get isSemanticButton => false;
+}
+
+class _DPostActionPrimitive extends StatefulWidget {
+  const _DPostActionPrimitive({
+    required this.onPressed,
+    required this.style,
+    required this.focusNode,
+    required this.autofocus,
+    required this.child,
+  });
+  final VoidCallback? onPressed;
+  final ButtonStyle style;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final Widget child;
+
+  @override
+  State<_DPostActionPrimitive> createState() => _DPostActionPrimitiveState();
+}
+
+class _DPostActionPrimitiveState extends State<_DPostActionPrimitive> {
+  final _states = WidgetStatesController();
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<Set<WidgetState>>(
+        valueListenable: _states,
+        child: FilledButton(
+          onPressed: widget.onPressed,
+          style: widget.style,
+          focusNode: widget.focusNode,
+          autofocus: widget.autofocus,
+          statesController: _states,
+          clipBehavior: Clip.none,
+          child: widget.child,
+        ),
+        builder: (context, states, child) {
+          final pressed =
+              widget.onPressed != null && states.contains(WidgetState.pressed);
+          final glass = DMaterialTheme.glassOf(context);
+          return AnimatedScale(
+            scale: pressed ? .92 : 1,
+            duration: DMotion.duration(
+              context,
+              Duration(milliseconds: pressed ? 80 : (glass ? 400 : 0)),
+            ),
+            curve: glass ? const Cubic(.34, 1.56, .64, 1) : Curves.ease,
+            child: child,
+          );
+        },
+      );
 }
